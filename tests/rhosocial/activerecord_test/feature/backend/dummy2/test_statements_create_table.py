@@ -835,7 +835,7 @@ class TestCreateTableStatements:
         columns = [
             ColumnDefinition(dummy_dialect, 
                 "id",
-                CustomType(dummy_dialect, "SERIAL"),
+                CustomType(dummy_dialect, raw="SERIAL"),
                 constraints=[
                     ColumnConstraint(dummy_dialect, branch=ColumnPrimaryKeyConstraint(dummy_dialect)),
                     ColumnConstraint(dummy_dialect, branch=ColumnNotNullConstraint(dummy_dialect)),

@@ -370,18 +370,64 @@ class BaseExpression:
     formatters read ``type(expr).inline_params``, so an instance-level
     assignment has no effect on rendering."""
 
+    #: Tokens at the head of a class name that are a single word and must not
+    #: be split when the kind is derived (§4.9.4). Empty on the core.
+    #:
+    #: The general rule — a run of capitals is one word — disagrees with the
+    #: backend identifier table for several backends: applied naively it
+    #: yields ``sq_lite_json_extract_function`` for ``SQLiteJsonExtractFunction``
+    #: and ``my_sql_upsert_clause`` for ``MySQLUpsertClause``. Since the kind is
+    #: part of the wire contract (§4.11.1), a backend whose identifier is a
+    #: compound word declares it here and its own expressions keep it whole.
+    #:
+    #: A backend owns this list: it is the backend's naming, not the core's, and
+    #: adding a backend must not require editing the core. What a subclass may
+    #: override is this list, never :meth:`kind` — the kind is always computed
+    #: from the class name, never stored, so the two cannot drift apart (§4.11.1:
+    #: an independent identifier table "would drift from the class names, and
+    #: that drift directly breaks existing artifacts").
+    KIND_RESERVED: Tuple[str, ...] = ()
+
+    @classmethod
+    def kind(cls) -> str:
+        """Derive this expression's kind from its class name (§4.11.1).
+
+        The kind is the class name's snake_case form, with a run of consecutive
+        capitals counted as one word (``JSONValue`` → ``json_value``,
+        ``SQLDialect`` → ``sql_dialect``), except that any token named in
+        :attr:`KIND_RESERVED` that starts the name is kept whole
+        (``SQLiteTopClause`` → ``sqlite_top_clause``).
+
+        Computed, never stored: a class carries no kind field, so a kind can
+        never disagree with the class that produced it.
+        """
+        import re
+
+        name = cls.__name__
+        for token in cls.KIND_RESERVED:
+            if name.startswith(token) and len(name) > len(token):
+                rest = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1 \2", name[len(token):])
+                rest = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", rest)
+                return token.lower() + "_" + "_".join(rest.lower().split())
+        name = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1 \2", name)
+        name = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", name)
+        return "_".join(name.lower().split())
+
     def get_params(self) -> Dict[str, Any]:
         """Introspection-based default implementation.
 
         Iterates the class __init__ signature (excluding `self` and `dialect`),
-        and resolves each parameter to its stored attribute value using the
-        convention:  param `foo`  →  self._foo  (fallback: self.foo)
+        and reads each parameter off the attribute of the same name: param `foo`
+        is read from `self.foo`. One spelling, no probing -- a parameter the
+        class did not store raises `AttributeError` naming the class and the
+        parameter, which is the defect this method exists to surface.
 
         VAR_POSITIONAL (*args) parameters are returned as a list.
-        VAR_KEYWORD (**kwargs) parameters are resolved through the same
-        convention — a class that accepts **kwargs MUST store the collected
-        extras under an attribute named after the parameter (e.g. `self.kwargs`
-        or `self.collation_options`) so the round-trip can reconstruct them.
+        VAR_KEYWORD (**kwargs) parameters are read from a dict stored under the
+        parameter's own name and merged into the top level, so that
+        reconstruction `cls(..., **value)` re-expands them. Expressions should
+        not declare **kwargs at all: an artifact names its parameters, and a
+        catch-all accepts names no artifact can ever carry.
         """
         sig = inspect.signature(self.__class__.__init__)
         params: Dict[str, Any] = {}
@@ -407,7 +453,7 @@ class BaseExpression:
 
             if param.kind == inspect.Parameter.VAR_KEYWORD:
                 # **kwargs extras must be stored as a dict on an attribute named
-                # after the parameter (e.g. self.kwargs, self.collation_options).
+                # after the parameter (e.g. self.kwargs).
                 # They are merged into the top-level params so that
                 # reconstruction `cls(..., **value)` re-expands them correctly.
                 if not isinstance(value, dict):
@@ -460,7 +506,7 @@ class SQLValue(BaseExpression):
     def collate(
         self,
         collation: Union[str, Enum],
-        **collation_options: Any,
+        schema: Optional[str] = None,
     ) -> "CollateFunction":
         """
         Apply an explicit SQL COLLATE clause to this value expression.
@@ -472,4 +518,4 @@ class SQLValue(BaseExpression):
         """
         from .collation import CollateFunction
 
-        return CollateFunction(self.dialect, self, collation, **collation_options)
+        return CollateFunction(self.dialect, self, collation, schema=schema)

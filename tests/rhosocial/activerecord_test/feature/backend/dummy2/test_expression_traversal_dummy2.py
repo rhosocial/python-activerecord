@@ -106,7 +106,6 @@ from rhosocial.activerecord.backend.expression.operators import (
     RawSQLPredicate,
 )
 from rhosocial.activerecord.backend.expression import serialization
-from rhosocial.activerecord.backend.expression.serialization import _reconstruct
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.objects import EdgeTable, NodeTable
 
@@ -455,13 +454,50 @@ EXPRESSION_TEST_CASES = [
 class TestExpressionRoundtrip:
     """Test serialization/deserialization roundtrip for all expression types."""
 
+    @staticmethod
+    def _as_params(params):
+        """Constructor arguments turned into artifact parameter values.
+
+        Two translations, both of them things the reader would otherwise
+        rightly refuse:
+
+        * ``dialect`` is dropped. It is *context*, passed separately to
+          :func:`deserialize`, and §10 keeps it out of the artifact. The old
+          constructor helper took the dialect twice -- once as its own
+          argument and once out of this dict -- so the duplicate went unnoticed
+          for as long as it existed.
+        * live instances become encoded nodes, because a ``params_func``
+          hands back objects while an artifact carries JSON. A node is written
+          as itself -- nested and top-level nodes have the same shape.
+
+        The public writer does the encoding; there is no "build this class
+        from these arguments" entry point any more, because the artifact *is*
+        the node.
+        """
+        from rhosocial.activerecord.backend.expression.bases import BaseExpression
+
+        if isinstance(params, BaseExpression):
+            # A nested node is its own {kind, params}; there is no marker to add.
+            return serialization.serialize(params)
+        if isinstance(params, dict):
+            return {
+                k: TestExpressionRoundtrip._as_params(v)
+                for k, v in params.items()
+                if k != "dialect"
+            }
+        if isinstance(params, (list, tuple)):
+            encoded = [TestExpressionRoundtrip._as_params(v) for v in params]
+            return encoded if isinstance(params, list) else {"__tuple__": encoded}
+        return params
+
     @pytest.mark.parametrize("test_case", EXPRESSION_TEST_CASES, ids=[x["name"] for x in EXPRESSION_TEST_CASES])
     def test_expression_roundtrip(self, dummy_dialect, test_case):
-        """Generic test: serialize → deserialize → compare SQL output."""
+        """Generic test: build the artifact → read it → re-write → compare SQL."""
         cls = test_case["cls"]
         params = test_case["params_func"](dummy_dialect)
 
-        instance = _reconstruct(cls, dummy_dialect, params)
+        artifact = {"kind": cls.kind(), "params": self._as_params(params)}
+        instance = serialization.deserialize(artifact, dummy_dialect)
         spec = serialization.serialize(instance)
         restored = serialization.deserialize(spec, dummy_dialect)
         assert restored.to_sql() == instance.to_sql()

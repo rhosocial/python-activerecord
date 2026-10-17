@@ -69,10 +69,12 @@ _REFUSALS = {name for name, value in vars(NotANumberMixin).items() if callable(v
 
 #: Not operations on a value, so not part of what "the same operations" means.
 #: ``collate`` and ``validate`` are a column's storage; ``get_params`` belongs to
-#: the artifact rather than to the type; and ``surface`` is the declaration of
+#: the artifact rather than to the type; ``surface`` is the declaration of
 #: which operations a node carries, which is the thing being compared here and so
-#: cannot also be one of the things compared.
-_NOT_OPERATIONS = {"collate", "validate", "get_params", "surface"}
+#: cannot also be one of the things compared; and ``kind`` is a node's identity
+#: on the wire (§4.9.2) -- defined once on the expression base, which an
+#: annotation is not.
+_NOT_OPERATIONS = {"collate", "validate", "get_params", "surface", "kind"}
 
 
 def _operations(cls):

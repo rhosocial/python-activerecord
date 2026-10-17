@@ -123,11 +123,8 @@ class SQLiteDateTimeMixin:
 
     def validate_collation_name(self, expr: "CollateFunction") -> str:
         """Validate SQLite collation names and return their SQL representation."""
-        if "schema" in expr.collation_options:
+        if expr.schema is not None:
             raise UnsupportedFeatureError(self.name, "schema-qualified COLLATE")
-        if expr.collation_options:
-            unsupported = ", ".join(sorted(expr.collation_options))
-            raise UnsupportedFeatureError(self.name, f"COLLATE options: {unsupported}")
         if not _COLLATION_NAME_RE.fullmatch(expr.collation_name):
             raise ValueError(f"Unsupported SQLite collation: {expr.collation_name!r}")
         return expr.collation_name

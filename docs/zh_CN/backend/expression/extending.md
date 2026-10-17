@@ -33,7 +33,7 @@ class MyExpression(BaseExpression):
 
 ### 为什么没有"自定义 get_params()"
 
-`get_params()` 不是扩展点：重写它是缺陷，不是定制。核心在 `tests/.../dummy2/test_expression_contract.py::test_no_get_params_override` 里无例外地强制这一点——每个已注册的表达式类都必须沿用通用实现。（该测试允许的唯一例外，是做真正的"原始值 ↔ 归一化值"往返改写的 `VAR_POSITIONAL` 类，而核心注册表里没有任何一个属于这种情况。）
+`get_params()` 不是扩展点：重写它是缺陷，不是定制。核心在 `tests/.../dummy2/test_expression_artifact_contract.py::test_no_get_params_override` 里无例外地强制这一点——每个已注册的表达式类都必须沿用通用实现。（该测试允许的唯一例外，是做真正的"原始值 ↔ 归一化值"往返改写的 `VAR_POSITIONAL` 类，而核心注册表里没有任何一个属于这种情况。）
 
 原因是结构性的，不是风格问题。往返是靠"用 `get_params()` 返回的内容去调用构造函数"重建的，所以这两半必须彼此吻合。而重写恰恰是它们开始走偏的地方：这个类发出的键会被构造函数改名、合并或拒绝，`_reconstruct()` 再把由此产生的 `TypeError` 包装成 `ExpressionDeserializationError`，状态就悄悄丢了。各后端包曾各自积累过重写实现，而它们存在的理由全都是同一个：`__init__` 把调用方传进来的东西改了名或合并了——而一旦按收到的名字原样保存，这些重写就全都不再必要。
 
@@ -49,17 +49,27 @@ class MyExpression(BaseExpression):
 
 ### 自动注册
 
-内置表达式通过 `_auto_register_builtins()` 自动注册到 `ExpressionRegistry`。
+内置表达式不需要你做任何事。框架**一次性**装配默认注册表——遍历表达式包，遇到的每个节点都按 kind 登记。**没有**任何函数需要调用，也**没有**任何清单需要维护。
 
-### 手动注册
+### 注册你自己的
 
-自定义表达式需要手动注册：
+`ExpressionRegistry` 构造出来是空的——这正是它能被交给调用方、只放行你选定内容的前提。登记是**实例方法**，kind 由类派生：
 
 ```python
-from rhosocial.activerecord.backend.expression.serialization import ExpressionRegistry
+from rhosocial.activerecord.backend.expression.registry import ExpressionRegistry
 
-ExpressionRegistry.register(MyExpression)
+allowed = ExpressionRegistry()
+allowed.register_node(MyExpression)          # kind 为 "my_expression"
+allowed.register_enum(MyChoice)              # 按短名解析
 ```
+
+然后把它传给读侧：
+
+```python
+deserialize(artifact, dialect, registry=allowed)
+```
+
+注册表只管**读方**能产出什么。写侧不查表，所以这里的一切都不影响 `serialize`。
 
 ## 四类特殊情况
 

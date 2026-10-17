@@ -33,7 +33,7 @@ A parameter the convention cannot resolve is skipped with a warning. That warnin
 
 ### Why There Is No Custom get_params()
 
-`get_params()` is not an extension point: an override is a defect, not a customization. Core enforces this with no exceptions in `tests/.../dummy2/test_expression_contract.py::test_no_get_params_override` — every registered expression class must leave the generic implementation alone. (The single exemption the test allows, a `VAR_POSITIONAL` class doing genuine raw-vs-normalized round-trip rewriting, has no instance in the core registry.)
+`get_params()` is not an extension point: an override is a defect, not a customization. Core enforces this with no exceptions in `tests/.../dummy2/test_expression_artifact_contract.py::test_no_get_params_override` — every registered expression class must leave the generic implementation alone. (The single exemption the test allows, a `VAR_POSITIONAL` class doing genuine raw-vs-normalized round-trip rewriting, has no instance in the core registry.)
 
 The reason is structural rather than stylistic. A round-trip is rebuilt by calling the constructor with whatever `get_params()` returned, so those two halves have to agree. An override is exactly where they drift: the class emits a key the constructor renames, merges or refuses, `_reconstruct()` wraps the resulting `TypeError` as `ExpressionDeserializationError`, and the state is silently gone. The backend packages accumulated their own overrides, every one of them written because `__init__` renamed or merged what the caller passed — and every one of them became unnecessary once the state was stored under the name it was given.
 
@@ -49,17 +49,33 @@ When the generic result is not what you wanted, the repair is always in `__init_
 
 ### Auto-Registration
 
-Built-in expressions are auto-registered to `ExpressionRegistry` via `_auto_register_builtins()`.
+Built-in expressions need nothing from you. The framework assembles its default
+registry once, by walking the expression packages, and every node it finds is
+registered by its kind. There is no function for a caller to invoke and no
+list to maintain.
 
-### Manual Registration
+### Registering Your Own
 
-Custom expressions need manual registration:
+`ExpressionRegistry` starts empty — that is what makes it safe to hand a caller
+a table that admits only what you chose. Registration is an instance method, and
+the kind is derived from the class:
 
 ```python
-from rhosocial.activerecord.backend.expression.serialization import ExpressionRegistry
+from rhosocial.activerecord.backend.expression.registry import ExpressionRegistry
 
-ExpressionRegistry.register(MyExpression)
+allowed = ExpressionRegistry()
+allowed.register_node(MyExpression)          # kind "my_expression"
+allowed.register_enum(MyChoice)              # resolved by short name
 ```
+
+Then pass it to the read:
+
+```python
+deserialize(artifact, dialect, registry=allowed)
+```
+
+A registry only governs what a *reader* may produce. Writing consults none, so
+nothing here affects `serialize`.
 
 ## Four Special Cases
 

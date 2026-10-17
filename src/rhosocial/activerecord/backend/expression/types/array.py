@@ -54,8 +54,8 @@ class ArrayType(DataType):
 
     name = "array"
 
-    def __init__(self, dialect: Optional["SQLDialectBase"] = None,
-                 element_type: Optional[DataType] = None, dimensions: int = 1,
+    def __init__(self, dialect: Optional["SQLDialectBase"] = None, *,
+                 element_type: DataType, dimensions: int = 1,
                  ):
         super().__init__(dialect)
         if element_type is None:

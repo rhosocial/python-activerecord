@@ -35,7 +35,9 @@ inlines a literal the dialect constructs. Which one happens is the **class's**
 decision, never a per-instance flag (spec 4.4).
 """
 
+import base64
 import datetime
+import re
 import decimal
 import uuid
 from typing import TYPE_CHECKING, Any, Optional
@@ -54,15 +56,58 @@ if TYPE_CHECKING:
     from ..dialect import SQLDialectBase
 
 
+#: The two reserved wrapper keys (wire §5). A parameter named either would be
+#: indistinguishable from the wrapper, so the serializer refuses them by name.
+B64_KEY = "__b64__"
+DUR_KEY = "__dur__"
+
+#: ISO 8601 duration, reduced to what ``timedelta`` can hold: days, hours,
+#: minutes, seconds and an optional fraction. Years and months are refused --
+#: their length is not a constant, so a timedelta cannot carry them honestly.
+_DURATION_RE = re.compile(
+    r"^-?P"
+    r"(?:(?P<days>\d+)D)?"
+    r"(?:T"
+    r"(?:(?P<hours>\d+)H)?"
+    r"(?:(?P<minutes>\d+)M)?"
+    r"(?:(?P<seconds>\d+(?:\.\d+)?)S)?"
+    r")?$"
+)
+
+
+def _parse_duration(text: str) -> datetime.timedelta:
+    """``"P1DT2H3M4.5S"`` -> timedelta, or a refusal naming what it cannot hold."""
+    match = _DURATION_RE.match(text)
+    if match is None:
+        raise ValueError(
+            f"{text!r} is not an ISO 8601 duration this implementation can "
+            f"carry. Years and months have no fixed length, so they cannot "
+            f"become a timedelta; use a day/hour/minute/second form."
+        )
+    parts = match.groupdict()
+    delta = datetime.timedelta(
+        days=int(parts["days"] or 0),
+        hours=int(parts["hours"] or 0),
+        minutes=int(parts["minutes"] or 0),
+        seconds=float(parts["seconds"] or 0),
+    )
+    return -delta if text.startswith("-") else delta
+
+
 class TypedValue(SQLValue):
     """Base for the typed value nodes.
 
     A subclass declares three things and nothing else: the wire ``kind``, the
-    host type it accepts (:attr:`value_type`), and the dialect method that
-    renders it (:attr:`format_method`). The host type is enforced at
-    construction because spec 4.8 makes the kind the declaration of the
-    parameter's type -- a reader that hands a ``date`` to ``date_value`` must
-    fail here rather than at the driver.
+    host type it holds (:attr:`value_type`), and the dialect method that renders
+    it (:attr:`format_method`).
+
+    :attr:`value_type` does two jobs, and they are the same job seen from two
+    sides. It says what the node holds, and -- through :meth:`normalise` -- what
+    a serialized form is turned into. An artifact cannot carry a ``date``, only
+    the string that stands for one, so a constructor that accepted only
+    ``date`` would make every ``date_value`` unreadable. It accepts the string
+    and converts it, which is the rule for every argument in this package: the
+    expression declares what it takes and is the one place that says so.
 
     The class is public because other nodes need to *ask* whether something is
     a typed value -- to read the number behind an integer position, say. That is
@@ -74,8 +119,24 @@ class TypedValue(SQLValue):
     #: it is declared rather than inferred so the contract is readable here.
     kind_name: str = ""
 
-    #: The host type this value accepts. Checked on construction.
+    #: The host type this value holds, and the target of :meth:`normalise`.
     value_type: type = object
+
+    @classmethod
+    def normalise(cls, value: Any) -> Any:
+        """*value* as this class holds it, converting its serialized form.
+
+        The default does nothing, because a class whose host type is a JSON
+        scalar -- ``int``, ``bool``, ``str``, ``None`` -- arrives already in the
+        form it is stored in. A class holding something JSON cannot carry
+        overrides this to parse: a ``date_value`` receives ``"2026-10-17"`` and
+        returns a ``date``.
+
+        This is not a second declaration of the type. It is the conversion that
+        :attr:`value_type` implies, and it lives here because here is the only
+        place that knows both the type and how to produce it.
+        """
+        return value
 
     def __init__(
         self,
@@ -84,6 +145,7 @@ class TypedValue(SQLValue):
         *,
         alias: Optional[str] = None,
     ):
+        value = self.normalise(value)
         if not isinstance(value, self.value_type):
             raise TypeError(
                 f"{type(self).__name__} takes a {self.value_type.__name__}, "
@@ -204,6 +266,11 @@ class DecimalValue(
     (wire §5).
     """
 
+    @classmethod
+    def normalise(cls, value: Any) -> Any:
+        # A Decimal travels as a string: binary floating point cannot carry its
+        # precision, and an artifact must not round a money value.
+        return value if isinstance(value, decimal.Decimal) else decimal.Decimal(value)
     kind_name = "decimal_value"
     value_type = decimal.Decimal
 
@@ -232,6 +299,13 @@ class BinaryValue(
     ``'\\x...'::bytea`` (PostgreSQL) from the bytes.
     """
 
+    @classmethod
+    def normalise(cls, value: Any) -> Any:
+        # ``{"__b64__": "..."}`` is the wire form (wire §5); this class is the one
+        # that knows its own payload is base64, and no other class's is.
+        if isinstance(value, dict) and "__b64__" in value:
+            return base64.b64decode(value["__b64__"])
+        return value
     kind_name = "binary_value"
     value_type = (bytes, bytearray)
 
@@ -242,6 +316,9 @@ class DateValue(
 ):
     """A date literal. The host value carries its own awareness."""
 
+    @classmethod
+    def normalise(cls, value: Any) -> Any:
+        return value if isinstance(value, datetime.date) else datetime.date.fromisoformat(value)
     kind_name = "date_value"
     value_type = datetime.date
 
@@ -252,6 +329,9 @@ class TimeValue(
 ):
     """A time-of-day literal."""
 
+    @classmethod
+    def normalise(cls, value: Any) -> Any:
+        return value if isinstance(value, datetime.time) else datetime.time.fromisoformat(value)
     kind_name = "time_value"
     value_type = datetime.time
 
@@ -267,6 +347,13 @@ class TimestampValue(
     and never reinterprets a naive value in some other zone.
     """
 
+    @classmethod
+    def normalise(cls, value: Any) -> Any:
+        return (
+            value
+            if isinstance(value, datetime.datetime)
+            else datetime.datetime.fromisoformat(value)
+        )
     kind_name = "timestamp_value"
     value_type = datetime.datetime
 
@@ -279,6 +366,20 @@ class IntervalValue(IntervalMixin, TypedValue):
     means. The artifact carries an ISO 8601 duration (``__dur__``, wire §5).
     """
 
+    @classmethod
+    def normalise(cls, value: Any) -> Any:
+        # ``{"__dur__": "P1DT2H"}`` is the wire form (wire §5). A bare number is
+        # read as seconds -- the only unit a plain scalar can name.
+        if isinstance(value, dict) and "__dur__" in value:
+            return _parse_duration(value["__dur__"])
+        if isinstance(value, str) and value.startswith(("-P", "P")):
+            return _parse_duration(value)
+        return (
+            value
+            if isinstance(value, datetime.timedelta)
+            else datetime.timedelta(seconds=float(value))
+        )
+
     kind_name = "interval_value"
     value_type = datetime.timedelta
 
@@ -289,11 +390,20 @@ class UUIDValue(
 ):
     """A UUID literal."""
 
+    @classmethod
+    def normalise(cls, value: Any) -> Any:
+        # Every spelling names one value: hyphenated, plain hex, any case, the
+        # ``0x`` form. Widening here is a compatibility question -- external
+        # sources write all four -- not a semantic one.
+        return value if isinstance(value, uuid.UUID) else uuid.UUID(str(value))
+
     kind_name = "uuid_value"
     value_type = uuid.UUID
 
 
 __all__ = [
+    "B64_KEY",
+    "DUR_KEY",
     "TypedValue",
     "NullValue",
     "BooleanValue",

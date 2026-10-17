@@ -22,7 +22,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ColumnsClause,
         TablePropertiesClause,
         VertexTable,
-        EdgeTable,
+        EdgeTableDefinition,
         CreatePropertyGraphStatement,
         DropPropertyGraphStatement,
         AlterPropertyGraphStatement,
@@ -519,11 +519,11 @@ class GraphTableMixin:
         sql = " ".join(parts)
         return sql, ()
 
-    def format_edge_table(self, et: "EdgeTable") -> Tuple[str, tuple]:
+    def format_edge_table_definition(self, et: "EdgeTableDefinition") -> Tuple[str, tuple]:
         """Format an edge table definition for CREATE PROPERTY GRAPH.
 
         Args:
-            et: EdgeTable object exposing table, optional alias, key columns,
+            et: EdgeTableDefinition object exposing table, optional alias, key columns,
                 source/destination keys (with optional references), labels and
                 properties.
 
@@ -531,14 +531,14 @@ class GraphTableMixin:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
-            TypeError: ``EdgeTable.table`` is not an EdgeTableObject. Another object
+            TypeError: ``EdgeTableDefinition.table`` is not an EdgeTableObject. Another object
             kind would have had its own name rendered as the edge table's.
             UnsupportedFeatureError: If the dialect does not support property
                 graph tables.
         """
         if not isinstance(et.table, EdgeTableObject):
             raise TypeError(
-                f"EdgeTable.table must be an EdgeTableObject, "
+                f"EdgeTableDefinition.table must be an EdgeTableObject, "
                 f"got {type(et.table).__name__}"
             )
         if not self.supports_graph_table():
@@ -704,7 +704,7 @@ class GraphTableMixin:
         if not self.supports_graph_table():
             raise UnsupportedFeatureError(self.name, "ALTER PROPERTY GRAPH")
 
-        from ...expression.graph import AlterPropertyGraphStatement, EdgeTable, VertexTable
+        from ...expression.graph import AlterPropertyGraphStatement, EdgeTableDefinition, VertexTable
 
         if not isinstance(expr, AlterPropertyGraphStatement):
             raise TypeError(
@@ -726,8 +726,8 @@ class GraphTableMixin:
             raise ValueError("EDGE TABLES cannot contain vertex tables")
         if any(not isinstance(table, VertexTable) for table in vertex_tables):
             raise TypeError("ALTER PROPERTY GRAPH vertex tables must be VertexTable instances")
-        if any(not isinstance(table, EdgeTable) for table in edge_tables):
-            raise TypeError("ALTER PROPERTY GRAPH edge tables must be EdgeTable instances")
+        if any(not isinstance(table, EdgeTableDefinition) for table in edge_tables):
+            raise TypeError("ALTER PROPERTY GRAPH edge tables must be EdgeTableDefinition instances")
 
         parts = [
             "ALTER PROPERTY GRAPH",

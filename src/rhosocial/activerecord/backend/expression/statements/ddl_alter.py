@@ -358,7 +358,7 @@ class ValidateConstraint(AlterTableAction):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        constraint_name: Optional[str] = None,
+        constraint_name: str,
         *,
         name: Optional[str] = None,
     ) -> None:

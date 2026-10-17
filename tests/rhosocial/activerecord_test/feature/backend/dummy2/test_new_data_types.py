@@ -30,37 +30,39 @@ class TestEnumType:
     """ENUM — enumerated string values."""
 
     def test_values_required(self):
-        with pytest.raises(ValueError):
+        # Required by the signature, keyword-only -- so the call fails at the
+        # call rather than depending on a check inside the body.
+        with pytest.raises(TypeError, match="values"):
             EnumType(None)
 
     def test_values_must_not_be_empty(self):
         with pytest.raises(ValueError):
-            EnumType(None, [])
+            EnumType(None, values=[])
 
     def test_values_stored_as_tuple(self):
-        assert EnumType(None, ["a", "b"]).values == ("a", "b")
+        assert EnumType(None, values=["a", "b"]).values == ("a", "b")
 
     def test_render_with_values(self):
         dialect = _dummy_dialect()
-        assert EnumType(dialect, ["a", "b"]).to_sql() == ("ENUM('a','b')", ())
+        assert EnumType(dialect, values=["a", "b"]).to_sql() == ("ENUM('a','b')", ())
 
     def test_render_single_value(self):
         dialect = _dummy_dialect()
-        assert EnumType(dialect, ["x"]).to_sql() == ("ENUM('x')", ())
+        assert EnumType(dialect, values=["x"]).to_sql() == ("ENUM('x')", ())
 
     def test_equality_ignores_dialect(self):
-        assert EnumType(None, ["a", "b"]) == EnumType(_dummy_dialect(), ["a", "b"])
+        assert EnumType(None, values=["a", "b"]) == EnumType(_dummy_dialect(), values=["a", "b"])
 
     def test_equality_on_values(self):
-        assert EnumType(None, ["a", "b"]) != EnumType(None, ["a", "c"])
-        assert EnumType(None, ["a"]) != EnumType(None, ["a", "b"])
+        assert EnumType(None, values=["a", "b"]) != EnumType(None, values=["a", "c"])
+        assert EnumType(None, values=["a"]) != EnumType(None, values=["a", "b"])
 
     def test_hash_matches_equality(self):
-        assert hash(EnumType(None, ["a", "b"])) == hash(EnumType(None, ["a", "b"]))
+        assert hash(EnumType(None, values=["a", "b"])) == hash(EnumType(None, values=["a", "b"]))
 
     def test_constructor_rejects_dialect_options(self):
         with pytest.raises(TypeError):
-            EnumType(None, ["a"], dialect_options={"charset": "utf8"})
+            EnumType(None, values=["a"], dialect_options={"charset": "utf8"})
 
 
 # ---------------------------------------------------------------------------

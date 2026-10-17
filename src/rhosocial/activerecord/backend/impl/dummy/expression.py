@@ -3,7 +3,6 @@
 
 from typing import TYPE_CHECKING
 
-from rhosocial.activerecord.backend.expression.serialization import register_expression_class
 from rhosocial.activerecord.backend.expression.statements.ddl_type import (
     TypeAlterAction,
     TypeDefinition,
@@ -44,8 +43,9 @@ class _DummyTypeAlterAction(TypeAlterAction):
         self.new_name = new_name
 
 
-register_expression_class(_DummyTypeDefinition)
-register_expression_class(_DummyTypeAlterAction)
+# No registration calls: the framework's assembly point walks
+# ``impl.dummy.expression`` like every other backend package, so these two
+# nodes are registered by the same rule as the rest.
 
 
 __all__ = ["_DummyTypeDefinition", "_DummyTypeAlterAction"]

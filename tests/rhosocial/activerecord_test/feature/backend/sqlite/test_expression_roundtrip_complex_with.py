@@ -55,8 +55,36 @@ from rhosocial.activerecord.backend.expression.serialization import (
     deserialize_xml,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.testsuite.utils.expression import assert_params_equal
+from rhosocial.activerecord.backend.expression.bases import BaseExpression
 from rhosocial.activerecord.backend.expression.objects import Table
+
+
+def _same(a, b):
+    """Structural equality for a parameter tree.
+
+    Expressions define no ``__eq__``, so comparing two parameter dicts
+    directly compares nested nodes by identity and fails on a round-trip that
+    worked. Two nodes match when they are the same class and their parameters
+    match all the way down.
+    """
+    if isinstance(a, BaseExpression) or isinstance(b, BaseExpression):
+        return (
+            type(a) is type(b)
+            and _same(a.get_params(), b.get_params())
+        )
+    if isinstance(a, dict) and isinstance(b, dict):
+        return set(a) == set(b) and all(_same(a[k], b[k]) for k in a)
+    if isinstance(a, (list, tuple)) and isinstance(b, (list, tuple)):
+        return len(a) == len(b) and all(_same(x, y) for x, y in zip(a, b))
+    return type(a) is type(b) and a == b
+
+
+def assert_params_equal(a, b, path="params"):
+    assert _same(a, b), (
+        f"{path}: the round-trip changed the parameters\n"
+        f"    before: {a}\n"
+        f"    after : {b}"
+    )
 
 
 @pytest.fixture

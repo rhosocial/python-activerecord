@@ -25,7 +25,7 @@ class CustomType(DataType):
 
     raw: str
 
-    def __init__(self, dialect=None, raw: str = "",
+    def __init__(self, dialect=None, *, raw: str,
                  ):
         super().__init__(dialect)
         # Validated here rather than in each dialect's formatter: six of the

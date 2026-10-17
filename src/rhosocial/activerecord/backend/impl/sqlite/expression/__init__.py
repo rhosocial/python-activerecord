@@ -44,6 +44,38 @@ from .geopoly import (
 )
 from .json import SQLiteJsonExtractFunction
 
+# ``SQLite`` is the backend identifier spelled as §4.9.4 requires, and it is a
+# compound word: the general capital-run rule would derive ``sq_lite_json_extract_function``
+# instead of ``sqlite_json_extract_function``. Since a kind is part of the wire
+# contract, the identifier is kept whole — and this is the SQLite package's own
+# declaration, made where it assembles its own expressions. The core holds no
+# backend names, so another backend declaring its own tokens needs no change here
+# or in the core (§5.1: rhosocial's own packages get no privilege).
+for _sqlite_expression in (
+    SQLiteColumnInfoExpression,
+    SQLiteTableListExpression,
+    SQLiteReindexStatement,
+    SQLiteVacuumStatement,
+    SQLiteAnalyzeStatement,
+    SQLiteAttachExpression,
+    SQLiteDetachExpression,
+    SQLiteMatchPredicate,
+    SQLiteInsertStatement,
+    SQLiteFTS5MatchPredicate,
+    SQLiteFTS5CreateVirtualTable,
+    SQLiteFTS5RankExpression,
+    SQLiteFTS5HighlightExpression,
+    SQLiteFTS5SnippetExpression,
+    SQLiteRTreeCreateVirtualTable,
+    SQLiteRTreeRangeQuery,
+    SQLiteGeopolyCreateVirtualTable,
+    SQLiteGeopolyContainsExpression,
+    SQLiteGeopolyAreaExpression,
+    SQLiteJsonExtractFunction,
+):
+    _sqlite_expression.KIND_RESERVED = ("SQLite",)
+del _sqlite_expression
+
 __all__ = [
     "SQLiteColumnInfoExpression",
     "SQLiteTableListExpression",
@@ -69,31 +101,6 @@ __all__ = [
     "SQLiteJsonExtractFunction",
 ]
 
-# Auto-register all SQLite expression classes when this module is imported
-from rhosocial.activerecord.backend.expression.serialization import register_expression_class
-
-for _expr_cls in (
-    SQLiteColumnInfoExpression,
-    SQLiteTableListExpression,
-    SQLiteReindexStatement,
-    SQLiteVacuumStatement,
-    SQLiteAnalyzeStatement,
-    SQLiteAttachExpression,
-    SQLiteDetachExpression,
-    SQLiteMatchPredicate,
-    SQLiteInsertStatement,
-    SQLiteFTS5MatchPredicate,
-    SQLiteFTS5CreateVirtualTable,
-    SQLiteFTS5RankExpression,
-    SQLiteFTS5HighlightExpression,
-    SQLiteFTS5SnippetExpression,
-    CreateVirtualTableStatement,
-    DropVirtualTableStatement,
-    SQLiteRTreeCreateVirtualTable,
-    SQLiteRTreeRangeQuery,
-    SQLiteGeopolyCreateVirtualTable,
-    SQLiteGeopolyContainsExpression,
-    SQLiteGeopolyAreaExpression,
-    SQLiteJsonExtractFunction,
-):
-    register_expression_class(_expr_cls)
+# No registration loop: the framework's assembly point walks this package and
+# registers every expression defined in it, so a hand-maintained list here could
+# only ever be out of date.

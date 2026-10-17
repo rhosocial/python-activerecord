@@ -4,7 +4,7 @@ Expression spec <-> XML serialization.
 
 The expression instance is first converted to a spec dict (the ``{type, params}``
 structure produced by ``ExpressionSerializer.serialize``, with the reserved keys
-``__expr__`` / ``__tuple__`` / ``__value__`` / ``__vdc__``). This module encodes
+``__expr__`` / ``__tuple__`` / ``__b64__`` / ``__dur__``). This module encodes
 that spec dict into an XML document and decodes an XML document back into the
 identical spec dict, so ``deserialize()`` and the value codecs are reused
 unchanged.
@@ -24,7 +24,7 @@ Mapping (symmetric, unambiguous wrapping):
     tuple                   -> <tuple><item>…</item>…</tuple>
     plain dict              -> <map><field name=…>…</field>…</map>
     {"__expr__": spec}      -> <expr><type>…</type><params>…</params></expr>
-    {"__value__": [tag, payload]} -> <value tag=…>…</value>
+    {"__b64__": "..."} / {"__dur__": "..."} -> <value tag=…>…</value>
 
 Every distinct Python container/type maps to a distinct element tag, so
 decode is lossless and symmetric with encode. All encoding/parsing is handled
@@ -39,7 +39,11 @@ FIELD = "field"
 MAP = "map"
 LIST = "list"
 TUPLE_NODE = "tuple"
-TYPE_EL = "type"
+# The node's *kind*, not its class's FQN. Read by kind is why no import path
+# ever crosses the wire (§7.2). Distinct from the ``type="int"`` attribute
+# that tags a scalar's textual form -- that one is a lexical marker, not an
+# identity, and keeps its name.
+KIND_EL = "kind"
 PARAMS_EL = "params"
 EXPR_NODE = "expr"
 VALUE_NODE = "value"
@@ -74,18 +78,21 @@ def _fill_value(parent: ET.Element, value: Any) -> None:
         if "__expr__" in value:
             spec = value["__expr__"]
             node = ET.SubElement(parent, EXPR_NODE)
-            t = ET.SubElement(node, TYPE_EL)
-            t.text = spec.get("type", "")
+            t = ET.SubElement(node, KIND_EL)
+            t.text = spec.get("kind", "")
             _fill_dict(ET.SubElement(node, PARAMS_EL), spec.get("params", {}))
         elif "__tuple__" in value:
             node = ET.SubElement(parent, TUPLE_NODE)
             for item in value["__tuple__"]:
                 _fill_value(node, item)
-        elif "__value__" in value:
-            payload = value["__value__"]
+        elif "__b64__" in value or "__dur__" in value:
+            # The two reserved wrappers (wire §5). Anything else is a bare
+            # scalar and goes out through the ``s`` branch below with its JSON
+            # type recorded, so a reader knows how to read it back.
+            keyword = "__b64__" if "__b64__" in value else "__dur__"
             node = ET.SubElement(parent, VALUE_NODE)
-            node.set("tag", payload[0])
-            _fill_payload(node, payload[1])
+            node.set("tag", keyword)
+            _fill_payload(node, value[keyword])
         elif "__vdc__" in value:
             payload = value["__vdc__"]
             node = ET.SubElement(parent, VDC_NODE)
@@ -107,7 +114,7 @@ def _fill_value(parent: ET.Element, value: Any) -> None:
 
 
 def _fill_payload(node: ET.Element, payload: Any) -> None:
-    """Encode a __value__ payload directly into the value node (scalar leaf or container)."""
+    """Encode a reserved wrapper's payload into the value node (scalar or container)."""
     if isinstance(payload, (list, tuple)):
         for item in payload:
             _fill_value(node, item)
@@ -130,8 +137,8 @@ def _fill_dict(parent: ET.Element, d: Dict[str, Any]) -> None:
 def serialize_xml(spec: Dict[str, Any]) -> bytes:
     """Encode an expression spec dict into an XML document (bytes)."""
     root = ET.Element(ROOT)
-    t = ET.SubElement(root, TYPE_EL)
-    t.text = spec.get("type", "")
+    t = ET.SubElement(root, KIND_EL)
+    t.text = spec.get("kind", "")
     _fill_dict(ET.SubElement(root, PARAMS_EL), spec.get("params", {}))
     return ET.tostring(root, encoding="utf-8")
 
@@ -174,7 +181,9 @@ def _decode_value(el: ET.Element) -> Any:
     if tag == EXPR_NODE:
         return {"__expr__": _decode_expr_spec(el)}
     if tag == VALUE_NODE:
-        return {"__value__": [el.get("tag") or "", _decode_payload(el)]}
+        # The tag *is* the reserved key now, so the wrapper comes back exactly
+        # as the JSON path would produce it.
+        return {el.get("tag") or "": _decode_payload(el)}
     if tag == VDC_NODE:
         params_el = _find_params(el)
         return {"__vdc__": [el.get("class") or "", _decode_dict(params_el)]}
@@ -197,10 +206,10 @@ def _decode_payload(el: ET.Element) -> Any:
 
 
 def _decode_expr_spec(el: ET.Element) -> Dict[str, Any]:
-    spec: Dict[str, Any] = {"type": "", "params": {}}
+    spec: Dict[str, Any] = {"kind": "", "params": {}}
     for c in el:
-        if c.tag == TYPE_EL:
-            spec["type"] = _text(c)
+        if c.tag == KIND_EL:
+            spec["kind"] = _text(c)
         elif c.tag == PARAMS_EL:
             spec["params"] = _decode_dict(c)
     return spec
@@ -223,10 +232,10 @@ def _decode_dict(el: ET.Element) -> Dict[str, Any]:
 def deserialize_xml(payload: bytes) -> Dict[str, Any]:
     """Decode an XML document into an expression spec dict."""
     root = ET.fromstring(payload)
-    spec: Dict[str, Any] = {"type": "", "params": {}}
+    spec: Dict[str, Any] = {"kind": "", "params": {}}
     for c in root:
-        if c.tag == TYPE_EL:
-            spec["type"] = _text(c)
+        if c.tag == KIND_EL:
+            spec["kind"] = _text(c)
         elif c.tag == PARAMS_EL:
             spec["params"] = _decode_dict(c)
     return spec

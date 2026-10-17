@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 from ._base import DataType
 
@@ -15,7 +15,7 @@ class EnumType(DataType):
 
     values: Tuple[str, ...] = ()
 
-    def __init__(self, dialect=None, values: Optional[List[str]] = None,
+    def __init__(self, dialect=None, *, values: List[str],
                  ):
         super().__init__(dialect)
         if values is None:

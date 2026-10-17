@@ -1,5 +1,5 @@
 from .dql import QueryStatement
-from .ddl_partition import PartitionClause, PartitionStrategy
+from .ddl_partition import PartitionClause
 from ..types import DataType
 from ..objects import Table
 from ..bases import (
@@ -719,9 +719,6 @@ class ColumnConstraint(BaseExpression):
         was accepted and then dropped without a word; here it cannot be
         written in the first place.
         """
-        from rhosocial.activerecord.backend.expression import (
-            ColumnConstraintBranch,
-        )
         wants_deferral = self.deferrable or self.not_deferrable
         if (wants_deferral or self.initially_deferred or self.initially_immediate) and (
             type(branch) not in self.DEFERRABLE_BRANCHES
@@ -1042,9 +1039,9 @@ class ForeignKeyConstraint(TableConstraint):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        columns: Optional[List[str]] = None,
-        foreign_key_table: Optional["Table"] = None,
-        foreign_key_columns: Optional[List[str]] = None,
+        columns: List[str],
+        foreign_key_table: "Table",
+        foreign_key_columns: List[str],
         on_delete: "ReferentialAction" = ReferentialAction.NO_ACTION,
         on_update: "ReferentialAction" = ReferentialAction.NO_ACTION,
         match_type: Optional["ForeignKeyMatchType"] = None,

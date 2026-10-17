@@ -62,16 +62,21 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
-class _Annotation:
+class _Annotation(BaseExpression):
     """Shared state for the declared-result nodes: the node being annotated.
 
     One field, one job. It is deliberately **not** the general wrapper shape
     these replace -- that held a ``FunctionCall`` and derived its operations by
     walking two MROs to find the boundary between them, because it had to serve
     every type at once. One surface per class removes the need for any of it.
-    """
 
-    kind_name: str = ""
+    ``BaseExpression`` is a base, not merely called from ``__init__``. These
+    were duck-typed nodes: they rendered, and nothing else. So ``kind()`` was
+    absent -- and an annotation produced by ``as_text()`` could not be
+    serialized at all, because a node with no kind has no name an artifact can
+    carry. Inheriting is what makes them nodes rather than things that happen
+    to have ``to_sql``.
+    """
 
     #: The surface this annotation carries, named rather than inferred. A node
     #: that adopts the annotation's operations has to reach the surface too, and
@@ -107,7 +112,6 @@ class TextAnnotation(
 
     surface = TextSurface
 
-    kind_name = "text_annotation"
 
 
 class NumberAnnotation(
@@ -124,7 +128,6 @@ class NumberAnnotation(
 
     surface = NumericSurface
 
-    kind_name = "number_annotation"
 
 
 class IntegerAnnotation(
@@ -141,7 +144,6 @@ class IntegerAnnotation(
 
     surface = NumericSurface
 
-    kind_name = "integer_annotation"
 
 
 class TemporalAnnotation(
@@ -161,7 +163,6 @@ class TemporalAnnotation(
 
     surface = TemporalSurface
 
-    kind_name = "temporal_annotation"
 
 
 class BooleanAnnotation(
@@ -182,7 +183,6 @@ class BooleanAnnotation(
 
     surface = BooleanSurface
 
-    kind_name = "boolean_annotation"
 
 
 class ArrayAnnotation(
@@ -198,7 +198,6 @@ class ArrayAnnotation(
 
     surface = ArraySurface
 
-    kind_name = "array_annotation"
 
 
 class JSONAnnotation(
@@ -213,7 +212,6 @@ class JSONAnnotation(
 
     surface = JSONSurface
 
-    kind_name = "json_annotation"
 
 
 class UUIDAnnotation(
@@ -228,7 +226,6 @@ class UUIDAnnotation(
 
     surface = OpaqueSurface
 
-    kind_name = "uuid_annotation"
 
 
 class BinaryAnnotation(
@@ -243,7 +240,6 @@ class BinaryAnnotation(
 
     surface = OpaqueSurface
 
-    kind_name = "binary_annotation"
 
 
 class XMLAnnotation(
@@ -263,7 +259,6 @@ class XMLAnnotation(
 
     surface = XMLSurface
 
-    kind_name = "xml_annotation"
 
 
 __all__ = [

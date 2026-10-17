@@ -384,7 +384,7 @@ class TestCrossTypeDataTypes:
     def test_string_types_inequality(self):
         assert CharType(None, 10) != VarCharType(None, 10)
         assert VarCharType(None, 10) != CharType(None, 10)
-        assert CharType(None, 10) != CustomType(None, "CHAR(10)")
+        assert CharType(None, 10) != CustomType(None, raw="CHAR(10)")
 
     def test_numeric_types_inequality(self):
         assert FloatType(None, 24) != DecimalType(None, 10, 2)
@@ -392,10 +392,10 @@ class TestCrossTypeDataTypes:
         assert FloatType(None, 24) != IntegerType()
 
     def test_array_and_custom_inequality(self):
-        assert ArrayType(None, IntegerType()) != ArrayType(None, CharType(None, 10))
-        assert ArrayType(None, IntegerType()) != CharType(None, 10)
-        assert ArrayType(None, IntegerType()) != CharType(None, 10)
-        assert CustomType(None, "geometry") != IntegerType()
+        assert ArrayType(None, element_type=IntegerType()) != ArrayType(None, element_type=CharType(None, 10))
+        assert ArrayType(None, element_type=IntegerType()) != CharType(None, 10)
+        assert ArrayType(None, element_type=IntegerType()) != CharType(None, 10)
+        assert CustomType(None, raw="geometry") != IntegerType()
 
     def test_hash_branches(self):
         assert hash(CharType(None, 10)) == hash(CharType(None, 10))

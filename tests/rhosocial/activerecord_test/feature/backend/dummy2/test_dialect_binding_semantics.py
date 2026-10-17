@@ -67,7 +67,7 @@ class TestExplicitPerNodeBinding:
 
     def test_nested_tree_explicit_per_node(self, dummy_dialect: DummyDialect):
         # 嵌套树：每一层构造时都显式传方言。
-        arr = ArrayType(dummy_dialect, IntegerType(dummy_dialect))
+        arr = ArrayType(dummy_dialect, element_type=IntegerType(dummy_dialect))
         assert arr._dialect is dummy_dialect
         assert arr.element_type._dialect is dummy_dialect
         sql, _ = arr.to_sql()
@@ -108,7 +108,7 @@ class TestPerNodeInjection:
 
     def test_injection_walk_binds_every_node(self, dummy_dialect: DummyDialect):
         # 声明期形态：全部无方言。
-        arr = ArrayType(None, IntegerType(None))
+        arr = ArrayType(None, element_type=IntegerType(None))
         col = ColumnDefinition(None, "name", arr)
         tree = [col]
 
@@ -149,7 +149,7 @@ class TestDeferredAssignment:
 
     def test_setter_does_not_propagate(self, dummy_dialect: DummyDialect):
         # setter 只影响本节点——这是 D4 决策的锚点断言。
-        arr = ArrayType(None, IntegerType(None))
+        arr = ArrayType(None, element_type=IntegerType(None))
         arr.dialect = dummy_dialect
         assert arr._dialect is dummy_dialect
         assert arr.element_type._dialect is None  # 未传播

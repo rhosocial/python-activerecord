@@ -271,7 +271,13 @@ class SubstringExpression(
 
     kind_name = "substring_expression"
 
-    def __init__(self, dialect: "SQLDialectBase", target, start, length=None):
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        target: "SQLValue",
+        start: "SQLValue",
+        length: Optional["SQLValue"] = None,
+    ):
         # Both positions are integer-valued, and a bound is only checkable when
         # the value is *known* here. A typed value node states its number, so it
         # is checked; any other expression -- a column, a parameter -- does not,
@@ -319,7 +325,14 @@ class OverlayExpression(
 
     kind_name = "overlay_expression"
 
-    def __init__(self, dialect: "SQLDialectBase", target, replacement, start, length=None):
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        target: "SQLValue",
+        replacement: "SQLValue",
+        start: "SQLValue",
+        length: Optional["SQLValue"] = None,
+    ):
         target = self._text(dialect, target)
         replacement = self._text(dialect, replacement)
         start = self._count(dialect, start)
@@ -477,7 +490,7 @@ class LeftFunction(
 
     kind_name = "left_function"
 
-    def __init__(self, dialect: "SQLDialectBase", target, count):
+    def __init__(self, dialect: "SQLDialectBase", target: "SQLValue", count: "SQLValue"):
         # See SubstringExpression: checkable when the count is stated, the
         # server's business otherwise.
         if isinstance(count, values.TypedValue) and count.value < 0:
@@ -517,7 +530,7 @@ class RightFunction(
 
     kind_name = "right_function"
 
-    def __init__(self, dialect: "SQLDialectBase", target, count):
+    def __init__(self, dialect: "SQLDialectBase", target: "SQLValue", count: "SQLValue"):
         # See SubstringExpression.
         if isinstance(count, values.TypedValue) and count.value < 0:
             raise ValueError(f"right(): n must be >= 0, got {count.value!r}")
@@ -617,7 +630,7 @@ class SpaceFunction(
 
     kind_name = "space_function"
 
-    def __init__(self, dialect: "SQLDialectBase", count):
+    def __init__(self, dialect: "SQLDialectBase", count: "SQLValue"):
         count = self._count(dialect, count)
         count = self._count(dialect, count)
         super().__init__(dialect)
@@ -650,7 +663,7 @@ class ChrFunction(
 
     kind_name = "chr_function"
 
-    def __init__(self, dialect: "SQLDialectBase", code):
+    def __init__(self, dialect: "SQLDialectBase", code: "SQLValue"):
         code = self._count(dialect, code)
         code = self._count(dialect, code)
         super().__init__(dialect)

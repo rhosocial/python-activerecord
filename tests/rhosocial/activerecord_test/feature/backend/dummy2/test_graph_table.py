@@ -10,7 +10,7 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 from rhosocial.activerecord.backend.expression.graph import (
     GraphVertex, GraphEdge, GraphEdgeDirection, MatchClause,
     GraphColumn, ColumnsClause, GraphTableExpression,
-    TablePropertiesClause, VertexTable, EdgeTable,
+    TablePropertiesClause, VertexTable, EdgeTableDefinition,
     CreatePropertyGraphStatement, DropPropertyGraphStatement,
     AlterPropertyGraphStatement,
 )
@@ -162,26 +162,26 @@ class TestEdgeTable:
     """Tests for EdgeTable."""
 
     def test_minimal(self, dummy_dialect: DummyDialect):
-        et = EdgeTable(dummy_dialect, EdgeTableObject(dummy_dialect, "knows"), ["pid"], ["fid"])
+        et = EdgeTableDefinition(dummy_dialect, EdgeTableObject(dummy_dialect, "knows"), ["pid"], ["fid"])
         sql, params = et.to_sql()
         assert "SOURCE KEY" in sql
         assert "DESTINATION KEY" in sql
 
     def test_with_references(self, dummy_dialect: DummyDialect):
-        et = EdgeTable(dummy_dialect, EdgeTableObject(dummy_dialect, "knows"), ["pid"], ["fid"],
+        et = EdgeTableDefinition(dummy_dialect, EdgeTableObject(dummy_dialect, "knows"), ["pid"], ["fid"],
                        references_source=("people", ["id"]),
                        references_destination=("people", ["id"]))
         sql, params = et.to_sql()
         assert "REFERENCES" in sql
 
     def test_with_labels(self, dummy_dialect: DummyDialect):
-        et = EdgeTable(dummy_dialect, EdgeTableObject(dummy_dialect, "knows"), ["pid"], ["fid"], labels=["Knows"])
+        et = EdgeTableDefinition(dummy_dialect, EdgeTableObject(dummy_dialect, "knows"), ["pid"], ["fid"], labels=["Knows"])
         sql, params = et.to_sql()
         assert "LABEL" in sql
 
     def test_with_properties(self, dummy_dialect: DummyDialect):
         props = TablePropertiesClause(dummy_dialect, columns=["since"])
-        et = EdgeTable(dummy_dialect, EdgeTableObject(dummy_dialect, "knows"), ["pid"], ["fid"], properties=props)
+        et = EdgeTableDefinition(dummy_dialect, EdgeTableObject(dummy_dialect, "knows"), ["pid"], ["fid"], properties=props)
         sql, params = et.to_sql()
         assert "PROPERTIES" in sql
 
@@ -191,7 +191,7 @@ class TestCreatePropertyGraphExpression:
 
     def test_basic(self, dummy_dialect: DummyDialect):
         vt = VertexTable(dummy_dialect, NodeTable(dummy_dialect, "person"), labels=["Person"])
-        et = EdgeTable(dummy_dialect, EdgeTableObject(dummy_dialect, "knows"), ["pid"], ["fid"], labels=["Knows"])
+        et = EdgeTableDefinition(dummy_dialect, EdgeTableObject(dummy_dialect, "knows"), ["pid"], ["fid"], labels=["Knows"])
         expr = CreatePropertyGraphStatement(dummy_dialect, PropertyGraph(dummy_dialect, "g"), [vt], [et])
         sql, params = expr.to_sql()
         assert "CREATE PROPERTY GRAPH" in sql
@@ -243,7 +243,7 @@ class TestAlterPropertyGraphExpression:
         assert "VERTEX" in sql.upper()
 
     def test_with_edge_tables(self, dummy_dialect: DummyDialect):
-        et = EdgeTable(dummy_dialect, EdgeTableObject(dummy_dialect, "knows"), ["pid"], ["fid"])
+        et = EdgeTableDefinition(dummy_dialect, EdgeTableObject(dummy_dialect, "knows"), ["pid"], ["fid"])
         expr = AlterPropertyGraphStatement(dummy_dialect, PropertyGraph(dummy_dialect, "g"), "DROP", "EDGE TABLES",
                                             edge_tables=[et])
         sql, params = expr.to_sql()
@@ -253,7 +253,7 @@ class TestAlterPropertyGraphExpression:
 
     def test_with_both_tables(self, dummy_dialect: DummyDialect):
         vt = VertexTable(dummy_dialect, NodeTable(dummy_dialect, "person"))
-        et = EdgeTable(dummy_dialect, EdgeTableObject(dummy_dialect, "knows"), ["pid"], ["fid"])
+        et = EdgeTableDefinition(dummy_dialect, EdgeTableObject(dummy_dialect, "knows"), ["pid"], ["fid"])
         expr = AlterPropertyGraphStatement(dummy_dialect, PropertyGraph(dummy_dialect, "g"), "ADD", "TABLES",
                                             vertex_tables=[vt], edge_tables=[et])
         sql, params = expr.to_sql()
@@ -344,13 +344,13 @@ class TestUnsupportedDDL:
             vt.to_sql()
 
     def test_format_edge_table_unsupported(self, unsupported_dialect):
-        et = EdgeTable(unsupported_dialect, EdgeTableObject(unsupported_dialect, "knows"), ["pid"], ["fid"])
+        et = EdgeTableDefinition(unsupported_dialect, EdgeTableObject(unsupported_dialect, "knows"), ["pid"], ["fid"])
         with pytest.raises(UnsupportedFeatureError):
             et.to_sql()
 
     def test_edge_table_no_references(self, dummy_dialect: DummyDialect):
         """EdgeTable without REFERENCES (SOURCE/DESTINATION KEY only)."""
-        et = EdgeTable(dummy_dialect, EdgeTableObject(dummy_dialect, "knows"), ["pid"], ["fid"])
+        et = EdgeTableDefinition(dummy_dialect, EdgeTableObject(dummy_dialect, "knows"), ["pid"], ["fid"])
         sql, params = et.to_sql()
         assert 'SOURCE KEY ("pid")' in sql
         assert 'DESTINATION KEY ("fid")' in sql
@@ -358,7 +358,7 @@ class TestUnsupportedDDL:
 
     def test_edge_table_with_key_columns(self, dummy_dialect: DummyDialect):
         """EdgeTable with explicit KEY."""
-        et = EdgeTable(dummy_dialect, EdgeTableObject(dummy_dialect, "knows"), ["pid"], ["fid"],
+        et = EdgeTableDefinition(dummy_dialect, EdgeTableObject(dummy_dialect, "knows"), ["pid"], ["fid"],
                        key_columns=["id"],
                        references_source=("people", ["id"]),
                        references_destination=("people", ["id"]))

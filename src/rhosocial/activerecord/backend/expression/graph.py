@@ -271,11 +271,17 @@ class VertexTable(BaseExpression):
         return "format_vertex_table"
 
 
-class EdgeTable(BaseExpression):
+class EdgeTableDefinition(BaseExpression):
     """Represents an edge table definition in CREATE PROPERTY GRAPH.
 
     Renders: table [AS alias] [KEY (cols)] SOURCE KEY (cols) [REFERENCES t (c)]
-            DESTINATION KEY (cols) [REFERENCES t (c)] [LABEL ...] [PROPERTIES ...]"""
+            DESTINATION KEY (cols) [REFERENCES t (c)] [LABEL ...] [PROPERTIES ...]
+
+    Named ``...Definition`` because it is the definition, not the table: the
+    table it names is a relation object (:class:`~..objects.relation.EdgeTable`,
+    a sibling of ``Table``), and the two were previously both called
+    ``EdgeTable`` — one name, two contracts, and therefore one derived kind for
+    two different things (§4.11.1)."""
 
     def __init__(self, dialect: "SQLDialectBase", table: "EdgeTableObject",
                  source_key: List[str], destination_key: List[str],
@@ -300,7 +306,7 @@ class EdgeTable(BaseExpression):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_edge_table"
+        return "format_edge_table_definition"
 
 
 class CreatePropertyGraphStatement(BaseExpression):
@@ -308,7 +314,7 @@ class CreatePropertyGraphStatement(BaseExpression):
 
     def __init__(self, dialect: "SQLDialectBase", graph: "PropertyGraph",
                  vertex_tables: List[VertexTable],
-                 edge_tables: Optional[List[EdgeTable]] = None,
+                 edge_tables: Optional[List[EdgeTableDefinition]] = None,
                  if_not_exists: bool = False,
                  ):
         super().__init__(dialect)
@@ -346,7 +352,7 @@ class AlterPropertyGraphStatement(BaseExpression):
     def __init__(self, dialect: "SQLDialectBase", graph: "PropertyGraph",
                  action: str, target: str,
                  vertex_tables: Optional[List[VertexTable]] = None,
-                 edge_tables: Optional[List[EdgeTable]] = None,
+                 edge_tables: Optional[List[EdgeTableDefinition]] = None,
                  ):
         super().__init__(dialect)
         self.graph = graph

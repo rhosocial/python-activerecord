@@ -14,7 +14,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ColumnsClause,
         CreatePropertyGraphStatement,
         DropPropertyGraphStatement,
-        EdgeTable,
+        EdgeTableDefinition,
         GraphTableExpression,
         TablePropertiesClause,
         VertexTable,
@@ -77,12 +77,12 @@ class GraphTableSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_edge_table(self, et: "EdgeTable") -> Tuple[str, tuple]:
+    def format_edge_table_definition(self, et: "EdgeTableDefinition") -> Tuple[str, tuple]:
         """
         Formats an edge table definition for CREATE PROPERTY GRAPH.
 
         Args:
-            et: EdgeTable object.
+            et: EdgeTableDefinition object.
 
         Returns:
             Tuple of (SQL string, parameters tuple).

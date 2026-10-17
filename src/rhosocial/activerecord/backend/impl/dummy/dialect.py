@@ -744,7 +744,7 @@ class DummyDialect(
         """
         stripped = raw.strip()
         if not stripped:
-            return CustomType(self, stripped)
+            return CustomType(self, raw=stripped)
 
         # Array markers are not part of the element's name: ``VARCHAR(30)[]`` is
         # one-dimensional and ``VARCHAR(30)[][]`` two.
@@ -773,7 +773,7 @@ class DummyDialect(
                 # Either a name dummy does not render, or numbers the concept
                 # cannot carry (``INT(11)``). Both are reported verbatim rather
                 # than guessed at.
-                element = CustomType(self, stripped)
+                element = CustomType(self, raw=stripped)
             else:
                 kwargs = dict(zip(fields, numbers))
                 if concept.SPELLINGS:

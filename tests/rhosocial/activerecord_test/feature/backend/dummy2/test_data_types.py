@@ -112,8 +112,8 @@ class TestDefaultRendering:
         assert JsonBType(dialect=dialect).to_sql() == ("JSONB", ())
 
     def test_custom_type(self, dialect):
-        assert CustomType(dialect, "GEOMETRY").to_sql() == ("GEOMETRY", ())
-        assert CustomType(dialect, "VARCHAR(255)").to_sql() == ("VARCHAR(255)", ())
+        assert CustomType(dialect, raw="GEOMETRY").to_sql() == ("GEOMETRY", ())
+        assert CustomType(dialect, raw="VARCHAR(255)").to_sql() == ("VARCHAR(255)", ())
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +129,7 @@ class TestEqualityAndHashing:
         assert VarCharType(None, 255) == VarCharType(None, 255)
         assert DecimalType(None, 10, 2) == DecimalType(None, 10, 2)
         assert FloatType() == FloatType()
-        assert CustomType(None, "UUID") == CustomType(None, "UUID")
+        assert CustomType(None, raw="UUID") == CustomType(None, raw="UUID")
 
     def test_not_equal_different_params(self):
         assert VarCharType(None, 255) != VarCharType(None, 100)
@@ -340,9 +340,9 @@ class TestCustomTypeFallback:
         return _dummy_dialect()
 
     def test_custom_type_eq_hash(self, dialect):
-        ct1 = CustomType(dialect, "SOME_UNKNOWN_TYPE")
-        ct2 = CustomType(None, "SOME_UNKNOWN_TYPE")
-        ct3 = CustomType(None, "OTHER_TYPE")
+        ct1 = CustomType(dialect, raw="SOME_UNKNOWN_TYPE")
+        ct2 = CustomType(None, raw="SOME_UNKNOWN_TYPE")
+        ct3 = CustomType(None, raw="OTHER_TYPE")
         assert ct1 == ct2
         assert ct1 != ct3
         assert hash(ct1) == hash(ct2)
@@ -418,21 +418,26 @@ class TestArrayTypeContract:
     """``ArrayType`` refuses to exist without something to be an array of."""
 
     def test_element_type_is_required(self):
-        with pytest.raises(TypeError, match="requires an element_type"):
+        # The signature says so, not the body. An array without an element type
+        # is not a type, so `element_type` is required and keyword-only: it
+        # cannot be omitted at all, and that holds before any dialect is
+        # involved -- where a body check would have been bypassable by passing
+        # None explicitly.
+        with pytest.raises(TypeError, match="element_type"):
             ArrayType(None)
 
     def test_element_type_must_be_a_data_type(self):
         with pytest.raises(TypeError, match="must be a DataType instance"):
-            ArrayType(None, "integer")
+            ArrayType(None, element_type="integer")
 
     def test_dimensions_must_be_a_positive_int(self):
         with pytest.raises(ValueError, match="dimensions must be an int >= 1"):
-            ArrayType(None, IntegerType(), 0)
+            ArrayType(None, element_type=IntegerType(), dimensions=0)
         with pytest.raises(ValueError, match="dimensions must be an int >= 1"):
-            ArrayType(None, IntegerType(), 1.5)
+            ArrayType(None, element_type=IntegerType(), dimensions=1.5)
 
     def test_dimensions_default_to_one(self):
-        assert ArrayType(None, IntegerType()).dimensions == 1
+        assert ArrayType(None, element_type=IntegerType()).dimensions == 1
 
 
 # ---------------------------------------------------------------------------

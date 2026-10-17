@@ -43,14 +43,16 @@ and documents why; the same discipline is what the other mixins need.
 | `getattr(self.dialect, name, None)` | `format_method` names it; absent ⇒ `UnsupportedFeatureError` |
 | probing `_{name}` in `get_params()` | store each `__init__` parameter under its own name |
 
-**`get_params()` is the exhibit.** `expression/bases.py:394-406` probes `_{name}`
-then `name`, warns, and **skips the parameter**. A serialization path deciding
-what to record by trial and error. `dummy2/test_expression_contract.py` already
-enforces the convention that makes the probe unnecessary; once it holds,
-`get_params()` is `getattr(self, name)` and the warning branch is unreachable.
+**`get_params()` is the exhibit.** It used to probe `_{name}` then `name`, warn, and
+**skip the parameter** -- a serialization path deciding what to record by trial and
+error, and putting the omission in the artifact with nothing to show for it. It is
+now `getattr(self, name)`: the convention is enforced by
+`feature/expression/test_artifact_contract.py` and by the `**kwargs` ban in
+`feature/expression/test_kind_naming.py`, so a parameter the class did not store
+raises `AttributeError` naming the class and the parameter rather than warning.
 
 Two exemptions, neither a discovery: `getattr` inside `__getattr__` itself, and
-`getattr(module, name)` on the type registry where the name is already part of
+`getattr(module, name)` on the kind registry where the name is already part of
 the artifact's wire contract.
 
 Measured surface: **205** `getattr`/`hasattr` sites under `backend/` —
@@ -78,13 +80,13 @@ domains; the other 25 are exempt.
 |---|---|---|
 | `expression/query_sources.py:105` `_VALID_OPS` | the four compound-SELECT word forms | 4 | — **done**: `SetOperationKind` / `SortDirection` / `NullsOrder` / `UuidConstantKind`
 | `dialect/mixins/set_operation.py:15` `_OP_SYMBOLS` | the same four, mapped to their SQL keyword | 4 | — **done**: `SetOperationKind` / `SortDirection` / `NullsOrder` / `UuidConstantKind`
-| `expression/mixins.py:839` `_OPERATOR_WORDS` | Python operator symbol -> operation word | 3 |
+| `expression/mixins.py:850` `_OPERATOR_WORDS` | Python operator symbol -> operation word | 3 |
 | `expression/query_parts.py:238` `_VALID_DIRECTIONS` | sort direction | 2 | — **done**: `SetOperationKind` / `SortDirection` / `NullsOrder` / `UuidConstantKind`
 | `dialect/mixins/dql.py:160` `_VALID_ORDER_DIRECTIONS` | sort direction, **the same set declared a second time** | 2 | — **done**: `SetOperationKind` / `SortDirection` / `NullsOrder` / `UuidConstantKind`
 | `expression/query_parts.py:239` `_VALID_NULLS` | where nulls sit in an ordering | 2 | — **done**: `SetOperationKind` / `SortDirection` / `NullsOrder` / `UuidConstantKind`
 | `expression/uuid.py:115` `_KINDS` | which UUID constant | 2 | — **done**: `SetOperationKind` / `SortDirection` / `NullsOrder` / `UuidConstantKind`
-| `expression/datetime.py:53` `_FIELD_ALIASES` | field aliases collapsing `"yyyy"`/`"yy"`/`"years"` | 24 |
-| `expression/datetime.py:79` `_UNIT_ALIASES` | unit aliases, same shape | 22 |
+| `expression/datetime.py:61` `DATETIME_FIELD_ALIASES` | field aliases collapsing `"yyyy"`/`"yy"`/`"years"` | 24 | — keyed by `DateTimeField` |
+| `expression/datetime.py:76` `INTERVAL_UNIT_ALIASES` | unit aliases, same shape | 22 | — keyed by `IntervalUnit` |
 
 The sort-direction set was declared in the expression layer *and* again in the
 dialect layer with nothing keeping them in step. One Enum removes the duplication

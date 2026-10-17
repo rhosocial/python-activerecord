@@ -237,7 +237,7 @@ class DataType(BaseExpression, ABC):
         if isinstance(dialect, DataTypeSupport):
             return dialect.parse_type(raw)
         from .custom import CustomType
-        return CustomType(dialect, raw)
+        return CustomType(dialect, raw=raw)
 
     def __repr__(self) -> str:
         params = self.identity()

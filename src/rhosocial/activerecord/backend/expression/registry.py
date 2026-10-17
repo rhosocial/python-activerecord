@@ -39,7 +39,7 @@ the bare-node rewrite).
 """
 
 from enum import Enum
-from typing import Any, Callable, Dict, Optional, Tuple, Type
+from typing import Dict, Optional, Set, Tuple, Type
 
 from .bases import BaseExpression
 
@@ -77,163 +77,221 @@ class RegistryError(Exception):
 
 
 def kind_of(expr_class: Type[BaseExpression]) -> str:
-    """Derive the kind of an expression class from its name (§4.9.2).
+    """The kind of an expression class, delegated to the class itself.
 
-    The kind is the class name's snake_case form; runs of consecutive
-    capitals count as one word (``JSONValue`` → ``json_value``). This is the
-    same mechanical derivation every language port uses, so a kind never has
-    to be stored on the node.
+    The registry does not own naming (§7: "it does not judge names"). How a
+    kind is derived belongs to the expression class — see
+    :meth:`BaseExpression.kind` — and a backend owns the reserved tokens its own
+    compound identifier needs. This function exists only as the registry's
+    access path to that derivation, so callers holding a class do not have to
+    remember which object owns it.
     """
-    import re
-
-    name = expr_class.__name__
-    name = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1 \2", name)
-    name = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", name)
-    return "_".join(name.lower().split())
-
-
-class _Registration:
-    """One (dialect, kind) entry: the render function plus its predicate."""
-
-    __slots__ = ("render", "supports")
-
-    def __init__(
-        self,
-        render: Callable[[BaseExpression], Tuple[str, tuple]],
-        supports: Optional[Callable[[BaseExpression], bool]],
-    ):
-        self.render = render
-        self.supports = supports
+    return expr_class.kind()
 
 
 class ExpressionRegistry:
-    """Index of ``(dialect, kind)`` → render function."""
+    """The kind whitelist: ``kind`` -> expression class, and nothing else.
+
+    The registry owns one mapping. It does not own naming (the class derives its
+    own kind, §4.11.1), it does not own rendering (an expression declares its
+    own ``format_method``, §3), and it does not construct nodes.
+
+    It also does not *discover*. Nothing here imports an expression package or
+    walks subclasses: a kind exists because someone registered it. That is what
+    leaves a backend's own expressions exactly as privileged as a third-party
+    plugin -- neither is found, both are registered -- and what makes selective
+    assembly possible: whatever a package did not register answers
+    ``kind_not_registered``.
+    """
 
     def __init__(self) -> None:
-        # Keyed by (dialect class, kind): a dialect's formatting
-        # implementations belong to the class, and every instance of it
-        # dispatches through the same table — version differences live in
-        # ``supports``, never in the registration set.
-        self._entries: Dict[Tuple[type, str], _Registration] = {}
+        # The three deserialization whitelists. See the node-table section
+        # below for why there are three and not one.
+        self._nodes: Dict[str, Type[BaseExpression]] = {}
+        self._enums: Dict[str, Type] = {}
+        self._dataclasses: Dict[str, Type] = {}
+        # Kinds that are registered but must not be read right now. Kept apart
+        # from ``_nodes`` because "not registered" and "registered but off" are
+        # different answers: the first is a deployment that lacks the kind, the
+        # second is a deployment that has it and has switched it off.
+        self._disabled: Set[str] = set()
 
-    def register(
-        self,
-        dialect: Any,
-        kind: str,
-        render: Callable[[BaseExpression], Tuple[str, tuple]],
-        supports: Optional[Callable[[BaseExpression], bool]] = None,
-    ) -> None:
-        """Register a render function for one ``(dialect, kind)`` pair.
+    # ------------------------------------------------------------------
+    # The node table: the kind whitelist deserialization resolves through.
+    #
+    # Serialization never consults it — a node carries its own identity.
+    # Deserialization consults it and nothing else: the three tables below are
+    # whitelists, not an import mechanism. Resolution is a dict lookup over
+    # classes registered up front, never an ``importlib`` call driven by a
+    # name read out of an artifact (§4.11.4 forbids the latter outright).
+    #
+    # Expression classes, enums and dataclasses are kept apart on purpose.
+    # They are three different shapes with three different contracts: only
+    # expression classes carry a kind and recurse into nested nodes; enums are
+    # finite value sets; dataclasses are structural records. Folding them into
+    # one table would let an artifact name any of the three where the other
+    # belongs, which is precisely what the whitelist is there to prevent.
+    # ------------------------------------------------------------------
 
-        Args:
-            dialect: The dialect (instance or class) whose package provides
-                ``render``; its class is the registration key.
-            kind: The expression kind this render function handles.
-            render: The formatting function. It receives the node and
-                returns ``(sql, params)``.
-            supports: Optional per-instance predicate. Version differences
-                affect this predicate only — never the registration.
+    def register_node(self, expr_class: Type[BaseExpression]) -> str:
+        """Add one expression class to the kind whitelist.
 
-        Raises:
-            RegistryError: The same ``(dialect, kind)`` is already
-                registered — an assembly-time hard failure, because a silent
-                overwrite would make the winning render depend on assembly
-                order.
+        The kind is derived from the class name (§4.11.1) rather than stored,
+        so the class name is the only source of identity and the two can never
+        drift apart. Registering the same class twice is a no-op; two *different*
+        classes claiming the same kind is a hard error — which class an
+        artifact resolves to must not depend on registration order.
         """
-        dialect_class = dialect if isinstance(dialect, type) else type(dialect)
-        key = (dialect_class, kind)
-        if key in self._entries:
+        kind = kind_of(expr_class)
+        existing = self._nodes.get(kind)
+        if existing is expr_class:
+            return kind
+        if existing is not None:
             raise RegistryError(
                 RegistryReason.SPEC_INVALID,
-                f"the '{kind}' kind is already registered for dialect "
-                f"'{dialect_class.__name__}'; registering it twice would make "
-                f"the winning render depend on assembly order",
-                dialect=dialect_class.__name__,
+                f"kind '{kind}' is claimed by both "
+                f"{existing.__module__}.{existing.__name__} and "
+                f"{expr_class.__module__}.{expr_class.__name__}; the kind "
+                f"whitelist must resolve each kind to exactly one class",
                 kind=kind,
             )
-        self._entries[key] = _Registration(render, supports)
+        self._nodes[kind] = expr_class
+        return kind
 
-    def check(self, dialect: Any, kind: str, node: Optional[BaseExpression] = None) -> bool:
-        """Would this dialect render this kind (for this node)?
-
-        Unregistered means not supported — there is no third "unknown kind"
-        state. A registered kind with a ``supports`` predicate answers
-        ``False`` when the predicate declines the instance.
-        """
-        dialect_class = dialect if isinstance(dialect, type) else type(dialect)
-        entry = self._entries.get((dialect_class, kind))
-        if entry is None:
-            return False
-        if entry.supports is None or node is None:
-            return True
-        return bool(entry.supports(node))
-
-    def invoke(self, dialect: Any, node: BaseExpression) -> Tuple[str, tuple]:
-        """Dispatch a node to its dialect's render function.
-
-        Returns:
-            The ``(sql, params)`` pair the render function produced.
+    def resolve_node(self, kind: str) -> Type[BaseExpression]:
+        """Resolve a kind to its expression class — the whitelist lookup.
 
         Raises:
-            RegistryError: With ``reason`` naming the failure —
-                ``kind_not_registered`` (message names the kind and the
-                dialect), ``instance_unsupported``, or ``spec_invalid`` when
-                a render that passed its predicate still refused.
+            RegistryError: ``kind_not_registered``, naming the kind. There is
+                no "unknown kind" state distinct from "not registered": a kind
+                that is not in the whitelist is a kind this build cannot read.
         """
-        dialect_class = dialect if isinstance(dialect, type) else type(dialect)
-        kind = kind_of(type(node))
-        entry = self._entries.get((dialect_class, kind))
-        if entry is None:
+        try:
+            expr_class = self._nodes[kind]
+        except KeyError:
             raise RegistryError(
                 RegistryReason.KIND_NOT_REGISTERED,
-                f"dialect '{dialect_class.__name__}' has no registered render "
-                f"function for kind '{kind}'",
-                dialect=dialect_class.__name__,
+                f"kind '{kind}' is not in the kind whitelist "
+                f"({len(self._nodes)} kinds registered); artifacts may only "
+                f"name a registered kind",
                 kind=kind,
-            )
-        if entry.supports is not None and not entry.supports(node):
+            ) from None
+        if kind in self._disabled:
             raise RegistryError(
                 RegistryReason.INSTANCE_UNSUPPORTED,
-                f"dialect '{dialect_class.__name__}' registers '{kind}' but "
-                f"this instance does not support it (version or session "
-                f"state); a different dialect instance or target may succeed",
-                dialect=dialect_class.__name__,
+                f"kind '{kind}' is registered but disabled in this registry; "
+                f"the build knows the kind and declines to read it",
                 kind=kind,
             )
-        try:
-            rendered = entry.render(node)
-        except Exception as exc:
-            # The predicate is an optimisation, not a guarantee: a render
-            # that passed `supports` and still refused is a spec violation,
-            # reported as such (fast failure, structured reason).
-            raise RegistryError(
-                RegistryReason.SPEC_INVALID,
-                f"the render function for kind '{kind}' refused a node that "
-                f"passed its supports predicate on dialect "
-                f"'{dialect_class.__name__}': {exc}",
-                dialect=dialect_class.__name__,
-                kind=kind,
-            ) from exc
-        if not (
-            isinstance(rendered, tuple)
-            and len(rendered) == 2
-            and isinstance(rendered[0], str)
-            and (rendered[1] is None or isinstance(rendered[1], tuple))
-        ):
-            raise RegistryError(
-                RegistryReason.SPEC_INVALID,
-                f"the render function for kind '{kind}' on dialect "
-                f"'{dialect_class.__name__}' returned "
-                f"{type(rendered).__name__}, expected (sql, params)",
-                dialect=dialect_class.__name__,
-                kind=kind,
-            )
-        return rendered
+        return expr_class
 
-    def supported_kinds(self, dialect: Any) -> Tuple[str, ...]:
-        """The kinds registered for this dialect class, sorted."""
-        dialect_class = dialect if isinstance(dialect, type) else type(dialect)
-        return tuple(sorted(k for (d, k) in self._entries if d is dialect_class))
+    def unregister_node(self, kind: str) -> None:
+        """Drop a kind from the whitelist.
+
+        For selective assembly *after* the fact: a deployment that wants no DDL
+        can register everything and then remove the statement kinds it refuses
+        to accept. Dropping a kind nobody registered is a hard error -- it means
+        the caller believes something is there that is not.
+        """
+        if kind not in self._nodes:
+            raise RegistryError(
+                RegistryReason.KIND_NOT_REGISTERED,
+                f"kind '{kind}' is not registered, so it cannot be unregistered",
+                kind=kind,
+            )
+        del self._nodes[kind]
+        self._disabled.discard(kind)
+
+    def disable(self, kind: str) -> None:
+        """Refuse a registered kind without forgetting it.
+
+        Different from :meth:`unregister_node`: the kind stays in
+        :meth:`node_kinds` and can be re-enabled, which is what a per-request
+        capability switch needs. An unregistered kind is absent from the build;
+        a disabled one is present and declined.
+        """
+        if kind not in self._nodes:
+            raise RegistryError(
+                RegistryReason.KIND_NOT_REGISTERED,
+                f"kind '{kind}' is not registered, so it cannot be disabled",
+                kind=kind,
+            )
+        self._disabled.add(kind)
+
+    def enable(self, kind: str) -> None:
+        """Re-allow a kind that :meth:`disable` switched off."""
+        if kind not in self._nodes:
+            raise RegistryError(
+                RegistryReason.KIND_NOT_REGISTERED,
+                f"kind '{kind}' is not registered, so it cannot be enabled",
+                kind=kind,
+            )
+        self._disabled.discard(kind)
+
+    def node_kinds(self) -> Tuple[str, ...]:
+        """The whole kind whitelist, sorted — the enumerable contract list.
+
+        Includes disabled kinds: the whitelist is what this build *knows*, and
+        a disabled kind is known. Use :meth:`is_enabled` to ask whether it may
+        be read right now.
+        """
+        return tuple(sorted(self._nodes))
+
+    def is_enabled(self, kind: str) -> bool:
+        """Whether *kind* is registered and not switched off."""
+        return kind in self._nodes and kind not in self._disabled
+
+    def register_enum(self, enum_class: Type) -> None:
+        """Add an enum class to the whitelist, keyed by its short name."""
+        name = enum_class.__name__
+        existing = self._enums.get(name)
+        if existing is enum_class:
+            return
+        if existing is not None:
+            raise RegistryError(
+                RegistryReason.SPEC_INVALID,
+                f"enum '{name}' is claimed by both {existing.__module__} and "
+                f"{enum_class.__module__}; enum names must be unique in the "
+                f"whitelist",
+            )
+        self._enums[name] = enum_class
+
+    def resolve_enum(self, name: str) -> Type:
+        """Resolve an enum short name to its class, or fail naming it."""
+        try:
+            return self._enums[name]
+        except KeyError:
+            raise RegistryError(
+                RegistryReason.KIND_NOT_REGISTERED,
+                f"enum '{name}' is not in the enum whitelist",
+                kind=name,
+            ) from None
+
+    def register_dataclass(self, dataclass_type: Type) -> None:
+        """Add a dataclass to the whitelist, keyed by its short name."""
+        name = dataclass_type.__name__
+        existing = self._dataclasses.get(name)
+        if existing is dataclass_type:
+            return
+        if existing is not None:
+            raise RegistryError(
+                RegistryReason.SPEC_INVALID,
+                f"dataclass '{name}' is claimed by both "
+                f"{existing.__module__} and {dataclass_type.__module__}; "
+                f"dataclass names must be unique in the whitelist",
+            )
+        self._dataclasses[name] = dataclass_type
+
+    def resolve_dataclass(self, name: str) -> Type:
+        """Resolve a dataclass short name to its type, or fail naming it."""
+        try:
+            return self._dataclasses[name]
+        except KeyError:
+            raise RegistryError(
+                RegistryReason.KIND_NOT_REGISTERED,
+                f"dataclass '{name}' is not in the dataclass whitelist",
+                kind=name,
+            ) from None
 
 
 #: The process-level registry dialect packages assemble themselves into.

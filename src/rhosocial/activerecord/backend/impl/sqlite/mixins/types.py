@@ -459,4 +459,4 @@ class SQLiteTypeSupportMixin(DataTypeMixin, DataTypeSupport):
         if self._BLOB_TYPES.match(upper):
             return SQLiteBlobType(self)
 
-        return CustomType(self, stripped)
+        return CustomType(self, raw=stripped)

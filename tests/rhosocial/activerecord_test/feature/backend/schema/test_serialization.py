@@ -64,7 +64,7 @@ class TestDataTypeSerialization:
             _data_type_to_dict,
             _data_type_from_dict,
         )
-        dt = ArrayType(None, IntegerType(), dimensions=2)
+        dt = ArrayType(None, element_type=IntegerType(), dimensions=2)
         restored = _data_type_from_dict(_data_type_to_dict(dt))
         assert isinstance(restored.element_type, IntegerType)
         assert restored.dimensions == 2
