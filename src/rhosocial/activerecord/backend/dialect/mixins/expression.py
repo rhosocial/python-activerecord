@@ -247,10 +247,19 @@ class ExpressionMixin(FunctionCallMixin):
         rule as everywhere else, and the reason a backend author controls it by
         ordering rather than by a name lookup.
 
+        A declaration that is not a string is ignored and answered as ``None``,
+        which is the same as never having declared one. The value is
+        interpolated straight into the statement as a function name, so there is
+        nothing safe to do with a value of the wrong type: passing it on would
+        put whatever the author wrote into the SQL text. Reading it as "no
+        override" keeps the standard's ``||``, which is the answer a dialect
+        that never declared one gets.
+
         Returns:
             The function name, or ``None`` to use the standard's ``||``.
         """
-        return self.STRING_CONCATENATION
+        declared = self.STRING_CONCATENATION
+        return declared if isinstance(declared, str) else None
 
     def format_unary_operator(self, expr: UnaryExpression) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.operators.UnaryExpression`.
