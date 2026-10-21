@@ -2,24 +2,31 @@
 """
 Expression serialization and deserialization utilities.
 
-The class index below is a **deserialization support table**, not the
-expression registry: the serializer never consults it (a node carries its own
-identity), and the registry (:mod:`.registry`) does registration, checking
-and dispatch of *rendering*, not of classes. Deserializing a spec resolves
-the class through this table — temporarily still keyed by fully-qualified
-class name; the kind whitelist arrives with the bare-node rewrite.
+An artifact is a **bare node**: ``{"kind": ..., "params": {...}}`` and nothing
+else (§4.11.3). There is no envelope around it, and no marker vocabulary
+inside it.
 
-Reserved special keys in serialized param dicts:
-    "__tuple__"  →  Python tuple value (since tuple is not JSON native)
-    "__expr__"   →  Nested BaseExpression instance
-    "__vdc__"    →  Dataclass value (FQN + field values), structurally encoded
-                    so BaseExpression / Enum / nested-dataclass fields round-trip.
-    "__b64__"    →  bytes, base64 (wire §5)
-    "__dur__"    →  timedelta, ISO 8601 duration (wire §5)
+* A node's **kind** is its identity -- derived from the class name (§4.11.1),
+  computed and never stored, so the two cannot drift. A literal is the one
+  node whose kind is not its class name: one class carries every value, and
+  the wire still names them apart, because a date's spelling and a string's
+  are the same bytes and the kind is what tells them apart.
+* A nested node is a nested ``{"kind", "params"}``, recognised by its shape
+  alone. No key says "this is a node": a marker is a dispatch, and a dispatch
+  has to be agreed by every reader -- which is exactly what an artifact cannot
+  assume, when the same bytes must be read by four languages.
+* Every value is a JSON scalar. A host type JSON cannot spell -- bytes, a
+  timedelta, a Decimal, a date -- travels as the text its kind names, and the
+  kind is what says how to read it back. A tuple travels as an array.
 
-IMPORTANT: User-defined expression params MUST NOT use these reserved keys
-in their get_params() return values. Using these keys will cause data
-corruption or deserialization errors.
+Reading is the one moment a registry is needed: it is what turns a ``kind``
+back into a class. The registry (:mod:`.registry`) is that table and nothing
+more -- it registers, checks and dispatches *rendering*; the serializer never
+consults it, because a node carries its own identity.
+
+The artifact is untrusted input (§4.11.4), so a read fails explicitly and
+names the kind: an unknown kind, a leftover envelope field, an unknown or
+missing parameter.
 """
 
 import inspect
