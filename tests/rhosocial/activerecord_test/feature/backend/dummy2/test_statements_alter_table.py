@@ -112,6 +112,30 @@ class TestAlterTableStatements:
         assert "DEFAULT 'active'" in sql
         assert params == ()
 
+    def test_alter_column_modify_default_given_a_literal(self, dummy_dialect: DummyDialect):
+        """A Literal value renders the same as the bare string it wraps.
+
+        The two spell the same value, so the statement they produce must be
+        the same. A value that arrives already wrapped is still a value the
+        position has to write out: ``SET DEFAULT`` with nothing after it
+        would set the column's default to nothing at all.
+        """
+        for new_value in ("active", Literal(dummy_dialect, "active", inline=True)):
+            alter_action = AlterColumnAction(
+                dummy_dialect,
+                column_name="status",
+                operation="SET DEFAULT",
+                new_value=new_value,
+            )
+
+            alter_expr = AlterTableStatement(
+                dummy_dialect, table=Table(dummy_dialect, "users"), actions=[alter_action]
+            )
+            sql, params = alter_expr.to_sql()
+
+            assert "SET DEFAULT 'active'" in sql
+            assert params == ()
+
     def test_add_constraint_action(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with ADD CONSTRAINT action."""
         check_condition = NumericColumn(dummy_dialect,

@@ -107,7 +107,7 @@ class DateTimeMixin:
             A ``(sql, params)`` tuple.
         """
         source_sql, source_params = expr.source.to_sql()
-        field = self._escape_sql_string(expr.field.value)
+        field = expr.field.value
         sql = f"DATE_TRUNC('{field}', {source_sql})"
         return self.apply_alias(sql, source_params, expr)
 

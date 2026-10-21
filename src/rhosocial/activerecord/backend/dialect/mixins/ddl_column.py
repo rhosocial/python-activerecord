@@ -1210,8 +1210,13 @@ class DDLColumnMixin:
                     raise ValueError(f"Invalid data type specification: '{action.new_value}'")
                 column_part += f" {action.new_value}"
             elif isinstance(action.new_value, str):
-                # DDL accepts no bind parameters: inline with escaping.
-                column_part += f" '{self._escape_sql_string(action.new_value)}'"
+                # DDL accepts no bind parameters, so the value is written into
+                # the SQL text. The literal is the controlled path: it escapes
+                # and quotes exactly as DEFAULT does.
+                value_sql, value_params = Literal(
+                    self, action.new_value, inline=True
+                ).to_sql()
+                column_part += f" {value_sql}"
             elif isinstance(action.new_value, ToSQLProtocol):
                 if isinstance(action.new_value, Literal):
                     # The value carries its own DDL decision; the controlled
@@ -1225,7 +1230,7 @@ class DDLColumnMixin:
                         raise ValueError(
                             "ALTER COLUMN value must render without bind parameters"
                         )
-                    column_part += f" {value_sql}"
+                column_part += f" {value_sql}"
             else:
                 column_part += f" {self.inline_sql_literal(action.new_value)}"
         if action.cascade:
