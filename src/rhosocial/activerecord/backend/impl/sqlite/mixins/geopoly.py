@@ -55,25 +55,7 @@ class SQLiteGeopolyMixin(SQLiteExtensionMixin):
             )
 
         table = expr.table.to_sql()[0]
-        cols = ", ".join(self.format_identifier(c) for c in (expr.extra_columns or []))
-        if expr.content_table is not None:
-            # The identifier is checked first: a name that is unsafe to write
-            # is a fault in its own right, whichever way the feature is
-            # answered below.
-            self._validate_safe_identifier(expr.content_table.name)
-            # Geopoly has no "content=" option. Its extra_columns hold the
-            # caller's own auxiliary data, and there is no external content
-            # table for the shapes to live in -- the shapes are the rows of
-            # the table itself. A "content=" here is a statement SQLite
-            # refuses, so it is refused here, with the reason, rather than
-            # rendered into SQL that cannot run.
-            raise UnsupportedFeatureError(
-                self.name,
-                "geopoly with an external content table",
-                "geopoly has no 'content=' option: the shapes are the rows "
-                "of the table itself, and extra_columns hold the auxiliary "
-                "data. There is no external content table to point at.",
-            )
+        cols = ", ".join(self.format_identifier(c) for c in expr.extra_columns)
         if not cols:
             sql = f"CREATE VIRTUAL TABLE {table} USING geopoly()"
         else:

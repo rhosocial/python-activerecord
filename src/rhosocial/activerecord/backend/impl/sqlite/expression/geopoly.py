@@ -21,13 +21,17 @@ class SQLiteGeopolyCreateVirtualTable(BaseExpression):
     def format_method(self) -> str:
         """The dialect method that renders this expression."""
         return "format_geopoly_create_virtual_table"
-    """Geopoly CREATE VIRTUAL TABLE statement expression."""
+    """Geopoly CREATE VIRTUAL TABLE statement expression.
+
+    Geopoly has no external content table: the polygons are the rows of the
+    table itself, and ``extra_columns`` hold the caller's own auxiliary
+    data. So there is no content table to name, and no parameter for one.
+    """
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         table: "Table",
-        content_table: Optional["Table"] = None,
         extra_columns: Optional[List[str]] = None,
     ):
         super().__init__(dialect)
@@ -37,12 +41,6 @@ class SQLiteGeopolyCreateVirtualTable(BaseExpression):
                 f"got {type(table).__name__}"
             )
         self.table = table
-        if content_table is not None and not isinstance(content_table, Table):
-            raise TypeError(
-                f"content_table must be a Table, "
-                f"got {type(content_table).__name__}"
-            )
-        self.content_table = content_table
         self.extra_columns = extra_columns or []
 class SQLiteGeopolyContainsExpression(BaseExpression):
 
