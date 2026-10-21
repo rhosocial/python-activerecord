@@ -10,6 +10,7 @@ from ..backend.expression import (
     ComparisonPredicate,
     InPredicate,
     IsNullPredicate,
+    LikeOperator,
     LikePredicate,
     Literal,
     LogicalPredicate,
@@ -246,7 +247,9 @@ class RangeQueryMixin:
         """
         col_expr = self._get_col_expr(column)
         dialect = self.backend().dialect
-        predicate = LikePredicate(dialect, "LIKE", col_expr, Literal(dialect, pattern))
+        predicate = LikePredicate(
+            dialect, LikeOperator.LIKE, col_expr, Literal(dialect, pattern)
+        )
         return self.where(predicate)
 
     def not_like(self, column: Union[str, BaseExpression], pattern: str) -> "IQuery":
@@ -269,7 +272,7 @@ class RangeQueryMixin:
         """
         col_expr = self._get_col_expr(column)
         dialect = self.backend().dialect
-        predicate = ~LikePredicate(dialect, "LIKE", col_expr, Literal(dialect, pattern))
+        predicate = ~LikePredicate(dialect, LikeOperator.LIKE, col_expr, Literal(dialect, pattern))
         return self.where(predicate)
 
     def ilike(self, column: Union[str, BaseExpression], pattern: str) -> "IQuery":
@@ -293,7 +296,9 @@ class RangeQueryMixin:
         """
         col_expr = self._get_col_expr(column)
         dialect = self.backend().dialect
-        predicate = LikePredicate(dialect, "ILIKE", col_expr, Literal(dialect, pattern))
+        predicate = LikePredicate(
+            dialect, LikeOperator.ILIKE, col_expr, Literal(dialect, pattern)
+        )
         return self.where(predicate)
 
     def not_ilike(self, column: Union[str, BaseExpression], pattern: str) -> "IQuery":

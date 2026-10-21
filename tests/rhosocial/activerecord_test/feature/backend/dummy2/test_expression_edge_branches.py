@@ -11,6 +11,7 @@ Covers:
 """
 
 
+from rhosocial.activerecord.backend.expression.functions import cast
 import pytest
 
 from rhosocial.activerecord.backend.expression.objects import Table
@@ -68,7 +69,7 @@ class TestCoreExpressionBranches:
     """Branch coverage for core/operator expressions."""
 
     def test_literal_cast_and_alias(self, dialect):
-        expr = Literal(dialect, 42).cast(DecimalType(dialect)).as_("n")
+        expr = cast(dialect, Literal(dialect, 42), DecimalType(dialect)).as_("n")
         sql, params = expr.to_sql()
         assert "CAST" in sql or "DECIMAL" in sql
         assert "AS" in sql

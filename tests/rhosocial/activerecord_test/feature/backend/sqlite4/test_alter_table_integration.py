@@ -22,10 +22,10 @@ from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     TableConstraint,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
-    AddColumn,
-    DropColumn,
-    RenameObject,
-    AddTableConstraint,
+    AddColumnAction,
+    DropColumnAction,
+    RenameColumnAction,
+    AddTableConstraintAction,
 )
 from rhosocial.activerecord.backend.expression.statements import (
     CreateTableStatement,
@@ -72,7 +72,7 @@ class TestAlterTableAddColumn:
 
     def test_add_column_appears_in_introspector(self, backend_with_users):
         """ADD COLUMN should be reflected by the introspector."""
-        add_action = AddColumn(
+        add_action = AddColumnAction(
             backend_with_users.dialect,
 ColumnDefinition(
                 backend_with_users.dialect,
@@ -92,7 +92,7 @@ ColumnDefinition(
 
     def test_add_column_with_not_null(self, backend_with_users):
         """ADD COLUMN with NOT NULL constraint should be introspectable."""
-        add_action = AddColumn(
+        add_action = AddColumnAction(
             backend_with_users.dialect,
             column=ColumnDefinition(backend_with_users.dialect, 
                 "status",
@@ -130,7 +130,7 @@ class TestAlterTableDropColumn:
             pytest.skip("SQLite DROP COLUMN requires 3.35.0+")
 
         # First add a column to drop
-        add_action = AddColumn(
+        add_action = AddColumnAction(
             backend_with_users.dialect,
 ColumnDefinition(
                 backend_with_users.dialect,
@@ -149,7 +149,7 @@ ColumnDefinition(
         assert "temp_field" in [c.name for c in columns]
 
         # Now drop it
-        drop_action = DropColumn(
+        drop_action = DropColumnAction(
             backend_with_users.dialect,
             column_name="temp_field",
         )
@@ -170,7 +170,7 @@ class TestAlterTableRenameColumn:
 
     def test_rename_column_reflected_in_introspector(self, backend_with_users):
         """RENAME COLUMN should change the column name in introspector results."""
-        rename_action = RenameObject(
+        rename_action = RenameColumnAction(
             backend_with_users.dialect,
             old_name="name",
             new_name="full_name",
@@ -207,7 +207,7 @@ class TestAlterTableAddConstraint:
         from rhosocial.activerecord.backend.expression import Column
 
         # Add an email column
-        add_action = AddColumn(
+        add_action = AddColumnAction(
             backend_with_users.dialect,
 ColumnDefinition(
                 backend_with_users.dialect,
@@ -228,7 +228,7 @@ ColumnDefinition(
         )
 
         # Add CHECK constraint: email IS NOT NULL
-        add_constraint = AddTableConstraint(
+        add_constraint = AddTableConstraintAction(
             backend_with_users.dialect,
             constraint=TableConstraint(
                 backend_with_users.dialect,
@@ -264,7 +264,7 @@ class TestSQLiteIfExistsGuard:
 
     def test_sqlite_rejects_add_column_if_not_exists(self, sqlite_backend):
         """ADD COLUMN IF NOT EXISTS must raise on SQLite."""
-        action = AddColumn(
+        action = AddColumnAction(
             sqlite_backend.dialect,
             column=ColumnDefinition(sqlite_backend.dialect, "email", SQLiteTextType(dialect=sqlite_backend.dialect)),
             if_not_exists=True,
@@ -274,7 +274,7 @@ class TestSQLiteIfExistsGuard:
 
     def test_sqlite_rejects_drop_column_if_exists(self, sqlite_backend):
         """DROP COLUMN IF EXISTS must raise on SQLite."""
-        action = DropColumn(
+        action = DropColumnAction(
             sqlite_backend.dialect,
             column_name="email",
             if_exists=True,
@@ -284,14 +284,14 @@ class TestSQLiteIfExistsGuard:
 
     def test_sqlite_allows_bare_add_and_drop(self, sqlite_backend):
         """Bare ADD/DROP COLUMN (no qualifier) must still work on SQLite."""
-        add_action = AddColumn(
+        add_action = AddColumnAction(
             sqlite_backend.dialect,
             column=ColumnDefinition(sqlite_backend.dialect, "email", SQLiteTextType(dialect=sqlite_backend.dialect)),
         )
         add_sql, _ = add_action.to_sql()
         assert "IF NOT EXISTS" not in add_sql
 
-        drop_action = DropColumn(sqlite_backend.dialect, column_name="email")
+        drop_action = DropColumnAction(sqlite_backend.dialect, column_name="email")
         drop_sql, _ = drop_action.to_sql()
         assert "IF EXISTS" not in drop_sql
 
@@ -301,7 +301,7 @@ class TestActionDialectBinding:
 
     def test_action_has_dialect_after_construction(self, sqlite_backend):
         """Action should have its dialect accessible after construction."""
-        action = AddColumn(
+        action = AddColumnAction(
             sqlite_backend.dialect,
             column=ColumnDefinition(sqlite_backend.dialect, "x", SQLiteIntegerType(sqlite_backend.dialect)),
         )
@@ -309,7 +309,7 @@ class TestActionDialectBinding:
 
     def test_action_to_sql_works_directly(self, sqlite_backend):
         """Action.to_sql() should work without wrapping in AlterTableStatement."""
-        action = AddColumn(
+        action = AddColumnAction(
             sqlite_backend.dialect,
             column=ColumnDefinition(sqlite_backend.dialect, "x", SQLiteIntegerType(sqlite_backend.dialect)),
         )
@@ -321,7 +321,7 @@ class TestActionDialectBinding:
         """Action should satisfy ToSQLProtocol."""
         from rhosocial.activerecord.backend.expression.bases import ToSQLProtocol
 
-        action = AddColumn(
+        action = AddColumnAction(
             sqlite_backend.dialect,
             column=ColumnDefinition(sqlite_backend.dialect, "x", SQLiteIntegerType(sqlite_backend.dialect)),
         )

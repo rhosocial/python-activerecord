@@ -13,7 +13,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-from ..surfaces import NumericSurface
+from ..value_types import NumericValue
 
 
 def _typed(call: FunctionCall, target: BaseExpression):
@@ -27,7 +27,7 @@ def _typed(call: FunctionCall, target: BaseExpression):
 
     ``ROW_NUMBER``, ``RANK`` and ``DENSE_RANK`` are the exception -- they count
     or place rows rather than borrow a value, and are always whole numbers -- so
-    they are their own node carrying :class:`NumericSurface` and never come
+    they are their own node carrying :class:`NumericValue` and never come
     here.
 
     A target that says nothing -- a ``Literal``, an untyped ``Column`` -- leaves
@@ -40,10 +40,10 @@ def _typed(call: FunctionCall, target: BaseExpression):
 
 class _WindowRank(
     DeclaredValueType,
-    NumericSurface,
+    NumericValue,
 ):
     # DeclaredValueType first: it is what keeps this node's own rendering ahead
-    # of NumericSurface's declaration that a surface cannot render.
+    # of NumericValue's declaration that a surface cannot render.
     """Shared base for the ranking window functions.
 
     None of them takes an operand: the rank is over the window the node is placed
@@ -152,9 +152,9 @@ def lag(
         A FunctionCall instance representing the LAG function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    args = [target_expr, Literal(dialect, offset)]
+    args = [target_expr, offset if isinstance(offset, BaseExpression) else Literal(dialect, offset)]
     if default is not None:
-        args.append(Literal(dialect, default))
+        args.append(default if isinstance(default, BaseExpression) else Literal(dialect, default))
     return _typed(FunctionCall(dialect, "LAG", *args, alias=alias), target_expr)
 
 
@@ -184,9 +184,9 @@ def lead(
         A FunctionCall instance representing the LEAD function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    args = [target_expr, Literal(dialect, offset)]
+    args = [target_expr, offset if isinstance(offset, BaseExpression) else Literal(dialect, offset)]
     if default is not None:
-        args.append(Literal(dialect, default))
+        args.append(default if isinstance(default, BaseExpression) else Literal(dialect, default))
     return _typed(FunctionCall(dialect, "LEAD", *args, alias=alias), target_expr)
 
 
@@ -260,7 +260,7 @@ def nth_value(
         A FunctionCall instance representing the NTH_VALUE function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    n_expr = Literal(dialect, n)
+    n_expr = n if isinstance(n, BaseExpression) else Literal(dialect, n)
     return _typed(
         FunctionCall(dialect, "NTH_VALUE", target_expr, n_expr, alias=alias),
         target_expr,

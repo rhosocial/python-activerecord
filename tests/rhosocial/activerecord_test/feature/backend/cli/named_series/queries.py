@@ -10,6 +10,7 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
     FunctionCall,
+    NumericColumn,
     QueryStatement,
     InsertStatement,
     ValuesSource,
@@ -35,7 +36,7 @@ def user_by_id(dialect, user_id: int):
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "name"), Column(dialect, "email")],
         from_=NamedRelationRef(dialect, Table(dialect, "users")),
-        where=Column(dialect, "id") == Literal(dialect, user_id),
+        where=NumericColumn(dialect, "id") == Literal(dialect, user_id),
     )
 
 
@@ -55,7 +56,7 @@ def posts_by_user(dialect, user_id: int):
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "title")],
         from_=NamedRelationRef(dialect, Table(dialect, "posts")),
-        where=Column(dialect, "user_id") == Literal(dialect, user_id),
+        where=NumericColumn(dialect, "user_id") == Literal(dialect, user_id),
     )
 
 

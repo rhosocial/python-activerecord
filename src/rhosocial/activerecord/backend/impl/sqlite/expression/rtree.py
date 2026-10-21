@@ -8,7 +8,7 @@ including virtual table creation and range queries.
 
 from typing import List, Optional, Tuple, TYPE_CHECKING
 
-from ....expression.bases import BaseExpression, SQLQueryAndParams
+from ....expression.bases import BaseExpression
 from rhosocial.activerecord.backend.expression.objects import Table
 
 if TYPE_CHECKING:
@@ -16,6 +16,11 @@ if TYPE_CHECKING:
 
 
 class SQLiteRTreeCreateVirtualTable(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect method that renders this expression."""
+        return "format_rtree_create_virtual_table"
     """R-Tree CREATE VIRTUAL TABLE statement expression."""
 
     def __init__(
@@ -41,12 +46,12 @@ class SQLiteRTreeCreateVirtualTable(BaseExpression):
             )
         self.content_table = content_table
         self.content_rowid = content_rowid
-
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_rtree_create_virtual_table(self)
-
-
 class SQLiteRTreeRangeQuery(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect method that renders this expression."""
+        return "format_rtree_range_query"
     """R-Tree range query expression for spatial filtering in WHERE clauses."""
 
     def __init__(
@@ -65,6 +70,3 @@ class SQLiteRTreeRangeQuery(BaseExpression):
         self.table = table
         self.ranges = ranges
         self.column_names = column_names
-
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_rtree_range_query(self)

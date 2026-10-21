@@ -14,18 +14,25 @@ from .mixins import (
 
 from .advanced_functions import DeclaredValueType
 from .bases import BaseExpression, SQLValue
+from .core import Literal
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
-from .surfaces import (
-    NumericSurface,
-    TemporalSurface,
+from .value_types import (
+    NumericValue,
+    TemporalValue,
 )
 
 class DateTimeField(str, Enum):
     """Supported datetime fields."""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    #: Without this, ``str(member)`` yields ``DateTimeField.YEAR``, and both the
+    #: XML codec and every f-string that interpolates the field would carry a
+    #: Python spelling across the wire.
+    __str__ = str.__str__
 
     YEAR = "year"
     MONTH = "month"
@@ -41,6 +48,9 @@ class DateTimeField(str, Enum):
 
 class IntervalUnit(str, Enum):
     """Supported interval units."""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     YEAR = "year"
     MONTH = "month"
@@ -145,7 +155,7 @@ class _TemporalValue(
     type's class alongside this one. Two consequences, both wanted:
 
     * What the operation yields is readable off the object — ``EXTRACT`` is a
-      :class:`~...expression.surfaces.NumericSurface` because it derives
+      :class:`~...expression.value_types.NumericValue` because it derives
       from one, not because a tag said so and a tag could disagree with the
       class it sat on.
     * The operations follow from it. ``extract("year") + 1`` composes because a
@@ -171,9 +181,8 @@ class _TemporalValue(
         """
         if precision is None:
             return None
-        from . import values
 
-        return values.IntegerValue.of(dialect, precision)
+        return precision if isinstance(precision, BaseExpression) else Literal(dialect, precision)
 
 
 class _ExtractBase(_TemporalValue):
@@ -227,7 +236,7 @@ class _ExtractBase(_TemporalValue):
 class ExtractExpression(
     _ExtractBase,
     DeclaredValueType,
-    NumericSurface,
+    NumericValue,
 ):
     """``EXTRACT(field FROM source)`` -- a number.
 
@@ -235,7 +244,7 @@ class ExtractExpression(
     fractional. Widening here is deliberate: claiming a whole number would offer
     ``bit_length`` on a value that may be a million and a half.
 
-    It is a :class:`~...expression.surfaces.NumericSurface` because that is
+    It is a :class:`~...expression.value_types.NumericValue` because that is
     what it is, and that is why ``extract("year") + 1`` composes. The class
     declares the type rather than a tag recording it, so ``isinstance`` answers
     from the class alone.
@@ -251,7 +260,7 @@ class ExtractExpression(
 class ExtractFieldExpression(
     _ExtractBase,
     DeclaredValueType,
-    NumericSurface,
+    NumericValue,
 ):
     """``YEAR(source)`` / ``MONTH(source)`` / ... -- a whole number.
 
@@ -270,7 +279,7 @@ class ExtractFieldExpression(
 class DatePartExpression(
     _ExtractBase,
     DeclaredValueType,
-    NumericSurface,
+    NumericValue,
 ):
     """``DATE_PART('field', source)`` -- the standard's spelling, and a number.
 
@@ -302,7 +311,7 @@ class DatePartExpression(
 class DateTruncExpression(
     _TemporalValue,
     DeclaredValueType,
-    TemporalSurface,
+    TemporalValue,
 ):
     """Truncating a timestamp to a field gives a timestamp.
 
@@ -332,7 +341,7 @@ class DateTruncExpression(
 class IntervalExpression(
     _TemporalValue,
     DeclaredValueType,
-    TemporalSurface,
+    TemporalValue,
     IntervalMixin,
 ):
     """A structured interval value -- a span of time, its own type.
@@ -364,7 +373,7 @@ ow() + INTERVAL '1 day'`` is a
 class DateTimeAddExpression(
     _TemporalValue,
     DeclaredValueType,
-    TemporalSurface,
+    TemporalValue,
 ):
     """Adding an interval to a timestamp gives a timestamp.
 
@@ -395,7 +404,7 @@ ow().date_add(1, "day").date_trunc("day")`` chain.
 class DateTimeSubtractExpression(
     _TemporalValue,
     DeclaredValueType,
-    TemporalSurface,
+    TemporalValue,
 ):
     """Subtracting an interval from a timestamp gives a timestamp.
 
@@ -424,7 +433,7 @@ class DateTimeSubtractExpression(
 class DateTimeDiffExpression(
     _TemporalValue,
     DeclaredValueType,
-    NumericSurface,
+    NumericValue,
 ):
     """The difference between two timestamps, counted in whole units.
 
@@ -459,7 +468,7 @@ ow() -
 class NowFunction(
     _TemporalValue,
     DeclaredValueType,
-    TemporalSurface,
+    TemporalValue,
 ):
     """``NOW()`` -- the instant the statement began.
 
@@ -489,7 +498,7 @@ class NowFunction(
 class CurrentDateFunction(
     _TemporalValue,
     DeclaredValueType,
-    TemporalSurface,
+    TemporalValue,
 ):
     """``CURRENT_DATE`` -- today's date, with no time and no zone.
 
@@ -522,7 +531,7 @@ class CurrentDateFunction(
 class CurrentTimeFunction(
     _TemporalValue,
     DeclaredValueType,
-    TemporalSurface,
+    TemporalValue,
 ):
     """``CURRENT_TIME`` -- the time of day, with no date and no zone."""
 
@@ -544,7 +553,7 @@ class CurrentTimeFunction(
 class CurrentTimestampFunction(
     _TemporalValue,
     DeclaredValueType,
-    TemporalSurface,
+    TemporalValue,
 ):
     """``CURRENT_TIMESTAMP`` -- the instant the statement began, as a timestamp.
 
@@ -573,7 +582,7 @@ class CurrentTimestampFunction(
 class LocalTimestampFunction(
     _TemporalValue,
     DeclaredValueType,
-    TemporalSurface,
+    TemporalValue,
 ):
     """``LOCALTIMESTAMP`` -- the instant as the session's time zone reads it.
 

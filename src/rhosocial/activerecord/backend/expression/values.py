@@ -1,65 +1,46 @@
 # src/rhosocial/activerecord/backend/expression/values.py
-"""Typed value nodes (catalog §3.3) — one node per value type.
+"""The closed vocabulary of value kinds (catalog §3.3, wire §5).
 
-Each class is the expression for **one** value type and holds that type's
-**host value**:
+A value that reaches SQL is carried by :class:`~.core.Literal`, which answers
+one question -- whether that value binds or is written as text -- and nothing
+else. What kind of value it is is a separate question, and this module is its
+answer: a closed set, because the set of things a bind parameter can hold is
+closed.
 
-    IntegerValue(d, 18)                      holds ``int``
-    DateValue(d, datetime.date(2026, 10, 17)) holds ``datetime.date``
-    BinaryValue(d, b"\\x01\\x02")              holds ``bytes``
+===========================  ==========================  =======================
+stage                        form                       who converts
+===========================  ==========================  =======================
+:class:`Literal` ``value``   host value                 the caller
+the artifact                 canonical spelling         :func:`LiteralKind.pack`
+the parameter sequence       host value                 nobody -- it is what
+                                                    the driver binds
+===========================  ==========================  =======================
 
-Why the host value and not the canonical spelling: the spelling is the
-**artifact** form, and it is the codec's job (spec 4.8). A node that stored
-``"2026-10-17"`` instead of a ``date`` would be storing the serialization, and
-the value would have to be parsed back before the driver could bind it — work
-the host language already did for free, undone on purpose. The three stages of
-one value therefore stay separated (spec 2.1 / 4.4):
-
-===========================  ============================  =======================
-stage                       form                          who converts
-===========================  ============================  =======================
-the node's ``value`` param  host value                    the caller
-the artifact                canonical spelling (wire 5)   the codec
-the parameter sequence      host value                    nobody -- it is what
-                                                         the driver binds
-===========================  ============================  =======================
-
-The spelling is not a free choice at the node: spec 4.8 requires the artifact
-representation to be language-neutral, so a Python ``date`` and a Go
-``time.Time`` must serialize identically. That constraint lands on the codec,
+So an artifact carries the kind as ``{"kind": "date_value", "params":
+{"value": "2026-10-17"}}`` and a Python ``date`` is its host form. Why the
+spelling rather than the host value: spec 4.8 requires the artifact to be
+language-neutral, so a Python ``date`` and a Go ``time.Time`` must serialize
+identically. That constraint lands here, on the pack/unpack pair, which is
 where it belongs.
 
-Rendering splits on ``inline_params``, the class-level strategy: a data
-position binds the host value behind a placeholder, a DDL syntax position
-inlines a literal the dialect constructs. Which one happens is the **class's**
-decision, never a per-instance flag (spec 4.4).
+There is no class per value type and there is no node per value type. One node
+carries every value, so the twelve classes this used to have would each have
+restated the same two things -- the host type, and the dialect method that
+spells it -- on a node that had nothing else to do.
+
+Why the spelling is not a free choice at the call site: the artifact must be
+readable by a reader that has a different set of host types, so the conversion
+is declared once per kind rather than left to each caller.
 """
 
 import base64
 import datetime
-import re
 import decimal
+import enum
+import math
+import re
 import uuid
-from typing import TYPE_CHECKING, Any, Optional
-
-from .bases import BaseExpression, SQLValue
-from .mixins import IntervalMixin
-from .surfaces import (
-    BooleanSurface,
-    NumericSurface,
-    OpaqueSurface,
-    TemporalSurface,
-    TextSurface,
-)
-
-if TYPE_CHECKING:
-    from ..dialect import SQLDialectBase
-
-
-#: The two reserved wrapper keys (wire §5). A parameter named either would be
-#: indistinguishable from the wrapper, so the serializer refuses them by name.
-B64_KEY = "__b64__"
-DUR_KEY = "__dur__"
+from typing import Any, Callable, Optional
 
 #: ISO 8601 duration, reduced to what ``timedelta`` can hold: days, hours,
 #: minutes, seconds and an optional fraction. Years and months are refused --
@@ -94,327 +75,294 @@ def _parse_duration(text: str) -> datetime.timedelta:
     return -delta if text.startswith("-") else delta
 
 
-class TypedValue(SQLValue):
-    """Base for the typed value nodes.
+def _pack_duration(value: datetime.timedelta) -> str:
+    """``timedelta`` -> ISO 8601, empty parts omitted."""
+    total = value.total_seconds()
+    sign = "-" if total < 0 else ""
+    days, rest = divmod(abs(total), 86400)
+    hours, rest = divmod(rest, 3600)
+    minutes, seconds = divmod(rest, 60)
+    out = [sign, "P"]
+    if days:
+        out.append(f"{int(days)}D")
+    if hours or minutes or seconds or len(out) == 2:
+        out.append("T")
+        if hours:
+            out.append(f"{int(hours)}H")
+        if minutes:
+            out.append(f"{int(minutes)}M")
+        if seconds or (not hours and not minutes):
+            text = f"{seconds:.6f}".rstrip("0").rstrip(".")
+            out.append(f"{text or '0'}S")
+    return "".join(out)
 
-    A subclass declares three things and nothing else: the wire ``kind``, the
-    host type it holds (:attr:`value_type`), and the dialect method that renders
-    it (:attr:`format_method`).
 
-    :attr:`value_type` does two jobs, and they are the same job seen from two
-    sides. It says what the node holds, and -- through :meth:`normalise` -- what
-    a serialized form is turned into. An artifact cannot carry a ``date``, only
-    the string that stands for one, so a constructor that accepted only
-    ``date`` would make every ``date_value`` unreadable. It accepts the string
-    and converts it, which is the rule for every argument in this package: the
-    expression declares what it takes and is the one place that says so.
+def _identity(value: Any) -> Any:
+    """A host type JSON already carries: ``int``, ``bool``, ``str``, ``None``."""
+    return value
 
-    The class is public because other nodes need to *ask* whether something is
-    a typed value -- to read the number behind an integer position, say. That is
-    a question with a declared answer, asked with ``isinstance`` against this
-    base; it is not a reason to reach for :func:`getattr` and find out.
+
+def _unpack_float(payload: Any) -> Any:
+    """A JSON number read back as a float.
+
+    Non-finite is refused, and not because the value is somehow invalid -- it is
+    an ordinary member of the float type. It is refused because ``float_value``
+    is the kind for a number *JSON* can carry, and these three are exactly what
+    JSON's number grammar leaves out (RFC 8259). They have kinds of their own
+    (:attr:`LiteralKind.NAN`, :attr:`LiteralKind.INFINITY`), so one arriving here
+    is a payload that contradicts its own kind.
+
+    A non-number is refused for that reason plus one: it would bind as a string
+    and surface as a database error somewhere else entirely, naming neither the
+    artifact nor the position.
+    """
+    if isinstance(payload, bool) or not isinstance(payload, (int, float)):
+        raise ValueError(f"float_value must carry a JSON number, got {payload!r}")
+    if math.isnan(payload) or math.isinf(payload):
+        raise ValueError(
+            f"float_value cannot carry {payload!r}: JSON has no literal for a "
+            "non-finite number (RFC 8259). It has a kind of its own -- "
+            "nan_value or infinity_value -- which travels as text."
+        )
+    return float(payload)
+
+
+def _pack_infinity(value: Any) -> Any:
+    """An infinity, as the text naming which way it points.
+
+    The sign is the whole content of the value, so it is spelled rather than
+    left to be inferred: ``"+inf"`` is not a JSON number either, and writing a
+    bare ``Infinity`` would put the same problem back one level up.
+    """
+    return "+inf" if value > 0 else "-inf"
+
+
+def _unpack_infinity(payload: Any) -> Any:
+    """``"+inf"`` / ``"-inf"`` back to the float they name."""
+    if payload == "+inf":
+        return float("inf")
+    if payload == "-inf":
+        return float("-inf")
+    raise ValueError(f"infinity_value must be '+inf' or '-inf', got {payload!r}")
+
+
+class LiteralKind(enum.Enum):
+    """One value type: its wire kind, its host type, and the two conversions.
+
+    A member states four things and no more, and each of them is forced by the
+    others. ``wire`` is the kind string that goes into an artifact (spec 4.11.1
+    -- part of the wire contract, so it cannot drift). ``host`` is the type a
+    bind parameter of this kind carries, and it is what :meth:`of` matches
+    against. ``pack`` turns the host value into what JSON can carry, and
+    ``unpack`` turns it back; the default pair is the identity, because a
+    value whose host type *is* a JSON scalar needs no conversion.
+
+    The order of the members is the order :meth:`of` tries them, and it is not
+    cosmetic -- two host types are subclasses of another, so the narrower one
+    has to be tried first or the broader one claims it. ``bool`` is an ``int``
+    subclass, so ``BOOLEAN`` precedes ``INTEGER`` and every ``True`` reads back
+    as itself rather than as ``1``. ``datetime`` is a ``date`` subclass, so
+    ``TIMESTAMP`` precedes ``DATE``. With one class per kind, as this module
+    used to have, no such order existed to get wrong; an enum makes the
+    matching positional and so has to say which way round it goes.
+
+    ``LIST`` and ``TUPLE`` are here because a literal really does carry them:
+    ``IN`` takes a value list and renders one placeholder per member, so the
+    list is the value at that position rather than a container around one. The
+    two are separate kinds because JSON draws no distinction between an array
+    and a tuple and the artifact must (§4.8) -- they are told apart on the way
+    back by the kind, which is the whole reason a kind is worth having.
     """
 
-    #: The wire kind. Spec 4.11.1 derives it mechanically from the class name;
-    #: it is declared rather than inferred so the contract is readable here.
-    kind_name: str = ""
-
-    #: The host type this value holds, and the target of :meth:`normalise`.
-    value_type: type = object
-
-    @classmethod
-    def normalise(cls, value: Any) -> Any:
-        """*value* as this class holds it, converting its serialized form.
-
-        The default does nothing, because a class whose host type is a JSON
-        scalar -- ``int``, ``bool``, ``str``, ``None`` -- arrives already in the
-        form it is stored in. A class holding something JSON cannot carry
-        overrides this to parse: a ``date_value`` receives ``"2026-10-17"`` and
-        returns a ``date``.
-
-        This is not a second declaration of the type. It is the conversion that
-        :attr:`value_type` implies, and it lives here because here is the only
-        place that knows both the type and how to produce it.
-        """
-        return value
-
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        value: Any,
-        *,
-        alias: Optional[str] = None,
-    ):
-        value = self.normalise(value)
-        if not isinstance(value, self.value_type):
-            raise TypeError(
-                f"{type(self).__name__} takes a {self.value_type.__name__}, "
-                f"not a {type(value).__name__}"
-            )
-        super().__init__(dialect)
-        self.value = value
-        self.alias = alias
-
-    @classmethod
-    def of(cls, dialect: "SQLDialectBase", value: Any) -> "TypedValue":
-        """*value* as a node of this class, if it is not one already.
-
-        The one place a bare host value becomes a node, and it is a classmethod
-        on the class that knows the value's own type -- so the choice of node is
-        written at the call site as ``StringValue.of(dialect, x)`` rather than
-        decided by a lookup table that has to be kept in step with the classes.
-        An expression is returned untouched: a caller who wrote a node said what
-        they meant.
-        """
-        if isinstance(value, BaseExpression):
-            return value
-        return cls(dialect, value)
-
-    @property
-    def format_method(self) -> str:
-        """The dialect method that renders this value.
-
-        One method per value type, named for the type, so a backend overrides
-        exactly the kinds whose grammar it spells differently and leaves the
-        rest to the base (spec 4.4: who defines a value type constructs its
-        literal).
-        """
-        return f"format_{self.kind_name}"
-
-    def __repr__(self) -> str:
-        return f"{type(self).__name__}({self.value!r})"
-
-
-class NullValue(TypedValue):
-    """The NULL literal.
-
-    The one value type carrying nothing: ``null_value`` takes no ``value``
-    param, so the artifact is ``{"kind": "null"}``.
-    """
-
-    kind_name = "null_value"
-    value_type = type(None)
-
-    def __init__(self, dialect: "SQLDialectBase", *, alias: Optional[str] = None):
-        super().__init__(dialect, None, alias=alias)
-
-
-class BooleanValue(
-    TypedValue,
-    BooleanSurface,
-):
-    """A boolean literal."""
-
-    kind_name = "boolean_value"
-    value_type = bool
-
-
-class IntegerValue(
-    TypedValue,
-    NumericSurface,
-):
-    """An integer literal.
-
-    ``int`` is arbitrary precision in Python, which spec 4.8 explicitly allows:
-    a value another language's reader cannot hold must fail **there**, not be
-    narrowed on the way out.
-    """
-
-    kind_name = "integer_value"
-    value_type = int
-
-    def __init__(self, dialect, value, *, alias=None):
-        # bool is an int subclass, so True would slip through as 1. The wire
-        # declares this param boolean-or-integer; a bool belongs to
-        # boolean_value, and conflating them changes the rendered type.
-        if isinstance(value, bool):
-            raise TypeError(
-                f"IntegerValue takes an int, not a bool -- use BooleanValue for {value!r}"
-            )
-        super().__init__(dialect, value, alias=alias)
-
-
-class FloatValue(
-    TypedValue,
-    NumericSurface,
-):
-    """A floating-point literal (IEEE 754 double)."""
-
-    kind_name = "float_value"
-    value_type = float
-
-    def __init__(self, dialect, value, *, alias=None):
-        # int is acceptable and exact; float() widens it. NaN and Inf are
-        # refused: spec 4.8 rejects them outright rather than trusting the host
-        # encoder, because every language spells them differently (and
-        # ``str(float('inf'))`` is ``'inf'``, which would read as an identifier).
-        if isinstance(value, int) and not isinstance(value, bool):
-            value = float(value)
-        super().__init__(dialect, value, alias=alias)
-        if self.value != self.value or self.value in (float("inf"), float("-inf")):
-            raise ValueError("FloatValue rejects NaN and Inf (spec 4.8)")
-
-
-class DecimalValue(
-    TypedValue,
-    NumericSurface,
-):
-    """An exact decimal literal -- money.
-
-    ``Decimal``, never ``float``: the point of this type is that no precision
-    is lost before the value reaches the artifact, where it becomes a string
-    (wire §5).
-    """
-
-    @classmethod
-    def normalise(cls, value: Any) -> Any:
+    NULL = ("null_value", type(None), None, None, _identity, _identity)
+    BOOLEAN = ("boolean_value", bool, None, None, _identity, _identity)
+    INTEGER = ("integer_value", int, None, None, _identity, _identity)
+    FLOAT = ("float_value", float, None, None, _identity, _unpack_float)
+    # The two members of the float type JSON's number grammar leaves out. They
+    # are not errors and not edge cases -- IEEE 754 defines them and a Decimal
+    # has them -- so they are carried, each in its own kind, as text. Putting
+    # them in float_value would mean a payload that is not the number its kind
+    # promises; dropping them would mean losing part of the type.
+    NAN = ("nan_value", float, None, None, lambda _value: "nan",
+           lambda _text: float("nan"))
+    INFINITY = ("infinity_value", float, None, None, _pack_infinity, _unpack_infinity)
+    DECIMAL = (
+        "decimal_value",
+        decimal.Decimal,
+        None,
+        None,
         # A Decimal travels as a string: binary floating point cannot carry its
         # precision, and an artifact must not round a money value.
-        return value if isinstance(value, decimal.Decimal) else decimal.Decimal(value)
-    kind_name = "decimal_value"
-    value_type = decimal.Decimal
-
-
-class StringValue(
-    TypedValue,
-    TextSurface,
-):
-    """A string literal."""
-
-    kind_name = "string_value"
-    value_type = str
-
-
-class BinaryValue(
-    TypedValue,
-    OpaqueSurface,
-):
-    """A binary literal.
-
-    Holds ``bytes`` and binds them as bytes -- which is why the artifact's
-    base64 (wire §5 ``__b64__``) stays in the codec. SQLite cannot decode
-    base64 in SQL, so a spelling in the payload would have had nowhere to go;
-    the host value needs no conversion at all on the bind path, and only the
-    inline path cares, where the dialect builds ``X'...'`` (SQLite) or
-    ``'\\x...'::bytea`` (PostgreSQL) from the bytes.
-    """
-
-    @classmethod
-    def normalise(cls, value: Any) -> Any:
-        # ``{"__b64__": "..."}`` is the wire form (wire §5); this class is the one
-        # that knows its own payload is base64, and no other class's is.
-        if isinstance(value, dict) and "__b64__" in value:
-            return base64.b64decode(value["__b64__"])
-        return value
-    kind_name = "binary_value"
-    value_type = (bytes, bytearray)
-
-
-class DateValue(
-    TypedValue,
-    TemporalSurface,
-):
-    """A date literal. The host value carries its own awareness."""
-
-    @classmethod
-    def normalise(cls, value: Any) -> Any:
-        return value if isinstance(value, datetime.date) else datetime.date.fromisoformat(value)
-    kind_name = "date_value"
-    value_type = datetime.date
-
-
-class TimeValue(
-    TypedValue,
-    TemporalSurface,
-):
-    """A time-of-day literal."""
-
-    @classmethod
-    def normalise(cls, value: Any) -> Any:
-        return value if isinstance(value, datetime.time) else datetime.time.fromisoformat(value)
-    kind_name = "time_value"
-    value_type = datetime.time
-
-
-class TimestampValue(
-    TypedValue,
-    TemporalSurface,
-):
-    """A date-time literal.
-
-    Naive and aware are both ``datetime``; the distinction lives in
-    ``tzinfo`` and the spelling keeps the offset. This layer never adds ``Z``
-    and never reinterprets a naive value in some other zone.
-    """
-
-    @classmethod
-    def normalise(cls, value: Any) -> Any:
-        return (
-            value
-            if isinstance(value, datetime.datetime)
-            else datetime.datetime.fromisoformat(value)
-        )
-    kind_name = "timestamp_value"
-    value_type = datetime.datetime
-
-
-class IntervalValue(IntervalMixin, TypedValue):
-    """A time-interval literal.
-
-    ``datetime.timedelta``, kept because a year and a month have no fixed
-    length: ``P1Y2M`` cannot be a number of seconds without changing what it
-    means. The artifact carries an ISO 8601 duration (``__dur__``, wire §5).
-    """
-
-    @classmethod
-    def normalise(cls, value: Any) -> Any:
-        # ``{"__dur__": "P1DT2H"}`` is the wire form (wire §5). A bare number is
-        # read as seconds -- the only unit a plain scalar can name.
-        if isinstance(value, dict) and "__dur__" in value:
-            return _parse_duration(value["__dur__"])
-        if isinstance(value, str) and value.startswith(("-P", "P")):
-            return _parse_duration(value)
-        return (
-            value
-            if isinstance(value, datetime.timedelta)
-            else datetime.timedelta(seconds=float(value))
-        )
-
-    kind_name = "interval_value"
-    value_type = datetime.timedelta
-
-
-class UUIDValue(
-    TypedValue,
-    OpaqueSurface,
-):
-    """A UUID literal."""
-
-    @classmethod
-    def normalise(cls, value: Any) -> Any:
+        str,
+        lambda text: decimal.Decimal(text),
+    )
+    STRING = ("string_value", str, None, None, _identity, _identity)
+    BINARY = (
+        "binary_value",
+        (bytes, bytearray),
+        None,
+        None,
+        # Base64 is text, so the wire form is a JSON string. It used to be
+        # ``{"__b64__": "..."}`` -- a wrapper around that same string, carrying
+        # nothing the kind was not already saying, and something every language
+        # would have had to reimplement in order to read it back.
+        lambda value: base64.b64encode(bytes(value)).decode("ascii"),
+        lambda text: base64.b64decode(text),
+    )
+    TIMESTAMP = (
+        "timestamp_value",
+        datetime.datetime,
+        None,
+        None,
+        lambda value: value.isoformat(sep=" "),
+        # Naive and aware are both ``datetime``; the distinction lives in
+        # ``tzinfo`` and the spelling keeps the offset. This never adds ``Z``
+        # and never reinterprets a naive value in some other zone.
+        lambda text: datetime.datetime.fromisoformat(text),
+    )
+    DATE = (
+        "date_value",
+        datetime.date,
+        None,
+        None,
+        lambda value: value.isoformat(),
+        lambda text: datetime.date.fromisoformat(text),
+    )
+    TIME = (
+        "time_value",
+        datetime.time,
+        None,
+        None,
+        lambda value: value.isoformat(),
+        lambda text: datetime.time.fromisoformat(text),
+    )
+    INTERVAL = (
+        "interval_value",
+        datetime.timedelta,
+        None,
+        None,
+        # ISO 8601 is text, so the wire form is a JSON string. The entry stays
+        # wide and a bare number still reads as seconds -- the only unit a plain
+        # scalar can name -- while what gets *written* is always the string, so
+        # the artifact holds one normalised type (§10: wide in, normalised out).
+        _pack_duration,
+        lambda payload: _parse_duration(payload)
+        if isinstance(payload, str)
+        else datetime.timedelta(seconds=float(payload)),
+    )
+    LIST = ("list_value", list, None, None, list, list)
+    TUPLE = ("tuple_value", tuple, None, None, list, tuple)
+    UUID = (
+        "uuid_value",
+        uuid.UUID,
+        None,
+        None,
+        str,
         # Every spelling names one value: hyphenated, plain hex, any case, the
         # ``0x`` form. Widening here is a compatibility question -- external
         # sources write all four -- not a semantic one.
-        return value if isinstance(value, uuid.UUID) else uuid.UUID(str(value))
+        lambda text: uuid.UUID(text),
+    )
 
-    kind_name = "uuid_value"
-    value_type = uuid.UUID
+    def __init__(
+        self,
+        wire: str,
+        host: Any,
+        _formatter: Optional[str],
+        _unused: Optional[str],
+        pack: Callable[[Any], Any],
+        unpack: Callable[[Any], Any],
+    ):
+        self._value_ = wire
+        self.host = host
+        self._pack = pack
+        self._unpack = unpack
+
+    @property
+    def wire(self) -> str:
+        """The kind string this value type writes into an artifact."""
+        return self._value_
+
+    @classmethod
+    def of(cls, value: Any) -> "LiteralKind":
+        """The kind *value* belongs to, by its host type.
+
+        This is the one place a bare host value names its own kind, and it is
+        total over the closed set above. A value outside the set is refused by
+        name rather than guessed at: a bind parameter carrying something this
+        package does not know how to write has no artifact, and inventing one
+        would put an unreadable value on the wire.
+        """
+        return cls._refine(cls._by_host(value), value)
+
+    @classmethod
+    def _by_host(cls, value: Any) -> "LiteralKind":
+        for member in cls:
+            if isinstance(value, member.host):
+                return member
+        raise TypeError(
+            f"{type(value).__name__} is not one of the value kinds this "
+            f"package can write: "
+            + ", ".join(m.wire for m in cls)
+            + ". Implement SQLLiteral on the type for inline rendering, and "
+            "give it its own artifact shape if it must travel."
+        )
+
+    @classmethod
+    def match(cls, value: Any) -> Optional["LiteralKind"]:
+        """The kind *value* belongs to, or ``None`` if it belongs to none.
+
+        The difference from :meth:`of` is who gets to be told "no". A literal
+        that carries a type the dialect constructs itself -- a ``Point``, an
+        ``inet``, anything implementing :class:`~...bases.SQLLiteral` -- still
+        renders, and refusing to build it would refuse SQL the backend can
+        write. So building asks :meth:`match`, and refusing is left to
+        serialization, which is the layer that actually cannot proceed.
+        """
+        for member in cls:
+            if isinstance(value, member.host):
+                return cls._refine(member, value)
+        return None
+
+    @classmethod
+    def _refine(cls, member: "LiteralKind", value: Any) -> "LiteralKind":
+        """Separate the non-finite floats from the rest, which share one type.
+
+        ``isinstance`` cannot do this and no amount of reordering will: NaN and
+        both infinities *are* floats, so all four arrive as the same host type.
+        The kind table matches on type everywhere else, so this is the one place
+        that also looks at the value -- and it is worth the exception, because
+        the alternative is a kind whose payload contradicts its own name.
+
+        The membership is decided once, here, and read back through the same
+        function on the way in, so a value written as ``nan_value`` comes back
+        as a NaN and not as some other float.
+        """
+        if member is cls.FLOAT:
+            if math.isnan(value):
+                return cls.NAN
+            if math.isinf(value):
+                return cls.INFINITY
+        return member
+
+    @classmethod
+    def by_wire(cls, wire: str) -> "LiteralKind":
+        """The kind an artifact's ``kind`` names."""
+        for member in cls:
+            if member.wire == wire:
+                return member
+        raise ValueError(f"{wire!r} is not a known value kind")
+
+    def pack(self, value: Any) -> Any:
+        """*value* as JSON carries it, given it is this kind."""
+        return self._pack(value)
+
+    def unpack(self, payload: Any) -> Any:
+        """A packed payload as the host value this kind carries."""
+        return self._unpack(payload)
+
+    def __str__(self) -> str:
+        return self.wire
 
 
-__all__ = [
-    "B64_KEY",
-    "DUR_KEY",
-    "TypedValue",
-    "NullValue",
-    "BooleanValue",
-    "IntegerValue",
-    "FloatValue",
-    "DecimalValue",
-    "StringValue",
-    "BinaryValue",
-    "DateValue",
-    "TimeValue",
-    "TimestampValue",
-    "IntervalValue",
-    "UUIDValue",
-]
+__all__ = ["LiteralKind", "_parse_duration", "_pack_duration"]

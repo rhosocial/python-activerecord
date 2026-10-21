@@ -46,6 +46,8 @@ class SQLiteIntegerType(IntegerType):
     reuse.
     """
 
+    KIND_RESERVED = ("SQLite",)
+
     name = "sqlite_integer"
 
 
@@ -57,6 +59,8 @@ class SQLiteTextType(TextType):
     dialect can map ``VARCHAR`` / ``CHAR`` etc. to a canonical type during
     introspection round-trips.
     """
+
+    KIND_RESERVED = ("SQLite",)
 
     name = "sqlite_text"
 
@@ -74,6 +78,8 @@ class SQLiteRealType(RealType):
     Matches REAL, FLOAT, DOUBLE, and DOUBLE PRECISION in SQLite's
     type affinity mapping.
     """
+
+    KIND_RESERVED = ("SQLite",)
 
     name = "sqlite_real"
 
@@ -97,6 +103,8 @@ class SQLiteNumericType(DataType):
     single core type.
     """
 
+    KIND_RESERVED = ("SQLite",)
+
     name = "sqlite_numeric"
 
     precision: int | None = None
@@ -117,5 +125,7 @@ class SQLiteBlobType(BlobType):
     SQLite maps ``BLOB``, ``BYTEA``, ``BINARY`` and ``VARBINARY`` to
     this affinity.
     """
+
+    KIND_RESERVED = ("SQLite",)
 
     name = "sqlite_blob"

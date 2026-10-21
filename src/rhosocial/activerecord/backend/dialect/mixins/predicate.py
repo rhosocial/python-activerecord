@@ -4,10 +4,11 @@
 Renders comparison, logical, membership, null/boolean, existence, quantified,
 and pattern predicates into ``(sql, params)`` tuples.
 """
-from typing import Any, List, Tuple, TYPE_CHECKING
 
-from ...expression.mixins import AliasableMixin
+from typing import TYPE_CHECKING, Any, List, Tuple
+
 from ...expression.advanced_functions import AllPredicate, AnyPredicate, ExistsPredicate
+from ...expression.mixins import AliasableMixin
 from ...expression.predicates import (
     BetweenPredicate,
     ComparisonPredicate,
@@ -69,7 +70,14 @@ class PredicateMixin:
         right_sql, right_params = expr.right.to_sql()
         if isinstance(expr.right, QueryStatement):
             right_sql = f"({right_sql})"
-        return self._with_alias(f"{left_sql} {expr.op} {right_sql}", expr), left_params + right_params
+        # The artifact carries the operation *word*; the character is written
+        # here, so a dialect that spells it differently overrides this method
+        # rather than the wire format.
+        symbol = expr.op.symbol
+        return (
+            self._with_alias(f"{left_sql} {symbol} {right_sql}", expr),
+            left_params + right_params,
+        )
 
     def format_logical_predicate(self, expr: LogicalPredicate) -> Tuple[str, tuple]:
         """Format a logical predicate (AND/OR/NOT).
@@ -97,12 +105,11 @@ class PredicateMixin:
         A ``Literal`` wrapping a collection renders as a value list; anything
         else (e.g. a subquery) renders through its own ``to_sql()``.
 
-        The whole ``Literal`` is honoured rather than just its ``value``: the
-        value node's class-level ``inline_params`` strategy decides between
-        inline rendering and bind parameters. DDL positions (``CHECK``,
-        partial-index ``WHERE``) lift their contained literals to the
-        inline-strategy class before rendering, which is how ``IN`` becomes
-        usable inside a CHECK constraint. Inline rendering goes through
+        The whole ``Literal`` is honoured rather than just its ``value``: its
+        ``inline`` decision selects between inline rendering and bind
+        parameters. DDL positions (``CHECK``, partial-index ``WHERE``) set that
+        decision on the literals they hold, which is how ``IN`` becomes usable
+        inside a CHECK constraint. Inline rendering goes through
         ``format_literal`` so escaping and quoting match every other inline
         literal.
 
@@ -119,7 +126,7 @@ class PredicateMixin:
             values = expr.values.value
             if not values:
                 return self._with_alias(f"{operand_sql} IN ()", expr), expr_params
-            if type(expr.values).inline_params:
+            if expr.values.inline:
                 rendered = ", ".join(self.format_literal(value) for value in values)
                 return self._with_alias(f"{operand_sql} IN ({rendered})", expr), expr_params
             placeholders = ", ".join([self.get_parameter_placeholder()] * len(values))
@@ -142,9 +149,10 @@ class PredicateMixin:
         operand_sql, expr_params = expr.operand.to_sql()
         low_sql, low_params = expr.low.to_sql()
         high_sql, high_params = expr.high.to_sql()
-        return self._with_alias(
-            f"{operand_sql} BETWEEN {low_sql} AND {high_sql}", expr
-        ), expr_params + low_params + high_params
+        return (
+            self._with_alias(f"{operand_sql} BETWEEN {low_sql} AND {high_sql}", expr),
+            expr_params + low_params + high_params,
+        )
 
     def format_is_null_predicate(self, expr: IsNullPredicate) -> Tuple[str, tuple]:
         """Format an ``IS [NOT] NULL`` predicate.
@@ -178,7 +186,10 @@ class PredicateMixin:
         left_sql, left_params = expr.left.to_sql()
         right_sql, right_params = expr.right.to_sql()
         not_str = " NOT" if expr.is_not else ""
-        return self._with_alias(f"{left_sql} IS{not_str} DISTINCT FROM {right_sql}", expr), left_params + right_params
+        return (
+            self._with_alias(f"{left_sql} IS{not_str} DISTINCT FROM {right_sql}", expr),
+            left_params + right_params,
+        )
 
     def format_is_boolean_predicate(self, expr: IsBooleanPredicate) -> Tuple[str, tuple]:
         """Format an ``IS [NOT] TRUE/FALSE`` predicate.
@@ -229,9 +240,9 @@ class PredicateMixin:
             array_params = (tuple(array_expr.value),)
         else:
             array_sql, array_params = array_expr.to_sql()
-        return self._with_alias(
-            f"({expr_sql} {expr.op} ANY{array_sql})", expr
-        ), tuple(list(expr_params) + list(array_params))
+        return self._with_alias(f"({expr_sql} {expr.op} ANY{array_sql})", expr), tuple(
+            list(expr_params) + list(array_params)
+        )
 
     def format_all_predicate(self, expr: AllPredicate) -> Tuple[str, tuple]:
         """Format a quantified ``ALL`` comparison expression.
@@ -254,9 +265,9 @@ class PredicateMixin:
             array_params = (tuple(array_expr.value),)
         else:
             array_sql, array_params = array_expr.to_sql()
-        return self._with_alias(
-            f"({expr_sql} {expr.op} ALL{array_sql})", expr
-        ), tuple(list(expr_params) + list(array_params))
+        return self._with_alias(f"({expr_sql} {expr.op} ALL{array_sql})", expr), tuple(
+            list(expr_params) + list(array_params)
+        )
 
     def format_like_predicate(self, expr: LikePredicate) -> Tuple[str, tuple]:
         """Format a ``LIKE`` predicate.
@@ -270,6 +281,14 @@ class PredicateMixin:
         """
         left_sql, expr_params = expr.left.to_sql()
         pattern_sql, pattern_params = expr.pattern.to_sql()
-        return self._with_alias(
-            f"{left_sql} {expr.op} {pattern_sql}", expr
-        ), expr_params + pattern_params
+        # The keyword comes from the operator, exactly as the comparison symbol
+        # does: the node carries the word, the SQL spelling is written here. A
+        # dialect that spells NOT LIKE differently overrides this method rather
+        # than the wire format.
+        return (
+            self._with_alias(
+                f"{left_sql} {expr.op.keyword} {pattern_sql}",
+                expr,
+            ),
+            expr_params + pattern_params,
+        )

@@ -1,22 +1,27 @@
 # src/rhosocial/activerecord/backend/expression/column_types.py
-"""Type-narrowed column expressions.
+"""Column references, narrowed to the value type they hold.
 
-A column reference is a value, and the operations a value supports depend on
-what it holds. A numeric column can be added to; a text column can be
-``LIKE``-matched; a JSON column can be navigated by path. Before this module
-every :class:`~...expression.core.Column` carried every one of those
-operations, so ``User.c.age.like('%x%')`` rendered happily against an integer
-column and only failed at the database.
+A column reference is a value, and what can be done to a value depends on what
+it holds: a numeric column can be added to, a text column can be ``LIKE``-matched,
+a JSON column can be navigated by path. An untyped
+:class:`~...expression.core.Column` promises none of that, which is what makes
+``User.c.age.like('%x%')`` fail at the point where the caller is told rather than
+at the database.
 
 The narrowing
 -------------
-Python cannot *remove* a mixin from a base class, so the families here are
-**siblings** of each other under :class:`ColumnBase`, not subclasses of one
-another. ``StringColumn(ColumnBase)`` and ``NumericColumn(ColumnBase)`` each
-compose only the mixins their value type supports; there is no permissive
-parent in between that they would inherit from. :class:`~...expression.core.Column`
-is a sibling too — it keeps the full mixin set as the escape hatch for
-columns whose type is not known (see its docstring).
+Fetching a column is an operation, so a column reference is one thing: a value
+type (:mod:`~...expression.value_types`) plus the name to read from. Each class
+here is exactly those two bases and nothing else::
+
+    class NumericColumn(NumericValue, ColumnBase):
+
+That is the whole mechanism. It used to be a hand-written mixin list per class,
+which stated the same fact a second time in a place that had to be kept in step
+-- and nothing checked that it was. The lists were identical, base for base, to
+the value type each column named, which is measurable: comparing the operation
+sets of ``NumericColumn`` and ``NumericValue`` gives an empty symmetric
+difference, for every column that has a value type.
 
 Nothing about the *storage* type appears here. A ``UUIDColumn`` is a
 ``UUIDColumn`` on every backend; how the value is stored is the DDL layer's
@@ -27,23 +32,19 @@ other. See ``expression/types/__init__.py`` for the DDL-side boundary.
 from typing import Optional, TYPE_CHECKING
 
 from .bases import SQLValue
+from .value_types import (
+    ArrayValue,
+    BooleanValue,
+    JSONValue,
+    NumericValue,
+    OpaqueValue,
+    TemporalValue,
+    TextValue,
+    XMLValue,
+)
 from .mixins import (
     AliasableMixin,
-    ArithmeticMixin,
-    BooleanLogicMixin,
-    NumericValueMixin,
-    TranscendentalMixin,
-    TemporalArithmeticMixin,
-    ArrayMixin,
-    ComparisonMixin,
-    DateTimeMixin,
-    JSONAccessorMixin,
-    NotANumberMixin,
-    NotComparableMixin,
     NullTestMixin,
-    StringPatternPredicateMixin,
-    StringToIntegerMixin,
-    StringValueMixin,
     TypeCastingMixin,
 )
 
@@ -100,10 +101,10 @@ class ColumnBase(
         table_need_quote: bool = True,
     ):
         super().__init__(dialect)
-        self.name_need_quote = name_need_quote
-        self.alias_need_quote = alias_need_quote
-        self.schema_need_quote = schema_need_quote
-        self.table_need_quote = table_need_quote
+        self.name_need_quote = self.quote_flag(name_need_quote, "name_need_quote")
+        self.alias_need_quote = self.quote_flag(alias_need_quote, "alias_need_quote")
+        self.schema_need_quote = self.quote_flag(schema_need_quote, "schema_need_quote")
+        self.table_need_quote = self.quote_flag(table_need_quote, "table_need_quote")
         self.name = name
         self.table = table
         self.alias = alias
@@ -125,7 +126,7 @@ class ColumnBase(
         return f"<{type(self).__name__} {''.join(parts)}>"
 
 
-class StringColumn(ComparisonMixin, StringValueMixin, StringPatternPredicateMixin, StringToIntegerMixin, ColumnBase):
+class StringColumn(TextValue, ColumnBase):
     """A column holding text: comparison, ``LIKE`` / ``ILIKE``, casting.
 
     Not available: arithmetic. ``LIKE`` against a numeric column is a
@@ -139,7 +140,7 @@ class StringColumn(ComparisonMixin, StringValueMixin, StringPatternPredicateMixi
 
 
 
-class NumericColumn(ComparisonMixin, ArithmeticMixin, NumericValueMixin, TranscendentalMixin, ColumnBase):
+class NumericColumn(NumericValue, ColumnBase):
     """A column holding a number: comparison and arithmetic.
 
     One class for every numeric width and precision: the operations are the
@@ -182,7 +183,7 @@ class IntegerColumn(NumericColumn):
         return "format_column"
 
 
-class TimestampColumn(ComparisonMixin, TemporalArithmeticMixin, DateTimeMixin, ColumnBase):
+class TimestampColumn(TemporalValue, ColumnBase):
 
     """A column holding a date/time.
 
@@ -211,7 +212,7 @@ class TimestampColumn(ComparisonMixin, TemporalArithmeticMixin, DateTimeMixin, C
         return "format_column"
 
 
-class BooleanColumn(BooleanLogicMixin, ComparisonMixin, ColumnBase):
+class BooleanColumn(BooleanValue, ColumnBase):
 
     """A column holding a truth value: boolean algebra, comparison, casting.
 
@@ -242,7 +243,7 @@ class BooleanColumn(BooleanLogicMixin, ComparisonMixin, ColumnBase):
         return "format_column"
 
 
-class BinaryColumn(ComparisonMixin, ColumnBase):
+class BinaryColumn(OpaqueValue, ColumnBase):
 
     """A column holding raw bytes: comparison, casting, collation."""
 
@@ -252,7 +253,7 @@ class BinaryColumn(ComparisonMixin, ColumnBase):
         return "format_column"
 
 
-class UUIDColumn(ComparisonMixin, ColumnBase):
+class UUIDColumn(OpaqueValue, ColumnBase):
 
     """A column holding a UUID.
 
@@ -269,7 +270,7 @@ class UUIDColumn(ComparisonMixin, ColumnBase):
         return "format_column"
 
 
-class JSONColumn(ComparisonMixin, JSONAccessorMixin, ColumnBase):
+class JSONColumn(JSONValue, ColumnBase):
 
     """A column holding JSON: comparison, casting, and path access.
 
@@ -286,7 +287,7 @@ class JSONColumn(ComparisonMixin, JSONAccessorMixin, ColumnBase):
         return "format_column"
 
 
-class ArrayColumn(ComparisonMixin, ArrayMixin, ColumnBase):
+class ArrayColumn(ArrayValue, ColumnBase):
 
     """A column holding an array: :meth:`~...mixins.ArrayMixin.array_length`
     and :meth:`~...mixins.ArrayMixin.unnest`."""
@@ -297,7 +298,7 @@ class ArrayColumn(ComparisonMixin, ArrayMixin, ColumnBase):
         return "format_column"
 
 
-class XMLColumn(NotComparableMixin, NotANumberMixin, ColumnBase):
+class XMLColumn(XMLValue, ColumnBase):
     """A column holding an XML document: alias, null tests, casting — no comparison.
 
     The XML value surface is *not* the general value surface with a few

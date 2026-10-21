@@ -1,28 +1,32 @@
-# src/rhosocial/activerecord/backend/expression/surfaces.py
-"""The operation surfaces a value carries, named and used on their own.
+# src/rhosocial/activerecord/backend/expression/value_types.py
+"""A *value type*: what a node yields, and what can be done to it.
 
-A *surface* is what a value can be done to: text can be searched and sliced, a
-number can be added to and has a square root, a date can have days taken from
-it. Which surface a node carries is a fact about **what it yields**, and it is
-stated by naming the surface here.
+A ``*Value`` class states what an operation's result *is*. Text can be searched
+and sliced, a number can be added to and has a square root, a date can have days
+taken from it -- and the class that says so is named for the type, not for the
+node, because the type is a property of the result rather than of whatever
+produced it.
 
-These used to be the value classes themselves, which made each of them do two
-jobs at once. ``NumericValue`` was both "a number is a number" and the carrier of
-the numeric operations, so a node that *was* a number and a node that *yielded*
-one had to be the same class -- and a function result could not be its own node
-without pretending to hold a call it did not have. Separating them says the same
-thing with one name each: the node names the surface, and nothing else.
+Fetching a column is an operation too, so a column reference is one of these
+plus the column's name: :class:`~...expression.column_types.NumericColumn` and
+:class:`NumericValue` declare the same thing about the same kind of thing, and
+the only difference between them is that one knows where to read from. That is
+why there are not two families. It is also why these classes were once called
+*surfaces* -- a name for "the operations, with the value part removed" -- which
+described what had been taken away rather than what was left.
 
 What is deliberately **not** here:
 
-* no ``__init__`` -- a surface declares what operations exist, not how a node is
-  built. A node binds its dialect through :class:`BaseExpression` directly.
-* no ``to_sql`` -- a surface cannot render, because a surface is not a node.
-  A node renders itself through its own ``format_method``; see
+* no ``__init__`` -- a value type declares what operations exist, not how a node
+  is built. A node binds its dialect through :class:`BaseExpression` directly.
+* no ``to_sql`` -- a value type cannot render, because it is not a node. A node
+  renders itself through its own ``format_method``; see
   :class:`~...expression.advanced_functions.DeclaredValueType` for how a node
-  that also names a surface keeps its own rendering.
-* no forwarding -- the surfaces do not walk MROs to find each other. That
+  that also names a value type keeps its own rendering.
+* no forwarding -- the value types do not walk MROs to find each other. That
   existed for a wrapper holding a call; a node holding nothing does not need it.
+* no value -- the value at a position belongs to
+  :class:`~...expression.core.Literal`, and a value type never carries one.
 """
 
 from abc import ABC, abstractmethod
@@ -49,7 +53,7 @@ from .mixins import (
 )
 
 
-class TextSurface(
+class TextValue(
     AliasableMixin,
     ComparisonMixin,
     StringToIntegerMixin,
@@ -81,7 +85,7 @@ class TextSurface(
         raise NotImplementedError
 
 
-class NumericSurface(
+class NumericValue(
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
@@ -112,7 +116,7 @@ class NumericSurface(
         raise NotImplementedError
 
 
-class TemporalSurface(
+class TemporalValue(
     AliasableMixin,
     ComparisonMixin,
     DateTimeMixin,
@@ -143,7 +147,7 @@ class TemporalSurface(
         raise NotImplementedError
 
 
-class BooleanSurface(
+class BooleanValue(
     AliasableMixin,
     ComparisonMixin,
     BooleanLogicMixin,
@@ -168,7 +172,7 @@ class BooleanSurface(
         raise NotImplementedError
 
 
-class ArraySurface(
+class ArrayValue(
     AliasableMixin,
     ComparisonMixin,
     ArrayMixin,
@@ -193,7 +197,7 @@ class ArraySurface(
         raise NotImplementedError
 
 
-class JSONSurface(
+class JSONValue(
     AliasableMixin,
     ComparisonMixin,
     JSONAccessorMixin,
@@ -221,7 +225,7 @@ class JSONSurface(
         raise NotImplementedError
 
 
-class OpaqueSurface(
+class OpaqueValue(
     AliasableMixin,
     ComparisonMixin,
     TypeCastingMixin,
@@ -251,7 +255,7 @@ class OpaqueSurface(
         raise NotImplementedError
 
 
-class XMLSurface(
+class XMLValue(
     AliasableMixin,
     NotComparableMixin,
     NullTestMixin,
@@ -282,12 +286,12 @@ class XMLSurface(
 
 
 __all__ = [
-    "TextSurface",
-    "NumericSurface",
-    "TemporalSurface",
-    "BooleanSurface",
-    "ArraySurface",
-    "JSONSurface",
-    "OpaqueSurface",
-    "XMLSurface",
+    "TextValue",
+    "NumericValue",
+    "TemporalValue",
+    "BooleanValue",
+    "ArrayValue",
+    "JSONValue",
+    "OpaqueValue",
+    "XMLValue",
 ]

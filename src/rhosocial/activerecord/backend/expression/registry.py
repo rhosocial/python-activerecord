@@ -41,7 +41,8 @@ the bare-node rewrite).
 from enum import Enum
 from typing import Dict, Optional, Set, Tuple, Type
 
-from .bases import BaseExpression
+from .values import LiteralKind
+from .core import BaseExpression
 
 
 class RegistryReason(Enum):
@@ -105,16 +106,31 @@ class ExpressionRegistry:
     """
 
     def __init__(self) -> None:
-        # The three deserialization whitelists. See the node-table section
-        # below for why there are three and not one.
+        # The deserialization whitelist. See the node-table section below for
+        # why resolution is a lookup over up-front registrations and never an
+        # import driven by a name read out of an artifact (§4.11.4).
         self._nodes: Dict[str, Type[BaseExpression]] = {}
-        self._enums: Dict[str, Type] = {}
-        self._dataclasses: Dict[str, Type] = {}
         # Kinds that are registered but must not be read right now. Kept apart
         # from ``_nodes`` because "not registered" and "registered but off" are
         # different answers: the first is a deployment that lacks the kind, the
         # second is a deployment that has it and has switched it off.
         self._disabled: Set[str] = set()
+
+    def copy(self) -> "ExpressionRegistry":
+        """An independent twin carrying the same registrations.
+
+        Faithful means faithful. The value kinds are carried over under their own
+        wire names rather than re-derived from the class behind them, because
+        :meth:`register_node` keys on the *class* name and every value kind
+        resolves to the same class. A twin rebuilt by re-registering what it finds
+        silently loses all fourteen of them -- and loses them silently, which is
+        the part that costs: the table looks populated and refuses every artifact
+        that carries a value.
+        """
+        twin = ExpressionRegistry()
+        twin._nodes = dict(self._nodes)
+        twin._disabled = set(self._disabled)
+        return twin
 
     # ------------------------------------------------------------------
     # The node table: the kind whitelist deserialization resolves through.
@@ -132,6 +148,37 @@ class ExpressionRegistry:
     # one table would let an artifact name any of the three where the other
     # belongs, which is precisely what the whitelist is there to prevent.
     # ------------------------------------------------------------------
+
+    def register_value_kinds(self, *only: str) -> "tuple":
+        """Let every value kind resolve to :class:`~.core.Literal`.
+
+        Every value kind is enumerated in
+        :class:`~.values.LiteralKind`, not derived from class names, because
+        one class carries every value while the wire still names them apart: a
+        date's spelling and a string's are the same bytes, and only the kind
+        tells them apart (§4.11.1). Every one of them resolves to the same
+        class -- the difference is in the payload, and the decoder restores it
+        through the kind before it constructs.
+
+        This is the single exception to "the kind is derived from the class
+        name", and it is narrow on purpose: no other kind has more than one
+        class behind it, so no other kind needs a second spelling.
+
+        Args:
+            *only: Wire kind names to admit. Empty admits all of them; naming
+                any admits only those, which is how a channel allow-list is
+                built without reaching into the registry's own state.
+        """
+        from .core import Literal
+
+        wanted = set(only) if only else None
+        registered = []
+        for member in LiteralKind:
+            if wanted is not None and member.wire not in wanted:
+                continue
+            self._nodes[member.wire] = Literal
+            registered.append(member.wire)
+        return tuple(registered)
 
     def register_node(self, expr_class: Type[BaseExpression]) -> str:
         """Add one expression class to the kind whitelist.
@@ -241,60 +288,20 @@ class ExpressionRegistry:
         """Whether *kind* is registered and not switched off."""
         return kind in self._nodes and kind not in self._disabled
 
-    def register_enum(self, enum_class: Type) -> None:
-        """Add an enum class to the whitelist, keyed by its short name."""
-        name = enum_class.__name__
-        existing = self._enums.get(name)
-        if existing is enum_class:
-            return
-        if existing is not None:
-            raise RegistryError(
-                RegistryReason.SPEC_INVALID,
-                f"enum '{name}' is claimed by both {existing.__module__} and "
-                f"{enum_class.__module__}; enum names must be unique in the "
-                f"whitelist",
-            )
-        self._enums[name] = enum_class
 
-    def resolve_enum(self, name: str) -> Type:
-        """Resolve an enum short name to its class, or fail naming it."""
-        try:
-            return self._enums[name]
-        except KeyError:
-            raise RegistryError(
-                RegistryReason.KIND_NOT_REGISTERED,
-                f"enum '{name}' is not in the enum whitelist",
-                kind=name,
-            ) from None
-
-    def register_dataclass(self, dataclass_type: Type) -> None:
-        """Add a dataclass to the whitelist, keyed by its short name."""
-        name = dataclass_type.__name__
-        existing = self._dataclasses.get(name)
-        if existing is dataclass_type:
-            return
-        if existing is not None:
-            raise RegistryError(
-                RegistryReason.SPEC_INVALID,
-                f"dataclass '{name}' is claimed by both "
-                f"{existing.__module__} and {dataclass_type.__module__}; "
-                f"dataclass names must be unique in the whitelist",
-            )
-        self._dataclasses[name] = dataclass_type
-
-    def resolve_dataclass(self, name: str) -> Type:
-        """Resolve a dataclass short name to its type, or fail naming it."""
-        try:
-            return self._dataclasses[name]
-        except KeyError:
-            raise RegistryError(
-                RegistryReason.KIND_NOT_REGISTERED,
-                f"dataclass '{name}' is not in the dataclass whitelist",
-                kind=name,
-            ) from None
-
-
-#: The process-level registry dialect packages assemble themselves into.
-#: Selective assembly is normal: whatever a package did not register simply
-#: answers ``kind_not_registered``.
-default_registry = ExpressionRegistry()
+#: There is deliberately **no** module-level registry instance here.
+#:
+#: An earlier version declared one, named ``default_registry``, and it was
+#: empty for the life of the process: nothing ever assembled into it, because
+#: *which* expressions the framework ships is the framework's decision, not
+#: this module's (§7 -- the registry does not own implementations, so it must
+#: not import expression packages to learn what they contain).
+#:
+#: The name was the real damage. ``serialization.default_registry()`` is the
+#: function that builds and caches the instance the framework actually uses, and
+#: two things sharing one name means the import you want is not the import you
+#: get. Anyone who reached for the object here got a table that admits nothing
+#: and refused every artifact by name, with nothing to say why.
+#:
+#: Build your own -- :class:`ExpressionRegistry` starts empty, which is what makes
+#: a narrow table safe to hand a caller.

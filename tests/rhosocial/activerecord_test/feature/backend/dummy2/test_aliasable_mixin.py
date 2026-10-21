@@ -19,7 +19,6 @@ from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.types import (
     CustomType,
-    DecimalType,
     TextType,
 )
 
@@ -256,7 +255,6 @@ class TestAliasNonContamination:
     @pytest.mark.parametrize(
         "factory",
         [
-            lambda d: Literal(d, 1),
             lambda d: Column(d, "name"),
             lambda d: FunctionCall(d, "UPPER", Column(d, "name")),
             lambda d: Subquery(d, "SELECT 1"),
@@ -269,7 +267,7 @@ class TestAliasNonContamination:
                 condition=ComparisonPredicate(d, "=", Column(d, "id", "u"), Column(d, "user_id", "i")),
             ),
         ],
-        ids=["Literal", "Column", "FunctionCall", "Subquery", "NamedRelationRef", "JoinClause"],
+        ids=["Column", "FunctionCall", "Subquery", "NamedRelationRef", "JoinClause"],
     )
     def test_as_returns_copy_for_each_expression_type(
         self, dummy_dialect: DummyDialect, factory

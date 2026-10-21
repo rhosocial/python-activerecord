@@ -37,7 +37,6 @@ from rhosocial.activerecord.backend.expression.registry import (
     kind_of,
 )
 from rhosocial.activerecord.backend.expression.serialization import (
-    ArtifactError,
     ExpressionDeserializationError,
     deserialize,
     serialize,
@@ -158,7 +157,13 @@ def test_framework_default_registry_is_built_on_first_deserialization():
     from rhosocial.activerecord.backend.expression import serialization
 
     registry = serialization.default_registry()
-    assert len(registry.node_kinds()) >= 400, len(registry.node_kinds())
+    kinds = registry.node_kinds()
+    # The point is "assembled", not a headcount: a number here has to be edited
+    # every time a node is added or a class stops being one, and editing it is
+    # how the assertion stops meaning anything.
+    assert kinds and kinds == tuple(sorted(kinds))
+    assert "query_statement" in kinds
+    assert "integer_value" in kinds
 
     # And it is the same instance on every call.
     assert serialization.default_registry() is registry
@@ -182,15 +187,16 @@ def test_serializing_never_builds_a_registry():
         from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
         from rhosocial.activerecord.backend.expression import core as C
         from rhosocial.activerecord.backend.expression import query_parts as Q
-        from rhosocial.activerecord.backend.expression import predicates as P, values as V
+        from rhosocial.activerecord.backend.expression import predicates as P
+        from rhosocial.activerecord.backend.expression.core import Literal
         import rhosocial.activerecord.backend.expression.statements.dql as dql
         d = SQLiteDialect()
         for _ in range(5):
             serialize(dql.QueryStatement(
                 d, select=[C.Column(d, "id")], from_=[Q.Table(d, "t")],
                 where=Q.WhereClause(d, P.ComparisonPredicate(
-                    dialect=d, op=">", left=C.Column(d, "a"), right=V.IntegerValue(d, 1)))))
-            serialize(V.IntegerValue(d, 1))
+                    dialect=d, op=">", left=C.Column(d, "a"), right=Literal(d, 1)))))
+            serialize(Literal(d, 1))
         print("BUILT" if S._default_registry is not None else "NOT_BUILT")
         """
     )
@@ -204,10 +210,10 @@ def test_serializing_never_builds_a_registry():
 
 def test_serialized_node_carries_only_kind_and_params():
     """A bare node: no envelope, and the dialect is absent (§4.11.3)."""
-    from rhosocial.activerecord.backend.expression import values as V
+    from rhosocial.activerecord.backend.expression.core import Literal
 
     dialect = _sqlite_dialect()
-    artifact = serialize(V.IntegerValue(dialect, 42))
+    artifact = serialize(Literal(dialect, 42))
     assert list(artifact) == ["kind", "params"]
     assert artifact["kind"] == "integer_value"
     assert artifact["params"]["value"] == 42
@@ -220,10 +226,10 @@ def test_serialized_node_carries_only_kind_and_params():
 
 def test_deserialization_takes_the_registry_from_the_caller():
     """An injected registry decides which kinds a read may produce."""
-    from rhosocial.activerecord.backend.expression import values as V
+    from rhosocial.activerecord.backend.expression.core import Literal
 
     dialect = _sqlite_dialect()
-    artifact = serialize(V.IntegerValue(dialect, 42))
+    artifact = serialize(Literal(dialect, 42))
 
     # The caller's own table is authoritative: an empty one accepts nothing.
     # One exception type covers every rejection — unknown kind, or a kind this
@@ -234,10 +240,10 @@ def test_deserialization_takes_the_registry_from_the_caller():
 
     # A table holding just that kind reads it back.
     narrow = ExpressionRegistry()
-    narrow.register_node(V.IntegerValue)
+    narrow.register_value_kinds()
     restored = deserialize(artifact, dialect, registry=narrow)
-    assert isinstance(restored, V.IntegerValue)
-    assert restored.to_sql() == (V.IntegerValue(dialect, 42)).to_sql()
+    assert isinstance(restored, Literal)
+    assert restored.to_sql() == (Literal(dialect, 42)).to_sql()
 
 
 def test_kind_whitelist_has_no_collisions():
@@ -246,9 +252,6 @@ def test_kind_whitelist_has_no_collisions():
     Two same-named classes derive one kind (§4.11.1), so an artifact could not
     say which it meant. This is the check that caught ``edge_table``.
     """
-    from rhosocial.activerecord.backend.expression import serialization
-
-    registry = serialization.default_registry()
     by_kind = {}
     for expr_class in _ALL:
         kind = kind_of(expr_class)

@@ -546,7 +546,7 @@ class TestUpdateStatements:
             dummy_dialect,
             table=Table(dummy_dialect, 'products'),
             assignments={"price": Literal(dummy_dialect, 19.99)},
-            where=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active"),
+            where=StringColumn(dummy_dialect, "status") == Literal(dummy_dialect, "active"),
         )
         update_expr_valid.validate(strict=False)  # Should not raise any exception
         assert True  # Just to ensure the test passes

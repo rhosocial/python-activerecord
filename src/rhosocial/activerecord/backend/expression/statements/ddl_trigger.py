@@ -11,7 +11,10 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-class TriggerTiming(Enum):
+class TriggerTiming(str, Enum):
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
+
     """Trigger execution timing."""
 
     BEFORE = "BEFORE"
@@ -19,8 +22,11 @@ class TriggerTiming(Enum):
     INSTEAD_OF = "INSTEAD OF"
 
 
-class TriggerEvent(Enum):
+class TriggerEvent(str, Enum):
     """Trigger event types."""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     INSERT = "INSERT"
     UPDATE = "UPDATE"
@@ -28,7 +34,10 @@ class TriggerEvent(Enum):
     TRUNCATE = "TRUNCATE"
 
 
-class TriggerLevel(Enum):
+class TriggerLevel(str, Enum):
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
+
     """Trigger execution level."""
 
     ROW = "FOR EACH ROW"

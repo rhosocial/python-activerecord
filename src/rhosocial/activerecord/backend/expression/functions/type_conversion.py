@@ -9,10 +9,10 @@ from ..core import (
     Column,
     Literal,
 )
-from ..surfaces import (
-    NumericSurface,
-    TemporalSurface,
-    TextSurface,
+from ..value_types import (
+    NumericValue,
+    TemporalValue,
+    TextValue,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -49,12 +49,12 @@ class _ConversionOperand:
 class ToCharFunction(
     _ConversionOperand,
     DeclaredValueType,
-    TextSurface,
+    TextValue,
 ):
     """``TO_CHAR(value[, format])`` -- the value written as text.
 
     Text, because that is the whole point: this is how a number or a date
-    reaches a report column, so the text surface follows and the numeric one
+    reaches a report column, so the text value_type follows and the numeric one
     does not.
 
     :attr:`format` is a mask, and it is optional in a way that matters -- absent
@@ -79,7 +79,7 @@ class ToCharFunction(
 class ToNumberFunction(
     _ConversionOperand,
     DeclaredValueType,
-    NumericSurface,
+    NumericValue,
 ):
     """``TO_NUMBER(value[, format])`` -- text read back as a number.
 
@@ -105,7 +105,7 @@ class ToNumberFunction(
 class ToDateFunction(
     _ConversionOperand,
     DeclaredValueType,
-    TemporalSurface,
+    TemporalValue,
 ):
     """``TO_DATE(value[, format])`` -- text read back as a **date**.
 
@@ -143,24 +143,24 @@ def _cast_class_for(annotation):
 
     ``CastExpression`` comes first: it supplies the node's own state and
     ``format_method``. ``DeclaredValueType`` supplies the rendering. The third
-    base is the annotation's **surface**, not the annotation: ``CastExpression``
+    base is the annotation's **value_type**, not the annotation: ``CastExpression``
     already derives from ``DeclaredValueType`` and so does the annotation, and
     asking for both leaves two orders to satisfy and no linearization. The
-    surface adds only mixins, so it settles -- and it keeps the annotation's own
+    value_type adds only mixins, so it settles -- and it keeps the annotation's own
     ``format_method`` out of reach, which is what a cast wants: it holds a type,
     not a node.
     """
     from ..core import CastExpression
 
-    surface = annotation.surface
+    value_type = annotation.value_type_of()
     try:
         return _CAST_ANNOTATION_CLASSES[annotation]
     except KeyError:
         from ..advanced_functions import DeclaredValueType
 
         combined = type(
-            f"Cast{surface.__name__}",
-            (CastExpression, DeclaredValueType, surface),
+            f"Cast{value_type.__name__}",
+            (CastExpression, DeclaredValueType, value_type),
             {
                 "__doc__": (
                     f"A CAST to a type this annotation represents, so it is "
@@ -273,7 +273,7 @@ def _type_annotations():
         # Documents.
         JsonType: JSONAnnotation,
         JsonBType: JSONAnnotation,
-        # An XML document: a value with its own surface, not a string.
+        # An XML document: a value with its own value_type, not a string.
         XmlType: XMLAnnotation,
         # Sequences.
         ArrayType: ArrayAnnotation,

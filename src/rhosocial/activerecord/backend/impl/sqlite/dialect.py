@@ -117,7 +117,6 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     ViewMixin,
     TriggerMixin,
     SetOperationMixin,
-    TypedValueMixin,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
@@ -163,10 +162,14 @@ from .mixins import (
     SQLiteFTS5Mixin,
     SQLiteRTreeMixin,
     SQLiteGeopolyMixin,
+    # Object naming: SQLite's schema is an attached-database name, which is not
+    # the SQL-standard construct, so naming is answered here rather than by the
+    # DDL probes. Placed ahead of the shared TableNameMixin in the class list.
+    SQLiteObjectNameMixin,
     SQLiteTypeSupportMixin,
     # Value literals: SQLite's blob spelling, overriding the base's
     # format_binary_value / format_uuid_value by MRO position.
-    SQLiteTypedValueMixin,
+    LiteralValueMixin,
     # Column types. SQLite states its own full table: the four sequence entries
     # take JSONColumn (there is no array type here) and float/Decimal both take
     # NumericColumn. There is no generic table in core to compose.
@@ -185,9 +188,17 @@ _SUGGESTION_QUALIFY = "SQLite does not support QUALIFY clause. Use a subquery or
 
 
 class SQLiteDialect(
+    # Ahead of SQLDialectBase, unlike every other mixin here. Those add methods
+    # the base does not have, so their position is a readability choice; this
+    # one overrides ``format_literal``, and a mixin placed after the class it
+    # overrides never wins. It resolves SQLite's two tier-2 spellings -- blob
+    # and UUID -- and leaves the base's portable forms and the
+    # literal-construction protocol to it.
+    LiteralValueMixin,
     SQLDialectBase,
     RelationSourceMixin,
     # Named objects: each *NameMixin inherits NamespaceMixin, so they precede it.
+    SQLiteObjectNameMixin,
     TableNameMixin,
     ViewNameMixin,
     MaterializedViewNameMixin,
@@ -275,10 +286,6 @@ class SQLiteDialect(
     SQLiteGeopolyMixin,
     # DataType formatting and parsing
     SQLiteTypeSupportMixin,
-    # Value literals: SQLite's spellings ahead of the base's tier-1 rendering.
-    # This order is what resolves format_binary_value and format_uuid_value.
-    SQLiteTypedValueMixin,
-    TypedValueMixin,
     UserDefinedTypeMixin,
     DomainMixin,
     # Collation mixin (after SQLite mixins so that SQLiteDateTimeMixin.supports_collate_expression takes priority)
@@ -599,6 +606,14 @@ class SQLiteDialect(
 
     def supports_for_update_skip_locked(self) -> bool:
         """Whether FOR UPDATE SKIP LOCKED is supported."""
+        return False
+
+    def supports_for_update_nowait(self) -> bool:
+        """Whether FOR UPDATE NOWAIT is supported.
+
+        SQLite has no ``NOWAIT``: the locking clause is ``BEGIN IMMEDIATE`` /
+        ``BEGIN EXCLUSIVE``, and there is nothing to attach a wait modifier to.
+        """
         return False
 
     def supports_for_update(self) -> bool:

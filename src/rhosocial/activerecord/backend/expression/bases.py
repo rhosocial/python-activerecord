@@ -33,48 +33,37 @@ SQLQueryAndParams: TypeAlias = Tuple[str, tuple]
 SQLQueryAndParams.__module__ = __name__
 
 
-def is_sql_query_and_params(obj):
-    """Check if an object is of type SQLQueryAndParams (Tuple[str, tuple]).
+class QueryWithParams:
+    """The shape of a SQL string together with its parameters.
 
-    Args:
-        obj: The object to check
+    ``SQLQueryAndParams`` stays a type alias: it appears in annotations and in
+    pydantic models, where a class would change the field's schema rather than
+    describe it. This class owns the *check* instead, so the shape is stated
+    once, beside the alias that names it, and callers reach it as a member
+    rather than as a free function.
 
-    Returns:
-        bool: True if the object is a SQLQueryAndParams tuple, False otherwise
+    The five places that ask the question are in three unrelated families --
+    the model bases, the expression tree, and the query protocols -- and they
+    share no ancestor, so there is no base class to hang this on.
     """
-    return (
-        isinstance(obj, tuple)
-        and len(obj) == 2
-        and isinstance(obj[0], str)
-        and (isinstance(obj[1], tuple) or obj[1] is None)
-    )
 
+    @classmethod
+    def holds(cls, obj: Any) -> bool:
+        """Whether *obj* has the shape of a query with its parameters.
 
-def require_exclusive_options(flag_a: bool, flag_b: bool, name_a: str, name_b: str) -> None:
-    """Refuse a clause whose two spellings were both requested.
+        Args:
+            obj: The object to check
 
-    A two-spelling clause (``CASCADE`` / ``RESTRICT``, ``DEFERRABLE`` /
-    ``NOT DEFERRABLE``) is two parameters, not one option with three values.
-    Asking for both is API misuse, and the refusal is worded once here so
-    every clause reports it the same way instead of each restating the
-    sentence.
-
-    This is an internal-consistency question, not a dialect-capability one: no
-    backend can render ``CASCADE RESTRICT``, so the answer does not depend on
-    which formatter will later render the expression. It therefore stays at
-    construction time rather than moving into the formatter.
-
-    Args:
-        flag_a: whether the first spelling was requested
-        flag_b: whether the second spelling was requested
-        name_a: parameter name of the first spelling
-        name_b: parameter name of the second spelling
-
-    Raises:
-        ValueError: if both spellings were requested
-    """
-    if flag_a and flag_b:
-        raise ValueError(f"{name_a} and {name_b} are mutually exclusive options")
+        Returns:
+            bool: True if the object is a SQLQueryAndParams tuple, False
+            otherwise
+        """
+        return (
+            isinstance(obj, tuple)
+            and len(obj) == 2
+            and isinstance(obj[0], str)
+            and (isinstance(obj[1], tuple) or obj[1] is None)
+        )
 
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -106,18 +95,6 @@ class ToSQLProtocol(Protocol):
         """
         ...
 
-    inline_params: bool  # pragma: no cover
-    """
-    Whether this expression class renders its literal values **inline** (as
-    SQL text) instead of as bind parameters.
-
-    This is a **class-level rendering strategy**, decided once when the class
-    is defined — never per instance and never per call site. DDL syntax
-    positions (``DEFAULT`` / ``CHECK`` / partition boundaries / index
-    expressions) accept no bind parameters, so the classes that belong to
-    those positions declare ``True``; DQL/DML data positions keep ``False``
-    (bind parameters, the injection-safe default). See ``BaseExpression``.
-    """
 
 
 @runtime_checkable
@@ -162,8 +139,78 @@ class BaseExpression:
 
     - :attr:`dialect` property — validated binding (constructor-optional,
       late binding via the setter; **per-node only, no propagation**);
-    - :attr:`inline_params` class attribute — the inline-literal rendering
-      strategy (defaults to ``False`` for injection safety).
+
+    Rendering is **centralised** and **stateless**: :meth:`to_sql` is
+    implemented once, here, and is the only rendering entry point. A concrete
+    expression class participates by declaring exactly one thing — its
+    dialect formatting method name, through the read-only :attr:`format_method`
+    property. ``to_sql()`` resolves that name on the node's own bound dialect
+    (raising if unbound or if the dialect does not provide it) and hands
+    **this** expression to the formatting function. The rendered tree is
+    responsible for its own per-node dialect binding; no reconstruction or
+    propagation happens at render time.
+    """
+
+    @classmethod
+    def quote_flag(cls, value: Any, name: str) -> bool:
+        """A quoting flag, or a failure naming where it came from.
+
+        These flags are ``bool`` with no third state. There is no "unspecified" to
+        represent, because the formatter never meets an absent one -- the value is
+        settled at construction and carried on the artifact (§10.1). So the only way
+        a flag goes wrong is a caller passing something that is not a bool, and
+        ``None`` is the one that arrives by accident: it reads as "I did not think
+        about it" and lands on the branch that writes the identifier out with
+        nothing escaped.
+
+        The annotation already says ``bool``. Python does not enforce annotations,
+        so this is where the type is actually checked.
+        """
+        if not isinstance(value, bool):
+            raise TypeError(
+                f"{cls.__name__}.{name} must be a bool, got {type(value).__name__}. "
+                "Quoting is decided per position and has no 'unspecified' state: "
+                "pass True to quote, False to write the identifier as it stands."
+            )
+        return value
+
+    @staticmethod
+    def require_exclusive_options(flag_a: bool, flag_b: bool, name_a: str, name_b: str) -> None:
+        """Refuse a clause whose two spellings were both requested.
+
+        A two-spelling clause (``CASCADE`` / ``RESTRICT``, ``DEFERRABLE`` /
+        ``NOT DEFERRABLE``) is two parameters, not one option with three values.
+        Asking for both is API misuse, and the refusal is worded once here so
+        every clause reports it the same way instead of each restating the
+        sentence.
+
+        This is an internal-consistency question, not a dialect-capability one:
+        no backend can render ``CASCADE RESTRICT``, so the answer does not
+        depend on which formatter will later render the expression. It
+        therefore stays at construction time rather than moving into the
+        formatter.
+
+        Args:
+            flag_a: whether the first spelling was requested
+            flag_b: whether the second spelling was requested
+            name_a: parameter name of the first spelling
+            name_b: parameter name of the second spelling
+
+        Raises:
+            ValueError: if both spellings were requested
+        """
+        if flag_a and flag_b:
+            raise ValueError(f"{name_a} and {name_b} are mutually exclusive options")
+
+    """
+    Shared protocol-attribute implementation for every SQL expression.
+
+    Satisfies the :class:`ToSQLProtocol` contract **structurally** — explicit
+    inheritance is neither required nor used (a protocol is structural; this
+    base is the shared implementation of its members):
+
+    - :attr:`dialect` property — validated binding (constructor-optional,
+      late binding via the setter; **per-node only, no propagation**);
 
     Rendering is **centralised** and **stateless**: :meth:`to_sql` is
     implemented once, here, and is the only rendering entry point. A concrete
@@ -356,19 +403,6 @@ class BaseExpression:
         """
         pass  # pragma: no cover
 
-    inline_params: bool = False
-    """Class-level inline-literal rendering strategy (see
-    :class:`ToSQLProtocol` for the contract): **False** — bind parameters are
-    the safe default, and DQL/DML data positions keep it. A class that belongs
-    to a DDL syntax position (``DEFAULT`` / ``CHECK`` / partition boundaries /
-    index expressions — positions that accept no bind parameters) declares
-    ``True`` when it is defined, and its formatter then renders contained
-    values as dialect-controlled inline literals.
-
-    Whether inlining happens is decided by the **class**, once: the syntax
-    position may not overrule it, and it may not be flipped per instance —
-    formatters read ``type(expr).inline_params``, so an instance-level
-    assignment has no effect on rendering."""
 
     #: Tokens at the head of a class name that are a single word and must not
     #: be split when the kind is derived (§4.9.4). Empty on the core.
@@ -387,6 +421,22 @@ class BaseExpression:
     #: an independent identifier table "would drift from the class names, and
     #: that drift directly breaks existing artifacts").
     KIND_RESERVED: Tuple[str, ...] = ()
+
+    #: Whether the framework's default registry admits this node (§7).
+    #:
+    #: Set it ``False`` for a node whose rendered SQL is text the caller vouched
+    #: for. The artifact is untrusted input (§10), so admitting such a kind into
+    #: the table a reader resolves against would let the artifact choose raw SQL:
+    #: the reader would rebuild a node whose ``to_sql()`` emits whatever the
+    #: payload said. Excluding it keeps that out of reach by default.
+    #:
+    #: This is a *default*, not a prohibition. Nothing stops a caller who trusts
+    #: its artifacts from registering the class itself — the registry is
+    #: assembled from the expressions a distribution ships, and which ones those
+    #: are is the distribution's call. Deciding it per class, next to the class,
+    #: is what keeps the framework from carrying a list of names it would then
+    #: have to keep in step.
+    REGISTER_BY_DEFAULT: bool = True
 
     @classmethod
     def kind(cls) -> str:

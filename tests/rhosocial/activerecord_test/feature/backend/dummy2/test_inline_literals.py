@@ -1,20 +1,23 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_inline_literals.py
-"""Tests for class-level inline-literal rendering (``inline_params`` strategy).
+"""Tests for per-value inline-vs-bound rendering (``Literal.inline``).
 
 Covers:
-- ``Literal`` (data position): always a bind-parameter placeholder
-- ``DdlLiteral`` (DDL position): inline escaped text via format_literal, no params
-- Per-class isolation inside a comparison predicate
-- The strategy is read off the class, so an instance-level assignment has
-  no effect on rendering
-- The DDL renderers lift plain literals to the DDL class (CHECK condition
-  and partial-index WHERE carry no bind parameters)
+- ``inline=False`` (the default, every data position): a bind-parameter
+  placeholder, and nothing in ``params`` to quote
+- ``inline=True`` (DDL syntax positions): escaped SQL text, no params
+- The decision is per **position**, so one node holding two values can render
+  one inline and the other bound
+- Escaping still goes through the dialect's controlled literal construction
+- DDL conditions built from ordinary data-position nodes render inline, because
+  the DDL renderer marks the values it owns
 """
+
+import pytest
 
 from rhosocial.activerecord.backend.expression import (
     Column,
     ComparisonPredicate,
-    DdlLiteral,
+    InPredicate,
     Literal,
 )
 
@@ -24,69 +27,123 @@ def _dummy_dialect():
     return DummyDialect()
 
 
-class TestInlineParamsClassStrategy:
-    """Literal rendering honours the class-level inline_params strategy."""
+class TestLiteralInlineDecision:
+    """A literal renders inline or bound according to its own ``inline``."""
 
-    def test_data_position_literal_uses_placeholder(self):
+    def test_default_binds(self):
         lit = Literal(_dummy_dialect(), "abc")
-        assert type(lit).inline_params is False
+        assert lit.inline is False
         assert lit.to_sql() == ("?", ("abc",))
 
-    def test_ddl_position_literal_inlines_text(self):
-        lit = DdlLiteral(_dummy_dialect(), "abc")
-        sql, params = lit.to_sql()
-        assert sql == "'abc'"
-        assert params == ()
+    def test_inline_writes_sql_text(self):
+        lit = Literal(_dummy_dialect(), "abc", inline=True)
+        assert lit.to_sql() == ("'abc'", ())
 
-    def test_ddl_literal_escapes_quotes(self):
-        lit = DdlLiteral(_dummy_dialect(), "it's")
+    def test_inline_escapes_quotes(self):
+        lit = Literal(_dummy_dialect(), "it's", inline=True)
         sql, params = lit.to_sql()
         assert sql == "'it''s'"
         assert params == ()
 
-    def test_ddl_literal_numeric(self):
-        assert DdlLiteral(_dummy_dialect(), 42).to_sql() == ("42", ())
+    def test_inline_numeric(self):
+        assert Literal(_dummy_dialect(), 42, inline=True).to_sql() == ("42", ())
 
-    def test_per_class_isolation_in_predicate(self):
+    def test_repr_shows_the_decision(self):
+        assert repr(Literal(_dummy_dialect(), 1)) == "Literal(1)"
+        assert repr(Literal(_dummy_dialect(), 1, inline=True)) == "Literal(1, inline)"
+
+    def test_the_decision_is_per_instance(self):
+        """Two literals of the same class, decided differently."""
+        one = Literal(_dummy_dialect(), 1)
+        other = Literal(_dummy_dialect(), 2, inline=True)
+        assert one.to_sql() == ("?", (1,))
+        assert other.to_sql() == ("2", ())
+
+
+class TestMixedPositionsInOneNode:
+    """A node holding several values renders each by its own decision."""
+
+    def test_one_inline_one_bound(self):
         dialect = _dummy_dialect()
         pred = ComparisonPredicate(
             dialect, "=",
-            DdlLiteral(dialect, "a"),
+            Literal(dialect, "a", inline=True),
             Literal(dialect, "b"),
         )
+        assert pred.to_sql() == ("'a' = ?", ("b",))
+
+    def test_in_list_honours_each_value(self):
+        dialect = _dummy_dialect()
+        pred = InPredicate(
+            dialect, Column(dialect, "status"),
+            Literal(dialect, ("debit", "credit"), inline=True),
+        )
         sql, params = pred.to_sql()
-        assert sql == "'a' = ?"
-        assert params == ("b",)
+        assert sql == '"status" IN (\'debit\', \'credit\')'
+        assert params == ()
 
-    def test_instance_assignment_cannot_flip_the_strategy(self):
-        """The formatters read the class attribute, not the instance."""
-        lit = Literal(_dummy_dialect(), "abc")
-        assert lit.to_sql() == ("?", ("abc",))
-        lit.inline_params = True  # instance shadowing must stay inert
-        assert lit.to_sql() == ("?", ("abc",))
-        del lit.inline_params
+    def test_in_list_bound_by_default(self):
+        dialect = _dummy_dialect()
+        pred = InPredicate(
+            dialect, Column(dialect, "status"), Literal(dialect, ("a", "b"))
+        )
+        assert pred.to_sql() == ('"status" IN (?, ?)', ("a", "b"))
 
-    def test_ddl_literal_repr(self):
-        assert repr(DdlLiteral(_dummy_dialect(), 1)) == "DdlLiteral(1)"
 
-    def test_check_condition_lifts_plain_literals(self):
-        """A CHECK built from ordinary data-position nodes renders inline."""
+class TestLiteralClaimsNoType:
+    """A value at a position says nothing about what the position's type is."""
+
+    def test_no_comparison_operations(self):
+        lit = Literal(_dummy_dialect(), 7)
+        assert not hasattr(lit, "like")
+        assert not hasattr(lit, "sqrt")
+
+    def test_not_a_sql_value(self):
+        from rhosocial.activerecord.backend.expression.bases import SQLValue
+        assert not isinstance(Literal(_dummy_dialect(), 7), SQLValue)
+
+
+class TestDdlPositionsDemandInlineValues:
+    """A DDL position renders the values it is given, and refuses the rest.
+
+    There is no pass that copies the tree and lifts anything into it any more.
+    A caller who composes a ``CHECK`` condition owns every literal in it and
+    says ``inline=True`` on each; one that does not renders bind parameters
+    into a statement that has nowhere to put them, and the refusal names the
+    fix rather than guarding against a hypothetical.
+    """
+
+    def test_check_condition_inlines_the_callers_literals(self):
+        """A CHECK built from inline-marked values renders inline."""
         from rhosocial.activerecord.backend.expression import TableCheckConstraint
 
+        dialect = _dummy_dialect()
         condition = ComparisonPredicate(
-            _dummy_dialect(), ">", Column(_dummy_dialect(), "age"), Literal(_dummy_dialect(), 0)
+            dialect, ">", Column(dialect, "age"), Literal(dialect, 0, inline=True)
         )
-        constraint = TableCheckConstraint(_dummy_dialect(), condition)
+        constraint = TableCheckConstraint(dialect, condition)
         assert constraint.to_sql() == ('CHECK ("age" > 0)', ())
 
-    def test_partial_index_where_lifts_plain_literals(self):
-        from rhosocial.activerecord.backend.expression.objects import Index
-        from rhosocial.activerecord.backend.expression.objects import Table
-        from rhosocial.activerecord.backend.expression.statements.ddl_index import CreateIndexStatement
+    def test_a_value_the_caller_did_not_mark_is_refused(self):
+        """The contract is enforced where the bind value would appear."""
+        from rhosocial.activerecord.backend.expression import TableCheckConstraint
+
+        dialect = _dummy_dialect()
+        condition = ComparisonPredicate(
+            dialect, ">", Column(dialect, "age"), Literal(dialect, 0)
+        )
+        with pytest.raises(ValueError, match="inline=True"):
+            TableCheckConstraint(dialect, condition).to_sql()
+
+    def test_partial_index_where_inlines_the_callers_literals(self):
+        from rhosocial.activerecord.backend.expression.objects import Index, Table
+        from rhosocial.activerecord.backend.expression.statements.ddl_index import (
+            CreateIndexStatement,
+        )
 
         dialect = _dummy_dialect()
         where = ComparisonPredicate(
-            dialect, "=", Column(dialect, "status"), Literal(dialect, "active")
+            dialect, "=", Column(dialect, "status"), Literal(dialect, "active", inline=True)
         )
         stmt = CreateIndexStatement(
             dialect, index=Index(dialect, "idx_active"), table=Table(dialect, "users"),
@@ -95,3 +152,15 @@ class TestInlineParamsClassStrategy:
         sql, params = stmt.to_sql()
         assert "WHERE \"status\" = 'active'" in sql
         assert params == ()
+
+    def test_check_with_in_list(self):
+        from rhosocial.activerecord.backend.expression import TableCheckConstraint
+
+        dialect = _dummy_dialect()
+        condition = InPredicate(
+            dialect, Column(dialect, "kind"),
+            Literal(dialect, ("a", "b"), inline=True),
+        )
+        assert TableCheckConstraint(dialect, condition).to_sql() == (
+            """CHECK ("kind" IN ('a', 'b'))""", ()
+        )

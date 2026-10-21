@@ -5,7 +5,7 @@ Core SQL expression components like columns, literals, function calls, and subqu
 
 from typing import Any, Optional, Tuple, TYPE_CHECKING, Union
 
-from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValue, is_sql_query_and_params
+from .bases import BaseExpression, QueryWithParams, SQLPredicate, SQLQueryAndParams, SQLValue
 from .column_types import ColumnBase
 from .mixins import (
     AliasableMixin,
@@ -25,22 +25,37 @@ if TYPE_CHECKING:
     from .types._base import DataType
 
 
-class Literal(
-    AliasableMixin,
-    ArithmeticMixin,
-    ComparisonMixin,
-    StringPatternPredicateMixin,
-    TypeCastingMixin,
-    SQLValue,
-):
-    """A literal value at a DQL/DML **data position**.
+class Literal(BaseExpression):
+    """A literal, and nothing but the decision of how it reaches SQL.
 
-    Rendering is a pure read of class-level state: ``Literal`` belongs to a
-    data position, so :attr:`inline_params` is ``False`` and the value always
-    renders as a bind parameter. A literal that belongs to a DDL syntax
-    position (``DEFAULT`` / ``CHECK`` / index expressions) is
-    :class:`DdlLiteral`, whose class declares ``inline_params = True`` —
-    whether a literal inlines is decided by its class, never per instance.
+    Every value that reaches SQL passes through this class, so that the question
+    "does this value become a bind parameter or SQL text?" has exactly one place
+    that answers it. Nothing else in the tree has to know: a formatter calls
+    ``child.to_sql()`` and gets ``(sql, params)`` back, whether the child was a
+    function call or a value.
+
+    :attr:`inline` is that answer, and it is per **position** rather than per
+    class. A node whose values all take the same treatment never needs it — the
+    default, ``False``, binds, which is what every DQL/DML data position wants.
+    A DDL syntax position that accepts no bind parameters at all passes
+    ``inline=True`` and gets escaped SQL text instead. Where one node holds
+    several values and only some of them are exempt from binding, this is the
+    only way to say so.
+
+    What the class deliberately does **not** claim is what kind of value this
+    is. It is not a :class:`~...bases.SQLValue`: that category says "this
+    expression yields a value of some type", and a bare position does not know
+    its type — ``NULLIF(a, b)`` is text or a number depending on the data. The
+    earlier version of this class inherited the comparison, arithmetic and
+    string-pattern mixins, which let ``Literal(d, 7).like()`` compile and
+    promised SQL the database would reject. The result's type is declared
+    elsewhere, by :meth:`~...mixins.ResultTypeMixin.as_text` and its siblings.
+
+    Nor is a literal aliasable. A bind parameter has no name to give — the
+    parameter the driver fills in is the driver's, not the query's — and a name
+    on SQL text would be naming text rather than a result. Aliasing belongs to
+    the things that produce a named result, which is what
+    :class:`~...bases.SQLValue` is for.
     """
 
     @property
@@ -53,33 +68,28 @@ class Literal(
         dialect: "SQLDialectBase",
         value: Any,
         *,
-        alias: Optional[str] = None,
+        inline: bool = False,
     ):
         super().__init__(dialect)
+        from .values import LiteralKind
+
+        # Which value kind this is, read off the host value. It is the artifact
+        # identity, and it cannot be derived from the class: one class carries
+        # every value, while the wire still names the twelve kinds separately --
+        # ``"2020-01-02"`` as a date and as a string are the same bytes, and
+        # only the kind tells them apart.
+        #
+        # ``None`` for a type no kind names -- a ``Point``, an ``inet``, any
+        # ``SQLLiteral`` implementor. The literal still renders through the
+        # dialect's own literal construction; what it cannot do is travel, and
+        # serialization is where that is said.
+        self.value_kind = LiteralKind.match(value)
         self.value = value
-        self.alias = alias
+        self.inline = inline
 
     def __repr__(self) -> str:
-        return f"Literal({self.value!r})"
-
-
-class DdlLiteral(Literal):
-    """A literal value at a **DDL syntax position**.
-
-    ``DEFAULT`` / ``CHECK`` / partition boundaries / index expressions accept
-    no bind parameters, so this class — the DDL-position counterpart of
-    :class:`Literal` — declares ``inline_params = True``: the value renders
-    inline through the dialect's controlled literal construction (escaped,
-    quoted) and produces no bind value. Callers that build DDL by hand use
-    this class directly; the dialect's DDL renderers lift ordinary
-    :class:`Literal` nodes to it when rendering a condition they own, so a
-    data-position tree never has to be pre-flattened for DDL.
-    """
-
-    inline_params: bool = True
-
-    def __repr__(self) -> str:
-        return f"DdlLiteral({self.value!r})"
+        where = "" if not self.inline else ", inline"
+        return f"Literal({self.value!r}{where})"
 
 
 class Column(ColumnBase):
@@ -358,7 +368,7 @@ class Subquery(AliasableMixin, ArithmeticMixin, ComparisonMixin, TypeCastingMixi
                 # If input is a string, use it directly with empty params
                 self.query_input = query
                 self.query_params = ()
-            elif is_sql_query_and_params(query):
+            elif QueryWithParams.holds(query):
                 # If input is a SQLQueryAndParams (str, tuple), extract SQL and params
                 sql_str, params = query
                 # If params is None, use an empty tuple
@@ -399,8 +409,8 @@ class QualifiedIdentifier(BaseExpression):
         schema_need_quote: bool = True,
     ):
         super().__init__(dialect)
-        self.name_need_quote = name_need_quote
-        self.schema_need_quote = schema_need_quote
+        self.name_need_quote = self.quote_flag(name_need_quote, "name_need_quote")
+        self.schema_need_quote = self.quote_flag(schema_need_quote, "schema_need_quote")
         self.schema = schema
         self.name = name
 

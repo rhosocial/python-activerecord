@@ -155,7 +155,7 @@ class CTEQuery(
             from ..backend.expression.operators import RawSQL
 
             query_expr = RawSQL(dialect, convert_qmark_placeholder(dialect, query))
-        elif bases.is_sql_query_and_params(query):
+        elif bases.QueryWithParams.holds(query):
             # If query is a SQLQueryAndParams (str, tuple), create a RawSQL with parameters
             from ..backend.expression.operators import RawSQL
 
@@ -476,7 +476,7 @@ class AsyncCTEQuery(
             from ..backend.expression.operators import RawSQL
 
             query_expr = RawSQL(dialect, convert_qmark_placeholder(dialect, query))
-        elif bases.is_sql_query_and_params(query):
+        elif bases.QueryWithParams.holds(query):
             # If query is a SQLQueryAndParams (str, tuple), create a RawSQL with parameters
             from ..backend.expression.operators import RawSQL
 

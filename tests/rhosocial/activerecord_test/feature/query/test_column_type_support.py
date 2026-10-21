@@ -27,7 +27,7 @@ import decimal
 import enum
 import typing
 import uuid
-from typing import Any, ClassVar, Dict, List, Optional, Type, Union
+from typing import Any, ClassVar, Dict, List, Optional, Union
 
 import pytest
 

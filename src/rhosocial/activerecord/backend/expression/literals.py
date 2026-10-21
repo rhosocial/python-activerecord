@@ -27,8 +27,8 @@ class Identifier(ComparisonMixin, SQLValue):
         alias_need_quote: bool = True,
     ):
         super().__init__(dialect)
-        self.name_need_quote = name_need_quote
-        self.alias_need_quote = alias_need_quote
+        self.name_need_quote = self.quote_flag(name_need_quote, "name_need_quote")
+        self.alias_need_quote = self.quote_flag(alias_need_quote, "alias_need_quote")
         self.name = name
 
     @property

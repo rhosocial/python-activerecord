@@ -37,8 +37,7 @@ from rhosocial.activerecord.backend.expression.serialization import deserialize
 expr = deserialize(json.loads(text), dialect)
 ```
 
-`json.loads` **不需要 `object_hook`**。格式使用的标记
-（`__expr__`、`__value__`、`__enum__`、`__tuple__`、`__dataclass__`）本身就是普通 JSON 值；解码是编解码器的职责，发生在 `deserialize` 内部，而不是 JSON 钩子里。
+`json.loads` **不需要 `object_hook`**——而且也没有钩子可做的事。工件通篇是普通 JSON：节点是 `{kind, params}`，参数是标量、数组或对象。**没有任何标记**，所以没有东西需要被"认出"才能解码。JSON 唯一拼不出的东西——送进数据库的值，比如 `bytes` 或 `timedelta`——以它的 kind 所命名的文本形式出行。
 
 `registry=None` 表示框架默认实例——本发行版自带的全部节点。传自己的表，就精确控制这次读允许产出哪些 kind。
 
@@ -63,13 +62,16 @@ expr = deserialize(json.loads(text), dialect)
     "kind": "column",
     "params": {
         "name": "id",
-        "table": {"__expr__": {"kind": "table", "params": {"name": "users"}}},
+        "table": {"kind": "table", "params": {"name": "users"}},
         "alias": None,
     }
 }
 ```
 
-参数要么是**语言无关标量**，要么是**表达式**。第二种形态（`__expr__` 包裹的嵌套节点）是同一件事的不同层面：内存里是活实例，链路上是编码节点。**没有第三种形态**——这正是工件可读的原因。
+参数要么是**语言无关标量**，要么是**表达式**。第二种形态（嵌套的 `{kind, params}` 节点）是同一件事的不同层面：内存里是活实例，链路上是编码节点。**没有第三种形态**——这正是工件可读的原因。
+
+注意嵌套表达式**外面没有任何包裹**。形状本身就是全部信号，因此没有东西需要拆开，也不存在「这是节点」的第二个、更弱的说法。
+`__expr__` 信封会让同一件事有两种写法，读方就得猜载荷用的是哪一种。
 
 注意**没有什么**。工件不带方言，所以同一份载荷可以交给任意方言对象重渲染：
 

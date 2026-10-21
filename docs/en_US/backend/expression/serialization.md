@@ -48,10 +48,12 @@ from rhosocial.activerecord.backend.expression.serialization import deserialize
 expr = deserialize(json.loads(text), dialect)
 ```
 
-`json.loads` needs **no `object_hook`**. The markers the format uses
-(`__expr__`, `__value__`, `__enum__`, `__tuple__`, `__dataclass__`) are ordinary
-JSON values; decoding them is the codec's job and happens inside
-`deserialize`, not in a JSON hook.
+`json.loads` needs **no `object_hook`** — and there is nothing for a hook to do.
+The artifact is plain JSON throughout: a node is `{kind, params}`, a parameter
+is a scalar, an array or an object. There are no markers, so nothing has to be
+recognised in order to be decoded. The one thing JSON cannot spell — a value
+sent to the database, such as `bytes` or a `timedelta` — is carried as the text
+its kind names.
 
 `registry=None` means the framework's default instance — every node the
 distribution ships. Pass your own to control exactly which kinds a read may
@@ -81,16 +83,21 @@ connection fingerprint.
     "kind": "column",
     "params": {
         "name": "id",
-        "table": {"__expr__": {"kind": "table", "params": {"name": "users"}}},
+        "table": {"kind": "table", "params": {"name": "users"}},
         "alias": None,
     }
 }
 ```
 
 A parameter is either a **language-independent scalar** or an **expression**.
-The second form — an `__expr__` wrapper holding a nested node — is the same
-thing at a different layer: a live instance in memory, an encoded node on the
-wire. There is no third form, which is what makes the artifact readable at all.
+The second form — a nested `{kind, params}` node — is the same thing at a
+different layer: a live instance in memory, an encoded node on the wire. There
+is no third form, which is what makes the artifact readable at all.
+
+Note there is **no wrapper** around a nested expression. The shape is the whole
+signal, so there is nothing to unwrap and no second, weaker way of saying the
+same thing. An `__expr__` envelope would have given one fact two spellings and
+left the reader guessing which a payload used.
 
 Note what is *not* there. The artifact carries no dialect, so the same payload
 re-renders under any dialect object you hand it:

@@ -35,12 +35,50 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-class PartitionStrategy(Enum):
-    """Generic table partitioning strategies shared by supported backends."""
+class PartitionStrategy(str, Enum):
+    """Generic table partitioning strategies shared by supported backends.
+
+    ``str`` because a strategy is a JSON scalar in the artifact, not a node:
+    changing it changes the rendered SQL and nothing else (§4), so it travels as
+    the word it is. Without the ``str`` base it would be the one closed value
+    set in the expression layer that no artifact could carry (§11.3).
+
+    A dialect that supports only some of these gates the rest in
+    ``format_partition_clause``, raising rather than rendering a word its
+    database will reject — an unsupported strategy is an explicit refusal, not a
+    silent omission (§6).
+    """
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     RANGE = "RANGE"
     LIST = "LIST"
     HASH = "HASH"
+
+    @classmethod
+    def parse(cls, method: Union["PartitionStrategy", str]) -> str:
+        """The wire word for *method*, from the member or from its spelling.
+
+        Normalisation lives here rather than in the caller, so
+        ``PartitionClause`` says what it takes and this says what that looks
+        like. The entry stays wide — the member and the string both land on the
+        same word, which is what lets an artifact round-trip without carrying an
+        enum object — and the stored form is always the word.
+
+        A word this class does not name is a ``TypeError`` listing the members,
+        because rendering it would produce SQL no database recognises (§6).
+        """
+        if isinstance(method, cls):
+            return method.value
+        if isinstance(method, str):
+            for entry in cls:
+                if entry.value == method:
+                    return entry.value
+        raise TypeError(
+            "method must be a %s value or its string value, got %r; the members "
+            "are %s" % (cls.__name__, method, [e.value for e in cls])
+        )
 
 
 @dataclass
@@ -110,6 +148,10 @@ class PartitionClause(BaseExpression):
     SQL generation is always delegated to ``dialect.format_partition_clause``.
     """
 
+    #: The strategy vocabulary this clause speaks. A dialect with its own set
+    #: substitutes it; the substitution must be a string enum (see
+    #: :class:`PartitionStrategy`), because the normalised word is what renders
+    #: and what travels.
     strategy_type: Type[Enum] = PartitionStrategy
 
     def __init__(
@@ -119,21 +161,30 @@ class PartitionClause(BaseExpression):
         keys: Sequence[BaseExpression],
     ):
         super().__init__(dialect)
-        if isinstance(method, self.strategy_type):
-            normalized_method = method.value
-        elif isinstance(method, str) and any(
-            entry.value == method for entry in self.strategy_type
-        ):
-            # Accept the normalized string form produced by get_params() so
-            # deserialization round-trips without needing the Enum object.
-            normalized_method = method
+        strategy = self.strategy_type
+        # Accept the member or the word it spells: an artifact carries the word,
+        # so a read must not need the enum object to get back. Whether the word
+        # is one this clause knows is the *substituted* vocabulary's business,
+        # not the caller's -- a backend that substitutes knows its own words.
+        if isinstance(method, strategy):
+            self.method = method.value
+        elif isinstance(method, str) and any(e.value == method for e in strategy):
+            self.method = method
         else:
+            # Names the vocabulary and the words *it* defines. Deliberately not
+            # the value: this message can reach a log, and a log is not where a
+            # caller-supplied string belongs.
             raise TypeError(
-                f"method must be a {self.strategy_type.__name__} value or its "
-                f"string value, got {type(method).__name__}"
+                "method must be a %s value or its string value, got %s; the "
+                "members are %s"
+                % (strategy.__name__, type(method).__name__,
+                   [e.value for e in strategy])
             )
-        if not isinstance(normalized_method, str):
-            raise TypeError(f"{self.strategy_type.__name__} values must be strings")
+        if not isinstance(self.method, str):
+            # A value the vocabulary cannot spell is not a strategy. Caught here
+            # rather than at render, because an unusable word in an artifact is
+            # something the writer should hear about, not a reader (§6).
+            raise TypeError(f"{strategy.__name__} values must be strings")
         if not keys:
             raise ValueError("keys are required")
         for key in keys:
@@ -142,7 +193,6 @@ class PartitionClause(BaseExpression):
                     "keys must contain BaseExpression instances, "
                     f"got {type(key).__name__}"
                 )
-        self.method = normalized_method
         self.keys = list(keys)
 
     @property

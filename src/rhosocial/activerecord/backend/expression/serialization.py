@@ -23,16 +23,12 @@ corruption or deserialization errors.
 """
 
 import inspect
-import base64
-import datetime
-import decimal
 import json
-import uuid
-from dataclasses import is_dataclass
 from typing import Any, Dict, Optional, Sequence, TYPE_CHECKING
 
 from .bases import BaseExpression
-from .values import B64_KEY, DUR_KEY
+from .core import Literal
+from .values import LiteralKind
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
@@ -125,32 +121,6 @@ class ExpressionSerializer:
         """
         return encode_artifact(expr, _depth)
 
-    def _serialize_value(self, value: Any, depth: int) -> Any:
-        """Recursively serialize a value, handling BaseExpression instances and containers."""
-        if isinstance(value, BaseExpression):
-            return self.serialize(value, _depth=depth)
-        if is_dataclass(value) and not isinstance(value, type):
-            # Structurally encode a dataclass so its BaseExpression / Enum /
-            # nested-dataclass fields also round-trip.
-            import dataclasses
-
-            return {
-                "__vdc__": [
-                    f"{type(value).__module__}.{type(value).__qualname__}",
-                    {
-                        f.name: self._serialize_value(getattr(value, f.name), depth + 1)
-                        for f in dataclasses.fields(value)
-                    },
-                ]
-            }
-        if isinstance(value, tuple):
-            return {"__tuple__": [self._serialize_value(item, depth + 1) for item in value]}
-        if isinstance(value, list):
-            return [self._serialize_value(item, depth + 1) for item in value]
-        if isinstance(value, dict):
-            return {key: self._serialize_value(val, depth + 1) for key, val in value.items()}
-        return _encode_scalar(value)
-
     def deserialize(
         self,
         spec: Dict[str, Any],
@@ -181,18 +151,17 @@ class ExpressionSerializer:
         """
         from fnmatch import fnmatchcase
 
-        from .registry import ExpressionRegistry
-
         source = registry if registry is not None else default_registry()
         patterns = tuple(self.allowed_types)
-        view = ExpressionRegistry()
-        for kind in source.node_kinds():
+        # Copy, then subtract, rather than rebuild from what matches. Rebuilding
+        # re-derives each key from the class behind it, which files all fourteen
+        # value kinds under ``literal`` -- and an artifact carrying a value would
+        # then be refused by a table that looks perfectly populated.
+        view = source.copy()
+        for kind in view.node_kinds():
             if kind in patterns or any(fnmatchcase(kind, p) for p in patterns):
-                view.register_node(source.resolve_node(kind))
-        for name in list(getattr(source, "_enums", {})):
-            view.register_enum(source.resolve_enum(name))
-        for name in list(getattr(source, "_dataclasses", {})):
-            view.register_dataclass(source.resolve_dataclass(name))
+                continue
+            view.unregister_node(kind)
         return view
 
     def serialize_json(self, expr: BaseExpression) -> str:
@@ -276,13 +245,21 @@ _FRAMEWORK_PACKAGES = (
     "rhosocial.activerecord.backend.impl.dummy.expression",
 )
 
-#: Reserved keys. A user-defined parameter must never collide with these; a
-#: collision is reported at encode time rather than corrupting the artifact.
-_RESERVED = ("__expr__", "__tuple__", "__enum__", "__dataclass__", "__b64__", "__dur__")
-
-
 class ArtifactError(ExpressionDeserializationError):
     """Raised when an artifact cannot be read. Always names the kind."""
+
+
+def _declares_a_formatter(cls):
+    """Whether *cls* resolves to a concrete ``format_method``.
+
+    Asked by definition site, not by presence on ``vars(cls)``: a base such as
+    ``DeclaredValueType`` supplies one for its subclasses, and that is a real
+    declaration. Only the sentinel on :class:`BaseExpression` means "none".
+    """
+    for klass in cls.__mro__:
+        if "format_method" in vars(klass):
+            return klass is not BaseExpression
+    return False
 
 
 def _populate_default_registry(registry):
@@ -333,17 +310,29 @@ def _populate_default_registry(registry):
                 if issubclass(obj, BaseExpression):
                     if obj is BaseExpression or getattr(obj, "__abstractmethods__", None):
                         continue
+                    # A leading underscore is *not* a reason to skip: the
+                    # dummy backend's own nodes are named that way and they
+                    # round-trip like any other. Whatever is concrete and can
+                    # render is a kind.
+                    # A class that cannot name a formatter is not a node (§4.8),
+                    # so it is not a kind. The test is the *resolved*
+                    # ``format_method``: a base that supplies none inherits
+                    # BaseExpression's sentinel, and registering it would put a
+                    # name in the whitelist that no artifact could ever carry
+                    # usefully -- it resolves, then raises on render.
+                    if not _declares_a_formatter(obj):
+                        continue
+                    # The class says whether it belongs in the default table.
+                    # A node whose rendered SQL is caller-vouched text opts out:
+                    # the table is what a reader resolves an untrusted artifact
+                    # against, so admitting such a kind would hand the artifact
+                    # the choice of raw SQL. A caller that trusts its artifacts
+                    # registers the class itself -- this is a default, not a ban,
+                    # and the decision lives next to the class rather than in a
+                    # list here that would have to be kept in step.
+                    if not obj.REGISTER_BY_DEFAULT:
+                        continue
                     ordered.append(obj)
-                elif issubclass(obj, __import__("enum").Enum):
-                    try:
-                        registry.register_enum(obj)
-                    except RegistryError:
-                        pass
-                elif __import__("dataclasses").is_dataclass(obj):
-                    try:
-                        registry.register_dataclass(obj)
-                    except RegistryError:
-                        pass
 
     # Identity dedup: importing a package can leave more than one live class
     # object for one source definition (a reload during the walk). Same class,
@@ -385,24 +374,50 @@ def default_registry():
         # instance cached under the module global would make every later call
         # fail with a confusing "no such kind" instead of the real cause.
         built = ExpressionRegistry()
+        built.register_value_kinds()
         _populate_default_registry(built)
         _default_registry = built
     return _default_registry
 
 
 def _kind_of(expr):
-    """The node's kind, from its class — the only place a kind is defined."""
+    """The node's kind — the only place a kind is defined.
+
+    Usually that is the class name (§4.11.1). A literal is the one node whose
+    kind depends on what it holds: one class carries all twelve value kinds, and
+    the wire still names them separately, because a date's spelling and a
+    string's are the same bytes and the kind is what tells them apart.
+    """
+    if isinstance(expr, Literal):
+        if expr.value_kind is None:
+            raise ArtifactError(
+                f"a literal carrying {type(expr.value).__name__} has no value "
+                f"kind, so no artifact can name it; the kind is what tells a "
+                f"date's spelling apart from a string's"
+            )
+        return expr.value_kind.wire
     return type(expr).kind()
 
 
-def _check_reserved(params, kind):
-    clash = [k for k in params if k in _RESERVED]
-    if clash:
-        raise ArtifactError(
-            f"kind '{kind}' has parameter(s) {clash} colliding with reserved "
-            f"artifact keys {list(_RESERVED)}; rename them so the artifact can "
-            f"carry this expression"
-        )
+def _unpack_value(kind, params):
+    """Restore a value parameter from the spelling its kind declares.
+
+    Only the value kinds have a payload to restore, and only the one parameter
+    a literal carries. The kind is what says a date arrived as its ISO text, so
+    the conversion happens here rather than in the constructor: a caller who
+    writes ``Literal(d, "2020-01-02")`` meant a string, and the same constructor
+    reading an artifact meant a date. Those two callers must not agree by
+    accident, so the artifact path is explicit about which one it is.
+    """
+    try:
+        value_kind = LiteralKind.by_wire(kind)
+    except ValueError:
+        return params
+    if "value" not in params:
+        return params
+    unpacked = dict(params)
+    unpacked["value"] = value_kind.unpack(params["value"])
+    return unpacked
 
 
 def _is_node(value):
@@ -430,103 +445,16 @@ def _is_node(value):
 
 
 def _encode_scalar(value):
-    """A host value as JSON carries it.
+    """A host value as JSON carries it, given the kind it belongs to.
 
-    Four things cannot be written as they stand, and only these: bytes and
-    timedelta get the two reserved wrappers (wire §5); date/time/datetime and
-    Decimal get their canonical text, because JSON has no date and no exact
-    decimal. Everything else -- int, float, bool, str, None -- *is* a JSON
-    scalar and is returned untouched.
-
-    Reading does not consult this function. The class that holds the value
-    converts its serialized form back (``TypedValue.normalise``), because it is
-    the only thing that knows what the value is.
+    The kind names the value, and the kind knows the spelling: bytes and
+    timedelta take the two reserved wrappers (wire §5), date/time/datetime and
+    Decimal take their canonical text because JSON has neither a date nor an
+    exact decimal, and int/float/bool/str/None *are* JSON scalars. So this is
+    :meth:`LiteralKind.pack` rather than a second, parallel table of the same
+    rules -- the conversion lives with the declaration of the type.
     """
-    if isinstance(value, (bytes, bytearray)):
-        return {B64_KEY: base64.b64encode(bytes(value)).decode("ascii")}
-    if isinstance(value, datetime.timedelta):
-        return {DUR_KEY: _format_duration(value)}
-    if isinstance(value, (datetime.date, datetime.time, datetime.datetime)):
-        return value.isoformat()
-    if isinstance(value, decimal.Decimal):
-        return str(value)
-    if isinstance(value, uuid.UUID):
-        return str(value)
-    return value
-
-
-def _format_duration(value):
-    """A duration as ISO 8601: ``P1DT2H3M4.5S``, empty parts omitted."""
-    total = value.total_seconds()
-    sign = "-" if total < 0 else ""
-    days, rest = divmod(abs(total), 86400)
-    hours, rest = divmod(rest, 3600)
-    minutes, seconds = divmod(rest, 60)
-    out = [sign, "P"]
-    if days:
-        out.append(f"{int(days)}D")
-    if hours or minutes or seconds:
-        out.append("T")
-        if hours:
-            out.append(f"{int(hours)}H")
-        if minutes:
-            out.append(f"{int(minutes)}M")
-        if seconds:
-            out.append(f"{seconds:.6f}".rstrip("0").rstrip(".") + "S")
-    if len(out) == 2:
-        out.append("T0S")
-    return "".join(out)
-
-
-def _encode_enum_member(value):
-    """Enum as `[short class name, member]` — resolved by whitelist on read."""
-    return {"__enum__": [type(value).__name__, value.name]}
-
-
-def _resolve_or_fail(resolve, name):
-    """Ask the registry for `name`, restating a refusal in decode vocabulary.
-
-    See :func:`decode_artifact` — the reader sees one exception type whether
-    the name was unknown or withheld by this channel's allowlist.
-    """
-    from .registry import RegistryError as _RegistryError
-
-    try:
-        return resolve(name)
-    except _RegistryError as exc:
-        raise ExpressionDeserializationError(str(exc)) from exc
-
-
-def _decode_enum_member(obj, registry):
-    name, member = obj["__enum__"]
-    enum_cls = _resolve_or_fail(registry.resolve_enum, name)
-    try:
-        return enum_cls[member]
-    except KeyError:
-        raise ArtifactError(
-            f"enum '{name}' has no member '{member}'; valid members are "
-            f"{[m.name for m in enum_cls]}"
-        ) from None
-
-
-def _decode_dataclass(payload, dialect, depth, registry):
-    """Rebuild a dataclass by short name through the registry whitelist.
-
-    Never `importlib`: the payload is external input, so importing whatever
-    module a name points at is a code-execution path, not a type lookup (§4.11.4).
-    """
-    import dataclasses
-
-    name, fields = payload
-    cls = _resolve_or_fail(registry.resolve_dataclass, name)
-    known = {f.name for f in dataclasses.fields(cls)}
-    unknown = sorted(set(fields) - known)
-    if unknown:
-        raise ArtifactError(
-            f"dataclass '{name}' has no field(s) {unknown}; its fields are "
-            f"{sorted(known)}"
-        )
-    return cls(**{k: _decode_value(v, dialect, depth + 1, registry) for k, v in fields.items()})
+    return LiteralKind.of(value).pack(value)
 
 
 def encode_artifact(expr, _depth=0):
@@ -544,42 +472,31 @@ def encode_artifact(expr, _depth=0):
             f"kind '{kind}'.get_params() returned {type(params).__name__}, "
             f"expected a dict of constructor parameters"
         )
-    _check_reserved(params, kind)
     return {"kind": kind, "params": _encode_value(params, _depth + 1)}
 
 
 def _encode_value(value, depth):
-    import enum as _enum_mod
-    from .values import TypedValue
-
     if isinstance(value, BaseExpression):
         # A nested node is its own artifact -- the same {kind, params} a
         # top-level node is. No marker: the shape says what it is, and a marker
         # would be a second, weaker spelling of the same fact.
         return encode_artifact(value, depth)
-    if isinstance(value, TypedValue):
-        # The host value, written in its natural JSON form. Only the two types
-        # JSON cannot express at all are wrapped (wire §5); everything else --
-        # a date's ISO text, a Decimal's exact text, a UUID's canonical form --
-        # is already a scalar and needs no marker, because the kind that holds
-        # it declares what it is.
+    if isinstance(value, Literal):
+        # The host value, written in the spelling its kind names -- and every one
+        # of those spellings is a JSON scalar, because that is the only thing a
+        # cross-language reader can be asked to parse. The kind declares what it
+        # is; there is no wrapper left to unwrap.
         return _encode_scalar(value.value)
-    if isinstance(value, _enum_mod.Enum):
-        return _encode_enum_member(value)
-    if is_dataclass(value) and not isinstance(value, type):
-        import dataclasses
-
-        fields = {
-            f.name: _encode_value(getattr(value, f.name), depth + 1)
-            for f in dataclasses.fields(value)
-        }
-        return {"__dataclass__": [type(value).__name__, fields]}
-    if isinstance(value, tuple):
-        return {"__tuple__": [_encode_value(i, depth + 1) for i in value]}
-    if isinstance(value, list):
+    # A tuple goes out as an array, like a list. JSON draws no distinction and
+    # the artifact must not invent one: a parameter that needs to know it was a
+    # tuple is a parameter that should have been a node or a value.
+    if isinstance(value, (list, tuple)):
         return [_encode_value(i, depth + 1) for i in value]
     if isinstance(value, dict):
         return {k: _encode_value(v, depth + 1) for k, v in value.items()}
+    # Anything left has to be a JSON scalar. A str enum is one (it is a str), and
+    # the value vocabulary covers the rest; a type it does not name raises there
+    # rather than being written out as something no reader can parse.
     return _encode_scalar(value)
 
 
@@ -589,23 +506,16 @@ def _decode_value(value, dialect, depth, registry):
     if isinstance(value, dict):
         if _is_node(value):
             return decode_artifact(value, dialect, depth + 1, registry)
-        if "__enum__" in value:
-            return _decode_enum_member(value, registry)
-        if "__dataclass__" in value:
-            return _decode_dataclass(value["__dataclass__"], dialect, depth, registry)
-        if "__tuple__" in value:
-            return tuple(_decode_value(i, dialect, depth + 1, registry) for i in value["__tuple__"])
-        if "__b64__" in value or "__dur__" in value:
-            # The wrapper *is* the serialized form; the class that holds the
-            # value converts it (``TypedValue.normalise``).
-            return value
-        # Any other dict is a plain mapping parameter, handed through untouched.
+        # Any other object is a plain mapping parameter, handed through
+        # untouched. There are no markers left to dispatch on: a value that was
+        # not JSON-native travelled as a scalar its own kind names, so nothing
+        # here has to recognise a spelling in order to undo it.
         return {k: _decode_value(v, dialect, depth + 1, registry) for k, v in value.items()}
     if isinstance(value, list):
         return [_decode_value(i, dialect, depth + 1, registry) for i in value]
     if isinstance(value, tuple):
-        # XML and dataclass paths hand back real tuples rather than the
-        # ``__tuple__`` marker, and their items need decoding just as much.
+        # The XML and dataclass paths hand back real tuples rather than lists,
+        # and their items need decoding just as much.
         return tuple(_decode_value(i, dialect, depth + 1, registry) for i in value)
     return value
 
@@ -660,6 +570,7 @@ def decode_artifact(obj, dialect, _depth=0, registry=None):
             f"kind '{kind}' has non-object 'params' ({type(raw).__name__})"
         )
     params = _decode_value(raw, dialect, _depth + 1, registry)
+    params = _unpack_value(kind, params)
 
     sig = inspect.signature(cls.__init__)
     accepted, var_positional, var_keyword = {}, None, None

@@ -17,7 +17,7 @@ from rhosocial.activerecord.backend.expression import (
     ColumnDefinition,
     ColumnConstraint,
     AlterTableStatement,
-    AddColumn,
+    AddColumnAction,
 )
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
@@ -54,7 +54,7 @@ snapshot_before = builder.build(schema="main")
 
 # Add a new column
 expr = AlterTableStatement(dialect, "users", [
-    AddColumn(dialect, ColumnDefinition(dialect, "email", TextType()))
+    AddColumnAction(dialect, ColumnDefinition(dialect, "email", TextType()))
 ])
 sql, params = expr.to_sql()
 backend.execute(sql, params)

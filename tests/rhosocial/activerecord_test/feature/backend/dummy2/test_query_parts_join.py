@@ -7,6 +7,7 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
     ComparisonPredicate,
+    LogicalPredicate,
     QueryStatement,
     FunctionCall,
 )
@@ -335,7 +336,7 @@ class TestJoinClauseChaining:
             left_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"), alias="u"),
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "orders"), alias="o"),
             join_type="INNER JOIN",
-            condition=ComparisonPredicate(
+            condition=LogicalPredicate(
                 dummy_dialect,
                 "AND",
                 ComparisonPredicate(
@@ -350,7 +351,7 @@ class TestJoinClauseChaining:
         # Chain with products with another complex condition
         chained_join = base_join.left_join(
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "products"), alias="p"),
-            condition=ComparisonPredicate(
+            condition=LogicalPredicate(
                 dummy_dialect,
                 "AND",
                 ComparisonPredicate(

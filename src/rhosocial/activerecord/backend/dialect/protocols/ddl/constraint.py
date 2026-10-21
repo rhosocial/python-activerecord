@@ -10,11 +10,11 @@ from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from ....expression.statements import (
-        AlterConstraint,
+        AlterConstraintAction,
         ColumnConstraint,
         ReferencesClause,
         TableConstraint,
-        ValidateConstraint,
+        ValidateConstraintAction,
     )
 
 
@@ -197,11 +197,11 @@ class ConstraintSupport(Protocol):
         """Whether VALIDATE CONSTRAINT is supported."""
         ...
 
-    def format_alter_constraint_action(self, action: "AlterConstraint") -> Tuple[str, tuple]:
+    def format_alter_constraint_action(self, action: "AlterConstraintAction") -> Tuple[str, tuple]:
         """Format an ALTER CONSTRAINT enforcement action."""
         ...
 
-    def format_validate_constraint_action(self, action: "ValidateConstraint") -> Tuple[str, tuple]:
+    def format_validate_constraint_action(self, action: "ValidateConstraintAction") -> Tuple[str, tuple]:
         """Format a VALIDATE CONSTRAINT action."""
         ...
 

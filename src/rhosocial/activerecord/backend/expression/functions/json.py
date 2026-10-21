@@ -12,11 +12,11 @@ from ..advanced_functions import JSONDocumentValue, JSONTextValue
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
-from ..surfaces import JSONSurface
+from ..value_types import JSONValue
 
 class JSONBuildObjectFunction(
     DeclaredValueType,
-    JSONSurface,
+    JSONValue,
 ):
     """``JSON_BUILD_OBJECT(key, value, ...)`` -- a document built from pairs.
 
@@ -43,7 +43,7 @@ class JSONBuildObjectFunction(
 
 class JSONArrayElementsFunction(
     DeclaredValueType,
-    JSONSurface,
+    JSONValue,
 ):
     """``JSON_ARRAY_ELEMENTS(json)`` -- the array's elements, one per row.
 
@@ -73,7 +73,7 @@ class JSONArrayElementsFunction(
 class JSONObjectAggregateFunction(
     AggregateFunction,
     DeclaredValueType,
-    JSONSurface,
+    JSONValue,
 ):
     """``JSON_OBJECTAGG(key, value)`` -- rows gathered into one document.
 
@@ -111,7 +111,7 @@ class JSONObjectAggregateFunction(
 class JSONArrayAggregateFunction(
     AggregateFunction,
     DeclaredValueType,
-    JSONSurface,
+    JSONValue,
 ):
     """``JSON_ARRAYAGG(value)`` -- rows gathered into one array.
 

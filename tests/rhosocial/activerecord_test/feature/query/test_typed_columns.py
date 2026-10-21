@@ -165,7 +165,15 @@ def test_string_column_has_like_but_no_arithmetic():
     col = build_column(sqlite_dialect(), "name", str)
     assert isinstance(col, StringColumn)
     assert hasattr(col, "like") and hasattr(col, "ilike")
-    assert not hasattr(col, "__add__")
+
+    # Arithmetic is refused explicitly rather than left absent: the operator is
+    # looked up on the type by the interpreter, so a missing one produces
+    # CPython's own TypeError instead of the package's message. hasattr is true
+    # because the method exists to raise, which is why the check calls it.
+    with pytest.raises(AttributeError):
+        col + 1
+    with pytest.raises(AttributeError):
+        col * 2
 
 
 def test_integer_column_has_arithmetic_but_no_like():
@@ -188,8 +196,9 @@ def test_uuid_column_offers_no_uuid_specific_operator():
     col = build_column(sqlite_dialect(), "uid", uuid.UUID)
     assert isinstance(col, UUIDColumn)
     assert not hasattr(col, "like")
-    assert not hasattr(col, "__add__")
     assert not hasattr(col, "json_path")
+    with pytest.raises(AttributeError):
+        col + 1
 
 
 def test_bare_column_offers_no_operation():

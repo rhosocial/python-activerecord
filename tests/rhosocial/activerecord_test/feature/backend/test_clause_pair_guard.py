@@ -24,7 +24,7 @@ new parameters fails here because that state becomes indistinguishable from
 "neither".
 
 One pair is mandatory in its grammar rather than optional:
-``AlterConstraint.enforced`` / ``not_enforced`` -- the action *is* the
+``AlterConstraintAction.enforced`` / ``not_enforced`` -- the action *is* the
 enforcement keyword, so "neither" is refused as well. That case carries
 ``neither_error`` and is asserted accordingly.
 """
@@ -73,7 +73,7 @@ from rhosocial.activerecord.backend.expression.statements.ddl_function import (
     DropFunctionStatement,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
-    AlterConstraint,
+    AlterConstraintAction,
 )
 from rhosocial.activerecord.backend.expression.query_sources import (
     CTEClause,
@@ -355,15 +355,15 @@ PAIR_CASES = (
         r"EXCLUDE NULLS\b",
     ),
     PairCase(
-        "AlterConstraint.enforced",
-        lambda d, **kw: AlterConstraint(
+        "AlterConstraintAction.enforced",
+        lambda d, **kw: AlterConstraintAction(
             d, "c", constraint_kind=TableCheckConstraint, **kw
         ),
         "enforced",
         "not_enforced",
         r"(?<!NOT )ENFORCED\b",
         r"NOT ENFORCED\b",
-        neither_error="AlterConstraint requires exactly one of",
+        neither_error="AlterConstraintAction requires exactly one of",
     ),
     PairCase(
         "CreateMaterializedViewStatement.with_data",
@@ -744,7 +744,7 @@ class TestGuardIsNotVacuous:
             "TruncateStatement.cascade",
             "TruncateStatement.restart_identity",
             "Unpivot.include_nulls",
-            "AlterConstraint.enforced",
+            "AlterConstraintAction.enforced",
             "CreateMaterializedViewStatement.with_data",
             "RefreshMaterializedViewStatement.with_data",
             "CreateTableAsStatement.with_data",

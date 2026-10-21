@@ -6,7 +6,7 @@ import pytest
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.dialect.mixins import SQLXMLMixin
-from rhosocial.activerecord.backend.expression.surfaces import TextSurface, XMLSurface
+from rhosocial.activerecord.backend.expression.value_types import TextValue, XMLValue
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
@@ -112,14 +112,14 @@ class TestSQLXMLMixin:
             xmlquery(dummy_dialect, "/root"),
         ]
         for expr in expressions:
-            assert isinstance(expr, XMLSurface), type(expr).__name__
+            assert isinstance(expr, XMLValue), type(expr).__name__
 
     def test_xmlserialize_factory_returns_the_text_value(self, dummy_dialect: DummyDialect):
         """Serialization yields the character value it names, not XML again."""
         expr = xmlserialize(dummy_dialect, "<root/>", "TEXT")
 
-        assert isinstance(expr, TextSurface)
-        assert not isinstance(expr, XMLSurface)
+        assert isinstance(expr, TextValue)
+        assert not isinstance(expr, XMLValue)
 
     def test_xmlserialize_generates_standard_sql(self, dummy_dialect: DummyDialect):
         expr = xmlserialize(dummy_dialect, Column(dummy_dialect, "payload"), "VARCHAR(100)")

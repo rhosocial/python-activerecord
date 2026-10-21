@@ -35,7 +35,7 @@ class MyExpression(BaseExpression):
 
 `get_params()` 不是扩展点：重写它是缺陷，不是定制。核心在 `tests/.../dummy2/test_expression_artifact_contract.py::test_no_get_params_override` 里无例外地强制这一点——每个已注册的表达式类都必须沿用通用实现。（该测试允许的唯一例外，是做真正的"原始值 ↔ 归一化值"往返改写的 `VAR_POSITIONAL` 类，而核心注册表里没有任何一个属于这种情况。）
 
-原因是结构性的，不是风格问题。往返是靠"用 `get_params()` 返回的内容去调用构造函数"重建的，所以这两半必须彼此吻合。而重写恰恰是它们开始走偏的地方：这个类发出的键会被构造函数改名、合并或拒绝，`_reconstruct()` 再把由此产生的 `TypeError` 包装成 `ExpressionDeserializationError`，状态就悄悄丢了。各后端包曾各自积累过重写实现，而它们存在的理由全都是同一个：`__init__` 把调用方传进来的东西改了名或合并了——而一旦按收到的名字原样保存，这些重写就全都不再必要。
+原因是结构性的，不是风格问题。往返是靠"用 `get_params()` 返回的内容去调用构造函数"重建的，所以这两半必须彼此吻合。而重写恰恰是它们开始走偏的地方：这个类发出的键会被构造函数改名、合并或拒绝，状态就悄悄丢了——解码器只按名字把值交出去，并不替结果把关。各后端包曾各自积累过重写实现，而它们存在的理由全都是同一个：`__init__` 把调用方传进来的东西改了名或合并了——而一旦按收到的名字原样保存，这些重写就全都不再必要。
 
 当通用实现的结果不是你想要的时，修复始终在 `__init__` 里，且只有三种形态：
 
@@ -53,15 +53,18 @@ class MyExpression(BaseExpression):
 
 ### 注册你自己的
 
-`ExpressionRegistry` 构造出来是空的——这正是它能被交给调用方、只放行你选定内容的前提。登记是**实例方法**，kind 由类派生：
+`ExpressionRegistry` 构造出来是空的——这正是它能被交给调用方、只放行你选定内容的前提。`register_node` 是**实例方法**，kind 由类派生：
 
 ```python
 from rhosocial.activerecord.backend.expression.registry import ExpressionRegistry
 
 allowed = ExpressionRegistry()
 allowed.register_node(MyExpression)          # kind 为 "my_expression"
-allowed.register_enum(MyChoice)              # 按短名解析
 ```
+
+枚举**根本不需要登记**。`(str, Enum)` 的成员就是一个 JSON 字符串，没有东西需要解析——封闭集合声明在类里，各语言也各自声明自己的。
+
+有两个 kind 不在默认表里：`RawSQL` 与 `RawSQLPredicate`，因为 `to_sql()` 原样输出调用方担保过的文本，而工件不该能选择它。它们设了 `REGISTER_BY_DEFAULT = False`；登记其中任何一个与登记其它 kind 是同一个调用，交给信任自己工件的调用方。
 
 然后把它传给读侧：
 
@@ -133,68 +136,83 @@ class ColumnSetExpression(BaseExpression):
 class TreeNodeExpression(BaseExpression):
     def __init__(self, dialect, name, parent_id=None):
         super().__init__(dialect)
-        self._name = name
-        self._parent_id = parent_id  # 标识，而非对象
+        self.name = name
+        self.parent_id = parent_id  # 标识，而非对象
         # 由树遍历器解析；没有同名参数，因此永不进入序列化
         self._parent = None
 ```
 
-如果父节点确实必须随节点一起传递，就把它做成普通的嵌套表达式参数——`{"__expr__": ...}` 正是为此存在的。这样一来，树自然就是有限的。
+如果父节点确实必须随节点一起传递，就把它做成普通的嵌套表达式参数——一个普通的 `parent`，持有另一个表达式，序列化时就是一个嵌套的 `{kind, params}` 节点。这样一来，树自然就是有限的。
 
 ## IntrospectionExpression 约定
 
-`IntrospectionExpression` 子类（如 `TableListExpression`）把构造函数与同名 fluent setter 结合在一起。通用路径的两处机制已经考虑到了这一点：
+内省节点把构造函数与 fluent setter 结合在一起，而这两者过去想要同一个名字。现在不想要了——因为参数必须能按自己的名字被读到，工件才谈得上可重建：
 
 ```python
 class TableListExpression(IntrospectionExpression):
     def __init__(self, dialect, schema=None, include_views=True, include_system=False, table_type=None):
         super().__init__(dialect, schema)
-        self._include_views = include_views
-        self._include_system = include_system
-        self._table_type = table_type
+        self.include_views = include_views   # 参数自己的名字
+        self.include_system = include_system
+        self.table_type = table_type
 
-    def include_views(self, value: bool = True):
-        self._include_views = value  # 与读取参数同一个属性
+    def with_include_views(self, value: bool = True):   # 绝不叫 include_views
+        self.include_views = value
         return self
 ```
 
-- **两种写法都存在时，可调用的那个不是状态。** 若某参数同时存在 `self.foo` 与 `self._foo`，且公开属性是个 fluent 方法，则取私有属性的值。
+- **只有一种写法，就是参数自己的名字。** `get_params()` 读的是 `getattr(self, name)`：没有 `_{name}` 探测，也没有「可调用的那个不是状态」这条规则要套用。类没存下来的参数会抛 `AttributeError`，并指明是哪个类、哪个参数——这才是值得听见的缺陷，而不是一条没人读的警告。
+- **fluent setter 叫 `with_*`。** 叫 `include_views` 的 setter 会占掉值本身需要的名字，于是类只能在「写 `self.include_views`（把方法遮住）」与「把值藏到 `get_params()` 得四处去找的地方」之间二选一。
 - **未赋值的可选参数会输出为 `null`，而不是被省略。** 这是安全的：反序列化会把它传回去，构造函数的默认值随之生效。真正不安全的是丢掉一个取值与其默认值不同的参数——那才是往返丢掉的状态。
 
 ## 错误契约
 
-所有经过 `_reconstruct()` 的路径，`TypeError` 都会被包装为 `ExpressionDeserializationError`。这确保调用方只需捕获一种异常类型。
+读侧能拒绝的一切都以 `ExpressionDeserializationError` 浮现，所以调用方只捕获这一种类型：
 
-## 序列化格式约定（键名保留）
+```
+ExpressionDeserializationError
+├── ArtifactError                    —— 工件本身不合法
+└── 注册表拒绝，被改述               —— 该 kind 在此不被接纳
+```
 
-`get_params()` 返回的**值**在任何深度上都不得包含以下保留键名，否则反序列化行为未定义——反序列化会把它们当作框架标记来读：
+`ArtifactError` 是**子类**，所以 `except ExpressionDeserializationError` 两者皆覆盖。`RegistryError` 不会到达调用方：解码层把它改述成自己的词汇，因为注册表是更底层的东西，不该知道读方捕获什么。
 
-- `__expr__`：用于标记嵌套表达式
-- `__tuple__`：用于标记元组
-- `__value__` / `__vdc__`：用于标记 codec 编码的标量值与 dataclass 值
+你自己构造函数抛出的 `TypeError` **不会**被替你捕获。携带 `{"name": 123}` 的工件，在构造函数不做检查时会毫无怨言地重建。要紧的话就在 `__init__` 里校验——反序列化的职责是按名字把值交出去，而不是判断它们可不可接受。
 
-你自己的顶层键来自 `__init__` 的参数名（以及合并进来的 `**kwargs` 额外参数），所以绝不要把参数命名为保留键。对于键不由你控制的不透明载荷，危险在载荷内部：那些键会被原样复制进 spec，给参数换个名字对此毫无帮助。要么在构造时校验，要么把载荷存成文本。
+## 参数约定（JSON 标量）
+
+**保留键已经一个都没有了。** 工件是普通 JSON，所以参数的取值必须本来就是 JSON
+说得出来的东西：null、布尔、数字、字符串、数组，或对象。
+
+这给自定义表达式两项义务、一个选项。
+
+- **封闭取值集合取字符串枚举。** 声明成 `(str, Enum)`，并设 `__str__ = str.__str__`，
+  让成员**就是**它渲染出来的那个词——单靠 `(str, Enum)` 做不到，`Enum.__str__` 会赢。
+  这样线上形态就是成员的值，即一个 JSON 字符串，而封闭集合声明在代码里，各语言也都能
+  各自声明。不继承 `str` 的枚举根本写不出去。
+- **送进数据库的值放进 `Literal`。** 这是唯一允许出现 JSON 拼不出的类型的位置；
+  由 `LiteralKind` 的成员指明那种文本。
+- **不透明载荷是危险所在。** 键不由你控制的 `dict` 会被原样复制进工件，而给参数换个名字
+  对它的**内容**毫无帮助。一个恰好读起来像节点（`kind` 加 `params`）的键会被当成节点读回来。
+  要么在构造时校验，要么把载荷存成文本。
 
 ```python
-_RESERVED = ("__expr__", "__tuple__", "__value__", "__vdc__")
-
-# 错误示例 - 含有 "__expr__" 的载荷会被当成嵌套表达式读回来
+# 错误示例 - 键不由你控制的 dict 参数
 class RawJsonStorageExpr(BaseExpression):
     def __init__(self, dialect, data: dict):
         super().__init__(dialect)
-        self._data = data
+        self.data = data  # 里面若有 {"kind": ..., "params": ...} 会被当成节点读回来
 
-# 正确示例 - 载荷在进入 spec 之前就被拒绝
+# 正确示例 - 在进入工件之前就拒绝这种形状
 class SafeJsonStorageExpr(BaseExpression):
     def __init__(self, dialect, json_data: dict):
         super().__init__(dialect)
-        for key in json_data:
-            if key in _RESERVED:
-                raise ValueError(f"{key!r} is a reserved serialization key")
-        self._json_data = json_data
+        if set(json_data) & {"kind", "params"}:
+            raise ValueError("载荷不得携带形似节点的键")
+        self.json_data = json_data
 ```
 
 ## 相关文档
 
 - [核心文档](./serialization.md)：序列化机制说明
-- [格式参考](./format-reference.md)：ExpressionSpec 完整规范
+- [格式参考](./format-reference.md)：工件完整规范

@@ -23,7 +23,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-class CommentObjectType(Enum):
+class CommentObjectType(str, Enum):
     """Database object kinds a standalone ``COMMENT ON`` may target.
 
     The enum value is the SQL keyword sequence (``TABLE`` / ``COLUMN`` /
@@ -31,6 +31,9 @@ class CommentObjectType(Enum):
     Firebird's ``GENERATOR`` / ``DOMAIN``) may subclass this enum; dialect
     formatters accept either the enum or its string value.
     """
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     TABLE = "TABLE"
     COLUMN = "COLUMN"

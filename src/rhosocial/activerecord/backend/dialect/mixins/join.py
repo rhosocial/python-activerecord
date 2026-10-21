@@ -4,10 +4,13 @@
 Declares support for the various JOIN families and formats JOIN, LATERAL
 JOIN, and table-function source expressions into dialect SQL.
 """
-from typing import Tuple, TYPE_CHECKING
+
+from typing import TYPE_CHECKING, Tuple
+
+from rhosocial.activerecord.backend.expression.query_parts import JoinType
+from rhosocial.activerecord.backend.expression.query_sources import LateralExpression
 
 from ..exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression.query_sources import LateralExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression import bases
@@ -48,10 +51,11 @@ class LateralJoinMixin:
                 "Restructure the query with a plain subquery or a CTE instead.",
             )
         expr_sql, expr_params = expr.expression.to_sql()
+        join_phrase = expr.join_type.phrase
         if expr.alias is not None:
-            sql = f"{expr.join_type.upper()} JOIN LATERAL {expr_sql} AS {self.format_identifier(expr.alias)}"
+            sql = f"{join_phrase} LATERAL {expr_sql} AS {self.format_identifier(expr.alias)}"
         else:
-            sql = f"{expr.join_type.upper()} JOIN LATERAL {expr_sql}"
+            sql = f"{join_phrase} LATERAL {expr_sql}"
         return sql, expr_params
 
     def format_table_function_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
@@ -140,24 +144,26 @@ class JoinMixin:
             ValueError: If a non-CROSS join has neither a condition nor a
                 USING clause.
         """
-        from ...expression import QueryStatement, JoinClause
+        from ...expression import JoinClause, QueryStatement
 
-        join_type_upper = join_expr.join_type.upper()
+        # The node carries the join *word*; the SQL phrase is the enum's, so the
+        # artifact never spells a join. The capability is read off the member,
+        # not off parsed text: LEFT_OUTER needs exactly what LEFT needs, and
+        # splitting "LEFT OUTER JOIN" on a space to rediscover that was how the
+        # two could drift apart. STRAIGHT_JOIN is not probed -- it is MySQL-only,
+        # so the backend that defines it is also the only one that would refuse.
+        join_type = join_expr.join_type
 
-        # Use split to handle cases like "LEFT OUTER JOIN"
-        join_type_keyword = join_type_upper.split()[0]
-
-        # Check for feature support
-        if join_type_keyword == "INNER" and not self.supports_inner_join():
-            raise UnsupportedFeatureError(self.name, "INNER JOIN")
-        elif join_type_keyword == "LEFT" and not self.supports_left_join():
-            raise UnsupportedFeatureError(self.name, "LEFT JOIN")
-        elif join_type_keyword == "RIGHT" and not self.supports_right_join():
-            raise UnsupportedFeatureError(self.name, "RIGHT JOIN")
-        elif join_type_keyword == "FULL" and not self.supports_full_join():
-            raise UnsupportedFeatureError(self.name, "FULL JOIN")
-        elif join_type_keyword == "CROSS" and not self.supports_cross_join():
-            raise UnsupportedFeatureError(self.name, "CROSS JOIN")
+        if join_type in (JoinType.INNER, JoinType.JOIN) and not self.supports_inner_join():
+            raise UnsupportedFeatureError(self.name, join_type.phrase)
+        elif join_type in (JoinType.LEFT, JoinType.LEFT_OUTER) and not self.supports_left_join():
+            raise UnsupportedFeatureError(self.name, join_type.phrase)
+        elif join_type in (JoinType.RIGHT, JoinType.RIGHT_OUTER) and not self.supports_right_join():
+            raise UnsupportedFeatureError(self.name, join_type.phrase)
+        elif join_type in (JoinType.FULL, JoinType.FULL_OUTER) and not self.supports_full_join():
+            raise UnsupportedFeatureError(self.name, join_type.phrase)
+        elif join_type is JoinType.CROSS and not self.supports_cross_join():
+            raise UnsupportedFeatureError(self.name, join_type.phrase)
 
         if join_expr.natural and not self.supports_natural_join():
             raise UnsupportedFeatureError(self.name, "NATURAL JOIN")
@@ -181,7 +187,7 @@ class JoinMixin:
         if join_expr.natural:
             join_parts.append("NATURAL")
 
-        join_parts.append(join_type_upper)
+        join_parts.append(join_type.phrase)
         join_parts.append(right_sql)
 
         # Handle ON or USING clause, which are not used with NATURAL JOIN
@@ -193,8 +199,8 @@ class JoinMixin:
             elif join_expr.using:
                 using_cols = ", ".join(self.format_identifier(col) for col in join_expr.using)
                 join_parts.append(f"USING ({using_cols})")
-            elif "CROSS" not in join_type_upper:
-                raise ValueError(f"{join_type_upper} requires a condition or USING clause.")
+            elif join_type is not JoinType.CROSS:
+                raise ValueError(f"{join_type.phrase} requires a condition or USING clause.")
 
         sql = " ".join(join_parts)
 

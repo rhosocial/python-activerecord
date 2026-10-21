@@ -65,22 +65,18 @@ from .ddl_view import (
 from .ddl_alter import (
     AlterTableActionType,
     AlterTableAction,
-    AddColumn,
-    DropColumn,
+    AddColumnAction,
+    DropColumnAction,
     ColumnAlterOperation,
-    AlterColumn,
-    AddTableConstraint,
-    DropTableConstraint,
-    AlterConstraint,
-    ValidateConstraint,
+    AlterColumnAction,
+    AddTableConstraintAction,
+    DropTableConstraintAction,
     AlterConstraintAction,
     ValidateConstraintAction,
-    AlterTableConstraint,
-    ValidateTableConstraint,
-    RenameTable,
-    RenameObject,
-    AddIndex,
-    DropIndex,
+    RenameTableAction,
+    RenameColumnAction,
+    AddIndexAction,
+    DropIndexAction,
     AlterTableStatement,
 )
 from .ddl_comment import CommentObjectType, CommentOnStatement
@@ -179,8 +175,6 @@ to a backend-specific dialect.
 
 # Sequence DDL
 
-
-
 # Trigger DDL
 
 # Function DDL
@@ -260,22 +254,18 @@ __all__ = [
     "CommentOnStatement",
     "AlterTableActionType",
     "AlterTableAction",
-    "AddColumn",
-    "DropColumn",
+    "AddColumnAction",
+    "DropColumnAction",
     "ColumnAlterOperation",
-    "AlterColumn",
-    "AddTableConstraint",
-    "DropTableConstraint",
-    "AlterConstraint",
-    "ValidateConstraint",
+    "AlterColumnAction",
+    "AddTableConstraintAction",
+    "DropTableConstraintAction",
     "AlterConstraintAction",
     "ValidateConstraintAction",
-    "AlterTableConstraint",
-    "ValidateTableConstraint",
-    "RenameTable",
-    "RenameObject",
-    "AddIndex",
-    "DropIndex",
+    "RenameTableAction",
+    "RenameColumnAction",
+    "AddIndexAction",
+    "DropIndexAction",
     "AlterTableStatement",
     "ColumnAlias",
     "ViewAlgorithm",

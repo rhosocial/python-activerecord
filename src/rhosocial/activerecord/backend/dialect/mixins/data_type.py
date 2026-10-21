@@ -13,7 +13,9 @@ if TYPE_CHECKING:
 
 
 SQLQueryAndParams = Tuple[str, tuple]
-_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+# Name validation lives in expression.types._base.DataType, which enforces it at
+# class-definition time; a second copy here would only be a rule that could drift
+# from the one that actually runs.
 
 
 class DataTypeMixin:
@@ -92,12 +94,12 @@ class DataTypeMixin:
                 f"{type(self).__name__}.format_data_type() expects a "
                 f"DataType instance, got {type(data_type).__name__}."
             )
-        name = getattr(data_type, "name", None)
-        if not name or not _NAME_RE.match(name):
-            raise TypeError(
-                f"{type(data_type).__name__} does not declare a valid generic "
-                f"type name (name={name!r}); cannot dispatch."
-            )
+        # `name` is declared on DataType and every concrete subclass has it
+        # validated at class-definition time (see DataType.__init_subclass__),
+        # so it is read directly: probing for a field the contract already
+        # guarantees is the reflection §11.2 forbids, and the None check it
+        # invites would only ever catch a class that never could have existed.
+        name = data_type.name
         formatter = getattr(self, f"format_data_type_{name}", None)
         if formatter is None:
             raise TypeError(
@@ -232,7 +234,7 @@ class DataTypeMixin:
                 continue
             seen.add(klass)
             stack.extend(klass.__subclasses__())
-            if isinstance(klass, type) and getattr(klass, "name", None) == name:
+            if isinstance(klass, type) and klass.name == name:
                 return klass
         return None
 

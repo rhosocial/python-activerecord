@@ -12,6 +12,7 @@ parameter shape, and one of them exists only to fail if an object repr ever
 reaches the statement again.
 """
 
+from rhosocial.activerecord.backend.expression.functions import cast
 import pytest
 
 from rhosocial.activerecord.backend.expression import Column, Literal
@@ -26,7 +27,6 @@ from rhosocial.activerecord.backend.expression.types import (
     JsonType,
     RealType,
     TextType,
-    UUIDType,
     VarCharType,
 )
 
@@ -136,7 +136,7 @@ class TestChainedCasts:
 
 class TestCastIsNotLimitedToColumns:
     def test_a_literal(self, dialect):
-        sql, params = Literal(dialect, 42).cast(IntegerType(dialect)).to_sql()
+        sql, params = cast(dialect, Literal(dialect, 42), IntegerType(dialect)).to_sql()
         assert "INTEGER" in sql
         assert params == (42,)
 

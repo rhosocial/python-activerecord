@@ -56,11 +56,17 @@ class SQLiteDDLColumnMixin:
         values are inlined directly. Booleans render as ``1``/``0`` (SQLite
         has no native boolean literal); everything else delegates to the
         generic implementation.
+
+        The value arrives as a ``Literal``, because the clause normalises a
+        bare scalar at construction, so the bool is read out of the literal
+        rather than off the clause.
         """
-        from rhosocial.activerecord.backend.expression import bases
+        from rhosocial.activerecord.backend.expression.core import Literal
 
         value = expr.value
-        if isinstance(value, bool) and not isinstance(value, bases.BaseExpression):
+        if isinstance(value, Literal):
+            value = value.value
+        if isinstance(value, bool):
             return f"{'1' if value else '0'}", ()
         return super().format_default_value_clause(expr)
 

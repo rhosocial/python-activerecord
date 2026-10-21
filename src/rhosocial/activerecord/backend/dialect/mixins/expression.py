@@ -109,32 +109,31 @@ class ExpressionMixin(FunctionCallMixin):
             )
         return self.format_identifier(expr.name, expr.name_need_quote), ()
 
-    def format_literal_expression(self, expr: "bases.SQLValue") -> Tuple[str, tuple]:
-        """Format a literal value expression (:class:`Literal` family).
+    def format_literal_expression(self, expr: "bases.Literal") -> Tuple[str, tuple]:
+        """Format a value held at one position of an expression.
 
         Args:
-            expr: Literal expression exposing ``value`` and optional ``alias``.
+            expr: The literal carrying ``value`` and ``inline``.
 
         Returns:
-            A ``(sql, params)`` tuple; ``params`` holds the literal value when
-            it is rendered as a bind parameter, otherwise it is empty.
+            A ``(sql, params)`` tuple; ``params`` holds the value when it is
+            rendered as a bind parameter, otherwise it is empty.
 
-        The node's **class-level** ``inline_params`` strategy decides between
-        an inline (escaped, quoted) SQL atom and a bind-parameter placeholder.
-        The class attribute is read off the type — never off the instance —
-        so the strategy cannot be flipped per node.
+        ``expr.inline`` is the only decision here. ``False`` — the default, and
+        what every DQL/DML data position wants — emits a placeholder and hands
+        the value to the driver. ``True`` writes the value as SQL text through
+        the dialect's controlled literal construction (escaped, quoted), for
+        the DDL syntax positions that accept no bind parameters. Because the
+        answer lives on the literal, a node holding several values can treat
+        them differently without the formatter learning anything new.
+
+        There is no alias to apply. A literal is the one thing in the tree with
+        nothing to name: a bind parameter belongs to the driver, and inline SQL
+        text is text.
         """
-        if type(expr).inline_params:
-            sql = self.format_literal(expr.value)
-            params: tuple = ()
-        else:
-            sql = self.get_parameter_placeholder()
-            params = (expr.value,)
-
-        if expr.alias:
-            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
-
-        return sql, params
+        if expr.inline:
+            return self.format_literal(expr.value), ()
+        return self.get_parameter_placeholder(), (expr.value,)
 
     def format_cast_expression(self, expr: CastExpression) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.core.CastExpression` node.
@@ -326,8 +325,13 @@ class ExpressionMixin(FunctionCallMixin):
         The raw SQL text is embedded verbatim together with its parameters —
         it bypasses the building mechanism by design and is the caller's
         responsibility to keep safe.
+
+        ``params`` holds :class:`~...expression.core.Literal` nodes rather than
+        bare values, which is what lets each bind value keep its kind on the wire
+        (§10). A driver binds plain values, so the nodes are unwrapped here — the
+        one boundary that owes the driver something it can actually use.
         """
-        return expr.expression, expr.params
+        return expr.expression, tuple(p.value for p in expr.params)
 
     def format_subquery(self, expr: Subquery) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.core.Subquery` (parenthesized query).
@@ -361,22 +365,38 @@ class ExpressionMixin(FunctionCallMixin):
     def format_values_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
         """Format a :class:`~...expression.query_sources.ValuesExpression` node.
 
+        Each cell is either an expression, which is rendered in place, or a
+        plain value, which becomes a bind parameter -- the same rule
+        :meth:`~.relation_source.format_values_table` applies to a row
+        constructor, and for the same reason. Writing a placeholder for every
+        cell and handing the cells themselves to the driver looks equivalent
+        for a table of literals and is wrong the moment a cell is not one: a
+        ``Column`` in a row rendered as ``?`` and reached the driver as a node.
+
         Args:
             expr: VALUES expression exposing ``values``, optional ``alias`` and
                 optional ``column_names``.
 
         Returns:
-            A ``(sql, params)`` tuple; each row value becomes a bind parameter.
+            A ``(sql, params)`` tuple.
         """
         values = expr.values
         alias = expr.alias
         column_names = expr.column_names
+        placeholder = self.get_parameter_placeholder()
         all_params: List[Any] = []
         rows_sql = []
         for row in values:
-            placeholders = ", ".join([self.get_parameter_placeholder()] * len(row))
-            rows_sql.append(f"({placeholders})")
-            all_params.extend(row)
+            cells_sql = []
+            for cell in row:
+                if isinstance(cell, bases.BaseExpression):
+                    cell_sql, cell_params = cell.to_sql()
+                    all_params.extend(cell_params)
+                    cells_sql.append(cell_sql)
+                else:
+                    all_params.append(cell)
+                    cells_sql.append(placeholder)
+            rows_sql.append(f"({', '.join(cells_sql)})")
         values_sql = ", ".join(rows_sql)
         cols_sql = ""
         if column_names:

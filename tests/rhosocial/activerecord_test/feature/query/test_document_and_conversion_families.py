@@ -34,13 +34,13 @@ from rhosocial.activerecord.backend.expression.declared import (
     UUIDAnnotation,
     XMLAnnotation,
 )
-from rhosocial.activerecord.backend.expression.surfaces import (
-    ArraySurface,
-    JSONSurface,
-    NumericSurface,
-    TemporalSurface,
-    TextSurface,
-    XMLSurface,
+from rhosocial.activerecord.backend.expression.value_types import (
+    ArrayValue,
+    JSONValue,
+    NumericValue,
+    TemporalValue,
+    TextValue,
+    XMLValue,
 )
 
 #: Every value class the lattice holds. "No typed result" is asserted by saying
@@ -100,22 +100,22 @@ def columns(dialect):
 
 
 def test_arrow_extraction_gives_a_document(dialect, columns):
-    assert isinstance(F.json_extract(dialect, columns["json"], Literal(dialect, "$.a")), JSONSurface)
+    assert isinstance(F.json_extract(dialect, columns["json"], Literal(dialect, "$.a")), JSONValue)
 
 
 def test_double_arrow_extraction_gives_text(dialect, columns):
     """`->>` is a narrowing: a document becomes a string and cannot widen back."""
-    assert isinstance(F.json_extract_text(dialect, columns["json"], "$.a"), TextSurface)
+    assert isinstance(F.json_extract_text(dialect, columns["json"], "$.a"), TextValue)
 
 
 def test_a_built_document_is_a_document(dialect, columns):
-    assert isinstance(F.json_build_object(dialect, "k", 1), JSONSurface)
-    assert isinstance(F.json_array_elements(dialect, columns["json"]), JSONSurface)
+    assert isinstance(F.json_build_object(dialect, "k", 1), JSONValue)
+    assert isinstance(F.json_array_elements(dialect, columns["json"]), JSONValue)
 
 
 def test_a_document_offers_the_json_accessors(dialect, columns):
     built = F.json_build_object(dialect, "k", 1)
-    assert isinstance(built, JSONSurface)
+    assert isinstance(built, JSONValue)
     assert hasattr(built, "json_path")
     assert not hasattr(built, "upper")
 
@@ -128,7 +128,7 @@ def test_text_reports_a_string_family(dialect, columns):
     over-offer on this one class, not a claim that text is a document.
     """
     text = F.json_extract_text(dialect, columns["json"], "$.a")
-    assert isinstance(text, TextSurface)
+    assert isinstance(text, TextValue)
     assert text.to_sql()[0].endswith("->>'$.a'")
 
 
@@ -138,11 +138,11 @@ def test_text_reports_a_string_family(dialect, columns):
 
 
 def test_a_sequence_is_a_sequence(dialect, columns):
-    assert isinstance(F.unnest(dialect, columns["array"]), ArraySurface)
+    assert isinstance(F.unnest(dialect, columns["array"]), ArrayValue)
 
 
 def test_measuring_a_sequence_gives_a_whole_number(dialect, columns):
-    assert isinstance(F.array_length(dialect, columns["array"], 1), NumericSurface)
+    assert isinstance(F.array_length(dialect, columns["array"], 1), NumericValue)
 
 
 # ---------------------------------------------------------------------------
@@ -185,7 +185,7 @@ def test_an_argument_without_a_family_does_not_break_a_consensus(dialect, column
     """A literal says nothing, so it neither agrees nor disagrees."""
     with_literal = CaseExpression(dialect, cases=[(columns["int"], Literal(dialect, 1))],
                                  else_result=columns["int"])
-    assert isinstance(with_literal, NumericSurface)
+    assert isinstance(with_literal, NumericValue)
 
 
 # ---------------------------------------------------------------------------
@@ -237,10 +237,10 @@ def test_cast_takes_its_type_from_the_target_type(dialect, columns):
     """The cast answers with the surface of the type it was handed."""
     assert isinstance(
         F.cast(dialect, columns["int"], VarCharType(dialect, length=10)),
-        TextSurface,
+        TextValue,
     )
     assert isinstance(
-        F.cast(dialect, columns["int"], JsonType(dialect)), JSONSurface
+        F.cast(dialect, columns["int"], JsonType(dialect)), JSONValue
     )
 
 
@@ -261,11 +261,11 @@ def test_an_unmodelled_target_type_yields_no_typed_result(dialect, columns):
 
 
 def test_to_char_gives_text(dialect, columns):
-    assert isinstance(F.to_char(dialect, columns["int"]), TextSurface)
+    assert isinstance(F.to_char(dialect, columns["int"]), TextValue)
 
 
 def test_to_number_gives_a_number(dialect, columns):
-    assert isinstance(F.to_number(dialect, columns["int"]), NumericSurface)
+    assert isinstance(F.to_number(dialect, columns["int"]), NumericValue)
 
 
 def test_to_date_gives_a_date(dialect, columns):
@@ -276,7 +276,7 @@ def test_to_date_gives_a_date(dialect, columns):
     day. Asserting the date here is what stops that coming back.
     """
     node = F.to_date(dialect, columns["int"])
-    assert isinstance(node, TemporalSurface)
+    assert isinstance(node, TemporalValue)
     # A date and a date-time carry the same surface -- the operations are the
     # same -- so "not a timestamp" is a statement about the node's class, which
     # is where the distinction now lives.
@@ -328,10 +328,10 @@ def test_the_xml_document_nodes_are_xml_values(dialect):
         X.XMLQueryExpression,
     )
     other_families = tuple(
-        cls for cls in TYPED_VALUE_CLASSES if cls is not XMLSurface
+        cls for cls in TYPED_VALUE_CLASSES if cls is not XMLValue
     )
     for cls in document_nodes:
-        assert issubclass(cls, XMLSurface), cls.__name__
+        assert issubclass(cls, XMLValue), cls.__name__
         assert issubclass(cls, SQLValue), cls.__name__
         # It is an XML value and none of the other typed classes: a document
         # is not text that can be upper-cased, not JSON to navigate, not a
@@ -348,10 +348,10 @@ def test_xmlserialize_yields_the_character_value_it_names(dialect):
     """
     from rhosocial.activerecord.backend.expression import xml as X
 
-    assert issubclass(X.XMLSerializeExpression, TextSurface)
+    assert issubclass(X.XMLSerializeExpression, TextValue)
     serialized = F.xmlserialize(dialect, "<root/>", "VARCHAR(100)")
-    assert isinstance(serialized, TextSurface)
-    assert not isinstance(serialized, XMLSurface)
+    assert isinstance(serialized, TextValue)
+    assert not isinstance(serialized, XMLValue)
 
 
 def test_xmlexists_is_a_predicate_not_a_value():
@@ -360,14 +360,14 @@ def test_xmlexists_is_a_predicate_not_a_value():
     from rhosocial.activerecord.backend.expression.bases import SQLPredicate
 
     assert issubclass(X.XMLExistsPredicate, SQLPredicate)
-    assert not issubclass(X.XMLExistsPredicate, XMLSurface)
+    assert not issubclass(X.XMLExistsPredicate, XMLValue)
 
 
 def test_a_cast_to_xml_is_an_xml_value(dialect, columns):
     """The cast takes its type from the target: ``CAST(x AS XML)`` is XML."""
     result = F.cast(dialect, columns["str"], XmlType(dialect))
-    assert isinstance(result, XMLSurface)
-    assert not isinstance(result, TextSurface)
+    assert isinstance(result, XMLValue)
+    assert not isinstance(result, TextValue)
 
 
 def test_a_function_that_declares_no_result_can_say_xml(dialect):
@@ -467,14 +467,23 @@ def test_every_typed_value_declares_a_family_from_the_lattice():
 
 
 def test_every_temporal_type_is_reachable():
-    """The four temporal classes exist and are distinct.
+    """The four temporal kinds exist and are distinct.
 
-    They were one class with a label saying which it was; now each is its own,
-    so this pins that they are all still there.
+    They were one class with a label saying which it was, then four classes, and
+    now four members of :class:`LiteralKind` -- one closed vocabulary rather than
+    one class per type. This pins that a timestamp, a date, a time and an
+    interval are still told apart, because ``datetime`` is a subclass of ``date``
+    and matching them in the wrong order would fold the first three together.
     """
 
-    from rhosocial.activerecord.backend.expression import values
+    from rhosocial.activerecord.backend.expression.values import LiteralKind
 
-    for name in ("TimestampValue", "DateValue",
-                 "TimeValue", "IntervalValue"):
-        assert hasattr(values, name), name
+    for name, sample in (
+        ("TIMESTAMP", __import__("datetime").datetime(2026, 10, 18, 1, 2, 3)),
+        ("DATE", __import__("datetime").date(2026, 10, 18)),
+        ("TIME", __import__("datetime").time(1, 2, 3)),
+        ("INTERVAL", __import__("datetime").timedelta(days=1)),
+    ):
+        kind = LiteralKind[name]
+        assert LiteralKind.match(sample) is kind, name
+        assert kind.wire.endswith("_value"), name

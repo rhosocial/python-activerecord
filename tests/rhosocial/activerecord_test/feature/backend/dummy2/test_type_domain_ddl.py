@@ -72,7 +72,7 @@ def schema_dialect():
 
 
 def _condition(dialect):
-    return DomainValueExpression(dialect) > Literal(dialect, 0)
+    return DomainValueExpression(dialect) > Literal(dialect, 0, inline=True)
 
 
 def test_legacy_names_are_same_objects():
@@ -133,7 +133,7 @@ def test_domain_lifecycle(dummy_dialect):
         dummy_dialect,
         Domain(dummy_dialect, "positive"),
         IntegerType(dummy_dialect),
-        default=Literal(dummy_dialect, 1),
+        default=Literal(dummy_dialect, 1, inline=True),
         nullability=DomainNullability.NOT_NULL,
         checks=[check],
         collation="pg_catalog.default",
@@ -342,7 +342,7 @@ def test_domain_ddl_rejects_bind_parameters(dummy_dialect):
     with pytest.raises(ValueError, match="bind parameters"):
         check.to_sql()
 
-    lifted = DomainValueExpression(dummy_dialect) == Literal(dummy_dialect, 1)
+    lifted = DomainValueExpression(dummy_dialect) == Literal(dummy_dialect, 1, inline=True)
     lifted_check = DomainCheckConstraint(dummy_dialect, lifted)
     assert lifted_check.to_sql() == ("CHECK (VALUE = 1)", ())
 

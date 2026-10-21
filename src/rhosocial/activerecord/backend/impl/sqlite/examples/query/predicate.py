@@ -4,6 +4,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from .....expression.objects import Table
 from rhosocial.activerecord.backend.expression.predicates import (  # noqa: E402
+    LikeOperator,
     LikePredicate,
     InPredicate,
     BetweenPredicate,
@@ -91,7 +92,11 @@ for row in products_data:
 # ============================================================
 
 # Combine multiple predicates: (LIKE pattern) AND (IN list) AND (BETWEEN range) AND (IS NOT NULL)
-like_pred = LikePredicate(dialect, "LIKE", Column(dialect, "name"), Literal(dialect, "%a%"))
+# The operator is the *word*, not the SQL keyword: the keyword is a spelling
+# the dialect owns and never reaches the artifact.
+like_pred = LikePredicate(
+    dialect, LikeOperator.LIKE, Column(dialect, "name"), Literal(dialect, "%a%")
+)
 in_pred = InPredicate(dialect, Column(dialect, "category"), Literal(dialect, ("Fruit", "Vegetable")))
 between_pred = BetweenPredicate(dialect, Column(dialect, "price"), Literal(dialect, 0.5), Literal(dialect, 2.0))
 not_null_pred = IsNullPredicate(dialect, Column(dialect, "description"), is_not=True)

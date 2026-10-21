@@ -5,6 +5,7 @@ Tests for expression-level COLLATE support on SQLite.
 
 from enum import Enum
 
+from rhosocial.activerecord.backend.expression.collation import collate
 import pytest
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
@@ -54,7 +55,7 @@ class TestSQLiteCollationExpression:
         assert params == ()
 
     def test_literal_collate_preserves_parameter_binding(self, dialect):
-        expr = Literal(dialect, "Alice").collate("NOCASE")
+        expr = collate(Literal(dialect, "Alice"), "NOCASE")
 
         sql, params = expr.to_sql()
 

@@ -24,16 +24,20 @@ it decides what a reader will accept. See
 does not buy.
 """
 
+from datetime import timedelta
+
 import pytest
 
 from rhosocial.activerecord.backend.expression.core import Column, Literal
 from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.operators import RawSQL
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.expression.query_parts import (
     GroupByHavingClause,
     WhereClause,
 )
 from rhosocial.activerecord.backend.expression.query_sources import ValuesExpression
+from rhosocial.activerecord.backend.expression.values import LiteralKind
 from rhosocial.activerecord.backend.expression.registry import ExpressionRegistry
 from rhosocial.activerecord.backend.expression.serialization import (
     default_registry,
@@ -42,7 +46,7 @@ from rhosocial.activerecord.backend.expression.serialization import (
 )
 from rhosocial.activerecord.backend.expression.statements.dml import InsertStatement
 from rhosocial.activerecord.backend.expression.statements.dql import QueryStatement
-from rhosocial.activerecord.backend.expression.values import IntegerValue
+from rhosocial.activerecord.backend.expression.core import Literal
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 
@@ -51,12 +55,22 @@ def dialect():
     return DummyDialect()
 
 
+#: The kinds a literal contributes, by wire name.
+_VALUE_KINDS = frozenset(member.wire for member in LiteralKind)
+
+
 def _table(*kinds):
     """A registry holding exactly these kinds and nothing else."""
     registry = ExpressionRegistry()
     full = default_registry()
+    value_only = tuple(k for k in kinds if k in _VALUE_KINDS)
     for kind in kinds:
+        if kind in _VALUE_KINDS:
+            # The twelve value kinds all resolve to Literal, and they are
+            # registered by kind rather than by class name.
+            continue
         registry.register_node(full.resolve_node(kind))
+    registry.register_value_kinds(*value_only)
     return registry
 
 
@@ -64,12 +78,16 @@ def _table(*kinds):
 #: ``QueryStatement`` declares a ``group_by_having`` parameter whether or not a
 #: query uses one, and that declaration deliberately does not put
 #: ``group_by_having_clause`` into the artifact.
+#: ``literal`` does not appear here because a literal's kind is its *value*
+#: kind: one class carries all twelve, and the artifact names whichever the
+#: value calls for. The query below holds the integer 18, so the kind an
+#: allow-list has to admit is ``integer_value``.
 READS_QUERIES = (
     "query_statement",
     "where_clause",
     "comparison_predicate",
     "column",
-    "literal",
+    "integer_value",
     "table",
 )
 
@@ -98,7 +116,7 @@ def _insert(dialect):
     return InsertStatement(
         dialect,
         into=users,
-        source=ValuesExpression(dialect, [(IntegerValue(dialect, 1),)]),
+        source=ValuesExpression(dialect, [(Literal(dialect, 1),)]),
         columns=["id"],
     )
 
@@ -260,3 +278,80 @@ def test_serializing_ignores_the_registry_entirely(dialect):
     # never consulted while writing it.
     with pytest.raises(Exception):
         deserialize(artifact, dialect, registry=narrow)
+
+
+# ---------------------------------------------------------------------------
+# A kind the framework ships, and does not admit by default
+# ---------------------------------------------------------------------------
+
+
+def test_caller_vouched_text_is_left_out_of_the_default_table(dialect):
+    """``raw_sql`` defines a kind, names a formatter, and is left out anyway.
+
+    ``REGISTER_BY_DEFAULT = False`` says nothing about the node being
+    unfinished. It says what admitting it would mean: ``to_sql()`` emits
+    ``expression`` verbatim, so a reader that resolved the kind out of an
+    artifact would rebuild a node whose SQL the *artifact* chose. The default
+    table is what an untrusted payload is resolved against, so the default
+    says no.
+    """
+    assert RawSQL.kind() == "raw_sql"
+    assert RawSQL.REGISTER_BY_DEFAULT is False
+    assert "raw_sql" not in default_registry().node_kinds()
+
+    # Writing is unaffected (§7.2): the kind still names itself.
+    artifact = serialize(RawSQL(dialect, "SELECT 1"))
+    assert artifact["kind"] == "raw_sql"
+
+    with pytest.raises(Exception) as caught:
+        deserialize(artifact, dialect)
+    assert "raw_sql" in str(caught.value)
+
+
+def test_a_caller_who_trusts_its_artifacts_can_register_it(dialect):
+    """The other half, and the reason this is a default rather than a ban.
+
+    Nothing refuses the class. ``register_node`` is the same call any selective
+    table makes, so opting in is not a privileged path -- which is the whole
+    difference between a sensible default and a prohibition.
+    """
+    opted_in = ExpressionRegistry()
+    opted_in.register_node(RawSQL)
+    assert opted_in.node_kinds() == ("raw_sql",)
+
+    restored = deserialize(
+        serialize(RawSQL(dialect, "SELECT 1")), dialect, registry=opted_in
+    )
+    assert isinstance(restored, RawSQL)
+    assert restored.expression == "SELECT 1"
+    assert restored.to_sql() == ("SELECT 1", ())
+
+
+def test_a_raw_sql_bind_value_survives_the_round_trip(dialect):
+    """The one place a non-JSON type is allowed, and it needs the value kinds.
+
+    ``params`` are wrapped in ``Literal`` at construction, so each bind value
+    carries the kind that says what it is. Without that, ``b"\\x00"`` and a
+    string are the same three bytes on the wire and a reader cannot tell them
+    apart -- the values sent to the database are precisely the ones that must not
+    be guessed at.
+
+    So opting ``raw_sql`` in is two registrations, not one: the node, and the
+    value vocabulary its parameters speak.
+    """
+    opted_in = ExpressionRegistry()
+    opted_in.register_node(RawSQL)
+    opted_in.register_value_kinds()
+
+    node = RawSQL(
+        dialect,
+        "SELECT * FROM t WHERE blob = ? AND span = ?",
+        (b"\x00\x01", timedelta(seconds=90)),
+    )
+    restored = deserialize(serialize(node), dialect, registry=opted_in)
+
+    # The driver is handed plain values, not nodes.
+    assert node.to_sql()[1] == (b"\x00\x01", timedelta(seconds=90))
+    # ...and the values came back as themselves, not as text.
+    assert [p.value for p in restored.params] == [b"\x00\x01", timedelta(seconds=90)]
+    assert restored.to_sql() == node.to_sql()

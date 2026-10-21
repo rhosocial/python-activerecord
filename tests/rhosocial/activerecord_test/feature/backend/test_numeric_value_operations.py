@@ -17,7 +17,7 @@ one -- asserting integer here would have been wrong for every ``float`` column.
 import pytest
 
 from rhosocial.activerecord.backend.expression import NumericColumn
-from rhosocial.activerecord.backend.expression.surfaces import NumericSurface
+from rhosocial.activerecord.backend.expression.value_types import NumericValue
 
 
 @pytest.fixture
@@ -100,15 +100,15 @@ class TestResultTypes:
         """Sign is -1, 0 or 1, but the backends do not answer integers for it:
         measured on PostgreSQL, an integer argument comes back double and a
         numeric one numeric, so the result carries the numeric surface."""
-        assert isinstance(price.sign(), NumericSurface)
+        assert isinstance(price.sign(), NumericValue)
 
     def test_sqrt_is_a_number(self, price):
-        assert isinstance(price.sqrt(), NumericSurface)
+        assert isinstance(price.sqrt(), NumericValue)
 
     @pytest.mark.parametrize("method", ["ceil", "floor"])
     def test_rounding_keeps_the_operand_type(self, price, method):
         """CEIL(numeric) is numeric in every backend; CEIL(integer) is not."""
-        assert isinstance(getattr(price, method)(), NumericSurface)
+        assert isinstance(getattr(price, method)(), NumericValue)
 
 
 class TestChaining:

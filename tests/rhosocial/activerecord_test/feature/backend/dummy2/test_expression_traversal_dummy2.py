@@ -110,6 +110,19 @@ from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.objects import EdgeTable, NodeTable
 
 
+def _codec_registry():
+    """The default table plus the two kinds it deliberately leaves out.
+
+    This file is about the codec, not about what the default table admits. A
+    kind the framework ships is still a kind, and reading one back is the thing
+    under test -- so `RawSQL` is registered here rather than skipped.
+    """
+    view = serialization.default_registry().copy()
+    for cls in (RawSQL, RawSQLPredicate):
+        view.register_node(cls)
+    return view
+
+
 EXPRESSION_TEST_CASES = [
     dict(name="Column", cls=Column, params_func=lambda d: dict(dialect=d, name="age", table="users")),
     dict(name="Literal", cls=Literal, params_func=lambda d: dict(dialect=d, value=42)),
@@ -486,8 +499,10 @@ class TestExpressionRoundtrip:
                 if k != "dialect"
             }
         if isinstance(params, (list, tuple)):
-            encoded = [TestExpressionRoundtrip._as_params(v) for v in params]
-            return encoded if isinstance(params, list) else {"__tuple__": encoded}
+            # A tuple goes out as an array, like a list: the artifact draws no
+            # distinction, and a marker to draw one would be a dispatch every
+            # language had to reimplement.
+            return [TestExpressionRoundtrip._as_params(v) for v in params]
         return params
 
     @pytest.mark.parametrize("test_case", EXPRESSION_TEST_CASES, ids=[x["name"] for x in EXPRESSION_TEST_CASES])
@@ -497,7 +512,7 @@ class TestExpressionRoundtrip:
         params = test_case["params_func"](dummy_dialect)
 
         artifact = {"kind": cls.kind(), "params": self._as_params(params)}
-        instance = serialization.deserialize(artifact, dummy_dialect)
+        instance = serialization.deserialize(artifact, dummy_dialect, registry=_codec_registry())
         spec = serialization.serialize(instance)
-        restored = serialization.deserialize(spec, dummy_dialect)
+        restored = serialization.deserialize(spec, dummy_dialect, registry=_codec_registry())
         assert restored.to_sql() == instance.to_sql()

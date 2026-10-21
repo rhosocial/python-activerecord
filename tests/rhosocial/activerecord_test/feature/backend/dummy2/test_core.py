@@ -198,7 +198,7 @@ class TestSubquery:
 
     def test_subquery_from_sql_query_and_params_tuple(self, dummy_dialect: DummyDialect):
         """Test Subquery initialization with SQLQueryAndParams tuple (str, tuple) - covers the missing branch."""
-        # This tests the elif bases.is_sql_query_and_params(query): branch
+        # This tests the elif bases.QueryWithParams.holds(query): branch
         query_tuple = ("SELECT id FROM users WHERE age > ?", (25,))
         subquery = Subquery(dummy_dialect, query_tuple)
         sql, params = subquery.to_sql()
@@ -209,28 +209,28 @@ class TestSubquery:
         """Test Subquery initialization with SQLQueryAndParams tuple where params is None."""
         # This simulates a case where the second element of the tuple is None
         # Though in practice, SQLQueryAndParams expects a tuple, not None
-        # We'll test the branch by directly checking the is_sql_query_and_params function
-        from rhosocial.activerecord.backend.expression.bases import is_sql_query_and_params
+        # We'll test the branch by directly checking the QueryWithParams.holds function
+        from rhosocial.activerecord.backend.expression.bases import QueryWithParams
 
-        # Verify that is_sql_query_and_params correctly identifies the tuple format
+        # Verify that QueryWithParams.holds correctly identifies the tuple format
         valid_tuple = ("SELECT * FROM table", (1, 2, 3))
-        assert is_sql_query_and_params(valid_tuple) is True
+        assert QueryWithParams.holds(valid_tuple) is True
 
         # Test with a tuple that has None as second element (this should return True now)
         valid_tuple_with_none = ("SELECT * FROM table", None)
-        assert is_sql_query_and_params(valid_tuple_with_none) is True
+        assert QueryWithParams.holds(valid_tuple_with_none) is True
 
         # Test with a tuple that has wrong length (this should return False)
         invalid_tuple_length = ("SELECT * FROM table", (1,), "extra")
-        assert is_sql_query_and_params(invalid_tuple_length) is False
+        assert QueryWithParams.holds(invalid_tuple_length) is False
 
         # Test with a tuple that has non-string first element (this should return False)
         invalid_tuple_first = (123, (1, 2, 3))
-        assert is_sql_query_and_params(invalid_tuple_first) is False
+        assert QueryWithParams.holds(invalid_tuple_first) is False
 
         # Test with a tuple that has non-tuple second element (this should return False)
         invalid_tuple_second = ("SELECT * FROM table", [1, 2, 3])
-        assert is_sql_query_and_params(invalid_tuple_second) is False
+        assert QueryWithParams.holds(invalid_tuple_second) is False
 
     def test_subquery_from_sql_query_and_params_tuple_with_none_as_params(self, dummy_dialect: DummyDialect):
         """Test Subquery initialization with SQLQueryAndParams tuple where params is None."""

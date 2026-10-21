@@ -113,7 +113,6 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     DateTimeMixin,
     DQLMixin,
     DMLMixin,
-    TypedValueMixin,
     DDLColumnMixin,
     DataTypeMixin,
     UserDefinedTypeMixin,
@@ -437,7 +436,6 @@ class DummyDialect(
     DMLMixin,
     # Value literals: the typed value nodes render through this, and the Dummy
     # dialect has no backend-specific spelling to add on top of it.
-    TypedValueMixin,
     DataTypeMixin,
     DummyColumnTypeMixin,
     UserDefinedTypeMixin,
@@ -1034,6 +1032,9 @@ class DummyDialect(
         return True
 
     def supports_for_update_skip_locked(self) -> bool:
+        return True
+
+    def supports_for_update_nowait(self) -> bool:
         return True
 
     def supports_for_update(self) -> bool:

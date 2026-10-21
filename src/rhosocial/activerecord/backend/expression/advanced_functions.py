@@ -30,9 +30,9 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
-from .surfaces import (
-    JSONSurface,
-    TextSurface,
+from .value_types import (
+    JSONValue,
+    TextValue,
 )
 
 class DeclaredValueType:
@@ -60,7 +60,9 @@ class DeclaredValueType:
         return BaseExpression.to_sql(self)
 
 
-class JSONPathMode(Enum):
+class JSONPathMode(str, Enum):
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
     """How a JSON path expression should be rendered by the dialect.
 
     - ``AUTO``: Use arrow operators if supported, else function-based.
@@ -120,7 +122,7 @@ class CaseExpression(
     so the answer is readable off the object. When they disagree -- integer here
     and float there -- the CASE is legal SQL that answers with neither kind, so
     no typed wrapper is offered and the bare class stands for it. Guessing the
-    first branch or the widest would promise a surface the database does not
+    first branch or the widest would promise a value_type the database does not
     have, and "unknown" is a result the caller can handle.
 
     That is why this class declares no single value type of its own: the answer
@@ -168,23 +170,23 @@ class CaseExpression(
 
         The bases are ordered so that ``CaseExpression`` supplies the CASE state,
         :class:`DeclaredValueType` supplies the rendering, and the annotation's
-        **surface** supplies the operations. The surface rather than the
+        **value_type** supplies the operations. The value_type rather than the
         annotation itself, because this class already derives from
         ``DeclaredValueType`` and the annotation derives from it too: asking for
-        both leaves two orders to satisfy and no linearization. A surface adds
+        both leaves two orders to satisfy and no linearization. A value_type adds
         only mixins, so it settles cleanly.
 
         What this gives up is the annotation's own ``format_method`` -- the one
         that renders the node the annotation holds. That is the point: a CASE
         holds branches, not a node, so it must render as itself.
         """
-        surface = annotation.surface
+        value_type = annotation.value_type_of()
         try:
             return _CASE_ANNOTATION_CLASSES[annotation]
         except KeyError:
             combined = type(
-                f"Case{surface.__name__}",
-                (cls, DeclaredValueType, surface),
+                f"Case{value_type.__name__}",
+                (cls, DeclaredValueType, value_type),
                 {
                     "__doc__": (
                         f"A CASE whose branches agree the answer is a "
@@ -359,7 +361,7 @@ class WindowClause(BaseExpression):
 
 class JSONDocumentValue(
     DeclaredValueType,
-    JSONSurface,
+    JSONValue,
     ArithmeticMixin,
     JSONAccessorMixin,
     SQLValue,
@@ -379,7 +381,7 @@ class JSONDocumentValue(
     yield different types, and a single class could only offer the union of
     their operations to both.
 
-    It is a :class:`~...expression.surfaces.JSONSurface` because that is what
+    It is a :class:`~...expression.value_types.JSONValue` because that is what
     a document is. It is not a *wrapper* holding one -- it has its own formatter
     and its own fields -- so it says so with
     :class:`DeclaredValueType` rather than inheriting the delegation.
@@ -411,7 +413,7 @@ class JSONDocumentValue(
 
 class JSONTextValue(
     JSONDocumentValue,
-    TextSurface,
+    TextValue,
 ):
     """A JSON path access that yielded **text** -- ``->>``.
 
@@ -425,7 +427,7 @@ class JSONTextValue(
     Text is the narrower of the two, so chaining continues: ``->>`` yields a
     scalar and a scalar cannot be navigated further. ``->`` yields a document
     and can be, which is why this is the class that gains
-    :class:`~...expression.surfaces.TextSurface` and its operations.
+    :class:`~...expression.value_types.TextValue` and its operations.
 
     One consequence of inheriting the document class is that the JSON accessors
     stay reachable here too: ``DeclaredValueType`` renders the node and this

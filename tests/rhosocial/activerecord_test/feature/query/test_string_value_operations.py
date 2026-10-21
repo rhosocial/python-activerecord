@@ -17,7 +17,7 @@ The split this file pins:
 # tests/rhosocial/activerecord_test/feature/query/test_string_value_operations.py
 import pytest
 
-from rhosocial.activerecord.backend.expression.surfaces import TextSurface
+from rhosocial.activerecord.backend.expression.value_types import TextValue
 
 from rhosocial.activerecord.backend.expression import (
     LikePredicate,
@@ -157,7 +157,7 @@ def test_predicate_still_combines(name):
 def test_numeric_result_is_not_a_string_value(dialect, name, factory):
     """``LENGTH(x) LIKE '3'`` is a type error; the surface must not offer it."""
     result = getattr(string_functions, factory)(dialect, name)
-    assert not isinstance(result, TextSurface)
+    assert not isinstance(result, TextValue)
 
 
 @pytest.mark.parametrize(
@@ -175,7 +175,7 @@ def test_string_column_offers_them_but_the_result_is_not_a_string(name, method, 
     """
     assert hasattr(name, method), f"StringColumn lost a legal operation {method}()"
     result = getattr(name, method)(*args)
-    assert not isinstance(result, TextSurface)
+    assert not isinstance(result, TextValue)
 
 
 # ---------------------------------------------------------------------------

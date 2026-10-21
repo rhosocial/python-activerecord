@@ -4,8 +4,8 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.statements.ddl_alter import (  # noqa: E402
-    AddColumn,
-    RenameObject,
+    AddColumnAction,
+    RenameColumnAction,
 )
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
     AlterTableStatement,
@@ -76,7 +76,7 @@ backend.execute(sql, params)
 # ============================================================
 
 # Add a new column (separate statement for SQLite)
-add_col_action = AddColumn(
+add_col_action = AddColumnAction(
     dialect=dialect,
     column=ColumnDefinition(dialect, 
         name="email",
@@ -97,7 +97,7 @@ backend.execute(sql, params)
 print("Column added successfully")
 
 # Rename a column (separate statement for SQLite)
-rename_action = RenameObject(
+rename_action = RenameColumnAction(
     dialect=dialect,
     old_name="name",
     new_name="full_name",

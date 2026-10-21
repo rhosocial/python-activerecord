@@ -16,9 +16,9 @@ import datetime
 import pytest
 
 from rhosocial.activerecord.backend.expression import functions as datetime_functions
-from rhosocial.activerecord.backend.expression.surfaces import (
-    NumericSurface,
-    TemporalSurface,
+from rhosocial.activerecord.backend.expression.value_types import (
+    NumericValue,
+    TemporalValue,
 )
 from rhosocial.activerecord.backend.expression.datetime import (
     DateTimeAddExpression,
@@ -51,11 +51,11 @@ def timestamp(dialect):
 @pytest.mark.parametrize(
     "factory, cls",
     [
-        ("now", TemporalSurface),
-        ("current_timestamp", TemporalSurface),
-        ("localtimestamp", TemporalSurface),
-        ("current_date", TemporalSurface),
-        ("current_time", TemporalSurface),
+        ("now", TemporalValue),
+        ("current_timestamp", TemporalValue),
+        ("localtimestamp", TemporalValue),
+        ("current_date", TemporalValue),
+        ("current_time", TemporalValue),
     ],
 )
 def test_the_present_keeps_its_precision(dialect, factory, cls):
@@ -106,12 +106,12 @@ def test_extraction_is_numeric(dialect, timestamp, factory):
     """``EXTRACT(EPOCH FROM ts)`` is fractional, so the family is too wide to
     be a whole number. Widening here is deliberate: claiming integer would
     offer ``bit_length`` on a value that may be a million and a half."""
-    assert isinstance(getattr(datetime_functions, factory)(dialect, "year", timestamp), NumericSurface)
+    assert isinstance(getattr(datetime_functions, factory)(dialect, "year", timestamp), NumericValue)
 
 
 def test_date_diff_counts_whole_units(dialect):
     now = datetime_functions.now(dialect)
-    assert isinstance(now.date_diff("day", now), NumericSurface)
+    assert isinstance(now.date_diff("day", now), NumericValue)
 
 
 # ---------------------------------------------------------------------------
@@ -120,20 +120,20 @@ def test_date_diff_counts_whole_units(dialect):
 
 
 def test_truncation_stays_a_timestamp(dialect):
-    assert isinstance(datetime_functions.now(dialect).date_trunc("day"), TemporalSurface)
+    assert isinstance(datetime_functions.now(dialect).date_trunc("day"), TemporalValue)
 
 
 @pytest.mark.parametrize("method", ["date_add", "date_sub"])
 def test_shifting_time_stays_a_timestamp(dialect, method):
     now = datetime_functions.now(dialect)
     result = getattr(now, method)(1, "days")
-    assert isinstance(result, TemporalSurface)
+    assert isinstance(result, TemporalValue)
     assert isinstance(result, (DateTimeAddExpression, DateTimeSubtractExpression))
 
 
 def test_an_interval_is_its_own_family(dialect):
     """A span is not a point in time, which is why date_add takes one."""
-    assert isinstance(datetime_functions.interval(dialect, 1, "day"), TemporalSurface)
+    assert isinstance(datetime_functions.interval(dialect, 1, "day"), TemporalValue)
 
 
 # ---------------------------------------------------------------------------
@@ -201,10 +201,10 @@ def test_a_temporal_column_follows_the_same_gate(dialect, timestamp):
 @pytest.mark.parametrize(
     "factory, args, result_cls",
     [
-        ("extract", ("year",), NumericSurface),
-        ("date_part", ("year",), NumericSurface),
-        ("interval", (1, "day"), TemporalSurface),
-        ("date_diff", ("day",), NumericSurface),
+        ("extract", ("year",), NumericValue),
+        ("date_part", ("year",), NumericValue),
+        ("interval", (1, "day"), TemporalValue),
+        ("date_diff", ("day",), NumericValue),
     ],
 )
 def test_a_temporal_operation_yields_its_own_type(dialect, timestamp, factory, args, result_cls):
@@ -247,7 +247,7 @@ def test_each_temporal_value_is_its_own_node(dialect, factory):
     the factory chose.
     """
     node = getattr(datetime_functions, factory)(dialect)
-    assert isinstance(node, TemporalSurface)
+    assert isinstance(node, TemporalValue)
     assert hasattr(node, "date_add")
 
 
@@ -262,7 +262,7 @@ def test_an_interval_is_a_span_and_not_a_point(dialect):
 
     interval = datetime_functions.interval(dialect, 1, "day")
     assert isinstance(interval, IntervalMixin)
-    assert isinstance(interval, TemporalSurface)
+    assert isinstance(interval, TemporalValue)
     assert not isinstance(datetime_functions.now(dialect), IntervalMixin)
 
 

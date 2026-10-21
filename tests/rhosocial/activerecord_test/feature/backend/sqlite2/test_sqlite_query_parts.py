@@ -8,7 +8,8 @@ from rhosocial.activerecord.backend.expression import (
     GroupByHavingClause,
     LimitOffsetClause,
     OrderByClause,
-)
+    NumericColumn,
+    StringColumn,)
 from rhosocial.activerecord.backend.expression.predicates import (
     LogicalPredicate,
 )
@@ -20,7 +21,7 @@ class TestQueryParts:
 
     def test_where_clause_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test basic WHERE clause generation."""
-        condition = Column(sqlite_dialect_3_8_0, "status") == Literal(sqlite_dialect_3_8_0, "active")
+        condition = StringColumn(sqlite_dialect_3_8_0, "status") == Literal(sqlite_dialect_3_8_0, "active")
         where_clause = WhereClause(sqlite_dialect_3_8_0, condition=condition)
 
         sql, params = where_clause.to_sql()
@@ -29,8 +30,8 @@ class TestQueryParts:
 
     def test_where_clause_complex(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test complex WHERE clause with multiple conditions."""
-        condition1 = Column(sqlite_dialect_3_8_0, "age") >= Literal(sqlite_dialect_3_8_0, 18)
-        condition2 = Column(sqlite_dialect_3_8_0, "status") == Literal(sqlite_dialect_3_8_0, "active")
+        condition1 = NumericColumn(sqlite_dialect_3_8_0, "age") >= Literal(sqlite_dialect_3_8_0, 18)
+        condition2 = StringColumn(sqlite_dialect_3_8_0, "status") == Literal(sqlite_dialect_3_8_0, "active")
         complex_condition = LogicalPredicate(sqlite_dialect_3_8_0, "AND", condition1, condition2)
 
         where_clause = WhereClause(sqlite_dialect_3_8_0, condition=complex_condition)

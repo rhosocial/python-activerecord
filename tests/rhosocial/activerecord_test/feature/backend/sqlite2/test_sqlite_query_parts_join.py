@@ -158,7 +158,10 @@ class TestSQLiteJoinClause:
                 Column(sqlite_dialect_3_8_0, "user_id", "orders"),
             ),
         )
-        with pytest.raises(UnsupportedFeatureError, match="does not support FULL JOIN"):
+        # The message names the join that was actually asked for. It read
+        # "FULL JOIN" here only because the formatter discarded the type and
+        # hardcoded the wording; the type is a member now, so the message is right.
+        with pytest.raises(UnsupportedFeatureError, match="does not support FULL OUTER JOIN"):
             join_expr.to_sql()
 
     def test_chained_join_with_unsupported_type(self, sqlite_dialect_3_8_0: SQLiteDialect):

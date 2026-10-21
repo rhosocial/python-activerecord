@@ -6,7 +6,6 @@ from ..bases import (
     BaseExpression,
     SQLPredicate,
     SQLQueryAndParams,
-    require_exclusive_options,
 )
 from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 from abc import ABC
@@ -24,36 +23,20 @@ if TYPE_CHECKING:  # pragma: no cover
 class DefaultValueClause(BaseExpression):
     """The value clause of a ``DEFAULT`` constraint.
 
-    A DDL clause node rendered through the dialect's
-    ``format_default_value_clause``. It carries the default **value** — either
-    a plain Python scalar (rendered inline with dialect-controlled escaping) or
-    a ``BaseExpression`` (e.g. a function call or literal) — keeping the
-    value/inline logic in one place. It is a self-contained expression so the
-    value's escaping/inlining can be overridden per backend.
+    A ``DEFAULT`` position accepts no bind parameters -- the statement that
+    carries it is DDL, and DDL has no place to put a driver's parameters. So
+    the clause states that once, here, at construction: a bare value arrives
+    wrapped in a :class:`~...expression.core.Literal` with ``inline=True``,
+    and a caller who already built a ``Literal`` gets it marked rather than
+    refused, because the position has no other answer to give.
 
-    A ``DEFAULT`` position accepts no bind parameters, so the class declares
-    ``inline_params = True``: the clause renders inline only and never
-    produces a bind value.
-from rhosocial.activerecord.backend.expression.statements import (
-    ColumnCheckConstraint,
-    ColumnConstraintBranch,
-    ColumnDefaultConstraint,
-    ColumnForeignKeyConstraint,
-    ColumnGeneratedConstraint,
-    ColumnNotNullConstraint,
-    ColumnNullableConstraint,
-    ColumnPrimaryKeyConstraint,
-    ColumnUniqueConstraint,
-    TableCheckConstraint,
-    TableConstraintBranch,
-    TableExcludeConstraint,
-    TableForeignKeyConstraint,
-    TablePrimaryKeyConstraint,
-    TableUniqueConstraint,
-)
+    This is the one place the decision is not the caller's to make. A caller
+    who composes a ``CHECK`` condition or a partial-index ``WHERE`` writes the
+    literals in that tree themselves and says ``inline=True`` on each; a model
+    field's ``default=0`` reaches here as a Python scalar, and the clause
+    normalises it. Both end at the same place, and neither ends with a bind
+    parameter in DDL.
     """
-
-    inline_params: bool = True
 
     @property
     def format_method(self) -> str:
@@ -62,6 +45,14 @@ from rhosocial.activerecord.backend.expression.statements import (
 
     def __init__(self, dialect: "SQLDialectBase", value: Any):
         super().__init__(dialect)
+        from ..core import Literal
+
+        if isinstance(value, Literal):
+            # A caller who built the literal themselves still said nothing
+            # about binding, and this position cannot bind.
+            value.inline = True
+        elif not isinstance(value, BaseExpression):
+            value = Literal(dialect, value, inline=True)
         self.value = value
 
 
@@ -187,7 +178,7 @@ class IdentityClause(BaseExpression):
         no_cache: bool = False,
     ):
         super().__init__(dialect)
-        require_exclusive_options(cycle, no_cycle, "cycle", "no_cycle")
+        self.require_exclusive_options(cycle, no_cycle, "cycle", "no_cycle")
         if cache is not None and no_cache:
             raise ValueError("cache and no_cache are mutually exclusive options")
         if order and no_order:
@@ -268,8 +259,8 @@ class ReferencesClause(BaseExpression):
         initially_immediate: bool = False,
     ):
         super().__init__(dialect)
-        require_exclusive_options(deferrable, not_deferrable, "deferrable", "not_deferrable")
-        require_exclusive_options(
+        self.require_exclusive_options(deferrable, not_deferrable, "deferrable", "not_deferrable")
+        self.require_exclusive_options(
             initially_deferred,
             initially_immediate,
             "initially_deferred",
@@ -387,15 +378,21 @@ class ColumnDefinition(BaseExpression):
         # adapts it at render time. See ``DDLColumnMixin.translate_ar_attribute``.
         self.attributes = list(attributes or [])
 
-class GeneratedColumnType(Enum):
+class GeneratedColumnType(str, Enum):
     """Types of generated columns (computed columns)."""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     STORED = "STORED"  # Stored on disk, can be indexed
     VIRTUAL = "VIRTUAL"  # Computed on read, not stored
 
 
-class ReferentialAction(Enum):
+class ReferentialAction(str, Enum):
     """Actions for referential integrity constraints."""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     CASCADE = "CASCADE"
     RESTRICT = "RESTRICT"
@@ -404,7 +401,7 @@ class ReferentialAction(Enum):
     NO_ACTION = "NO ACTION"
 
 
-class ConstraintValidation(Enum):
+class ConstraintValidation(str, Enum):
     """Constraint validation status (PostgreSQL specific).
 
     Used as the typed ``validation`` field of :class:`TableConstraint` to
@@ -414,11 +411,14 @@ class ConstraintValidation(Enum):
     - NOVALIDATE: Add constraint without validating existing data (NOT VALID)
     """
 
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
+
     VALIDATE = "VALIDATE"
     NOVALIDATE = "NOT VALID"
 
 
-class ForeignKeyMatchType(Enum):
+class ForeignKeyMatchType(str, Enum):
     """The MATCH type of a foreign key (SQL:1999).
 
     A multi-column foreign key matches when *some* column pair matches; MATCH
@@ -434,13 +434,12 @@ class ForeignKeyMatchType(Enum):
     member that renders as its Python name would put invalid SQL on the wire.
     """
 
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
+
     SIMPLE = "SIMPLE"
     PARTIAL = "PARTIAL"
     FULL = "FULL"
-
-    def __str__(self) -> str:
-        """The SQL spelling of this match type."""
-        return self.value
 
 
 class ColumnConstraintBranch(BaseExpression, ABC):
@@ -512,11 +511,10 @@ class ColumnCheckConstraint(ColumnConstraintBranch):
     """``CHECK (<condition>)``.
 
     A CHECK position accepts no bind parameters, so the class declares
-    ``inline_params = True``; the dialect renders the condition inline-only
+    the literals are marked inline; the dialect renders the condition inline-only
     and refuses any residual bind value.
     """
 
-    inline_params: bool = True
 
     def __init__(
         self,
@@ -545,10 +543,9 @@ class ColumnDefaultConstraint(ColumnConstraintBranch):
     ask for it.
 
     A DEFAULT position accepts no bind parameters, so the class declares
-    ``inline_params = True``; the value renders inline only.
+    the literals are marked inline; the value renders inline only.
     """
 
-    inline_params: bool = True
 
     def __init__(
         self,
@@ -612,10 +609,9 @@ class ColumnGeneratedConstraint(ColumnConstraintBranch):
     column constraint rides and answers to the same level's prefix.
 
     A generated-column expression is a DDL position, so the class declares
-    ``inline_params = True``; the expression renders inline-only.
+    the literals are marked inline; the expression renders inline-only.
     """
 
-    inline_params: bool = True
 
     def __init__(
         self,
@@ -692,14 +688,14 @@ class ColumnConstraint(BaseExpression):
                 f"ColumnConstraint.branch must be a ColumnConstraintBranch, "
                 f"got {type(branch).__name__}"
             )
-        require_exclusive_options(deferrable, not_deferrable, "deferrable", "not_deferrable")
-        require_exclusive_options(
+        self.require_exclusive_options(deferrable, not_deferrable, "deferrable", "not_deferrable")
+        self.require_exclusive_options(
             initially_deferred,
             initially_immediate,
             "initially_deferred",
             "initially_immediate",
         )
-        require_exclusive_options(enforced, not_enforced, "enforced", "not_enforced")
+        self.require_exclusive_options(enforced, not_enforced, "enforced", "not_enforced")
         self.branch = branch
         self.name = name
         self.deferrable = deferrable
@@ -831,11 +827,10 @@ class TableCheckConstraint(TableConstraintBranch):
     """A table-level ``CHECK (<condition>)``.
 
     A CHECK position accepts no bind parameters, so the class declares
-    ``inline_params = True``; the dialect renders the condition inline-only
+    the literals are marked inline; the dialect renders the condition inline-only
     and refuses any residual bind value.
     """
 
-    inline_params: bool = True
 
     def __init__(
         self,
@@ -952,9 +947,9 @@ class TableConstraint(BaseExpression):
                 f"TableConstraint.branch must be a TableConstraintBranch, "
                 f"got {type(branch).__name__}"
             )
-        require_exclusive_options(enforced, not_enforced, "enforced", "not_enforced")
-        require_exclusive_options(deferrable, not_deferrable, "deferrable", "not_deferrable")
-        require_exclusive_options(
+        self.require_exclusive_options(enforced, not_enforced, "enforced", "not_enforced")
+        self.require_exclusive_options(deferrable, not_deferrable, "deferrable", "not_deferrable")
+        self.require_exclusive_options(
             initially_deferred,
             initially_immediate,
             "initially_deferred",
@@ -1298,7 +1293,7 @@ class CreateTableAsStatement(BaseExpression):
         no_data: bool = False,
     ):
         super().__init__(dialect)
-        require_exclusive_options(with_data, no_data, "with_data", "no_data")
+        self.require_exclusive_options(with_data, no_data, "with_data", "no_data")
         self.table = table
         if as_query is None:
             raise ValueError("as_query is required for CreateTableAsStatement")
@@ -1364,7 +1359,10 @@ class CreateTableLikeStatement(BaseExpression):
         return self.table.name
 
 
-class CreateTableCloneMode(Enum):
+class CreateTableCloneMode(str, Enum):
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
+
     """Mode of a definition/data copy operation."""
 
     CLONE = "CLONE"
@@ -1535,7 +1533,7 @@ class DropTableStatement(BaseExpression):
         purge: bool = False,
     ):
         super().__init__(dialect)
-        require_exclusive_options(cascade, restrict, "cascade", "restrict")
+        self.require_exclusive_options(cascade, restrict, "cascade", "restrict")
         self.table = table
         self.if_exists = if_exists
         self.cascade = cascade
@@ -1551,10 +1549,9 @@ class StorageOptionsExpression(BaseExpression):
     ``inline_sql_literal``.
 
     Storage options are a DDL position, so the class declares
-    ``inline_params = True``: values render inline only.
+    the literals are marked inline: values render inline only.
     """
 
-    inline_params: bool = True
 
     def __init__(
         self,

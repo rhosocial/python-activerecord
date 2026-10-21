@@ -14,14 +14,14 @@ from .aggregate import AggregateFunction
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
-from ..surfaces import (
-    ArraySurface,
-    NumericSurface,
+from ..value_types import (
+    ArrayValue,
+    NumericValue,
 )
 
 class UnnestFunction(
     DeclaredValueType,
-    ArraySurface,
+    ArrayValue,
 ):
     """``UNNEST(array)`` -- the array's elements, one per row.
 
@@ -51,7 +51,7 @@ class UnnestFunction(
 
 class ArrayLengthFunction(
     DeclaredValueType,
-    NumericSurface,
+    NumericValue,
 ):
     """``ARRAY_LENGTH(array[, dimension])`` -- how many elements.
 
@@ -76,7 +76,11 @@ class ArrayLengthFunction(
         self.target = target if isinstance(target, BaseExpression) else Literal(dialect, target)
         # Normalised here so the count is a node however it arrived; a bare int
         # reaching the formatter is what made it fail at render instead of here.
-        self.dimension = None if dimension is None else values.IntegerValue.of(dialect, dimension)
+        self.dimension = (
+            None
+            if dimension is None
+            else dimension if isinstance(dimension, BaseExpression) else Literal(dialect, dimension)
+        )
 
     @property
     def format_method(self) -> str:
@@ -86,7 +90,7 @@ class ArrayLengthFunction(
 class ArrayAggregateFunction(
     AggregateFunction,
     DeclaredValueType,
-    ArraySurface,
+    ArrayValue,
 ):
     """``ARRAY_AGG(operand)`` -- the rows gathered into one array.
 
@@ -135,5 +139,5 @@ def array_length(
 ) -> "ArrayLengthFunction":
     """Creates an ARRAY_LENGTH function call."""
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    dimension_expr = Literal(dialect, dimension)
+    dimension_expr = dimension if isinstance(dimension, BaseExpression) else Literal(dialect, dimension)
     return ArrayLengthFunction(dialect, target_expr, dimension_expr)

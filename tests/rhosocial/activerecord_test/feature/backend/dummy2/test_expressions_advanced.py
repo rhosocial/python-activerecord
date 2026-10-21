@@ -1,4 +1,5 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_expressions_advanced.py
+from rhosocial.activerecord.backend.expression.functions import cast
 import pytest
 
 from rhosocial.activerecord.backend.expression import (
@@ -15,7 +16,6 @@ from rhosocial.activerecord.backend.expression import (
     WindowFrameSpecification,
     ArrayOperation,
     JSONDocumentValue,
-    JSONTextValue,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.types import (
@@ -74,7 +74,7 @@ class TestAdvancedExpressions:
     def test_cast_literal(self, dummy_dialect: DummyDialect):
         """Tests cast() method on Literal."""
         lit = Literal(dummy_dialect, "2023-01-01")
-        cast_expr = lit.cast(DateType(dummy_dialect))
+        cast_expr = cast(dummy_dialect, lit, DateType(dummy_dialect))
         sql, params = cast_expr.to_sql()
         assert sql == "CAST(? AS DATE)"
         assert params == ("2023-01-01",)

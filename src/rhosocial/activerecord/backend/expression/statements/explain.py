@@ -13,8 +13,11 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 # region Explain Statement
-class ExplainType(Enum):
+class ExplainType(str, Enum):
     """EXPLAIN statement type, representing different analysis modes."""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     BASIC = "BASIC"  # Basic plan
     ANALYZE = "ANALYZE"  # Execute and analyze
@@ -24,8 +27,11 @@ class ExplainType(Enum):
     PROFILE = "PROFILE"  # Performance profile
 
 
-class ExplainFormat(Enum):
+class ExplainFormat(str, Enum):
     """EXPLAIN output formats."""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     TEXT = "TEXT"  # Text format
     JSON = "JSON"  # JSON format

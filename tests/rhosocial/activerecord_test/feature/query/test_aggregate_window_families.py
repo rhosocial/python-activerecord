@@ -29,14 +29,14 @@ from rhosocial.activerecord.backend.expression import (
     MinFunction,
     SumFunction,
 )
-from rhosocial.activerecord.backend.expression.surfaces import (
-    ArraySurface,
-    BooleanSurface,
-    JSONSurface,
-    NumericSurface,
-    OpaqueSurface,
-    TemporalSurface,
-    TextSurface,
+from rhosocial.activerecord.backend.expression.value_types import (
+    ArrayValue,
+    BooleanValue,
+    JSONValue,
+    NumericValue,
+    OpaqueValue,
+    TemporalValue,
+    TextValue,
 )
 from rhosocial.activerecord.backend.expression import functions as F
 
@@ -144,12 +144,12 @@ def test_min_does_not_guess_the_operand_family(dialect, columns):
 
 
 def test_building_a_json_aggregate_gives_json(dialect, columns):
-    assert isinstance(F.json_objectagg(dialect, columns["int"], columns["str"]), JSONSurface)
-    assert isinstance(F.json_arrayagg(dialect, columns["json"]), JSONSurface)
+    assert isinstance(F.json_objectagg(dialect, columns["int"], columns["str"]), JSONValue)
+    assert isinstance(F.json_arrayagg(dialect, columns["json"]), JSONValue)
 
 
 def test_collecting_into_an_array_gives_an_array(dialect, columns):
-    assert isinstance(F.array_agg(dialect, columns["int"]), ArraySurface)
+    assert isinstance(F.array_agg(dialect, columns["int"]), ArrayValue)
 
 
 # ---------------------------------------------------------------------------
@@ -160,7 +160,7 @@ def test_collecting_into_an_array_gives_an_array(dialect, columns):
 @pytest.mark.parametrize("factory", ["row_number", "rank", "dense_rank"])
 def test_a_rank_is_a_whole_number(dialect, factory):
     for windowed in (getattr(F, factory)(dialect),):
-        assert isinstance(windowed, NumericSurface)
+        assert isinstance(windowed, NumericValue)
         assert hasattr(windowed, "__add__")
         assert not hasattr(windowed, "upper")
 
@@ -227,13 +227,13 @@ def test_an_untyped_aggregate_reports_no_family(dialect, columns):
     assert not isinstance(
         result,
         (
-            ArraySurface,
-            BooleanSurface,
-            JSONSurface,
-            NumericSurface,
-            OpaqueSurface,
-            TemporalSurface,
-            TextSurface,
+            ArrayValue,
+            BooleanValue,
+            JSONValue,
+            NumericValue,
+            OpaqueValue,
+            TemporalValue,
+            TextValue,
         ),
     )
 def test_declaring_a_family_does_not_change_the_sql(dialect, columns):

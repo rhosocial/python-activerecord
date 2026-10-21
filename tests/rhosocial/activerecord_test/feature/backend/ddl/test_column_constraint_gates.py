@@ -8,6 +8,7 @@ paths that render the same constraint -- ``ColumnDefinition`` and
 ``ColumnConstraint.to_sql()`` -- which must agree.
 """
 import pytest
+from rhosocial.activerecord.backend.expression import NumericColumn
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnCheckConstraint,
     ColumnDefaultConstraint,
@@ -28,7 +29,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     TableConstraint,
 )
 from rhosocial.activerecord.backend.expression.objects import Table
-from rhosocial.activerecord.backend.expression.core import Column, Literal
+from rhosocial.activerecord.backend.expression.core import Literal
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 
@@ -43,7 +44,8 @@ def probed(**answers):
 
 
 def check_constraint(dialect):
-    return ColumnConstraint(dialect, branch=ColumnCheckConstraint(dialect, Column(dialect, "age") > Literal(dialect, 0)))
+    condition = NumericColumn(dialect, "age") > Literal(dialect, 0, inline=True)
+    return ColumnConstraint(dialect, branch=ColumnCheckConstraint(dialect, condition))
 
 
 def fk_constraint(dialect, **kwargs):
@@ -133,9 +135,14 @@ class TestCheckConstraintGate:
         sql, params = check_constraint(dialect).to_sql()
 
         assert params == ()
-        # The dialect normalises ``a > b`` to ``b < a``; what this test pins is
-        # that the literal is spelled out rather than bound.
-        assert sql == ' CHECK (0 < "age")'
+        # The literal is spelled out rather than bound, and the operands stay
+        # in the order the caller wrote them. They used to come out reversed as
+        # ``0 < "age"``, and this test recorded that as "the dialect normalises
+        # a > b to b < a" -- it does not. Bare ``Column`` carries no comparison
+        # operator, so ``Column("age") > Literal(0)`` fell through to Python's
+        # reflected-operator fallback and built the predicate from the other
+        # end. Naming the column's type is what puts the order back.
+        assert sql == ' CHECK ("age" > 0)'
 
     def test_unsupported_check_is_refused_by_name(self):
         dialect = probed(supports_check_constraint=False)()
@@ -316,7 +323,13 @@ class TestEnforcementGates:
         dialect = probed(supports_constraint_enforced=False)()
 
         with pytest.raises(UnsupportedFeatureError, match="ENFORCED"):
-            ColumnConstraint(dialect, branch=ColumnCheckConstraint(dialect, Column(dialect, "age") > Literal(dialect, 0)), enforced=True).to_sql()
+            ColumnConstraint(
+                dialect,
+                branch=ColumnCheckConstraint(
+                    dialect, NumericColumn(dialect, "age") > Literal(dialect, 0, inline=True)
+                ),
+                enforced=True,
+            ).to_sql()
 
     def test_not_null_cannot_carry_the_trait(self):
         dialect = probed(supports_constraint_enforced=True)()
@@ -337,7 +350,10 @@ class TestEnforcementGates:
         formatter re-checks the exclusion as the last line of defence.
         """
         dialect = probed(supports_constraint_enforced=True)()
-        constraint = ColumnConstraint(dialect, branch=ColumnCheckConstraint(dialect, Column(dialect, "age") > Literal(dialect, 0)), enforced=True)
+        condition = NumericColumn(dialect, "age") > Literal(dialect, 0, inline=True)
+        constraint = ColumnConstraint(
+            dialect, branch=ColumnCheckConstraint(dialect, condition), enforced=True
+        )
         constraint.not_enforced = True
 
         with pytest.raises(ValueError, match="mutually exclusive"):

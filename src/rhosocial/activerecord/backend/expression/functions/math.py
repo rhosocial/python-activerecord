@@ -18,8 +18,8 @@ if TYPE_CHECKING:  # pragma: no cover
 #: result depends on the input: the same call is an integer for an int column
 #: and possibly a fraction for a float one. Overloads say so in the type rather
 #: than leaving the caller to read an attribute back off the instance.
-from ..surfaces import (
-    NumericSurface,
+from ..value_types import (
+    NumericValue,
 )
 
 class _MathOperands:
@@ -44,14 +44,14 @@ class _MathOperands:
         if isinstance(value, BaseExpression):
             return value
         if isinstance(value, int):
-            return values.IntegerValue(dialect, value)
-        return values.DecimalValue(dialect, decimal.Decimal(str(value)))
+            return Literal(dialect, value)
+        return Literal(dialect, decimal.Decimal(str(value)))
 
 
 class _MathFunction(
     _MathOperands,
     DeclaredValueType,
-    NumericSurface,
+    NumericValue,
 ):
     """Shared base for the math nodes that always answer with a number.
 
@@ -64,7 +64,7 @@ class _MathFunction(
     function_name: str = ""
 
     def __init__(self, dialect: "SQLDialectBase", *arguments):
-        # BaseExpression directly, not super(): the surfaces below are mixin
+        # BaseExpression directly, not super(): the value types below are mixin
         # carriers ending at SQLValue, and going through super() would chain into
         # whichever of them happens to declare __init__.
         BaseExpression.__init__(self, dialect)
@@ -126,7 +126,7 @@ class AbsoluteFunction(_FamilyPreservingMathFunction):
 class AbsoluteIntegerFunction(
     AbsoluteFunction,
     DeclaredValueType,
-    NumericSurface,
+    NumericValue,
 ):
     """``ABS`` of an integer -- still an integer."""
 
@@ -155,7 +155,7 @@ class RoundFunction(_FamilyPreservingMathFunction):
 class RoundIntegerFunction(
     RoundFunction,
     DeclaredValueType,
-    NumericSurface,
+    NumericValue,
 ):
     """``ROUND`` of an integer -- still an integer."""
 
@@ -180,7 +180,7 @@ class CeilFunction(_FamilyPreservingMathFunction):
 class CeilIntegerFunction(
     CeilFunction,
     DeclaredValueType,
-    NumericSurface,
+    NumericValue,
 ):
     """``CEIL`` of an integer -- the integer itself, unchanged."""
 
@@ -205,7 +205,7 @@ class FloorFunction(_FamilyPreservingMathFunction):
 class FloorIntegerFunction(
     FloorFunction,
     DeclaredValueType,
-    NumericSurface,
+    NumericValue,
 ):
     """``FLOOR`` of an integer -- the integer itself, unchanged."""
 
@@ -236,7 +236,7 @@ class TruncateFunction(_FamilyPreservingMathFunction):
 class TruncateIntegerFunction(
     TruncateFunction,
     DeclaredValueType,
-    NumericSurface,
+    NumericValue,
 ):
     """``TRUNCATE`` of an integer -- still an integer."""
 
@@ -455,7 +455,7 @@ def round_(
     target_expr = expr
     args = [target_expr]
     if decimals is not None:
-        args.append(Literal(dialect, decimals))
+        args.append(decimals if isinstance(decimals, BaseExpression) else Literal(dialect, decimals))
     return RoundFunction.for_operand(dialect, type(expr), *args)
 
 
@@ -807,5 +807,5 @@ def truncate(
     target_expr = expr
     args = [target_expr]
     if precision is not None:
-        args.append(Literal(dialect, precision))
+        args.append(precision if isinstance(precision, BaseExpression) else Literal(dialect, precision))
     return TruncateFunction.for_operand(dialect, type(expr), *args)

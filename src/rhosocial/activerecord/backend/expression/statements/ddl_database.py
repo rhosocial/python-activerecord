@@ -11,7 +11,9 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-class AlterDatabaseAction(Enum):
+class AlterDatabaseAction(str, Enum):
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
     """Actions for ALTER DATABASE statements."""
 
     RENAME_TO = "RENAME TO"

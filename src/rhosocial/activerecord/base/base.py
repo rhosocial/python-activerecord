@@ -17,7 +17,7 @@ from ..backend.expression import (
     Literal,
     SQLPredicate,
 )
-from ..backend.expression.bases import is_sql_query_and_params
+from ..backend.expression.bases import QueryWithParams
 from ..backend.options import DeleteOptions, UpdateOptions
 from ..backend.options import InsertOptions
 from ..backend.type_adapter import SQLTypeAdapter
@@ -457,7 +457,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
                 raise ValueError(f"Expected {len(cols)} pk values, got {len(condition)}")
             pk_dict = dict(zip(cols, condition))
             query = query.where(cls._build_pk_where_predicate(pk_dict))
-        elif is_sql_query_and_params(condition):
+        elif QueryWithParams.holds(condition):
             sql, params = condition
             query = query.where(sql, params)
         elif not cls.is_composite_pk():
@@ -537,7 +537,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
                 query = query.where(
                     InPredicate(dialect, Column(dialect, pk_field_name), Literal(dialect, tuple(condition)))
                 )
-        elif is_sql_query_and_params(condition):
+        elif QueryWithParams.holds(condition):
             sql, params = condition
             query = query.where(sql, params)
         else:  # Assumes list of primary keys (backward compat)
@@ -1158,7 +1158,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
                 raise ValueError(f"Expected {len(cols)} pk values, got {len(condition)}")
             pk_dict = dict(zip(cols, condition))
             query = query.where(cls._build_pk_where_predicate(pk_dict))
-        elif is_sql_query_and_params(condition):
+        elif QueryWithParams.holds(condition):
             sql, params = condition
             query = query.where(sql, params)
         elif not cls.is_composite_pk():
@@ -1238,7 +1238,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
                 query = query.where(
                     InPredicate(dialect, Column(dialect, pk_field_name), Literal(dialect, tuple(condition)))
                 )
-        elif is_sql_query_and_params(condition):
+        elif QueryWithParams.holds(condition):
             sql, params = condition
             query = query.where(sql, params)
         else:  # Assumes list of primary keys (backward compat)

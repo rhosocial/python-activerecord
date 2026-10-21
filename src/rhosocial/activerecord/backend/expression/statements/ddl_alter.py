@@ -38,7 +38,7 @@ Vendor-extension qualifiers (``IF EXISTS`` / ``IF NOT EXISTS``):
     DEFAULT/IDENTITY/UNIQUE/PRIMARY KEY/FOREIGN KEY on the same column.
 
 Carrying the qualifiers:
-    ``AddColumn``, ``DropColumn``, and ``DropTableConstraint`` expose
+    ``AddColumnAction``, ``DropColumnAction``, and ``DropTableConstraintAction`` expose
     ``if_not_exists`` / ``if_exists`` optional fields (default ``None``)
     so application code can request idempotent ALTER TABLE actions
     uniformly across backends. The fields are inert at the core layer:
@@ -56,19 +56,19 @@ Carrying the qualifiers:
     ``USER_TAB_COLUMNS``, ``RDB$RELATION_FIELDS``, etc.).
 """
 
-
-
-
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-class AlterTableActionType(Enum):
+class AlterTableActionType(str, Enum):
     """Type of action for ALTER TABLE statement.
 
     Each value corresponds to exactly one concrete ``AlterTableAction``
     subclass; the mapping is maintained manually and verified by tests.
     """
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     ADD_COLUMN = "ADD COLUMN"
     DROP_COLUMN = "DROP COLUMN"
@@ -97,7 +97,7 @@ class AlterTableAction(BaseExpression):
     action_type: AlterTableActionType
 
 
-class AddColumn(AlterTableAction):
+class AddColumnAction(AlterTableAction):
     """Represents an 'ADD COLUMN' action per SQL standard.
 
     Note:
@@ -137,7 +137,7 @@ class AddColumn(AlterTableAction):
         self.if_not_exists: Optional[bool] = if_not_exists
 
 
-class DropColumn(AlterTableAction):
+class DropColumnAction(AlterTableAction):
     """Represents a 'DROP COLUMN' action per SQL standard.
 
     Note:
@@ -174,8 +174,11 @@ class DropColumn(AlterTableAction):
         self.if_exists: Optional[bool] = if_exists
 
 
-class ColumnAlterOperation(Enum):
+class ColumnAlterOperation(str, Enum):
     """SQL standard column operation types"""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     SET_DEFAULT = "SET DEFAULT"
     DROP_DEFAULT = "DROP DEFAULT"
@@ -184,7 +187,7 @@ class ColumnAlterOperation(Enum):
     SET_DATA_TYPE = "SET DATA TYPE"  # SQL standard: ALTER COLUMN ... SET DATA TYPE <type>
 
 
-class AlterColumn(AlterTableAction):
+class AlterColumnAction(AlterTableAction):
     """Represents an 'ALTER COLUMN' action per SQL standard."""
 
     @property
@@ -214,7 +217,7 @@ class AlterColumn(AlterTableAction):
         self.cascade: bool = cascade
 
 
-class AddTableConstraint(AlterTableAction):
+class AddTableConstraintAction(AlterTableAction):
     """SQL standard ADD CONSTRAINT operation"""
 
     @property
@@ -234,7 +237,7 @@ class AddTableConstraint(AlterTableAction):
         self.constraint: TableConstraint = constraint
 
 
-class DropTableConstraint(AlterTableAction):
+class DropTableConstraintAction(AlterTableAction):
     """SQL standard DROP CONSTRAINT operation.
 
     Note:
@@ -275,7 +278,7 @@ class DropTableConstraint(AlterTableAction):
         self.cascade: bool = cascade
 
 
-class AlterConstraint(AlterTableAction):
+class AlterConstraintAction(AlterTableAction):
     """Typed ``ALTER CONSTRAINT`` enforcement action.
 
     The enforcement keyword is mandatory in the action's grammar, so exactly
@@ -309,7 +312,7 @@ class AlterConstraint(AlterTableAction):
             raise ValueError("enforced and not_enforced are mutually exclusive options")
         if not (enforced or not_enforced):
             raise ValueError(
-                "AlterConstraint requires exactly one of enforced=True or "
+                "AlterConstraintAction requires exactly one of enforced=True or "
                 "not_enforced=True: the enforcement keyword is mandatory"
             )
         if constraint_name is None:
@@ -349,7 +352,7 @@ class AlterConstraint(AlterTableAction):
         return "format_alter_constraint_action"
 
 
-class ValidateConstraint(AlterTableAction):
+class ValidateConstraintAction(AlterTableAction):
     """Typed ``VALIDATE CONSTRAINT`` action."""
 
     action_type: AlterTableActionType = AlterTableActionType.VALIDATE_CONSTRAINT
@@ -376,14 +379,7 @@ class ValidateConstraint(AlterTableAction):
     def format_method(self) -> str:
         return "format_validate_constraint_action"
 
-
-AlterConstraintAction = AlterConstraint
-ValidateConstraintAction = ValidateConstraint
-AlterTableConstraint = AlterConstraint
-ValidateTableConstraint = ValidateConstraint
-
-
-class RenameTable(AlterTableAction):
+class RenameTableAction(AlterTableAction):
     """SQL standard RENAME TABLE operation"""
 
     @property
@@ -406,8 +402,8 @@ class RenameTable(AlterTableAction):
         self.new_name: str = new_name
 
 
-class RenameObject(AlterTableAction):
-    """Represents a 'RENAME' action for columns or tables."""
+class RenameColumnAction(AlterTableAction):
+    """A ``RENAME COLUMN`` action. Renaming a table is :class:`RenameTableAction`."""
 
     @property
     def format_method(self) -> str:
@@ -417,23 +413,19 @@ class RenameObject(AlterTableAction):
     action_type: AlterTableActionType = AlterTableActionType.RENAME_COLUMN
     old_name: str
     new_name: str
-    object_type: str
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         old_name: str,
         new_name: str,
-        *,
-        object_type: str = "COLUMN",
     ) -> None:
         super().__init__(dialect)
         self.old_name: str = old_name
         self.new_name: str = new_name
-        self.object_type: str = object_type
 
 
-class AddIndex(AlterTableAction):
+class AddIndexAction(AlterTableAction):
     """Represents an 'ADD INDEX' action."""
 
     @property
@@ -453,7 +445,7 @@ class AddIndex(AlterTableAction):
         self.index: IndexDefinition = index
 
 
-class DropIndex(AlterTableAction):
+class DropIndexAction(AlterTableAction):
     """Represents a 'DROP INDEX' action."""
 
     @property
@@ -477,7 +469,7 @@ class DropIndex(AlterTableAction):
         self.if_exists: bool = if_exists
 
 
-class ModifyColumn(AlterTableAction):
+class ModifyColumnAction(AlterTableAction):
     """Represents a 'MODIFY COLUMN' action.
 
     Redefines a column with a complete new specification.
@@ -509,7 +501,7 @@ class ModifyColumn(AlterTableAction):
         self.after_column: Optional[str] = after_column
 
 
-class ChangeColumn(AlterTableAction):
+class ChangeColumnAction(AlterTableAction):
     """Represents a 'CHANGE COLUMN' action.
 
     Renames a column and redefines it with a complete new specification.
@@ -559,21 +551,21 @@ class AlterTableStatement(BaseExpression):
         # Add column
         alter_expr = AlterTableStatement(
             table=Table(dialect, "users"),
-            actions=[AddColumn(dialect, column=ColumnDefinition(dialect, "email", "VARCHAR(100)"))]
+            actions=[AddColumnAction(dialect, column=ColumnDefinition(dialect, "email", "VARCHAR(100)"))]
         )
 
         # Drop column
         alter_expr = AlterTableStatement(
             table=Table(dialect, "products"),
-            actions=[DropColumn(dialect, column_name="description")]
+            actions=[DropColumnAction(dialect, column_name="description")]
         )
 
         # Multiple actions in one statement
         alter_expr = AlterTableStatement(
             table=Table(dialect, "orders"),
             actions=[
-                AddColumn(dialect, column=ColumnDefinition(dialect, "status", "VARCHAR(20)")),
-                RenameObject(dialect, old_name="id", new_name="order_id")
+                AddColumnAction(dialect, column=ColumnDefinition(dialect, "status", "VARCHAR(20)")),
+                RenameColumnAction(dialect, old_name="id", new_name="order_id")
             ]
         )
 
@@ -581,7 +573,7 @@ class AlterTableStatement(BaseExpression):
         alter_expr = AlterTableStatement(
             table=Table(dialect, "users"),
             actions=[
-                AddTableConstraint(
+                AddTableConstraintAction(
                     constraint=TableConstraint(dialect, 
                         constraint_kind=TableCheckConstraint,
                         check_condition=Column(dialect, "age") > Literal(dialect, 0)
@@ -594,7 +586,7 @@ class AlterTableStatement(BaseExpression):
         alter_expr = AlterTableStatement(
             table=Table(dialect, "products"),
             actions=[
-                AlterColumn(
+                AlterColumnAction(
                     column_name="price",
                     operation=ColumnAlterOperation.SET_DEFAULT,
                     new_value="0.00"

@@ -12,7 +12,7 @@ from rhosocial.activerecord.backend.expression import (
     ColumnDefinition,
     ColumnConstraint,
     AlterTableStatement,
-    AddColumn,
+    AddColumnAction,
 )
 # src/rhosocial/activerecord/backend/impl/sqlite/examples/named_expressions/order_ddl.py
 """
@@ -127,7 +127,7 @@ def add_amount_column(dialect):
         dialect,
         table_name="orders",
         actions=[
-            AddColumn(
+            AddColumnAction(
                 dialect,
                 column=_real_column("amount", default=0.0),
             ),

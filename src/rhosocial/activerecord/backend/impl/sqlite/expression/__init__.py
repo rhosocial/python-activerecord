@@ -16,6 +16,7 @@ Directory structure:
 """
 
 from .introspection import SQLiteColumnInfoExpression
+from .table import SQLiteTable
 from .table_list import SQLiteTableListExpression
 from .reindex import SQLiteReindexStatement
 from .vacuum import SQLiteVacuumStatement, SQLiteAnalyzeStatement
@@ -53,6 +54,7 @@ from .json import SQLiteJsonExtractFunction
 # or in the core (§5.1: rhosocial's own packages get no privilege).
 for _sqlite_expression in (
     SQLiteColumnInfoExpression,
+    SQLiteTable,
     SQLiteTableListExpression,
     SQLiteReindexStatement,
     SQLiteVacuumStatement,
@@ -78,6 +80,7 @@ del _sqlite_expression
 
 __all__ = [
     "SQLiteColumnInfoExpression",
+    "SQLiteTable",
     "SQLiteTableListExpression",
     "SQLiteReindexStatement",
     "SQLiteVacuumStatement",

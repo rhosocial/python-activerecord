@@ -3,7 +3,7 @@
 
 from typing import Dict, List, Optional, TYPE_CHECKING
 
-from ..bases import BaseExpression, require_exclusive_options
+from ..bases import BaseExpression
 from ..objects import Function
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -72,7 +72,7 @@ class DropFunctionStatement(BaseExpression):
         restrict: bool = False,
     ):
         super().__init__(dialect)
-        require_exclusive_options(cascade, restrict, "cascade", "restrict")
+        self.require_exclusive_options(cascade, restrict, "cascade", "restrict")
         self.function = function
         self.if_exists = if_exists
         self.parameters = parameters

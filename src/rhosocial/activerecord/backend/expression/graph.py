@@ -20,7 +20,9 @@ if TYPE_CHECKING:  # pragma: no cover
     from .query_parts import WhereClause
 
 
-class GraphEdgeDirection(Enum):
+class GraphEdgeDirection(str, Enum):
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
     """Specifies the direction of an edge in a graph pattern according to SQL 2023 standard."""
 
     LEFT = "<-"  # Left-directed: <-[edge]-

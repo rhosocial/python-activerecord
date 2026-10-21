@@ -15,6 +15,7 @@ machinery with deeply nested recursive structures.
 import pytest
 import sqlite3
 
+from rhosocial.activerecord.backend.expression import StringColumn
 from rhosocial.activerecord.backend.expression.types import CustomType
 from rhosocial.activerecord.backend.expression import (
     Column,
@@ -24,8 +25,7 @@ from rhosocial.activerecord.backend.expression import (
     FunctionCall,
     QueryStatement,
     Subquery,
-    AllColumnsWildcard,
-)
+    AllColumnsWildcard,)
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_sources import (
     CTEClause,
@@ -102,7 +102,7 @@ def build_mandelbrot(d):
             d,
             select=[NumericColumn(d, column) + Literal(d, step)],
             from_=NamedRelationRef(d, Table(d, cte_name)),
-            where=Column(d, column) < Literal(d, limit_),
+            where=NumericColumn(d, column) < Literal(d, limit_),
         )
         return SetOperation(d, left=base, right=rec, op="union_all")
 
@@ -126,7 +126,7 @@ def build_mandelbrot(d):
             Column(d, "cy"),
             NumericColumn(d, "x") * NumericColumn(d, "x")
             - NumericColumn(d, "y") * NumericColumn(d, "y") + NumericColumn(d, "cx"),
-            Literal(d, 2.0) * NumericColumn(d, "x") * NumericColumn(d, "y") + NumericColumn(d, "cy"),
+            NumericColumn(d, "x") * NumericColumn(d, "y") * Literal(d, 2.0) + NumericColumn(d, "cy"),
         ],
         from_=NamedRelationRef(d, Table(d, "m")),
         where=(
@@ -151,7 +151,7 @@ def build_mandelbrot(d):
     m2_cte = CTEClause(d, name="m2", query=m2_query, columns=["iter", "cx", "cy"])
 
     min_expr = FunctionCall(d, "MIN", NumericColumn(d, "iter") / Literal(d, 7), Literal(d, 4))
-    substr_expr = FunctionCall(d, "SUBSTR", Literal(d, " .+*#"), Literal(d, 1) + min_expr, Literal(d, 1))
+    substr_expr = FunctionCall(d, "SUBSTR", Literal(d, " .+*#"), min_expr + Literal(d, 1), Literal(d, 1))
     a_query = QueryStatement(
         d,
         select=[FunctionCall(d, "GROUP_CONCAT", substr_expr, Literal(d, ""))],
@@ -185,7 +185,7 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
             NumericColumn(d, "lp") + Literal(d, 1),
         ],
         from_=NamedRelationRef(d, Table(d, "digits")),
-        where=Column(d, "lp") < Literal(d, 9),
+        where=NumericColumn(d, "lp") < Literal(d, 9),
     )
     digits_cte = CTEClause(
         d,
@@ -220,13 +220,13 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
     six = Literal(d, 6)
     twenty_seven = Literal(d, 27)
 
-    row_cond = Column(d, "z", "z") == FunctionCall(
+    row_cond = StringColumn(d, "z", "z") == FunctionCall(
         d, "SUBSTR", s, ((ind - one) / nine) * nine + lp, one
     )
-    col_cond = Column(d, "z", "z") == FunctionCall(
+    col_cond = StringColumn(d, "z", "z") == FunctionCall(
         d, "SUBSTR", s, ((ind - one) % nine) + (lp - one) * nine + one, one
     )
-    box_cond = Column(d, "z", "z") == FunctionCall(
+    box_cond = StringColumn(d, "z", "z") == FunctionCall(
         d, "SUBSTR", s,
         (((ind - one) / three) % three) * three + ((ind - one) / twenty_seven) * twenty_seven + lp + ((lp - one) / three) * six,
         one,
@@ -262,7 +262,7 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
         d,
         select=[Column(d, "s")],
         from_=NamedRelationRef(d, Table(d, "x")),
-        where=Column(d, "ind") == Literal(d, 0),
+        where=NumericColumn(d, "ind") == Literal(d, 0),
     )
     return WithStatement(d, ctes=[input_cte, digits_cte, x_cte], query=main, recursive=True)
 
@@ -284,7 +284,7 @@ def build_bom(d):
         d,
         select=[Column(d, "child_id"), Column(d, "quantity"), Column(d, "quantity").as_("total_qty")],
         from_=NamedRelationRef(d, Table(d, "parts_tree")),
-        where=Column(d, "parent_id") == Literal(d, 1),
+        where=NumericColumn(d, "parent_id") == Literal(d, 1),
     )
     step = QueryStatement(
         d,
@@ -334,7 +334,7 @@ def build_flight_paths(d):
             concat_op(d, Literal(d, "TPE -> "), Column(d, "destination")),
         ],
         from_=NamedRelationRef(d, Table(d, "flights")),
-        where=Column(d, "departure") == Literal(d, "TPE"),
+        where=StringColumn(d, "departure") == Literal(d, "TPE"),
     )
     step = QueryStatement(
         d,
@@ -356,7 +356,7 @@ def build_flight_paths(d):
                 concat_op(d, Literal(d, "%"), Column(d, "destination", "f"), Literal(d, "%")),
             )
         )
-        & (Column(d, "depth", "p") < Literal(d, 5)),
+        & (NumericColumn(d, "depth", "p") < Literal(d, 5)),
     )
     union = SetOperation(d, left=anchor, right=step, op="union_all")
     cte = CTEClause(
@@ -366,7 +366,7 @@ def build_flight_paths(d):
         d,
         select=[AllColumnsWildcard(d)],
         from_=NamedRelationRef(d, Table(d, "FlightPaths")),
-        where=Column(d, "destination") == Literal(d, "JFK"),
+        where=StringColumn(d, "destination") == Literal(d, "JFK"),
         order_by=OrderByClause(d, [Column(d, "price")]),
         limit_offset=LimitOffsetClause(d, limit=Literal(d, 1)),
     )
@@ -417,7 +417,7 @@ def build_game_of_life(d):
     alive = CaseExpression(
         d,
         cases=[
-            (l_x_null & (Column(d, "cnt", "n") == Literal(d, 3)), Literal(d, 1)),
+            (l_x_null & (NumericColumn(d, "cnt", "n") == Literal(d, 3)), Literal(d, 1)),
             ((~l_x_null) & InPredicate(d, Column(d, "cnt", "n"), Literal(d, (2, 3))), Literal(d, 1)),
         ],
         else_result=Literal(d, 0),

@@ -9,11 +9,12 @@ lateral expressions, and common table expressions.
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Tuple, Any, List, Optional, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
 
 from .bases import BaseExpression, SQLQueryAndParams, SQLValue
 from .core import Subquery
 from .mixins import ArithmeticMixin, ComparisonMixin
+from .query_parts import normalize_join_type
 from .sources import TableSource
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -165,7 +166,9 @@ class SetOperation(TableSource, BaseExpression):
             ValueError: If ``op`` is not one of the four word forms.
         """
         super().__init__(dialect)
-        self.op = SetOperationKind(op) if isinstance(op, SetOperationKind) else SetOperationKind.parse(op)
+        self.op = (
+            SetOperationKind(op) if isinstance(op, SetOperationKind) else SetOperationKind.parse(op)
+        )
         self.left = left
         self.right = right
 
@@ -470,7 +473,12 @@ class TableFunctionExpression(TableSource, BaseExpression):
         column_names: Optional[List[str]] = None,
     ):
         super().__init__(dialect)
-        self.func_name, self.args, self.alias, self.column_names = func_name, list(args), alias, column_names
+        self.func_name, self.args, self.alias, self.column_names = (
+            func_name,
+            list(args),
+            alias,
+            column_names,
+        )
 
     @property
     def format_method(self) -> str:
@@ -501,10 +509,14 @@ class LateralExpression(TableSource, BaseExpression):
         dialect: "SQLDialectBase",
         expression: Union["Subquery", "TableFunctionExpression"],
         alias: Optional[str] = None,
-        join_type: str = "CROSS",
+        join_type: Any = "CROSS",
     ):
         super().__init__(dialect)
-        self.expression, self.alias, self.join_type = expression, alias, join_type
+        # Same vocabulary as JoinClause: a member, so the artifact carries the
+        # word and the formatter writes the phrase. Callers pass the bare
+        # keyword ("CROSS", "INNER"), which is what the members are named.
+        self.expression, self.alias = expression, alias
+        self.join_type = normalize_join_type(join_type)
 
     @property
     def format_method(self) -> str:

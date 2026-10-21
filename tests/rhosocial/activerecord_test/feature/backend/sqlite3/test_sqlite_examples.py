@@ -367,8 +367,7 @@ def test_sudoku_exists_expression(sqlite_backend):
         Literal,
         FunctionCall,
         QueryStatement,
-        ExistsPredicate,
-    )
+        ExistsPredicate,)
     from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
     dialect = sqlite_backend.dialect
@@ -880,7 +879,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         # SELECT iter+1, cx, cy, x*x-y*y + cx, 2.0*x*y + cy FROM m WHERE (x*x + y*y) < 4.0 AND iter<28
         new_iter = iter_col + Literal(dialect, 1)
         new_x = (x_m_col * x_m_col - y_m_col * y_m_col) + cx_col
-        new_y = Literal(dialect, 2.0) * x_m_col * y_m_col + cy_col
+        new_y = (x_m_col * y_m_col) * Literal(dialect, 2.0) + cy_col
 
         condition1 = (x_m_col * x_m_col + y_m_col * y_m_col) < Literal(dialect, 4.0)
         condition2 = iter_col < Literal(dialect, 28)

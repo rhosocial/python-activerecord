@@ -79,9 +79,10 @@ def main():
     loaded = json.loads(text)
     print("keys   :", sorted(loaded))
     print("kind   :", loaded["kind"])
-    # The value markers ("__value__", "__enum__", ...) are ordinary JSON, so
-    # json.loads hands them back untouched. Decoding them is the codec's job
-    # and happens inside deserialize(), not in a json.loads hook.
+    # Nothing needs decoding before the codec sees it. The artifact is plain JSON
+    # end to end: a node is {kind, params}, a parameter is a scalar, an array
+    # or an object. There are no markers, so there is nothing to recognise --
+    # and nothing a reader in another language would have to be told about.
 
     # ---------------------------------------------------------------- 4. read
     rule("4. artifact -> expression instance")
@@ -97,14 +98,21 @@ def main():
     # "SQL text plus a parameter list" would have two things to keep in step,
     # and no way to check they agreed.
     rule("4b. where the bind value actually lives")
-    condition = loaded["params"]["where"]["__expr__"]["params"]["condition"]["__expr__"]
-    literal = condition["params"]["right"]["__expr__"]
+    # A nested expression is a bare `{kind, params}` node, with no wrapper
+    # announcing it -- the shape is the whole signal. So there is nothing to
+    # unwrap here, which is a large part of why an artifact stays readable.
+    condition = loaded["params"]["where"]["params"]["condition"]
+    literal = condition["params"]["right"]
     print("the predicate node :", condition["kind"])
     print("its right operand  :", literal["kind"])
     print("that node's params :", json.dumps(literal["params"]))
     print()
     print("  The 18 in `params=(18,)` was read off that node. Nothing else")
     print("  carried it, so nothing else can disagree with it.")
+    print()
+    print("  A literal's kind is its *value* kind, not the node's class name.")
+    print("  One node carries every value and the wire still names them apart,")
+    print("  because a date's spelling and a string's are the same bytes.")
 
     # ------------------------------------------------- 5. the actual payoff
     rule("5. the artifact carries no dialect")
@@ -132,10 +140,15 @@ def main():
 
     enough = ExpressionRegistry()
     for name in (
-        "query_statement", "where_clause", "column", "literal",
+        "query_statement", "where_clause", "column",
         "comparison_predicate", "table",
     ):
         enough.register_node(default_registry().resolve_node(name))
+    # A value kind is admitted by its *wire name*, never by class. One node
+    # carries every value, so there is no class named `integer_value` to
+    # register and `register_node` could not produce the key even if you
+    # handed it the class -- it would file it under `literal`, the class name.
+    enough.register_value_kinds("integer_value")
     ok = deserialize(loaded, dialect, registry=enough)
     print("table with 6 kinds -> rebuilt:", type(ok).__name__)
     print("  The reader only ever produces what the caller allowed.")

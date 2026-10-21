@@ -11,6 +11,7 @@ dialect through the subtree, and hands it to the declared formatter.
 from enum import Enum
 from typing import TYPE_CHECKING
 from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValue
+from .core import Literal
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
@@ -117,6 +118,22 @@ class UnaryExpression(BaseExpression):
         self.pos = pos
 
 
+def _bind_values(dialect: "SQLDialectBase", params) -> tuple:
+    """Bind values as :class:`~.core.Literal` nodes, one per placeholder.
+
+    A raw value cannot survive a round-trip. ``b"\\x00"`` and ``""`` are the same
+    thing on the wire, and only the value's *kind* tells them apart -- so the
+    values a raw statement binds are the one place a non-JSON type is allowed,
+    and they are allowed only because a node names what they are.
+
+    The caller may pass the bare value or an already-built ``Literal``; both
+    arrive as the same thing. Passing an empty sequence yields an empty tuple,
+    so a statement with no placeholders has nothing to unwrap at render time.
+    """
+    return tuple(p if isinstance(p, Literal) else Literal(dialect, p)
+                 for p in (params or ()))
+
+
 class RawSQL(ArithmeticMixin, ComparisonMixin, StringPatternPredicateMixin, SQLValue):
     """Represents a raw SQL expression string that is directly embedded.
 
@@ -134,7 +151,15 @@ class RawSQL(ArithmeticMixin, ComparisonMixin, StringPatternPredicateMixin, SQLV
       (e.g., column, function call, literal)
     - RawSQLPredicate inherits from SQLPredicate and represents a boolean predicate
       (e.g., condition in WHERE clause)
+
+    Not admitted to the framework's default registry. ``expression`` is text
+    the caller vouched for and ``to_sql()`` emits it verbatim, so a reader that
+    resolved ``raw_sql`` out of an untrusted artifact would rebuild a node whose
+    SQL the artifact chose. A caller whose artifacts it trusts can register the
+    class itself; see :attr:`~...bases.BaseExpression.REGISTER_BY_DEFAULT`.
     """
+
+    REGISTER_BY_DEFAULT = False
 
     @property
     def format_method(self) -> str:
@@ -144,7 +169,7 @@ class RawSQL(ArithmeticMixin, ComparisonMixin, StringPatternPredicateMixin, SQLV
     def __init__(self, dialect: "SQLDialectBase", expression: str, params: tuple = ()):
         super().__init__(dialect)
         self.expression = expression
-        self.params = tuple(params) if params else ()
+        self.params = _bind_values(dialect, params)
 
 
 class RawSQLPredicate(SQLPredicate):
@@ -160,7 +185,14 @@ class RawSQLPredicate(SQLPredicate):
       (e.g., column, function call, literal)
     - RawSQLPredicate inherits from SQLPredicate and represents a boolean predicate
       (e.g., condition in WHERE clause)
+
+    Not admitted to the framework's default registry, for the same reason as
+    :class:`RawSQL`: rebuilding this node from an artifact would let the
+    artifact choose the predicate text. See
+    :attr:`~...bases.BaseExpression.REGISTER_BY_DEFAULT`.
     """
+
+    REGISTER_BY_DEFAULT = False
 
     @property
     def format_method(self) -> str:
@@ -170,7 +202,7 @@ class RawSQLPredicate(SQLPredicate):
     def __init__(self, dialect: "SQLDialectBase", expression: str, params: tuple = ()):
         super().__init__(dialect)
         self.expression = expression
-        self.params = tuple(params) if params else ()
+        self.params = _bind_values(dialect, params)
 
 
 class ArithmeticOperator(str, Enum):

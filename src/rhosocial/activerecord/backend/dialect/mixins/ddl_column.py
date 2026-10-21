@@ -4,16 +4,12 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from .ddl_table import normalize_foreign_key_match_type
 from ...expression.objects import Index, Table
-from ...expression.core import DdlLiteral, Literal
+from ...expression.core import Literal
 from ...expression.bases import BaseExpression, ToSQLProtocol
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
-from copy import copy
+from typing import Any, List, Tuple, TYPE_CHECKING
 # src/rhosocial/activerecord/backend/dialect/mixins/ddl_column.py
 """DDL column formatting: column references, definitions, constraints, and
 ALTER TABLE column/constraint actions."""
-
-
-
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements.ddl_table import (
@@ -35,19 +31,19 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from ...expression.core import Column
     from ...expression.statements.ddl_alter import (
-        AddColumn,
-        AddIndex,
-        AddTableConstraint,
-        AlterColumn,
-        AlterConstraint,
-        ChangeColumn,
-        DropColumn,
-        DropIndex,
-        DropTableConstraint,
-        ModifyColumn,
-        RenameObject,
-        RenameTable,
-        ValidateConstraint,
+        AddColumnAction,
+        AddIndexAction,
+        AddTableConstraintAction,
+        AlterColumnAction,
+        AlterConstraintAction,
+        ChangeColumnAction,
+        DropColumnAction,
+        DropIndexAction,
+        DropTableConstraintAction,
+        ModifyColumnAction,
+        RenameColumnAction,
+        RenameTableAction,
+        ValidateConstraintAction,
     )
     from ...expression.statements.ddl_table import (
         CharacterSetClause,
@@ -152,7 +148,13 @@ class DDLColumnMixin:
             CollationClause,
         )
 
-        if not hasattr(attr, "format_method"):
+        if not isinstance(attr, BaseExpression):
+            # An AR-layer ColumnAttribute, not an expression. The test is the
+            # type, not `hasattr(attr, "format_method")`: that probed a field
+            # every expression declares, and it also answered False for an
+            # expression whose base property raises -- which is a different
+            # question than "is this one of ours". §11.2: asserting to a known
+            # base is the way to ask what an argument is.
             original = attr
             attr = self.translate_ar_attribute(original)
             if attr is None:
@@ -497,65 +499,25 @@ class DDLColumnMixin:
             raise UnsupportedFeatureError(self.name, "NOT VALID constraint")
         return " NOT VALID"
 
-    def _prepare_ddl_condition(
-        self,
-        value: Any,
-        memo: Optional[Dict[int, Any]] = None,
-    ) -> Any:
-        """Bind ``self`` to a copy of a DDL-side condition tree and lift its
-        data-position literals to the DDL-position literal class.
-
-        DDL syntax positions (``CHECK``, partial-index ``WHERE``) accept no
-        bind parameters, and the classes that own those positions declare
-        ``inline_params = True``. A caller composes the condition from
-        ordinary DQL nodes, whose literals render as bind parameters, so this
-        pass adapts the tree: every node is copied and dialect-bound (the
-        caller's tree is never mutated), and each ``Literal`` is lifted to
-        :class:`~...expression.core.DdlLiteral`, the class whose strategy is
-        inline. Whether a value inlines is still a decision of its **class** —
-        this pass swaps the node for the class that owns the position rather
-        than flipping any instance.
-        """
-        if memo is None:
-            memo = {}
-        if isinstance(value, BaseExpression):
-            identity = id(value)
-            if identity in memo:
-                return memo[identity]
-            if isinstance(value, Literal):
-                bound = DdlLiteral(self, value.value, alias=value.alias)
-                memo[identity] = bound
-                return bound
-            bound = copy(value)
-            memo[identity] = bound
-            bound.dialect = self
-            for name, child in value.__dict__.items():
-                if name == "_dialect":
-                    continue
-                setattr(bound, name, self._prepare_ddl_condition(child, memo))
-            return bound
-        if isinstance(value, list):
-            return [self._prepare_ddl_condition(child, memo) for child in value]
-        if isinstance(value, tuple):
-            return tuple(self._prepare_ddl_condition(child, memo) for child in value)
-        if isinstance(value, set):
-            return {self._prepare_ddl_condition(child, memo) for child in value}
-        if isinstance(value, dict):
-            return {
-                self._prepare_ddl_condition(key, memo): self._prepare_ddl_condition(
-                    child,
-                    memo,
-                )
-                for key, child in value.items()
-            }
-        return value
-
     def _format_ddl_condition(self, predicate: Any) -> str:
-        """Render a DDL-side condition tree: inline text, no bind values."""
-        prepared = self._prepare_ddl_condition(predicate)
-        check_sql, check_params = prepared.to_sql()
+        """Render a DDL-side condition tree: inline text, no bind values.
+
+        A DDL syntax position accepts no bind parameters, and the tree is
+        rendered as the caller wrote it -- no pass lifts anything into it.
+        Every ``Literal`` in a condition tree belongs to the caller, so each one
+        says whether it binds. Miss that and this is where it shows: the tree
+        renders, the parameters are non-empty, and the statement would carry a
+        bind value into DDL that has nowhere to put it.
+
+        The check is therefore the contract, not a safety net. It names the
+        fix rather than guarding against a hypothetical.
+        """
+        check_sql, check_params = predicate.to_sql()
         if check_params:
-            raise ValueError("DDL condition must not contain bind parameters")
+            raise ValueError(
+                "DDL condition must not contain bind parameters; pass each "
+                "value as Literal(value, inline=True)"
+            )
         return check_sql
 
     def format_column_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, Tuple]:
@@ -745,32 +707,28 @@ class DDLColumnMixin:
     def format_default_value_clause(self, expr: "DefaultValueClause") -> Tuple[str, Tuple]:
         """Format the value clause of a ``DEFAULT`` constraint.
 
-        ``DefaultValueClause`` is a DDL-position class (``inline_params``
-        is ``True``), so the clause renders **inline only** and never
-        produces a bind value: a scalar is inlined with dialect-controlled
-        escaping; an expression value renders through the DDL condition
-        preparer, which lifts its data-position literals to the inline
-        class; anything that still carries bind parameters is refused.
+        The clause normalised its value at construction: a ``DEFAULT`` position
+        carries no bind parameters, so whatever arrives is a ``Literal`` with
+        ``inline`` set. Rendering it is therefore the literal's own rendering,
+        and anything that still produces a bind value is a value the caller
+        marked as binding in a position that cannot bind -- a refusal, not a
+        fallback.
 
         Args:
             expr: The ``DefaultValueClause`` carrying the value.
 
         Returns:
-            A ``(sql, params)`` tuple (params is always empty for DDL).
+            A ``(sql, params)`` tuple; params is always empty for DDL.
 
         Raises:
             ValueError: The expression value still carries bind parameters
                 (e.g. a ``RawSQL`` with bound values), which a DEFAULT
                 position cannot accept.
         """
-        from ...dialect.base import SQLDialectBase
-        value = expr.value
-        if isinstance(value, BaseExpression):
-            return self._format_ddl_condition(value), ()
-        if isinstance(value, str):
-            escaped = SQLDialectBase._escape_sql_string(value)
-            return f"'{escaped}'", ()
-        return self.inline_sql_literal(value), ()
+        value_sql, value_params = expr.value.to_sql()
+        if value_params:
+            raise ValueError("DEFAULT value must render without bind parameters")
+        return value_sql, ()
 
     def format_column_default_constraint(
         self, constraint: "ColumnDefaultConstraint"
@@ -778,7 +736,7 @@ class DDLColumnMixin:
         """Format a column-level ``DEFAULT`` branch.
 
         The value is always rendered inline (DDL carries no bind parameters;
-        ``ColumnDefaultConstraint`` declares ``inline_params = True``);
+        ``ColumnDefaultConstraint`` declares ``inline_binding = True``);
         value rendering is delegated to :meth:`format_default_value_clause`.
 
         Args:
@@ -1146,7 +1104,7 @@ class DDLColumnMixin:
             return " WITH (" + ", ".join(storage_parts) + ")", ()
         return "", ()
 
-    def format_add_column_action(self, action: "AddColumn") -> Tuple[str, Tuple]:
+    def format_add_column_action(self, action: "AddColumnAction") -> Tuple[str, Tuple]:
         """Format an ``ADD COLUMN`` ALTER TABLE action.
 
         Args:
@@ -1170,7 +1128,7 @@ class DDLColumnMixin:
             return f"ADD COLUMN IF NOT EXISTS {column_sql}", column_params
         return f"ADD COLUMN {column_sql}", column_params
 
-    def format_drop_column_action(self, action: "DropColumn") -> Tuple[str, Tuple]:
+    def format_drop_column_action(self, action: "DropColumnAction") -> Tuple[str, Tuple]:
         """Format a ``DROP COLUMN`` ALTER TABLE action.
 
         Emits ``DROP COLUMN IF EXISTS`` when the action requests it.
@@ -1201,7 +1159,7 @@ class DDLColumnMixin:
             return f"DROP COLUMN IF EXISTS {self.format_identifier(action.column_name)}", ()
         return f"DROP COLUMN {self.format_identifier(action.column_name)}", ()
 
-    def format_alter_column_action(self, action: "AlterColumn") -> Tuple[str, Tuple]:
+    def format_alter_column_action(self, action: "AlterColumnAction") -> Tuple[str, Tuple]:
         """Format an ``ALTER COLUMN`` ALTER TABLE action.
 
         Handles ``SET DATA TYPE`` (validated type text), string values
@@ -1257,9 +1215,11 @@ class DDLColumnMixin:
                 column_part += f" '{SQLDialectBase._escape_sql_string(action.new_value)}'"
             elif isinstance(action.new_value, ToSQLProtocol):
                 if isinstance(action.new_value, Literal):
-                    # A literal at a DDL position renders inline through the
-                    # controlled path; the DDL position carries no bind values.
-                    column_part += f" {self.inline_sql_literal(action.new_value.value)}"
+                    # The value carries its own DDL decision; the controlled
+                    # path escapes and quotes it exactly as DEFAULT does.
+                    value_sql, value_params = Literal(
+                        self, action.new_value.value, inline=True
+                    ).to_sql()
                 else:
                     value_sql, value_params = action.new_value.to_sql()
                     if value_params:
@@ -1273,7 +1233,7 @@ class DDLColumnMixin:
             column_part += " CASCADE"
         return column_part, tuple(all_params)
 
-    def format_add_table_constraint_action(self, action: "AddTableConstraint") -> Tuple[str, Tuple]:
+    def format_add_table_constraint_action(self, action: "AddTableConstraintAction") -> Tuple[str, Tuple]:
         """Format an ``ADD CONSTRAINT`` ALTER TABLE action.
 
         Args:
@@ -1295,7 +1255,7 @@ class DDLColumnMixin:
         validation_sql = self._format_constraint_validation(action.constraint)
         return f"ADD {constraint_sql}{validation_sql}", tuple(params)
 
-    def format_alter_constraint_action(self, action: "AlterConstraint") -> Tuple[str, Tuple]:
+    def format_alter_constraint_action(self, action: "AlterConstraintAction") -> Tuple[str, Tuple]:
         """Format an ``ALTER CONSTRAINT`` enforcement action.
 
         The kind restriction — CHECK and FOREIGN KEY only — is this
@@ -1334,14 +1294,14 @@ class DDLColumnMixin:
             (),
         )
 
-    def format_validate_constraint_action(self, action: "ValidateConstraint") -> Tuple[str, Tuple]:
+    def format_validate_constraint_action(self, action: "ValidateConstraintAction") -> Tuple[str, Tuple]:
         if not self.supports_validate_constraint():
             from ..exceptions import UnsupportedFeatureError
 
             raise UnsupportedFeatureError(self.name, "VALIDATE CONSTRAINT")
         return f"VALIDATE CONSTRAINT {self.format_identifier(action.constraint_name)}", ()
 
-    def format_drop_table_constraint_action(self, action: "DropTableConstraint") -> Tuple[str, Tuple]:
+    def format_drop_table_constraint_action(self, action: "DropTableConstraintAction") -> Tuple[str, Tuple]:
         """Format a ``DROP CONSTRAINT`` ALTER TABLE action.
 
         Args:
@@ -1402,7 +1362,7 @@ class DDLColumnMixin:
             tuple(all_params),
         )
 
-    def format_add_index_action(self, action: "AddIndex") -> Tuple[str, Tuple]:
+    def format_add_index_action(self, action: "AddIndexAction") -> Tuple[str, Tuple]:
         """Format an ``ADD INDEX`` ALTER TABLE action.
 
         Args:
@@ -1429,7 +1389,7 @@ class DDLColumnMixin:
             (),
         )
 
-    def format_drop_index_action(self, action: "DropIndex") -> Tuple[str, Tuple]:
+    def format_drop_index_action(self, action: "DropIndexAction") -> Tuple[str, Tuple]:
         """Format a ``DROP INDEX`` ALTER TABLE action.
 
         Emits ``DROP INDEX IF EXISTS`` when the action requests it.
@@ -1441,14 +1401,14 @@ class DDLColumnMixin:
             A ``(sql, params)`` tuple with empty parameters.
 
         Raises:
-            TypeError: ``DropIndex.index`` is not an Index. Another object kind
+            TypeError: ``DropIndexAction.index`` is not an Index. Another object kind
             would have had its own name rendered as the index's.
             UnsupportedFeatureError: If the dialect does not support
                 ``ALTER TABLE DROP INDEX``.
         """
         if not isinstance(action.index, Index):
             raise TypeError(
-                f"DropIndex.index must be an Index, "
+                f"DropIndexAction.index must be an Index, "
                 f"got {type(action.index).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError
@@ -1461,7 +1421,7 @@ class DDLColumnMixin:
         head = "DROP INDEX IF EXISTS" if action.if_exists else "DROP INDEX"
         return f"{head} {index_sql}", index_params
 
-    def format_rename_column_action(self, action: "RenameObject") -> Tuple[str, Tuple]:
+    def format_rename_column_action(self, action: "RenameColumnAction") -> Tuple[str, Tuple]:
         """Format a ``RENAME COLUMN`` ALTER TABLE action.
 
         Args:
@@ -1485,7 +1445,7 @@ class DDLColumnMixin:
             (),
         )
 
-    def format_rename_table_action(self, action: "RenameTable") -> Tuple[str, Tuple]:
+    def format_rename_table_action(self, action: "RenameTableAction") -> Tuple[str, Tuple]:
         """Format a ``RENAME TO`` ALTER TABLE action.
 
         Args:
@@ -1506,7 +1466,7 @@ class DDLColumnMixin:
             )
         return f"RENAME TO {self.format_identifier(action.new_name)}", ()
 
-    def format_modify_column_action(self, action: "ModifyColumn") -> Tuple[str, Tuple]:
+    def format_modify_column_action(self, action: "ModifyColumnAction") -> Tuple[str, Tuple]:
         """Format a ``MODIFY COLUMN`` ALTER TABLE action.
 
         The core implementation always raises, since ``MODIFY COLUMN`` is
@@ -1521,7 +1481,7 @@ class DDLColumnMixin:
         from ..exceptions import UnsupportedFeatureError
         raise UnsupportedFeatureError(self.name, "MODIFY COLUMN")
 
-    def format_change_column_action(self, action: "ChangeColumn") -> Tuple[str, Tuple]:
+    def format_change_column_action(self, action: "ChangeColumnAction") -> Tuple[str, Tuple]:
         """Format a ``CHANGE COLUMN`` ALTER TABLE action.
 
         The core implementation always raises, since ``CHANGE COLUMN`` is

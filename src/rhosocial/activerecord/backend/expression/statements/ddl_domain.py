@@ -30,7 +30,9 @@ def _normalize_default(dialect: "SQLDialectBase", value: Any) -> DefaultValueCla
     return DefaultValueClause(dialect, value)
 
 
-class DomainNullability(Enum):
+class DomainNullability(str, Enum):
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
     """Nullability declaration for a domain."""
 
     UNSPECIFIED = "UNSPECIFIED"
@@ -55,11 +57,10 @@ class DomainCheckConstraint(BaseExpression):
     """A domain ``CHECK`` constraint with an optional constraint name.
 
     A CHECK position accepts no bind parameters, so the class declares
-    ``inline_params = True``; the dialect renders the condition inline-only
+    the literals are marked inline; the dialect renders the condition inline-only
     and refuses any residual bind value.
     """
 
-    inline_params: bool = True
 
     @property
     def format_method(self) -> str:

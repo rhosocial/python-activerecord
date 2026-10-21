@@ -288,7 +288,7 @@ class TestCreateTableStatements:
         """Tests CREATE TABLE with CHECK column constraints."""
         # Create a check predicate for age > 0 (inline literal for DDL)
         age_check = ComparisonPredicate(
-            dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 0)
+            dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 0, inline=True)
         )
 
         columns = [
@@ -759,8 +759,12 @@ class TestCreateTableStatements:
             )
 
         message = str(exc_info.value)
+        # The message names the type and the vocabulary's own words, never the
+        # value that was passed in: an error can reach a log, and a log is not
+        # the place a caller-supplied string should be interpolated into.
         assert "method must be a PartitionStrategy" in message
         assert malicious_method not in message
+        assert "RANGE" in message  # the members, which we do control
 
     def test_partition_clause_requires_keys(self, dummy_dialect: DummyDialect):
         """Tests PartitionClause requires at least one key expression."""
@@ -858,7 +862,7 @@ class TestCreateTableStatements:
                             dummy_dialect,
                             ">=",
                             Column(dummy_dialect, "amount"),
-                            Literal(dummy_dialect, 0),
+                            Literal(dummy_dialect, 0, inline=True),
                         ))),
                 ],
             ),

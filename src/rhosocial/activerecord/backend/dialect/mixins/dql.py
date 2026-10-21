@@ -5,14 +5,14 @@ Builds the clause sequence of a query expression - SELECT, FROM, WHERE,
 GROUP BY/HAVING, ORDER BY, QUALIFY, LIMIT/OFFSET and FOR UPDATE - plus the
 individual clause formatters reused elsewhere.
 """
-from typing import Any, List, Tuple, TYPE_CHECKING
+
+from typing import TYPE_CHECKING, Any, List, Tuple
 
 from ...expression.bases import ToSQLProtocol
 from ...expression.query_parts import SortDirection
 
 if TYPE_CHECKING:
     from ...expression import bases
-    from ...expression.statements.dql import QueryStatement
     from ...expression.query_parts import (
         ForUpdateClause,
         GroupByHavingClause,
@@ -22,6 +22,7 @@ if TYPE_CHECKING:
         QualifyClause,
         WhereClause,
     )
+    from ...expression.statements.dql import QueryStatement
 
 
 class DQLMixin:
@@ -177,9 +178,16 @@ class DQLMixin:
             if isinstance(item, tuple):
                 expr, direction = item
                 expr_sql, expr_params = expr.to_sql()
-                direction = direction.upper()
+                # The word travels; the keyword is written here.
                 direction = SortDirection.parse(direction)
-                expr_parts.append(f"{expr_sql} {direction}")
+                # No direction is ordinary, not an error. The wire says null and
+                # the SQL says nothing: leaving the row order to the engine is
+                # what the artifact asked for -- and it is the shape Go writes,
+                # so a reader that rejected it would reject its counterpart.
+                if direction is None:
+                    expr_parts.append(expr_sql)
+                else:
+                    expr_parts.append(f"{expr_sql} {direction.keyword}")
                 all_params.extend(expr_params)
             else:
                 expr_sql, expr_params = item.to_sql()
@@ -206,7 +214,9 @@ class DQLMixin:
         operand_sql, expr_params = expr.operand.to_sql()
         parts = [operand_sql]
         if expr.direction is not None:
-            parts.append(expr.direction)
+            # The node carries the word; the keyword is written here, so the
+            # artifact stays language-neutral.
+            parts.append(expr.direction.keyword)
         if expr.nulls is not None:
             if not self.supports_nulls_first_last():
                 raise UnsupportedFeatureError(
@@ -259,6 +269,7 @@ class DQLMixin:
                 dialect does not support it.
         """
         from ..exceptions import UnsupportedFeatureError
+
         if self.strict_validation:
             expr.validate(strict=True)
         all_params: List[Any] = []
@@ -269,7 +280,9 @@ class DQLMixin:
             all_params.extend(expr_params)
         modifier_str = ""
         if expr.select_modifier:
-            modifier_str = f" {expr.select_modifier.value}"
+            # The keyword comes from the enum, so the wire value stays the
+            # language-neutral word.
+            modifier_str = f" {expr.select_modifier.keyword}"
         select_sql = f"SELECT{modifier_str} " + ", ".join(select_parts)
         from_sql = ""
         if expr.from_:
@@ -348,6 +361,19 @@ class DQLMixin:
         """Whether FOR UPDATE SKIP LOCKED is supported. Defaults to False."""
         return False
 
+    def supports_for_update_nowait(self) -> bool:
+        """Whether FOR UPDATE NOWAIT is supported. Defaults to False.
+
+        A separate probe from ``supports_for_update_skip_locked`` because the
+        two do not travel together: Oracle spells the pair ``NOWAIT`` /
+        ``SKIP LOCKED``, PostgreSQL since 9.5 accepts both but older versions
+        only ``SKIP LOCKED``, and SQLite accepts neither. A dialect that has one
+        has no reason to have the other, so a shared probe would have to be
+        answered ``True`` for a dialect that would only reject half the requests
+        it admitted.
+        """
+        return False
+
     def supports_for_share(self) -> bool:
         """Whether the FOR SHARE lock strength is supported. Defaults to False."""
         return False
@@ -378,8 +404,8 @@ class DQLMixin:
             UnsupportedFeatureError: If the requested lock strength or option
                 is not supported by the dialect.
         """
-        from ..exceptions import UnsupportedFeatureError
         from ...expression.query_parts import LockStrength
+        from ..exceptions import UnsupportedFeatureError
 
         all_params = []
         strength = clause.strength
@@ -393,7 +419,9 @@ class DQLMixin:
         if strength == LockStrength.LOCK_IN_SHARE_MODE and not self.supports_lock_in_share_mode():
             raise UnsupportedFeatureError(self.name, "LOCK IN SHARE MODE")
 
-        sql_parts = [strength.value]
+        # The clause text comes from the enum's phrase, so the wire value stays the
+        # language-neutral strength word.
+        sql_parts = [strength.phrase]
 
         # Handle OF columns if specified
         if clause.of_columns:
@@ -408,8 +436,13 @@ class DQLMixin:
             if of_parts:
                 sql_parts.append(f"OF {', '.join(of_parts)}")
 
-        # Handle NOWAIT/SKIP LOCKED options
+        # Both wait modifiers are gated. Rendering either one for a dialect that
+        # does not have it produces a statement the database rejects at
+        # execution time, which is a worse answer than refusing here: the
+        # failure arrives with the caller's data already in flight (§6).
         if clause.nowait:
+            if not self.supports_for_update_nowait():
+                raise UnsupportedFeatureError(self.name, "NOWAIT")
             sql_parts.append("NOWAIT")
         elif clause.skip_locked:
             if not self.supports_for_update_skip_locked():

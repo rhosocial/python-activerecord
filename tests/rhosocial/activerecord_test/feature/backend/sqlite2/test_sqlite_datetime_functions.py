@@ -13,7 +13,9 @@ from rhosocial.activerecord.backend.expression import (
     QueryStatement,
     UpdateStatement,
     DeleteStatement,
-)
+    NumericColumn,
+    StringColumn,
+    TimestampColumn,)
 from rhosocial.activerecord.backend.expression.statements import InsertStatement, ReturningClause, ValuesSource
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.objects import Table
@@ -50,7 +52,7 @@ class TestSQLiteDateTimeFunctions:
             sqlite_dialect_3_8_0,
             table=Table(sqlite_dialect_3_8_0, 'users'),
             assignments={"updated_at": raw_timestamp, "username": Literal(sqlite_dialect_3_8_0, "updated_john")},
-            where=Column(sqlite_dialect_3_8_0, "id") == Literal(sqlite_dialect_3_8_0, 1),
+            where=NumericColumn(sqlite_dialect_3_8_0, "id") == Literal(sqlite_dialect_3_8_0, 1),
         )
 
         sql, params = update_expr.to_sql()
@@ -88,7 +90,7 @@ class TestSQLiteDateTimeFunctions:
             sqlite_dialect_3_8_0,
             select=[Column(sqlite_dialect_3_8_0, "id")],
             from_="users",
-            where=Column(sqlite_dialect_3_8_0, "created_at") > date_func,
+            where=TimestampColumn(sqlite_dialect_3_8_0, "created_at") > date_func,
         )
 
         sql, params = query_expr.to_sql()
@@ -102,7 +104,7 @@ class TestSQLiteDateTimeFunctions:
         delete_expr = DeleteStatement(
             sqlite_dialect_3_8_0,
             tables=Table(sqlite_dialect_3_8_0, 'temp_users'),
-            where=Column(sqlite_dialect_3_8_0, "status") == Literal(sqlite_dialect_3_8_0, "inactive"),
+            where=StringColumn(sqlite_dialect_3_8_0, "status") == Literal(sqlite_dialect_3_8_0, "inactive"),
         )
 
         sql, params = delete_expr.to_sql()
@@ -140,7 +142,7 @@ class TestSQLiteDateTimeFunctions:
                 sqlite_dialect_3_8_0,
                 table=Table(sqlite_dialect_3_8_0, 'users'),
                 assignments={"updated_at": raw_timestamp, "status": Literal(sqlite_dialect_3_8_0, "active")},
-                where=Column(sqlite_dialect_3_8_0, "id") == Literal(sqlite_dialect_3_8_0, 1),
+                where=NumericColumn(sqlite_dialect_3_8_0, "id") == Literal(sqlite_dialect_3_8_0, 1),
                 returning=ReturningClause(
                     sqlite_dialect_3_8_0,
                     expressions=[Column(sqlite_dialect_3_8_0, "id"), Column(sqlite_dialect_3_8_0, "updated_at")],
@@ -178,7 +180,8 @@ class TestSQLiteDateTimeFunctions:
             sqlite_dialect_3_8_0,
             select=[Column(sqlite_dialect_3_8_0, "id")],
             from_="logs",
-            where=Column(sqlite_dialect_3_8_0, "timestamp") > Literal(sqlite_dialect_3_8_0, "2023-01-01 00:00:00"),
+            where=TimestampColumn(sqlite_dialect_3_8_0, "timestamp")
+            > Literal(sqlite_dialect_3_8_0, "2023-01-01 00:00:00"),
         )
 
         sql, params = query_expr.to_sql()

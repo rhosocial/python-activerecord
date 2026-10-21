@@ -17,7 +17,7 @@ from decimal import Decimal
 
 import pytest
 
-from rhosocial.activerecord.backend.expression import DdlLiteral
+from rhosocial.activerecord.backend.expression import Literal
 
 
 def _dummy_dialect():
@@ -131,5 +131,5 @@ class TestLevel3Protocol:
 
 class TestProtocolThroughInlineRendering:
     def test_ddl_literal_renders_a_protocol_value_inline(self):
-        lit = DdlLiteral(_dummy_dialect(), _Point(1.0, 2.0))
+        lit = Literal(_dummy_dialect(), _Point(1.0, 2.0), inline=True)
         assert lit.to_sql() == ("'POINT(1.0 2.0)'", ())

@@ -26,8 +26,8 @@ from rhosocial.activerecord.backend.expression.statements.dql import QueryStatem
 from rhosocial.activerecord.backend.expression.statements.explain import ExplainStatement
 from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
     AlterTableStatement,
-    ModifyColumn,
-    ChangeColumn,
+    ModifyColumnAction,
+    ChangeColumnAction,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_table import ColumnDefinition
 from rhosocial.activerecord.backend.expression.transaction import BeginTransactionStatement
@@ -130,7 +130,7 @@ class TestAlterTableModifyChangeColumn:
         from unittest.mock import patch
 
         col_def = ColumnDefinition(dummy_dialect, "name", VarCharType(dummy_dialect, 255))
-        action = ModifyColumn(dummy_dialect, column=col_def)
+        action = ModifyColumnAction(dummy_dialect, column=col_def)
         expr = AlterTableStatement(
             dummy_dialect,
             table=Table(dummy_dialect, "users"),
@@ -144,7 +144,7 @@ class TestAlterTableModifyChangeColumn:
         from unittest.mock import patch
 
         col_def = ColumnDefinition(dummy_dialect, "new_name", VarCharType(dummy_dialect, 255))
-        action = ChangeColumn(dummy_dialect, old_name="old_name", column=col_def)
+        action = ChangeColumnAction(dummy_dialect, old_name="old_name", column=col_def)
         expr = AlterTableStatement(
             dummy_dialect,
             table=Table(dummy_dialect, "users"),

@@ -5,7 +5,7 @@ SQLite-specific Introspection implementation.
 This module provides the SQLiteIntrospectionCapabilityMixin class.
 """
 
-from typing import List, Tuple, TYPE_CHECKING
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression.introspection import (
@@ -166,6 +166,71 @@ class SQLiteIntrospectionCapabilityMixin:
 
     # ========== Query Formatting ==========
 
+    # ------------------------------------------------------------------
+    # The sqlite_master READ, expressed once
+    # ------------------------------------------------------------------
+    def sqlite_master_query(
+        self,
+        schema: "str",
+        projections: "list",
+        conditions: "list",
+        order_by: "Optional[list]" = None,
+    ) -> Tuple[str, tuple]:
+        """Build a SELECT over ``sqlite_master`` as an expression tree.
+
+        Every introspection query that reads ``sqlite_master`` is this shape --
+        a projection, a conjunction of conditions, and an optional ordering --
+        so the shape lives here and each formatter supplies only what varies.
+        What a query *asks* is then a structure the rest of the framework can
+        inspect, instead of a string reassembled one clause at a time.
+
+        The relation is qualified by *schema*, which on this backend is the name
+        of the database being read -- ``main`` by default, or an
+        ``ATTACH``-ed database. Dropping the qualifier is not neutral: it would
+        silently read the primary database when a caller asked for another one,
+        returning rows from the wrong database instead of either working or
+        failing. :class:`~...expression.table.SQLiteTable` carries the name, and
+        this dialect names it because SQLite's schema is that database name
+        rather than the SQL-standard construct.
+
+        Args:
+            schema: The database whose ``sqlite_master`` is read.
+            projections: The select list, in order.
+            conditions: Conditions to AND together.
+            order_by: The ordering expressions, or ``None`` for no ORDER BY.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        from rhosocial.activerecord.backend.expression import (
+            LogicalPredicate,
+            OrderByClause,
+            QueryStatement,
+            WhereClause,
+        )
+        from rhosocial.activerecord.backend.expression.sources.relation import (
+            NamedRelationRef,
+        )
+        from ..expression import SQLiteTable
+
+        kwargs: "dict" = {
+            "select": projections,
+            "from_": NamedRelationRef(
+                self,
+                SQLiteTable(
+                    self,
+                    "sqlite_master",
+                    schema_name=schema,
+                    schema_need_quote=False,
+                    name_need_quote=False,
+                ),
+            ),
+            "where": WhereClause(self, LogicalPredicate(self, "AND", *conditions)),
+        }
+        if order_by is not None:
+            kwargs["order_by"] = OrderByClause(self, order_by)
+        return QueryStatement(self, **kwargs).to_sql()
+
     def format_database_info_query(self, expr: "DatabaseInfoExpression") -> Tuple[str, tuple]:
         """Format database information query.
 
@@ -178,8 +243,13 @@ class SQLiteIntrospectionCapabilityMixin:
         Returns:
             Tuple of (SQL string, empty parameters tuple).
         """
-        sql = "SELECT sqlite_version() AS version"
-        return (sql, ())
+        from rhosocial.activerecord.backend.expression import FunctionCall, QueryStatement
+
+        # No FROM: this query reads no table, it asks the engine a question.
+        return QueryStatement(
+            self,
+            select=[FunctionCall(self, "sqlite_version", alias="version")],
+        ).to_sql()
 
     def format_table_list_query(self, expr: "TableListExpression") -> Tuple[str, tuple]:
         """Format table list query.
@@ -207,25 +277,58 @@ class SQLiteIntrospectionCapabilityMixin:
             return (sql, ())
 
         # Fallback to sqlite_master query (also used for include_system=False
-        # because sqlite_master supports NOT LIKE filtering natively)
-        sql = "SELECT name, type FROM sqlite_master WHERE type IN ('table'"
-        if include_views:
-            sql += ", 'view'"
-        sql += ")"
+        # because sqlite_master supports NOT LIKE filtering natively).
+        #
+        # The intent is carried by a tree rather than concatenated, so what this
+        # query asks is a structure the rest of the framework can inspect, and
+        # the dialect owns only the spelling. The projection is name before
+        # type, the IN list is literal-inline so the parameters stay empty
+        # exactly as the concatenated form left them, and the system-table
+        # exclusion is a NOT LIKE predicate rather than appended text.
+        from rhosocial.activerecord.backend.expression import (
+            Column,
+            ComparisonPredicate,
+            InPredicate,
+            LikeOperator,
+            LikePredicate,
+            Literal,
+            LogicalPredicate,
+            OrderByClause,
+            QueryStatement,
+            WhereClause,
+        )
+
+        values = ("table", "view") if include_views else ("table",)
+        conditions = [InPredicate(self, Column(self, "type"), Literal(self, values, inline=True))]
 
         # Exclude system tables unless requested
         if not include_system:
-            sql += " AND name NOT LIKE 'sqlite_%'"
+            conditions.append(
+                LikePredicate(
+                    self,
+                    LikeOperator.NOT_LIKE,
+                    Column(self, "name"),
+                    Literal(self, "sqlite_%", inline=True),
+                )
+            )
 
         # Filter by table type if specified
         if table_type:
-            if table_type == "BASE TABLE":
-                sql += " AND type = 'table'"
-            elif table_type == "VIEW":
-                sql += " AND type = 'view'"
+            spelled = "table" if table_type == "BASE TABLE" else table_type.lower()
+            conditions.append(
+                ComparisonPredicate(
+                    self, "eq", Column(self, "type"), Literal(self, spelled, inline=True)
+                )
+            )
 
-        sql += " ORDER BY name"
-        return (sql, ())
+        query = QueryStatement(
+            self,
+            select=[Column(self, "name"), Column(self, "type")],
+            from_="sqlite_master",
+            where=WhereClause(self, LogicalPredicate(self, "AND", *conditions)),
+            order_by=OrderByClause(self, [Column(self, "name")]),
+        )
+        return query.to_sql()
 
     def format_table_info_query(self, expr: "TableInfoExpression") -> Tuple[str, tuple]:
         """Format single table information query.
@@ -241,9 +344,13 @@ class SQLiteIntrospectionCapabilityMixin:
         params = expr.get_params()
         table_name = params.get("table_name", "")
         schema = params.get("schema") or "main"
+        from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Literal
 
-        sql = f"SELECT name, type, sql FROM {schema}.sqlite_master WHERE name = {self.p()}"
-        return (sql, (table_name,))
+        return self.sqlite_master_query(
+            schema,
+            [Column(self, "name"), Column(self, "type"), Column(self, "sql")],
+            [ComparisonPredicate(self, "eq", Column(self, "name"), Literal(self, table_name))],
+        )
 
     def format_column_info_query(self, expr: "ColumnInfoExpression") -> Tuple[str, tuple]:
         """Format column information query.
@@ -321,14 +428,33 @@ class SQLiteIntrospectionCapabilityMixin:
         schema = params.get("schema") or "main"
         include_system = params.get("include_system", False)
 
-        sql = f"SELECT name FROM {schema}.sqlite_master WHERE type = 'view'"
+        from rhosocial.activerecord.backend.expression import (
+            Column,
+            ComparisonPredicate,
+            LikeOperator,
+            LikePredicate,
+            Literal,
+        )
 
+        conditions = [
+            ComparisonPredicate(
+                self, "eq", Column(self, "type"), Literal(self, "view", inline=True)
+            )
+        ]
         # Exclude system views unless requested
         if not include_system:
-            sql += " AND name NOT LIKE 'sqlite_%'"
+            conditions.append(
+                LikePredicate(
+                    self,
+                    LikeOperator.NOT_LIKE,
+                    Column(self, "name"),
+                    Literal(self, "sqlite_%", inline=True),
+                )
+            )
 
-        sql += " ORDER BY name"
-        return (sql, ())
+        return self.sqlite_master_query(
+            schema, [Column(self, "name")], conditions, [Column(self, "name")]
+        )
 
     def format_view_info_query(self, expr: "ViewInfoExpression") -> Tuple[str, tuple]:  # noqa: F821
         """Format single view information query.
@@ -345,8 +471,22 @@ class SQLiteIntrospectionCapabilityMixin:
         view_name = params.get("view_name", "")
         schema = params.get("schema") or "main"
 
-        sql = f"SELECT name, sql FROM {schema}.sqlite_master WHERE type = 'view' AND name = {self.p()}"
-        return (sql, (view_name,))
+        from rhosocial.activerecord.backend.expression import (
+            Column,
+            ComparisonPredicate,
+            Literal,
+        )
+
+        conditions = [
+            ComparisonPredicate(
+                self, "eq", Column(self, "type"), Literal(self, "view", inline=True)
+            ),
+            # The name is bound, exactly as the concatenated form bound it.
+            ComparisonPredicate(self, "eq", Column(self, "name"), Literal(self, view_name)),
+        ]
+        return self.sqlite_master_query(
+            schema, [Column(self, "name"), Column(self, "sql")], conditions
+        )
 
     def format_trigger_list_query(self, expr: "TriggerListExpression") -> Tuple[str, tuple]:  # noqa: F821
         """Format trigger list query.
@@ -363,13 +503,35 @@ class SQLiteIntrospectionCapabilityMixin:
         table_name = params.get("table_name")
         schema = params.get("schema") or "main"
 
-        sql = f"SELECT name, tbl_name, sql FROM {schema}.sqlite_master WHERE type = 'trigger'"
-        if table_name:
-            sql += f" AND tbl_name = {self.p()}"
-            return (sql, (table_name,))
+        from rhosocial.activerecord.backend.expression import (
+            Column,
+            ComparisonPredicate,
+            Literal,
+        )
 
-        sql += " ORDER BY name"
-        return (sql, ())
+        conditions = [
+            ComparisonPredicate(
+                self, "eq", Column(self, "type"), Literal(self, "trigger", inline=True)
+            )
+        ]
+        # Filtering by table drops the ordering -- an asymmetry worth keeping
+        # visible in the tree rather than hiding in a string branch.
+        if table_name:
+            conditions.append(
+                ComparisonPredicate(self, "eq", Column(self, "tbl_name"), Literal(self, table_name))
+            )
+            return self.sqlite_master_query(
+                schema,
+                [Column(self, "name"), Column(self, "tbl_name"), Column(self, "sql")],
+                conditions,
+            )
+
+        return self.sqlite_master_query(
+            schema,
+            [Column(self, "name"), Column(self, "tbl_name"), Column(self, "sql")],
+            conditions,
+            [Column(self, "name")],
+        )
 
     def format_trigger_info_query(self, expr: "TriggerInfoExpression") -> Tuple[str, tuple]:  # noqa: F821
         """Format single trigger information query.
@@ -386,6 +548,21 @@ class SQLiteIntrospectionCapabilityMixin:
         trigger_name = params.get("trigger_name", "")
         schema = params.get("schema") or "main"
 
-        sql = f"SELECT name, tbl_name, sql FROM {schema}.sqlite_master WHERE type = 'trigger' AND name = {self.p()}"
-        return (sql, (trigger_name,))
+        from rhosocial.activerecord.backend.expression import (
+            Column,
+            ComparisonPredicate,
+            Literal,
+        )
+
+        conditions = [
+            ComparisonPredicate(
+                self, "eq", Column(self, "type"), Literal(self, "trigger", inline=True)
+            ),
+            ComparisonPredicate(self, "eq", Column(self, "name"), Literal(self, trigger_name)),
+        ]
+        return self.sqlite_master_query(
+            schema,
+            [Column(self, "name"), Column(self, "tbl_name"), Column(self, "sql")],
+            conditions,
+        )
 

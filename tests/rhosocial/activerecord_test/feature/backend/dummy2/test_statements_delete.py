@@ -7,9 +7,9 @@ from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression import bases
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression import (
+    BetweenPredicate,
     InPredicate,
     IsNullPredicate,
-    BetweenPredicate,
     LikePredicate,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
@@ -293,7 +293,9 @@ class TestDeleteStatements:
             (
                 "users",
                 ComparisonPredicate(None, "!=", Column(None, "status"), Literal(None, "active")),  # Mock
-                'DELETE FROM "users" WHERE "status" != ?',
+                # `!=` and `<>` are one operation; the formatter writes the
+                # standard spelling. See ComparisonOperator.
+                'DELETE FROM "users" WHERE "status" <> ?',
                 ("active",),
             ),
             (
@@ -356,7 +358,9 @@ class TestDeleteStatements:
         if comparison_op in ["IS", "IS NOT"]:
             assert comparison_op.replace(" ", " ") in sql  # "IS NULL" or "IS NOT NULL"
         else:
-            assert comparison_op in sql
+            # Compare against what the operator renders, not what the caller
+            # passed: `!=` and `<>` are one operation, standard spelling wins.
+            assert ComparisonPredicate.coerce_operator(comparison_op).symbol in sql
         if comparison_op not in ["IS", "IS NOT"]:
             assert params == (right_value,)
 

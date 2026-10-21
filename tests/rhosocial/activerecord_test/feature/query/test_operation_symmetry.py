@@ -74,7 +74,7 @@ _REFUSALS = {name for name, value in vars(NotANumberMixin).items() if callable(v
 #: cannot also be one of the things compared; and ``kind`` is a node's identity
 #: on the wire (§4.9.2) -- defined once on the expression base, which an
 #: annotation is not.
-_NOT_OPERATIONS = {"collate", "validate", "get_params", "surface", "kind"}
+_NOT_OPERATIONS = {"collate", "validate", "get_params", "value_type_of", "kind"}
 
 
 def _operations(cls):

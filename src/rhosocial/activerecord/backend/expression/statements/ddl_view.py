@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
-from ..bases import BaseExpression, require_exclusive_options
+from ..bases import BaseExpression
 from ..objects import MaterializedView, View
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -21,16 +21,22 @@ class ColumnAlias:
     alias: Optional[str] = None  # Optional alias for the column
 
 
-class ViewAlgorithm(Enum):
+class ViewAlgorithm(str, Enum):
     """Algorithm types for MySQL-style view creation."""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     UNDEFINED = "UNDEFINED"
     MERGE = "MERGE"
     TEMPTABLE = "TEMPTABLE"
 
 
-class ViewCheckOption(Enum):
+class ViewCheckOption(str, Enum):
     """Check options for view constraints."""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     NONE = "NONE"
     LOCAL = "LOCAL"
@@ -165,7 +171,7 @@ class DropViewStatement(BaseExpression):
         restrict: bool = False,
     ):  # DROP VIEW ... CASCADE | RESTRICT (dependent-object handling)
         super().__init__(dialect)
-        require_exclusive_options(cascade, restrict, "cascade", "restrict")
+        self.require_exclusive_options(cascade, restrict, "cascade", "restrict")
         self.view = view
         self.if_exists = if_exists
         self.cascade = cascade
@@ -234,7 +240,7 @@ class CreateMaterializedViewStatement(BaseExpression):
         storage_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
-        require_exclusive_options(with_data, no_data, "with_data", "no_data")
+        self.require_exclusive_options(with_data, no_data, "with_data", "no_data")
         self.view = view
         self.query = query
         self.column_aliases = column_aliases or []
@@ -291,7 +297,7 @@ class DropMaterializedViewStatement(BaseExpression):
         restrict: bool = False,
     ):
         super().__init__(dialect)
-        require_exclusive_options(cascade, restrict, "cascade", "restrict")
+        self.require_exclusive_options(cascade, restrict, "cascade", "restrict")
         self.view = view
         self.if_exists = if_exists
         self.cascade = cascade
@@ -341,7 +347,7 @@ class RefreshMaterializedViewStatement(BaseExpression):
         no_data: bool = False,  # WITH NO DATA
     ):
         super().__init__(dialect)
-        require_exclusive_options(with_data, no_data, "with_data", "no_data")
+        self.require_exclusive_options(with_data, no_data, "with_data", "no_data")
         self.view = view
         self.concurrent = concurrent
         self.with_data = with_data

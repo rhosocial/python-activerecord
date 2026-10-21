@@ -15,6 +15,8 @@ from rhosocial.activerecord.backend.expression import (
 from rhosocial.activerecord.backend.expression.predicates import InPredicate, BetweenPredicate, IsNullPredicate
 from rhosocial.activerecord.backend.expression.query_parts import ForUpdateClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression.objects import Table
 
 
@@ -359,17 +361,35 @@ class TestQueryParts:
         assert params == ()
 
     def test_for_update_clause_nowait(self, dummy_dialect: DummyDialect):
-        """Test FOR UPDATE clause with NOWAIT option."""
+        """``NOWAIT`` renders where the dialect says it has it.
+
+        The assertion used to accept ``FOR UPDATE`` as well, which is what let
+        the modifier be dropped without anything failing. It is gated by
+        ``supports_for_update_nowait`` now, so a dialect that has the probe
+        open renders the word and one that does not refuses outright (§6).
+        """
         for_update = ForUpdateClause(dummy_dialect, nowait=True)
 
         sql, params = for_update.to_sql()
 
-        assert sql in [
-            "FOR UPDATE NOWAIT",
-            "FOR UPDATE",
-            "SELECT ... FOR UPDATE NOWAIT",
-        ]  # Depends on dialect implementation
+        assert sql == "FOR UPDATE NOWAIT"
         assert params == ()
+
+    def test_for_update_clause_nowait_is_refused_where_unsupported(self):
+        """A dialect without it says so instead of rendering SQL it will reject.
+
+        SQLite has no ``NOWAIT`` -- its locking clause is ``BEGIN IMMEDIATE`` --
+        so the gate must refuse here rather than hand the database a statement
+        that fails at execution time with the caller's transaction already open.
+        """
+        dialect = SQLiteDialect(version=(3, 53, 0))
+        assert dialect.supports_for_update_nowait() is False
+
+        with pytest.raises(UnsupportedFeatureError, match="NOWAIT"):
+            ForUpdateClause(dialect, nowait=True).to_sql()
+
+        # And the refusal is about the modifier, not about locking itself.
+        assert ForUpdateClause(dialect).to_sql()[0] == "FOR UPDATE"
 
     def test_for_update_clause_skip_locked(self, dummy_dialect: DummyDialect):
         """Test FOR UPDATE clause with SKIP LOCKED option."""

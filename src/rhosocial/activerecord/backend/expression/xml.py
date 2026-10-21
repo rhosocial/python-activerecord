@@ -13,13 +13,16 @@ if TYPE_CHECKING:  # pragma: no cover
     from .query_parts import OrderByClause
 
 
-from .surfaces import (
-    TextSurface,
-    XMLSurface,
+from .value_types import (
+    TextValue,
+    XMLValue,
 )
 
 class XMLParseDocumentType(str, Enum):
     """SQL/XML XMLPARSE document type keywords."""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     DOCUMENT = "DOCUMENT"
     CONTENT = "CONTENT"
@@ -28,6 +31,9 @@ class XMLParseDocumentType(str, Enum):
 class XMLWhitespaceOption(str, Enum):
     """SQL/XML whitespace handling keywords."""
 
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
+
     PRESERVE = "PRESERVE WHITESPACE"
     STRIP = "STRIP WHITESPACE"
 
@@ -35,12 +41,18 @@ class XMLWhitespaceOption(str, Enum):
 class XMLSerializeDocumentType(str, Enum):
     """SQL/XML XMLSERIALIZE document type keywords."""
 
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
+
     DOCUMENT = "DOCUMENT"
     CONTENT = "CONTENT"
 
 
 class XMLStandaloneOption(str, Enum):
     """SQL/XML XMLROOT standalone option keywords."""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     YES = "YES"
     NO = "NO"
@@ -50,12 +62,18 @@ class XMLStandaloneOption(str, Enum):
 class XMLPassingMechanism(str, Enum):
     """SQL/XML XMLQUERY/XMLEXISTS passing mechanism keywords."""
 
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
+
     BY_REF = "BY REF"
     BY_VALUE = "BY VALUE"
 
 
 class XMLEmptyHandlingOption(str, Enum):
     """SQL/XML XMLQUERY empty sequence handling keywords."""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     NULL_ON_EMPTY = "NULL ON EMPTY"
     EMPTY_ON_EMPTY = "EMPTY ON EMPTY"
@@ -64,19 +82,22 @@ class XMLEmptyHandlingOption(str, Enum):
 class XMLTableColumnOption(str, Enum):
     """SQL/XML XMLTABLE column option keywords."""
 
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
+
     PATH = "PATH"
     DEFAULT = "DEFAULT"
 
 
 class XMLParseExpression(
     DeclaredValueType,
-    XMLSurface,
+    XMLValue,
     SQLValue,
 ):
     """Represents a SQL/XML XMLPARSE expression constructor.
 
     The parse of a document *is* an XML value, so it declares
-    :class:`~...expression.surfaces.XMLSurface` (see
+    :class:`~...expression.value_types.XMLValue` (see
     :class:`~...expression.advanced_functions.DeclaredValueType` for why these
     nodes inherit the value class rather than being wrapped by one).
     """
@@ -101,14 +122,14 @@ class XMLParseExpression(
 
 class XMLSerializeExpression(
     DeclaredValueType,
-    TextSurface,
+    TextValue,
     SQLValue,
 ):
     """Represents a SQL/XML XMLSERIALIZE expression constructor.
 
     Serialization leaves the XML family: what comes back is the character
     value named in ``target_type``, so the node declares
-    :class:`~...expression.surfaces.TextSurface` and carries the string
+    :class:`~...expression.value_types.TextValue` and carries the string
     operations rather than the XML surface.
     """
 
@@ -165,7 +186,7 @@ class XMLAttributesExpression(SQLValue):
 
 class XMLElementExpression(
     DeclaredValueType,
-    XMLSurface,
+    XMLValue,
     SQLValue,
 ):
     """Represents a SQL/XML XMLELEMENT expression constructor."""
@@ -201,7 +222,7 @@ class XMLForestItem:
 
 class XMLForestExpression(
     DeclaredValueType,
-    XMLSurface,
+    XMLValue,
     SQLValue,
 ):
     """Represents a SQL/XML XMLFOREST expression constructor."""
@@ -222,7 +243,7 @@ class XMLForestExpression(
 
 class XMLConcatExpression(
     DeclaredValueType,
-    XMLSurface,
+    XMLValue,
     SQLValue,
 ):
     """Represents a SQL/XML XMLCONCAT expression constructor."""
@@ -239,7 +260,7 @@ class XMLConcatExpression(
 
 class XMLCommentExpression(
     DeclaredValueType,
-    XMLSurface,
+    XMLValue,
     SQLValue,
 ):
     """Represents a SQL/XML XMLCOMMENT expression constructor."""
@@ -256,7 +277,7 @@ class XMLCommentExpression(
 
 class XMLPIExpression(
     DeclaredValueType,
-    XMLSurface,
+    XMLValue,
     SQLValue,
 ):
     """Represents a SQL/XML XMLPI expression constructor."""
@@ -279,7 +300,7 @@ class XMLPIExpression(
 
 class XMLRootExpression(
     DeclaredValueType,
-    XMLSurface,
+    XMLValue,
     SQLValue,
 ):
     """Represents a SQL/XML XMLROOT expression constructor."""
@@ -304,7 +325,7 @@ class XMLRootExpression(
 
 class XMLAggExpression(
     DeclaredValueType,
-    XMLSurface,
+    XMLValue,
     SQLValue,
 ):
     """Represents a SQL/XML XMLAGG aggregate expression."""
@@ -357,7 +378,7 @@ class PassingClause(BaseExpression):
 
 class XMLQueryExpression(
     DeclaredValueType,
-    XMLSurface,
+    XMLValue,
     SQLValue,
 ):
     """Represents a SQL/XML XMLQUERY expression."""

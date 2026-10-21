@@ -112,9 +112,9 @@ class SchemaObject(BaseExpression):
         self.name = name
         self.catalog_name = catalog_name
         self.schema_name = schema_name
-        self.catalog_need_quote = catalog_need_quote
-        self.schema_need_quote = schema_need_quote
-        self.name_need_quote = name_need_quote
+        self.catalog_need_quote = self.quote_flag(catalog_need_quote, "catalog_need_quote")
+        self.schema_need_quote = self.quote_flag(schema_need_quote, "schema_need_quote")
+        self.name_need_quote = self.quote_flag(name_need_quote, "name_need_quote")
 
     def __repr__(self) -> str:
         parts = [p for p in (self.catalog_name, self.schema_name, self.name) if p]

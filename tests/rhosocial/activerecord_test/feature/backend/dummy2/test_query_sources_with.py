@@ -5,7 +5,7 @@ from rhosocial.activerecord.backend.expression import (
     Subquery,
     FunctionCall,
     QueryStatement,
-)
+    NumericColumn,)
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_sources import CTEClause, WithStatement
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -209,7 +209,10 @@ class TestCTEAndWithStatements:
 
         from rhosocial.activerecord.backend.expression.query_parts import WhereClause
 
-        where_clause = WhereClause(dummy_dialect, condition=Column(dummy_dialect, "id") < Literal(dummy_dialect, 1000))
+        where_clause = WhereClause(
+            dummy_dialect,
+            condition=NumericColumn(dummy_dialect, "id") < Literal(dummy_dialect, 1000),
+        )
         main_query.where = where_clause  # Set directly
 
         with_query = WithStatement(dummy_dialect, ctes=[cte], query=main_query)

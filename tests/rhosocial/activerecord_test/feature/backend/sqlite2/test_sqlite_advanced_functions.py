@@ -4,7 +4,7 @@ Tests for the advanced SQL function expression components in advanced_functions.
 """
 
 import pytest
-from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression import Column, Literal, NumericColumn
 from rhosocial.activerecord.backend.expression.advanced_functions import (
     CaseExpression,
     ExistsPredicate,
@@ -25,7 +25,7 @@ class TestCaseExpression:
     def test_case_expression_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test basic CASE expression functionality."""
         # Create a basic CASE expression with one condition-result pair
-        condition = Column(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 18)
+        condition = NumericColumn(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 18)
         result = Literal(sqlite_dialect_3_8_0, "adult")
         case_expr = CaseExpression(sqlite_dialect_3_8_0, cases=[(condition, result)])
 
@@ -35,9 +35,9 @@ class TestCaseExpression:
 
     def test_case_expression_multiple_conditions(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test CASE expression with multiple conditions."""
-        condition1 = Column(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 65)
+        condition1 = NumericColumn(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 65)
         result1 = Literal(sqlite_dialect_3_8_0, "senior")
-        condition2 = Column(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 18)
+        condition2 = NumericColumn(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 18)
         result2 = Literal(sqlite_dialect_3_8_0, "adult")
 
         case_expr = CaseExpression(

@@ -23,7 +23,11 @@ class TestPredicateExpressions:
         [
             ((Column, ("age",)), "=", (Literal, (18,)), '"age" = ?', (18,)),
             ((Column, ("price",)), ">", (Literal, (100.0,)), '"price" > ?', (100.0,)),
-            ((Column, ("status",)), "!=", (Literal, ("inactive",)), '"status" != ?', ("inactive",)),
+            # `!=` and `<>` are one operation, so the node accepts either and the formatter
+            # writes the standard spelling; the operator travels the artifact as
+            # the word "ne". See ComparisonOperator.
+            ((Column, ("status",)), "!=", (Literal, ("inactive",)), '"status" <> ?', ("inactive",)),
+            ((Column, ("status",)), "<>", (Literal, ("inactive",)), '"status" <> ?', ("inactive",)),
             ((RawSQL, ("NOW()",)), "<", (Column, ("end_date",)), 'NOW() < "end_date"', ()),
         ],
     )

@@ -7,7 +7,7 @@ from rhosocial.activerecord.backend.expression import (
     ExistsPredicate,
     AnyPredicate,
     AllPredicate,
-)
+    NumericColumn,)
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.types import RealType
 
@@ -18,9 +18,9 @@ class TestAdvancedFunctionWindow:
     # --- CaseExpression ---
     def test_case_searched_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Tests a searched CASE expression (CASE WHEN ... THEN ... ELSE ... END)."""
-        condition1 = Column(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 18)
+        condition1 = NumericColumn(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 18)
         result1 = Literal(sqlite_dialect_3_8_0, "adult")
-        condition2 = Column(sqlite_dialect_3_8_0, "age") <= Literal(sqlite_dialect_3_8_0, 18)
+        condition2 = NumericColumn(sqlite_dialect_3_8_0, "age") <= Literal(sqlite_dialect_3_8_0, 18)
         result2 = Literal(sqlite_dialect_3_8_0, "minor")
 
         case_expr = CaseExpression(sqlite_dialect_3_8_0, cases=[(condition1, result1), (condition2, result2)])

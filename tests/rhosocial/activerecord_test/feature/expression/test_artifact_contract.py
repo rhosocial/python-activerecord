@@ -61,16 +61,6 @@ from rhosocial.activerecord.backend.expression.serialization import (
     serialize_json,
     serialize_xml,
 )
-from rhosocial.activerecord.backend.expression.values import (
-    BooleanValue,
-    DateValue,
-    DecimalValue,
-    IntegerValue,
-    NullValue,
-    StringValue,
-    TimestampValue,
-    UUIDValue,
-)
 from rhosocial.activerecord.backend.expression.core import (
     AllColumnsWildcard,
     Column,
@@ -89,12 +79,16 @@ def _dialect():
 
 #: One case per *shape* of parameter value, not per class. What the codec owes
 #: a caller is that each of these comes back; how many classes happen to use
-#: each shape is the library's business, not the format's.
+#: each shape is the library's business, not the format's. The twelve value
+#: kinds are a separate axis and get their own round-trip below.
 CARRYABLE = {
-    "scalar-int": lambda d: IntegerValue(d, 42),
-    "scalar-str": lambda d: StringValue(d, "hi"),
-    "scalar-bool": lambda d: BooleanValue(d, True),
-    "scalar-null": lambda d: NullValue(d),
+    # One node carries every value, so these four differ only in what they hold.
+    # Which *value kind* each is comes from the host type (LiteralKind), not from
+    # the node's class -- the kinds are enumerated separately below.
+    "scalar-int": lambda d: Literal(d, 42),
+    "scalar-str": lambda d: Literal(d, "hi"),
+    "scalar-bool": lambda d: Literal(d, True),
+    "scalar-null": lambda d: Literal(d, None),
     "column": lambda d: Column(d, "id"),
     "bare-column": lambda d: Column(d, "id", table=Table(d, "users")),
     "wildcard": lambda d: AllColumnsWildcard(d),
@@ -108,10 +102,12 @@ CARRYABLE = {
     # A tuple is not a list. JSON draws no distinction; the artifact must.
     "tuple": lambda d: Table(d, "users"),
     # Standard-library scalars, each with its own registered codec.
-    "date": lambda d: DateValue(d, datetime.date(2020, 1, 2)),
-    "timestamp": lambda d: TimestampValue(d, datetime.datetime(2020, 1, 2, 3, 4, 5)),
-    "decimal": lambda d: DecimalValue(d, decimal.Decimal("1.25")),
-    "uuid": lambda d: UUIDValue(d, uuid.UUID(int=7)),
+    "date": lambda d: Literal(d, datetime.date(2020, 1, 2)),
+    "timestamp": lambda d: Literal(d, datetime.datetime(2020, 1, 2, 3, 4, 5)),
+    "decimal": lambda d: Literal(d, decimal.Decimal("1.25")),
+    "uuid": lambda d: Literal(d, uuid.UUID(int=7)),
+    "bytes": lambda d: Literal(d, b"\x01\x02"),
+    "timedelta": lambda d: Literal(d, datetime.timedelta(days=1, hours=2)),
 }
 
 
@@ -224,16 +220,26 @@ def test_registration_is_the_only_way_a_name_becomes_known():
     assert empty.resolve_node(Column.kind()) is Column
 
 
-def test_a_kind_is_not_an_enum_and_not_a_dataclass():
-    """The three whitelists are separate namespaces.
+def test_a_kind_is_resolved_through_one_table_only():
+    """Enums and dataclasses are not registered kinds, and are not resolved.
 
-    An enum and a node that happen to share a name are different things, and a
-    reader that conflated them would resolve one as the other.
+    They used to sit in two sibling whitelists, which raised a real hazard: an
+    enum and a node sharing a name are different things, and a reader had to be
+    careful not to resolve one as the other. There is nothing to be careful about
+    now -- a string enum *is* a JSON string and needs no table, and a dataclass
+    has no place in the artifact at all. Stating the absence is what stops a
+    later change quietly reinstating a second table.
     """
     registry = default_registry()
-    for kind in registry.node_kinds():
-        assert kind not in registry._enums, f"{kind} is both a node and an enum"
-        assert kind not in registry._dataclasses, f"{kind} is both a node and a dataclass"
+    for gone in (
+        "_enums", "_dataclasses",
+        "resolve_enum", "register_enum",
+        "resolve_dataclass", "register_dataclass",
+    ):
+        assert not hasattr(registry, gone), "the %s whitelist is back" % gone
+
+    # And whatever a kind is called, it resolves to exactly one class.
+    assert registry.resolve_node("column") is Column
 
 
 # ---------------------------------------------------------------------------
@@ -362,7 +368,7 @@ def test_a_datetime_survives_as_a_datetime():
     owning constructor then has to reject or silently coerce.
     """
     dialect = _dialect()
-    original = TimestampValue(dialect, datetime.datetime(2020, 1, 2, 3, 4, 5))
+    original = Literal(dialect, datetime.datetime(2020, 1, 2, 3, 4, 5))
     restored = deserialize_json(serialize_json(original), dialect)
     assert isinstance(restored.value, datetime.datetime)
     assert restored.value == original.value
@@ -419,7 +425,7 @@ def test_a_name_in_an_artifact_never_reaches_an_import():
 
 def test_an_over_deep_tree_is_refused():
     """Untrusted input must not be able to exhaust the stack."""
-    node = serialize(IntegerValue(_dialect(), 1))
+    node = serialize(Literal(_dialect(), 1))
     for _ in range(200):
         node = {"__expr__": node}
     with pytest.raises(ExpressionDeserializationError):
@@ -433,13 +439,13 @@ def test_the_readers_registry_is_the_callers():
     should accept one kind can be given exactly that kind.
     """
     dialect = _dialect()
-    artifact = serialize(IntegerValue(dialect, 7))
+    artifact = serialize(Literal(dialect, 7))
     with pytest.raises(ExpressionDeserializationError):
         deserialize(artifact, dialect, registry=ExpressionRegistry())
 
     narrow = ExpressionRegistry()
-    narrow.register_node(IntegerValue)
-    assert isinstance(deserialize(artifact, dialect, registry=narrow), IntegerValue)
+    narrow.register_value_kinds()
+    assert isinstance(deserialize(artifact, dialect, registry=narrow), Literal)
 
 
 # ---------------------------------------------------------------------------

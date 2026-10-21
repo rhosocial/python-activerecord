@@ -3,6 +3,7 @@ from rhosocial.activerecord.backend.expression.statements import ExplainType, Ex
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.column_types import NumericColumn
 from rhosocial.activerecord.backend.expression.objects import Table
 
 
@@ -30,7 +31,7 @@ def test_format_explain_query_plan():
     """Test EXPLAIN QUERY PLAN SQL formatting"""
     dialect = SQLiteDialect()
 
-    from rhosocial.activerecord.backend.expression import Column
+    from rhosocial.activerecord.backend.expression import NumericColumn
     from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
     from rhosocial.activerecord.backend.expression.statements import QueryStatement
 
@@ -38,7 +39,7 @@ def test_format_explain_query_plan():
         dialect=dialect,
         select=[Literal(dialect, "*")],
         from_=NamedRelationRef(dialect, Table(dialect, "users")),
-        where=Column(dialect, "id") == Literal(dialect, 1),
+        where=NumericColumn(dialect, "id") == Literal(dialect, 1),
     )
 
     options = ExplainOptions(analyze=False, type=ExplainType.QUERY_PLAN)
@@ -73,7 +74,7 @@ def test_format_explain_with_complex_sql():
         dialect=dialect,
         select=[Column(dialect, "user_id")],
         from_=NamedRelationRef(dialect, Table(dialect, "orders")),
-        where=Column(dialect, "total") > Literal(dialect, 100),
+        where=NumericColumn(dialect, "total") > Literal(dialect, 100),
     )
 
     main_query = QueryStatement(

@@ -18,7 +18,7 @@ class CreateIndexStatement(BaseExpression):
     index definitions during table creation, use CreateTableStatement
     with the indexes parameter.
 
-    An index is a DDL position: the class declares ``inline_params = True``
+    An index is a DDL position: the class declares the literals are marked inline
     and its partial-index ``WHERE`` condition renders inline-only (no bind
     parameters).
 
@@ -93,7 +93,6 @@ class CreateIndexStatement(BaseExpression):
         self.tablespace = tablespace
         self.concurrent = concurrent
 
-    inline_params: bool = True
 
     @property
     def format_method(self) -> str:

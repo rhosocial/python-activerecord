@@ -20,7 +20,9 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 # region Merge Statement
-class MergeActionType(Enum):
+class MergeActionType(str, Enum):
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
     """Represents the type of action to perform in a MERGE statement."""
 
     UPDATE = "UPDATE"
