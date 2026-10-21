@@ -63,11 +63,21 @@ class TestSQLiteGeopolyCreateVirtualTableConstruction:
         assert params == ()
 
     def test_with_content_table(self):
-        sql, _ = SQLiteGeopolyCreateVirtualTable(
-            SQLiteDialect(version=(3, 26, 0)),
-            table=Table(SQLiteDialect(version=(3, 26, 0)), "zones"), content_table=Table(SQLiteDialect(version=(3, 26, 0)), "zones_data")
-        ).to_sql()
-        assert "content='zones_data'" in sql
+        """Geopoly has no external content table, so a request for one is refused.
+
+        ``content=`` is an R-Tree option that names the table the shapes live
+        in. Geopoly has no such option -- the shapes are the rows of the
+        table itself, and ``extra_columns`` hold the caller's auxiliary data
+        -- so a statement carrying ``content=`` is one SQLite refuses to
+        parse. The refusal happens here, with the reason, rather than
+        producing SQL that cannot run.
+        """
+        with pytest.raises(UnsupportedFeatureError) as exc:
+            SQLiteGeopolyCreateVirtualTable(
+                SQLiteDialect(version=(3, 26, 0)),
+                table=Table(SQLiteDialect(version=(3, 26, 0)), "zones"), content_table=Table(SQLiteDialect(version=(3, 26, 0)), "zones_data")
+            ).to_sql()
+        assert "content=" in str(exc.value)
 
     def test_with_extra_columns(self):
         sql, _ = SQLiteGeopolyCreateVirtualTable(
@@ -81,14 +91,12 @@ class TestSQLiteGeopolyCreateVirtualTableConstruction:
         )
 
     def test_with_extra_columns_and_content(self):
-        sql, params = SQLiteGeopolyCreateVirtualTable(
-            SQLiteDialect(version=(3, 26, 0)),
-            table=Table(SQLiteDialect(version=(3, 26, 0)), "zones"), extra_columns=["name"],
-            content_table=Table(SQLiteDialect(version=(3, 26, 0)), "zones_data")
-        ).to_sql()
-        assert '"name"' in sql
-        assert "content='zones_data'" in sql
-        assert params == ()
+        with pytest.raises(UnsupportedFeatureError):
+            SQLiteGeopolyCreateVirtualTable(
+                SQLiteDialect(version=(3, 26, 0)),
+                table=Table(SQLiteDialect(version=(3, 26, 0)), "zones"), extra_columns=["name"],
+                content_table=Table(SQLiteDialect(version=(3, 26, 0)), "zones_data")
+            ).to_sql()
 
     def test_empty_extra_columns(self):
         expr = SQLiteGeopolyCreateVirtualTable(

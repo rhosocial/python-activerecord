@@ -69,9 +69,15 @@ class SQLiteRTreeMixin(SQLiteExtensionMixin):
             parts.append(
                 f"content='{self._escape_sql_string(expr.content_table.name)}'"
             )
-            if expr.content_rowid:
-                self._validate_safe_identifier(expr.content_rowid)
-                parts.append(f"content_rowid='{self._escape_sql_string(expr.content_rowid)}'")
+            # R-Tree counts each of content= and content_rowid= as a column
+            # of its own, and the total has to stay odd -- so the two go
+            # together, and one without the other is a statement SQLite
+            # refuses. The rowid name defaults to "rowid", which is what
+            # SQLite itself assumes, so naming it changes nothing but the
+            # column count.
+            rowid = expr.content_rowid or "rowid"
+            self._validate_safe_identifier(rowid)
+            parts.append(f"content_rowid='{self._escape_sql_string(rowid)}'")
 
         if parts:
             full = f"{cols_str}, {', '.join(parts)}"
