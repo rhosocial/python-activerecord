@@ -1211,8 +1211,7 @@ class DDLColumnMixin:
                 column_part += f" {action.new_value}"
             elif isinstance(action.new_value, str):
                 # DDL accepts no bind parameters: inline with escaping.
-                from ...dialect.base import SQLDialectBase
-                column_part += f" '{SQLDialectBase._escape_sql_string(action.new_value)}'"
+                column_part += f" '{self._escape_sql_string(action.new_value)}'"
             elif isinstance(action.new_value, ToSQLProtocol):
                 if isinstance(action.new_value, Literal):
                     # The value carries its own DDL decision; the controlled

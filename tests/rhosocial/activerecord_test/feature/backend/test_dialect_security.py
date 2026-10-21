@@ -90,6 +90,69 @@ def test_escape_sql_string_multiple_quotes(dialect):
     assert result == "''''"
 
 
+class TestEscapeReachesTheDialect:
+    """An inline literal must be escaped by the *dialect*, not by the base class.
+
+    A backend may spell string escaping its own way: MySQL and MariaDB double
+    the backslash because it is an escape character under the default SQL
+    mode, and BigQuery uses the backslash escape for the quote itself. When a
+    formatter reached for ``SQLDialectBase._escape_sql_string`` instead of
+    ``self._escape_sql_string``, the base class's spelling won and the
+    backend's policy was silently dropped -- a MariaDB JSON document
+    containing a backslash came out under-escaped, and the stored value
+    differed from the one that was sent.
+
+    These cases pin the rule: the escaping a caller sees is the escaping the
+    dialect declares.
+    """
+
+    def _dialect_with_backslash_policy(self):
+        """A dialect whose escaping doubles the backslash, like MySQL's."""
+
+        class BackslashDialect(TestDialect):
+            name = "backslash"
+
+            @staticmethod
+            def _escape_sql_string(value: str) -> str:
+                return value.replace("\\", "\\\\").replace("'", "''")
+
+            def supports_alter_column_properties(self) -> bool:
+                return True
+
+        return BackslashDialect()
+
+    def test_the_public_helper_uses_the_override(self):
+        dialect = self._dialect_with_backslash_policy()
+        assert dialect.escape_sql_string("a\\b'c") == "a\\\\b''c"
+
+    def test_an_inline_literal_uses_the_override(self):
+        """A literal rendered inline carries the dialect's escaping."""
+        from rhosocial.activerecord.backend.expression.core import Literal
+
+        dialect = self._dialect_with_backslash_policy()
+        sql, params = Literal(dialect, "a\\b'c", inline=True).to_sql()
+
+        assert sql == "'a\\\\b''c'"
+        assert params == ()
+
+    def test_an_alter_column_default_uses_the_override(self):
+        """``ALTER COLUMN ... SET DEFAULT`` inlines its value, so it escapes.
+
+        The value travels through the same path as the literal above: the
+        formatter must ask the dialect, not the base class.
+        """
+        from rhosocial.activerecord.backend.expression.statements import (
+            AlterColumnAction,
+        )
+
+        dialect = self._dialect_with_backslash_policy()
+        action = AlterColumnAction(dialect, column_name="c", operation="SET DEFAULT",
+                                   new_value="a\\b'c")
+        sql, params = dialect.format_alter_column_action(action)
+        assert "a\\\\b''c" in sql
+        assert params == ()
+
+
 def test_validate_data_type_valid(dialect):
     """Test valid data types pass validation."""
     assert dialect._validate_data_type("VARCHAR(255)")

@@ -106,9 +106,8 @@ class DateTimeMixin:
         Returns:
             A ``(sql, params)`` tuple.
         """
-        from ...dialect.base import SQLDialectBase
         source_sql, source_params = expr.source.to_sql()
-        field = SQLDialectBase._escape_sql_string(expr.field.value)
+        field = self._escape_sql_string(expr.field.value)
         sql = f"DATE_TRUNC('{field}', {source_sql})"
         return self.apply_alias(sql, source_params, expr)
 
@@ -121,8 +120,7 @@ class DateTimeMixin:
         Returns:
             A ``(sql, params)`` tuple.
         """
-        from ...dialect.base import SQLDialectBase
-        value = SQLDialectBase._escape_sql_string(str(expr.value))
+        value = self._escape_sql_string(str(expr.value))
         sql = f"INTERVAL '{value}' {expr.unit.value.upper()}"
         return self.apply_alias(sql, (), expr)
 
