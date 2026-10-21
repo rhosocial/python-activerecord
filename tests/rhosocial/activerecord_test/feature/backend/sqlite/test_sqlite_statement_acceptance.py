@@ -23,6 +23,8 @@ nothing about the framework.
 
 import sqlite3
 
+import pytest
+
 from rhosocial.activerecord.backend.expression.core import Column
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
@@ -32,6 +34,9 @@ from rhosocial.activerecord.backend.impl.sqlite.expression.attach import (
 )
 from rhosocial.activerecord.backend.impl.sqlite.expression.fts5 import (
     SQLiteFTS5CreateVirtualTable,
+)
+from rhosocial.activerecord.backend.impl.sqlite.expression.geopoly import (
+    SQLiteGeopolyCreateVirtualTable,
 )
 from rhosocial.activerecord.backend.impl.sqlite.expression.json import (
     SQLiteJsonExtractFunction,
@@ -73,9 +78,52 @@ def rendered(expr):
     return expr.to_sql()
 
 
+class TestGeopolyStatements:
+    """Geopoly has no content table, and its statement must still be one SQLite runs.
+
+    The module is optional in a SQLite build, so these cases are skipped
+    where it is absent. Whether it is there is asked of the SQLite itself
+    rather than of the dialect: the dialect's own probe falls back to a
+    version check when it has no compile options to read, and a build can
+    carry a version number without the module.
+    """
+
+    def _skip_without_geopoly(self):
+        connection = sqlite3.connect(":memory:")
+        try:
+            connection.execute("CREATE VIRTUAL TABLE probe USING geopoly()")
+        except sqlite3.OperationalError:
+            pytest.skip("Geopoly not available in this SQLite build")
+        finally:
+            connection.close()
+
+    def test_plain(self):
+        self._skip_without_geopoly()
+        sql, _ = rendered(SQLiteGeopolyCreateVirtualTable(DIALECT, table=Table(DIALECT, "z")))
+        accepts(sql)
+
+    def test_with_auxiliary_columns(self):
+        self._skip_without_geopoly()
+        sql, _ = rendered(
+            SQLiteGeopolyCreateVirtualTable(
+                DIALECT, table=Table(DIALECT, "z"), extra_columns=["name", "kind"]
+            )
+        )
+        accepts(sql)
+
+    def test_with_a_name_that_needs_quoting(self):
+        """An auxiliary column name is quoted, so the statement still runs."""
+        self._skip_without_geopoly()
+        sql, _ = rendered(
+            SQLiteGeopolyCreateVirtualTable(
+                DIALECT, table=Table(DIALECT, "z"), extra_columns=['col"name']
+            )
+        )
+        accepts(sql)
+
+
 class TestRTreeStatements:
     """R-Tree counts content= and content_rowid= as columns of its own."""
-
     def test_plain(self):
         sql, _ = rendered(
             SQLiteRTreeCreateVirtualTable(DIALECT, table=Table(DIALECT, "t"), dimensions=2)
