@@ -544,12 +544,12 @@ This demonstrates three rules:
 | MySQL | `MySQLCreateTableOptions(engine="InnoDB", charset="utf8mb4")` | Produces MySQL `ENGINE` and `DEFAULT CHARSET` table options. |
 | MariaDB | `MariaDBCreateTableOptions` | Produces options matched to the MariaDB dialect. |
 | PostgreSQL | `PostgresCreateTableOptions(unlogged=True)` | Produces `CREATE UNLOGGED TABLE`; version capability is checked by PostgreSQL. |
-| SQL Server | `SQLServerCreateTableOptions(memory_optimized=True)` and `SQLServerCreateTableExpression` | Produces `WITH (MEMORY_OPTIMIZED = ON)`; requires SQL Server 2014+. |
+| SQL Server | `SQLServerCreateTableOptions(memory_optimized=True)` and `SQLServerCreateTableStatement` | Produces `WITH (MEMORY_OPTIMIZED = ON)`; requires SQL Server 2014+. |
 | Oracle | Core `CreateTableOptions` and `tablespace="TS_DATA"` | Oracle's table formatter handles tablespaces; generic `StorageOptionsExpression` fails fast in the Oracle create-table path. |
 | Snowflake | `SnowflakeCreateTableOptions(transient=True)` | Produces `CREATE OR REPLACE TRANSIENT TABLE`. |
 | ClickHouse | `ClickHouseColumnOptions` and `StorageOptionsExpression` | Produces `CODEC(...)` and `ENGINE = ...` clauses. |
 | BigQuery | Core `CreateTableOptions` plus `TableCommentClause` | Produces table-level `OPTIONS(description=...)`; there is no BigQuery-specific `ColumnOptions` today. |
-| Firebird | `FirebirdCreateTableExpression` and `FirebirdColumnOptions` | Produces `CREATE GLOBAL TEMPORARY TABLE` and `CHARACTER SET` clauses. |
+| Firebird | `FirebirdCreateTableStatement` and `FirebirdColumnOptions` | Produces `CREATE GLOBAL TEMPORARY TABLE` and `CHARACTER SET` clauses. |
 
 Applying one backend's `ColumnOptions` to another backend's core `ColumnDefinition` normally raises `TypeError`. If it is applied to a different backend's own column definition class, unknown backend fields may be silently ignored by that formatter. Keep the option class, column definition class, and dialect from the same backend.
 

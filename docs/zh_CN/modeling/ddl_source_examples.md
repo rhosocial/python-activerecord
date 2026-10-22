@@ -548,12 +548,12 @@ SQLServerDialect does not support the generic type 'oracle_varchar2'
 | MySQL | `MySQLCreateTableOptions(engine="InnoDB", charset="utf8mb4")` | 产生 `ENGINE`、`DEFAULT CHARSET` 等 MySQL 表选项。 |
 | MariaDB | `MariaDBCreateTableOptions` | 产生与 MariaDB 方言匹配的表选项。 |
 | PostgreSQL | `PostgresCreateTableOptions(unlogged=True)` | 产生 `CREATE UNLOGGED TABLE`；版本能力由 PostgreSQL 方言检查。 |
-| SQL Server | `SQLServerCreateTableOptions(memory_optimized=True)`、`SQLServerCreateTableExpression` | 产生 `WITH (MEMORY_OPTIMIZED = ON)`；需要 SQL Server 2014+。 |
+| SQL Server | `SQLServerCreateTableOptions(memory_optimized=True)`、`SQLServerCreateTableStatement` | 产生 `WITH (MEMORY_OPTIMIZED = ON)`；需要 SQL Server 2014+。 |
 | Oracle | 核心 `CreateTableOptions`、`tablespace="TS_DATA"` | 表空间由 Oracle 建表 formatter 处理；通用 `StorageOptionsExpression` 在 Oracle 建表路径会 fail-fast。 |
 | Snowflake | `SnowflakeCreateTableOptions(transient=True)` | 产生 `CREATE OR REPLACE TRANSIENT TABLE`。 |
 | ClickHouse | `ClickHouseColumnOptions`、`StorageOptionsExpression` | 产生 `CODEC(...)`、`ENGINE = ...` 等 ClickHouse 子句。 |
 | BigQuery | 核心 `CreateTableOptions` + `TableCommentClause` | 产生表级 `OPTIONS(description=...)`；当前没有 BigQuery 专属 `ColumnOptions`。 |
-| Firebird | `FirebirdCreateTableExpression`、`FirebirdColumnOptions` | 产生 `CREATE GLOBAL TEMPORARY TABLE`、`CHARACTER SET` 等 Firebird 子句。 |
+| Firebird | `FirebirdCreateTableStatement`、`FirebirdColumnOptions` | 产生 `CREATE GLOBAL TEMPORARY TABLE`、`CHARACTER SET` 等 Firebird 子句。 |
 
 把某个后端的 `ColumnOptions` 应用到另一个后端的核心 `ColumnDefinition`，通常会得到 `TypeError`；但如果应用到了另一个后端自己的列定义类，某些不认识的后端字段可能被 formatter 静默忽略。因此示例中应始终让选项类和列定义类来自同一个后端，并让方言也来自同一个后端。
 

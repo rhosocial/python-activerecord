@@ -207,7 +207,7 @@ option.apply_to(column)
 | Snowflake | `Snowflake*Type`、`SnowflakeCreateTableOptions`、Snowflake 分区/克隆相关表达式 | VARIANT、OBJECT、ARRAY 等类型只是候选声明；source 不做 Snowflake 专属选择。 |
 | ClickHouse | `ClickHouse*Type`、`ClickHouseColumnOptions`、`ClickHouseIndexDefinition`、ClickHouse 分区表达式 | UNIQUE、外键等不受支持的能力由 ClickHouse dialect fail-fast；source 仍可呈现用户声明。 |
 | BigQuery | 当前主要使用通用 `DataType`、约束和 `CreateTableOptions` | 当前包没有与 `DDLSource` 自动绑定的 BigQuery 专属 `ColumnOptions`；通用声明仍可被收集。 |
-| Firebird | `Firebird*Type`、`FirebirdColumnOptions`、`FirebirdCreateTableExpression`、Firebird 分区/计算列表达式 | 计算列、表空间和专属建表类由 Firebird 消费者处理。 |
+| Firebird | `Firebird*Type`、`FirebirdColumnOptions`、`FirebirdCreateTableStatement`、Firebird 分区/计算列表达式 | 计算列、表空间和专属建表类由 Firebird 消费者处理。 |
 
 后端测试应至少验证三件事：DDLSource 返回的对象和顺序、后端专属类型/选项没有被提前改写、收集结果可以交给该后端已有的表达式构造路径。收集测试不需要连接真实数据库；SQL 渲染应使用方言和最小表达式单独验证。
 
