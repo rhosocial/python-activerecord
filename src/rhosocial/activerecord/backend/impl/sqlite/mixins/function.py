@@ -347,16 +347,15 @@ class SQLiteFunctionMixin:
 
         if len(expr.arguments) < 2:
             parts_sql, parts_params = [], []
-        for operand in expr.arguments:
-            operand_sql, operand_params = operand.to_sql()
-            parts_sql.append(operand_sql)
-            parts_params.extend(operand_params)
-        joined_sql = ", ".join(parts_sql)
-        sql = f"TRUNC({joined_sql})"
-        if expr.alias:
-            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
-        return sql, tuple(parts_params)
-
+            for operand in expr.arguments:
+                operand_sql, operand_params = operand.to_sql()
+                parts_sql.append(operand_sql)
+                parts_params.extend(operand_params)
+            joined_sql = ", ".join(parts_sql)
+            sql = f"TRUNC({joined_sql})"
+            if expr.alias:
+                sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+            return sql, tuple(parts_params)
 
         precision = expr.arguments[1]
         scale = FunctionCall(self, "POW", Literal(self, 10), precision)
@@ -374,15 +373,15 @@ class SQLiteFunctionMixin:
         """
         if len(expr.arguments) < 2:
             parts_sql, parts_params = [], []
-        for operand in expr.arguments:
-            operand_sql, operand_params = operand.to_sql()
-            parts_sql.append(operand_sql)
-            parts_params.extend(operand_params)
-        joined_sql = ", ".join(parts_sql)
-        sql = f"LOG({joined_sql})"
-        if expr.alias:
-            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
-        return sql, tuple(parts_params)
+            for operand in expr.arguments:
+                operand_sql, operand_params = operand.to_sql()
+                parts_sql.append(operand_sql)
+                parts_params.extend(operand_params)
+            joined_sql = ", ".join(parts_sql)
+            sql = f"LOG({joined_sql})"
+            if expr.alias:
+                sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+            return sql, tuple(parts_params)
 
         parts_sql, parts_params = [], []
         for operand in [expr.arguments[1], expr.arguments[0]]:
