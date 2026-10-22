@@ -136,13 +136,13 @@ from .functions import (
     system_user,
 )
 from .transaction import (
-    TransactionExpression,
+    TransactionStatement,
     BeginTransactionStatement,
     CommitStatement,
     RollbackStatement,
     SavepointStatement,
     ReleaseSavepointStatement,
-    SetTransactionExpression,
+    SetTransactionStatement,
 )
 from .introspection import (
     IntrospectionExpression,
@@ -737,13 +737,13 @@ __all__ = [
     "ViewInfoExpression",
     "TriggerListExpression",
     "TriggerInfoExpression",
-    "TransactionExpression",
+    "TransactionStatement",
     "BeginTransactionStatement",
     "CommitStatement",
     "RollbackStatement",
     "SavepointStatement",
     "ReleaseSavepointStatement",
-    "SetTransactionExpression",
+    "SetTransactionStatement",
     "count",
     "sum_",
     "avg",

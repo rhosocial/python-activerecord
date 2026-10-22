@@ -15,7 +15,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ReleaseSavepointStatement,
         RollbackStatement,
         SavepointStatement,
-        SetTransactionExpression,
+        SetTransactionStatement,
     )
 
 
@@ -85,7 +85,7 @@ class TransactionControlSupport(Protocol):
         Firebird-specific: ``SET TRANSACTION ... [WAIT | NO WAIT]``.  The probe
         answers the capability question; ``wait`` / ``no_wait`` on
         :class:`~....expression.transaction.BeginTransactionStatement` and
-        :class:`~....expression.transaction.SetTransactionExpression` select
+        :class:`~....expression.transaction.SetTransactionStatement` select
         the spelling.  Defaults to False for dialects whose grammar has no
         such clause.
         """
@@ -174,14 +174,14 @@ class TransactionControlSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_set_transaction(self, expr: "SetTransactionExpression") -> Tuple[str, tuple]:
+    def format_set_transaction(self, expr: "SetTransactionStatement") -> Tuple[str, tuple]:
         """
         Format SET TRANSACTION statement.
 
         Used primarily by MySQL to set isolation level before START TRANSACTION.
 
         Args:
-            expr: SetTransactionExpression with isolation level and/or mode.
+            expr: SetTransactionStatement with isolation level and/or mode.
 
         Returns:
             Tuple of (SQL string, parameters tuple).

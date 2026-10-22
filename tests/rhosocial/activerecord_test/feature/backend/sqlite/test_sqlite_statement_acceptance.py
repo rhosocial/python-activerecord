@@ -29,8 +29,8 @@ from rhosocial.activerecord.backend.expression.core import Column
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.sqlite.expression.attach import (
-    SQLiteAttachExpression,
-    SQLiteDetachExpression,
+    SQLiteAttachStatement,
+    SQLiteDetachStatement,
 )
 from rhosocial.activerecord.backend.impl.sqlite.expression.fts5 import (
     SQLiteFTS5CreateVirtualTable,
@@ -238,11 +238,11 @@ class TestMaintenanceStatements:
 
     def test_attach(self):
         # ':memory:' so the attach leaves no file behind.
-        sql, _ = rendered(SQLiteAttachExpression(DIALECT, database=":memory:", schema="o"))
+        sql, _ = rendered(SQLiteAttachStatement(DIALECT, database=":memory:", schema="o"))
         accepts(sql)
 
     def test_detach(self):
-        sql, _ = rendered(SQLiteDetachExpression(DIALECT, schema="o"))
+        sql, _ = rendered(SQLiteDetachStatement(DIALECT, schema="o"))
         accepts(sql, setup=["ATTACH DATABASE ':memory:' AS o"])
 
     def test_reindex(self):

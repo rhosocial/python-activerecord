@@ -15,8 +15,8 @@ from rhosocial.activerecord.backend.impl.sqlite.expression.vacuum import (
     SQLiteAnalyzeStatement,
 )
 from rhosocial.activerecord.backend.impl.sqlite.expression.attach import (
-    SQLiteAttachExpression,
-    SQLiteDetachExpression,
+    SQLiteAttachStatement,
+    SQLiteDetachStatement,
 )
 from rhosocial.activerecord.backend.expression.serialization import serialize, deserialize
 from rhosocial.activerecord.backend.expression.introspection import TableListExpression
@@ -83,12 +83,12 @@ class TestSQLiteMaintenanceExpressionSerialization:
         assert restored.to_sql() == expr.to_sql()
 
     def test_attach_expression_roundtrip(self, sqlite_dialect):
-        expr = SQLiteAttachExpression(sqlite_dialect, database="aux.db", schema="aux")
+        expr = SQLiteAttachStatement(sqlite_dialect, database="aux.db", schema="aux")
         restored = deserialize(serialize(expr), sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_detach_expression_roundtrip(self, sqlite_dialect):
-        expr = SQLiteDetachExpression(sqlite_dialect, schema="aux")
+        expr = SQLiteDetachStatement(sqlite_dialect, schema="aux")
         restored = deserialize(serialize(expr), sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 

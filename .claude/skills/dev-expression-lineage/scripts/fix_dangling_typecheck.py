@@ -86,7 +86,7 @@ MANUAL_OVERRIDES = {
         "from rhosocial.activerecord.backend.expression.transaction import",
         None,
     ),
-    ("impl.firebird.mixins.transaction", "SetTransactionExpression"):     (
+    ("impl.firebird.mixins.transaction", "SetTransactionStatement"):     (
         "from rhosocial.activerecord.backend.expression.transaction import",
         None,
     ),

@@ -469,8 +469,8 @@ class TestSQLiteExpressionDialectSeparation:
         ("SQLiteReindexStatement", "format_reindex_statement"),
         ("SQLiteVacuumStatement", "format_vacuum_statement"),
         ("SQLiteAnalyzeStatement", "format_analyze_statement"),
-        ("SQLiteAttachExpression", "format_attach_statement"),
-        ("SQLiteDetachExpression", "format_detach_statement"),
+        ("SQLiteAttachStatement", "format_attach_statement"),
+        ("SQLiteDetachStatement", "format_detach_statement"),
     ]
 
     @pytest.mark.parametrize("expr_name,format_method", EXPRESSION_DIALECT_PAIRS)

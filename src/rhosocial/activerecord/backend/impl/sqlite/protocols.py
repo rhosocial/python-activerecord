@@ -9,7 +9,7 @@ that are not part of the standard SQL dialect protocols.
 from typing import Any, Dict, List, Optional, Protocol, Tuple, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .expression.attach import SQLiteAttachExpression, SQLiteDetachExpression
+    from .expression.attach import SQLiteAttachStatement, SQLiteDetachStatement
     from .expression.fts5 import (
         SQLiteFTS5CreateVirtualTable,
         SQLiteFTS5HighlightExpression,
@@ -363,22 +363,22 @@ class SQLiteMaintenanceSupport(Protocol):
         """
         ...
 
-    def format_attach_statement(self, expr: "SQLiteAttachExpression") -> Tuple[str, tuple]:
+    def format_attach_statement(self, expr: "SQLiteAttachStatement") -> Tuple[str, tuple]:
         """Format an ATTACH DATABASE statement.
 
         Args:
-            expr: SQLiteAttachExpression instance.
+            expr: SQLiteAttachStatement instance.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
         ...
 
-    def format_detach_statement(self, expr: "SQLiteDetachExpression") -> Tuple[str, tuple]:
+    def format_detach_statement(self, expr: "SQLiteDetachStatement") -> Tuple[str, tuple]:
         """Format a DETACH DATABASE statement.
 
         Args:
-            expr: SQLiteDetachExpression instance.
+            expr: SQLiteDetachStatement instance.
 
         Returns:
             Tuple of (SQL string, parameters tuple).

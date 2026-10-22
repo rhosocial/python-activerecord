@@ -20,7 +20,7 @@ from .table import SQLiteTable
 from .table_list import SQLiteTableListExpression
 from .reindex import SQLiteReindexStatement
 from .vacuum import SQLiteVacuumStatement, SQLiteAnalyzeStatement
-from .attach import SQLiteAttachExpression, SQLiteDetachExpression
+from .attach import SQLiteAttachStatement, SQLiteDetachStatement
 from .predicates import SQLiteMatchPredicate
 from .dml import SQLiteInsertStatement
 from .fts5 import (
@@ -59,8 +59,8 @@ for _sqlite_expression in (
     SQLiteReindexStatement,
     SQLiteVacuumStatement,
     SQLiteAnalyzeStatement,
-    SQLiteAttachExpression,
-    SQLiteDetachExpression,
+    SQLiteAttachStatement,
+    SQLiteDetachStatement,
     SQLiteMatchPredicate,
     SQLiteInsertStatement,
     SQLiteFTS5MatchPredicate,
@@ -85,8 +85,8 @@ __all__ = [
     "SQLiteReindexStatement",
     "SQLiteVacuumStatement",
     "SQLiteAnalyzeStatement",
-    "SQLiteAttachExpression",
-    "SQLiteDetachExpression",
+    "SQLiteAttachStatement",
+    "SQLiteDetachStatement",
     "SQLiteMatchPredicate",
     "SQLiteInsertStatement",
     "SQLiteFTS5MatchPredicate",

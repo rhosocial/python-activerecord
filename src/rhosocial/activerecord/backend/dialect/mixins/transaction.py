@@ -13,7 +13,7 @@ if TYPE_CHECKING:
         ReleaseSavepointStatement,
         RollbackStatement,
         SavepointStatement,
-        SetTransactionExpression,
+        SetTransactionStatement,
     )
 
 
@@ -24,7 +24,7 @@ class TransactionControlMixin:
         """Format a BEGIN transaction statement.
 
         Args:
-            expr: Begin transaction expression.
+            expr: The BEGIN TRANSACTION statement.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
@@ -35,7 +35,7 @@ class TransactionControlMixin:
         """Format a COMMIT transaction statement.
 
         Args:
-            expr: Commit transaction expression.
+            expr: The COMMIT statement.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
@@ -80,11 +80,11 @@ class TransactionControlMixin:
         """
         return f"RELEASE SAVEPOINT {self.format_identifier(expr.name)}", ()
 
-    def format_set_transaction(self, expr: "SetTransactionExpression") -> Tuple[str, tuple]:
+    def format_set_transaction(self, expr: "SetTransactionStatement") -> Tuple[str, tuple]:
         """Format a SET TRANSACTION statement.
 
         Args:
-            expr: Set transaction expression.
+            expr: The SET TRANSACTION statement.
 
         Returns:
             Tuple of (SQL string, parameters tuple).

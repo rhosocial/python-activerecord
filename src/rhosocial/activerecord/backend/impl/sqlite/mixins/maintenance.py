@@ -11,7 +11,7 @@ from typing import Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:
-    from ..expression.attach import SQLiteAttachExpression, SQLiteDetachExpression
+    from ..expression.attach import SQLiteAttachStatement, SQLiteDetachStatement
     from ..expression.vacuum import SQLiteAnalyzeStatement, SQLiteVacuumStatement
 
 
@@ -86,13 +86,13 @@ class SQLiteMaintenanceMixin:
         """
         return "ANALYZE", ()
 
-    def format_attach_statement(self, expr: "SQLiteAttachExpression") -> Tuple[str, tuple]:
+    def format_attach_statement(self, expr: "SQLiteAttachStatement") -> Tuple[str, tuple]:
         """Format the ATTACH DATABASE statement for SQLite.
 
         SQLite ATTACH syntax: ``ATTACH DATABASE 'filename' AS schema_name``.
 
         Args:
-            expr: SQLiteAttachExpression instance.
+            expr: SQLiteAttachStatement instance.
 
         Returns:
             Tuple of (SQL string, empty parameters tuple).
@@ -100,13 +100,13 @@ class SQLiteMaintenanceMixin:
         escaped = self.escape_sql_string(expr.database)
         return f"ATTACH DATABASE '{escaped}' AS {self.format_identifier(expr.schema)}", ()
 
-    def format_detach_statement(self, expr: "SQLiteDetachExpression") -> Tuple[str, tuple]:
+    def format_detach_statement(self, expr: "SQLiteDetachStatement") -> Tuple[str, tuple]:
         """Format the DETACH DATABASE statement for SQLite.
 
         SQLite DETACH syntax: ``DETACH DATABASE schema_name``.
 
         Args:
-            expr: SQLiteDetachExpression instance.
+            expr: SQLiteDetachStatement instance.
 
         Returns:
             Tuple of (SQL string, empty parameters tuple).

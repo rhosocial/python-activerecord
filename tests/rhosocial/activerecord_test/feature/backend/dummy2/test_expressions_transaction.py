@@ -1,5 +1,5 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_expressions_transaction.py
-"""Tests for transaction expression classes."""
+"""Tests for the transaction statement classes."""
 
 import pytest
 from rhosocial.activerecord.backend.expression.transaction import (
@@ -8,7 +8,7 @@ from rhosocial.activerecord.backend.expression.transaction import (
     RollbackStatement,
     SavepointStatement,
     ReleaseSavepointStatement,
-    SetTransactionExpression,
+    SetTransactionStatement,
 )
 from rhosocial.activerecord.backend.transaction import IsolationLevel, TransactionMode
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -266,11 +266,11 @@ class TestReleaseSavepointExpression:
 
 
 class TestSetTransactionExpression:
-    """Tests for SetTransactionExpression."""
+    """Tests for SetTransactionStatement."""
 
     def test_set_transaction_isolation_level(self, dummy_dialect: DummyDialect):
         """Test SET TRANSACTION with isolation level."""
-        expr = SetTransactionExpression(dummy_dialect)
+        expr = SetTransactionStatement(dummy_dialect)
         expr.with_isolation_level(IsolationLevel.SERIALIZABLE)
         sql, params = expr.to_sql()
         assert "SET TRANSACTION" in sql
@@ -279,7 +279,7 @@ class TestSetTransactionExpression:
 
     def test_set_transaction_read_only(self, dummy_dialect: DummyDialect):
         """Test SET TRANSACTION READ ONLY."""
-        expr = SetTransactionExpression(dummy_dialect)
+        expr = SetTransactionStatement(dummy_dialect)
         expr.read_only()
         sql, params = expr.to_sql()
         assert "SET TRANSACTION" in sql
@@ -288,7 +288,7 @@ class TestSetTransactionExpression:
 
     def test_set_transaction_read_write(self, dummy_dialect: DummyDialect):
         """Test SET TRANSACTION READ WRITE."""
-        expr = SetTransactionExpression(dummy_dialect)
+        expr = SetTransactionStatement(dummy_dialect)
         expr.read_write()
         sql, params = expr.to_sql()
         assert "SET TRANSACTION" in sql
@@ -297,7 +297,7 @@ class TestSetTransactionExpression:
 
     def test_set_transaction_session(self, dummy_dialect: DummyDialect):
         """Test SET SESSION CHARACTERISTICS AS TRANSACTION."""
-        expr = SetTransactionExpression(dummy_dialect)
+        expr = SetTransactionStatement(dummy_dialect)
         expr.with_session(True)
         sql, params = expr.to_sql()
         assert "SET SESSION CHARACTERISTICS AS TRANSACTION" in sql
@@ -305,7 +305,7 @@ class TestSetTransactionExpression:
 
     def test_set_transaction_deferrable(self, dummy_dialect: DummyDialect):
         """Test SET TRANSACTION DEFERRABLE."""
-        expr = SetTransactionExpression(dummy_dialect)
+        expr = SetTransactionStatement(dummy_dialect)
         expr.with_isolation_level(IsolationLevel.SERIALIZABLE).with_deferrable()
         sql, params = expr.to_sql()
         assert "ISOLATION LEVEL SERIALIZABLE" in sql
@@ -314,7 +314,7 @@ class TestSetTransactionExpression:
 
     def test_set_transaction_not_deferrable(self, dummy_dialect: DummyDialect):
         """Test SET TRANSACTION NOT DEFERRABLE."""
-        expr = SetTransactionExpression(dummy_dialect)
+        expr = SetTransactionStatement(dummy_dialect)
         expr.with_isolation_level(IsolationLevel.SERIALIZABLE).with_not_deferrable()
         sql, params = expr.to_sql()
         assert "NOT DEFERRABLE" in sql
@@ -322,7 +322,7 @@ class TestSetTransactionExpression:
 
     def test_set_transaction_wait(self, dummy_dialect: DummyDialect):
         """Test SET TRANSACTION with the WAIT lock-wait spelling."""
-        expr = SetTransactionExpression(dummy_dialect)
+        expr = SetTransactionStatement(dummy_dialect)
         expr.with_isolation_level(IsolationLevel.SERIALIZABLE).with_wait()
         sql, params = expr.to_sql()
         assert sql == "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE WAIT"
@@ -330,7 +330,7 @@ class TestSetTransactionExpression:
 
     def test_set_transaction_no_wait(self, dummy_dialect: DummyDialect):
         """Test SET TRANSACTION with the NO WAIT lock-wait spelling."""
-        expr = SetTransactionExpression(dummy_dialect)
+        expr = SetTransactionStatement(dummy_dialect)
         expr.with_no_wait()
         sql, params = expr.to_sql()
         assert sql == "SET TRANSACTION NO WAIT"
@@ -338,11 +338,11 @@ class TestSetTransactionExpression:
 
     def test_set_transaction_wait_pair_is_mutually_exclusive(self, dummy_dialect: DummyDialect):
         with pytest.raises(ValueError, match="wait and no_wait are mutually exclusive"):
-            SetTransactionExpression(dummy_dialect, wait=True, no_wait=True)
+            SetTransactionStatement(dummy_dialect, wait=True, no_wait=True)
 
     def test_set_transaction_all_options(self, dummy_dialect: DummyDialect):
         """Test SET TRANSACTION with all options."""
-        expr = SetTransactionExpression(dummy_dialect)
+        expr = SetTransactionStatement(dummy_dialect)
         expr.with_session(True).with_isolation_level(IsolationLevel.SERIALIZABLE).read_only().with_deferrable()
         sql, params = expr.to_sql()
         assert "SET SESSION CHARACTERISTICS AS TRANSACTION" in sql
@@ -353,7 +353,7 @@ class TestSetTransactionExpression:
 
     def test_method_chaining(self, dummy_dialect: DummyDialect):
         """Test method chaining returns self."""
-        expr = SetTransactionExpression(dummy_dialect)
+        expr = SetTransactionStatement(dummy_dialect)
         result = expr.with_isolation_level(IsolationLevel.SERIALIZABLE)
         assert result is expr
         result = expr.read_only()
@@ -365,7 +365,7 @@ class TestSetTransactionExpression:
 
     def test_get_params(self, dummy_dialect: DummyDialect):
         """Test get_params returns correct dictionary."""
-        expr = SetTransactionExpression(dummy_dialect)
+        expr = SetTransactionStatement(dummy_dialect)
         expr.with_isolation_level(IsolationLevel.SERIALIZABLE).read_only().with_session(True).with_deferrable()
         params = expr.get_params()
         assert params["isolation_level"] == IsolationLevel.SERIALIZABLE
@@ -375,7 +375,7 @@ class TestSetTransactionExpression:
 
     def test_get_params_empty(self, dummy_dialect: DummyDialect):
         """Test get_params returns defaults when nothing set."""
-        expr = SetTransactionExpression(dummy_dialect)
+        expr = SetTransactionStatement(dummy_dialect)
         params = expr.get_params()
         assert params == {
             "isolation_level": None,

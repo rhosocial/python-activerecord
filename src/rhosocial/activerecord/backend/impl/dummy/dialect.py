@@ -343,7 +343,7 @@ if TYPE_CHECKING:
         ReleaseSavepointStatement,
         RollbackStatement,
         SavepointStatement,
-        SetTransactionExpression,
+        SetTransactionStatement,
     )
 
 
@@ -1780,7 +1780,7 @@ class DummyDialect(
         name = params.get("name", "")
         return f"RELEASE SAVEPOINT {self.format_identifier(name)}", ()
 
-    def format_set_transaction(self, expr: "SetTransactionExpression") -> Tuple[str, tuple]:
+    def format_set_transaction(self, expr: "SetTransactionStatement") -> Tuple[str, tuple]:
         """Format SET TRANSACTION statement for dummy dialect."""
         params = expr.get_params()
         parts = []

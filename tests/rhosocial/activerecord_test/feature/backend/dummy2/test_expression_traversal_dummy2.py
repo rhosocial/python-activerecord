@@ -20,7 +20,7 @@ TEST PURPOSE:
     - Query parts: WhereClause, GroupByHavingClause, OrderByClause, etc.
     - DML/DDL statements: InsertStatement, DeleteStatement, CreateTableStatement, etc.
     - Graph expressions: GraphVertex, GraphEdge, MatchClause
-    - Transaction expressions: BeginTransactionStatement, CommitExpression, etc.
+    - Transaction statements: BeginTransactionStatement, CommitStatement, etc.
 
     See also: sqlite/test_expression_traversal.py for dialect_options and backend-specific tests.
 """
@@ -97,7 +97,7 @@ from rhosocial.activerecord.backend.expression.query_sources import (
 from rhosocial.activerecord.backend.expression.transaction import (
     SavepointStatement,
     ReleaseSavepointStatement,
-    SetTransactionExpression,
+    SetTransactionStatement,
 )
 from rhosocial.activerecord.backend.expression.operators import (
     BinaryExpression,
@@ -460,7 +460,7 @@ EXPRESSION_TEST_CASES = [
         cls=ReleaseSavepointStatement,
         params_func=lambda d: dict(dialect=d, name="sp1"),
     ),
-    dict(name="SetTransactionExpression", cls=SetTransactionExpression, params_func=lambda d: dict(dialect=d)),
+    dict(name="SetTransactionStatement", cls=SetTransactionStatement, params_func=lambda d: dict(dialect=d)),
 ]
 
 

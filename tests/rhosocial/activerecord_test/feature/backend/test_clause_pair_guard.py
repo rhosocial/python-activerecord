@@ -42,7 +42,7 @@ from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.transaction import (
     BeginTransactionStatement,
-    SetTransactionExpression,
+    SetTransactionStatement,
 )
 from rhosocial.activerecord.backend.expression.statements.dql import QueryStatement
 from rhosocial.activerecord.backend.expression.statements.ddl_view import (
@@ -462,8 +462,8 @@ PAIR_CASES = (
     ),
     # The same clause on SET TRANSACTION; the audit recorded the field there too.
     PairCase(
-        "SetTransactionExpression.deferrable",
-        lambda d, **kw: SetTransactionExpression(d, **kw),
+        "SetTransactionStatement.deferrable",
+        lambda d, **kw: SetTransactionStatement(d, **kw),
         "deferrable",
         "not_deferrable",
         r"(?<!NOT )DEFERRABLE\b",
@@ -481,8 +481,8 @@ PAIR_CASES = (
         r"NO WAIT\b",
     ),
     PairCase(
-        "SetTransactionExpression.wait",
-        lambda d, **kw: SetTransactionExpression(d, **kw),
+        "SetTransactionStatement.wait",
+        lambda d, **kw: SetTransactionStatement(d, **kw),
         "wait",
         "no_wait",
         r"(?<!NO )WAIT\b",
@@ -597,7 +597,7 @@ class TestSilentIgnoresAreRefusedOrMadeLegal:
         assert "NOT DEFERRABLE" in sql, sql
 
     def test_set_transaction_renders_not_deferrable(self):
-        sql = SetTransactionExpression(_dummy(), not_deferrable=True).to_sql()[0]
+        sql = SetTransactionStatement(_dummy(), not_deferrable=True).to_sql()[0]
         assert "NOT DEFERRABLE" in sql, sql
 
     def test_sqlite_refuses_deferrable_it_declines(self):
@@ -699,9 +699,9 @@ class TestDeclaredProbeGatesTheClause:
         with pytest.raises(UnsupportedFeatureError, match="NO WAIT"):
             BeginTransactionStatement(d, no_wait=True).to_sql()
         with pytest.raises(UnsupportedFeatureError, match="WAIT"):
-            SetTransactionExpression(d, wait=True).to_sql()
+            SetTransactionStatement(d, wait=True).to_sql()
         with pytest.raises(UnsupportedFeatureError, match="NO WAIT"):
-            SetTransactionExpression(d, no_wait=True).to_sql()
+            SetTransactionStatement(d, no_wait=True).to_sql()
 
     def test_sqlite_refuses_wait_it_declines(self):
         """SQLite answers supports_transaction_wait() False: refuse by name."""
@@ -714,7 +714,7 @@ class TestDeclaredProbeGatesTheClause:
         # SQLite has no SET TRANSACTION statement at all, so the clause is
         # subsumed by that refusal (NotImplementedError from the core mixin).
         with pytest.raises((UnsupportedFeatureError, NotImplementedError)):
-            SetTransactionExpression(sqlite, no_wait=True).to_sql()
+            SetTransactionStatement(sqlite, no_wait=True).to_sql()
 
 
 class TestGuardIsNotVacuous:
@@ -755,7 +755,7 @@ class TestGuardIsNotVacuous:
             "ColumnConstraint.enforced",
             "BeginTransactionStatement.deferrable",
             "BeginTransactionStatement.wait",
-            "SetTransactionExpression.wait",
+            "SetTransactionStatement.wait",
         }
         covered = {case.case_id for case in PAIR_CASES}
         missing = expected - covered

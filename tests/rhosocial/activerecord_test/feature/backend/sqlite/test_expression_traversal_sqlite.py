@@ -35,8 +35,8 @@ from rhosocial.activerecord.backend.impl.sqlite.expression.vacuum import (
     SQLiteAnalyzeStatement,
 )
 from rhosocial.activerecord.backend.impl.sqlite.expression.attach import (
-    SQLiteAttachExpression,
-    SQLiteDetachExpression,
+    SQLiteAttachStatement,
+    SQLiteDetachStatement,
 )
 from rhosocial.activerecord.backend.impl.sqlite.expression.predicates import SQLiteMatchPredicate
 from rhosocial.activerecord.backend.impl.sqlite.expression.dml import SQLiteInsertStatement
@@ -160,12 +160,12 @@ class TestSQLiteSpecificExpressionTraversal:
         assert restored.to_sql() == expr.to_sql()
 
     def test_attach_detach_expression(self, sqlite_dialect):
-        attach = SQLiteAttachExpression(sqlite_dialect, database="aux.db", schema="aux")
+        attach = SQLiteAttachStatement(sqlite_dialect, database="aux.db", schema="aux")
         spec = serialization.serialize(attach)
         restored = serialization.deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == attach.to_sql()
 
-        detach = SQLiteDetachExpression(sqlite_dialect, schema="aux")
+        detach = SQLiteDetachStatement(sqlite_dialect, schema="aux")
         spec = serialization.serialize(detach)
         restored = serialization.deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == detach.to_sql()

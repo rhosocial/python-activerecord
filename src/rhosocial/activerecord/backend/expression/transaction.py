@@ -22,11 +22,11 @@ if TYPE_CHECKING:
     from ..dialect import SQLDialectBase
 
 
-class TransactionExpression(BaseExpression):
-    """Base class for transaction control expressions.
+class TransactionStatement(BaseExpression):
+    """Base class for transaction statements.
 
-    All transaction expressions inherit from this class and provide
-    fluent API for setting parameters. Transaction expressions hold
+    All transaction statements inherit from this class and provide
+    fluent API for setting parameters. Transaction statements hold
     a dialect reference and delegate SQL generation to the corresponding
     dialect via the to_sql() method.
     """
@@ -35,8 +35,8 @@ class TransactionExpression(BaseExpression):
         super().__init__(dialect)
 
 
-class BeginTransactionStatement(TransactionExpression):
-    """Expression for BEGIN TRANSACTION statement.
+class BeginTransactionStatement(TransactionStatement):
+    """BEGIN TRANSACTION statement.
 
     Collects parameters for starting a new transaction with optional
     isolation level and access mode settings.
@@ -180,7 +180,7 @@ class BeginTransactionStatement(TransactionExpression):
         return "format_begin_transaction_statement"
 
 
-class CommitStatement(TransactionExpression):
+class CommitStatement(TransactionStatement):
     """Expression for COMMIT statement.
 
     Commits the current transaction, making all changes permanent.
@@ -196,7 +196,7 @@ class CommitStatement(TransactionExpression):
         return "format_commit_transaction_statement"
 
 
-class RollbackStatement(TransactionExpression):
+class RollbackStatement(TransactionStatement):
     """Expression for ROLLBACK statement.
 
     Rolls back the current transaction, discarding all changes.
@@ -235,7 +235,7 @@ class RollbackStatement(TransactionExpression):
         return "format_rollback_transaction_statement"
 
 
-class SavepointStatement(TransactionExpression):
+class SavepointStatement(TransactionStatement):
     """Expression for SAVEPOINT statement.
 
     Creates a savepoint within the current transaction.
@@ -261,7 +261,7 @@ class SavepointStatement(TransactionExpression):
         return "format_savepoint_statement"
 
 
-class ReleaseSavepointStatement(TransactionExpression):
+class ReleaseSavepointStatement(TransactionStatement):
     """Expression for RELEASE SAVEPOINT statement.
 
     Releases a savepoint, keeping the changes made after it.
@@ -287,15 +287,15 @@ class ReleaseSavepointStatement(TransactionExpression):
         return "format_release_savepoint_statement"
 
 
-class SetTransactionExpression(TransactionExpression):
-    """Expression for SET TRANSACTION statement.
+class SetTransactionStatement(TransactionStatement):
+    """SET TRANSACTION statement.
 
     Sets transaction characteristics for the next transaction.
     Used primarily in MySQL where isolation level must be set
     before starting the transaction.
 
     Usage:
-        expr = SetTransactionExpression(dialect)
+        expr = SetTransactionStatement(dialect)
         expr.with_isolation_level(IsolationLevel.READ_COMMITTED)
         expr.read_only()
         sql, params = expr.to_sql()
@@ -324,7 +324,7 @@ class SetTransactionExpression(TransactionExpression):
         self.wait: bool = wait
         self.no_wait: bool = no_wait
 
-    def with_isolation_level(self, level: IsolationLevel) -> "SetTransactionExpression":
+    def with_isolation_level(self, level: IsolationLevel) -> "SetTransactionStatement":
         """Set the transaction isolation level.
 
         Args:
@@ -336,7 +336,7 @@ class SetTransactionExpression(TransactionExpression):
         self.isolation_level = level
         return self
 
-    def read_only(self) -> "SetTransactionExpression":
+    def read_only(self) -> "SetTransactionStatement":
         """Set transaction to read-only mode.
 
         Returns:
@@ -345,7 +345,7 @@ class SetTransactionExpression(TransactionExpression):
         self.mode = TransactionMode.READ_ONLY
         return self
 
-    def read_write(self) -> "SetTransactionExpression":
+    def read_write(self) -> "SetTransactionStatement":
         """Set transaction to read-write mode.
 
         Returns:
@@ -354,7 +354,7 @@ class SetTransactionExpression(TransactionExpression):
         self.mode = TransactionMode.READ_WRITE
         return self
 
-    def with_session(self, value: bool = True) -> "SetTransactionExpression":
+    def with_session(self, value: bool = True) -> "SetTransactionStatement":
         """Set whether to use SESSION CHARACTERISTICS (PostgreSQL specific).
 
         When True, sets transaction characteristics for all subsequent
@@ -369,7 +369,7 @@ class SetTransactionExpression(TransactionExpression):
         self.session = value
         return self
 
-    def with_deferrable(self) -> "SetTransactionExpression":
+    def with_deferrable(self) -> "SetTransactionStatement":
         """Set DEFERRABLE mode for SERIALIZABLE transactions (PostgreSQL specific).
 
         Returns:
@@ -379,7 +379,7 @@ class SetTransactionExpression(TransactionExpression):
         self.not_deferrable = False
         return self
 
-    def with_not_deferrable(self) -> "SetTransactionExpression":
+    def with_not_deferrable(self) -> "SetTransactionStatement":
         """Set NOT DEFERRABLE mode for transactions (PostgreSQL specific).
 
         Returns:
@@ -389,7 +389,7 @@ class SetTransactionExpression(TransactionExpression):
         self.deferrable = False
         return self
 
-    def with_wait(self) -> "SetTransactionExpression":
+    def with_wait(self) -> "SetTransactionStatement":
         """Set the lock-wait clause to WAIT (Firebird-specific).
 
         Returns:
@@ -399,7 +399,7 @@ class SetTransactionExpression(TransactionExpression):
         self.no_wait = False
         return self
 
-    def with_no_wait(self) -> "SetTransactionExpression":
+    def with_no_wait(self) -> "SetTransactionStatement":
         """Set the lock-wait clause to NO WAIT (Firebird-specific).
 
         Returns:
