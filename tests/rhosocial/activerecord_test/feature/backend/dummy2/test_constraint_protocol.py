@@ -271,8 +271,17 @@ class TestConstraintEnforcementAndValidation:
 
         dialect = DummyDialect()
         condition = ComparisonPredicate(dialect, ">", Column(dialect, "age"), Literal(dialect, 0, inline=True))
-        table_constraint = TableConstraint(dialect, branch=TableCheckConstraint(dialect, condition), name="age_check", not_enforced=True)
-        column_constraint = ColumnConstraint(dialect, branch=ColumnCheckConstraint(dialect, condition), not_enforced=True)
+        table_constraint = TableConstraint(
+            dialect,
+            branch=TableCheckConstraint(dialect, condition),
+            name="age_check",
+            not_enforced=True,
+        )
+        column_constraint = ColumnConstraint(
+            dialect,
+            branch=ColumnCheckConstraint(dialect, condition),
+            not_enforced=True,
+        )
         expression = CreateTableStatement(
             dialect,
             Table(dialect, 'people'),
@@ -390,7 +399,7 @@ class TestConstraintEnforcementAndValidation:
                 ),
             ).to_sql()
 
-    def test_check_predicate_inlines_literals_and_rejects_raw_parameters(self):
+    def test_check_predicate_inlines_marked_literals_and_carries_the_rest(self):
         from rhosocial.activerecord.backend.expression import (
             Column,
             ComparisonPredicate,
@@ -409,9 +418,14 @@ class TestConstraintEnforcementAndValidation:
         )
         assert trusted.to_sql() == ('CHECK ("age" > 0)', ())
 
-        unsafe = TableConstraint(dialect, branch=TableCheckConstraint(dialect, RawSQLPredicate(dialect, "age > %s", (0,))))
-        with pytest.raises(ValueError, match="must not contain bind parameters"):
-            unsafe.to_sql()
+        # A value the caller left as a bind value stays one: the statement
+        # carries it in params, and the engine refuses it if it cannot take it.
+        raw = RawSQLPredicate(dialect, "age > %s", (0,))
+        unsafe = TableConstraint(
+            dialect, branch=TableCheckConstraint(dialect, raw)
+        )
+        sql, params = unsafe.to_sql()
+        assert params == (0,)
 
     def test_exclude_is_rejected_on_unsupported_dialect(self):
         from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError

@@ -23,7 +23,6 @@ per-formatter check is a per-formatter bug waiting to happen — PostgreSQL's
 
 # src/rhosocial/activerecord/backend/expression/type_name.py
 import re
-from typing import Optional
 
 
 #: Multi-word built-in type names. The only reason a type name is not a bare
@@ -34,6 +33,7 @@ MULTI_WORD_TYPE_NAMES = frozenset({
     "double precision", "national character", "national character varying",
     "time with time zone", "time without time zone",
     "timestamp with time zone", "timestamp without time zone",
+    "timestamp with local time zone",
     "unsigned big int", "unsigned int", "unsigned small int", "unsigned tiny int",
     "character large object", "binary large object",
 })

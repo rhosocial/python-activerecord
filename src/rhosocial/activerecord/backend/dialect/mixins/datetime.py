@@ -120,7 +120,7 @@ class DateTimeMixin:
         Returns:
             A ``(sql, params)`` tuple.
         """
-        value = self._escape_sql_string(str(expr.value))
+        value = self.escape_sql_string(str(expr.value))
         sql = f"INTERVAL '{value}' {expr.unit.value.upper()}"
         return self.apply_alias(sql, (), expr)
 

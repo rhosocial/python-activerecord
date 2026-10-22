@@ -12,7 +12,6 @@ Covers:
   the DDL renderer marks the values it owns
 """
 
-import pytest
 
 from rhosocial.activerecord.backend.expression import (
     Column,
@@ -124,16 +123,24 @@ class TestDdlPositionsDemandInlineValues:
         constraint = TableCheckConstraint(dialect, condition)
         assert constraint.to_sql() == ('CHECK ("age" > 0)', ())
 
-    def test_a_value_the_caller_did_not_mark_is_refused(self):
-        """The contract is enforced where the bind value would appear."""
+    def test_a_value_the_caller_did_not_mark_stays_a_bind_value(self):
+        """Whether to inline is the caller's decision, not the framework's.
+
+        A literal the caller left as a bind value stays one: the statement
+        renders with a placeholder and carries the value in ``params``.  An
+        engine that has no room for a bind parameter in that position refuses
+        the statement -- that is the engine's answer, and the developer knows
+        which engine the statement is for.
+        """
         from rhosocial.activerecord.backend.expression import TableCheckConstraint
 
         dialect = _dummy_dialect()
         condition = ComparisonPredicate(
             dialect, ">", Column(dialect, "age"), Literal(dialect, 0)
         )
-        with pytest.raises(ValueError, match="inline=True"):
-            TableCheckConstraint(dialect, condition).to_sql()
+        sql, params = TableCheckConstraint(dialect, condition).to_sql()
+        assert "?" in sql
+        assert params == (0,)
 
     def test_partial_index_where_inlines_the_callers_literals(self):
         from rhosocial.activerecord.backend.expression.objects import Index, Table

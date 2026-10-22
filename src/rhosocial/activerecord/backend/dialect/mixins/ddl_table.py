@@ -271,6 +271,42 @@ class TableMixin:
         """
         return True
 
+    def supports_create_table_as_bind_parameters(self) -> bool:
+        """Whether a CTAS body may carry bind parameters.
+
+        Defaults to ``False``. A DDL statement carries no bind parameters
+        unless the dialect says it can, and the body of a CTAS is the one
+        DDL body that is a query, so this is the question this probe
+        answers.
+
+        The two differ by engine, and the answer is measured rather than
+        assumed:
+
+        * PostgreSQL accepts them -- the body is executed once, so a bound
+          value is meaningful (19beta4: ``CREATE TABLE t AS SELECT $1 FROM
+          s`` creates the table).
+        * MySQL and MariaDB accept them; their "parameters" are
+          interpolated client-side, so the value is baked into the text.
+        * ClickHouse accepts them, for the same reason.
+        * Oracle refuses them: Oracle's DDL statements never take bind
+          variables, and the driver rejects the statement before the
+          server sees it (``DPY-4009: 0 positional bind values are
+          required but 1 were provided``).
+
+        A dialect that does not answer refuses the statement by name, with
+        the way out named -- build the query with an inlined literal.
+        """
+        return False
+
+    def _ddl_bind_parameter_reason(self, feature: str) -> str:
+        """Why this dialect does not carry bind parameters in a CTAS body.
+
+        A backend that refuses them for a *measured* reason overrides this
+        and quotes the engine's own answer, so the refusal says why rather
+        than only that. This default names the fact and leaves it there.
+        """
+        return f"{self.name} does not carry bind parameters in a CTAS body."
+
     def supports_with_data_clause(self) -> bool:
         """Whether ``WITH [NO] DATA`` is supported on CTAS.
 
@@ -335,7 +371,7 @@ class TableMixin:
         The statement renderer appends the returned clause after the column
         list and storage options, before any PARTITION BY clause.
         """
-        escaped = self._escape_sql_string(comment)
+        escaped = self.escape_sql_string(comment)
         return f"COMMENT '{escaped}'", ()
 
     def format_table_comment_clause(self, clause: "TableCommentClause") -> Tuple[str, tuple]:
@@ -730,6 +766,8 @@ class TableMixin:
                 all_params.extend(storage_params)
 
         query_sql, query_params = expr.as_query.to_sql()
+        if query_params and not self.supports_create_table_as_bind_parameters():
+            self._refuse_ddl_bind_parameters("CREATE TABLE ... AS with bound parameters")
         parts.append(f"AS {query_sql}")
         all_params.extend(query_params)
 

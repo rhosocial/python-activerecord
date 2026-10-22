@@ -79,7 +79,7 @@ class CommentOnMixin:
         head = f"COMMENT ON {object_type} {object_sql} IS"
         if expr.comment is None:
             return f"{head} NULL", object_params
-        escaped = self._escape_sql_string(expr.comment)
+        escaped = self.escape_sql_string(expr.comment)
         return f"{head} '{escaped}'", object_params
 
 

@@ -423,8 +423,9 @@ class IndexMixin:
             # The WHERE of a partial index is a DDL position: the condition
             # renders inline-only (its literals are lifted to the DDL
             # literal class by the condition preparer).
-            where_sql = self._format_ddl_condition(expr.where)
+            where_sql, where_params = expr.where.to_sql()
             parts.append(f"WHERE {where_sql}")
+            all_params.extend(where_params)
 
         if expr.tablespace:
             if not self.supports_index_tablespace():

@@ -34,6 +34,7 @@ from ..xml import (
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.dialect import SQLDialectBase
+    from rhosocial.activerecord.backend.expression.types import DataType
 
 XMLValue = Union[str, BaseExpression]
 XMLNamedValue = Tuple[XMLValue, Optional[str]]
@@ -63,11 +64,25 @@ def xmlparse(
 def xmlserialize(
     dialect: "SQLDialectBase",
     content: XMLValue,
-    target_type: str,
+    target_type: "DataType",
     document: bool = False,
     preserve_whitespace: bool = False,
 ) -> XMLSerializeExpression:
-    """Create a SQL/XML XMLSERIALIZE expression."""
+    """Create a SQL/XML XMLSERIALIZE expression.
+
+    Args:
+        dialect: The dialect the expression belongs to.
+        content: The XML value to serialize.
+        target_type: The character type the result is cast to. A type
+            position holds a type: ``TextType(dialect)`` for a built-in, or
+            ``CustomType(dialect, "name")`` for a name this package does not
+            model.
+        document: Whether the result is a document rather than content.
+        preserve_whitespace: Whether whitespace is preserved.
+
+    Returns:
+        The XMLSERIALIZE expression.
+    """
     document_type = XMLSerializeDocumentType.DOCUMENT if document else XMLSerializeDocumentType.CONTENT
     whitespace_option = XMLWhitespaceOption.PRESERVE if preserve_whitespace else None
     return XMLSerializeExpression(

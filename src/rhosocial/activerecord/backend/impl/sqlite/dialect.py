@@ -188,6 +188,14 @@ _SUGGESTION_QUALIFY = "SQLite does not support QUALIFY clause. Use a subquery or
 
 
 class SQLiteDialect(
+    # The bases below come in bundles: a backend mixin, then the core bundle
+    # it stands in for. The backend's answer has to come first -- a mixin
+    # placed after the class it overrides never wins -- so a new mixin goes
+    # immediately before the core mixin it overrides, and the pairing is read
+    # off the list. Two positions sit outside that pairing and are called out
+    # where they occur: a mixin that overrides a method ``SQLDialectBase``
+    # defines has to precede the base, and a mixin that subclasses a core
+    # mixin has to precede it too (C3: a subclass precedes its base).
     # Ahead of SQLDialectBase, unlike every other mixin here. Those add methods
     # the base does not have, so their position is a readability choice; this
     # one overrides ``format_literal``, and a mixin placed after the class it
@@ -234,6 +242,12 @@ class SQLiteDialect(
     LateralJoinMixin,
     JoinMixin,
     # DDL Mixins (without SQLite overrides)
+    # SQLite's own view mixin answers ``supports_with_data_clause`` as well as
+    # the view statements, and it has to precede TableMixin -- the core mixin
+    # declares the same probe, and a mixin placed after the class it overrides
+    # never wins, so core's answer was the one in force and SQLite's was dead
+    # code.
+    SQLiteViewMixin,
     TableMixin,
     ConstraintMixin,
     CommentOnMixin,
@@ -273,7 +287,6 @@ class SQLiteDialect(
     SQLiteDateTimeMixin,
     SQLiteDDLColumnMixin,
     SQLiteDMLMixin,
-    SQLiteViewMixin,
     SQLiteTriggerMixin,
     SQLitePragmaMixin,
     SQLiteIntrospectionCapabilityMixin,
@@ -523,7 +536,7 @@ class SQLiteDialect(
         else:
             col_sql, col_params = self.format_identifier(str(expr.column)), ()
 
-        escaped_path = self._escape_sql_string(expr.path)
+        escaped_path = self.escape_sql_string(expr.path)
         # json_extract returns SQL NULL for a missing path and a
         # JSON-quoted string for text, so it stands in for ->> without a
         # separate unquote step — SQLite has no JSON_UNQUOTE to call.

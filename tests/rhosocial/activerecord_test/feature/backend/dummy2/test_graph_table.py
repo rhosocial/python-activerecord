@@ -157,6 +157,24 @@ class TestVertexTable:
         sql, params = vt.to_sql()
         assert "PROPERTIES" in sql
 
+    def test_the_key_clause_precedes_the_label_clause(self, dummy_dialect: DummyDialect):
+        """The clause order is the grammar's, not a free choice.
+
+        Oracle parses ``KEY (...) LABEL ...`` and rejects the other order with
+        a parse error -- "missing right parenthesis" -- that takes the whole
+        statement down, so the order is pinned here.  A case that only
+        asserted "LABEL" in the text would not notice the clause being
+        moved, and the statement would stop being accepted.
+        """
+        vt = VertexTable(
+            dummy_dialect,
+            NodeTable(dummy_dialect, "person"),
+            labels=["Person"],
+            key_columns=["id"],
+        )
+        sql, params = vt.to_sql()
+        assert sql.index("KEY") < sql.index("LABEL"), sql
+
 
 class TestEdgeTable:
     """Tests for EdgeTable."""

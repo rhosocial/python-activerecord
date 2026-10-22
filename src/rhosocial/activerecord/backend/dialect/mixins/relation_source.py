@@ -27,9 +27,9 @@ from typing import Any, List, Tuple, Union, TYPE_CHECKING
 
 from ...expression.bases import BaseExpression
 from ...expression.objects import RelationObject
+from ...expression.query_sources import JSONTableColumn
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.query_sources import JSONTableColumn
     from ...expression.sources import (
         DerivedTableSource,
         GraphTableSource,
@@ -61,8 +61,15 @@ class RelationSourceMixin:
 
         Not universal -- SQL Server has no ``VALUES`` table source -- so this
         defaults to False and a dialect opts in. Named for the SQL standard's
-        ``table value constructor``, which is the name MySQL and ClickHouse
-        already give this capability in their own probes.
+        ``table value constructor``, which is the name MySQL gives this
+        capability in its own probe.
+
+        ClickHouse has a probe of the same name and answers False, and that
+        is the measured answer: ClickHouse has a ``values`` *table function*,
+        so ``SELECT * FROM VALUES(1, 2)`` is accepted there, but the SQL
+        standard's spelling -- ``VALUES (1), (2)`` -- is a syntax error
+        (26.7.3), and the framework renders the standard one. A different
+        shape is a different capability.
         """
         return False
 
@@ -304,7 +311,7 @@ class RelationSourceMixin:
         """
         self.check_feature_support("supports_json_table", "JSON_TABLE")
         document_sql, params = self.format_source_document(source.source)
-        path = self._escape_sql_string(source.path)
+        path = self.escape_sql_string(source.path)
         columns_sql, columns_params = self.format_source_columns(
             source.columns, self.format_json_table_column
         )
@@ -358,7 +365,7 @@ class RelationSourceMixin:
         name = column.name
         path = column.path
         type_sql, params = self.format_source_column_type(column)
-        escaped_path = self._escape_sql_string(path)
+        escaped_path = self.escape_sql_string(path)
         sql = (
             f"{self.format_identifier(name)} {type_sql} PATH '{escaped_path}'"
         )
@@ -368,7 +375,9 @@ class RelationSourceMixin:
         """Render the declared result type of a projection column.
 
         A column's type is a clause of its own, so an expression type is asked
-        to render and a plain one is taken as written.
+        to render.  A plain one is a name, and a name is claimed by the
+        framework's name node -- whose name the grammar validates, because a
+        type position cannot take a bound parameter.
 
         Args:
             column: A column projection exposing ``data_type``.
@@ -388,7 +397,10 @@ class RelationSourceMixin:
             )
         if isinstance(data_type, BaseExpression):
             return data_type.to_sql()
-        return str(data_type), ()
+        from ...expression.types import DataType
+
+        type_sql, type_params = DataType.as_type(self, data_type).to_sql()
+        return type_sql, type_params
 
     def format_xml_table(self, source: "XmlTableSource") -> Tuple[str, tuple]:
         """Render a :class:`~...expression.sources.XmlTableSource`.
@@ -426,7 +438,7 @@ class RelationSourceMixin:
             binding_sql, binding_params = self.format_source_document(binding)
             parts.append(f"PASSING {binding_sql}")
             all_params.extend(binding_params)
-        row_path = self._escape_sql_string(source.row_path)
+        row_path = self.escape_sql_string(source.row_path)
         parts.append(f"PASSING '{row_path}'")
         columns_sql, columns_params = self.format_source_columns(
             source.columns, self.format_xml_table_column

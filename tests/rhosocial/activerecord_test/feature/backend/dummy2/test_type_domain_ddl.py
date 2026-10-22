@@ -13,7 +13,6 @@ from rhosocial.activerecord.backend.dialect.mixins import (
 )
 from rhosocial.activerecord.backend.expression import (
     ComparisonPredicate,
-    FunctionCall,
     Literal,
 )
 from rhosocial.activerecord.backend.expression.serialization import (
@@ -320,27 +319,21 @@ def test_domain_capability_gating(dummy_dialect, monkeypatch):
         DropDomainCheckAction(dummy_dialect).to_sql()
 
 
-def test_domain_ddl_rejects_bind_parameters(dummy_dialect):
-    """A DDL position refuses param carriers it cannot inline (RawSQL), while
-    scalar literals are lifted to the DDL literal class and render inline."""
-    from rhosocial.activerecord.backend.expression.operators import RawSQLPredicate
+def test_domain_ddl_carries_bind_parameters_the_caller_left(dummy_dialect):
+    """Whether to inline is the caller's decision, not the framework's.
 
-    default = RawSQLPredicate(dummy_dialect, "1", (1,))
-    expression = CreateDomainStatement(
-        dummy_dialect,
-        Domain(dummy_dialect, "domain"),
-        IntegerType(dummy_dialect),
-        default=default,
-    )
-    with pytest.raises(ValueError, match="bind parameters"):
-        expression.to_sql()
+    A value the caller left as a bind value stays one: the statement renders
+    with a placeholder and carries the value in ``params``.  A value the
+    caller marked inline renders as escaped text and binds nothing.
+    """
+    from rhosocial.activerecord.backend.expression.operators import RawSQLPredicate
 
     condition = ComparisonPredicate(
         dummy_dialect, "=", DomainValueExpression(dummy_dialect), RawSQLPredicate(dummy_dialect, "1", (1,))
     )
     check = DomainCheckConstraint(dummy_dialect, condition)
-    with pytest.raises(ValueError, match="bind parameters"):
-        check.to_sql()
+    sql, params = check.to_sql()
+    assert params == (1,)
 
     lifted = DomainValueExpression(dummy_dialect) == Literal(dummy_dialect, 1, inline=True)
     lifted_check = DomainCheckConstraint(dummy_dialect, lifted)

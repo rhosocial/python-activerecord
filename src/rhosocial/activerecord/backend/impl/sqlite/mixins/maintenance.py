@@ -65,7 +65,7 @@ class SQLiteMaintenanceMixin:
                 raise UnsupportedFeatureError(
                     self.name, "VACUUM INTO", "VACUUM INTO requires SQLite 3.27.0 or later."
                 )
-            escaped = self._escape_sql_string(expr.into)
+            escaped = self.escape_sql_string(expr.into)
             return f"VACUUM INTO '{escaped}'", ()
 
         if expr.schema is not None:
@@ -97,7 +97,7 @@ class SQLiteMaintenanceMixin:
         Returns:
             Tuple of (SQL string, empty parameters tuple).
         """
-        escaped = self._escape_sql_string(expr.database)
+        escaped = self.escape_sql_string(expr.database)
         return f"ATTACH DATABASE '{escaped}' AS {self.format_identifier(expr.schema)}", ()
 
     def format_detach_statement(self, expr: "SQLiteDetachExpression") -> Tuple[str, tuple]:

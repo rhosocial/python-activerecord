@@ -69,24 +69,24 @@ class TestDialect(
         return f" PARTITION BY {expr.method} ({', '.join(parts)})", tuple(params)
 
 
-def test_escape_sql_string_basic(dialect):
+def testescape_sql_string_basic(dialect):
     """Test basic single quote escaping."""
-    result = dialect._escape_sql_string("test")
+    result = dialect.escape_sql_string("test")
     assert result == "test"
 
-    result = dialect._escape_sql_string("it's")
+    result = dialect.escape_sql_string("it's")
     assert result == "it''s"
 
-    result = dialect._escape_sql_string("'")
+    result = dialect.escape_sql_string("'")
     assert result == "''"
 
 
-def test_escape_sql_string_multiple_quotes(dialect):
+def testescape_sql_string_multiple_quotes(dialect):
     """Test escaping multiple single quotes."""
-    result = dialect._escape_sql_string("it's John's car")
+    result = dialect.escape_sql_string("it's John's car")
     assert result == "it''s John''s car"
 
-    result = dialect._escape_sql_string("''")
+    result = dialect.escape_sql_string("''")
     assert result == "''''"
 
 
@@ -96,8 +96,8 @@ class TestEscapeReachesTheDialect:
     A backend may spell string escaping its own way: MySQL and MariaDB double
     the backslash because it is an escape character under the default SQL
     mode, and BigQuery uses the backslash escape for the quote itself. When a
-    formatter reached for ``SQLDialectBase._escape_sql_string`` instead of
-    ``self._escape_sql_string``, the base class's spelling won and the
+    formatter reached for ``SQLDialectBase.escape_sql_string`` instead of
+    ``self.escape_sql_string``, the base class's spelling won and the
     backend's policy was silently dropped -- a MariaDB JSON document
     containing a backslash came out under-escaped, and the stored value
     differed from the one that was sent.
@@ -113,7 +113,7 @@ class TestEscapeReachesTheDialect:
             name = "backslash"
 
             @staticmethod
-            def _escape_sql_string(value: str) -> str:
+            def escape_sql_string(value: str) -> str:
                 return value.replace("\\", "\\\\").replace("'", "''")
 
             def supports_alter_column_properties(self) -> bool:
@@ -153,21 +153,38 @@ class TestEscapeReachesTheDialect:
         assert params == ()
 
 
-def test_validate_data_type_valid(dialect):
-    """Test valid data types pass validation."""
-    assert dialect._validate_data_type("VARCHAR(255)")
-    assert dialect._validate_data_type("INTEGER")
-    assert dialect._validate_data_type("NUMERIC(10, 2)")
-    assert dialect._validate_data_type("TIMESTAMP WITHOUT TIME ZONE")
-    assert dialect._validate_data_type("INT")
+def test_a_type_position_refuses_a_payload(dialect):
+    """A type name is a name, and the grammar is what says so.
 
+    The backend has no character filter of its own any more: the type
+    position is guarded by the grammar, which is the framework's rule for
+    what a name may be, and the server decides whether the type exists.
+    """
+    from rhosocial.activerecord.backend.expression import Literal
+    from rhosocial.activerecord.backend.expression.statements import (
+        AlterColumnAction,
+    )
+    from rhosocial.activerecord.backend.expression.type_name import (
+        InvalidTypeNameError,
+    )
+    from rhosocial.activerecord.backend.expression.xml import (
+        XMLSerializeExpression,
+    )
 
-def test_validate_data_type_invalid(dialect):
-    """Test invalid data types are rejected."""
-    assert not dialect._validate_data_type("VARCHAR(255); DROP TABLE users--")
-    assert not dialect._validate_data_type("/* comment */ INTEGER")
-    assert not dialect._validate_data_type("INTEGER; DELETE FROM users")
-    assert not dialect._validate_data_type("' OR '1'='1")
+    # A name is a name: the position takes it.
+    XMLSerializeExpression(dialect, Literal(dialect, "x"), "TEXT")
+    AlterColumnAction(dialect, "c", "SET DATA TYPE", new_value="TEXT")
+
+    # A value that is not a name is refused, and refused before the
+    # statement is ever rendered.
+    with pytest.raises(InvalidTypeNameError):
+        XMLSerializeExpression(
+            dialect, Literal(dialect, "x"), "TEXT; DROP TABLE users--"
+        )
+    with pytest.raises(InvalidTypeNameError):
+        AlterColumnAction(
+            dialect, "c", "SET DATA TYPE", new_value="TEXT; DROP TABLE users--"
+        )
 
 
 def test_format_column_definition_data_type_validation(dialect):

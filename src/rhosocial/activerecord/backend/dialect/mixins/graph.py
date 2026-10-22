@@ -502,15 +502,18 @@ class GraphTableMixin:
         if vt.alias:
             parts.append(f"AS {self.format_identifier(vt.alias)}")
 
+        # KEY before LABEL: that is the order the grammar wants, and the
+        # other order is a parse error rather than a wrong answer --
+        # "missing right parenthesis", with the statement rejected whole.
+        if vt.key_columns:
+            keys = ", ".join(self.format_identifier(k) for k in vt.key_columns)
+            parts.append(f"KEY ({keys})")
+
         if vt.labels:
             labels = " ".join(
                 f"LABEL {self.format_identifier(label)}" for label in vt.labels
             )
             parts.append(labels)
-
-        if vt.key_columns:
-            keys = ", ".join(self.format_identifier(k) for k in vt.key_columns)
-            parts.append(f"KEY ({keys})")
 
         if vt.properties is not None:
             sql, _ = vt.properties.to_sql()

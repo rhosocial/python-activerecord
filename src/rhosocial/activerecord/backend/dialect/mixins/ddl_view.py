@@ -55,6 +55,57 @@ class ViewMixin:
         """Whether materialized views are supported (defaults to False)."""
         return False
 
+    def supports_create_view_bind_parameters(self) -> bool:
+        """Whether a view body may carry bind parameters.
+
+        Defaults to ``False``. A view's definition is *stored and run again
+        later*, so a bind that is meaningful while the statement executes
+        has no meaning then; that is why PostgreSQL refuses one in its own
+        words ("there is no parameter $1", 19beta4).
+
+        The answer is measured rather than assumed. PostgreSQL refuses;
+        MySQL and MariaDB accept, because their "parameters" are
+        interpolated client-side and the value is baked into the stored
+        definition; ClickHouse accepts for the same reason; SQL Server
+        refuses; Oracle refuses, because Oracle's DDL statements never take
+        bind variables and the driver rejects the statement before the
+        server sees it (``DPY-4009``).
+
+        A dialect that does not answer refuses the statement by name, with
+        the way out named -- build the query with an inlined literal.
+        """
+        return False
+
+    def supports_materialized_view_bind_parameters(self) -> bool:
+        """Whether a materialized view body may carry bind parameters.
+
+        Defaults to ``False``. A materialized view's definition is *stored
+        and run again later*, so a bind that is meaningful while the
+        statement executes has no meaning then; that is why PostgreSQL
+        refuses one in its own words ("materialized views may not be
+        defined using bound parameters", 19beta4).
+
+        The answer is measured rather than assumed. PostgreSQL refuses;
+        ClickHouse accepts, because its "parameters" are interpolated
+        client-side and the value is baked into the stored definition;
+        Oracle refuses, because Oracle's DDL statements never take bind
+        variables and the driver rejects the statement before the server
+        sees it (``DPY-4009``).
+
+        A dialect that does not answer refuses the statement by name, with
+        the way out named -- build the query with an inlined literal.
+        """
+        return False
+
+    def _ddl_bind_parameter_reason(self, feature: str) -> str:
+        """Why this dialect does not carry bind parameters in a view body.
+
+        A backend that refuses them for a *measured* reason overrides this
+        and quotes the engine's own answer, so the refusal says why rather
+        than only that. This default names the fact and leaves it there.
+        """
+        return f"{self.name} does not carry bind parameters in a view body."
+
     def supports_refresh_materialized_view(self) -> bool:
         """Whether REFRESH MATERIALIZED VIEW is supported (defaults to False)."""
         return False
@@ -144,6 +195,8 @@ class ViewMixin:
             aliases_str = ", ".join(self.format_identifier(alias) for alias in expr.column_aliases)
             sql_parts.append(f"({aliases_str})")
         query_sql, query_params = expr.query.to_sql()
+        if query_params and not self.supports_create_view_bind_parameters():
+            self._refuse_ddl_bind_parameters("CREATE VIEW with bound parameters")
         sql_parts.append(f" AS {query_sql}")
         all_params.extend(query_params)
         if expr.options.check_option is not None:
@@ -251,6 +304,8 @@ class ViewMixin:
             parts.append(f"TABLESPACE {self.format_identifier(expr.tablespace)}")
 
         query_sql, query_params = expr.query.to_sql()
+        if query_params and not self.supports_materialized_view_bind_parameters():
+            self._refuse_ddl_bind_parameters("CREATE MATERIALIZED VIEW with bound parameters")
         parts.append(f"AS {query_sql}")
 
         if expr.with_data:

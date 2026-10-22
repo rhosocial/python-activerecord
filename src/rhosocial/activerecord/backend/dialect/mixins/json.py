@@ -101,7 +101,7 @@ class JSONMixin:
         else:
             col_sql, col_params = self.format_identifier(str(expr.column)), ()
 
-        escaped_path = self._escape_sql_string(expr.path)
+        escaped_path = self.escape_sql_string(expr.path)
         sql = f"{col_sql}{expr.operation}'{escaped_path}'"
         params = col_params
 
@@ -135,7 +135,7 @@ class JSONMixin:
         else:
             col_sql, col_params = self.format_identifier(str(expr.column)), ()
 
-        escaped_path = self._escape_sql_string(expr.path)
+        escaped_path = self.escape_sql_string(expr.path)
 
         if expr.operation == "->":
             sql = f"JSON_EXTRACT({col_sql}, '{escaped_path}')"
@@ -252,16 +252,15 @@ class JSONMixin:
         else:
             json_col_sql, params = self.format_identifier(str(expr.json_column)), ()
 
-        escaped_path = self._escape_sql_string(expr.path)
+        escaped_path = self.escape_sql_string(expr.path)
 
         cols_defs = []
         for col in expr.columns:
             col_name = self.format_identifier(col.name)
-            if isinstance(col.data_type, _bases.BaseExpression):
-                col_type, _ = col.data_type.to_sql()
-            else:
-                col_type = str(col.data_type)
-            col_path = self._escape_sql_string(col.path)
+            from ...expression.types import DataType
+
+            col_type, _ = DataType.as_type(self, col.data_type).to_sql()
+            col_path = self.escape_sql_string(col.path)
             cols_defs.append(f"{col_name} {col_type} PATH '{col_path}'")
 
         columns_sql = f"COLUMNS({', '.join(cols_defs)})"

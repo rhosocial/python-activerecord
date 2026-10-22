@@ -528,13 +528,14 @@ class LateralExpression(TableSource, BaseExpression):
 class JSONTableColumn:
     """A single column of a JSON_TABLE COLUMNS clause (option value object).
 
-    ``data_type`` is a ``DataType`` expression (a SQL clause of its own); the
-    option object itself does not render, but declares the expressions it
-    holds so dialect propagation reaches them.
+    ``data_type`` is the column's type: a type node, or a type name, which
+    the framework's name node claims and the grammar validates.  The option
+    object itself does not render, but declares the expressions it holds so
+    dialect propagation reaches them.
     """
 
     name: str
-    data_type: "DataType"
+    data_type: "Union[str, DataType]"
     path: str
 
     def expression_children(self):

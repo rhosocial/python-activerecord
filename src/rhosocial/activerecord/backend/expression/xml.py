@@ -3,7 +3,7 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Sequence, TYPE_CHECKING
+from typing import Optional, Sequence, TYPE_CHECKING, Union
 
 from .advanced_functions import DeclaredValueType
 from .bases import BaseExpression, SQLPredicate, SQLValue
@@ -11,6 +11,7 @@ from .bases import BaseExpression, SQLPredicate, SQLValue
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
     from .query_parts import OrderByClause
+    from .types import DataType
 
 
 from .value_types import (
@@ -137,13 +138,15 @@ class XMLSerializeExpression(
         self,
         dialect: "SQLDialectBase",
         content: BaseExpression,
-        target_type: str,
+        target_type: "Union[str, DataType]",
         document_type: XMLSerializeDocumentType = XMLSerializeDocumentType.CONTENT,
         whitespace_option: Optional[XMLWhitespaceOption] = None,
     ):
+        from .types import DataType
+
         BaseExpression.__init__(self, dialect)
         self.content = content
-        self.target_type = target_type
+        self.target_type = DataType.as_type(dialect, target_type)
         self.document_type = document_type
         self.whitespace_option = whitespace_option
 
@@ -433,7 +436,7 @@ class XMLTableColumn:
     """
 
     name: str
-    data_type: str
+    data_type: "Union[str, DataType]"
     path: Optional[BaseExpression] = None
     default: Optional[BaseExpression] = None
 

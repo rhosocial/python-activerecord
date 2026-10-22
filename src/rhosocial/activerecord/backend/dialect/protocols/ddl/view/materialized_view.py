@@ -33,6 +33,16 @@ class MaterializedViewSupport(Protocol):
         """
         ...  # pragma: no cover
 
+    def supports_materialized_view_bind_parameters(self) -> bool:
+        """Whether a materialized view body may carry bind parameters.
+
+        Defaults to ``False``: a DDL statement carries no bind parameters
+        unless the dialect says it can, so a dialect that does not answer
+        refuses rather than emitting a statement the engine may reject. A
+        dialect whose engine accepts them returns ``True``.
+        """
+        ...  # pragma: no cover
+
     def supports_refresh_materialized_view(self) -> bool:
         """Whether the engine accepts the form ``refresh_materialized_view``.
 

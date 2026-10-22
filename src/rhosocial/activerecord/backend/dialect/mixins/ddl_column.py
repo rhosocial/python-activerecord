@@ -103,7 +103,7 @@ class DDLColumnMixin:
                 self.name, "COLUMN COMMENT",
                 f"{self.name} does not support COLUMN COMMENT."
             )
-        escaped = self._escape_sql_string(clause.comment)
+        escaped = self.escape_sql_string(clause.comment)
         return f" COMMENT '{escaped}'", ()
 
     def supports_column_collation(self) -> bool:
@@ -402,7 +402,7 @@ class DDLColumnMixin:
                 f"{self.name} does not support generated (computed) columns.",
             )
 
-        inner_sql = self._format_ddl_condition(constraint.expression)
+        inner_sql, inner_params = constraint.expression.to_sql()
 
         if constraint.storage_type == GeneratedColumnType.STORED:
             if not self.supports_stored_generated_columns():
@@ -423,7 +423,7 @@ class DDLColumnMixin:
 
         return f" GENERATED ALWAYS AS ({inner_sql}){storage}", ()
 
-    def _format_constraint_enforcement(self, constraint: "ColumnConstraint") -> str:
+    def format_constraint_enforcement(self, constraint: "ColumnConstraint") -> str:
         """Render the ``[NOT] ENFORCED`` trait a constraint asked for.
 
         The kinds that may carry the trait come from the standard-derived
@@ -460,7 +460,7 @@ class DDLColumnMixin:
             raise UnsupportedFeatureError(self.name, "ENFORCED/NOT ENFORCED constraint")
         return "ENFORCED" if enforced else "NOT ENFORCED"
 
-    def _format_constraint_validation(self, constraint: "TableConstraint") -> str:
+    def format_constraint_validation(self, constraint: "TableConstraint") -> str:
         """Render the ``NOT VALID`` trait a table constraint asked for.
 
         Serves ``ALTER TABLE ADD CONSTRAINT``; PostgreSQL accepts the trait on
@@ -498,27 +498,6 @@ class DDLColumnMixin:
         if not self.supports_constraint_novalidate():
             raise UnsupportedFeatureError(self.name, "NOT VALID constraint")
         return " NOT VALID"
-
-    def _format_ddl_condition(self, predicate: Any) -> str:
-        """Render a DDL-side condition tree: inline text, no bind values.
-
-        A DDL syntax position accepts no bind parameters, and the tree is
-        rendered as the caller wrote it -- no pass lifts anything into it.
-        Every ``Literal`` in a condition tree belongs to the caller, so each one
-        says whether it binds. Miss that and this is where it shows: the tree
-        renders, the parameters are non-empty, and the statement would carry a
-        bind value into DDL that has nowhere to put it.
-
-        The check is therefore the contract, not a safety net. It names the
-        fix rather than guarding against a hypothetical.
-        """
-        check_sql, check_params = predicate.to_sql()
-        if check_params:
-            raise ValueError(
-                "DDL condition must not contain bind parameters; pass each "
-                "value as Literal(value, inline=True)"
-            )
-        return check_sql
 
     def format_column_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, Tuple]:
         """Format one column-level constraint clause.
@@ -622,7 +601,7 @@ class DDLColumnMixin:
                     if constraint.initially_deferred
                     else "INITIALLY IMMEDIATE"
                 )
-        enforcement = self._format_constraint_enforcement(constraint)
+        enforcement = self.format_constraint_enforcement(constraint)
         if enforcement:
             parts.append(enforcement)
         return f" {' '.join(parts)}" if parts else ""
@@ -701,8 +680,8 @@ class DDLColumnMixin:
 
         if not self.supports_check_constraint():
             raise UnsupportedFeatureError(self.name, "CHECK column constraint")
-        check_sql = self._format_ddl_condition(constraint.condition)
-        return f" CHECK ({check_sql})", ()
+        check_sql, check_params = constraint.condition.to_sql()
+        return f" CHECK ({check_sql})", tuple(check_params)
 
     def format_default_value_clause(self, expr: "DefaultValueClause") -> Tuple[str, Tuple]:
         """Format the value clause of a ``DEFAULT`` constraint.
@@ -958,8 +937,8 @@ class DDLColumnMixin:
         """
         if constraint.condition is None:
             raise ValueError("CHECK constraint must have a check condition specified.")
-        check_sql = self._format_ddl_condition(constraint.condition)
-        return f"CHECK ({check_sql})", ()
+        check_sql, check_params = constraint.condition.to_sql()
+        return f"CHECK ({check_sql})", tuple(check_params)
 
     def format_table_foreign_key_constraint(
         self, constraint: "TableForeignKeyConstraint"
@@ -1077,7 +1056,7 @@ class DDLColumnMixin:
                     if expr.initially_deferred
                     else "INITIALLY IMMEDIATE"
                 )
-        enforcement = self._format_constraint_enforcement(expr)
+        enforcement = self.format_constraint_enforcement(expr)
         if enforcement:
             parts.append(enforcement)
         return " ".join(parts), tuple(branch_params)
@@ -1162,9 +1141,10 @@ class DDLColumnMixin:
     def format_alter_column_action(self, action: "AlterColumnAction") -> Tuple[str, Tuple]:
         """Format an ``ALTER COLUMN`` ALTER TABLE action.
 
-        Handles ``SET DATA TYPE`` (validated type text), string values
-        (escaped and inlined), expression values rendered through
-        ``to_sql``, and plain values inlined via ``inline_sql_literal``.
+        Handles ``SET DATA TYPE`` (a type, rendered through the dialect),
+        string values (escaped and inlined), expression values rendered
+        through ``to_sql``, and plain values inlined via
+        ``inline_sql_literal``.
 
         Args:
             action: The action carrying the column name, operation, and
@@ -1177,19 +1157,13 @@ class DDLColumnMixin:
             UnsupportedFeatureError: If the dialect does not support the
                 requested alteration (data-type changes and column-property
                 changes are gated by separate capability switches).
-            ValueError: If a ``SET DATA TYPE`` value is not a valid data type
-                specification.
         """
         from ..exceptions import UnsupportedFeatureError
         all_params: List[Any] = []
-        from enum import Enum
+        
+        from ...expression.statements.ddl_alter import operation_spelling
 
-        # ``operation`` accepts the enum or its raw spelling; which one it
-        # is is a type question, so it is asked with isinstance rather than
-        # probed for a ``value`` attribute.
-        operation_str = (
-            action.operation.value if isinstance(action.operation, Enum) else str(action.operation)
-        )
+        operation_str = operation_spelling(action.operation)
         if operation_str == "SET DATA TYPE":
             if not self.supports_alter_column_type():
                 raise UnsupportedFeatureError(
@@ -1205,10 +1179,8 @@ class DDLColumnMixin:
         column_part = f"ALTER COLUMN {self.format_identifier(action.column_name)} {operation_str}"
         if action.new_value is not None:
             if operation_str == "SET DATA TYPE":
-                from ...dialect.base import SQLDialectBase
-                if not SQLDialectBase._validate_data_type(str(action.new_value)):
-                    raise ValueError(f"Invalid data type specification: '{action.new_value}'")
-                column_part += f" {action.new_value}"
+                type_sql, _ = action.new_value.to_sql()
+                column_part += f" {type_sql}"
             elif isinstance(action.new_value, str):
                 # DDL accepts no bind parameters, so the value is written into
                 # the SQL text. The literal is the controlled path: it escapes
@@ -1256,7 +1228,7 @@ class DDLColumnMixin:
         constraint_sql, params = self.format_table_constraint(action.constraint)
         if not constraint_sql:
             return "ADD UNKNOWN CONSTRAINT", ()
-        validation_sql = self._format_constraint_validation(action.constraint)
+        validation_sql = self.format_constraint_validation(action.constraint)
         return f"ADD {constraint_sql}{validation_sql}", tuple(params)
 
     def format_alter_constraint_action(self, action: "AlterConstraintAction") -> Tuple[str, Tuple]:

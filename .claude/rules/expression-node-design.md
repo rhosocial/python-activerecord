@@ -28,7 +28,7 @@ worth reading before modelling anything.
 | **A3** | The signature is exactly `(self, expr)`. `expr` is annotated with that expression's own class. No extra parameters — a helper needs a context is a sign the state belongs on an expression that does not exist yet. |
 | **A4** | The return is `Tuple[str, tuple]`. A formatter returning bare `str` is doing half a job and forces every caller to re-wrap. |
 | **A5** | Dialect formatters are public. A `_format_*` helper in a dialect mixin is a design mistake, not a visibility choice. |
-| **A6** | Logic shared across expressions is **not** a formatter. Drop the `format_` prefix; it claims a 1:1 pairing it does not have. |
+| **A6** | Shared rendering logic lives on the **expression side**, never on the dialect. See "Where shared logic lives" below. |
 | **A7** | A formatter lives in the same protocol as its capability switches, and protocols are grouped by feature group — one protocol per constraint level, one per alter-action family, one for the index seam. |
 
 A3 and A4 are what make A1 checkable. Measured:
@@ -48,6 +48,42 @@ identical pair `passing` + `passing_mechanism`, and no expression owns that
 clause. The shared state has no home, so the formatter takes unpacked pieces.
 `PASSING [ BY { VALUE | REF } ] { expr [ AS ident ] } [, ...]` is a named
 production — by B1 it should already be a node.
+
+### Where shared logic lives
+
+The dialect surface has exactly two members: capability switches
+(`supports_*()`, no arguments beyond `self`) and formatters (`format_*(self,
+expr)`, A3). There is no third kind, and no name to invent for one.
+
+So when several expressions want the same rendering, the choice is:
+
+| Option | Shape | When it is right |
+|---|---|---|
+| **(a)** The node renders it | the production lives in the expression class; the dialect overrides `format_*(self, expr)` only where the spelling differs | the production belongs to the construct the node models |
+| **(b)** The node carries the identity | the node declares *which* production it is (an enum, not a free string); one public `format_*(self, expr)` renders by that identity | the spelling is genuinely the dialect's to choose, and the node's job is to say what it means |
+
+What is *not* an option: a multi-parameter helper on the dialect. A formatter
+that takes `name=` alongside `expr` is not a formatter — it is a rendering
+routine whose caller decides the production, so the node that should own that
+decision does not exist yet. **The extra parameter is the tell**: it is state
+that belongs on a node, and A3 already says so ("a helper needs a context is a
+sign the state belongs on an expression that does not exist yet").
+
+Delegation is allowed where it stays inside the rule: one `format_*(self, expr)`
+may call another `format_*(self, expr)`. It may not call a helper of its own
+invention, because A5 and `architecture.md` §8 leave no place to put one, and a
+helper no backend can override is a protocol leak by definition.
+
+The measured case that produced this section: six multi-parameter renderers
+(`_format_function`, `_format_scalar_function`, `_format_aggregate_function`,
+`_format_niladic_function`, `_format_optional_length_function`,
+`_format_window_rank`) each served a family of thin `format_*(self, expr)`
+wrappers. The wrappers were formatters; the bodies were not, and being private
+they could not be overridden — which is the whole failure A5 names. The bodies
+were folded back into the formatters that used them, and the six renderers
+deleted. Twenty-five call sites of the same production became twenty-five
+bodies, and that duplication is the accepted price: a formatter a backend can
+override is worth more than a helper it cannot.
 
 The same shape appears as the split state of `format_column_fk_constraint`, which
 takes the fat union and re-dispatches on `constraint_type` — the reason A1 was

@@ -348,6 +348,14 @@ if TYPE_CHECKING:
 
 
 class DummyDialect(
+    # The bases below come in bundles: a backend mixin, then the core bundle
+    # it stands in for. The backend's answer has to come first -- a mixin
+    # placed after the class it overrides never wins -- so a new mixin goes
+    # immediately before the core mixin it overrides, and the pairing is read
+    # off the list. Two positions sit outside that pairing and are called out
+    # where they occur: a mixin that overrides a method ``SQLDialectBase``
+    # defines has to precede the base, and a mixin that subclasses a core
+    # mixin has to precede it too (C3: a subclass precedes its base).
     SQLDialectBase,
     RelationSourceMixin,
     # The object tree: each *NameMixin renders one object kind and inherits
@@ -1152,6 +1160,9 @@ class DummyDialect(
     def supports_create_table_as(self) -> bool:
         return True
 
+    def supports_create_table_as_bind_parameters(self) -> bool:
+        return True
+
     def supports_create_table_like(self) -> bool:
         return True
 
@@ -1265,6 +1276,9 @@ class DummyDialect(
     def supports_create_view(self) -> bool:
         return True
 
+    def supports_create_view_bind_parameters(self) -> bool:
+        return True
+
     def supports_drop_view(self) -> bool:
         return True
 
@@ -1281,6 +1295,9 @@ class DummyDialect(
         return True
 
     def supports_materialized_view(self) -> bool:
+        return True
+
+    def supports_materialized_view_bind_parameters(self) -> bool:
         return True
 
     def supports_refresh_materialized_view(self) -> bool:

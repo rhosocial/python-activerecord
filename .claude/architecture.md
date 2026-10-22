@@ -316,14 +316,23 @@ data at construction time. String scanning of SQL is also a classic injection su
 mismatch between the scanner's assumptions (quote states, escape rules, placeholder characters)
 and the real dialect syntax silently corrupts the statement.
 
-**The single exception — inline-literal resolution.** When a statement
-(`requires_inline_literals() == True`, trusted developer-declared DDL) renders its literal
-values inline, the dialect's `format_literal` produces **escaped, quoted atoms**; these are
-concatenated directly during formatting and never require re-scanning the assembled SQL.
-Because this exception deals with splicing raw values into SQL text, it is a **SQL-injection
-hazard by nature**: developers must be highly alert that inline content is trusted-only and
-never reachable by end users. `Literal.requires_inline_literals` / the statement-level switch
-must default to `False` (bind parameters) for exactly this reason.
+**The single exception — inline literals.** A value can be spliced into the SQL text
+instead of bound, and the call site asks for that per value:
+`Literal(dialect, value, inline=True)`. The dialect then produces **escaped, quoted atoms**
+(`inline_sql_literal`), concatenated directly during formatting; nothing re-scans the
+assembled SQL.
+
+Whether to inline is **the caller's decision, not the framework's**. Some engines reject a
+statement that carries a bind parameter in a position with no room for one, and a statement
+built for such an engine has to inline the values in those positions. That is why the switch
+lives on the literal the caller constructs: the developer knows which engine the statement
+is for, and the framework cannot infer it.
+
+The default is bind parameters (`inline=False`), because inlining is a **SQL-injection hazard
+by nature**: it splices raw values into SQL text, so inline content must be trusted-only and
+never reachable by end users. A formatter must not turn a bound value into text on its own
+initiative, and must not refuse a statement merely because it binds where an engine would
+prefer text — the caller's choice is the contract.
 
 **What happens if you break it (harm):** a scanner (e.g. walking the assembled SQL to replace
 `?` placeholders) mis-fires on placeholders that appear *inside* string literals, breaks the

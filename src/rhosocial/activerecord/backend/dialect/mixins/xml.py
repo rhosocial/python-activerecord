@@ -89,14 +89,12 @@ class SQLXMLSerializationMixin:
 
         Raises:
             UnsupportedFeatureError: If XMLSERIALIZE is unsupported.
-            ValueError: If ``target_type`` is not a valid data type.
         """
         if not self.supports_xmlserialize():
             raise UnsupportedFeatureError(self.name, "SQL/XML XMLSERIALIZE")
-        if not self._validate_data_type(expr.target_type):
-            raise ValueError(f"Invalid XMLSERIALIZE target type: {expr.target_type}")
+        target_sql, _ = expr.target_type.to_sql()
         content_sql, params = expr.content.to_sql()
-        parts = [expr.document_type.value, content_sql, "AS", expr.target_type]
+        parts = [expr.document_type.value, content_sql, "AS", target_sql]
         if expr.whitespace_option is not None:
             parts.append(expr.whitespace_option.value)
         return f"XMLSERIALIZE({' '.join(parts)})", params
@@ -535,9 +533,10 @@ class SQLXMLQueryingMixin:
                 all_params.extend(passing_params)
         column_parts = []
         for column in expr.columns:
-            if not self._validate_data_type(column.data_type):
-                raise ValueError(f"Invalid XMLTABLE column type: {column.data_type}")
-            column_sql = f"{self.format_identifier(column.name)} {column.data_type}"
+            from ...expression.types import DataType
+
+            column_type_sql, _ = DataType.as_type(self, column.data_type).to_sql()
+            column_sql = f"{self.format_identifier(column.name)} {column_type_sql}"
             if column.path is not None:
                 path_sql, path_params = column.path.to_sql()
                 column_sql += f" PATH {path_sql}"

@@ -187,6 +187,24 @@ class ColumnAlterOperation(str, Enum):
     SET_DATA_TYPE = "SET DATA TYPE"  # SQL standard: ALTER COLUMN ... SET DATA TYPE <type>
 
 
+def operation_spelling(operation: Union["ColumnAlterOperation", str]) -> str:
+    """The SQL spelling of an alter operation.
+
+    An operation may be given as the enum or as its raw spelling; which one
+    it is is a type question, so it is asked with isinstance rather than
+    probed for a ``value`` attribute.
+
+    Args:
+        operation: The operation, as the enum member or as its spelling.
+
+    Returns:
+        The spelling, e.g. ``"SET DATA TYPE"``.
+    """
+    from enum import Enum
+
+    return operation.value if isinstance(operation, Enum) else str(operation)
+
+
 class AlterColumnAction(AlterTableAction):
     """Represents an 'ALTER COLUMN' action per SQL standard."""
 
@@ -213,6 +231,10 @@ class AlterColumnAction(AlterTableAction):
         super().__init__(dialect)
         self.column_name: str = column_name
         self.operation: Union[ColumnAlterOperation, str] = operation
+        if operation_spelling(operation) == "SET DATA TYPE" and new_value is not None:
+            from ..types import DataType
+
+            new_value = DataType.as_type(dialect, new_value)
         self.new_value: Any = new_value
         self.cascade: bool = cascade
 

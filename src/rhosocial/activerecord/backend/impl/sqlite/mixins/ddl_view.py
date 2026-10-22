@@ -31,6 +31,15 @@ class SQLiteViewMixin:
         """SQLite supports CREATE VIEW."""
         return True
 
+    def supports_create_view_bind_parameters(self) -> bool:
+        """SQLite stores a view's text, so a bind in it has no meaning later.
+
+        The placeholder would be stored in the view's SQL and left unbound
+        when the view is read, so the body is refused rather than stored
+        broken.
+        """
+        return False
+
     def supports_drop_view(self) -> bool:
         """SQLite supports DROP VIEW."""
         return True

@@ -219,12 +219,19 @@ Generated SQL is the **output** of formatting, not its input; reading it guesses
 at structure the formatter already held as typed data, and it is an injection
 surface.
 
-**The single exception — inline-literal resolution.** When a statement
-(`requires_inline_literals() == True`, trusted developer-declared DDL) renders
-literals inline, `format_literal` produces escaped, quoted atoms concatenated
-during formatting — no re-scanning. This splices raw values into SQL, so it is
-an injection hazard by nature: inline content is trusted-only, never reachable by
-end users, and the switch defaults to `False` (bind parameters).
+**The single exception — inline literals.** A value can be spliced into the SQL
+text instead of bound, and the call site asks for that per value:
+`Literal(dialect, value, inline=True)`. The dialect then produces escaped,
+quoted atoms (`inline_sql_literal`) concatenated during formatting — no
+re-scanning.
+
+Whether to inline is **the caller's decision, not the framework's**: some
+engines reject a statement carrying a bind parameter in a position with no room
+for one, and the developer knows which engine the statement is for. The default
+is bind parameters (`inline=False`), because inlining is an injection hazard by
+nature — inline content is trusted-only, never reachable by end users. A
+formatter must not inline on its own initiative, and must not refuse a statement
+merely because it binds where an engine would prefer text.
 
 ---
 
