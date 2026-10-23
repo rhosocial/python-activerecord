@@ -64,13 +64,13 @@ def dialect():
 
 
 def _serialize(dialect, target_type):
-    return dialect.format_xmlserialize_expression(
+    return dialect.format_xml_serialize_expression(
         XMLSerializeExpression(dialect, Literal(dialect, "x"), target_type)
     )[0]
 
 
 def _xmltable(dialect, data_type):
-    return dialect.format_xmltable_expression(
+    return dialect.format_xml_table_expression(
         XMLTableExpression(
             dialect,
             row_pattern=Literal(dialect, "x"),

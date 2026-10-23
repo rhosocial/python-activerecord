@@ -74,7 +74,6 @@ class _WindowRank(
 class RowNumberFunction(_WindowRank):
     """``ROW_NUMBER()`` -- the row's position, counting from 1 with no ties."""
 
-    kind_name = "row_number_function"
     function_name = "ROW_NUMBER"
 
     @property
@@ -91,7 +90,6 @@ class RankFunction(_WindowRank):
     nodes rather than one with a flag.
     """
 
-    kind_name = "rank_function"
     function_name = "RANK"
 
     @property
@@ -103,7 +101,6 @@ class RankFunction(_WindowRank):
 class DenseRankFunction(_WindowRank):
     """``DENSE_RANK()`` -- the position with no gaps between ties."""
 
-    kind_name = "dense_rank_function"
     function_name = "DENSE_RANK"
 
     @property

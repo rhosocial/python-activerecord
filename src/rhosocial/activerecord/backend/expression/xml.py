@@ -118,7 +118,7 @@ class XMLParseExpression(
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlparse_expression"
+        return "format_xml_parse_expression"
 
 
 class XMLSerializeExpression(
@@ -153,7 +153,7 @@ class XMLSerializeExpression(
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlserialize_expression"
+        return "format_xml_serialize_expression"
 
 
 @dataclass
@@ -184,7 +184,7 @@ class XMLAttributesExpression(SQLValue):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlattributes_expression"
+        return "format_xml_attributes_expression"
 
 
 class XMLElementExpression(
@@ -209,7 +209,7 @@ class XMLElementExpression(
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlelement_expression"
+        return "format_xml_element_expression"
 
 
 @dataclass
@@ -241,7 +241,7 @@ class XMLForestExpression(
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlforest_expression"
+        return "format_xml_forest_expression"
 
 
 class XMLConcatExpression(
@@ -258,7 +258,7 @@ class XMLConcatExpression(
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlconcat_expression"
+        return "format_xml_concat_expression"
 
 
 class XMLCommentExpression(
@@ -275,7 +275,7 @@ class XMLCommentExpression(
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlcomment_expression"
+        return "format_xml_comment_expression"
 
 
 class XMLPIExpression(
@@ -323,7 +323,7 @@ class XMLRootExpression(
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlroot_expression"
+        return "format_xml_root_expression"
 
 
 class XMLAggExpression(
@@ -346,7 +346,7 @@ class XMLAggExpression(
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlagg_expression"
+        return "format_xml_agg_expression"
 
 
 class PassingClause(BaseExpression):
@@ -403,7 +403,7 @@ class XMLQueryExpression(
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlquery_expression"
+        return "format_xml_query_expression"
 
 
 class XMLExistsPredicate(SQLPredicate):
@@ -459,4 +459,4 @@ class XMLTableExpression(BaseExpression):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmltable_expression"
+        return "format_xml_table_expression"

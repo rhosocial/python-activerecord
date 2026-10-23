@@ -1562,10 +1562,10 @@ class StorageOptionsExpression(BaseExpression):
         self.options = options
 
     def to_sql(self) -> SQLQueryAndParams:
-        """Delegate to the dialect's ``format_storage_options``."""
-        return self.dialect.format_storage_options(self)
+        """Delegate to the dialect's ``format_storage_options_expression``."""
+        return self.dialect.format_storage_options_expression(self)
 
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_storage_options"
+        return "format_storage_options_expression"

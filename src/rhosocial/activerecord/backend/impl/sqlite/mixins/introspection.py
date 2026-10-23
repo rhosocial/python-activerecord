@@ -9,16 +9,16 @@ from typing import List, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression.introspection import (
-        DatabaseInfoExpression,
-        TableListExpression,
-        TableInfoExpression,
-        ColumnInfoExpression,
-        IndexInfoExpression,
-        ForeignKeyExpression,
-        ViewListExpression,
-        ViewInfoExpression,
-        TriggerListExpression,
-        TriggerInfoExpression,
+        DatabaseInfoQueryStatement,
+        TableListQueryStatement,
+        TableInfoQueryStatement,
+        ColumnInfoQueryStatement,
+        IndexInfoQueryStatement,
+        ForeignKeyQueryStatement,
+        ViewListQueryStatement,
+        ViewInfoQueryStatement,
+        TriggerListQueryStatement,
+        TriggerInfoQueryStatement,
     )
     from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
 
@@ -231,7 +231,7 @@ class SQLiteIntrospectionCapabilityMixin:
             kwargs["order_by"] = OrderByClause(self, order_by)
         return QueryStatement(self, **kwargs).to_sql()
 
-    def format_database_info_query(self, expr: "DatabaseInfoExpression") -> Tuple[str, tuple]:
+    def format_database_info_query_statement(self, expr: "DatabaseInfoQueryStatement") -> Tuple[str, tuple]:
         """Format database information query.
 
         SQLite doesn't have a specific query for database info, so we use
@@ -251,7 +251,7 @@ class SQLiteIntrospectionCapabilityMixin:
             select=[FunctionCall(self, "sqlite_version", alias="version")],
         ).to_sql()
 
-    def format_table_list_query(self, expr: "TableListExpression") -> Tuple[str, tuple]:
+    def format_table_list_query_statement(self, expr: "TableListQueryStatement") -> Tuple[str, tuple]:
         """Format table list query.
 
         For SQLite 3.37.0+, use PRAGMA table_list.
@@ -330,7 +330,7 @@ class SQLiteIntrospectionCapabilityMixin:
         )
         return query.to_sql()
 
-    def format_table_info_query(self, expr: "TableInfoExpression") -> Tuple[str, tuple]:
+    def format_table_info_query_statement(self, expr: "TableInfoQueryStatement") -> Tuple[str, tuple]:
         """Format single table information query.
 
         Query sqlite_master for table details.
@@ -352,7 +352,7 @@ class SQLiteIntrospectionCapabilityMixin:
             [ComparisonPredicate(self, "eq", Column(self, "name"), Literal(self, table_name))],
         )
 
-    def format_column_info_query(self, expr: "ColumnInfoExpression") -> Tuple[str, tuple]:
+    def format_column_info_query_statement(self, expr: "ColumnInfoQueryStatement") -> Tuple[str, tuple]:
         """Format column information query.
 
         For SQLite 3.26.0+, can use PRAGMA table_xinfo to include hidden columns.
@@ -377,7 +377,7 @@ class SQLiteIntrospectionCapabilityMixin:
 
         return (sql, ())
 
-    def format_index_info_query(self, expr: "IndexInfoExpression") -> Tuple[str, tuple]:
+    def format_index_info_query_statement(self, expr: "IndexInfoQueryStatement") -> Tuple[str, tuple]:
         """Format index information query.
 
         Use PRAGMA index_list to get indexes for a table.
@@ -395,7 +395,7 @@ class SQLiteIntrospectionCapabilityMixin:
         sql = f"PRAGMA {schema}.index_list({self.format_identifier(table_name)})"
         return (sql, ())
 
-    def format_foreign_key_query(self, expr: "ForeignKeyExpression") -> Tuple[str, tuple]:
+    def format_foreign_key_query_statement(self, expr: "ForeignKeyQueryStatement") -> Tuple[str, tuple]:
         """Format foreign key information query.
 
         Use PRAGMA foreign_key_list to get foreign keys for a table.
@@ -413,7 +413,7 @@ class SQLiteIntrospectionCapabilityMixin:
         sql = f"PRAGMA {schema}.foreign_key_list({self.format_identifier(table_name)})"
         return (sql, ())
 
-    def format_view_list_query(self, expr: "ViewListExpression") -> Tuple[str, tuple]:  # noqa: F821
+    def format_view_list_query_statement(self, expr: "ViewListQueryStatement") -> Tuple[str, tuple]:  # noqa: F821
         """Format view list query.
 
         Query sqlite_master for views.
@@ -456,7 +456,7 @@ class SQLiteIntrospectionCapabilityMixin:
             schema, [Column(self, "name")], conditions, [Column(self, "name")]
         )
 
-    def format_view_info_query(self, expr: "ViewInfoExpression") -> Tuple[str, tuple]:  # noqa: F821
+    def format_view_info_query_statement(self, expr: "ViewInfoQueryStatement") -> Tuple[str, tuple]:  # noqa: F821
         """Format single view information query.
 
         Query sqlite_master for view details.
@@ -488,7 +488,7 @@ class SQLiteIntrospectionCapabilityMixin:
             schema, [Column(self, "name"), Column(self, "sql")], conditions
         )
 
-    def format_trigger_list_query(self, expr: "TriggerListExpression") -> Tuple[str, tuple]:  # noqa: F821
+    def format_trigger_list_query_statement(self, expr: "TriggerListQueryStatement") -> Tuple[str, tuple]:  # noqa: F821
         """Format trigger list query.
 
         Query sqlite_master for triggers, optionally filtered by table.
@@ -533,7 +533,7 @@ class SQLiteIntrospectionCapabilityMixin:
             [Column(self, "name")],
         )
 
-    def format_trigger_info_query(self, expr: "TriggerInfoExpression") -> Tuple[str, tuple]:  # noqa: F821
+    def format_trigger_info_query_statement(self, expr: "TriggerInfoQueryStatement") -> Tuple[str, tuple]:  # noqa: F821
         """Format single trigger information query.
 
         Query sqlite_master for trigger details.

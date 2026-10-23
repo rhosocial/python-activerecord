@@ -281,7 +281,7 @@ def test_format_storage_options_string_escaping(dialect):
     """Test storage options string values are escaped."""
     from rhosocial.activerecord.backend.expression.statements import StorageOptionsExpression
     storage_opts = StorageOptionsExpression(dialect, {"key": "value's"})
-    sql, params = dialect.format_storage_options(storage_opts)
+    sql, params = dialect.format_storage_options_expression(storage_opts)
     assert "value''s" in sql
     assert "'; DROP" not in sql
 
@@ -296,7 +296,7 @@ def test_format_storage_options_key_identifier_quoting(dialect):
     from rhosocial.activerecord.backend.expression.statements import StorageOptionsExpression
     malicious_key = 'key"; DROP TABLE users--'
     storage_opts = StorageOptionsExpression(dialect, {malicious_key: "value"})
-    sql, params = dialect.format_storage_options(storage_opts)
+    sql, params = dialect.format_storage_options_expression(storage_opts)
 
     # DROP TABLE may appear inside quoted identifier, that's safe.
     # Verify quotes are balanced (no breakout).
@@ -310,7 +310,7 @@ def test_format_storage_options_mixed_safe_and_malicious_keys(dialect):
     safe_key = "fillfactor"
     malicious_key = 'evil"; DELETE FROM t--'
     storage_opts = StorageOptionsExpression(dialect, {safe_key: 70, malicious_key: "x"})
-    sql, params = dialect.format_storage_options(storage_opts)
+    sql, params = dialect.format_storage_options_expression(storage_opts)
 
     assert "fillfactor" in sql or "FILLFACTOR" in sql
     # DELETE may appear inside quoted identifier — verify balanced quotes
@@ -322,7 +322,7 @@ def test_format_storage_options_int_value_not_parameterized(dialect):
     """Numeric storage options are embedded as literals (design decision)."""
     from rhosocial.activerecord.backend.expression.statements import StorageOptionsExpression
     storage_opts = StorageOptionsExpression(dialect, {"fillfactor": 70})
-    sql, params = dialect.format_storage_options(storage_opts)
+    sql, params = dialect.format_storage_options_expression(storage_opts)
     assert "70" in sql
     assert params == ()
 
@@ -331,14 +331,14 @@ def test_format_storage_options_none_value_uses_placeholder(dialect):
     """None or unknown type values use parameterized placeholder."""
     from rhosocial.activerecord.backend.expression.statements import StorageOptionsExpression
     storage_opts = StorageOptionsExpression(dialect, {"option": None})
-    sql, params = dialect.format_storage_options(storage_opts)
+    sql, params = dialect.format_storage_options_expression(storage_opts)
     assert "NULL" in sql
 
 
 def test_format_storage_options_empty(dialect):
     """Empty storage options returns empty string."""
     from rhosocial.activerecord.backend.expression.statements import StorageOptionsExpression
-    sql, params = dialect.format_storage_options(StorageOptionsExpression(dialect, {}))
+    sql, params = dialect.format_storage_options_expression(StorageOptionsExpression(dialect, {}))
     assert sql == ""
     assert params == ()
 

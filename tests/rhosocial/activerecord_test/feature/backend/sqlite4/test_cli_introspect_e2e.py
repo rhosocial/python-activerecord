@@ -142,13 +142,13 @@ def test_cli_views_reach_the_dialect_formatter(db_file, monkeypatch):
     from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
     calls = []
-    original = SQLiteDialect.format_view_list_query
+    original = SQLiteDialect.format_view_list_query_statement
 
     def spy(self, expr):
         calls.append(expr)
         return original(self, expr)
 
-    monkeypatch.setattr(SQLiteDialect, "format_view_list_query", spy)
+    monkeypatch.setattr(SQLiteDialect, "format_view_list_query_statement", spy)
     code, out = run(["introspect", "views", "--db-file", str(db_file)])
     assert code == 0, out
-    assert calls, "format_view_list_query was never called by the CLI"
+    assert calls, "format_view_list_query_statement was never called by the CLI"

@@ -49,7 +49,6 @@ class CurrentUserFunction(
     it and ``.sqrt()`` does not.
     """
 
-    kind_name = "current_user_function"
 
     def __init__(self, dialect: "SQLDialectBase"):
         super().__init__(dialect)
@@ -72,7 +71,6 @@ class SessionUserFunction(
 ):
     """``SESSION_USER`` -- the account the session was opened under."""
 
-    kind_name = "session_user_function"
 
     def __init__(self, dialect: "SQLDialectBase"):
         super().__init__(dialect)
@@ -100,7 +98,6 @@ class SystemUserFunction(
     rather than have the difference hidden behind one shared spelling.
     """
 
-    kind_name = "system_user_function"
 
     def __init__(self, dialect: "SQLDialectBase"):
         super().__init__(dialect)

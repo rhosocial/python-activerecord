@@ -58,7 +58,7 @@ class TestBinaryExpression:
 
         sql, params = bin_expr.to_sql()
 
-        # The exact format depends on the dialect's format_binary_operator method
+        # The exact format depends on the dialect's format_binary_expression method
         assert ">" in sql
         assert params == (18,)
 
@@ -101,7 +101,7 @@ class TestUnaryExpression:
 
         sql, params = unary_expr.to_sql()
 
-        # The exact format depends on the dialect's format_unary_operator method
+        # The exact format depends on the dialect's format_unary_expression method
         assert "NOT" in sql.upper()
         assert params == ()
 
@@ -113,7 +113,7 @@ class TestUnaryExpression:
 
         sql, params = unary_expr.to_sql()
 
-        # The exact format depends on the dialect's format_unary_operator method
+        # The exact format depends on the dialect's format_unary_expression method
         assert "++" in sql
         assert params == ()
 

@@ -114,7 +114,7 @@ class UUIDGenerationExpression(
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_uuid_generation"
+        return "format_uuid_generation_expression"
 
 
 class UUIDConstantExpression(
@@ -165,7 +165,7 @@ class UUIDConstantExpression(
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_uuid_constant"
+        return "format_uuid_constant_expression"
 
 
 class UUIDCastFunction(

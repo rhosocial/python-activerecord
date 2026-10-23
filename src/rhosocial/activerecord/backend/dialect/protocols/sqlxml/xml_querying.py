@@ -48,7 +48,7 @@ class SQLXMLQueryingSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_xmlquery_expression(self, expr: "XMLQueryExpression") -> Tuple[str, tuple]:
+    def format_xml_query_expression(self, expr: "XMLQueryExpression") -> Tuple[str, tuple]:
         """Format a SQL/XML XMLQUERY expression."""
         ...  # pragma: no cover
 
@@ -56,7 +56,7 @@ class SQLXMLQueryingSupport(Protocol):
         """Format a SQL/XML XMLEXISTS predicate."""
         ...  # pragma: no cover
 
-    def format_xmltable_expression(self, expr: "XMLTableExpression") -> Tuple[str, tuple]:
+    def format_xml_table_expression(self, expr: "XMLTableExpression") -> Tuple[str, tuple]:
         """Format a SQL/XML XMLTABLE expression."""
         ...  # pragma: no cover
 

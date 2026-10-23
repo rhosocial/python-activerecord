@@ -110,7 +110,7 @@ class RelationSourceMixin:
         if ref.temporal_options:
             from ...expression.datetime import TemporalOptionsExpression
 
-            temporal = self.format_temporal_options(
+            temporal = self.format_temporal_options_expression(
                 TemporalOptionsExpression(self, ref.temporal_options)
             )
             if temporal is not None:

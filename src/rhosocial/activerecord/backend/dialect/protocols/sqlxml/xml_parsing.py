@@ -20,7 +20,7 @@ class SQLXMLParsingSupport(Protocol):
         """Whether SQL/XML XMLPARSE is supported."""
         ...  # pragma: no cover
 
-    def format_xmlparse_expression(
+    def format_xml_parse_expression(
         self,
         expr: "XMLParseExpression",
     ) -> Tuple[str, tuple]:

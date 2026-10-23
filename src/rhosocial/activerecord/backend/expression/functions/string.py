@@ -193,7 +193,6 @@ class ConcatFunction(
     operator, which exists but is not reachable from text.
     """
 
-    kind_name = "concat_function"
 
     def __init__(self, dialect: "SQLDialectBase", *operands):
         from ..core import Literal
@@ -227,7 +226,6 @@ class CoalesceFunction(
     exists for, since the source cannot answer it.
     """
 
-    kind_name = "coalesce_function"
 
     def __init__(self, dialect: "SQLDialectBase", *operands):
         from ..core import Literal
@@ -268,7 +266,6 @@ class SubstringExpression(
     something unrelated again on ClickHouse.
     """
 
-    kind_name = "substring_expression"
 
     def __init__(
         self,
@@ -322,7 +319,6 @@ class OverlayExpression(
     ``SUBSTRING`` where a backend has both.
     """
 
-    kind_name = "overlay_expression"
 
     def __init__(
         self,
@@ -376,7 +372,6 @@ class PositionExpression(
     rather than the node.
     """
 
-    kind_name = "position_expression"
 
     #: The spellings this node can be asked for. The base renders both as a
     #: function call; a backend needing ``POSITION(needle IN haystack)`` as the
@@ -420,7 +415,6 @@ class ReplaceFunction(
     are not one class with a ``spelling``.
     """
 
-    kind_name = "replace_function"
 
     def __init__(self, dialect: "SQLDialectBase", target, pattern, replacement):
         target = self._text(dialect, target)
@@ -453,7 +447,6 @@ class InitcapFunction(
 ):
     """``INITCAP(text)`` -- first letter of each word upper, the rest lower."""
 
-    kind_name = "initcap_function"
 
     def __init__(self, dialect: "SQLDialectBase", target):
         target = self._text(dialect, target)
@@ -487,7 +480,6 @@ class LeftFunction(
     refused here rather than rendered four ways.
     """
 
-    kind_name = "left_function"
 
     def __init__(self, dialect: "SQLDialectBase", target: "SQLValue", count: "SQLValue"):
         # See SubstringExpression: checkable when the count is stated, the
@@ -527,7 +519,6 @@ class RightFunction(
     same reason: the backends do not agree below zero.
     """
 
-    kind_name = "right_function"
 
     def __init__(self, dialect: "SQLDialectBase", target: "SQLValue", count: "SQLValue"):
         # See SubstringExpression.
@@ -558,7 +549,6 @@ class ReverseFunction(
 ):
     """``REVERSE(text)`` -- the characters in the other order."""
 
-    kind_name = "reverse_function"
 
     def __init__(self, dialect: "SQLDialectBase", target):
         target = self._text(dialect, target)
@@ -589,7 +579,6 @@ class TranslateFunction(
     replaces a whole substring.
     """
 
-    kind_name = "translate_function"
 
     def __init__(self, dialect: "SQLDialectBase", target, from_chars, to_chars):
         target = self._text(dialect, target)
@@ -627,7 +616,6 @@ class SpaceFunction(
     without ``SPACE`` compose the blanks some other way.
     """
 
-    kind_name = "space_function"
 
     def __init__(self, dialect: "SQLDialectBase", count: "SQLValue"):
         count = self._count(dialect, count)
@@ -660,7 +648,6 @@ class ChrFunction(
     first byte).
     """
 
-    kind_name = "chr_function"
 
     def __init__(self, dialect: "SQLDialectBase", code: "SQLValue"):
         code = self._count(dialect, code)
@@ -686,7 +673,6 @@ class AsciiFunction(
 ):
     """``ASCII(text)`` -- the code of the first character."""
 
-    kind_name = "ascii_function"
 
     def __init__(self, dialect: "SQLDialectBase", target):
         target = self._text(dialect, target)
@@ -718,7 +704,6 @@ class OctetLengthFunction(
     wants that one.
     """
 
-    kind_name = "octet_length_function"
 
     def __init__(self, dialect: "SQLDialectBase", target):
         target = self._text(dialect, target)
@@ -743,7 +728,6 @@ class BitLengthFunction(
 ):
     """``BIT_LENGTH(text)`` -- the length in bits."""
 
-    kind_name = "bit_length_function"
 
     def __init__(self, dialect: "SQLDialectBase", target):
         target = self._text(dialect, target)

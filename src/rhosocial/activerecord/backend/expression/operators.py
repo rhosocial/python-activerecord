@@ -46,7 +46,7 @@ class BinaryExpression(BaseExpression):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_binary_operator"
+        return "format_binary_expression"
 
     def __init__(self, dialect: "SQLDialectBase", op: str, left: "BaseExpression", right: "BaseExpression"):
         super().__init__(dialect)
@@ -109,7 +109,7 @@ class UnaryExpression(BaseExpression):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_unary_operator"
+        return "format_unary_expression"
 
     def __init__(self, dialect: "SQLDialectBase", op: str, operand: "BaseExpression", pos: str = "before"):
         super().__init__(dialect)

@@ -126,7 +126,7 @@ class TransactionControlSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_commit_transaction_statement(self, expr: "CommitStatement") -> Tuple[str, tuple]:
+    def format_commit_statement(self, expr: "CommitStatement") -> Tuple[str, tuple]:
         """
         Format COMMIT statement.
 
@@ -138,7 +138,7 @@ class TransactionControlSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_rollback_transaction_statement(self, expr: "RollbackStatement") -> Tuple[str, tuple]:
+    def format_rollback_statement(self, expr: "RollbackStatement") -> Tuple[str, tuple]:
         """
         Format ROLLBACK statement.
 
@@ -174,7 +174,7 @@ class TransactionControlSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_set_transaction(self, expr: "SetTransactionStatement") -> Tuple[str, tuple]:
+    def format_set_transaction_statement(self, expr: "SetTransactionStatement") -> Tuple[str, tuple]:
         """
         Format SET TRANSACTION statement.
 

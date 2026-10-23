@@ -47,7 +47,7 @@ class SQLiteGeopolyContainsExpression(BaseExpression):
     @property
     def format_method(self) -> str:
         """The dialect method that renders this expression."""
-        return "format_geopoly_contains_query"
+        return "format_geopoly_contains_expression"
     """Geopoly point-in-polygon query expression."""
 
     def __init__(

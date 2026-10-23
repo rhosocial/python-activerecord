@@ -161,8 +161,8 @@ def test_uuid_expressions_support_comparison_and_aliasing(factory):
 
 
 def test_format_methods_are_declared_for_dispatch():
-    assert UUIDGenerationExpression(_dialect()).format_method == "format_uuid_generation"
-    assert UUIDConstantExpression(_dialect(), "nil").format_method == "format_uuid_constant"
+    assert UUIDGenerationExpression(_dialect()).format_method == "format_uuid_generation_expression"
+    assert UUIDConstantExpression(_dialect(), "nil").format_method == "format_uuid_constant_expression"
     assert (
         UUIDCastFunction(_dialect(), Literal(_dialect(), "x")).format_method
         == "format_uuid_cast"

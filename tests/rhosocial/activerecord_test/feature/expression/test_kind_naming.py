@@ -20,6 +20,7 @@ Parameters are matched by name, and ``**kwargs`` is banned
     ones from appearing and keep the one existing exception visible.
 """
 
+import ast
 import importlib
 import inspect
 import json
@@ -65,13 +66,11 @@ _ALLOWED_BARE_VARIADIC = {
     "TruncateIntegerFunction",
 }
 
-#: Stored ``kind_name`` fields that disagree with the derived kind. Recorded,
-#: not tolerated: the stored value is a second source of truth (§4.9.2), and a
-#: consumer reading it would emit a different kind than the whitelist derives.
-_KNOWN_KIND_DIVERGENCES = {
-    "JSONArrayAggregateFunction.kind_name": "json_arrayagg_function",
-    "JSONObjectAggregateFunction.kind_name": "json_objectagg_function",
-}
+#: Stored ``kind``/``KIND``/``kind_name`` fields that disagree with the derived
+#: kind. A stored value is a second source of truth (§4.9.2), and a consumer
+#: reading it would emit a different kind than the whitelist derives. Nothing
+#: is stored any more; the check below keeps it that way.
+_KNOWN_KIND_DIVERGENCES = {}
 
 
 def _iter_expression_classes():
@@ -365,6 +364,65 @@ def test_stored_kind_never_contradicts_the_derived_kind():
     assert drifted == _KNOWN_KIND_DIVERGENCES, (
         "stored kind fields changed — drop fixed entries from "
         f"_KNOWN_KIND_DIVERGENCES: {drifted}"
+    )
+
+
+#: Backend identifier prefixes a kind may carry. A capability several dialects
+#: implement is named after the capability (``format_comment_statement``), not
+#: after whichever backend's subclass reuses it, so the prefix is optional.
+_BACKEND_PREFIXES = (
+    "sqlite_", "mysql_", "mariadb_", "postgres_", "oracle_",
+    "snowflake_", "clickhouse_", "sqlserver_", "bigquery_", "firebird_",
+)
+
+
+def _declared_format_method(cls):
+    """The literal this class's own ``format_method`` yields, or ``None``."""
+    try:
+        source = textwrap.dedent(inspect.getsource(cls))
+    except (OSError, TypeError):
+        return None
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.FunctionDef) and node.name == "format_method":
+            for stmt in ast.walk(node):
+                if isinstance(stmt, ast.Return) and isinstance(stmt.value, ast.Constant):
+                    return stmt.value.value
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == "format_method":
+                    if isinstance(node.value, ast.Constant):
+                        return node.value.value
+    return None
+
+
+def test_every_declared_formatter_names_its_kind():
+    """§3: a statement/expression node's formatter is ``format_`` plus its kind.
+
+    The backend prefix may be dropped, but no other word may be added, removed
+    or respelled — that is what keeps the class name, the kind and the dialect
+    method from drifting apart.
+
+    Scoped to ``*Statement`` / ``*Expression``. The object-reference family
+    (``Table``, ``IntegerColumn``, ``Literal``, ...) deliberately shares one
+    renderer across several kinds — ``format_column`` serves ten column types —
+    so those method names describe the capability, not the kind.
+    """
+    offenders = []
+    for expr_class in _ALL:
+        if not expr_class.__name__.endswith(("Statement", "Expression")):
+            continue
+        method = _declared_format_method(expr_class)
+        if method is None:
+            continue
+        kind = expr_class.kind()
+        allowed = {"format_" + kind}
+        for prefix in _BACKEND_PREFIXES:
+            if kind.startswith(prefix):
+                allowed.add("format_" + kind[len(prefix):])
+        if method not in allowed:
+            offenders.append(f"{expr_class.__name__}: {method} (kind {kind})")
+    assert offenders == [], (
+        "formatter names that do not name their kind: " + repr(offenders)
     )
 
 

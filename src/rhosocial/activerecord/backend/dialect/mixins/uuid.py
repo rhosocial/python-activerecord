@@ -91,7 +91,7 @@ class UUIDMixin:
     # Formatters
     # ------------------------------------------------------------------
 
-    def format_uuid_generation(
+    def format_uuid_generation_expression(
         self, expr: "UUIDGenerationExpression"
     ) -> Tuple[str, Tuple]:
         """Render a fresh-UUID expression.
@@ -107,7 +107,7 @@ class UUIDMixin:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
         return sql, ()
 
-    def format_uuid_constant(self, expr: "UUIDConstantExpression") -> Tuple[str, Tuple]:
+    def format_uuid_constant_expression(self, expr: "UUIDConstantExpression") -> Tuple[str, Tuple]:
         """Render the nil or max UUID constant.
 
         Args:

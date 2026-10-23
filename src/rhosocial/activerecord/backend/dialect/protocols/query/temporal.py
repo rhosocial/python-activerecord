@@ -20,7 +20,7 @@ class TemporalTableSupport(Protocol):
         """Whether temporal table queries are supported."""
         ...  # pragma: no cover
 
-    def format_temporal_options(self, expr: "TemporalOptionsExpression") -> Tuple[str, tuple]:
+    def format_temporal_options_expression(self, expr: "TemporalOptionsExpression") -> Tuple[str, tuple]:
         """
         Formats a temporal table clause (e.g., FOR SYSTEM_TIME AS OF ...).
 

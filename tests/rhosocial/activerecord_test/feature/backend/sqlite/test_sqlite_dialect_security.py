@@ -100,7 +100,7 @@ def test_sqlite_format_storage_options_string_escaping(dialect):
     """Test storage options string values are escaped."""
     from rhosocial.activerecord.backend.expression.statements import StorageOptionsExpression
     storage_opts = StorageOptionsExpression(dialect, {"key": "value's"})
-    sql, params = dialect.format_storage_options(storage_opts)
+    sql, params = dialect.format_storage_options_expression(storage_opts)
     assert "value''s" in sql
     assert "'; DROP" not in sql
 
@@ -165,7 +165,7 @@ def test_format_identifier_empty_string(dialect):
 
 
 # ============================================================
-# format_column_info_query — uses format_identifier for table_name
+# format_column_info_query_statement — uses format_identifier for table_name
 # ============================================================
 
 
@@ -176,26 +176,26 @@ def test_format_column_info_query_with_malicious_table_name(dialect):
     which makes it a table name literal, not executable SQL.
     Balanced quotes = no breakout.
     """
-    from rhosocial.activerecord.backend.expression.introspection import ColumnInfoExpression
+    from rhosocial.activerecord.backend.expression.introspection import ColumnInfoQueryStatement
 
-    expr = ColumnInfoExpression(dialect, table_name='t"; DROP TABLE users--')
-    sql, params = dialect.format_column_info_query(expr)
+    expr = ColumnInfoQueryStatement(dialect, table_name='t"; DROP TABLE users--')
+    sql, params = dialect.format_column_info_query_statement(expr)
     # DROP TABLE appears inside the quoted identifier — verify balanced quotes
     assert sql.count('"') % 2 == 0, f"Unbalanced quotes: {sql}"
 
 
 def test_format_column_info_query_normal_table(dialect):
     """Column info query with normal table name works."""
-    from rhosocial.activerecord.backend.expression.introspection import ColumnInfoExpression
+    from rhosocial.activerecord.backend.expression.introspection import ColumnInfoQueryStatement
 
-    expr = ColumnInfoExpression(dialect, table_name="users")
-    sql, params = dialect.format_column_info_query(expr)
+    expr = ColumnInfoQueryStatement(dialect, table_name="users")
+    sql, params = dialect.format_column_info_query_statement(expr)
     assert '"users"' in sql
     assert params == ()
 
 
 # ============================================================
-# format_index_info_query — uses format_identifier for table_name
+# format_index_info_query_statement — uses format_identifier for table_name
 # ============================================================
 
 
@@ -204,15 +204,15 @@ def test_format_index_info_query_with_malicious_table_name(dialect):
 
     DELETE appears inside the quoted identifier — verify balanced quotes.
     """
-    from rhosocial.activerecord.backend.expression.introspection import IndexInfoExpression
+    from rhosocial.activerecord.backend.expression.introspection import IndexInfoQueryStatement
 
-    expr = IndexInfoExpression(dialect, table_name='t"; DELETE FROM users--')
-    sql, params = dialect.format_index_info_query(expr)
+    expr = IndexInfoQueryStatement(dialect, table_name='t"; DELETE FROM users--')
+    sql, params = dialect.format_index_info_query_statement(expr)
     assert sql.count('"') % 2 == 0, f"Unbalanced quotes: {sql}"
 
 
 # ============================================================
-# format_foreign_key_query — uses format_identifier for table_name
+# format_foreign_key_query_statement — uses format_identifier for table_name
 # ============================================================
 
 
@@ -221,10 +221,10 @@ def test_format_foreign_key_query_with_malicious_table_name(dialect):
 
     DROP TABLE appears inside the quoted identifier — verify balanced quotes.
     """
-    from rhosocial.activerecord.backend.expression.introspection import ForeignKeyExpression
+    from rhosocial.activerecord.backend.expression.introspection import ForeignKeyQueryStatement
 
-    expr = ForeignKeyExpression(dialect, table_name='t"; DROP TABLE users--')
-    sql, params = dialect.format_foreign_key_query(expr)
+    expr = ForeignKeyQueryStatement(dialect, table_name='t"; DROP TABLE users--')
+    sql, params = dialect.format_foreign_key_query_statement(expr)
     assert sql.count('"') % 2 == 0, f"Unbalanced quotes: {sql}"
 
 
@@ -322,7 +322,7 @@ def test_format_create_trigger_malicious_function_name(dialect):
 
 
 # ============================================================
-# Integration: format_storage_options via SQLite dialect
+# Integration: format_storage_options_expression via SQLite dialect
 # ============================================================
 
 
@@ -331,7 +331,7 @@ def test_sqlite_format_storage_options_key_identifier_quoting(dialect):
     from rhosocial.activerecord.backend.expression.statements import StorageOptionsExpression
     malicious_key = 'key"; DROP TABLE users--'
     storage_opts = StorageOptionsExpression(dialect, {malicious_key: "value"})
-    sql, params = dialect.format_storage_options(storage_opts)
+    sql, params = dialect.format_storage_options_expression(storage_opts)
     # "DROP TABLE" appears inside the quoted identifier — safe.
     # Verify balanced quotes (no breakout).
     assert sql.count('"') % 2 == 0, f"Unbalanced quotes in {sql}"

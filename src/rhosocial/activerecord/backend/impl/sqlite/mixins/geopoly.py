@@ -62,7 +62,7 @@ class SQLiteGeopolyMixin(SQLiteExtensionMixin):
             sql = f"CREATE VIRTUAL TABLE {table} USING geopoly({cols})"
         return sql, ()
 
-    def format_geopoly_contains_query(self, expr: "SQLiteGeopolyContainsExpression") -> Tuple[str, tuple]:
+    def format_geopoly_contains_expression(self, expr: "SQLiteGeopolyContainsExpression") -> Tuple[str, tuple]:
         """Format point-in-polygon query.
 
         Args:

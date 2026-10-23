@@ -21,8 +21,8 @@ from rhosocial.activerecord.backend.expression.value_types import (
     TemporalValue,
 )
 from rhosocial.activerecord.backend.expression.datetime import (
-    DateTimeAddExpression,
-    DateTimeSubtractExpression,
+    DatetimeAddExpression,
+    DatetimeSubtractExpression,
 )
 from rhosocial.activerecord.backend.expression.operators import ArithmeticOperation
 
@@ -128,7 +128,7 @@ def test_shifting_time_stays_a_timestamp(dialect, method):
     now = datetime_functions.now(dialect)
     result = getattr(now, method)(1, "days")
     assert isinstance(result, TemporalValue)
-    assert isinstance(result, (DateTimeAddExpression, DateTimeSubtractExpression))
+    assert isinstance(result, (DatetimeAddExpression, DatetimeSubtractExpression))
 
 
 def test_an_interval_is_its_own_family(dialect):

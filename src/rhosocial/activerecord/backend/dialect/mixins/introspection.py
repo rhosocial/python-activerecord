@@ -12,16 +12,16 @@ from ..exceptions import UnsupportedFeatureError
 if TYPE_CHECKING:  # pragma: no cover
     from ...introspection.types import IntrospectionScope
     from ...expression.introspection import (
-        DatabaseInfoExpression,
-        TableListExpression,
-        TableInfoExpression,
-        ColumnInfoExpression,
-        IndexInfoExpression,
-        ForeignKeyExpression,
-        ViewListExpression,
-        ViewInfoExpression,
-        TriggerListExpression,
-        TriggerInfoExpression,
+        DatabaseInfoQueryStatement,
+        TableListQueryStatement,
+        TableInfoQueryStatement,
+        ColumnInfoQueryStatement,
+        IndexInfoQueryStatement,
+        ForeignKeyQueryStatement,
+        ViewListQueryStatement,
+        ViewInfoQueryStatement,
+        TriggerListQueryStatement,
+        TriggerInfoQueryStatement,
     )
 
 
@@ -128,7 +128,7 @@ class IntrospectionMixin:
 
     # ========== Query Formatting ==========
 
-    def format_database_info_query(self, expr: "DatabaseInfoExpression") -> Tuple[str, tuple]:
+    def format_database_info_query_statement(self, expr: "DatabaseInfoQueryStatement") -> Tuple[str, tuple]:
         """
         Format database information query.
 
@@ -143,9 +143,9 @@ class IntrospectionMixin:
         """
         if not self.supports_database_info():
             raise UnsupportedFeatureError(self.name, "database info query")
-        raise NotImplementedError("Subclass must implement format_database_info_query")
+        raise NotImplementedError("Subclass must implement format_database_info_query_statement")
 
-    def format_table_list_query(self, expr: "TableListExpression") -> Tuple[str, tuple]:
+    def format_table_list_query_statement(self, expr: "TableListQueryStatement") -> Tuple[str, tuple]:
         """
         Format table list query.
 
@@ -160,9 +160,9 @@ class IntrospectionMixin:
         """
         if not self.supports_table_introspection():
             raise UnsupportedFeatureError(self.name, "table introspection")
-        raise NotImplementedError("Subclass must implement format_table_list_query")
+        raise NotImplementedError("Subclass must implement format_table_list_query_statement")
 
-    def format_table_info_query(self, expr: "TableInfoExpression") -> Tuple[str, tuple]:
+    def format_table_info_query_statement(self, expr: "TableInfoQueryStatement") -> Tuple[str, tuple]:
         """
         Format single table information query.
 
@@ -177,9 +177,9 @@ class IntrospectionMixin:
         """
         if not self.supports_table_introspection():
             raise UnsupportedFeatureError(self.name, "table introspection")
-        raise NotImplementedError("Subclass must implement format_table_info_query")
+        raise NotImplementedError("Subclass must implement format_table_info_query_statement")
 
-    def format_column_info_query(self, expr: "ColumnInfoExpression") -> Tuple[str, tuple]:
+    def format_column_info_query_statement(self, expr: "ColumnInfoQueryStatement") -> Tuple[str, tuple]:
         """
         Format column information query.
 
@@ -194,9 +194,9 @@ class IntrospectionMixin:
         """
         if not self.supports_column_introspection():
             raise UnsupportedFeatureError(self.name, "column introspection")
-        raise NotImplementedError("Subclass must implement format_column_info_query")
+        raise NotImplementedError("Subclass must implement format_column_info_query_statement")
 
-    def format_index_info_query(self, expr: "IndexInfoExpression") -> Tuple[str, tuple]:
+    def format_index_info_query_statement(self, expr: "IndexInfoQueryStatement") -> Tuple[str, tuple]:
         """
         Format index information query.
 
@@ -211,9 +211,9 @@ class IntrospectionMixin:
         """
         if not self.supports_index_introspection():
             raise UnsupportedFeatureError(self.name, "index introspection")
-        raise NotImplementedError("Subclass must implement format_index_info_query")
+        raise NotImplementedError("Subclass must implement format_index_info_query_statement")
 
-    def format_foreign_key_query(self, expr: "ForeignKeyExpression") -> Tuple[str, tuple]:
+    def format_foreign_key_query_statement(self, expr: "ForeignKeyQueryStatement") -> Tuple[str, tuple]:
         """
         Format foreign key information query.
 
@@ -228,9 +228,9 @@ class IntrospectionMixin:
         """
         if not self.supports_foreign_key_introspection():
             raise UnsupportedFeatureError(self.name, "foreign key introspection")
-        raise NotImplementedError("Subclass must implement format_foreign_key_query")
+        raise NotImplementedError("Subclass must implement format_foreign_key_query_statement")
 
-    def format_view_list_query(self, expr: "ViewListExpression") -> Tuple[str, tuple]:
+    def format_view_list_query_statement(self, expr: "ViewListQueryStatement") -> Tuple[str, tuple]:
         """
         Format view list query.
 
@@ -245,9 +245,9 @@ class IntrospectionMixin:
         """
         if not self.supports_view_introspection():
             raise UnsupportedFeatureError(self.name, "view introspection")
-        raise NotImplementedError("Subclass must implement format_view_list_query")
+        raise NotImplementedError("Subclass must implement format_view_list_query_statement")
 
-    def format_view_info_query(self, expr: "ViewInfoExpression") -> Tuple[str, tuple]:
+    def format_view_info_query_statement(self, expr: "ViewInfoQueryStatement") -> Tuple[str, tuple]:
         """
         Format single view information query.
 
@@ -262,9 +262,9 @@ class IntrospectionMixin:
         """
         if not self.supports_view_introspection():
             raise UnsupportedFeatureError(self.name, "view introspection")
-        raise NotImplementedError("Subclass must implement format_view_info_query")
+        raise NotImplementedError("Subclass must implement format_view_info_query_statement")
 
-    def format_trigger_list_query(self, expr: "TriggerListExpression") -> Tuple[str, tuple]:
+    def format_trigger_list_query_statement(self, expr: "TriggerListQueryStatement") -> Tuple[str, tuple]:
         """
         Format trigger list query.
 
@@ -279,9 +279,9 @@ class IntrospectionMixin:
         """
         if not self.supports_trigger_introspection():
             raise UnsupportedFeatureError(self.name, "trigger introspection")
-        raise NotImplementedError("Subclass must implement format_trigger_list_query")
+        raise NotImplementedError("Subclass must implement format_trigger_list_query_statement")
 
-    def format_trigger_info_query(self, expr: "TriggerInfoExpression") -> Tuple[str, tuple]:
+    def format_trigger_info_query_statement(self, expr: "TriggerInfoQueryStatement") -> Tuple[str, tuple]:
         """
         Format single trigger information query.
 
@@ -296,7 +296,7 @@ class IntrospectionMixin:
         """
         if not self.supports_trigger_introspection():
             raise UnsupportedFeatureError(self.name, "trigger introspection")
-        raise NotImplementedError("Subclass must implement format_trigger_info_query")
+        raise NotImplementedError("Subclass must implement format_trigger_info_query_statement")
 
 
 class AsyncIntrospectionMixin:
@@ -399,7 +399,7 @@ class AsyncIntrospectionMixin:
 
     # ========== Query Formatting ==========
 
-    def format_database_info_query(self, expr: "DatabaseInfoExpression") -> Tuple[str, tuple]:
+    def format_database_info_query_statement(self, expr: "DatabaseInfoQueryStatement") -> Tuple[str, tuple]:
         """
         Format database information query.
 
@@ -414,9 +414,9 @@ class AsyncIntrospectionMixin:
         """
         if not self.supports_database_info():
             raise UnsupportedFeatureError(self.name, "database info query")
-        raise NotImplementedError("Subclass must implement format_database_info_query")
+        raise NotImplementedError("Subclass must implement format_database_info_query_statement")
 
-    def format_table_list_query(self, expr: "TableListExpression") -> Tuple[str, tuple]:
+    def format_table_list_query_statement(self, expr: "TableListQueryStatement") -> Tuple[str, tuple]:
         """
         Format table list query.
 
@@ -431,9 +431,9 @@ class AsyncIntrospectionMixin:
         """
         if not self.supports_table_introspection():
             raise UnsupportedFeatureError(self.name, "table introspection")
-        raise NotImplementedError("Subclass must implement format_table_list_query")
+        raise NotImplementedError("Subclass must implement format_table_list_query_statement")
 
-    def format_table_info_query(self, expr: "TableInfoExpression") -> Tuple[str, tuple]:
+    def format_table_info_query_statement(self, expr: "TableInfoQueryStatement") -> Tuple[str, tuple]:
         """
         Format single table information query.
 
@@ -448,9 +448,9 @@ class AsyncIntrospectionMixin:
         """
         if not self.supports_table_introspection():
             raise UnsupportedFeatureError(self.name, "table introspection")
-        raise NotImplementedError("Subclass must implement format_table_info_query")
+        raise NotImplementedError("Subclass must implement format_table_info_query_statement")
 
-    def format_column_info_query(self, expr: "ColumnInfoExpression") -> Tuple[str, tuple]:
+    def format_column_info_query_statement(self, expr: "ColumnInfoQueryStatement") -> Tuple[str, tuple]:
         """
         Format column information query.
 
@@ -465,9 +465,9 @@ class AsyncIntrospectionMixin:
         """
         if not self.supports_column_introspection():
             raise UnsupportedFeatureError(self.name, "column introspection")
-        raise NotImplementedError("Subclass must implement format_column_info_query")
+        raise NotImplementedError("Subclass must implement format_column_info_query_statement")
 
-    def format_index_info_query(self, expr: "IndexInfoExpression") -> Tuple[str, tuple]:
+    def format_index_info_query_statement(self, expr: "IndexInfoQueryStatement") -> Tuple[str, tuple]:
         """
         Format index information query.
 
@@ -482,9 +482,9 @@ class AsyncIntrospectionMixin:
         """
         if not self.supports_index_introspection():
             raise UnsupportedFeatureError(self.name, "index introspection")
-        raise NotImplementedError("Subclass must implement format_index_info_query")
+        raise NotImplementedError("Subclass must implement format_index_info_query_statement")
 
-    def format_foreign_key_query(self, expr: "ForeignKeyExpression") -> Tuple[str, tuple]:
+    def format_foreign_key_query_statement(self, expr: "ForeignKeyQueryStatement") -> Tuple[str, tuple]:
         """
         Format foreign key information query.
 
@@ -499,9 +499,9 @@ class AsyncIntrospectionMixin:
         """
         if not self.supports_foreign_key_introspection():
             raise UnsupportedFeatureError(self.name, "foreign key introspection")
-        raise NotImplementedError("Subclass must implement format_foreign_key_query")
+        raise NotImplementedError("Subclass must implement format_foreign_key_query_statement")
 
-    def format_view_list_query(self, expr: "ViewListExpression") -> Tuple[str, tuple]:
+    def format_view_list_query_statement(self, expr: "ViewListQueryStatement") -> Tuple[str, tuple]:
         """
         Format view list query.
 
@@ -516,9 +516,9 @@ class AsyncIntrospectionMixin:
         """
         if not self.supports_view_introspection():
             raise UnsupportedFeatureError(self.name, "view introspection")
-        raise NotImplementedError("Subclass must implement format_view_list_query")
+        raise NotImplementedError("Subclass must implement format_view_list_query_statement")
 
-    def format_view_info_query(self, expr: "ViewInfoExpression") -> Tuple[str, tuple]:
+    def format_view_info_query_statement(self, expr: "ViewInfoQueryStatement") -> Tuple[str, tuple]:
         """
         Format single view information query.
 
@@ -533,9 +533,9 @@ class AsyncIntrospectionMixin:
         """
         if not self.supports_view_introspection():
             raise UnsupportedFeatureError(self.name, "view introspection")
-        raise NotImplementedError("Subclass must implement format_view_info_query")
+        raise NotImplementedError("Subclass must implement format_view_info_query_statement")
 
-    def format_trigger_list_query(self, expr: "TriggerListExpression") -> Tuple[str, tuple]:
+    def format_trigger_list_query_statement(self, expr: "TriggerListQueryStatement") -> Tuple[str, tuple]:
         """
         Format trigger list query.
 
@@ -550,9 +550,9 @@ class AsyncIntrospectionMixin:
         """
         if not self.supports_trigger_introspection():
             raise UnsupportedFeatureError(self.name, "trigger introspection")
-        raise NotImplementedError("Subclass must implement format_trigger_list_query")
+        raise NotImplementedError("Subclass must implement format_trigger_list_query_statement")
 
-    def format_trigger_info_query(self, expr: "TriggerInfoExpression") -> Tuple[str, tuple]:
+    def format_trigger_info_query_statement(self, expr: "TriggerInfoQueryStatement") -> Tuple[str, tuple]:
         """
         Format single trigger information query.
 
@@ -567,4 +567,4 @@ class AsyncIntrospectionMixin:
         """
         if not self.supports_trigger_introspection():
             raise UnsupportedFeatureError(self.name, "trigger introspection")
-        raise NotImplementedError("Subclass must implement format_trigger_info_query")
+        raise NotImplementedError("Subclass must implement format_trigger_info_query_statement")

@@ -30,7 +30,6 @@ class UnnestFunction(
     different question from ``ARRAY_LENGTH``.
     """
 
-    kind_name = "unnest_function"
 
     def __init__(self, dialect: "SQLDialectBase", target):
         from ..core import Literal
@@ -60,7 +59,6 @@ class ArrayLengthFunction(
     is ``None`` when not asked for and the formatter drops it.
     """
 
-    kind_name = "array_length_function"
 
     def __init__(self, dialect: "SQLDialectBase", target, dimension=None):
         from .. import values

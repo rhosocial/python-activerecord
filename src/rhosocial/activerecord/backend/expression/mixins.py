@@ -45,9 +45,9 @@ if TYPE_CHECKING:  # pragma: no cover
     from .core import CastExpression, FunctionCall, Literal
     from .datetime import (
         DatePartExpression,
-        DateTimeAddExpression,
-        DateTimeDiffExpression,
-        DateTimeSubtractExpression,
+        DatetimeAddExpression,
+        DatetimeDiffExpression,
+        DatetimeSubtractExpression,
         DateTruncExpression,
         ExtractExpression,
     )
@@ -1999,27 +1999,27 @@ class DateTimeMixin:
 
         return self._temporal_node(DateTruncExpression, field, self)
 
-    def date_add(self, value, unit: Optional[str] = None) -> "DateTimeAddExpression":
+    def date_add(self, value, unit: Optional[str] = None) -> "DatetimeAddExpression":
         """Add an interval, e.g. ``col.date_add(7, "day")``."""
-        from .datetime import DateTimeAddExpression
+        from .datetime import DatetimeAddExpression
 
         return self._temporal_node(
-            DateTimeAddExpression, self, _as_interval(self._dialect, value, unit)
+            DatetimeAddExpression, self, _as_interval(self._dialect, value, unit)
         )
 
-    def date_sub(self, value, unit: Optional[str] = None) -> "DateTimeSubtractExpression":
+    def date_sub(self, value, unit: Optional[str] = None) -> "DatetimeSubtractExpression":
         """Subtract an interval, e.g. ``col.date_sub(1, "month")``."""
-        from .datetime import DateTimeSubtractExpression
+        from .datetime import DatetimeSubtractExpression
 
         return self._temporal_node(
-            DateTimeSubtractExpression, self, _as_interval(self._dialect, value, unit)
+            DatetimeSubtractExpression, self, _as_interval(self._dialect, value, unit)
         )
 
-    def date_diff(self, unit: str, end) -> "DateTimeDiffExpression":
+    def date_diff(self, unit: str, end) -> "DatetimeDiffExpression":
         """Difference between this value and *end*, expressed in *unit*."""
-        from .datetime import DateTimeDiffExpression
+        from .datetime import DatetimeDiffExpression
 
-        return self._temporal_node(DateTimeDiffExpression, unit, self, end)
+        return self._temporal_node(DatetimeDiffExpression, unit, self, end)
 
 
 def _as_interval(dialect, value, unit: Optional[str]):

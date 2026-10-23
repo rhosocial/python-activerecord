@@ -1061,7 +1061,7 @@ class DDLColumnMixin:
             parts.append(enforcement)
         return " ".join(parts), tuple(branch_params)
 
-    def format_storage_options(self, expr: "StorageOptionsExpression") -> Tuple[str, tuple]:
+    def format_storage_options_expression(self, expr: "StorageOptionsExpression") -> Tuple[str, tuple]:
         """Format a ``WITH (...)`` storage-options clause.
 
         Each option value is rendered as an inline SQL literal via

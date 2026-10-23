@@ -225,7 +225,7 @@ class TestDialectVirtualTableFormatting:
         assert "CREATE VIRTUAL TABLE" in sql
         assert "geopoly" in sql
 
-        sql, params = d.format_geopoly_contains_query(
+        sql, params = d.format_geopoly_contains_expression(
             SQLiteGeopolyContainsExpression(d, table=Table(d, "zones"), longitude=1.0, latitude=2.0)
         )
         assert "geopoly_contains_point" in sql

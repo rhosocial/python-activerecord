@@ -19,7 +19,7 @@ from rhosocial.activerecord.backend.impl.sqlite.expression.attach import (
     SQLiteDetachStatement,
 )
 from rhosocial.activerecord.backend.expression.serialization import serialize, deserialize
-from rhosocial.activerecord.backend.expression.introspection import TableListExpression
+from rhosocial.activerecord.backend.expression.introspection import TableListQueryStatement
 from rhosocial.activerecord.backend.expression.objects import Index, Table
 
 
@@ -97,22 +97,22 @@ class TestSQLiteIntrospectionExpressionSerialization:
     """SQLite introspection expression serialization tests."""
 
     def test_table_list_expression_roundtrip(self, sqlite_dialect):
-        """Test TableListExpression round-trip."""
-        expr = TableListExpression(sqlite_dialect, schema="main", include_views=True)
+        """Test TableListQueryStatement round-trip."""
+        expr = TableListQueryStatement(sqlite_dialect, schema="main", include_views=True)
         spec = serialize(expr)
         restored = deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_table_list_expression_default_params(self, sqlite_dialect):
         """
-        Test TableListExpression with default parameters.
+        Test TableListQueryStatement with default parameters.
 
         The generic introspection-based get_params() returns every declared
         __init__ parameter (including schema=None) for round-trip
         completeness. This test verifies that serialization preserves the
         full parameter set and the round-trip is lossless.
         """
-        expr = TableListExpression(sqlite_dialect)
+        expr = TableListQueryStatement(sqlite_dialect)
         spec = serialize(expr)
         assert "schema" in spec["params"]
         assert spec["params"]["schema"] is None

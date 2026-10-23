@@ -149,7 +149,7 @@ class TreeNodeExpression(BaseExpression):
 内省节点把构造函数与 fluent setter 结合在一起，而这两者过去想要同一个名字。现在不想要了——因为参数必须能按自己的名字被读到，工件才谈得上可重建：
 
 ```python
-class TableListExpression(IntrospectionExpression):
+class TableListQueryStatement(IntrospectionExpression):
     def __init__(self, dialect, schema=None, include_views=True, include_system=False, table_type=None):
         super().__init__(dialect, schema)
         self.include_views = include_views   # 参数自己的名字

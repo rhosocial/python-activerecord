@@ -25,7 +25,6 @@ class JSONBuildObjectFunction(
     a backend whose spelling reorders them has to see the order the caller gave.
     """
 
-    kind_name = "json_build_object_function"
 
     def __init__(self, dialect: "SQLDialectBase", *pairs):
 
@@ -51,7 +50,6 @@ class JSONArrayElementsFunction(
     combining them, which is why a FROM source is where it belongs.
     """
 
-    kind_name = "json_array_elements_function"
 
     def __init__(self, dialect: "SQLDialectBase", target):
         from ..core import Literal
@@ -84,7 +82,6 @@ class JSONObjectAggregateFunction(
     key, which is the only reading that has one.
     """
 
-    kind_name = "json_objectagg_function"
 
     def __init__(self, dialect: "SQLDialectBase", operand, entry_value):
         from ..core import Literal
@@ -119,7 +116,6 @@ class JSONArrayAggregateFunction(
     reading a type off the operand.
     """
 
-    kind_name = "json_arrayagg_function"
 
     @property
     def format_method(self) -> str:

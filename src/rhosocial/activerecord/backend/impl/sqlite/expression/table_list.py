@@ -3,21 +3,21 @@
 SQLite-specific table list expression.
 
 This module provides SQLiteTableListExpression which extends the base
-TableListExpression with SQLite-specific parameters.
+TableListQueryStatement with SQLite-specific parameters.
 """
 
 from typing import Optional, TYPE_CHECKING
 
-from ....expression.introspection import TableListExpression
+from ....expression.introspection import TableListQueryStatement
 
 if TYPE_CHECKING:
     from ....dialect import SQLDialectBase
 
 
-class SQLiteTableListExpression(TableListExpression):
+class SQLiteTableListExpression(TableListQueryStatement):
     """SQLite table list expression.
 
-    Extends TableListExpression with SQLite-specific parameters.
+    Extends TableListQueryStatement with SQLite-specific parameters.
 
     Args:
         dialect: The SQL dialect to use for SQL generation.

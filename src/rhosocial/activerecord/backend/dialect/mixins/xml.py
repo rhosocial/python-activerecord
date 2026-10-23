@@ -38,7 +38,7 @@ class SQLXMLParsingMixin:
         """
         return False
 
-    def format_xmlparse_expression(
+    def format_xml_parse_expression(
         self,
         expr: "XMLParseExpression",
     ) -> Tuple[str, tuple]:
@@ -73,7 +73,7 @@ class SQLXMLSerializationMixin:
         """
         return False
 
-    def format_xmlserialize_expression(
+    def format_xml_serialize_expression(
         self,
         expr: "XMLSerializeExpression",
     ) -> Tuple[str, tuple]:
@@ -174,7 +174,7 @@ class SQLXMLConstructionMixin:
             raise ValueError(f"Invalid SQL/XML name: {name}")
         return name
 
-    def format_xmlattributes_expression(
+    def format_xml_attributes_expression(
         self,
         expr: "XMLAttributesExpression",
     ) -> Tuple[str, tuple]:
@@ -202,7 +202,7 @@ class SQLXMLConstructionMixin:
             all_params.extend(value_params)
         return f"XMLATTRIBUTES({', '.join(parts)})", tuple(all_params)
 
-    def format_xmlelement_expression(
+    def format_xml_element_expression(
         self,
         expr: "XMLElementExpression",
     ) -> Tuple[str, tuple]:
@@ -232,7 +232,7 @@ class SQLXMLConstructionMixin:
             all_params.extend(item_params)
         return f"XMLELEMENT({', '.join(parts)})", tuple(all_params)
 
-    def format_xmlforest_expression(
+    def format_xml_forest_expression(
         self,
         expr: "XMLForestExpression",
     ) -> Tuple[str, tuple]:
@@ -260,7 +260,7 @@ class SQLXMLConstructionMixin:
             all_params.extend(value_params)
         return f"XMLFOREST({', '.join(parts)})", tuple(all_params)
 
-    def format_xmlconcat_expression(
+    def format_xml_concat_expression(
         self,
         expr: "XMLConcatExpression",
     ) -> Tuple[str, tuple]:
@@ -285,7 +285,7 @@ class SQLXMLConstructionMixin:
             all_params.extend(part_params)
         return f"XMLCONCAT({', '.join(parts)})", tuple(all_params)
 
-    def format_xmlcomment_expression(
+    def format_xml_comment_expression(
         self,
         expr: "XMLCommentExpression",
     ) -> Tuple[str, tuple]:
@@ -325,7 +325,7 @@ class SQLXMLConstructionMixin:
         content_sql, params = expr.content.to_sql()
         return f"{sql}, {content_sql})", params
 
-    def format_xmlroot_expression(
+    def format_xml_root_expression(
         self,
         expr: "XMLRootExpression",
     ) -> Tuple[str, tuple]:
@@ -365,7 +365,7 @@ class SQLXMLAggregationMixin:
         """
         return False
 
-    def format_xmlagg_expression(self, expr: "XMLAggExpression") -> Tuple[str, tuple]:
+    def format_xml_agg_expression(self, expr: "XMLAggExpression") -> Tuple[str, tuple]:
         """Format a SQL/XML XMLAGG expression.
 
         Args:
@@ -445,7 +445,7 @@ class SQLXMLQueryingMixin:
             prefix += f" {clause.mechanism.value}"
         return f"{prefix} {', '.join(parts)}", tuple(all_params)
 
-    def format_xmlquery_expression(
+    def format_xml_query_expression(
         self,
         expr: "XMLQueryExpression",
     ) -> Tuple[str, tuple]:
@@ -504,7 +504,7 @@ class SQLXMLQueryingMixin:
                 all_params.extend(passing_params)
         return f"XMLEXISTS({' '.join(parts)})", tuple(all_params)
 
-    def format_xmltable_expression(
+    def format_xml_table_expression(
         self,
         expr: "XMLTableExpression",
     ) -> Tuple[str, tuple]:

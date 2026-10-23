@@ -162,7 +162,7 @@ to want the same names. They no longer do, because a parameter has to be
 readable by its own name for an artifact to be rebuildable at all:
 
 ```python
-class TableListExpression(IntrospectionExpression):
+class TableListQueryStatement(IntrospectionExpression):
     def __init__(self, dialect, schema=None, include_views=True, include_system=False, table_type=None):
         super().__init__(dialect, schema)
         self.include_views = include_views   # the parameter's own name

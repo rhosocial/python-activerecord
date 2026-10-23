@@ -28,7 +28,7 @@ class CommentOnMixin:
         """
         return False
 
-    def format_comment_statement(
+    def format_comment_on_statement(
         self, expr: "CommentOnStatement"
     ) -> Tuple[str, tuple]:
         """Format a standalone ``COMMENT ON <object> IS '<text>'`` statement.

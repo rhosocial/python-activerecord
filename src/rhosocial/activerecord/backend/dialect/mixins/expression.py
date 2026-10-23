@@ -180,7 +180,7 @@ class ExpressionMixin(FunctionCallMixin):
             return f"{expr.op}({', '.join(formatted_operands_sql)})", tuple(params)
         return f"{expr.op}()", tuple(params)
 
-    def format_binary_operator(self, expr: BinaryExpression) -> Tuple[str, tuple]:
+    def format_binary_expression(self, expr: BinaryExpression) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.operators.BinaryExpression`.
 
         Args:
@@ -260,7 +260,7 @@ class ExpressionMixin(FunctionCallMixin):
         declared = self.STRING_CONCATENATION
         return declared if isinstance(declared, str) else None
 
-    def format_unary_operator(self, expr: UnaryExpression) -> Tuple[str, tuple]:
+    def format_unary_expression(self, expr: UnaryExpression) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.operators.UnaryExpression`.
 
         Args:

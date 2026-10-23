@@ -76,8 +76,8 @@ class _MathFunction(
         """The dialect formatting method that renders this expression.
 
         Abstract so the shared bases are not mistaken for nodes: each subclass
-        names the formatter for its own kind, and a base that guessed from a
-        blank ``kind_name`` would name a formatter that does not exist.
+        names the formatter for its own kind, and a base that guessed from its
+        own name would name a formatter that does not exist.
         """
         raise NotImplementedError
 
@@ -109,7 +109,6 @@ class AbsoluteFunction(_FamilyPreservingMathFunction):
     result type follows the operand rather than the function.
     """
 
-    kind_name = "absolute_function"
     function_name = "ABS"
 
     @property
@@ -138,7 +137,6 @@ class RoundFunction(_FamilyPreservingMathFunction):
     a backend that says so.
     """
 
-    kind_name = "round_function"
     function_name = "ROUND"
 
     @property
@@ -163,7 +161,6 @@ class RoundIntegerFunction(
 class CeilFunction(_FamilyPreservingMathFunction):
     """``CEIL(operand)`` -- the smallest whole number not below it."""
 
-    kind_name = "ceil_function"
     function_name = "CEIL"
 
     @property
@@ -188,7 +185,6 @@ class CeilIntegerFunction(
 class FloorFunction(_FamilyPreservingMathFunction):
     """``FLOOR(operand)`` -- the largest whole number not above it."""
 
-    kind_name = "floor_function"
     function_name = "FLOOR"
 
     @property
@@ -219,7 +215,6 @@ class TruncateFunction(_FamilyPreservingMathFunction):
     formatter rather than pretending they agree.
     """
 
-    kind_name = "truncate_function"
     function_name = "TRUNCATE"
 
     @property
@@ -248,7 +243,6 @@ class SquareRootFunction(_MathFunction):
     not said the answer is whole, and widening is the safe direction.
     """
 
-    kind_name = "square_root_function"
     function_name = "SQRT"
 
     @property
@@ -264,7 +258,6 @@ class PowerFunction(_MathFunction):
     with the algebraic operations rather than the transcendental ones.
     """
 
-    kind_name = "power_function"
     function_name = "POWER"
 
     @property
@@ -276,7 +269,6 @@ class PowerFunction(_MathFunction):
 class ExponentialFunction(_MathFunction):
     """``EXP(operand)`` -- e raised to the operand."""
 
-    kind_name = "exponential_function"
     function_name = "EXP"
 
     @property
@@ -293,7 +285,6 @@ class LogarithmFunction(_MathFunction):
     list in its formatter.
     """
 
-    kind_name = "logarithm_function"
     function_name = "LOG"
 
     @property
@@ -305,7 +296,6 @@ class LogarithmFunction(_MathFunction):
 class SineFunction(_MathFunction):
     """``SIN(operand)`` -- the sine, in radians."""
 
-    kind_name = "sine_function"
     function_name = "SIN"
 
     @property
@@ -317,7 +307,6 @@ class SineFunction(_MathFunction):
 class CosineFunction(_MathFunction):
     """``COS(operand)`` -- the cosine, in radians."""
 
-    kind_name = "cosine_function"
     function_name = "COS"
 
     @property
@@ -329,7 +318,6 @@ class CosineFunction(_MathFunction):
 class TangentFunction(_MathFunction):
     """``TAN(operand)`` -- the tangent, in radians."""
 
-    kind_name = "tangent_function"
     function_name = "TAN"
 
     @property
@@ -345,7 +333,6 @@ class ModuloFunction(_MathFunction):
     operands keep their own families rather than being widened here.
     """
 
-    kind_name = "modulo_function"
     function_name = "MOD"
 
     @property
@@ -361,7 +348,6 @@ class SignFunction(_MathFunction):
     whose result does not follow its operand's family.
     """
 
-    kind_name = "sign_function"
     function_name = "SIGN"
 
     @property

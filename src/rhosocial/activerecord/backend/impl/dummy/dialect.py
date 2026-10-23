@@ -1756,11 +1756,11 @@ class DummyDialect(
 
         return " ".join(parts), ()
 
-    def format_commit_transaction_statement(self, expr: "CommitStatement") -> Tuple[str, tuple]:
+    def format_commit_statement(self, expr: "CommitStatement") -> Tuple[str, tuple]:
         """Format COMMIT TRANSACTION statement for dummy dialect."""
         return "COMMIT", ()
 
-    def format_rollback_transaction_statement(self, expr: "RollbackStatement") -> Tuple[str, tuple]:
+    def format_rollback_statement(self, expr: "RollbackStatement") -> Tuple[str, tuple]:
         """Format ROLLBACK TRANSACTION statement for dummy dialect."""
         params = expr.get_params()
         savepoint = params.get("savepoint")
@@ -1780,7 +1780,7 @@ class DummyDialect(
         name = params.get("name", "")
         return f"RELEASE SAVEPOINT {self.format_identifier(name)}", ()
 
-    def format_set_transaction(self, expr: "SetTransactionStatement") -> Tuple[str, tuple]:
+    def format_set_transaction_statement(self, expr: "SetTransactionStatement") -> Tuple[str, tuple]:
         """Format SET TRANSACTION statement for dummy dialect."""
         params = expr.get_params()
         parts = []

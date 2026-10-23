@@ -50,7 +50,7 @@ class UUIDSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_uuid_generation(self, expr: "UUIDGenerationExpression") -> Tuple[str, Tuple]:
+    def format_uuid_generation_expression(self, expr: "UUIDGenerationExpression") -> Tuple[str, Tuple]:
         """Render a fresh-UUID expression.
 
         Args:
@@ -61,7 +61,7 @@ class UUIDSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_uuid_constant(self, expr: "UUIDConstantExpression") -> Tuple[str, Tuple]:
+    def format_uuid_constant_expression(self, expr: "UUIDConstantExpression") -> Tuple[str, Tuple]:
         """Render the nil or max UUID constant.
 
         Args:

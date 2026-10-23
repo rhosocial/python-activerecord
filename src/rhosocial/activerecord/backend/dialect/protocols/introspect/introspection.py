@@ -11,16 +11,16 @@ from typing import List, Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 if TYPE_CHECKING:  # pragma: no cover
     from ...mixins.introspection import IntrospectionScope
     from ....expression.introspection import (
-        ColumnInfoExpression,
-        DatabaseInfoExpression,
-        ForeignKeyExpression,
-        IndexInfoExpression,
-        TableInfoExpression,
-        TableListExpression,
-        TriggerInfoExpression,
-        TriggerListExpression,
-        ViewInfoExpression,
-        ViewListExpression,
+        ColumnInfoQueryStatement,
+        DatabaseInfoQueryStatement,
+        ForeignKeyQueryStatement,
+        IndexInfoQueryStatement,
+        TableInfoQueryStatement,
+        TableListQueryStatement,
+        TriggerInfoQueryStatement,
+        TriggerListQueryStatement,
+        ViewInfoQueryStatement,
+        ViewListQueryStatement,
     )
 
 
@@ -125,7 +125,7 @@ class IntrospectionSupport(Protocol):
 
     # ========== Query Formatting ==========
 
-    def format_database_info_query(self, expr: "DatabaseInfoExpression") -> Tuple[str, tuple]:
+    def format_database_info_query_statement(self, expr: "DatabaseInfoQueryStatement") -> Tuple[str, tuple]:
         """
         Format database information query.
 
@@ -137,7 +137,7 @@ class IntrospectionSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_table_list_query(self, expr: "TableListExpression") -> Tuple[str, tuple]:
+    def format_table_list_query_statement(self, expr: "TableListQueryStatement") -> Tuple[str, tuple]:
         """
         Format table list query.
 
@@ -149,7 +149,7 @@ class IntrospectionSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_table_info_query(self, expr: "TableInfoExpression") -> Tuple[str, tuple]:
+    def format_table_info_query_statement(self, expr: "TableInfoQueryStatement") -> Tuple[str, tuple]:
         """
         Format single table information query.
 
@@ -161,7 +161,7 @@ class IntrospectionSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_column_info_query(self, expr: "ColumnInfoExpression") -> Tuple[str, tuple]:
+    def format_column_info_query_statement(self, expr: "ColumnInfoQueryStatement") -> Tuple[str, tuple]:
         """
         Format column information query.
 
@@ -173,7 +173,7 @@ class IntrospectionSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_index_info_query(self, expr: "IndexInfoExpression") -> Tuple[str, tuple]:
+    def format_index_info_query_statement(self, expr: "IndexInfoQueryStatement") -> Tuple[str, tuple]:
         """
         Format index information query.
 
@@ -185,7 +185,7 @@ class IntrospectionSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_foreign_key_query(self, expr: "ForeignKeyExpression") -> Tuple[str, tuple]:
+    def format_foreign_key_query_statement(self, expr: "ForeignKeyQueryStatement") -> Tuple[str, tuple]:
         """
         Format foreign key information query.
 
@@ -197,7 +197,7 @@ class IntrospectionSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_view_list_query(self, expr: "ViewListExpression") -> Tuple[str, tuple]:
+    def format_view_list_query_statement(self, expr: "ViewListQueryStatement") -> Tuple[str, tuple]:
         """
         Format view list query.
 
@@ -209,7 +209,7 @@ class IntrospectionSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_view_info_query(self, expr: "ViewInfoExpression") -> Tuple[str, tuple]:
+    def format_view_info_query_statement(self, expr: "ViewInfoQueryStatement") -> Tuple[str, tuple]:
         """
         Format single view information query.
 
@@ -221,7 +221,7 @@ class IntrospectionSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_trigger_list_query(self, expr: "TriggerListExpression") -> Tuple[str, tuple]:
+    def format_trigger_list_query_statement(self, expr: "TriggerListQueryStatement") -> Tuple[str, tuple]:
         """
         Format trigger list query.
 
@@ -233,7 +233,7 @@ class IntrospectionSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_trigger_info_query(self, expr: "TriggerInfoExpression") -> Tuple[str, tuple]:
+    def format_trigger_info_query_statement(self, expr: "TriggerInfoQueryStatement") -> Tuple[str, tuple]:
         """
         Format single trigger information query.
 

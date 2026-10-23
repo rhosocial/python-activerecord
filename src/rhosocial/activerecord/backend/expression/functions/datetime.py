@@ -15,9 +15,9 @@ from ..datetime import (
     LocalTimestampFunction,
     NowFunction,
     DatePartExpression,
-    DateTimeAddExpression,
-    DateTimeDiffExpression,
-    DateTimeSubtractExpression,
+    DatetimeAddExpression,
+    DatetimeDiffExpression,
+    DatetimeSubtractExpression,
     DateTruncExpression,
     ExtractExpression,
     IntervalExpression,
@@ -287,11 +287,11 @@ def date_add(
     expr: "BaseExpression",
     value_or_interval: Union[int, float, "IntervalExpression"],
     unit: Optional[str] = None,
-) -> "DateTimeAddExpression":
+) -> "DatetimeAddExpression":
     """Creates an expression that adds an interval to a datetime expression."""
     target_expr = expr
     interval_expr = _ensure_interval(dialect, value_or_interval, unit)
-    return DateTimeAddExpression(dialect, target_expr, interval_expr)
+    return DatetimeAddExpression(dialect, target_expr, interval_expr)
 
 
 def date_sub(
@@ -299,11 +299,11 @@ def date_sub(
     expr: "BaseExpression",
     value_or_interval: Union[int, float, "IntervalExpression"],
     unit: Optional[str] = None,
-) -> "DateTimeSubtractExpression":
+) -> "DatetimeSubtractExpression":
     """Creates an expression that subtracts an interval from a datetime expression."""
     target_expr = expr
     interval_expr = _ensure_interval(dialect, value_or_interval, unit)
-    return DateTimeSubtractExpression(dialect, target_expr, interval_expr)
+    return DatetimeSubtractExpression(dialect, target_expr, interval_expr)
 
 
 def date_diff(
@@ -311,8 +311,8 @@ def date_diff(
     unit: str,
     start_expr: "BaseExpression",
     end_expr: "BaseExpression",
-) -> "DateTimeDiffExpression":
+) -> "DatetimeDiffExpression":
     """Creates an expression for the difference between two datetime expressions."""
     start = start_expr if isinstance(start_expr, BaseExpression) else Column(dialect, start_expr)
     end = end_expr if isinstance(end_expr, BaseExpression) else Column(dialect, end_expr)
-    return DateTimeDiffExpression(dialect, unit, start, end)
+    return DatetimeDiffExpression(dialect, unit, start, end)

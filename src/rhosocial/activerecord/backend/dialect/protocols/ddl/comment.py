@@ -29,7 +29,7 @@ class CommentSupport(Protocol):
         """Whether standalone ``COMMENT ON`` statements are supported."""
         ...  # pragma: no cover
 
-    def format_comment_statement(self, expr: "CommentOnStatement") -> Tuple[str, tuple]:
+    def format_comment_on_statement(self, expr: "CommentOnStatement") -> Tuple[str, tuple]:
         """Render a standalone ``COMMENT ON <object> IS '<text>'`` statement."""
         ...  # pragma: no cover
 

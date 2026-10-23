@@ -3,21 +3,21 @@
 SQLite-specific column info expression.
 
 This module provides SQLiteColumnInfoExpression which extends the base
-ColumnInfoExpression with SQLite-specific parameters.
+ColumnInfoQueryStatement with SQLite-specific parameters.
 """
 
 from typing import Optional, TYPE_CHECKING
 
-from ....expression.introspection import ColumnInfoExpression
+from ....expression.introspection import ColumnInfoQueryStatement
 
 if TYPE_CHECKING:
     from ....dialect import SQLDialectBase
 
 
-class SQLiteColumnInfoExpression(ColumnInfoExpression):
+class SQLiteColumnInfoExpression(ColumnInfoQueryStatement):
     """SQLite column information expression.
 
-    Extends ColumnInfoExpression with SQLite-specific parameters.
+    Extends ColumnInfoQueryStatement with SQLite-specific parameters.
 
     Args:
         dialect: The SQL dialect to use for SQL generation.

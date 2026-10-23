@@ -370,7 +370,7 @@ ow() + INTERVAL '1 day'`` is a
         return "format_interval_expression"
 
 
-class DateTimeAddExpression(
+class DatetimeAddExpression(
     _TemporalValue,
     DeclaredValueType,
     TemporalValue,
@@ -401,14 +401,14 @@ ow().date_add(1, "day").date_trunc("day")`` chain.
         return "format_datetime_add_expression"
 
 
-class DateTimeSubtractExpression(
+class DatetimeSubtractExpression(
     _TemporalValue,
     DeclaredValueType,
     TemporalValue,
 ):
     """Subtracting an interval from a timestamp gives a timestamp.
 
-    The mirror of :class:`DateTimeAddExpression`, and the same answer: going back
+    The mirror of :class:`DatetimeAddExpression`, and the same answer: going back
     in time leaves you at a point in time.
     """
 
@@ -430,7 +430,7 @@ class DateTimeSubtractExpression(
         return "format_datetime_subtract_expression"
 
 
-class DateTimeDiffExpression(
+class DatetimeDiffExpression(
     _TemporalValue,
     DeclaredValueType,
     NumericValue,
@@ -615,4 +615,4 @@ class TemporalOptionsExpression(BaseExpression):
 
     @property
     def format_method(self) -> str:
-        return "format_temporal_options"
+        return "format_temporal_options_expression"

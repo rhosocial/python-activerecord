@@ -62,7 +62,6 @@ class ToCharFunction(
     mask. So it is ``None`` rather than an empty string when not given.
     """
 
-    kind_name = "to_char_function"
 
     def __init__(self, dialect: "SQLDialectBase", target, format=None):
         # BaseExpression directly, not super(): NumericValue is a *wrapper*.
@@ -88,7 +87,6 @@ class ToNumberFunction(
     double is answering a different question and says so in its formatter.
     """
 
-    kind_name = "to_number_function"
 
     def __init__(self, dialect: "SQLDialectBase", target, format=None):
         # BaseExpression directly, not super(): NumericValue is a *wrapper*.
@@ -119,7 +117,6 @@ class ToDateFunction(
     being the same day.
     """
 
-    kind_name = "to_date_function"
 
     def __init__(self, dialect: "SQLDialectBase", target, format=None):
         # BaseExpression directly, not super(): DateValue is a *wrapper* whose

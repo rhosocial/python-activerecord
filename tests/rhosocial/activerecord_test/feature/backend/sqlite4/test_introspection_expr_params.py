@@ -9,24 +9,24 @@ can be executed by SQLite.
 
 
 from rhosocial.activerecord.backend.expression.introspection import (
-    TableListExpression,
-    TableInfoExpression,
-    ColumnInfoExpression,
-    IndexInfoExpression,
-    ForeignKeyExpression,
-    ViewListExpression,
-    ViewInfoExpression,
-    TriggerListExpression,
-    TriggerInfoExpression,
+    TableListQueryStatement,
+    TableInfoQueryStatement,
+    ColumnInfoQueryStatement,
+    IndexInfoQueryStatement,
+    ForeignKeyQueryStatement,
+    ViewListQueryStatement,
+    ViewInfoQueryStatement,
+    TriggerListQueryStatement,
+    TriggerInfoQueryStatement,
 )
 
 
 class TestTableListExpressionExecution:
-    """Tests for TableListExpression execution with SQLite."""
+    """Tests for TableListQueryStatement execution with SQLite."""
 
     def test_constructor_params_execution(self, backend_with_tables):
-        """Test TableListExpression with constructor params can execute."""
-        expr = TableListExpression(
+        """Test TableListQueryStatement with constructor params can execute."""
+        expr = TableListQueryStatement(
             dialect=backend_with_tables.dialect, schema="main", include_views=True, include_system=False
         )
         sql, params = expr.to_sql()
@@ -36,16 +36,20 @@ class TestTableListExpressionExecution:
         assert result is not None
 
     def test_constructor_table_type_filter(self, backend_with_view):
-        """Test TableListExpression with table_type filter."""
-        expr = TableListExpression(dialect=backend_with_view.dialect, schema="main", table_type="table")
+        """Test TableListQueryStatement with table_type filter."""
+        expr = TableListQueryStatement(dialect=backend_with_view.dialect, schema="main", table_type="table")
         sql, params = expr.to_sql()
         result = backend_with_view.execute(sql, params)
         assert result is not None
 
     def test_fluent_vs_constructor_equivalence(self, backend_with_tables):
         """Test fluent API and constructor params produce same SQL."""
-        expr1 = TableListExpression(dialect=backend_with_tables.dialect, schema="main", include_views=False)
-        expr2 = TableListExpression(dialect=backend_with_tables.dialect).with_schema("main").with_include_views(False)
+        expr1 = TableListQueryStatement(dialect=backend_with_tables.dialect, schema="main", include_views=False)
+        expr2 = (
+            TableListQueryStatement(dialect=backend_with_tables.dialect)
+            .with_schema("main")
+            .with_include_views(False)
+        )
 
         sql1, params1 = expr1.to_sql()
         sql2, params2 = expr2.to_sql()
@@ -54,11 +58,11 @@ class TestTableListExpressionExecution:
 
 
 class TestTableInfoExpressionExecution:
-    """Tests for TableInfoExpression execution with SQLite."""
+    """Tests for TableInfoQueryStatement execution with SQLite."""
 
     def test_constructor_params_execution(self, backend_with_tables):
-        """Test TableInfoExpression with constructor params can execute."""
-        expr = TableInfoExpression(dialect=backend_with_tables.dialect, table_name="users", schema="main")
+        """Test TableInfoQueryStatement with constructor params can execute."""
+        expr = TableInfoQueryStatement(dialect=backend_with_tables.dialect, table_name="users", schema="main")
         sql, params = expr.to_sql()
         assert sql is not None
         result = backend_with_tables.execute(sql, params)
@@ -66,8 +70,8 @@ class TestTableInfoExpressionExecution:
 
     def test_fluent_vs_constructor_equivalence(self, backend_with_tables):
         """Test fluent API and constructor params produce same SQL."""
-        expr1 = TableInfoExpression(dialect=backend_with_tables.dialect, table_name="users", schema="main")
-        expr2 = TableInfoExpression(dialect=backend_with_tables.dialect, table_name="users").with_schema("main")
+        expr1 = TableInfoQueryStatement(dialect=backend_with_tables.dialect, table_name="users", schema="main")
+        expr2 = TableInfoQueryStatement(dialect=backend_with_tables.dialect, table_name="users").with_schema("main")
 
         sql1, params1 = expr1.to_sql()
         sql2, params2 = expr2.to_sql()
@@ -76,19 +80,19 @@ class TestTableInfoExpressionExecution:
 
 
 class TestColumnInfoExpressionExecution:
-    """Tests for ColumnInfoExpression execution with SQLite."""
+    """Tests for ColumnInfoQueryStatement execution with SQLite."""
 
     def test_constructor_params_execution(self, backend_with_tables):
-        """Test ColumnInfoExpression with constructor params can execute."""
-        expr = ColumnInfoExpression(dialect=backend_with_tables.dialect, table_name="users", schema="main")
+        """Test ColumnInfoQueryStatement with constructor params can execute."""
+        expr = ColumnInfoQueryStatement(dialect=backend_with_tables.dialect, table_name="users", schema="main")
         sql, params = expr.to_sql()
         assert sql is not None
         result = backend_with_tables.execute(sql, params)
         assert result is not None
 
     def test_include_hidden_param(self, backend_with_tables):
-        """Test ColumnInfoExpression with include_hidden parameter."""
-        expr = ColumnInfoExpression(
+        """Test ColumnInfoQueryStatement with include_hidden parameter."""
+        expr = ColumnInfoQueryStatement(
             dialect=backend_with_tables.dialect, table_name="users", schema="main", include_hidden=True
         )
         sql, params = expr.to_sql()
@@ -97,11 +101,11 @@ class TestColumnInfoExpressionExecution:
 
 
 class TestIndexInfoExpressionExecution:
-    """Tests for IndexInfoExpression execution with SQLite."""
+    """Tests for IndexInfoQueryStatement execution with SQLite."""
 
     def test_constructor_params_execution(self, backend_with_tables):
-        """Test IndexInfoExpression with constructor params can execute."""
-        expr = IndexInfoExpression(dialect=backend_with_tables.dialect, table_name="users", schema="main")
+        """Test IndexInfoQueryStatement with constructor params can execute."""
+        expr = IndexInfoQueryStatement(dialect=backend_with_tables.dialect, table_name="users", schema="main")
         sql, params = expr.to_sql()
         assert sql is not None
         result = backend_with_tables.execute(sql, params)
@@ -109,11 +113,11 @@ class TestIndexInfoExpressionExecution:
 
 
 class TestForeignKeyExpressionExecution:
-    """Tests for ForeignKeyExpression execution with SQLite."""
+    """Tests for ForeignKeyQueryStatement execution with SQLite."""
 
     def test_constructor_params_execution(self, backend_with_tables):
-        """Test ForeignKeyExpression with constructor params can execute."""
-        expr = ForeignKeyExpression(dialect=backend_with_tables.dialect, table_name="posts", schema="main")
+        """Test ForeignKeyQueryStatement with constructor params can execute."""
+        expr = ForeignKeyQueryStatement(dialect=backend_with_tables.dialect, table_name="posts", schema="main")
         sql, params = expr.to_sql()
         assert sql is not None
         result = backend_with_tables.execute(sql, params)
@@ -121,38 +125,38 @@ class TestForeignKeyExpressionExecution:
 
 
 class TestViewListExpressionExecution:
-    """Tests for ViewListExpression execution with SQLite."""
+    """Tests for ViewListQueryStatement execution with SQLite."""
 
     def test_constructor_params_execution(self, backend_with_view):
-        """Test ViewListExpression with constructor params can execute."""
-        expr = ViewListExpression(dialect=backend_with_view.dialect, schema="main", include_system=False)
+        """Test ViewListQueryStatement with constructor params can execute."""
+        expr = ViewListQueryStatement(dialect=backend_with_view.dialect, schema="main", include_system=False)
         sql, params = expr.to_sql()
         assert sql is not None
         result = backend_with_view.execute(sql, params)
         assert result is not None
 
     def test_include_system_param(self, sqlite_backend):
-        """Test ViewListExpression with include_system parameter."""
-        expr = ViewListExpression(dialect=sqlite_backend.dialect, schema="main", include_system=True)
+        """Test ViewListQueryStatement with include_system parameter."""
+        expr = ViewListQueryStatement(dialect=sqlite_backend.dialect, schema="main", include_system=True)
         sql, params = expr.to_sql()
         result = sqlite_backend.execute(sql, params)
         assert result is not None
 
 
 class TestViewInfoExpressionExecution:
-    """Tests for ViewInfoExpression execution with SQLite."""
+    """Tests for ViewInfoQueryStatement execution with SQLite."""
 
     def test_constructor_params_execution(self, backend_with_view):
-        """Test ViewInfoExpression with constructor params can execute."""
-        expr = ViewInfoExpression(dialect=backend_with_view.dialect, view_name="user_posts_summary", schema="main")
+        """Test ViewInfoQueryStatement with constructor params can execute."""
+        expr = ViewInfoQueryStatement(dialect=backend_with_view.dialect, view_name="user_posts_summary", schema="main")
         sql, params = expr.to_sql()
         assert sql is not None
         result = backend_with_view.execute(sql, params)
         assert result is not None
 
     def test_include_columns_param(self, backend_with_view):
-        """Test ViewInfoExpression with include_columns parameter."""
-        expr = ViewInfoExpression(
+        """Test ViewInfoQueryStatement with include_columns parameter."""
+        expr = ViewInfoQueryStatement(
             dialect=backend_with_view.dialect, view_name="user_posts_summary", schema="main", include_columns=True
         )
         sql, params = expr.to_sql()
@@ -161,30 +165,30 @@ class TestViewInfoExpressionExecution:
 
 
 class TestTriggerListExpressionExecution:
-    """Tests for TriggerListExpression execution with SQLite."""
+    """Tests for TriggerListQueryStatement execution with SQLite."""
 
     def test_constructor_params_execution(self, backend_with_trigger):
-        """Test TriggerListExpression with constructor params can execute."""
-        expr = TriggerListExpression(dialect=backend_with_trigger.dialect, schema="main")
+        """Test TriggerListQueryStatement with constructor params can execute."""
+        expr = TriggerListQueryStatement(dialect=backend_with_trigger.dialect, schema="main")
         sql, params = expr.to_sql()
         assert sql is not None
         result = backend_with_trigger.execute(sql, params)
         assert result is not None
 
     def test_table_name_filter(self, backend_with_trigger):
-        """Test TriggerListExpression with table_name filter."""
-        expr = TriggerListExpression(dialect=backend_with_trigger.dialect, schema="main", table_name="users")
+        """Test TriggerListQueryStatement with table_name filter."""
+        expr = TriggerListQueryStatement(dialect=backend_with_trigger.dialect, schema="main", table_name="users")
         sql, params = expr.to_sql()
         result = backend_with_trigger.execute(sql, params)
         assert result is not None
 
 
 class TestTriggerInfoExpressionExecution:
-    """Tests for TriggerInfoExpression execution with SQLite."""
+    """Tests for TriggerInfoQueryStatement execution with SQLite."""
 
     def test_constructor_params_execution(self, backend_with_trigger):
-        """Test TriggerInfoExpression with constructor params can execute."""
-        expr = TriggerInfoExpression(
+        """Test TriggerInfoQueryStatement with constructor params can execute."""
+        expr = TriggerInfoQueryStatement(
             dialect=backend_with_trigger.dialect, trigger_name="update_user_timestamp", schema="main"
         )
         sql, params = expr.to_sql()
@@ -193,8 +197,8 @@ class TestTriggerInfoExpressionExecution:
         assert result is not None
 
     def test_with_table_name(self, backend_with_trigger):
-        """Test TriggerInfoExpression with table_name parameter."""
-        expr = TriggerInfoExpression(
+        """Test TriggerInfoQueryStatement with table_name parameter."""
+        expr = TriggerInfoQueryStatement(
             dialect=backend_with_trigger.dialect,
             trigger_name="update_user_timestamp",
             schema="main",

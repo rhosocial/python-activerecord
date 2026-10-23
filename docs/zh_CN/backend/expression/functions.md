@@ -1390,24 +1390,24 @@ sql, params = interval.to_sql()
 
 ```python
 from rhosocial.activerecord.backend.expression.datetime import (
-    DateTimeAddExpression, DateTimeSubtractExpression, DateTimeDiffExpression,
+    DatetimeAddExpression, DatetimeSubtractExpression, DatetimeDiffExpression,
     IntervalExpression, IntervalUnit, DateTimeField
 )
 
 # 日期 + 间隔
-expr = DateTimeAddExpression(dialect,
+expr = DatetimeAddExpression(dialect,
     Column(dialect, "created_at"),
     IntervalExpression(dialect, 30, IntervalUnit.DAY))
 # sql: '"created_at" + INTERVAL ? DAY'
 # params: (30,)
 
 # 日期 - 间隔
-expr = DateTimeSubtractExpression(dialect,
+expr = DatetimeSubtractExpression(dialect,
     Column(dialect, "created_at"),
     IntervalExpression(dialect, 7, IntervalUnit.DAY))
 
 # 日期差值
-expr = DateTimeDiffExpression(dialect, DateTimeField.DAY,
+expr = DatetimeDiffExpression(dialect, DateTimeField.DAY,
     Column(dialect, "start_date"),
     Column(dialect, "end_date"))
 # sql: 'DATEDIFF(DAY, "start_date", "end_date")'

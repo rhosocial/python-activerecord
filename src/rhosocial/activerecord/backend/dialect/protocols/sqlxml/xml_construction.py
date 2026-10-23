@@ -52,23 +52,23 @@ class SQLXMLConstructionSupport(Protocol):
         """Whether SQL/XML XMLROOT is supported."""
         ...  # pragma: no cover
 
-    def format_xmlattributes_expression(self, expr: "XMLAttributesExpression") -> Tuple[str, tuple]:
+    def format_xml_attributes_expression(self, expr: "XMLAttributesExpression") -> Tuple[str, tuple]:
         """Format a SQL/XML XMLATTRIBUTES clause."""
         ...  # pragma: no cover
 
-    def format_xmlelement_expression(self, expr: "XMLElementExpression") -> Tuple[str, tuple]:
+    def format_xml_element_expression(self, expr: "XMLElementExpression") -> Tuple[str, tuple]:
         """Format a SQL/XML XMLELEMENT expression."""
         ...  # pragma: no cover
 
-    def format_xmlforest_expression(self, expr: "XMLForestExpression") -> Tuple[str, tuple]:
+    def format_xml_forest_expression(self, expr: "XMLForestExpression") -> Tuple[str, tuple]:
         """Format a SQL/XML XMLFOREST expression."""
         ...  # pragma: no cover
 
-    def format_xmlconcat_expression(self, expr: "XMLConcatExpression") -> Tuple[str, tuple]:
+    def format_xml_concat_expression(self, expr: "XMLConcatExpression") -> Tuple[str, tuple]:
         """Format a SQL/XML XMLCONCAT expression."""
         ...  # pragma: no cover
 
-    def format_xmlcomment_expression(self, expr: "XMLCommentExpression") -> Tuple[str, tuple]:
+    def format_xml_comment_expression(self, expr: "XMLCommentExpression") -> Tuple[str, tuple]:
         """Format a SQL/XML XMLCOMMENT expression."""
         ...  # pragma: no cover
 
@@ -76,6 +76,6 @@ class SQLXMLConstructionSupport(Protocol):
         """Format a SQL/XML XMLPI expression."""
         ...  # pragma: no cover
 
-    def format_xmlroot_expression(self, expr: "XMLRootExpression") -> Tuple[str, tuple]:
+    def format_xml_root_expression(self, expr: "XMLRootExpression") -> Tuple[str, tuple]:
         """Format a SQL/XML XMLROOT expression."""
         ...  # pragma: no cover

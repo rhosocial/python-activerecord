@@ -66,7 +66,7 @@ class CommentOnStatement(BaseExpression):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_comment_statement"
+        return "format_comment_on_statement"
 
     def __init__(
         self,

@@ -43,16 +43,16 @@ class TestSQLiteColumnInfoExpressionParams:
         assert params.get("use_xinfo_pragma") is False
 
     def test_include_hidden_triggers_xinfo_pragma(self):
-        """include_hidden=True on base ColumnInfoExpression should use table_xinfo."""
+        """include_hidden=True on base ColumnInfoQueryStatement should use table_xinfo."""
         dialect = SQLiteDialect(version=(3, 26, 0))
         from rhosocial.activerecord.backend.expression.introspection import (
-            ColumnInfoExpression,
+            ColumnInfoQueryStatement,
         )
 
-        expr_standard = ColumnInfoExpression(dialect=dialect, table_name="users", schema="main")
+        expr_standard = ColumnInfoQueryStatement(dialect=dialect, table_name="users", schema="main")
         sql_standard, _ = expr_standard.to_sql()
 
-        expr_hidden = ColumnInfoExpression(dialect=dialect, table_name="users", schema="main", include_hidden=True)
+        expr_hidden = ColumnInfoQueryStatement(dialect=dialect, table_name="users", schema="main", include_hidden=True)
         sql_hidden, _ = expr_hidden.to_sql()
 
         assert "table_info" in sql_standard and "table_xinfo" not in sql_standard
@@ -85,10 +85,10 @@ class TestSQLiteTableListExpressionParams:
         """PRAGMA table_list and sqlite_master queries produce different SQL."""
         dialect = SQLiteDialect(version=(3, 37, 0))
         from rhosocial.activerecord.backend.expression.introspection import (
-            TableListExpression,
+            TableListQueryStatement,
         )
 
-        expr_query = TableListExpression(dialect=dialect, schema="main")
+        expr_query = TableListQueryStatement(dialect=dialect, schema="main")
         sql_query, _ = expr_query.to_sql()
 
         # SQLite 3.37.0+ uses PRAGMA table_list when schema='main'

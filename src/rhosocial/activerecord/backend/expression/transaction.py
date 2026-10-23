@@ -193,7 +193,7 @@ class CommitStatement(TransactionStatement):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_commit_transaction_statement"
+        return "format_commit_statement"
 
 
 class RollbackStatement(TransactionStatement):
@@ -232,7 +232,7 @@ class RollbackStatement(TransactionStatement):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_rollback_transaction_statement"
+        return "format_rollback_statement"
 
 
 class SavepointStatement(TransactionStatement):
@@ -412,4 +412,4 @@ class SetTransactionStatement(TransactionStatement):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_set_transaction"
+        return "format_set_transaction_statement"

@@ -462,7 +462,7 @@ class SQLiteGeopolySupport(Protocol):
         """Format CREATE VIRTUAL TABLE for Geopoly."""
         ...
 
-    def format_geopoly_contains_query(self, expr: "SQLiteGeopolyContainsExpression") -> Tuple[str, tuple]:
+    def format_geopoly_contains_expression(self, expr: "SQLiteGeopolyContainsExpression") -> Tuple[str, tuple]:
         """Format Geopoly point-in-polygon query."""
         ...
 

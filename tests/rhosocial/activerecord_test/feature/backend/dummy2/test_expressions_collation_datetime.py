@@ -5,7 +5,7 @@ These are generic (standard-SQL / dialect-independent) expression behaviors.
 DummyDialect implements the generic mixin formatters, so the SQL generation
 must work without binding to any concrete database.
 
-The one deliberately unsupported case is ``date_diff`` (DateTimeDiffExpression
+The one deliberately unsupported case is ``date_diff`` (DatetimeDiffExpression
 to_sql), which is inherently backend-specific; it must raise
 UnsupportedFeatureError on Dummy.
 """
@@ -17,9 +17,9 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     Literal,
     Column,
-    DateTimeAddExpression,
-    DateTimeDiffExpression,
-    DateTimeSubtractExpression,
+    DatetimeAddExpression,
+    DatetimeDiffExpression,
+    DatetimeSubtractExpression,
     DatePartExpression,
     DateTruncExpression,
     ExtractExpression,
@@ -158,21 +158,21 @@ class TestIntervalAndDateTimeArithmetic:
 
     def test_datetime_add(self, dialect):
         interval_expr = IntervalExpression(dialect, 1, IntervalUnit.DAY)
-        expr = DateTimeAddExpression(dialect, Column(dialect, "created_at"), interval_expr)
+        expr = DatetimeAddExpression(dialect, Column(dialect, "created_at"), interval_expr)
         sql, params = expr.to_sql()
         assert sql == '"created_at" + INTERVAL \'1\' DAY'
         assert params == ()
 
     def test_datetime_subtract(self, dialect):
         interval_expr = IntervalExpression(dialect, 1, IntervalUnit.DAY)
-        expr = DateTimeSubtractExpression(dialect, Column(dialect, "created_at"), interval_expr)
+        expr = DatetimeSubtractExpression(dialect, Column(dialect, "created_at"), interval_expr)
         sql, params = expr.to_sql()
         assert sql == '"created_at" - INTERVAL \'1\' DAY'
         assert params == ()
 
     def test_date_add_factory_numeric(self, dialect):
         expr = date_add(dialect, Column(dialect, "created_at"), 1, "day")
-        assert isinstance(expr, DateTimeAddExpression)
+        assert isinstance(expr, DatetimeAddExpression)
         sql, params = expr.to_sql()
         assert sql == '"created_at" + INTERVAL \'1\' DAY'
         assert params == ()
@@ -180,11 +180,11 @@ class TestIntervalAndDateTimeArithmetic:
     def test_date_add_factory_interval_object(self, dialect):
         interval_expr = IntervalExpression(dialect, 2, IntervalUnit.HOUR)
         expr = date_add(dialect, Column(dialect, "created_at"), interval_expr)
-        assert isinstance(expr, DateTimeAddExpression)
+        assert isinstance(expr, DatetimeAddExpression)
 
     def test_date_sub_factory_numeric(self, dialect):
         expr = date_sub(dialect, Column(dialect, "created_at"), 1, "day")
-        assert isinstance(expr, DateTimeSubtractExpression)
+        assert isinstance(expr, DatetimeSubtractExpression)
         sql, params = expr.to_sql()
         assert sql == '"created_at" - INTERVAL \'1\' DAY'
         assert params == ()
@@ -192,7 +192,7 @@ class TestIntervalAndDateTimeArithmetic:
     def test_date_sub_factory_interval_object(self, dialect):
         interval_expr = IntervalExpression(dialect, 2, IntervalUnit.HOUR)
         expr = date_sub(dialect, Column(dialect, "created_at"), interval_expr)
-        assert isinstance(expr, DateTimeSubtractExpression)
+        assert isinstance(expr, DatetimeSubtractExpression)
 
     def test_ensure_interval_unit_conflict(self, dialect):
         with pytest.raises(ValueError):
@@ -204,10 +204,10 @@ class TestIntervalAndDateTimeArithmetic:
 
     def test_date_diff_factory_constructs(self, dialect):
         expr = date_diff(dialect, "day", "created_at", Literal(dialect, "updated_at"))
-        assert isinstance(expr, DateTimeDiffExpression)
+        assert isinstance(expr, DatetimeDiffExpression)
 
     def test_date_diff_to_sql_unsupported(self, dialect):
-        expr = DateTimeDiffExpression(
+        expr = DatetimeDiffExpression(
             dialect, IntervalUnit.DAY, Column(dialect, "created_at"), Column(dialect, "updated_at")
         )
         with pytest.raises(Exception) as exc_info:

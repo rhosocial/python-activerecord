@@ -265,7 +265,7 @@ class TestTableExpression:
         temporal_opts = {"as_of": "2023-01-01", "for_system_time": "AS OF"}
         table = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"), alias="u", temporal_options=temporal_opts)
         sql, params = table.to_sql()
-        # This should call dialect.format_temporal_options
+        # This should call dialect.format_temporal_options_expression
         # The exact output depends on the dialect implementation
         assert '"users"' in sql
 
@@ -274,24 +274,25 @@ class TestTableExpression:
         table = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"), temporal_options={})
         sql, params = table.to_sql()
         assert '"users"' in sql
-        # Should not call format_temporal_options since dict is empty
+        # Should not call format_temporal_options_expression since dict is empty
 
     def test_table_expression_with_temporal_options_that_returns_none(self, dummy_dialect: DummyDialect):
-        """Test NamedRelationRef with temporal options when dialect returns None from format_temporal_options."""
-        # Mock the dialect's format_temporal_options to return None
-        original_method = dummy_dialect.format_temporal_options
+        """Test NamedRelationRef with temporal options when the dialect returns
+        None from format_temporal_options_expression."""
+        # Mock the dialect's format_temporal_options_expression to return None
+        original_method = dummy_dialect.format_temporal_options_expression
 
         def mock_format_temporal_options(expr):
             return None
 
-        dummy_dialect.format_temporal_options = mock_format_temporal_options
+        dummy_dialect.format_temporal_options_expression = mock_format_temporal_options
 
         temporal_opts = {"as_of": "2023-01-01"}
         table = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"), alias="u", temporal_options=temporal_opts)
         sql, params = table.to_sql()
 
         # Restore original method
-        dummy_dialect.format_temporal_options = original_method
+        dummy_dialect.format_temporal_options_expression = original_method
 
         # Should still work but not include temporal options since dialect returned None
         assert '"users"' in sql
@@ -343,10 +344,10 @@ class TestTableExpression:
         assert params == ()
 
     def test_format_temporal_options_with_empty_options_raises_error(self, dummy_dialect: DummyDialect):
-        """Tests that format_temporal_options raises ValueError when called with empty options."""
+        """Tests that format_temporal_options_expression raises ValueError when called with empty options."""
         from rhosocial.activerecord.backend.expression.datetime import TemporalOptionsExpression
         with pytest.raises(
             ValueError,
-            match=r"Temporal options cannot be empty. If no temporal options are needed, don't call format_temporal_options.",  # noqa: E501
+            match=r"Temporal options cannot be empty. If no temporal options are needed, don't call format_temporal_options_expression.",  # noqa: E501
         ):
-            dummy_dialect.format_temporal_options(TemporalOptionsExpression(dummy_dialect, {}))
+            dummy_dialect.format_temporal_options_expression(TemporalOptionsExpression(dummy_dialect, {}))

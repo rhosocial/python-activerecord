@@ -31,7 +31,7 @@ class TransactionControlMixin:
         """
         return "BEGIN", ()
 
-    def format_commit_transaction_statement(self, expr: "CommitStatement") -> Tuple[str, tuple]:
+    def format_commit_statement(self, expr: "CommitStatement") -> Tuple[str, tuple]:
         """Format a COMMIT transaction statement.
 
         Args:
@@ -42,7 +42,7 @@ class TransactionControlMixin:
         """
         return "COMMIT", ()
 
-    def format_rollback_transaction_statement(self, expr: "RollbackStatement") -> Tuple[str, tuple]:
+    def format_rollback_statement(self, expr: "RollbackStatement") -> Tuple[str, tuple]:
         """Format a ROLLBACK statement, optionally to a savepoint.
 
         Args:
@@ -80,7 +80,7 @@ class TransactionControlMixin:
         """
         return f"RELEASE SAVEPOINT {self.format_identifier(expr.name)}", ()
 
-    def format_set_transaction(self, expr: "SetTransactionStatement") -> Tuple[str, tuple]:
+    def format_set_transaction_statement(self, expr: "SetTransactionStatement") -> Tuple[str, tuple]:
         """Format a SET TRANSACTION statement.
 
         Args:
