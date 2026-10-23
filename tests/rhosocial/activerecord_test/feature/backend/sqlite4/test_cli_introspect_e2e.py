@@ -152,3 +152,43 @@ def test_cli_views_reach_the_dialect_formatter(db_file, monkeypatch):
     code, out = run(["introspect", "views", "--db-file", str(db_file)])
     assert code == 0, out
     assert calls, "format_view_list_query_statement was never called by the CLI"
+
+
+# ---------------------------------------------------------------------------
+# Each invocation is a fresh look, so a schema change is seen immediately
+# ---------------------------------------------------------------------------
+
+
+def test_a_schema_change_between_runs_is_visible(db_file):
+    """Two CLI runs in one process must not share an answer.
+
+    This is the property that lets the CLI skip reasoning about the
+    introspection cache. A command is one process in normal use, but a
+    script -- or this test -- can drive ``main()`` more than once, and if
+    two runs reached the same cached metadata a table created between
+    them would be invisible. Nothing in the CLI invalidates anything, so
+    the guarantee has to come from each run building its own manager.
+
+    The DDL is committed by a separate connection, the way any external
+    tool would do it: the CLI must observe a change it did not make.
+
+    Asked for JSON rather than the default table on purpose. The rendered
+    table wraps every cell to five characters, so a name like
+    ``added_later`` never appears as one contiguous string -- asserting on
+    that text would test the renderer's wrapping, not the answer.
+    """
+    code, before = run(["introspect", "tables", "--db-file", str(db_file), "-o", "json"])
+    assert code == 0, before
+    assert "added_later" not in before
+
+    raw = sqlite3.connect(str(db_file))
+    with raw:
+        raw.execute("CREATE TABLE added_later (id INTEGER PRIMARY KEY, note TEXT)")
+    raw.close()
+
+    code, after = run(["introspect", "tables", "--db-file", str(db_file), "-o", "json"])
+    assert code == 0, after
+    assert "added_later" in after, (
+        "a table created between two runs in the same process was not "
+        "reported -- the second run answered from the first run's metadata"
+    )
