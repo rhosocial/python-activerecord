@@ -767,7 +767,7 @@ class TableMixin:
 
         query_sql, query_params = expr.as_query.to_sql()
         if query_params and not self.supports_create_table_as_bind_parameters():
-            self._refuse_ddl_bind_parameters("CREATE TABLE ... AS with bound parameters")
+            self.refuse_ddl_bind_parameters("CREATE TABLE ... AS with bound parameters")
         parts.append(f"AS {query_sql}")
         all_params.extend(query_params)
 

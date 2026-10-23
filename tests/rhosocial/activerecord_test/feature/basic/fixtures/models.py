@@ -488,7 +488,7 @@ class IntToStringAdapter(BaseSQLTypeAdapter):
 
     def __init__(self):
         super().__init__()
-        self._register_type(str, int)  # Python 'str' can be converted to DB 'int'
+        self.register_type(str, int)  # Python 'str' can be converted to DB 'int'
 
     def _do_to_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None) -> Any:
         # The 'notes' attribute on the model is a str, which we convert to an int for the DB.
@@ -532,7 +532,7 @@ class ListToStringAdapter(BaseSQLTypeAdapter):
 
     def __init__(self):
         super().__init__()
-        self._register_type(list, str)
+        self.register_type(list, str)
 
     def _do_to_database(self, value: List[str], target_type: Type, options: Optional[Dict[str, Any]] = None) -> Optional[str]:
         if value is None:
@@ -589,7 +589,7 @@ class JsonToStringAdapter(BaseSQLTypeAdapter):
 
     def __init__(self):
         super().__init__()
-        self._register_type(dict, str)
+        self.register_type(dict, str)
 
     def _do_to_database(self, value: Dict, target_type: Type, options: Optional[Dict[str, Any]] = None) -> Optional[str]:
         if value is None:

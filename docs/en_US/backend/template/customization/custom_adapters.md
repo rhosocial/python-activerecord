@@ -52,7 +52,7 @@ class ColorAdapter(BaseSQLTypeAdapter):
     def __init__(self):
         super().__init__()
         # Register: {python_type: {db_types}}
-        self._register_type(Color, str)
+        self.register_type(Color, str)
 
     def _do_to_database(self, value, target_type, options):
         """Convert Color -> hex string for database storage."""

@@ -338,8 +338,8 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
     def list_columns(self, table_name: str, schema: Optional[str] = None) -> List[IntrospectionColumnInfo]:
         """List columns, with auto-increment detection from DDL."""
         target_db = schema or self._get_default_schema()
-        key = self._make_cache_key(IntrospectionScope.COLUMN, table_name, schema=schema)
-        cached = self._get_cached(key)
+        key = self.make_cache_key(IntrospectionScope.COLUMN, table_name, schema=schema)
+        cached = self.get_cached(key)
         if cached is not None:
             return cached
 
@@ -357,7 +357,7 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
             ddl = ddl_result[0]["sql"]
 
         result = self._parse_columns(rows, table_name, target_db, ddl=ddl)
-        self._set_cached(key, result)
+        self.set_cached(key, result)
         return result
 
     # ------------------------------------------------------------------ #
@@ -372,8 +372,8 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
         2. PRAGMA index_xinfo(index) - get column info for each index
         """
         target_db = schema or self._get_default_schema()
-        key = self._make_cache_key(IntrospectionScope.INDEX, table_name, schema=schema)
-        cached = self._get_cached(key)
+        key = self.make_cache_key(IntrospectionScope.INDEX, table_name, schema=schema)
+        cached = self.get_cached(key)
         if cached is not None:
             return cached
 
@@ -445,7 +445,7 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
                 )
             )
 
-        self._set_cached(key, indexes)
+        self.set_cached(key, indexes)
         return indexes
 
     # ------------------------------------------------------------------ #
@@ -455,8 +455,8 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
 
     def get_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[IntrospectionTableInfo]:
         schema or self._get_default_schema()
-        key = self._make_cache_key(IntrospectionScope.TABLE, table_name, schema=schema)
-        cached = self._get_cached(key)
+        key = self.make_cache_key(IntrospectionScope.TABLE, table_name, schema=schema)
+        cached = self.get_cached(key)
         if cached is not None:
             return cached
 
@@ -470,7 +470,7 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
         table.columns = self.list_columns(table_name, schema)
         table.indexes = self.list_indexes(table_name, schema)
         table.foreign_keys = self.list_foreign_keys(table_name, schema)
-        self._set_cached(key, table)
+        self.set_cached(key, table)
         return table
 
 
@@ -515,8 +515,8 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
     async def list_columns(self, table_name: str, schema: Optional[str] = None) -> List[IntrospectionColumnInfo]:
         """List columns, with auto-increment detection from DDL."""
         target_db = schema or self._get_default_schema()
-        key = self._make_cache_key(IntrospectionScope.COLUMN, table_name, schema=schema)
-        cached = self._get_cached(key)
+        key = self.make_cache_key(IntrospectionScope.COLUMN, table_name, schema=schema)
+        cached = self.get_cached(key)
         if cached is not None:
             return cached
 
@@ -534,7 +534,7 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
             ddl = ddl_result[0]["sql"]
 
         result = self._parse_columns(rows, table_name, target_db, ddl=ddl)
-        self._set_cached(key, result)
+        self.set_cached(key, result)
         return result
 
     # ------------------------------------------------------------------ #
@@ -549,8 +549,8 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
         2. PRAGMA index_xinfo(index) - get column info for each index
         """
         target_db = schema or self._get_default_schema()
-        key = self._make_cache_key(IntrospectionScope.INDEX, table_name, schema=schema)
-        cached = self._get_cached(key)
+        key = self.make_cache_key(IntrospectionScope.INDEX, table_name, schema=schema)
+        cached = self.get_cached(key)
         if cached is not None:
             return cached
 
@@ -622,7 +622,7 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
                 )
             )
 
-        self._set_cached(key, indexes)
+        self.set_cached(key, indexes)
         return indexes
 
     # ------------------------------------------------------------------ #
@@ -632,8 +632,8 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
 
     async def get_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[IntrospectionTableInfo]:
         schema or self._get_default_schema()
-        key = self._make_cache_key(IntrospectionScope.TABLE, table_name, schema=schema)
-        cached = self._get_cached(key)
+        key = self.make_cache_key(IntrospectionScope.TABLE, table_name, schema=schema)
+        cached = self.get_cached(key)
         if cached is not None:
             return cached
 
@@ -647,5 +647,5 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
         table.columns = await self.list_columns(table_name, schema)
         table.indexes = await self.list_indexes(table_name, schema)
         table.foreign_keys = await self.list_foreign_keys(table_name, schema)
-        self._set_cached(key, table)
+        self.set_cached(key, table)
         return table

@@ -28,7 +28,7 @@ from ..schema import StatementType
 from ..type_adapter import SQLTypeAdapter
 
 
-def _is_sql_expression(obj) -> bool:
+def is_sql_expression(obj) -> bool:
     """Check if an object is a valid SQL expression.
 
     A valid SQL expression must implement ToSQLProtocol and have a dialect
@@ -62,7 +62,7 @@ class SQLOperationsMixin:
         processed_values = []
         for v in options.data.values():
             # Check if the value is a SQL expression that should be used directly in SQL
-            if _is_sql_expression(v):
+            if is_sql_expression(v):
                 # This is an expression object like FunctionCall, BinaryExpression, etc.
                 processed_values.append(v)
             else:
@@ -126,7 +126,7 @@ class SQLOperationsMixin:
         # Process each item in the data dictionary
         for k, v in options.data.items():
             # Check if the value is a SQL expression that should be used directly in SQL
-            if _is_sql_expression(v):
+            if is_sql_expression(v):
                 # This is an expression object like FunctionCall, BinaryExpression, etc.
                 assignments[k] = v
             else:
@@ -281,7 +281,7 @@ class SQLOperationsMixin:
         for row in options.rows:
             processed_values = []
             for v in row:
-                if _is_sql_expression(v):
+                if is_sql_expression(v):
                     processed_values.append(v)
                 else:
                     processed_values.append(Literal(self.dialect, v))
@@ -397,7 +397,7 @@ class AsyncSQLOperationsMixin:
         processed_values = []
         for v in options.data.values():
             # Check if the value is a SQL expression that should be used directly in SQL
-            if _is_sql_expression(v):
+            if is_sql_expression(v):
                 # This is an expression object like FunctionCall, BinaryExpression, etc.
                 processed_values.append(v)
             else:
@@ -458,7 +458,7 @@ class AsyncSQLOperationsMixin:
         # Process each item in the data dictionary
         for k, v in options.data.items():
             # Check if the value is a SQL expression that should be used directly in SQL
-            if _is_sql_expression(v):
+            if is_sql_expression(v):
                 # This is an expression object like FunctionCall, BinaryExpression, etc.
                 assignments[k] = v
             else:
@@ -608,7 +608,7 @@ class AsyncSQLOperationsMixin:
         for row in options.rows:
             processed_values = []
             for v in row:
-                if _is_sql_expression(v):
+                if is_sql_expression(v):
                     processed_values.append(v)
                 else:
                     processed_values.append(Literal(self.dialect, v))

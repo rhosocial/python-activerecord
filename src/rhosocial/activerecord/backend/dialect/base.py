@@ -413,7 +413,7 @@ class SQLDialectBase:
             f"or implement the literal-construction protocol."
         )
 
-    def _refuse_ddl_bind_parameters(self, feature: str) -> None:
+    def refuse_ddl_bind_parameters(self, feature: str) -> None:
         """Refuse a DDL statement whose body carries bind parameters.
 
         The body of a DDL statement is a query, and a query may carry bind

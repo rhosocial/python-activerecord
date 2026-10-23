@@ -50,7 +50,7 @@ class SQLiteBlobAdapter(BaseSQLTypeAdapter):
 
     def __init__(self):
         super().__init__()
-        self._register_type(bytes, bytes)
+        self.register_type(bytes, bytes)
 
     def _do_to_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None) -> bytes:
         """Converts a Python value (str or bytes) to a SQLite-compatible BLOB."""
@@ -80,8 +80,8 @@ class SQLiteJSONAdapter(BaseSQLTypeAdapter):
 
     def __init__(self):
         super().__init__()
-        self._register_type(dict, str)
-        self._register_type(list, str)
+        self.register_type(dict, str)
+        self.register_type(list, str)
 
     @staticmethod
     def _extended_json_serializer(obj: Any) -> Any:
@@ -123,8 +123,8 @@ class SQLiteUUIDAdapter(BaseSQLTypeAdapter):
 
     def __init__(self):
         super().__init__()
-        self._register_type(uuid.UUID, str)
-        self._register_type(uuid.UUID, bytes)
+        self.register_type(uuid.UUID, str)
+        self.register_type(uuid.UUID, bytes)
 
     def _do_to_database(self, value: uuid.UUID, target_type: Type, options: Optional[Dict[str, Any]] = None) -> Any:
         """Converts a Python UUID to a string or bytes."""

@@ -64,7 +64,7 @@ class DataTypeMixin:
     No registry
     -----------
     There is deliberately no table mapping a generic name to a class. The naming
-    family *is* the registry, and :meth:`_type_class_for` says where the class
+    family *is* the registry, and :meth:`type_class_for` says where the class
     comes from — the formatter's own annotation first, then the backend's type
     module, then the live subclass tree. That last step is why
     ``tests/.../dummy2/test_type_dispatch_registry.py`` asks in a **fresh
@@ -169,12 +169,12 @@ class DataTypeMixin:
             probe = getattr(self, f"supports_data_type_{name}", None)
             if probe is not None and not probe():
                 continue
-            data_type_class = self._type_class_for(name)
+            data_type_class = self.type_class_for(name)
             if data_type_class is not None:
                 result[name] = data_type_class
         return result
 
-    def _type_class_for(self, name: str) -> Optional[type]:
+    def type_class_for(self, name: str) -> Optional[type]:
         """Resolve the concrete ``DataType`` class for a generic name.
 
         Three answers are available and any two of them agree wherever more than
@@ -302,7 +302,7 @@ class DataTypeMixin:
         """
         return {}
 
-    def _check_spelling(self, data_type, accepted) -> None:
+    def check_spelling(self, data_type, accepted) -> None:
         """Raise unless *data_type* carries a spelling this dialect renders.
 
         A ``DataType`` with several spellings (one class, several ways to write

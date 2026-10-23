@@ -196,7 +196,7 @@ class ViewMixin:
             sql_parts.append(f"({aliases_str})")
         query_sql, query_params = expr.query.to_sql()
         if query_params and not self.supports_create_view_bind_parameters():
-            self._refuse_ddl_bind_parameters("CREATE VIEW with bound parameters")
+            self.refuse_ddl_bind_parameters("CREATE VIEW with bound parameters")
         sql_parts.append(f" AS {query_sql}")
         all_params.extend(query_params)
         if expr.options.check_option is not None:
@@ -305,7 +305,7 @@ class ViewMixin:
 
         query_sql, query_params = expr.query.to_sql()
         if query_params and not self.supports_materialized_view_bind_parameters():
-            self._refuse_ddl_bind_parameters("CREATE MATERIALIZED VIEW with bound parameters")
+            self.refuse_ddl_bind_parameters("CREATE MATERIALIZED VIEW with bound parameters")
         parts.append(f"AS {query_sql}")
 
         if expr.with_data:

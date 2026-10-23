@@ -5,7 +5,7 @@ There is no registry. The naming family **is** the registry: a dialect declares
 ``format_data_type_<name>`` and the class behind that name is found by lookup.
 That design has one sharp edge, and this file is about it.
 
-:meth:`~...dialect.mixins.data_type.DataTypeMixin._type_class_for` answers a
+:meth:`~...dialect.mixins.data_type.DataTypeMixin.type_class_for` answers a
 dispatch name by walking the live subclass tree of ``DataType`` — so it sees only
 the classes something has already **imported**. On a cold
 ``import <backend>.dialect``, a name whose class lives in a module nobody has
@@ -235,9 +235,9 @@ def test_an_unknown_name_still_resolves_to_nothing():
     from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
     dialect = DummyDialect()
-    assert dialect._type_class_for("nosuchtype") is None
+    assert dialect.type_class_for("nosuchtype") is None
     # A core-prefixed name is not a backend name, so no import is attempted.
-    assert dialect._type_class_for("jsonb") is not None
+    assert dialect.type_class_for("jsonb") is not None
 
 
 def test_a_formatters_own_annotation_is_where_the_class_comes_from():
@@ -258,14 +258,14 @@ def test_a_formatters_own_annotation_is_where_the_class_comes_from():
 
     # The annotation's class does not declare the dispatch key, so it is not
     # trusted for it — the name resolves to nothing, which is the honest answer.
-    assert AnnotatedDialect()._type_class_for("annotated_widget") is None
+    assert AnnotatedDialect().type_class_for("annotated_widget") is None
 
     # With the class's own name, the annotation is the answer.
     class DeclaredNameDialect(DummyDialect):
         def format_data_type_jsonb(self, data_type: JsonBType):
             return "JSONB", ()
 
-    assert DeclaredNameDialect()._type_class_for("jsonb") is JsonBType
+    assert DeclaredNameDialect().type_class_for("jsonb") is JsonBType
 
 
 def test_the_mixin_is_what_provides_the_mapping():
@@ -278,7 +278,7 @@ def test_the_mixin_is_what_provides_the_mapping():
         dialect_class = type(dialect)
         assert DataTypeMixin in dialect_class.__mro__
         assert dialect_class.supports_data_types is DataTypeMixin.supports_data_types
-        assert dialect_class._type_class_for is DataTypeMixin._type_class_for
+        assert dialect_class.type_class_for is DataTypeMixin.type_class_for
 
 
 def test_data_type_subclasses_are_reachable_without_a_registry():
