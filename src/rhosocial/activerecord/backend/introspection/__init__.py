@@ -41,6 +41,7 @@ from .executor import (
     SyncIntrospectorExecutor,
     AsyncIntrospectorExecutor,
 )
+from .cache import InMemoryIntrospectionCache, IntrospectionCache
 from .base import (
     IntrospectorMixin,
     SyncAbstractIntrospector,
@@ -73,6 +74,9 @@ __all__ = [
     # Executor
     "SyncIntrospectorExecutor",
     "AsyncIntrospectorExecutor",
+    # Cache
+    "IntrospectionCache",
+    "InMemoryIntrospectionCache",
     # Core
     "IntrospectorMixin",
     "SyncAbstractIntrospector",
