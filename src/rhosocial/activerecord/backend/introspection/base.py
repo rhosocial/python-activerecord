@@ -204,8 +204,13 @@ class _IntrospectionManagerBase(IntrospectorMixin, ABC):
         Exposed so a caller can read or replace what the manager caches
         with -- an implementation that expires differently, or does not
         cache at all, is a legitimate choice and this is where it goes.
+        Replacing it drops nothing: the new cache simply starts empty.
         """
         return self._cache
+
+    @cache.setter
+    def cache(self, value: IntrospectionCache) -> None:
+        self._cache = value
 
     def invalidate_cache(
         self,
@@ -289,8 +294,13 @@ class SyncAbstractIntrospector(_IntrospectionManagerBase, ABC):
         Cache: invalidate_cache(), clear_cache()
     """
 
-    def __init__(self, backend: Any, executor: "SyncIntrospectorExecutor") -> None:
-        super().__init__(backend, executor)
+    def __init__(
+        self,
+        backend: Any,
+        executor: "SyncIntrospectorExecutor",
+        cache: Optional[IntrospectionCache] = None,
+    ) -> None:
+        super().__init__(backend, executor, cache)
 
     # ------------------------------------------------------------------ #
     # Public synchronous API
@@ -474,7 +484,7 @@ class SyncAbstractIntrospector(_IntrospectionManagerBase, ABC):
         )
 
 
-class AsyncAbstractIntrospector(IntrospectorMixin, ABC):
+class AsyncAbstractIntrospector(_IntrospectionManagerBase, ABC):
     """Abstract base class for asynchronous database introspectors.
 
     This class provides all asynchronous I/O methods for database introspection.
@@ -490,8 +500,13 @@ class AsyncAbstractIntrospector(IntrospectorMixin, ABC):
         Cache (synchronous): invalidate_cache(), clear_cache()
     """
 
-    def __init__(self, backend: Any, executor: "AsyncIntrospectorExecutor") -> None:
-        super().__init__(backend, executor)
+    def __init__(
+        self,
+        backend: Any,
+        executor: "AsyncIntrospectorExecutor",
+        cache: Optional[IntrospectionCache] = None,
+    ) -> None:
+        super().__init__(backend, executor, cache)
 
     # ------------------------------------------------------------------ #
     # Public asynchronous API

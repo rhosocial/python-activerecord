@@ -10,6 +10,9 @@ import time
 
 from rhosocial.activerecord.backend.introspection import InMemoryIntrospectionCache
 from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
+from rhosocial.activerecord.backend.impl.sqlite.introspection import (
+    SyncSQLiteIntrospector,
+)
 
 
 class TestCacheManagement:
@@ -141,7 +144,7 @@ class TestCacheExpiration:
         # ...and the component it owns can be swapped for another.
         from rhosocial.activerecord.backend.introspection import InMemoryIntrospectionCache
         replacement = InMemoryIntrospectionCache(ttl=1)
-        intro._cache = replacement
+        intro.cache = replacement
         assert intro.cache is replacement
 
     def test_expired_cache_not_returned(self, sqlite_backend):
@@ -288,11 +291,17 @@ class TestCacheRemovesQuestions:
     """
 
     def _prepare(self, backend, ttl=None):
-        introspector = backend.introspector
-        if ttl is not None:
-            introspector._cache = InMemoryIntrospectionCache(ttl=ttl)
+        """Install a manager whose executor and cache are both observable.
+
+        Built through the public seam -- ``set_introspector`` takes a
+        manager, and the manager takes its cache -- so the test does not
+        depend on where either is stored.
+        """
+        cache = InMemoryIntrospectionCache(ttl=ttl) if ttl is not None else None
         executor = CountingExecutor(backend)
-        introspector._executor = executor
+        backend.set_introspector(
+            SyncSQLiteIntrospector(backend, executor, cache=cache)
+        )
         return executor
 
     def test_uncached_pass_asks_the_database_every_time(self, backend_with_tables):
@@ -359,7 +368,7 @@ class TestCacheRemovesQuestions:
         introspector = sqlite_backend.introspector
         replacement = FixedCache()
         assert isinstance(replacement, IntrospectionCache)
-        introspector._cache = replacement
+        introspector.cache = replacement
         assert introspector.cache is replacement
         # Every question now reaches the one entry, so every answer is it.
         assert introspector.list_tables() == "sentinel"
