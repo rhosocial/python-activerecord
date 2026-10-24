@@ -96,7 +96,16 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
     # Parse methods — pure Python, no I/O
     # ------------------------------------------------------------------ #
 
-    def _parse_database_info(self, rows: List[Dict[str, Any]]) -> IntrospectionDatabaseInfo:
+    def _parse_database_info(self, rows: List[Dict[str, Any]],
+                             pragma_values: Optional[Dict[str, Any]] = None) -> IntrospectionDatabaseInfo:
+        """Turn the version row into a database record.
+
+        *pragma_values* carries what the pragmas answered -- encoding, page
+        counts -- because those are not columns of any row. They arrive as a
+        dict rather than being read here so that this method stays pure:
+        ``get_database_info`` does the I/O, and the sync and async paths hand
+        the same dict to the same parser.
+        """
         row = rows[0] if rows else {}
         version_str = row.get("version") or sqlite3.sqlite_version
         parts = version_str.split(".")
@@ -104,13 +113,69 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
         # SQLite's database name is the schema name (e.g., "main")
         # For file-based databases, we can also show the filename
         db_path = self._backend.config.database or ":memory:"
+        values = pragma_values or {}
+
+        # size_bytes is page_count * page_size, which is the file's size on
+        # disk rather than the sum of its rows. Either pragma missing makes the
+        # answer None rather than a wrong number.
+        page_count = values.get("page_count")
+        page_size = values.get("page_size")
+        size_bytes = None
+        if page_count is not None and page_size is not None:
+            try:
+                size_bytes = int(page_count) * int(page_size)
+            except (TypeError, ValueError):
+                size_bytes = None
+
         return IntrospectionDatabaseInfo(
             name="main",  # SQLite's default schema name
             version=version_str,
             version_tuple=version_tuple,
             vendor="SQLite",
+            encoding=values.get("encoding"),
+            # No database-level collation: SQLite attaches a collation to a
+            # column or an expression, not to the file, so this stays None
+            # rather than repeating the encoding under a second name.
+            size_bytes=size_bytes,
+            table_count=values.get("table_count"),
             extra={"path": db_path},
         )
+
+    #: The pragmas a database record reads, and why each is here.
+    _DATABASE_PRAGMAS = ("encoding", "page_count", "page_size")
+
+    @staticmethod
+    def _pragma_value(row: Any, name: str) -> Any:
+        """The scalar a PRAGMA answered with, or ``None``.
+
+        ``PRAGMA encoding`` returns one row with one column named after the
+        pragma; ``pragma.get`` hands back that whole row, so the value has to be
+        picked out of it. An engine that names the column differently yields a
+        single-key row, and that key's value is used; a row with several columns
+        is not a scalar answer and is returned as-is rather than guessed at.
+        """
+        if row is None:
+            return None
+        if not isinstance(row, dict):
+            return row
+        if name in row:
+            return row[name]
+        if len(row) == 1:
+            return next(iter(row.values()))
+        return row
+
+    def _collect_database_pragmas(self) -> Dict[str, Any]:
+        """Read the pragmas that answer what the version row cannot.
+
+        ``encoding`` is the database's text encoding (``PRAGMA encoding``),
+        ``page_count`` and ``page_size`` the file's extent. ``table_count`` is
+        not a pragma -- it is a count over ``sqlite_master`` -- and is read by
+        the caller because it needs the schema.
+        """
+        values: Dict[str, Any] = {}
+        for name in self._DATABASE_PRAGMAS:
+            values[name] = self._pragma_value(self.pragma.get(name), name)
+        return values
 
     def _parse_tables(self, rows: List[Dict[str, Any]], schema: Optional[str]) -> List[IntrospectionTableInfo]:
         tables = []
@@ -163,7 +228,18 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
         return result
 
     def _parse_columns(self, rows: List[Dict[str, Any]], table_name: str, schema: str,
-                       ddl: Optional[str] = None) -> List[IntrospectionColumnInfo]:
+                       ddl: Optional[str] = None,
+                       unique_columns: Optional[set] = None) -> List[IntrospectionColumnInfo]:
+        """Turn ``PRAGMA table_xinfo`` rows into column records.
+
+        *ddl* carries the table's own text because ``AUTOINCREMENT`` appears
+        only there. *unique_columns* carries the names a unique index covers,
+        because SQLite records uniqueness on the index and not on the column:
+        ``PRAGMA table_info`` says a column is unique no more than it says a
+        table has a foreign key. Reporting ``False`` for a column the engine
+        has a unique index on is the wrong answer, not a conservative one --
+        a caller building a model from it would drop a constraint that exists.
+        """
         columns = []
         has_auto_increment = ddl is not None and "AUTOINCREMENT" in ddl.upper()
         for row in rows:
@@ -199,6 +275,17 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
                     nullable=nullable,
                     default_value=row.get("dflt_value"),
                     is_primary_key=is_pk,
+                    # SQLite records uniqueness on the index, not on the column:
+                    # PRAGMA table_info says a column is unique no more than it
+                    # says a table has a foreign key. Reporting False for a
+                    # column the engine has a unique index on is the wrong
+                    # answer rather than a conservative one -- a caller building
+                    # a model from it would drop a constraint that exists.
+                    is_unique=(
+                        is_pk
+                        or (unique_columns is not None
+                            and row["name"] in unique_columns)
+                    ),
                     is_auto_increment=is_auto_inc,
                     is_generated=is_generated,
                     generated_expression=gen_expr,
@@ -210,6 +297,68 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
                 )
             )
         return columns
+
+    def _collect_unique_columns(self, table_name: str, schema: Optional[str]) -> set:
+        """Read the index pragmas and return the unique column names.
+
+        The I/O half of ``is_unique``: ``PRAGMA index_list`` says which indexes
+        are unique and whether one is partial, ``PRAGMA index_xinfo`` says what
+        each covers. Both are cheap and both are cached with the column list, so
+        the cost is paid once per table rather than once per column.
+        """
+        index_rows = self.pragma.index_list(table_name, schema)
+        columns_by_index: Dict[str, List[str]] = {}
+        for idx in index_rows:
+            name = idx.get("name")
+            if not name:
+                continue
+            columns_by_index[name] = [
+                str(c.get("name"))
+                for c in self.pragma.index_xinfo(name, schema)
+                if c.get("name") and not c.get("hidden")
+            ]
+        return self._unique_columns(index_rows, columns_by_index)
+
+    async def _collect_unique_columns_async(self, table_name: str,
+                                            schema: Optional[str]) -> set:
+        """The async twin of :meth:`_collect_unique_columns`.
+
+        Same two pragmas, awaited; the reduction is the shared
+        :meth:`_unique_columns`, so the two directions cannot disagree about
+        which columns count.
+        """
+        index_rows = await self.pragma.index_list(table_name, schema)
+        columns_by_index: Dict[str, List[str]] = {}
+        for idx in index_rows:
+            name = idx.get("name")
+            if not name:
+                continue
+            xinfo = await self.pragma.index_xinfo(name, schema)
+            columns_by_index[name] = [
+                str(c.get("name"))
+                for c in xinfo
+                if c.get("name") and not c.get("hidden")
+            ]
+        return self._unique_columns(index_rows, columns_by_index)
+
+    @staticmethod
+    def _unique_columns(index_rows: List[Dict[str, Any]],
+                        columns_by_index: Dict[str, List[str]]) -> set:
+        """Column names a unique index covers, for ``is_unique``.
+
+        Takes the PRAGMA answers rather than the parsed ``IndexInfo`` list,
+        because the index's *partial* flag and its *origin* are what decide
+        whether the uniqueness is a promise about every row, and ``IndexInfo``
+        carries neither. A partial unique index is skipped: it constrains only
+        the rows that pass its ``WHERE``, which is not what ``is_unique``
+        claims.
+        """
+        unique: set = set()
+        for idx in index_rows:
+            if not idx.get("unique") or idx.get("partial"):
+                continue
+            unique.update(columns_by_index.get(idx.get("name") or "", []))
+        return unique
 
     def _parse_indexes(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[IndexInfo]:
         if not rows:
@@ -286,16 +435,89 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
         row = rows[0]
         return IntrospectionViewInfo(name=row["name"], schema=schema, definition=row.get("sql"))
 
+    #: The words that say *when* a trigger fires. ``INSTEAD OF`` is a timing
+    #: too, and the only one that makes a view writable, so it is not folded
+    #: into the event list.
+    _TRIGGER_TIMING = ("BEFORE", "AFTER", "INSTEAD OF")
+    #: The events a trigger can fire on. ``UPDATE OF col`` names columns, which
+    #: are not part of the event.
+    _TRIGGER_EVENTS = ("DELETE", "INSERT", "UPDATE")
+
+    @classmethod
+    def _parse_trigger_header(cls, ddl: Optional[str]):
+        """(timing, events) from a trigger's ``CREATE TRIGGER`` text.
+
+        SQLite keeps a trigger's header only in its DDL -- there is no pragma
+        and no column for *when* it fires or *what* it fires on -- so leaving
+        these fields empty discards information the caller can already see in
+        the definition and cannot be expected to re-parse.
+
+        Returns ``("", [])`` when the text is missing or unparseable rather
+        than guessing: an empty timing reads as "not stated", a wrong one
+        reads as a fact about the schema.
+        """
+        if not ddl:
+            return "", []
+        header = ddl.split("ON", 1)[0].upper()
+        timing = ""
+        for candidate in cls._TRIGGER_TIMING:
+            if candidate in header:
+                timing = candidate
+                break
+        events = [e for e in cls._TRIGGER_EVENTS if e in header]
+        return timing, events
+
     def _parse_triggers(self, rows: List[Dict[str, Any]], schema: str) -> List[IntrospectionTriggerInfo]:
-        return [
-            IntrospectionTriggerInfo(
-                name=row["name"],
-                table_name=row["tbl_name"],
-                schema=schema,
-                definition=row.get("sql"),
+        triggers = []
+        for row in rows:
+            timing, events = self._parse_trigger_header(row.get("sql"))
+            triggers.append(
+                IntrospectionTriggerInfo(
+                    name=row["name"],
+                    table_name=row["tbl_name"],
+                    schema=schema,
+                    timing=timing,
+                    events=events,
+                    definition=row.get("sql"),
+                )
             )
-            for row in rows
-        ]
+        return triggers
+
+
+    def get_database_info(self) -> IntrospectionDatabaseInfo:
+        """Answer the version, the encoding, the file extent and the table count.
+
+        Core's version asks one question and parses its row. SQLite's answer
+        also lives in three pragmas and a count, so this gathers them and hands
+        the same dict to the same parser the async twin uses -- which is what
+        keeps the two directions from disagreeing about the values.
+        """
+        key = self._cache.key(IntrospectionScope.DATABASE)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+
+        sql, params = self._build_database_info_sql()
+        rows = self._executor.execute(sql, params)
+        values = self._collect_database_pragmas()
+        values["table_count"] = self._count_tables()
+        result = self._parse_database_info(rows, values)
+        self._cache.set(key, result)
+        return result
+
+    def _count_tables(self) -> Optional[int]:
+        """How many tables this database declares, system ones excluded."""
+        sql = (
+            "SELECT COUNT(*) AS table_count FROM sqlite_master "
+            "WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+        )
+        rows = self._executor.execute(sql, ())
+        if not rows:
+            return None
+        try:
+            return int(rows[0]["table_count"])
+        except (KeyError, TypeError, ValueError):
+            return None
 
 
 class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
@@ -337,6 +559,8 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
             self._status_instance = SyncSQLiteStatusIntrospector(self._backend)
         return self._status_instance
 
+
+
     # ------------------------------------------------------------------ #
     # Override list_columns for auto-increment detection
     # ------------------------------------------------------------------ #
@@ -352,7 +576,8 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
         sql, params = self._build_column_info_sql(table_name, schema)
         rows = self._executor.execute(sql, params)
 
-        # Query the DDL for AUTOINCREMENT detection
+        # Query the DDL for AUTOINCREMENT detection, and the index pragmas for
+        # uniqueness: neither fact is on the column row.
         ddl = None
         ddl_result = self._executor.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' "
@@ -362,7 +587,11 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
         if ddl_result and ddl_result[0].get("sql"):
             ddl = ddl_result[0]["sql"]
 
-        result = self._parse_columns(rows, table_name, target_db, ddl=ddl)
+        unique_columns = self._collect_unique_columns(table_name, target_db)
+
+        result = self._parse_columns(
+            rows, table_name, target_db, ddl=ddl, unique_columns=unique_columns
+        )
         self._cache.set(key, result)
         return result
 
@@ -480,6 +709,7 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
         return table
 
 
+
 class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector):
     """Asynchronous introspector for SQLite backends.
 
@@ -519,6 +749,41 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
             self._status_instance = AsyncSQLiteStatusIntrospector(self._backend)
         return self._status_instance
 
+    async def get_database_info(self) -> IntrospectionDatabaseInfo:
+        """The async twin of :meth:`SyncSQLiteIntrospector.get_database_info`.
+
+        Same questions, awaited, and the same :meth:`_parse_database_info`
+        reduction -- so the two directions cannot report different encodings or
+        different sizes for one database.
+        """
+        key = self._cache.key(IntrospectionScope.DATABASE)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+
+        sql, params = self._build_database_info_sql()
+        rows = await self._executor.execute(sql, params)
+        values: Dict[str, Any] = {}
+        for name in self._DATABASE_PRAGMAS:
+            values[name] = self._pragma_value(await self.pragma.get(name), name)
+        values["table_count"] = await self._count_tables_async()
+        result = self._parse_database_info(rows, values)
+        self._cache.set(key, result)
+        return result
+
+    async def _count_tables_async(self) -> Optional[int]:
+        sql = (
+            "SELECT COUNT(*) AS table_count FROM sqlite_master "
+            "WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+        )
+        rows = await self._executor.execute(sql, ())
+        if not rows:
+            return None
+        try:
+            return int(rows[0]["table_count"])
+        except (KeyError, TypeError, ValueError):
+            return None
+
     # ------------------------------------------------------------------ #
     # Override list_columns for auto-increment detection
     # ------------------------------------------------------------------ #
@@ -544,7 +809,11 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
         if ddl_result and ddl_result[0].get("sql"):
             ddl = ddl_result[0]["sql"]
 
-        result = self._parse_columns(rows, table_name, target_db, ddl=ddl)
+        unique_columns = await self._collect_unique_columns_async(table_name, target_db)
+
+        result = self._parse_columns(
+            rows, table_name, target_db, ddl=ddl, unique_columns=unique_columns
+        )
         self._cache.set(key, result)
         return result
 

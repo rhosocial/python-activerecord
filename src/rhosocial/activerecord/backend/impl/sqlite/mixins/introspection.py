@@ -452,8 +452,15 @@ class SQLiteIntrospectionCapabilityMixin:
                 )
             )
 
+        # ``sql`` is the view's own text and it must be projected: the parser
+        # reads it for ``IntrospectionViewInfo.definition``, and a projection
+        # without it silently reports every view as having no definition --
+        # which is not the same answer as "this view has none".
         return self.sqlite_master_query(
-            schema, [Column(self, "name")], conditions, [Column(self, "name")]
+            schema,
+            [Column(self, "name"), Column(self, "sql")],
+            conditions,
+            [Column(self, "name")],
         )
 
     def format_view_info_query_statement(self, expr: "ViewInfoQueryStatement") -> Tuple[str, tuple]:  # noqa: F821

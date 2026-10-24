@@ -81,6 +81,46 @@ def create_parser(subparsers):
     return parser
 
 
+#: Formats that are parsed by a machine, and so have to be a single document.
+#: ``csv`` and ``tsv`` are deliberately not in this set: a CSV file with one
+#: header row cannot carry three different record shapes, so those formats
+#: stay sectioned, each with its own header, which is the only shape they can
+#: have. ``json`` is the one that must be one document, and currently was not.
+_SINGLE_DOCUMENT_FORMATS = frozenset({"json"})
+
+
+def display_table_detail(provider, output_format, table_name, *, columns, indexes, foreign_keys):
+    """Print one table's columns, indexes and foreign keys as one answer.
+
+    Three questions, one table. The rendered (table) format prints them as
+    three sections because a person reads them differently; ``json`` prints
+    them as a single object, because a parser reading three concatenated
+    arrays gets ``Extra data`` and nothing at all.
+
+    Empty sections are dropped rather than emitted as ``[]``: an absent
+    foreign-key list is the same fact as an empty one, and a caller checking
+    ``"foreign_keys" in result`` would otherwise have to handle both.
+    """
+    sections = {}
+    if columns:
+        sections["columns"] = columns
+    if indexes:
+        sections["indexes"] = indexes
+    if foreign_keys:
+        sections["foreign_keys"] = foreign_keys
+
+    if output_format in _SINGLE_DOCUMENT_FORMATS:
+        provider.display_results(sections, title=table_name)
+        return
+
+    if columns:
+        provider.display_results(columns, title=f"Columns of {table_name}")
+    if indexes:
+        provider.display_results(indexes, title=f"Indexes of {table_name}")
+    if foreign_keys:
+        provider.display_results(foreign_keys, title=f"Foreign Keys of {table_name}")
+
+
 def handle(args):
     """Handle the introspect subcommand."""
     provider = create_provider(args.output, ascii_borders=args.rich_ascii)
@@ -105,14 +145,14 @@ def handle(args):
                 sys.exit(1)
             info = introspector.get_table_info(args.name)
             if info:
-                columns_data = [_serialize_for_output(c) for c in info.columns]
-                provider.display_results(columns_data, title=f"Columns of {args.name}")
-                if info.indexes:
-                    indexes_data = [_serialize_for_output(i) for i in info.indexes]
-                    provider.display_results(indexes_data, title=f"Indexes of {args.name}")
-                if info.foreign_keys:
-                    fks_data = [_serialize_for_output(f) for f in info.foreign_keys]
-                    provider.display_results(fks_data, title=f"Foreign Keys of {args.name}")
+                display_table_detail(
+                    provider,
+                    args.output,
+                    args.name,
+                    columns=[_serialize_for_output(c) for c in info.columns],
+                    indexes=[_serialize_for_output(i) for i in info.indexes],
+                    foreign_keys=[_serialize_for_output(f) for f in info.foreign_keys],
+                )
             else:
                 print(f"Error: Table '{args.name}' not found", file=sys.stderr)
                 sys.exit(1)
