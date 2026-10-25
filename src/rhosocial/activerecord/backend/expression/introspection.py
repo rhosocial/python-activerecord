@@ -12,9 +12,11 @@ SQL generation:
 Expression classes inherit from BaseExpression and implement to_sql(),
 delegating SQL generation to the dialect's corresponding format_* method.
 
-All expression classes support instantiation with complete parameters for
-IDE introspection, static analysis, and MCP service integration. Parameters
-can be provided at construction time or modified via fluent API methods.
+Every statement collects all of its parameters at construction. There is no
+fluent API: a statement is asked once, with everything it needs, and is never
+edited afterwards. Constructing the final question in one call is what makes
+the parameters readable to IDE introspection, static analysis and MCP service
+integration -- a chain of setters hides them behind the last call.
 """
 
 from typing import Optional, TYPE_CHECKING
@@ -28,16 +30,15 @@ if TYPE_CHECKING:
 class IntrospectionExpression(BaseExpression):
     """Base class for introspection expressions.
 
-    All introspection expressions inherit from this class and provide
-    fluent API for setting parameters. Introspection expressions hold
-    a dialect reference and delegate SQL generation to the corresponding
-    dialect via the to_sql() method.
+    All introspection expressions inherit from this class. An introspection
+    expression holds a dialect reference and the parameters of one catalogue
+    question, and delegates SQL generation to the corresponding dialect via
+    the to_sql() method.
 
     Args:
         dialect: The SQL dialect to use for SQL generation.
-        schema: Optional schema name for the query. When provided at
-            construction, the expression is immediately configured for
-            the specified schema. Can also be set via the schema() method.
+        schema: Optional schema name for the query, collected here with the
+            rest of the parameters.
 
     Example:
         >>> expr = TableListQueryStatement(dialect, schema='public')
@@ -57,26 +58,6 @@ class IntrospectionExpression(BaseExpression):
         """
         super().__init__(dialect)
         self.schema: Optional[str] = schema
-
-    def with_schema(self, name: str) -> "IntrospectionExpression":
-        """Set the schema name for the introspection query.
-
-        This method provides a fluent API for setting the schema name.
-        It can be chained with other configuration methods.
-
-        Args:
-            name: The schema name to query.
-
-        Returns:
-            Self for method chaining.
-
-        Example:
-            >>> expr = TableListQueryStatement(dialect).with_schema('public')
-        """
-        self.schema = name
-        return self
-
-
 
 
 class DatabaseInfoQueryStatement(IntrospectionExpression):
@@ -115,11 +96,8 @@ class TableListQueryStatement(IntrospectionExpression):
             Defaults to None (no filter).
 
     Example:
-        >>> # All parameters at construction
         >>> expr = TableListQueryStatement(dialect, schema='public',
         ...     include_views=True, include_system=False)
-        >>> # Or using fluent API
-        >>> expr = TableListQueryStatement(dialect).with_include_views(False)
     """
 
     def __init__(
@@ -144,57 +122,6 @@ class TableListQueryStatement(IntrospectionExpression):
         self.include_system: bool = include_system
         self.table_type: Optional[str] = table_type
 
-    def with_include_views(self, value: bool = True) -> "TableListQueryStatement":
-        """Set whether to include views in the result.
-
-        Args:
-            value: True to include views, False to exclude. Defaults to True.
-
-        Returns:
-            Self for method chaining.
-
-        Example:
-            >>> expr = TableListQueryStatement(dialect).with_include_views(False)
-        """
-        self.include_views = value
-        return self
-
-    def with_include_system(self, value: bool = True) -> "TableListQueryStatement":
-        """Set whether to include system tables in the result.
-
-        System tables are database metadata tables that are typically hidden
-        from regular queries (e.g., sqlite_master in SQLite).
-
-        Args:
-            value: True to include system tables, False to exclude.
-                Defaults to True.
-
-        Returns:
-            Self for method chaining.
-
-        Example:
-            >>> expr = TableListQueryStatement(dialect).with_include_system(True)
-        """
-        self.include_system = value
-        return self
-
-    def with_table_type(self, ttype: str) -> "TableListQueryStatement":
-        """Filter results by a specific table type.
-
-        Common table types include 'TABLE', 'VIEW', 'SYSTEM TABLE', etc.
-        The exact values depend on the database backend.
-
-        Args:
-            ttype: The table type to filter by (e.g., 'TABLE', 'VIEW').
-
-        Returns:
-            Self for method chaining.
-
-        Example:
-            >>> expr = TableListQueryStatement(dialect).with_table_type('TABLE')
-        """
-        self.table_type = ttype
-        return self
 
     @property
     def format_method(self) -> str:
@@ -246,77 +173,6 @@ class TableInfoQueryStatement(IntrospectionExpression):
         self.include_indexes: bool = include_indexes
         self.include_foreign_keys: bool = include_foreign_keys
 
-    def with_table_name(self, name: str) -> "TableInfoQueryStatement":
-        """Set the table name to query.
-
-        Args:
-            name: The table name.
-
-        Returns:
-            Self for method chaining.
-
-        Example:
-            >>> expr = TableInfoQueryStatement(dialect, 'old_table').with_table_name('new_table')
-        """
-        self.table_name = name
-        return self
-
-    def with_include_columns(self, value: bool = True) -> "TableInfoQueryStatement":
-        """Set whether to include column information.
-
-        Column information includes column names, data types, nullability,
-        default values, and other column attributes.
-
-        Args:
-            value: True to include column information, False to exclude.
-                Defaults to True.
-
-        Returns:
-            Self for method chaining.
-
-        Example:
-            >>> expr = TableInfoQueryStatement(dialect, 'users').with_include_columns(False)
-        """
-        self.include_columns = value
-        return self
-
-    def with_include_indexes(self, value: bool = True) -> "TableInfoQueryStatement":
-        """Set whether to include index information.
-
-        Index information includes index names, columns, uniqueness,
-        and other index attributes.
-
-        Args:
-            value: True to include index information, False to exclude.
-                Defaults to True.
-
-        Returns:
-            Self for method chaining.
-
-        Example:
-            >>> expr = TableInfoQueryStatement(dialect, 'users').with_include_indexes(False)
-        """
-        self.include_indexes = value
-        return self
-
-    def with_include_foreign_keys(self, value: bool = True) -> "TableInfoQueryStatement":
-        """Set whether to include foreign key information.
-
-        Foreign key information includes constraint names, referenced
-        tables, columns, and referential actions (ON DELETE, ON UPDATE).
-
-        Args:
-            value: True to include foreign key information, False to exclude.
-                Defaults to True.
-
-        Returns:
-            Self for method chaining.
-
-        Example:
-            >>> expr = TableInfoQueryStatement(dialect, 'users').with_include_foreign_keys(False)
-        """
-        self.include_foreign_keys = value
-        return self
 
     @property
     def format_method(self) -> str:
@@ -359,39 +215,6 @@ class ColumnInfoQueryStatement(IntrospectionExpression):
         self.table_name = table_name
         self.include_hidden: bool = include_hidden
 
-    def with_table_name(self, name: str) -> "ColumnInfoQueryStatement":
-        """Set the table name to query columns for.
-
-        Args:
-            name: The table name.
-
-        Returns:
-            Self for method chaining.
-
-        Example:
-            >>> expr = ColumnInfoQueryStatement(dialect, 'old').with_table_name('new')
-        """
-        self.table_name = name
-        return self
-
-    def with_include_hidden(self, value: bool = True) -> "ColumnInfoQueryStatement":
-        """Set whether to include hidden columns.
-
-        Hidden columns are typically internal columns used by the database
-        for specific purposes (e.g., SQLite's ROWID, generated columns).
-
-        Args:
-            value: True to include hidden columns, False to exclude.
-                Defaults to True.
-
-        Returns:
-            Self for method chaining.
-
-        Example:
-            >>> expr = ColumnInfoQueryStatement(dialect, 'users').with_include_hidden(True)
-        """
-        self.include_hidden = value
-        return self
 
     @property
     def format_method(self) -> str:
@@ -430,20 +253,6 @@ class IndexInfoQueryStatement(IntrospectionExpression):
         super().__init__(dialect, schema)
         self.table_name = table_name
 
-    def with_table_name(self, name: str) -> "IndexInfoQueryStatement":
-        """Set the table name to query indexes for.
-
-        Args:
-            name: The table name.
-
-        Returns:
-            Self for method chaining.
-
-        Example:
-            >>> expr = IndexInfoQueryStatement(dialect, 'old').with_table_name('new')
-        """
-        self.table_name = name
-        return self
 
     @property
     def format_method(self) -> str:
@@ -482,20 +291,6 @@ class ForeignKeyQueryStatement(IntrospectionExpression):
         super().__init__(dialect, schema)
         self.table_name = table_name
 
-    def with_table_name(self, name: str) -> "ForeignKeyQueryStatement":
-        """Set the table name to query foreign keys for.
-
-        Args:
-            name: The table name.
-
-        Returns:
-            Self for method chaining.
-
-        Example:
-            >>> expr = ForeignKeyQueryStatement(dialect, 'old').with_table_name('new')
-        """
-        self.table_name = name
-        return self
 
     @property
     def format_method(self) -> str:
@@ -534,24 +329,6 @@ class ViewListQueryStatement(IntrospectionExpression):
         super().__init__(dialect, schema)
         self.include_system: bool = include_system
 
-    def with_include_system(self, value: bool = True) -> "ViewListQueryStatement":
-        """Set whether to include system views.
-
-        System views are database metadata views that are typically hidden
-        from regular queries.
-
-        Args:
-            value: True to include system views, False to exclude.
-                Defaults to True.
-
-        Returns:
-            Self for method chaining.
-
-        Example:
-            >>> expr = ViewListQueryStatement(dialect).with_include_system(True)
-        """
-        self.include_system = value
-        return self
 
     @property
     def format_method(self) -> str:
@@ -595,39 +372,6 @@ class ViewInfoQueryStatement(IntrospectionExpression):
         self.view_name = view_name
         self.include_columns: bool = include_columns
 
-    def with_view_name(self, name: str) -> "ViewInfoQueryStatement":
-        """Set the view name to query.
-
-        Args:
-            name: The view name.
-
-        Returns:
-            Self for method chaining.
-
-        Example:
-            >>> expr = ViewInfoQueryStatement(dialect, 'old_view').with_view_name('new_view')
-        """
-        self.view_name = name
-        return self
-
-    def with_include_columns(self, value: bool = True) -> "ViewInfoQueryStatement":
-        """Set whether to include column information.
-
-        Column information includes column names, data types, and other
-        column attributes for the view's result set.
-
-        Args:
-            value: True to include column information, False to exclude.
-                Defaults to True.
-
-        Returns:
-            Self for method chaining.
-
-        Example:
-            >>> expr = ViewInfoQueryStatement(dialect, 'my_view').with_include_columns(False)
-        """
-        self.include_columns = value
-        return self
 
     @property
     def format_method(self) -> str:
@@ -669,20 +413,6 @@ class TriggerListQueryStatement(IntrospectionExpression):
         super().__init__(dialect, schema)
         self.table_name: Optional[str] = table_name
 
-    def for_table(self, table_name: str) -> "TriggerListQueryStatement":
-        """Filter triggers for a specific table.
-
-        Args:
-            table_name: The table name to filter triggers by.
-
-        Returns:
-            Self for method chaining.
-
-        Example:
-            >>> expr = TriggerListQueryStatement(dialect).for_table('users')
-        """
-        self.table_name = table_name
-        return self
 
     @property
     def format_method(self) -> str:
@@ -726,38 +456,6 @@ class TriggerInfoQueryStatement(IntrospectionExpression):
         self.trigger_name = trigger_name
         self.table_name: Optional[str] = table_name
 
-    def with_trigger_name(self, name: str) -> "TriggerInfoQueryStatement":
-        """Set the trigger name to query.
-
-        Args:
-            name: The trigger name.
-
-        Returns:
-            Self for method chaining.
-
-        Example:
-            >>> expr = TriggerInfoQueryStatement(dialect, 'old').with_trigger_name('new')
-        """
-        self.trigger_name = name
-        return self
-
-    def for_table(self, table_name: str) -> "TriggerInfoQueryStatement":
-        """Set the associated table name.
-
-        Some databases require the table name to uniquely identify a trigger,
-        as trigger names may not be globally unique.
-
-        Args:
-            table_name: The associated table name.
-
-        Returns:
-            Self for method chaining.
-
-        Example:
-            >>> expr = TriggerInfoQueryStatement(dialect, 'my_trigger').for_table('users')
-        """
-        self.table_name = table_name
-        return self
 
     @property
     def format_method(self) -> str:

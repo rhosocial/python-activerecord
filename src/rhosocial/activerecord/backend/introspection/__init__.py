@@ -44,6 +44,7 @@ from .executor import (
 from .cache import InMemoryIntrospectionCache, IntrospectionCache
 from .base import (
     IntrospectorMixin,
+    IntrospectorBase,
     SyncAbstractIntrospector,
     AsyncAbstractIntrospector,
 )
@@ -79,6 +80,7 @@ __all__ = [
     "InMemoryIntrospectionCache",
     # Core
     "IntrospectorMixin",
+    "IntrospectorBase",
     "SyncAbstractIntrospector",
     "AsyncAbstractIntrospector",
     "IntrospectorBackendMixin",

@@ -12,7 +12,7 @@ SQLite-specific access through ``backend.introspector.pragma``.
 Key behaviours:
   - Version-aware: uses ``PRAGMA table_list`` (3.37+) or ``sqlite_master``
   - Extended column info: uses ``PRAGMA table_xinfo`` (3.26+)
-  - ``_parse_*`` methods are pure Python — shared by sync and async introspectors
+  - ``parse_*`` methods are pure Python — shared by sync and async introspectors
 
 Design principle: Sync and Async are separate and cannot coexist.
 - SyncSQLiteIntrospector: for synchronous backends
@@ -57,6 +57,11 @@ from .status_introspector import (
     SyncSQLiteStatusIntrospector,
     AsyncSQLiteStatusIntrospector,
 )
+from ..expression.introspection import (
+    SQLiteIndexDdlStatement,
+    SQLiteTableCountStatement,
+    SQLiteTableDdlStatement,
+)
 
 
 class SQLiteIntrospectorMixin(IntrospectorMixin):
@@ -67,11 +72,12 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
     - Default schema handling
     - SQLite version detection
     - SQL generation overrides
-    - _parse_* implementations
+    - parse_* implementations
     """
 
-    def _get_default_schema(self) -> str:
-        """Return the SQLite schema name for the primary database."""
+    @property
+    def default_schema(self) -> str:
+        """The SQLite schema name for the primary database."""
         return "main"
 
     def _get_sqlite_version(self) -> tuple:
@@ -85,8 +91,8 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
     # commands and sqlite_master queries.
     # ------------------------------------------------------------------ #
 
-    # Note: SQLite does NOT override _build_*_sql() methods because:
-    # 1. Base class IntrospectorMixin._build_*_sql() delegates to Expression.to_sql()
+    # Note: SQLite does NOT override the *_statement() factories because:
+    # 1. The base factory returns the family's statement object
     # 2. Expression.to_sql() calls Dialect.format_*_query()
     # 3. SQLiteDialect.format_*_query() generates correct PRAGMA/sqlite_master SQL
     #
@@ -96,7 +102,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
     # Parse methods — pure Python, no I/O
     # ------------------------------------------------------------------ #
 
-    def _parse_database_info(self, rows: List[Dict[str, Any]],
+    def parse_database_info(self, rows: List[Dict[str, Any]],
                              pragma_values: Optional[Dict[str, Any]] = None) -> IntrospectionDatabaseInfo:
         """Turn the version row into a database record.
 
@@ -177,7 +183,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             values[name] = self._pragma_value(self.pragma.get(name), name)
         return values
 
-    def _parse_tables(self, rows: List[Dict[str, Any]], schema: Optional[str]) -> List[IntrospectionTableInfo]:
+    def parse_tables(self, rows: List[Dict[str, Any]], schema: Optional[str]) -> List[IntrospectionTableInfo]:
         tables = []
         for row in rows:
             type_str = row.get("type", "table").lower()
@@ -191,7 +197,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             tables.append(
                 IntrospectionTableInfo(
                     name=row["name"],
-                    schema=schema or self._get_default_schema(),
+                    schema=schema or self.default_schema,
                     table_type=table_type,
                     row_count=None,
                     create_time=None,
@@ -227,7 +233,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
                 result["character_maximum_length"] = value
         return result
 
-    def _parse_columns(self, rows: List[Dict[str, Any]], table_name: str, schema: str,
+    def parse_columns(self, rows: List[Dict[str, Any]], table_name: str, schema: str,
                        ddl: Optional[str] = None,
                        unique_columns: Optional[set] = None) -> List[IntrospectionColumnInfo]:
         """Turn ``PRAGMA table_xinfo`` rows into column records.
@@ -360,7 +366,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             unique.update(columns_by_index.get(idx.get("name") or "", []))
         return unique
 
-    def _parse_indexes(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[IndexInfo]:
+    def parse_indexes(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[IndexInfo]:
         if not rows:
             return []
         idx_map: Dict[str, IndexInfo] = {}
@@ -390,7 +396,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
                 )
         return list(idx_map.values())
 
-    def _parse_foreign_keys(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[IntrospectionForeignKeyInfo]:
+    def parse_foreign_keys(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[IntrospectionForeignKeyInfo]:
         if not rows:
             return []
         fk_map: Dict[int, IntrospectionForeignKeyInfo] = {}
@@ -426,10 +432,10 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             fk_map[fk_id].referenced_columns.append(row["to"])
         return list(fk_map.values())
 
-    def _parse_views(self, rows: List[Dict[str, Any]], schema: str) -> List[IntrospectionViewInfo]:
+    def parse_views(self, rows: List[Dict[str, Any]], schema: str) -> List[IntrospectionViewInfo]:
         return [IntrospectionViewInfo(name=row["name"], schema=schema, definition=row.get("sql")) for row in rows]
 
-    def _parse_view_info(self, rows: List[Dict[str, Any]], view_name: str, schema: str) -> Optional[IntrospectionViewInfo]:
+    def parse_view_info(self, rows: List[Dict[str, Any]], view_name: str, schema: str) -> Optional[IntrospectionViewInfo]:
         if not rows:
             return None
         row = rows[0]
@@ -444,7 +450,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
     _TRIGGER_EVENTS = ("DELETE", "INSERT", "UPDATE")
 
     @classmethod
-    def _parse_trigger_header(cls, ddl: Optional[str]):
+    def parse_trigger_header(cls, ddl: Optional[str]):
         """(timing, events) from a trigger's ``CREATE TRIGGER`` text.
 
         SQLite keeps a trigger's header only in its DDL -- there is no pragma
@@ -467,10 +473,10 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
         events = [e for e in cls._TRIGGER_EVENTS if e in header]
         return timing, events
 
-    def _parse_triggers(self, rows: List[Dict[str, Any]], schema: str) -> List[IntrospectionTriggerInfo]:
+    def parse_triggers(self, rows: List[Dict[str, Any]], schema: str) -> List[IntrospectionTriggerInfo]:
         triggers = []
         for row in rows:
-            timing, events = self._parse_trigger_header(row.get("sql"))
+            timing, events = self.parse_trigger_header(row.get("sql"))
             triggers.append(
                 IntrospectionTriggerInfo(
                     name=row["name"],
@@ -497,21 +503,23 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
         if cached is not None:
             return cached
 
-        sql, params = self._build_database_info_sql()
+        sql, params = self.database_info_statement().to_sql()
         rows = self._executor.execute(sql, params)
         values = self._collect_database_pragmas()
         values["table_count"] = self._count_tables()
-        result = self._parse_database_info(rows, values)
+        result = self.parse_database_info(rows, values)
         self._cache.set(key, result)
         return result
 
     def _count_tables(self) -> Optional[int]:
         """How many tables this database declares, system ones excluded."""
-        sql = (
-            "SELECT COUNT(*) AS table_count FROM sqlite_master "
-            "WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
-        )
-        rows = self._executor.execute(sql, ())
+        sql, params = SQLiteTableCountStatement(
+            self.dialect, self.default_schema
+        ).to_sql()
+        return self.parse_table_count(self._executor.execute(sql, params))
+
+    def parse_table_count(self, rows: List[Dict[str, Any]]) -> Optional[int]:
+        """Read the count from the single row ``COUNT(*)`` returns."""
         if not rows:
             return None
         try:
@@ -567,29 +575,26 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
 
     def list_columns(self, table_name: str, schema: Optional[str] = None) -> List[IntrospectionColumnInfo]:
         """List columns, with auto-increment detection from DDL."""
-        target_db = schema or self._get_default_schema()
+        target_db = schema or self.default_schema
         key = self._cache.key(IntrospectionScope.COLUMN, table_name, schema=schema)
         cached = self._cache.get(key)
         if cached is not None:
             return cached
 
-        sql, params = self._build_column_info_sql(table_name, schema)
+        sql, params = self.column_info_statement(table_name=table_name, schema=schema).to_sql()
         rows = self._executor.execute(sql, params)
 
         # Query the DDL for AUTOINCREMENT detection, and the index pragmas for
         # uniqueness: neither fact is on the column row.
         ddl = None
-        ddl_result = self._executor.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' "
-            f"AND name={self.dialect.p()} AND tbl_name={self.dialect.p()}",
-            (table_name, table_name),
-        )
+        ddl_sql, ddl_params = SQLiteTableDdlStatement(self.dialect, table_name).to_sql()
+        ddl_result = self._executor.execute(ddl_sql, ddl_params)
         if ddl_result and ddl_result[0].get("sql"):
             ddl = ddl_result[0]["sql"]
 
         unique_columns = self._collect_unique_columns(table_name, target_db)
 
-        result = self._parse_columns(
+        result = self.parse_columns(
             rows, table_name, target_db, ddl=ddl, unique_columns=unique_columns
         )
         self._cache.set(key, result)
@@ -606,7 +611,7 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
         1. PRAGMA index_list(table) - get index list
         2. PRAGMA index_xinfo(index) - get column info for each index
         """
-        target_db = schema or self._get_default_schema()
+        target_db = schema or self.default_schema
         key = self._cache.key(IntrospectionScope.INDEX, table_name, schema=schema)
         cached = self._cache.get(key)
         if cached is not None:
@@ -654,10 +659,8 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
             # For partial indexes, extract filter_condition from DDL
             filter_condition: Optional[str] = None
             if is_partial:
-                ddl_result = self._executor.execute(
-                    f"SELECT sql FROM sqlite_master WHERE type='index' AND name={self.dialect.p()}",
-                    (idx_name,),
-                )
+                index_ddl, index_params = SQLiteIndexDdlStatement(self.dialect, idx_name).to_sql()
+                ddl_result = self._executor.execute(index_ddl, index_params)
                 if ddl_result and ddl_result[0].get("sql"):
                     ddl_sql = ddl_result[0]["sql"]
                     where_match = re.search(
@@ -684,12 +687,11 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
         return indexes
 
     # ------------------------------------------------------------------ #
-    # get_table_info override — uses direct _parse, avoids redundant
-    # list_tables() call and populates columns/indexes/FKs in one sweep.
+    # get_table_info override — parses rows directly instead of calling
+    # list_tables() again, and populates columns/indexes/FKs in one sweep.
     # ------------------------------------------------------------------ #
 
     def get_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[IntrospectionTableInfo]:
-        schema or self._get_default_schema()
         key = self._cache.key(IntrospectionScope.TABLE, table_name, schema=schema)
         cached = self._cache.get(key)
         if cached is not None:
@@ -752,7 +754,7 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
     async def get_database_info(self) -> IntrospectionDatabaseInfo:
         """The async twin of :meth:`SyncSQLiteIntrospector.get_database_info`.
 
-        Same questions, awaited, and the same :meth:`_parse_database_info`
+        Same questions, awaited, and the same :meth:`parse_database_info`
         reduction -- so the two directions cannot report different encodings or
         different sizes for one database.
         """
@@ -761,28 +763,21 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
         if cached is not None:
             return cached
 
-        sql, params = self._build_database_info_sql()
+        sql, params = self.database_info_statement().to_sql()
         rows = await self._executor.execute(sql, params)
         values: Dict[str, Any] = {}
         for name in self._DATABASE_PRAGMAS:
             values[name] = self._pragma_value(await self.pragma.get(name), name)
         values["table_count"] = await self._count_tables_async()
-        result = self._parse_database_info(rows, values)
+        result = self.parse_database_info(rows, values)
         self._cache.set(key, result)
         return result
 
     async def _count_tables_async(self) -> Optional[int]:
-        sql = (
-            "SELECT COUNT(*) AS table_count FROM sqlite_master "
-            "WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
-        )
-        rows = await self._executor.execute(sql, ())
-        if not rows:
-            return None
-        try:
-            return int(rows[0]["table_count"])
-        except (KeyError, TypeError, ValueError):
-            return None
+        sql, params = SQLiteTableCountStatement(
+            self.dialect, self.default_schema
+        ).to_sql()
+        return self.parse_table_count(await self._executor.execute(sql, params))
 
     # ------------------------------------------------------------------ #
     # Override list_columns for auto-increment detection
@@ -790,28 +785,25 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
 
     async def list_columns(self, table_name: str, schema: Optional[str] = None) -> List[IntrospectionColumnInfo]:
         """List columns, with auto-increment detection from DDL."""
-        target_db = schema or self._get_default_schema()
+        target_db = schema or self.default_schema
         key = self._cache.key(IntrospectionScope.COLUMN, table_name, schema=schema)
         cached = self._cache.get(key)
         if cached is not None:
             return cached
 
-        sql, params = self._build_column_info_sql(table_name, schema)
+        sql, params = self.column_info_statement(table_name=table_name, schema=schema).to_sql()
         rows = await self._executor.execute(sql, params)
 
         # Query the DDL for AUTOINCREMENT detection
         ddl = None
-        ddl_result = await self._executor.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' "
-            f"AND name={self.dialect.p()} AND tbl_name={self.dialect.p()}",
-            (table_name, table_name),
-        )
+        ddl_sql, ddl_params = SQLiteTableDdlStatement(self.dialect, table_name).to_sql()
+        ddl_result = await self._executor.execute(ddl_sql, ddl_params)
         if ddl_result and ddl_result[0].get("sql"):
             ddl = ddl_result[0]["sql"]
 
         unique_columns = await self._collect_unique_columns_async(table_name, target_db)
 
-        result = self._parse_columns(
+        result = self.parse_columns(
             rows, table_name, target_db, ddl=ddl, unique_columns=unique_columns
         )
         self._cache.set(key, result)
@@ -828,7 +820,7 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
         1. PRAGMA index_list(table) - get index list
         2. PRAGMA index_xinfo(index) - get column info for each index
         """
-        target_db = schema or self._get_default_schema()
+        target_db = schema or self.default_schema
         key = self._cache.key(IntrospectionScope.INDEX, table_name, schema=schema)
         cached = self._cache.get(key)
         if cached is not None:
@@ -876,10 +868,8 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
             # For partial indexes, extract filter_condition from DDL
             filter_condition: Optional[str] = None
             if is_partial:
-                ddl_result = await self._executor.execute(
-                    f"SELECT sql FROM sqlite_master WHERE type='index' AND name={self.dialect.p()}",
-                    (idx_name,),
-                )
+                index_ddl, index_params = SQLiteIndexDdlStatement(self.dialect, idx_name).to_sql()
+                ddl_result = await self._executor.execute(index_ddl, index_params)
                 if ddl_result and ddl_result[0].get("sql"):
                     ddl_sql = ddl_result[0]["sql"]
                     where_match = re.search(
@@ -906,12 +896,11 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
         return indexes
 
     # ------------------------------------------------------------------ #
-    # get_table_info override — uses direct _parse, avoids redundant
-    # list_tables() call and populates columns/indexes/FKs in one sweep.
+    # get_table_info override — parses rows directly instead of calling
+    # list_tables() again, and populates columns/indexes/FKs in one sweep.
     # ------------------------------------------------------------------ #
 
     async def get_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[IntrospectionTableInfo]:
-        schema or self._get_default_schema()
         key = self._cache.key(IntrospectionScope.TABLE, table_name, schema=schema)
         cached = self._cache.get(key)
         if cached is not None:

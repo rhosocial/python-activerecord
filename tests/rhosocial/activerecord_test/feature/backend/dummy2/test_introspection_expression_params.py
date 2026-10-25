@@ -30,12 +30,6 @@ class TestIntrospectionExpressionParams:
         params = expr.get_params()
         assert params.get("schema") == "public"
 
-    def test_introspection_expression_fluent_schema(self, dummy_dialect):
-        """Test schema can be set via fluent API."""
-        expr = IntrospectionExpression(dummy_dialect).with_schema("public")
-        params = expr.get_params()
-        assert params.get("schema") == "public"
-
 
 class TestTableListExpressionParams:
     """Tests for TableListQueryStatement construction parameters."""
@@ -59,12 +53,6 @@ class TestTableListExpressionParams:
         assert params.get("include_views") is True
         assert params.get("include_system") is False
         assert params.get("table_type") is None
-
-    def test_fluent_api_override(self, dummy_dialect):
-        """Test fluent API can override constructor values."""
-        expr = TableListQueryStatement(dialect=dummy_dialect, include_views=False).with_include_views(True)
-        params = expr.get_params()
-        assert params.get("include_views") is True
 
 
 class TestTableInfoExpressionParams:
@@ -96,17 +84,6 @@ class TestTableInfoExpressionParams:
         assert params.get("include_columns") is True
         assert params.get("include_indexes") is True
         assert params.get("include_foreign_keys") is True
-
-    def test_fluent_api_override(self, dummy_dialect):
-        """Test fluent API can override constructor values."""
-        expr = (
-            TableInfoQueryStatement(dialect=dummy_dialect, table_name="users", include_columns=False)
-            .with_include_columns(True)
-            .with_table_name("posts")
-        )
-        params = expr.get_params()
-        assert params.get("table_name") == "posts"
-        assert params.get("include_columns") is True
 
 
 class TestColumnInfoExpressionParams:
@@ -182,12 +159,6 @@ class TestViewListExpressionParams:
         assert params.get("schema") is None
         assert params.get("include_system") is False
 
-    def test_fluent_api_override(self, dummy_dialect):
-        """Test fluent API can override constructor values."""
-        expr = ViewListQueryStatement(dialect=dummy_dialect, include_system=False).with_include_system(True)
-        params = expr.get_params()
-        assert params.get("include_system") is True
-
 
 class TestViewInfoExpressionParams:
     """Tests for ViewInfoQueryStatement construction parameters."""
@@ -227,12 +198,6 @@ class TestTriggerListExpressionParams:
         params = expr.get_params()
         assert params.get("schema") is None
         assert params.get("table_name") is None
-
-    def test_fluent_api_for_table(self, dummy_dialect):
-        """Test for_table fluent API."""
-        expr = TriggerListQueryStatement(dialect=dummy_dialect, table_name="users").for_table("posts")
-        params = expr.get_params()
-        assert params.get("table_name") == "posts"
 
 
 class TestTriggerInfoExpressionParams:

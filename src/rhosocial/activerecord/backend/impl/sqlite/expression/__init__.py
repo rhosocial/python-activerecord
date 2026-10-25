@@ -6,7 +6,7 @@ This module provides expression classes that are specific to SQLite,
 such as column info expressions, table list expressions, and REINDEX statement.
 
 Directory structure:
-- introspection.py  - Column info expression
+- introspection.py  - Column info expression, PRAGMA statements, table count and DDL reads
 - table_list.py     - Table list expression
 - reindex.py        - REINDEX expression
 - predicates.py     - FTS MATCH predicate expression
@@ -15,7 +15,14 @@ Directory structure:
 - geopoly.py        - Geopoly expression classes
 """
 
-from .introspection import SQLiteColumnInfoExpression
+from .introspection import (
+    SQLiteColumnInfoExpression,
+    SQLiteIndexDdlStatement,
+    SQLitePragmaQueryStatement,
+    SQLitePragmaSetStatement,
+    SQLiteTableCountStatement,
+    SQLiteTableDdlStatement,
+)
 from .table import SQLiteTable
 from .table_list import SQLiteTableListExpression
 from .reindex import SQLiteReindexStatement
@@ -54,6 +61,11 @@ from .json import SQLiteJsonExtractFunction
 # or in the core (§5.1: rhosocial's own packages get no privilege).
 for _sqlite_expression in (
     SQLiteColumnInfoExpression,
+    SQLiteIndexDdlStatement,
+    SQLitePragmaQueryStatement,
+    SQLitePragmaSetStatement,
+    SQLiteTableCountStatement,
+    SQLiteTableDdlStatement,
     SQLiteTable,
     SQLiteTableListExpression,
     SQLiteReindexStatement,
@@ -80,6 +92,11 @@ del _sqlite_expression
 
 __all__ = [
     "SQLiteColumnInfoExpression",
+    "SQLiteIndexDdlStatement",
+    "SQLitePragmaQueryStatement",
+    "SQLitePragmaSetStatement",
+    "SQLiteTableCountStatement",
+    "SQLiteTableDdlStatement",
     "SQLiteTable",
     "SQLiteTableListExpression",
     "SQLiteReindexStatement",

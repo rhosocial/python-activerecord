@@ -71,7 +71,7 @@ class SQLiteStatusIntrospectorMixin:
         """Get SQLite vendor name."""
         return "SQLite"
 
-    def _parse_pragma_value(self, value: Any) -> Any:
+    def parse_pragma_value(self, value: Any) -> Any:
         """Parse PRAGMA value to appropriate Python type.
 
         Args:
@@ -114,7 +114,7 @@ class SQLiteStatusIntrospectorMixin:
         """
         return StatusItem(
             name=name,
-            value=self._parse_pragma_value(value),
+            value=self.parse_pragma_value(value),
             category=category,
             description=description,
             unit=unit,

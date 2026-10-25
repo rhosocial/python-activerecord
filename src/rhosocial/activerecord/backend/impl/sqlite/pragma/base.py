@@ -73,32 +73,6 @@ class PragmaInfo:
     argument_type: Optional[type] = None
     documentation_url: Optional[str] = None
 
-    def get_sql(self) -> str:
-        """Get PRAGMA SQL statement for reading.
-
-        Returns:
-            SQL string for reading the PRAGMA value
-        """
-        return f"PRAGMA {self.name}"
-
-    def get_set_sql(self, value: Any = None, argument: Any = None) -> str:
-        """Get PRAGMA SQL statement for setting.
-
-        Args:
-            value: Value to set (for configuration pragmas)
-            argument: Argument (for pragmas that require an argument)
-
-        Returns:
-            SQL string for setting the PRAGMA value
-        """
-        if self.requires_argument and argument is not None:
-            if value is not None:
-                return f"PRAGMA {self.name}({argument}) = {value}"
-            return f"PRAGMA {self.name}({argument})"
-        elif value is not None:
-            return f"PRAGMA {self.name} = {value}"
-        return f"PRAGMA {self.name}"
-
 
 @runtime_checkable
 class PragmaProtocol(Protocol):
@@ -130,29 +104,6 @@ class PragmaProtocol(Protocol):
 
         Returns:
             PragmaInfo instance
-        """
-        ...
-
-    def get_value_sql(self, argument: Any = None) -> str:
-        """Get SQL for reading PRAGMA value.
-
-        Args:
-            argument: Optional argument for parameterized pragmas
-
-        Returns:
-            SQL string
-        """
-        ...
-
-    def set_value_sql(self, value: Any, argument: Any = None) -> str:
-        """Get SQL for setting PRAGMA value.
-
-        Args:
-            value: Value to set
-            argument: Optional argument for parameterized pragmas
-
-        Returns:
-            SQL string
         """
         ...
 
@@ -254,42 +205,6 @@ class PragmaBase(ABC):
             argument_type=self._argument_type,
             documentation_url=self._documentation_url,
         )
-
-    def get_value_sql(self, argument: Any = None) -> str:
-        """Get SQL for reading PRAGMA value.
-
-        Args:
-            argument: Optional argument for parameterized pragmas
-
-        Returns:
-            SQL string
-        """
-        if self._requires_argument and argument is not None:
-            return f"PRAGMA {self._name}({argument})"
-        return f"PRAGMA {self._name}"
-
-    def set_value_sql(self, value: Any, argument: Any = None) -> str:
-        """Get SQL for setting PRAGMA value.
-
-        Args:
-            value: Value to set
-            argument: Optional argument for parameterized pragmas
-
-        Returns:
-            SQL string
-
-        Raises:
-            ValueError: If PRAGMA is read-only
-        """
-        if self._read_only:
-            raise ValueError(f"PRAGMA {self._name} is read-only and cannot be set")
-
-        if self._allowed_values and value not in self._allowed_values:
-            raise ValueError(f"Invalid value '{value}' for PRAGMA {self._name}. Allowed values: {self._allowed_values}")
-
-        if self._requires_argument and argument is not None:
-            return f"PRAGMA {self._name}({argument}) = {value}"
-        return f"PRAGMA {self._name} = {value}"
 
     def validate_value(self, value: Any) -> bool:
         """Validate a value for this PRAGMA.

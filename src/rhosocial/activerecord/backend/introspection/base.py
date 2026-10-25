@@ -5,8 +5,9 @@ Abstract introspector base classes.
 This module provides the abstract base classes for database introspection,
 following the project's sync/async parity principle:
 
-1. IntrospectorMixin: builds the SQL a question needs. No state, no I/O,
-   no result rows -- it is the expression layer of introspection.
+1. IntrospectorMixin: the shared base every introspector inherits, which
+   knows the default schema. It holds no state, does no I/O and never sees
+   a result row.
 
 2. SyncAbstractIntrospector: Synchronous introspector with all I/O methods
    being synchronous.
@@ -22,12 +23,16 @@ Design principles:
     IntrospectionCache and delegates invalidation to it, because results
     outlive a single call. The in-memory implementation is the default; a
     backend may inject its own.
-  - Building SQL, running it and parsing the rows are three separate jobs:
-    this module keeps the first pure, and puts the other two on the manager.
+  - Asking for a statement, running it and parsing the rows are three
+    separate jobs: this module keeps the first pure (the ``*_statement``
+    factories on the manager), and puts the other two on the manager.
+  - No SQL is built here. Each factory picks a statement object; the
+    dialect's ``format_*_query_statement`` decides the SQL that object
+    renders, so a backend overrides the factory rather than rewriting SQL.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from .cache import InMemoryIntrospectionCache, IntrospectionCache
 from .types import (
@@ -43,16 +48,26 @@ from .types import (
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect.base import SQLDialectBase
+    from ..expression.introspection import (
+        ColumnInfoQueryStatement,
+        DatabaseInfoQueryStatement,
+        ForeignKeyQueryStatement,
+        IndexInfoQueryStatement,
+        TableListQueryStatement,
+        TriggerListQueryStatement,
+        ViewInfoQueryStatement,
+        ViewListQueryStatement,
+    )
     from .executor import SyncIntrospectorExecutor, AsyncIntrospectorExecutor
 
 
 class IntrospectorMixin:
     """Mixin providing shared non-I/O functionality for introspectors.
 
-    This mixin builds the SQL an introspection question needs. Nothing
-    else: it holds no state, runs no I/O and never sees a result row,
-    which is what makes it safe to share between the sync and the async
-    manager and between every backend.
+    This mixin knows which schema a query means by default and holds
+    nothing else: no state, no I/O, and it never sees a result row, which
+    is what makes it safe to share between the sync and the async manager
+    and between every backend.
 
     Caching and parsing belong to the manager that inherits this class --
     the cache because results outlive a call, and the parsing contract
@@ -68,119 +83,25 @@ class IntrospectorMixin:
         """Get the SQL dialect from the backend."""
         return self._backend.dialect
 
-    def _get_default_schema(self) -> str:
-        """Return the default schema name for this database.
+    @property
+    def default_schema(self) -> str:
+        """The schema name this database calls its own by default.
 
-        Subclasses should override to return the database-specific default
-        (e.g. ``"main"`` for SQLite, ``"public"`` for PostgreSQL).
-        Returns an empty string by default so generic callers can still work.
+        Subclasses override to name the database-specific default (``"main"``
+        for SQLite, ``"public"`` for PostgreSQL). Empty by default so generic
+        callers still work against a backend that has no such name.
         """
         return ""
 
-    # ------------------------------------------------------------------ #
-    # SQL generation — delegates to Expression + Dialect (no I/O)
-    # Subclasses may override to use database-specific statements.
-    # ------------------------------------------------------------------ #
 
-    def _build_database_info_sql(self) -> Tuple[str, tuple]:
-        """Build SQL for database information query."""
-        from ..expression.introspection import DatabaseInfoQueryStatement
+class IntrospectorBase(IntrospectorMixin, ABC):
+    """What every introspection manager is: owns the cache, provides the
+    statement factories, and contracts the parsing of database rows.
 
-        expr = DatabaseInfoQueryStatement(self.dialect)
-        # Set default schema for databases that need it (e.g., MySQL needs database name)
-        default_schema = self._get_default_schema()
-        if default_schema:
-            expr = expr.with_schema(default_schema)
-        return expr.to_sql()
-
-    def _build_table_list_sql(
-        self,
-        schema: Optional[str],
-        include_system: bool,
-        include_views: bool = True,
-        table_type: Optional[str] = None,
-    ) -> Tuple[str, tuple]:
-        """Build SQL for table list query."""
-        from ..expression.introspection import TableListQueryStatement
-
-        # Use provided schema or default
-        target_schema = schema if schema is not None else self._get_default_schema()
-        expr = (
-            TableListQueryStatement(self.dialect)
-            .with_schema(target_schema)
-            .with_include_system(include_system)
-            .with_include_views(include_views)
-        )
-        if table_type:
-            expr = expr.with_table_type(table_type)
-        return expr.to_sql()
-
-    def _build_column_info_sql(self, table_name: str, schema: Optional[str]) -> Tuple[str, tuple]:
-        """Build SQL for column information query."""
-        from ..expression.introspection import ColumnInfoQueryStatement
-
-        # Use provided schema or default
-        target_schema = schema if schema is not None else self._get_default_schema()
-        expr = ColumnInfoQueryStatement(self.dialect, table_name).with_schema(target_schema)
-        return expr.to_sql()
-
-    def _build_index_info_sql(self, table_name: str, schema: Optional[str]) -> Tuple[str, tuple]:
-        """Build SQL for index information query."""
-        from ..expression.introspection import IndexInfoQueryStatement
-
-        # Use provided schema or default
-        target_schema = schema if schema is not None else self._get_default_schema()
-        expr = IndexInfoQueryStatement(self.dialect, table_name).with_schema(target_schema)
-        return expr.to_sql()
-
-    def _build_foreign_key_sql(self, table_name: str, schema: Optional[str]) -> Tuple[str, tuple]:
-        """Build SQL for foreign key query."""
-        from ..expression.introspection import ForeignKeyQueryStatement
-
-        # Use provided schema or default
-        target_schema = schema if schema is not None else self._get_default_schema()
-        expr = ForeignKeyQueryStatement(self.dialect, table_name).with_schema(target_schema)
-        return expr.to_sql()
-
-    def _build_view_list_sql(self, schema: Optional[str], include_system: bool) -> Tuple[str, tuple]:
-        """Build SQL for view list query."""
-        from ..expression.introspection import ViewListQueryStatement
-
-        # Use provided schema or default
-        target_schema = schema if schema is not None else self._get_default_schema()
-        expr = ViewListQueryStatement(self.dialect).with_schema(target_schema).with_include_system(include_system)
-        return expr.to_sql()
-
-    def _build_view_info_sql(self, view_name: str, schema: Optional[str]) -> Tuple[str, tuple]:
-        """Build SQL for view information query."""
-        from ..expression.introspection import ViewInfoQueryStatement
-
-        # Use provided schema or default
-        target_schema = schema if schema is not None else self._get_default_schema()
-        expr = ViewInfoQueryStatement(self.dialect, view_name).with_schema(target_schema)
-        return expr.to_sql()
-
-    def _build_trigger_list_sql(self, table_name: Optional[str], schema: Optional[str]) -> Tuple[str, tuple]:
-        """Build SQL for trigger list query."""
-        from ..expression.introspection import TriggerListQueryStatement
-
-        # Use provided schema or default
-        target_schema = schema if schema is not None else self._get_default_schema()
-        expr = TriggerListQueryStatement(self.dialect).with_schema(target_schema)
-        if table_name:
-            expr = expr.for_table(table_name)
-        return expr.to_sql()
-
-
-
-
-class _IntrospectionManagerBase(IntrospectorMixin, ABC):
-    """What every introspection manager is: owns the cache, and contracts
-    the parsing of database rows.
-
-    The sync and the async manager differ only in how they run the SQL
-    this mixin built -- everything below is common to both, so it is
-    declared once here rather than twice.
+    The sync and the async manager differ only in how they run the SQL the
+    statements render -- everything below is common to both, so it is
+    declared once here rather than twice. That includes the factories: a
+    backend overrides ``table_list_statement`` and both managers see it.
     """
 
     def __init__(self, backend: Any, executor: Any, cache: Optional[IntrospectionCache] = None) -> None:
@@ -191,6 +112,133 @@ class _IntrospectionManagerBase(IntrospectorMixin, ABC):
         #: backend can put its own implementation here.
         self._cache: IntrospectionCache = (
             cache if cache is not None else InMemoryIntrospectionCache()
+        )
+
+    # ------------------------------------------------------------------ #
+    # Statement factories
+    #
+    # One factory per introspection family. Each returns a *statement
+    # object* and renders nothing: the dialect's
+    # ``format_*_query_statement`` decides the SQL. A backend that needs a
+    # different statement (an extra column, another catalog view) overrides
+    # the factory and nothing else -- which is why these live on the shared
+    # base and not on one side of the sync/async split.
+    # ------------------------------------------------------------------ #
+
+    def database_info_statement(self) -> "DatabaseInfoQueryStatement":
+        """Return the statement that asks for database information."""
+        from ..expression.introspection import DatabaseInfoQueryStatement
+
+        # Databases that identify themselves by schema (MySQL's database
+        # name, for one) need the default schema on the statement. Every
+        # parameter is collected at construction: a statement is built once,
+        # with everything it asks, and never edited afterwards.
+        return DatabaseInfoQueryStatement(
+            self.dialect, schema=self.default_schema or None
+        )
+
+    def table_list_statement(
+        self,
+        *,
+        schema: Optional[str],
+        include_system: bool,
+        include_views: bool = True,
+        table_type: Optional[str] = None,
+    ) -> "TableListQueryStatement":
+        """Return the statement that lists tables, views and system tables."""
+        from ..expression.introspection import TableListQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return TableListQueryStatement(
+            self.dialect,
+            schema=target_schema,
+            include_views=include_views,
+            include_system=include_system,
+            table_type=table_type,
+        )
+
+    def column_info_statement(
+        self,
+        *,
+        table_name: str,
+        schema: Optional[str],
+    ) -> "ColumnInfoQueryStatement":
+        """Return the statement that asks for a table's columns."""
+        from ..expression.introspection import ColumnInfoQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return ColumnInfoQueryStatement(
+            self.dialect, table_name=table_name, schema=target_schema
+        )
+
+    def index_info_statement(
+        self,
+        *,
+        table_name: str,
+        schema: Optional[str],
+    ) -> "IndexInfoQueryStatement":
+        """Return the statement that asks for a table's indexes."""
+        from ..expression.introspection import IndexInfoQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return IndexInfoQueryStatement(
+            self.dialect, table_name=table_name, schema=target_schema
+        )
+
+    def foreign_key_statement(
+        self,
+        *,
+        table_name: str,
+        schema: Optional[str],
+    ) -> "ForeignKeyQueryStatement":
+        """Return the statement that asks for a table's foreign keys."""
+        from ..expression.introspection import ForeignKeyQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return ForeignKeyQueryStatement(
+            self.dialect, table_name=table_name, schema=target_schema
+        )
+
+    def view_list_statement(
+        self,
+        *,
+        schema: Optional[str],
+        include_system: bool,
+    ) -> "ViewListQueryStatement":
+        """Return the statement that lists views."""
+        from ..expression.introspection import ViewListQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return ViewListQueryStatement(
+            self.dialect, schema=target_schema, include_system=include_system
+        )
+
+    def view_info_statement(
+        self,
+        *,
+        view_name: str,
+        schema: Optional[str],
+    ) -> "ViewInfoQueryStatement":
+        """Return the statement that asks for one view's information."""
+        from ..expression.introspection import ViewInfoQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return ViewInfoQueryStatement(
+            self.dialect, view_name=view_name, schema=target_schema
+        )
+
+    def trigger_list_statement(
+        self,
+        *,
+        schema: Optional[str],
+        table_name: Optional[str] = None,
+    ) -> "TriggerListQueryStatement":
+        """Return the statement that lists triggers, optionally one table's."""
+        from ..expression.introspection import TriggerListQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return TriggerListQueryStatement(
+            self.dialect, schema=target_schema, table_name=table_name
         )
 
     # ------------------------------------------------------------------ #
@@ -239,50 +287,51 @@ class _IntrospectionManagerBase(IntrospectorMixin, ABC):
     # ------------------------------------------------------------------ #
 
     @abstractmethod
-    def _parse_database_info(self, rows: List[Dict[str, Any]]) -> IntrospectionDatabaseInfo:
+    def parse_database_info(self, rows: List[Dict[str, Any]]) -> IntrospectionDatabaseInfo:
         """Parse database info from query result rows."""
         ...
 
     @abstractmethod
-    def _parse_tables(self, rows: List[Dict[str, Any]], schema: Optional[str]) -> List[IntrospectionTableInfo]:
+    def parse_tables(self, rows: List[Dict[str, Any]], schema: Optional[str]) -> List[IntrospectionTableInfo]:
         """Parse table list from query result rows."""
         ...
 
     @abstractmethod
-    def _parse_columns(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[IntrospectionColumnInfo]:
+    def parse_columns(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[IntrospectionColumnInfo]:
         """Parse column list from query result rows."""
         ...
 
     @abstractmethod
-    def _parse_indexes(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[IndexInfo]:
+    def parse_indexes(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[IndexInfo]:
         """Parse index list from query result rows."""
         ...
 
     @abstractmethod
-    def _parse_foreign_keys(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[IntrospectionForeignKeyInfo]:
+    def parse_foreign_keys(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[IntrospectionForeignKeyInfo]:
         """Parse foreign key list from query result rows."""
         ...
 
     @abstractmethod
-    def _parse_views(self, rows: List[Dict[str, Any]], schema: str) -> List[IntrospectionViewInfo]:
+    def parse_views(self, rows: List[Dict[str, Any]], schema: str) -> List[IntrospectionViewInfo]:
         """Parse view list from query result rows."""
         ...
 
     @abstractmethod
-    def _parse_view_info(self, rows: List[Dict[str, Any]], view_name: str, schema: str) -> Optional[IntrospectionViewInfo]:
+    def parse_view_info(self, rows: List[Dict[str, Any]], view_name: str, schema: str) -> Optional[IntrospectionViewInfo]:
         """Parse view info from query result rows."""
         ...
 
     @abstractmethod
-    def _parse_triggers(self, rows: List[Dict[str, Any]], schema: str) -> List[IntrospectionTriggerInfo]:
+    def parse_triggers(self, rows: List[Dict[str, Any]], schema: str) -> List[IntrospectionTriggerInfo]:
         """Parse trigger list from query result rows."""
         ...
 
-class SyncAbstractIntrospector(_IntrospectionManagerBase, ABC):
+
+class SyncAbstractIntrospector(IntrospectorBase, ABC):
     """Abstract base class for synchronous database introspectors.
 
     This class provides all synchronous I/O methods for database introspection.
-    Subclasses must implement all _parse_* methods.
+    Subclasses must implement all parse_* methods.
 
     Public API:
         get_database_info(), list_tables(), get_table_info(), table_exists(),
@@ -312,8 +361,8 @@ class SyncAbstractIntrospector(_IntrospectionManagerBase, ABC):
         cached = self._cache.get(key)
         if cached is not None:
             return cached
-        sql, params = self._build_database_info_sql()
-        result = self._parse_database_info(self._executor.execute(sql, params))
+        sql, params = self.database_info_statement().to_sql()
+        result = self.parse_database_info(self._executor.execute(sql, params))
         self._cache.set(key, result)
         return result
 
@@ -332,8 +381,13 @@ class SyncAbstractIntrospector(_IntrospectionManagerBase, ABC):
         cached = self._cache.get(key)
         if cached is not None:
             return cached
-        sql, params = self._build_table_list_sql(schema, include_system, True, table_type)
-        result = self._parse_tables(self._executor.execute(sql, params), schema)
+        sql, params = self.table_list_statement(
+            schema=schema,
+            include_system=include_system,
+            include_views=True,
+            table_type=table_type,
+        ).to_sql()
+        result = self.parse_tables(self._executor.execute(sql, params), schema)
         self._cache.set(key, result)
         return result
 
@@ -359,13 +413,13 @@ class SyncAbstractIntrospector(_IntrospectionManagerBase, ABC):
 
     def list_columns(self, table_name: str, schema: Optional[str] = None) -> List[IntrospectionColumnInfo]:
         """List all columns of the given table."""
-        target = schema if schema is not None else self._get_default_schema()
+        target = schema if schema is not None else self.default_schema
         key = self._cache.key(IntrospectionScope.COLUMN, table_name, schema=schema)
         cached = self._cache.get(key)
         if cached is not None:
             return cached
-        sql, params = self._build_column_info_sql(table_name, schema)
-        result = self._parse_columns(self._executor.execute(sql, params), table_name, target)
+        sql, params = self.column_info_statement(table_name=table_name, schema=schema).to_sql()
+        result = self.parse_columns(self._executor.execute(sql, params), table_name, target)
         self._cache.set(key, result)
         return result
 
@@ -382,13 +436,13 @@ class SyncAbstractIntrospector(_IntrospectionManagerBase, ABC):
 
     def list_indexes(self, table_name: str, schema: Optional[str] = None) -> List[IndexInfo]:
         """List all indexes of the given table."""
-        target = schema if schema is not None else self._get_default_schema()
+        target = schema if schema is not None else self.default_schema
         key = self._cache.key(IntrospectionScope.INDEX, table_name, schema=schema)
         cached = self._cache.get(key)
         if cached is not None:
             return cached
-        sql, params = self._build_index_info_sql(table_name, schema)
-        result = self._parse_indexes(self._executor.execute(sql, params), table_name, target)
+        sql, params = self.index_info_statement(table_name=table_name, schema=schema).to_sql()
+        result = self.parse_indexes(self._executor.execute(sql, params), table_name, target)
         self._cache.set(key, result)
         return result
 
@@ -408,13 +462,13 @@ class SyncAbstractIntrospector(_IntrospectionManagerBase, ABC):
 
     def list_foreign_keys(self, table_name: str, schema: Optional[str] = None) -> List[IntrospectionForeignKeyInfo]:
         """List all foreign keys of the given table."""
-        target = schema if schema is not None else self._get_default_schema()
+        target = schema if schema is not None else self.default_schema
         key = self._cache.key(IntrospectionScope.FOREIGN_KEY, table_name, schema=schema)
         cached = self._cache.get(key)
         if cached is not None:
             return cached
-        sql, params = self._build_foreign_key_sql(table_name, schema)
-        result = self._parse_foreign_keys(self._executor.execute(sql, params), table_name, target)
+        sql, params = self.foreign_key_statement(table_name=table_name, schema=schema).to_sql()
+        result = self.parse_foreign_keys(self._executor.execute(sql, params), table_name, target)
         self._cache.set(key, result)
         return result
 
@@ -433,25 +487,25 @@ class SyncAbstractIntrospector(_IntrospectionManagerBase, ABC):
         include_system: bool = False,
     ) -> List[IntrospectionViewInfo]:
         """List all views in the database."""
-        target = schema if schema is not None else self._get_default_schema()
+        target = schema if schema is not None else self.default_schema
         key = self._cache.key(IntrospectionScope.VIEW, schema=schema, extra=str(include_system))
         cached = self._cache.get(key)
         if cached is not None:
             return cached
-        sql, params = self._build_view_list_sql(schema, include_system)
-        result = self._parse_views(self._executor.execute(sql, params), target)
+        sql, params = self.view_list_statement(schema=schema, include_system=include_system).to_sql()
+        result = self.parse_views(self._executor.execute(sql, params), target)
         self._cache.set(key, result)
         return result
 
     def get_view_info(self, view_name: str, schema: Optional[str] = None) -> Optional[IntrospectionViewInfo]:
         """Return detailed information for a specific view, or None if not found."""
-        target = schema if schema is not None else self._get_default_schema()
+        target = schema if schema is not None else self.default_schema
         key = self._cache.key(IntrospectionScope.VIEW, view_name, schema=schema)
         cached = self._cache.get(key)
         if cached is not None:
             return cached
-        sql, params = self._build_view_info_sql(view_name, schema)
-        result = self._parse_view_info(self._executor.execute(sql, params), view_name, target)
+        sql, params = self.view_info_statement(view_name=view_name, schema=schema).to_sql()
+        result = self.parse_view_info(self._executor.execute(sql, params), view_name, target)
         if result is not None:
             self._cache.set(key, result)
         return result
@@ -466,13 +520,13 @@ class SyncAbstractIntrospector(_IntrospectionManagerBase, ABC):
         schema: Optional[str] = None,
     ) -> List[IntrospectionTriggerInfo]:
         """List all triggers, optionally filtered by table."""
-        target = schema if schema is not None else self._get_default_schema()
+        target = schema if schema is not None else self.default_schema
         key = self._cache.key(IntrospectionScope.TRIGGER, table_name or "*", schema=schema)
         cached = self._cache.get(key)
         if cached is not None:
             return cached
-        sql, params = self._build_trigger_list_sql(table_name, schema)
-        result = self._parse_triggers(self._executor.execute(sql, params), target)
+        sql, params = self.trigger_list_statement(schema=schema, table_name=table_name).to_sql()
+        result = self.parse_triggers(self._executor.execute(sql, params), target)
         self._cache.set(key, result)
         return result
 
@@ -484,11 +538,11 @@ class SyncAbstractIntrospector(_IntrospectionManagerBase, ABC):
         )
 
 
-class AsyncAbstractIntrospector(_IntrospectionManagerBase, ABC):
+class AsyncAbstractIntrospector(IntrospectorBase, ABC):
     """Abstract base class for asynchronous database introspectors.
 
     This class provides all asynchronous I/O methods for database introspection.
-    Subclasses must implement all _parse_* methods.
+    Subclasses must implement all parse_* methods.
 
     Public API (all methods are async, names match sync version):
         get_database_info(), list_tables(), get_table_info(), table_exists(),
@@ -519,8 +573,8 @@ class AsyncAbstractIntrospector(_IntrospectionManagerBase, ABC):
         cached = self._cache.get(key)
         if cached is not None:
             return cached
-        sql, params = self._build_database_info_sql()
-        result = self._parse_database_info(await self._executor.execute(sql, params))
+        sql, params = self.database_info_statement().to_sql()
+        result = self.parse_database_info(await self._executor.execute(sql, params))
         self._cache.set(key, result)
         return result
 
@@ -539,8 +593,13 @@ class AsyncAbstractIntrospector(_IntrospectionManagerBase, ABC):
         cached = self._cache.get(key)
         if cached is not None:
             return cached
-        sql, params = self._build_table_list_sql(schema, include_system, True, table_type)
-        result = self._parse_tables(await self._executor.execute(sql, params), schema)
+        sql, params = self.table_list_statement(
+            schema=schema,
+            include_system=include_system,
+            include_views=True,
+            table_type=table_type,
+        ).to_sql()
+        result = self.parse_tables(await self._executor.execute(sql, params), schema)
         self._cache.set(key, result)
         return result
 
@@ -569,13 +628,13 @@ class AsyncAbstractIntrospector(_IntrospectionManagerBase, ABC):
 
     async def list_columns(self, table_name: str, schema: Optional[str] = None) -> List[IntrospectionColumnInfo]:
         """List all columns of the given table."""
-        target = schema if schema is not None else self._get_default_schema()
+        target = schema if schema is not None else self.default_schema
         key = self._cache.key(IntrospectionScope.COLUMN, table_name, schema=schema)
         cached = self._cache.get(key)
         if cached is not None:
             return cached
-        sql, params = self._build_column_info_sql(table_name, schema)
-        result = self._parse_columns(await self._executor.execute(sql, params), table_name, target)
+        sql, params = self.column_info_statement(table_name=table_name, schema=schema).to_sql()
+        result = self.parse_columns(await self._executor.execute(sql, params), table_name, target)
         self._cache.set(key, result)
         return result
 
@@ -594,13 +653,13 @@ class AsyncAbstractIntrospector(_IntrospectionManagerBase, ABC):
 
     async def list_indexes(self, table_name: str, schema: Optional[str] = None) -> List[IndexInfo]:
         """List all indexes of the given table."""
-        target = schema if schema is not None else self._get_default_schema()
+        target = schema if schema is not None else self.default_schema
         key = self._cache.key(IntrospectionScope.INDEX, table_name, schema=schema)
         cached = self._cache.get(key)
         if cached is not None:
             return cached
-        sql, params = self._build_index_info_sql(table_name, schema)
-        result = self._parse_indexes(await self._executor.execute(sql, params), table_name, target)
+        sql, params = self.index_info_statement(table_name=table_name, schema=schema).to_sql()
+        result = self.parse_indexes(await self._executor.execute(sql, params), table_name, target)
         self._cache.set(key, result)
         return result
 
@@ -622,13 +681,13 @@ class AsyncAbstractIntrospector(_IntrospectionManagerBase, ABC):
 
     async def list_foreign_keys(self, table_name: str, schema: Optional[str] = None) -> List[IntrospectionForeignKeyInfo]:
         """List all foreign keys of the given table."""
-        target = schema if schema is not None else self._get_default_schema()
+        target = schema if schema is not None else self.default_schema
         key = self._cache.key(IntrospectionScope.FOREIGN_KEY, table_name, schema=schema)
         cached = self._cache.get(key)
         if cached is not None:
             return cached
-        sql, params = self._build_foreign_key_sql(table_name, schema)
-        result = self._parse_foreign_keys(await self._executor.execute(sql, params), table_name, target)
+        sql, params = self.foreign_key_statement(table_name=table_name, schema=schema).to_sql()
+        result = self.parse_foreign_keys(await self._executor.execute(sql, params), table_name, target)
         self._cache.set(key, result)
         return result
 
@@ -647,25 +706,25 @@ class AsyncAbstractIntrospector(_IntrospectionManagerBase, ABC):
         include_system: bool = False,
     ) -> List[IntrospectionViewInfo]:
         """List all views in the database."""
-        target = schema if schema is not None else self._get_default_schema()
+        target = schema if schema is not None else self.default_schema
         key = self._cache.key(IntrospectionScope.VIEW, schema=schema, extra=str(include_system))
         cached = self._cache.get(key)
         if cached is not None:
             return cached
-        sql, params = self._build_view_list_sql(schema, include_system)
-        result = self._parse_views(await self._executor.execute(sql, params), target)
+        sql, params = self.view_list_statement(schema=schema, include_system=include_system).to_sql()
+        result = self.parse_views(await self._executor.execute(sql, params), target)
         self._cache.set(key, result)
         return result
 
     async def get_view_info(self, view_name: str, schema: Optional[str] = None) -> Optional[IntrospectionViewInfo]:
         """Return detailed information for a specific view, or None if not found."""
-        target = schema if schema is not None else self._get_default_schema()
+        target = schema if schema is not None else self.default_schema
         key = self._cache.key(IntrospectionScope.VIEW, view_name, schema=schema)
         cached = self._cache.get(key)
         if cached is not None:
             return cached
-        sql, params = self._build_view_info_sql(view_name, schema)
-        result = self._parse_view_info(await self._executor.execute(sql, params), view_name, target)
+        sql, params = self.view_info_statement(view_name=view_name, schema=schema).to_sql()
+        result = self.parse_view_info(await self._executor.execute(sql, params), view_name, target)
         if result is not None:
             self._cache.set(key, result)
         return result
@@ -680,13 +739,13 @@ class AsyncAbstractIntrospector(_IntrospectionManagerBase, ABC):
         schema: Optional[str] = None,
     ) -> List[IntrospectionTriggerInfo]:
         """List all triggers, optionally filtered by table."""
-        target = schema if schema is not None else self._get_default_schema()
+        target = schema if schema is not None else self.default_schema
         key = self._cache.key(IntrospectionScope.TRIGGER, table_name or "*", schema=schema)
         cached = self._cache.get(key)
         if cached is not None:
             return cached
-        sql, params = self._build_trigger_list_sql(table_name, schema)
-        result = self._parse_triggers(await self._executor.execute(sql, params), target)
+        sql, params = self.trigger_list_statement(schema=schema, table_name=table_name).to_sql()
+        result = self.parse_triggers(await self._executor.execute(sql, params), target)
         self._cache.set(key, result)
         return result
 

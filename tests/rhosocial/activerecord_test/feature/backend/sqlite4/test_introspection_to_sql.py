@@ -48,30 +48,28 @@ class TestDatabaseInfoToSql:
 
 
 class TestTableListToSql:
-    """Cover TableListQueryStatement.to_sql() delegation and setters."""
+    """Cover TableListQueryStatement.to_sql() delegation."""
 
     def test_table_list_to_sql(self, sqlite_dialect):
         expr = TableListQueryStatement(sqlite_dialect)
         sql, params = expr.to_sql()
         assert isinstance(sql, str)
 
-    def test_include_system_setter(self, sqlite_dialect):
-        expr = TableListQueryStatement(sqlite_dialect)
-        result = expr.with_include_system(True)
-        assert result is expr
+    def test_include_system(self, sqlite_dialect):
+        expr = TableListQueryStatement(sqlite_dialect, include_system=True)
         sql, params = expr.to_sql()
         assert isinstance(sql, str)
+        assert expr.get_params()["include_system"] is True
 
-    def test_table_type_setter(self, sqlite_dialect):
-        expr = TableListQueryStatement(sqlite_dialect)
-        result = expr.with_table_type("TABLE")
-        assert result is expr
+    def test_table_type(self, sqlite_dialect):
+        expr = TableListQueryStatement(sqlite_dialect, table_type="TABLE")
         sql, params = expr.to_sql()
         assert isinstance(sql, str)
+        assert expr.get_params()["table_type"] == "TABLE"
 
 
 class TestTableInfoToSql:
-    """Cover TableInfoQueryStatement.to_sql() delegation and setters."""
+    """Cover TableInfoQueryStatement.to_sql() delegation."""
 
     def test_table_info_to_sql(self, sqlite_dialect):
         expr = TableInfoQueryStatement(sqlite_dialect, table_name="users")
@@ -79,68 +77,70 @@ class TestTableInfoToSql:
         assert isinstance(sql, str)
         assert len(sql) > 0
 
-    def test_include_indexes_setter(self, sqlite_dialect):
-        """Cover introspection.py:346-347 — include_indexes setter."""
-        expr = TableInfoQueryStatement(sqlite_dialect, table_name="users")
-        result = expr.with_include_indexes(False)
-        assert result is expr
+    def test_include_indexes(self, sqlite_dialect):
+        expr = TableInfoQueryStatement(sqlite_dialect, table_name="users", include_indexes=False)
+        sql, params = expr.to_sql()
+        assert isinstance(sql, str)
+        assert expr.get_params()["include_indexes"] is False
 
-    def test_include_foreign_keys_setter(self, sqlite_dialect):
-        """Cover introspection.py:365-366 — include_foreign_keys setter."""
-        expr = TableInfoQueryStatement(sqlite_dialect, table_name="users")
-        result = expr.with_include_foreign_keys(False)
-        assert result is expr
+    def test_include_foreign_keys(self, sqlite_dialect):
+        expr = TableInfoQueryStatement(
+            sqlite_dialect, table_name="users", include_foreign_keys=False
+        )
+        sql, params = expr.to_sql()
+        assert isinstance(sql, str)
+        assert expr.get_params()["include_foreign_keys"] is False
 
 
 class TestColumnInfoToSql:
-    """Cover ColumnInfoQueryStatement.to_sql() delegation and setters."""
+    """Cover ColumnInfoQueryStatement.to_sql() delegation."""
 
     def test_column_info_to_sql(self, sqlite_dialect):
         expr = ColumnInfoQueryStatement(sqlite_dialect, table_name="users")
         sql, params = expr.to_sql()
         assert isinstance(sql, str)
 
-    def test_table_name_setter(self, sqlite_dialect):
-        """Cover introspection.py:438-439 — table_name setter."""
-        expr = ColumnInfoQueryStatement(sqlite_dialect, table_name="old")
-        result = expr.with_table_name("new")
-        assert result is expr
-
-    def test_include_hidden_setter(self, sqlite_dialect):
-        """Cover introspection.py:457-458 — include_hidden setter."""
+    def test_table_name(self, sqlite_dialect):
         expr = ColumnInfoQueryStatement(sqlite_dialect, table_name="users")
-        result = expr.with_include_hidden(True)
-        assert result is expr
+        sql, params = expr.to_sql()
+        assert isinstance(sql, str)
+        assert expr.get_params()["table_name"] == "users"
+
+    def test_include_hidden(self, sqlite_dialect):
+        expr = ColumnInfoQueryStatement(sqlite_dialect, table_name="users", include_hidden=True)
+        sql, params = expr.to_sql()
+        assert isinstance(sql, str)
+        assert expr.get_params()["include_hidden"] is True
 
 
 class TestIndexInfoToSql:
-    """Cover IndexInfoQueryStatement.to_sql() delegation and setters."""
+    """Cover IndexInfoQueryStatement.to_sql() delegation."""
 
     def test_index_info_to_sql(self, sqlite_dialect):
         expr = IndexInfoQueryStatement(sqlite_dialect, table_name="users")
         sql, params = expr.to_sql()
         assert isinstance(sql, str)
 
-    def test_table_name_setter(self, sqlite_dialect):
-        """Cover introspection.py:524-525 — table_name setter."""
-        expr = IndexInfoQueryStatement(sqlite_dialect, table_name="old")
-        result = expr.with_table_name("new")
-        assert result is expr
+    def test_table_name(self, sqlite_dialect):
+        expr = IndexInfoQueryStatement(sqlite_dialect, table_name="users")
+        sql, params = expr.to_sql()
+        assert isinstance(sql, str)
+        assert expr.get_params()["table_name"] == "users"
 
 
 class TestForeignKeyToSql:
-    """Cover ForeignKeyQueryStatement.to_sql() delegation and setters."""
+    """Cover ForeignKeyQueryStatement.to_sql() delegation."""
 
     def test_foreign_key_to_sql(self, sqlite_dialect):
         expr = ForeignKeyQueryStatement(sqlite_dialect, table_name="users")
         sql, params = expr.to_sql()
         assert isinstance(sql, str)
 
-    def test_table_name_setter(self, sqlite_dialect):
-        """Cover introspection.py:589-590 — table_name setter."""
-        expr = ForeignKeyQueryStatement(sqlite_dialect, table_name="old")
-        result = expr.with_table_name("new")
-        assert result is expr
+    def test_table_name(self, sqlite_dialect):
+        expr = ForeignKeyQueryStatement(sqlite_dialect, table_name="users")
+        sql, params = expr.to_sql()
+        assert isinstance(sql, str)
+        assert expr.get_params()["table_name"] == "users"
 
 
 class TestViewListToSql:
@@ -153,24 +153,26 @@ class TestViewListToSql:
 
 
 class TestViewInfoToSql:
-    """Cover ViewInfoQueryStatement.to_sql() delegation and setters."""
+    """Cover ViewInfoQueryStatement.to_sql() delegation."""
 
     def test_view_info_to_sql(self, sqlite_dialect):
         expr = ViewInfoQueryStatement(sqlite_dialect, view_name="user_summary")
         sql, params = expr.to_sql()
         assert isinstance(sql, str)
 
-    def test_view_name_setter(self, sqlite_dialect):
-        """Cover introspection.py:728-729 — view_name setter."""
-        expr = ViewInfoQueryStatement(sqlite_dialect, view_name="old_view")
-        result = expr.with_view_name("new_view")
-        assert result is expr
-
-    def test_include_columns_setter(self, sqlite_dialect):
-        """Cover introspection.py:747-748 — include_columns setter."""
+    def test_view_name(self, sqlite_dialect):
         expr = ViewInfoQueryStatement(sqlite_dialect, view_name="user_summary")
-        result = expr.with_include_columns(False)
-        assert result is expr
+        sql, params = expr.to_sql()
+        assert isinstance(sql, str)
+        assert expr.get_params()["view_name"] == "user_summary"
+
+    def test_include_columns(self, sqlite_dialect):
+        expr = ViewInfoQueryStatement(
+            sqlite_dialect, view_name="user_summary", include_columns=False
+        )
+        sql, params = expr.to_sql()
+        assert isinstance(sql, str)
+        assert expr.get_params()["include_columns"] is False
 
 
 class TestTriggerListToSql:
@@ -183,21 +185,106 @@ class TestTriggerListToSql:
 
 
 class TestTriggerInfoToSql:
-    """Cover TriggerInfoQueryStatement.to_sql() delegation and setters."""
+    """Cover TriggerInfoQueryStatement.to_sql() delegation."""
 
     def test_trigger_info_to_sql(self, sqlite_dialect):
         expr = TriggerInfoQueryStatement(sqlite_dialect, trigger_name="update_ts")
         sql, params = expr.to_sql()
         assert isinstance(sql, str)
 
-    def test_trigger_name_setter(self, sqlite_dialect):
-        """Cover introspection.py:888-889 — trigger_name setter."""
-        expr = TriggerInfoQueryStatement(sqlite_dialect, trigger_name="old")
-        result = expr.with_trigger_name("new")
-        assert result is expr
-
-    def test_for_table_setter(self, sqlite_dialect):
-        """Cover introspection.py:906-907 — for_table setter."""
+    def test_trigger_name(self, sqlite_dialect):
         expr = TriggerInfoQueryStatement(sqlite_dialect, trigger_name="update_ts")
-        result = expr.for_table("users")
-        assert result is expr
+        sql, params = expr.to_sql()
+        assert isinstance(sql, str)
+        assert expr.get_params()["trigger_name"] == "update_ts"
+
+    def test_trigger_table_name(self, sqlite_dialect):
+        expr = TriggerInfoQueryStatement(
+            sqlite_dialect, trigger_name="update_ts", table_name="users"
+        )
+        sql, params = expr.to_sql()
+        assert isinstance(sql, str)
+        assert expr.get_params()["table_name"] == "users"
+
+
+class TestSqliteTableCountToSql:
+    """Cover SQLiteTableCountStatement.to_sql() delegation."""
+
+    def test_counts_tables_of_the_default_database(self, sqlite_dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
+            SQLiteTableCountStatement,
+        )
+
+        sql, params = SQLiteTableCountStatement(sqlite_dialect).to_sql()
+
+        assert sql == (
+            'SELECT COUNT(*) AS "table_count" FROM main.sqlite_master '
+            """WHERE "type" = 'table' AND "name" NOT LIKE 'sqlite_%'"""
+        )
+        assert params == ()
+
+    def test_names_the_database_it_counts(self, sqlite_dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
+            SQLiteTableCountStatement,
+        )
+
+        expr = SQLiteTableCountStatement(sqlite_dialect, "aux")
+        sql, params = expr.to_sql()
+
+        assert "FROM aux.sqlite_master" in sql
+        assert expr.get_params() == {"schema": "aux"}
+
+
+class TestSqliteTableDdlToSql:
+    """Cover SQLiteTableDdlStatement.to_sql() delegation."""
+
+    def test_reads_the_stored_statement(self, sqlite_dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
+            SQLiteTableDdlStatement,
+        )
+
+        sql, params = SQLiteTableDdlStatement(sqlite_dialect, "users").to_sql()
+
+        assert sql == (
+            'SELECT "sql" FROM main.sqlite_master '
+            """WHERE "type" = 'table' AND "name" = ? AND "tbl_name" = ?"""
+        )
+        assert params == ("users", "users")
+
+    def test_names_the_database_it_reads(self, sqlite_dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
+            SQLiteTableDdlStatement,
+        )
+
+        expr = SQLiteTableDdlStatement(sqlite_dialect, "users", "aux")
+        sql, params = expr.to_sql()
+
+        assert "FROM aux.sqlite_master" in sql
+        assert expr.get_params() == {"table_name": "users", "schema": "aux"}
+
+
+class TestSqliteIndexDdlToSql:
+    """Cover SQLiteIndexDdlStatement.to_sql() delegation."""
+
+    def test_reads_the_stored_statement(self, sqlite_dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
+            SQLiteIndexDdlStatement,
+        )
+
+        sql, params = SQLiteIndexDdlStatement(sqlite_dialect, "idx_users_email").to_sql()
+
+        assert sql == (
+            'SELECT "sql" FROM main.sqlite_master ' """WHERE "type" = 'index' AND "name" = ?"""
+        )
+        assert params == ("idx_users_email",)
+
+    def test_names_the_database_it_reads(self, sqlite_dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
+            SQLiteIndexDdlStatement,
+        )
+
+        expr = SQLiteIndexDdlStatement(sqlite_dialect, "idx_users_email", "aux")
+        sql, params = expr.to_sql()
+
+        assert "FROM aux.sqlite_master" in sql
+        assert expr.get_params() == {"index_name": "idx_users_email", "schema": "aux"}

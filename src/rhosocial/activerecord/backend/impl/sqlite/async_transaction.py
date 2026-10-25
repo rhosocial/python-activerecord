@@ -141,7 +141,8 @@ class AsyncSQLiteTransactionManager(AsyncTransactionManager):
         # READ_UNCOMMITTED: read_uncommitted = 1
         if self._isolation_level is not None:
             pragma_value = 1 if self._isolation_level == IsolationLevel.READ_UNCOMMITTED else 0
-            await self._backend.execute(f"PRAGMA read_uncommitted = {pragma_value}")
+            statement = self._backend.dialect.pragma_set_statement("read_uncommitted", pragma_value)
+            await self._backend.execute(statement.to_sql()[0])
 
         # Call parent to execute BEGIN
         await super()._do_begin()

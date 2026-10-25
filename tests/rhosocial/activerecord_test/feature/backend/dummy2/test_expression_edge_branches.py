@@ -303,23 +303,23 @@ class TestIntrospectionExpressionStructure:
     """Generic introspection expression construction (dialect-independent)."""
 
     def test_table_list_include_system(self, dialect):
-        expr = TableListQueryStatement(dialect).with_include_system(True)
+        expr = TableListQueryStatement(dialect, include_system=True)
         assert expr.get_params()["include_system"] is True
 
     def test_table_list_table_type(self, dialect):
-        expr = TableListQueryStatement(dialect).with_table_type("VIEW")
+        expr = TableListQueryStatement(dialect, table_type="VIEW")
         assert expr.get_params()["table_type"] == "VIEW"
 
     def test_table_info_include_indexes(self, dialect):
-        expr = TableInfoQueryStatement(dialect, "users").with_include_indexes(True)
+        expr = TableInfoQueryStatement(dialect, "users", include_indexes=True)
         assert expr.get_params()["include_indexes"] is True
 
     def test_table_info_include_foreign_keys(self, dialect):
-        expr = TableInfoQueryStatement(dialect, "users").with_include_foreign_keys(True)
+        expr = TableInfoQueryStatement(dialect, "users", include_foreign_keys=True)
         assert expr.get_params()["include_foreign_keys"] is True
 
     def test_column_info_include_hidden(self, dialect):
-        expr = ColumnInfoQueryStatement(dialect, "users").with_include_hidden(True)
+        expr = ColumnInfoQueryStatement(dialect, "users", include_hidden=True)
         assert expr.get_params()["include_hidden"] is True
 
     def test_index_info_table_name(self, dialect):
@@ -335,40 +335,20 @@ class TestIntrospectionExpressionStructure:
         assert "include_system" in expr.get_params()
 
     def test_view_info(self, dialect):
-        expr = ViewInfoQueryStatement(dialect, "my_view").with_include_columns(True)
+        expr = ViewInfoQueryStatement(dialect, "my_view", include_columns=True)
         params = expr.get_params()
         assert params["view_name"] == "my_view"
         assert params["include_columns"] is True
 
     def test_trigger_info(self, dialect):
-        expr = TriggerInfoQueryStatement(dialect, "my_trigger").for_table("users")
+        expr = TriggerInfoQueryStatement(dialect, "my_trigger", table_name="users")
         params = expr.get_params()
         assert params["trigger_name"] == "my_trigger"
         assert params["table_name"] == "users"
 
     def test_trigger_list(self, dialect):
-        expr = TriggerInfoQueryStatement(dialect, "t").for_table("users")
+        expr = TriggerInfoQueryStatement(dialect, "t", table_name="users")
         assert "table_name" in expr.get_params()
-
-    def test_table_info_table_name_setter(self, dialect):
-        expr = TableInfoQueryStatement(dialect, "old").with_table_name("new")
-        assert expr.get_params()["table_name"] == "new"
-
-    def test_column_info_table_name_setter(self, dialect):
-        expr = ColumnInfoQueryStatement(dialect, "old").with_table_name("new")
-        assert expr.get_params()["table_name"] == "new"
-
-    def test_index_info_table_name_setter(self, dialect):
-        expr = IndexInfoQueryStatement(dialect, "old").with_table_name("new")
-        assert expr.get_params()["table_name"] == "new"
-
-    def test_foreign_key_table_name_setter(self, dialect):
-        expr = ForeignKeyQueryStatement(dialect, "old").with_table_name("new")
-        assert expr.get_params()["table_name"] == "new"
-
-    def test_view_info_view_name_setter(self, dialect):
-        expr = ViewInfoQueryStatement(dialect, "old").with_view_name("new")
-        assert expr.get_params()["view_name"] == "new"
 
 
 class TestCrossTypeDataTypes:
@@ -407,12 +387,6 @@ class TestCrossTypeDataTypes:
         assert TimeTzType(None, 2) != TimeTzType(None, 3)
         assert TimestampTzType(None, 0) == TimestampTzType(None, 0)
         assert TimestampTzType(None, 0) != TimestampTzType(None, 1)
-
-    def test_trigger_info_trigger_name_setter(self, dialect):
-        from rhosocial.activerecord.backend.expression.introspection import TriggerInfoQueryStatement
-
-        expr = TriggerInfoQueryStatement(dialect, "old").with_trigger_name("new")
-        assert expr.get_params()["trigger_name"] == "new"
 
 
 class TestXmlFunctionsTupleArgs:

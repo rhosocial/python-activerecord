@@ -12,6 +12,7 @@ stands alone; read the one that concerns the change in front of you.
 | [static-analysis.md](static-analysis.md) | Making a checker actually check: `py.typed`, a configuration that loads, and the defects that opt out of checking silently. |
 | [anti-patterns.md](anti-patterns.md) | The catalogue, with what each one cost. Read this before adding a runtime lookup, a coercion helper, or a `__getattr__`. |
 | [python-hazards.md](python-hazards.md) | Python spelling and measured surface for the organisation's language-neutral clauses on override order, reflection and enums (expression-dialect.md §11). |
+| [introspection.md](introspection.md) | The four introspection rules: nobody spells SQL; core keeps the smallest set and does not arbitrate capability; each backend completes its own semantics; each CLI introspects one connection. |
 
 Two rules decide most of the rest:
 

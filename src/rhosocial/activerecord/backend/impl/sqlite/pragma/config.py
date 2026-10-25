@@ -59,6 +59,17 @@ CONFIGURATION_PRAGMAS: Dict[str, PragmaInfo] = {
         default_value="NORMAL",
         documentation_url="https://www.sqlite.org/pragma.html#pragma_locking_mode",
     ),
+    "read_uncommitted": PragmaInfo(
+        name="read_uncommitted",
+        category=PragmaCategory.CONFIGURATION,
+        description="Read changes made by other connections that have not committed",
+        read_only=False,
+        min_version=(3, 0, 0),
+        value_type=int,
+        allowed_values=[0, 1],
+        default_value=0,
+        documentation_url="https://www.sqlite.org/pragma.html#pragma_read_uncommitted",
+    ),
     "temp_store": PragmaInfo(
         name="temp_store",
         category=PragmaCategory.CONFIGURATION,

@@ -25,87 +25,15 @@ Usage::
     cols = await backend.introspector.pragma.table_info("users")
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from rhosocial.activerecord.backend.introspection.executor import (
     SyncIntrospectorExecutor,
     AsyncIntrospectorExecutor,
 )
-from rhosocial.activerecord.backend.impl.sqlite.pragma import get_pragma_info
 
 
-class PragmaMixin:
-    """Mixin providing shared PRAGMA SQL generation helpers.
-
-    Both SyncPragmaIntrospector and AsyncPragmaIntrospector inherit
-    from this mixin to share SQL generation logic.
-    """
-
-    @staticmethod
-    def _pragma_sql(
-        name: str,
-        argument: Optional[Any] = None,
-        schema: Optional[str] = None,
-    ) -> Tuple[str, tuple]:
-        """Build a PRAGMA statement.
-
-        Args:
-            name:     PRAGMA name (e.g. ``"journal_mode"``).
-            argument: Optional argument (e.g. a table name or a new value
-                      for a read/write PRAGMA).  Passed as a literal, not
-                      as a bound parameter, because SQLite does not support
-                      parameterised PRAGMA values.
-            schema:   Optional attached-database name (e.g. ``"temp"``).
-
-        Returns:
-            ``(sql, params)`` tuple compatible with executor.execute().
-
-        Raises:
-            ValueError: If the PRAGMA name is not in the known whitelist.
-        """
-        info = get_pragma_info(name)
-        if info is None:
-            raise ValueError(f"Unknown PRAGMA: {name}")
-        prefix = f"{schema}." if schema else ""
-        if argument is not None:
-            return (f"PRAGMA {prefix}{info.name}({argument})", ())
-        return (f"PRAGMA {prefix}{info.name}", ())
-
-    @staticmethod
-    def _set_pragma_sql(name: str, value: Any, schema: Optional[str] = None) -> Tuple[str, tuple]:
-        """Build a ``PRAGMA name = value`` assignment statement.
-
-        Validates the PRAGMA name against the known whitelist, rejects
-        read-only PRAGMAs, and enforces ``allowed_values`` before building
-        the SQL, mirroring ``SQLitePragmaMixin.set_pragma_sql``.
-
-        Args:
-            name:   PRAGMA name (e.g. ``"journal_mode"``).
-            value:  Value to set.
-            schema: Optional attached-database name (e.g. ``"temp"``).
-
-        Returns:
-            ``(sql, params)`` tuple compatible with executor.execute().
-
-        Raises:
-            ValueError: If the PRAGMA is unknown, read-only, or the value
-                        is not in its allowed values.
-        """
-        info = get_pragma_info(name)
-        if info is None:
-            raise ValueError(f"Unknown PRAGMA: {name}")
-
-        if info.read_only:
-            raise ValueError(f"PRAGMA {name} is read-only and cannot be set")
-
-        if info.allowed_values and value not in info.allowed_values:
-            raise ValueError(f"Invalid value '{value}' for PRAGMA {name}. Allowed values: {info.allowed_values}")
-
-        prefix = f"{schema}." if schema else ""
-        return (f"PRAGMA {prefix}{info.name} = {value}", ())
-
-
-class SyncPragmaIntrospector(PragmaMixin):
+class SyncPragmaIntrospector:
     """Synchronous PRAGMA introspector for SQLite backends.
 
     All methods are synchronous. Method names do NOT have an _async suffix.
@@ -130,7 +58,7 @@ class SyncPragmaIntrospector(PragmaMixin):
         Returns the first row returned by the PRAGMA, or ``None`` if the
         result is empty (e.g. write-only or action PRAGMAs).
         """
-        sql, params = self._pragma_sql(name, argument, schema)
+        sql, params = self._backend.dialect.pragma_query_statement(name, argument, schema).to_sql()
         rows = self._executor.execute(sql, params)
         return rows[0] if rows else None
 
@@ -141,7 +69,7 @@ class SyncPragmaIntrospector(PragmaMixin):
         schema: Optional[str] = None,
     ) -> None:
         """Write a PRAGMA value (for read/write PRAGMAs)."""
-        sql, params = self._set_pragma_sql(name, value, schema)
+        sql, params = self._backend.dialect.pragma_set_statement(name, value, schema=schema).to_sql()
         self._executor.execute(sql, params)
 
     def execute(
@@ -155,7 +83,7 @@ class SyncPragmaIntrospector(PragmaMixin):
         Use this for PRAGMAs that return multiple rows (e.g.
         ``table_info``, ``index_list``, ``foreign_key_list``).
         """
-        sql, params = self._pragma_sql(name, argument, schema)
+        sql, params = self._backend.dialect.pragma_query_statement(name, argument, schema).to_sql()
         return self._executor.execute(sql, params)
 
     # ------------------------------------------------------------------ #
@@ -238,7 +166,7 @@ class SyncPragmaIntrospector(PragmaMixin):
         return self.get("wal_checkpoint", mode, schema)
 
 
-class AsyncPragmaIntrospector(PragmaMixin):
+class AsyncPragmaIntrospector:
     """Asynchronous PRAGMA introspector for SQLite backends.
 
     All methods are async. Method names do NOT have an _async suffix,
@@ -264,7 +192,7 @@ class AsyncPragmaIntrospector(PragmaMixin):
         Returns the first row returned by the PRAGMA, or ``None`` if the
         result is empty (e.g. write-only or action PRAGMAs).
         """
-        sql, params = self._pragma_sql(name, argument, schema)
+        sql, params = self._backend.dialect.pragma_query_statement(name, argument, schema).to_sql()
         rows = await self._executor.execute(sql, params)
         return rows[0] if rows else None
 
@@ -275,7 +203,7 @@ class AsyncPragmaIntrospector(PragmaMixin):
         schema: Optional[str] = None,
     ) -> None:
         """Write a PRAGMA value (for read/write PRAGMAs)."""
-        sql, params = self._set_pragma_sql(name, value, schema)
+        sql, params = self._backend.dialect.pragma_set_statement(name, value, schema=schema).to_sql()
         await self._executor.execute(sql, params)
 
     async def execute(
@@ -289,7 +217,7 @@ class AsyncPragmaIntrospector(PragmaMixin):
         Use this for PRAGMAs that return multiple rows (e.g.
         ``table_info``, ``index_list``, ``foreign_key_list``).
         """
-        sql, params = self._pragma_sql(name, argument, schema)
+        sql, params = self._backend.dialect.pragma_query_statement(name, argument, schema).to_sql()
         return await self._executor.execute(sql, params)
 
     # ------------------------------------------------------------------ #

@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from .common import SQLiteBackendMixin, SQLiteConcurrencyMixin, DEFAULT_PRAGMAS
 from ..config import SQLiteConnectionConfig
 from ..dialect import SQLiteDialect
+from ..expression.introspection import SQLitePragmaQueryStatement, SQLitePragmaSetStatement
 from ..transaction import SQLiteTransactionManager
 from rhosocial.activerecord.backend.base import StorageBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig
@@ -157,10 +158,10 @@ class SQLiteBackend(
         self.config.pragmas[pragma_key] = pragma_value_str
 
         if self._connection:
-            pragma_statement = f"PRAGMA {pragma_key} = {pragma_value_str}"
-            self.log(logging.DEBUG, f"Setting pragma: {pragma_statement}")
+            sql = SQLitePragmaSetStatement(self.dialect, pragma_key, pragma_value_str).to_sql()[0]
+            self.log(logging.DEBUG, f"Setting pragma: {sql}")
             try:
-                self._connection.execute(pragma_statement)
+                self._connection.execute(sql)
             except sqlite3.Error as e:
                 error_msg = f"Failed to set pragma {pragma_key}: {str(e)}"
                 self.log(logging.ERROR, error_msg)
@@ -169,12 +170,12 @@ class SQLiteBackend(
     def _apply_pragmas(self) -> None:
         """Apply all pragma settings to the connection."""
         for pragma_key, pragma_value in self.config.pragmas.items():
-            pragma_statement = f"PRAGMA {pragma_key} = {pragma_value}"
-            self.log(logging.DEBUG, f"Executing pragma: {pragma_statement}")
+            sql = SQLitePragmaSetStatement(self.dialect, pragma_key, pragma_value).to_sql()[0]
+            self.log(logging.DEBUG, f"Executing pragma: {sql}")
             try:
-                self._connection.execute(pragma_statement)
+                self._connection.execute(sql)
             except sqlite3.Error as e:
-                self.log(logging.WARNING, f"Failed to execute pragma {pragma_statement}: {str(e)}")
+                self.log(logging.WARNING, f"Failed to execute pragma {sql}: {str(e)}")
 
     def connect(self) -> None:
         """Establish a connection to the SQLite database.
@@ -538,7 +539,8 @@ class SQLiteBackend(
         options: Dict[str, str] = {}
         try:
             cursor = self._connection.cursor()
-            cursor.execute("PRAGMA compile_options")
+            sql = SQLitePragmaQueryStatement(self.dialect, "compile_options").to_sql()[0]
+            cursor.execute(sql)
             for row in cursor.fetchall():
                 opt_name = row[0]
                 if "=" in opt_name:

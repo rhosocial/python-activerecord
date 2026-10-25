@@ -5,6 +5,7 @@ SQLite-specific Introspection implementation.
 This module provides the SQLiteIntrospectionCapabilityMixin class.
 """
 
+import re
 from typing import List, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -20,7 +21,22 @@ if TYPE_CHECKING:
         TriggerListQueryStatement,
         TriggerInfoQueryStatement,
     )
+    from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
+        SQLiteIndexDdlStatement,
+        SQLitePragmaQueryStatement,
+        SQLitePragmaSetStatement,
+        SQLiteTableCountStatement,
+        SQLiteTableDdlStatement,
+    )
     from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
+
+
+#: A PRAGMA value the engine reads in its own vocabulary rather than as a SQL
+#: literal: keywords (``WAL``, ``ON``) and numbers (``1000``). Anything else is
+#: written as an escaped string literal, which is the form that cannot carry
+#: statement text into the assignment.
+_PRAGMA_VALUE_TOKEN = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_+\-.]*")
+
 
 class SQLiteIntrospectionCapabilityMixin:
     """SQLite introspection capability declaration.
@@ -251,6 +267,143 @@ class SQLiteIntrospectionCapabilityMixin:
             select=[FunctionCall(self, "sqlite_version", alias="version")],
         ).to_sql()
 
+    def format_pragma_query_statement(self, expr: "SQLitePragmaQueryStatement") -> Tuple[str, tuple]:
+        """Format a PRAGMA read.
+
+        PRAGMA takes no bind parameters, so the parameters tuple is empty and
+        the argument, when the pragma has one, is placed as it was given. The
+        statement class does not quote it: the caller that supplies a table or
+        index name spells it the way the rest of the dialect spells
+        identifiers, and a second quoting pass would change it.
+
+        Args:
+            expr: The PRAGMA question.
+
+        Returns:
+            Tuple of (SQL string, empty parameters tuple).
+        """
+        name = f"{expr.schema}.{expr.name}" if expr.schema else expr.name
+        if expr.argument is None:
+            return (f"PRAGMA {name}", ())
+        return (f"PRAGMA {name}({expr.argument})", ())
+
+    def format_pragma_set_statement(self, expr: "SQLitePragmaSetStatement") -> Tuple[str, tuple]:
+        """Format a PRAGMA assignment.
+
+        The value is statement text, not a bind parameter. A bare keyword or
+        number keeps its own spelling (``WAL``, ``1000``); everything else is
+        written as an escaped string literal, so a value can never close the
+        statement it appears in.
+
+        Args:
+            expr: The PRAGMA assignment.
+
+        Returns:
+            Tuple of (SQL string, empty parameters tuple).
+        """
+        name = f"{expr.schema}.{expr.name}" if expr.schema else expr.name
+        if expr.argument is not None:
+            name = f"{name}({expr.argument})"
+
+        if isinstance(expr.value, str) and _PRAGMA_VALUE_TOKEN.fullmatch(expr.value):
+            value = expr.value
+        else:
+            value = self.format_literal(expr.value)
+
+        return (f"PRAGMA {name} = {value}", ())
+
+    def format_table_count_statement(self, expr: "SQLiteTableCountStatement") -> Tuple[str, tuple]:
+        """Count the tables of one database, system tables excluded.
+
+        ``sqlite_master`` names its kind in ``type`` and hides the engine's own
+        tables behind the ``sqlite_`` prefix, so both facts are conditions on
+        the same read rather than a filter applied to a listing afterwards.
+
+        Args:
+            expr: The count question.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        from rhosocial.activerecord.backend.expression import (
+            Column,
+            ComparisonPredicate,
+            LikeOperator,
+            LikePredicate,
+            Literal,
+            count,
+        )
+
+        return self.sqlite_master_query(
+            expr.schema or "main",
+            [count(self, "*", alias="table_count")],
+            [
+                ComparisonPredicate(
+                    self, "eq", Column(self, "type"), Literal(self, "table", inline=True)
+                ),
+                LikePredicate(
+                    self,
+                    LikeOperator.NOT_LIKE,
+                    Column(self, "name"),
+                    Literal(self, "sqlite_%", inline=True),
+                ),
+            ],
+        )
+
+    def format_table_ddl_statement(self, expr: "SQLiteTableDdlStatement") -> Tuple[str, tuple]:
+        """Read back the statement a table was declared with.
+
+        ``name`` and ``tbl_name`` are both matched: an index row carries the
+        indexed table in ``tbl_name``, a table row carries its own name in
+        both, so requiring both selects the table row alone.
+
+        Args:
+            expr: The DDL question.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Literal
+
+        return self.sqlite_master_query(
+            expr.schema or "main",
+            [Column(self, "sql")],
+            [
+                ComparisonPredicate(
+                    self, "eq", Column(self, "type"), Literal(self, "table", inline=True)
+                ),
+                ComparisonPredicate(self, "eq", Column(self, "name"), Literal(self, expr.table_name)),
+                ComparisonPredicate(
+                    self, "eq", Column(self, "tbl_name"), Literal(self, expr.table_name)
+                ),
+            ],
+        )
+
+    def format_index_ddl_statement(self, expr: "SQLiteIndexDdlStatement") -> Tuple[str, tuple]:
+        """Read back the statement an index was declared with.
+
+        Only the index's own row carries the ``WHERE`` clause of a partial
+        index, and this is the only place that clause can be read from.
+
+        Args:
+            expr: The DDL question.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Literal
+
+        return self.sqlite_master_query(
+            expr.schema or "main",
+            [Column(self, "sql")],
+            [
+                ComparisonPredicate(
+                    self, "eq", Column(self, "type"), Literal(self, "index", inline=True)
+                ),
+                ComparisonPredicate(self, "eq", Column(self, "name"), Literal(self, expr.index_name)),
+            ],
+        )
+
     def format_table_list_query_statement(self, expr: "TableListQueryStatement") -> Tuple[str, tuple]:
         """Format table list query.
 
@@ -273,8 +426,9 @@ class SQLiteIntrospectionCapabilityMixin:
         # since PRAGMA cannot filter them out at the SQL level.
         # For user-only queries, sqlite_master provides native filtering.
         if self.supports_table_list_pragma() and include_system:
-            sql = f"PRAGMA {schema}.table_list"
-            return (sql, ())
+            from ..expression.introspection import SQLitePragmaQueryStatement
+
+            return SQLitePragmaQueryStatement(self, "table_list", schema=schema).to_sql()
 
         # Fallback to sqlite_master query (also used for include_system=False
         # because sqlite_master supports NOT LIKE filtering natively).
@@ -369,13 +523,13 @@ class SQLiteIntrospectionCapabilityMixin:
         include_hidden = params.get("include_hidden", False)
         schema = params.get("schema") or "main"
 
-        # Use table_xinfo for hidden columns if supported and requested
-        if include_hidden and self.supports_table_xinfo_pragma():
-            sql = f"PRAGMA {schema}.table_xinfo({self.format_identifier(table_name)})"
-        else:
-            sql = f"PRAGMA {schema}.table_info({self.format_identifier(table_name)})"
+        from ..expression.introspection import SQLitePragmaQueryStatement
 
-        return (sql, ())
+        # Use table_xinfo for hidden columns if supported and requested
+        pragma = "table_xinfo" if include_hidden and self.supports_table_xinfo_pragma() else "table_info"
+        return SQLitePragmaQueryStatement(
+            self, pragma, self.format_identifier(table_name), schema=schema
+        ).to_sql()
 
     def format_index_info_query_statement(self, expr: "IndexInfoQueryStatement") -> Tuple[str, tuple]:
         """Format index information query.
@@ -392,8 +546,11 @@ class SQLiteIntrospectionCapabilityMixin:
         table_name = params.get("table_name", "")
         schema = params.get("schema") or "main"
 
-        sql = f"PRAGMA {schema}.index_list({self.format_identifier(table_name)})"
-        return (sql, ())
+        from ..expression.introspection import SQLitePragmaQueryStatement
+
+        return SQLitePragmaQueryStatement(
+            self, "index_list", self.format_identifier(table_name), schema=schema
+        ).to_sql()
 
     def format_foreign_key_query_statement(self, expr: "ForeignKeyQueryStatement") -> Tuple[str, tuple]:
         """Format foreign key information query.
@@ -410,8 +567,11 @@ class SQLiteIntrospectionCapabilityMixin:
         table_name = params.get("table_name", "")
         schema = params.get("schema") or "main"
 
-        sql = f"PRAGMA {schema}.foreign_key_list({self.format_identifier(table_name)})"
-        return (sql, ())
+        from ..expression.introspection import SQLitePragmaQueryStatement
+
+        return SQLitePragmaQueryStatement(
+            self, "foreign_key_list", self.format_identifier(table_name), schema=schema
+        ).to_sql()
 
     def format_view_list_query_statement(self, expr: "ViewListQueryStatement") -> Tuple[str, tuple]:  # noqa: F821
         """Format view list query.

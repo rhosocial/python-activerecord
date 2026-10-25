@@ -57,41 +57,6 @@ class TestPragmaInfo:
         assert info.min_version == (3, 0, 0)
         assert info.value_type == str  # noqa: E721
 
-    def test_pragma_info_get_sql(self):
-        """Test PragmaInfo get_sql method."""
-        info = PragmaInfo(
-            name="foreign_keys",
-            category=PragmaCategory.CONFIGURATION,
-            description="Test pragma",
-        )
-
-        sql = info.get_sql()
-        assert sql == "PRAGMA foreign_keys"
-
-    def test_pragma_info_get_set_sql(self):
-        """Test PragmaInfo get_set_sql method."""
-        info = PragmaInfo(
-            name="foreign_keys",
-            category=PragmaCategory.CONFIGURATION,
-            description="Test pragma",
-            read_only=False,
-        )
-
-        sql = info.get_set_sql(value=1)
-        assert sql == "PRAGMA foreign_keys = 1"
-
-    def test_pragma_info_get_set_sql_with_argument(self):
-        """Test PragmaInfo get_set_sql with argument."""
-        info = PragmaInfo(
-            name="table_info",
-            category=PragmaCategory.INFORMATION,
-            description="Test pragma",
-            requires_argument=True,
-        )
-
-        sql = info.get_set_sql(argument="users")
-        assert "table_info(users)" in sql
-
 
 class TestPragmaQueries:
     """Test pragma query functions."""

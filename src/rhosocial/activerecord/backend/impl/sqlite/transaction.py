@@ -90,7 +90,8 @@ class SQLiteTransactionManager(TransactionManager):
         # READ_UNCOMMITTED: read_uncommitted = 1
         if level is not None:
             pragma_value = 1 if level == IsolationLevel.READ_UNCOMMITTED else 0
-            self._backend.execute(f"PRAGMA read_uncommitted = {pragma_value}")
+            statement = self._backend.dialect.pragma_set_statement("read_uncommitted", pragma_value)
+            self._backend.execute(statement.to_sql()[0])
 
         self._isolation_level = level
         self.log(logging.INFO, f"Isolation level set to {level}")
