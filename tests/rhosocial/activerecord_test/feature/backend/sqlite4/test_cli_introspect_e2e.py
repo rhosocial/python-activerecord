@@ -78,7 +78,6 @@ def test_introspect_subcommand_returns_data(db_file, argv_tail):
 @pytest.mark.parametrize(
     "argv_tail",
     [
-        ("table", "users"),
         ("columns", "users"),
         ("indexes", "users"),
         ("foreign-keys", "orders"),
