@@ -24,6 +24,33 @@ if TYPE_CHECKING:  # pragma: no cover
     pass
 
 
+#: How tightly each connective binds, in SQL's own order: ``NOT`` > ``AND`` > ``OR``.
+#: A bigger number binds tighter. Used only to decide whether an operand needs
+#: brackets; an operand that is not a logical connective binds tightest of all.
+_CONNECTIVE_PRECEDENCE = {"OR": 1, "AND": 2, "NOT": 3}
+
+#: What a non-connective predicate binds like -- tighter than any connective, so
+#: it is never bracketed. Named rather than inlined so the comparison reads.
+_BINDS_TIGHTEST = 4
+
+
+def _connective_precedence(predicate: Any) -> int:
+    """Return how loosely *predicate* binds, for bracket decisions.
+
+    Args:
+        predicate: An operand of a logical predicate.
+
+    Returns:
+        The operand's connective precedence, or :data:`_BINDS_TIGHTEST` for
+        anything that is not a logical connective. An unknown connective is
+        treated as binding tightest, which keeps the previous rendering for
+        operators this layer does not model.
+    """
+    if isinstance(predicate, LogicalPredicate):
+        return _CONNECTIVE_PRECEDENCE.get(str(predicate.op).upper(), _BINDS_TIGHTEST)
+    return _BINDS_TIGHTEST
+
+
 class PredicateMixin:
     """Mixin for formatting SQL predicate expressions.
 
@@ -80,7 +107,19 @@ class PredicateMixin:
         )
 
     def format_logical_predicate(self, expr: LogicalPredicate) -> Tuple[str, tuple]:
-        """Format a logical predicate (AND/OR/NOT).
+        """Format a logical predicate (AND/OR/NOT), bracketing where it matters.
+
+        SQL binds ``NOT`` tighter than ``AND`` and ``AND`` tighter than ``OR``,
+        so a flat rendering of the operands keeps the tree's meaning only while
+        the nesting follows that order. ``a AND (b OR c)`` written flat becomes
+        ``a AND b OR c``, which is ``(a AND b) OR c`` -- a different predicate,
+        with no error to show for it. An operand whose connective binds looser
+        than its parent's is therefore bracketed; one that binds tighter (or
+        equally tight) is left alone, because brackets there would be noise and
+        would suggest the rule is "bracket every nesting".
+
+        ``NOT`` already brackets its single operand, so it never needs another
+        pair and never needs to add one for a child.
 
         Args:
             expr: Logical expression exposing ``op`` and ``operands``.
@@ -88,13 +127,21 @@ class PredicateMixin:
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        if expr.op.upper() == "NOT" and len(expr.operands) == 1:
+        op = expr.op.upper()
+        if op == "NOT" and len(expr.operands) == 1:
             sql, params = expr.operands[0].to_sql()
             return self._with_alias(f"NOT ({sql})", expr), params
+
+        parent_precedence = _CONNECTIVE_PRECEDENCE.get(op)
         parts = []
         all_params: List[Any] = []
         for predicate in expr.operands:
             sql, params = predicate.to_sql()
+            if (
+                parent_precedence is not None
+                and _connective_precedence(predicate) < parent_precedence
+            ):
+                sql = f"({sql})"
             parts.append(sql)
             all_params.extend(params)
         return self._with_alias(f" {expr.op} ".join(parts), expr), tuple(all_params)
