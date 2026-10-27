@@ -21,8 +21,9 @@ This structure ensures that the complex state management of nested transactions 
 written only once and shared, reducing duplication and potential for bugs.
 """
 
+import asyncio
 import logging
-import warnings
+import threading
 from abc import ABC
 from contextlib import contextmanager, asynccontextmanager
 from enum import Enum, auto
@@ -392,6 +393,7 @@ class TransactionManager(TransactionManagerBase):
 
     def __init__(self, backend: "StorageBackend", logger=None):
         super().__init__(backend, logger)
+        self._owner_thread = None  # Which thread owns the transaction
 
     def _do_begin(self) -> None:
         """Begin a new transaction via backend.execute()."""
@@ -448,9 +450,30 @@ class TransactionManager(TransactionManagerBase):
 
         For nested calls, creates a savepoint instead of starting a new transaction.
 
+        A transaction belongs to the thread that opened it, and only that thread
+        may nest it. A second thread driving the same connection would interleave
+        ``BEGIN``/``COMMIT`` and make the level bookkeeping meaningless; the
+        damage only shows up later as ``No active transaction to commit``, far
+        from the cause.
+
         Raises:
-            TransactionError: If begin operation fails
+            TransactionError: If begin operation fails, or another thread owns
+                this connection's transaction.
         """
+        owner = threading.get_ident()
+        if (
+            self._transaction_level > 0
+            and self._owner_thread is not None
+            and self._owner_thread != owner
+        ):
+            raise TransactionError(
+                "this connection's transaction is owned by another thread; one "
+                "connection cannot serve two concurrent transactions. Give each "
+                "thread its own backend."
+            )
+        if self._transaction_level == 0:
+            self._owner_thread = owner
+
         self.log(logging.DEBUG, f"Beginning transaction (level {self._transaction_level})")
 
         try:
@@ -537,6 +560,9 @@ class TransactionManager(TransactionManagerBase):
             # Update state if no more active transactions
             if self._transaction_level == 0:
                 self._state = TransactionState.INACTIVE
+                # The outermost transaction ended: the connection is free for
+                # another thread to use.
+                self._owner_thread = None
 
             self.log(logging.DEBUG, f"Transaction committed, new level: {self._transaction_level}")
         except Exception as e:
@@ -604,6 +630,7 @@ class TransactionManager(TransactionManagerBase):
             # Update state if no more active transactions
             if self._transaction_level == 0:
                 self._state = TransactionState.INACTIVE
+                self._owner_thread = None
 
             self.log(logging.DEBUG, f"Transaction rolled back, new level: {self._transaction_level}")
         except Exception as e:
@@ -752,7 +779,9 @@ class TransactionManager(TransactionManagerBase):
             yield
             self.commit()
         except BaseException:
-            if self.is_active:
+            # Only the owner may roll back: a refusal raised by ``begin()`` in
+            # another thread must not destroy the owner's transaction.
+            if self.is_active and self._owner_thread == threading.get_ident():
                 self.rollback()
             raise
         finally:
@@ -858,7 +887,29 @@ class AsyncTransactionManager(TransactionManagerBase):
         return self._backend.dialect.supports_savepoint()
 
     async def begin(self) -> None:
-        """Begin a transaction or create a savepoint"""
+        """Begin a transaction or create a savepoint.
+
+        A transaction belongs to the task that opened it, and only that task may
+        nest it (nesting becomes a savepoint). A second task driving the same
+        connection would interleave ``BEGIN``/``COMMIT`` and make the level
+        bookkeeping meaningless; the damage only shows up later as
+        ``No active transaction to commit``, far from the cause.
+        """
+        owner = asyncio.current_task()
+        if (
+            self._transaction_level > 0
+            and self._owner_task is not None
+            and self._owner_task is not owner
+        ):
+            raise TransactionError(
+                "this connection's transaction is owned by another task; one "
+                "connection cannot serve two concurrent transactions. Give each "
+                "task its own connection (AsyncBackendPool.connection() or "
+                "AsyncBackendPool.transaction()) or its own backend."
+            )
+        if self._transaction_level == 0:
+            self._owner_task = owner
+
         self.log(logging.DEBUG, f"Beginning transaction (level {self._transaction_level})")
 
         try:
@@ -926,6 +977,9 @@ class AsyncTransactionManager(TransactionManagerBase):
 
             if self._transaction_level == 0:
                 self._state = TransactionState.INACTIVE
+                # The outermost transaction ended: the connection is free for
+                # another task to use.
+                self._owner_task = None
 
             self.log(logging.DEBUG, f"Transaction committed, new level: {self._transaction_level}")
         except Exception as e:
@@ -1079,21 +1133,12 @@ class AsyncTransactionManager(TransactionManagerBase):
             async with manager.transaction(mode=TransactionMode.READ_ONLY):
                 # Read-only transaction
         """
-        import asyncio
 
-        current_task = asyncio.current_task()
-        if self._owner_task is not None and self._owner_task is not current_task:
-            warnings.warn(
-                "Shared async backend instance detected: a different async task "
-                "already holds an active transaction on this backend. Concurrent "
-                "use of the same backend instance across tasks can lead to "
-                "transaction state inconsistency. Use separate backend instances "
-                "per task or ensure serialized access.",
-                UserWarning,
-                stacklevel=2,
-            )
-        if self._owner_task is None:
-            self._owner_task = current_task
+        # Ownership is enforced by ``begin()``: a second task entering this
+        # manager raises there, with a message that names the cause. The old
+        # warning here was only emitted by this method, so a caller that used
+        # ``pool.transaction()`` (which calls ``begin_transaction()`` directly)
+        # never saw it.
 
         # Save current settings
         original_isolation_level = self._isolation_level
@@ -1110,7 +1155,9 @@ class AsyncTransactionManager(TransactionManagerBase):
             yield
             await self.commit()
         except BaseException:
-            if self.is_active:
+            # Only the owner may roll back: a refusal raised by ``begin()`` in
+            # another task must not destroy the owner's transaction.
+            if self.is_active and self._owner_task is asyncio.current_task():
                 await self.rollback()
             raise
         finally:
