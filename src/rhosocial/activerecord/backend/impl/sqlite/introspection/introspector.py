@@ -184,15 +184,30 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
         return values
 
     def parse_tables(self, rows: List[Dict[str, Any]], schema: Optional[str]) -> List[IntrospectionTableInfo]:
+        # PRAGMA table_list reports four kinds, and the two beyond table/view
+        # are the ones a caller cannot otherwise tell apart:
+        #
+        #   table    an ordinary storage table
+        #   view     a stored SELECT
+        #   shadow   the storage tables a virtual-table module creates and
+        #            maintains (fts_data, fts_idx, ...); nobody outside the
+        #            module may write them, which is what SYSTEM_TABLE says
+        #   virtual  the module-backed table the user created (an FTS5 or
+        #            R-Tree index); its contents are maintained by the module,
+        #            not by the table itself, which is what EXTERNAL says
+        #
+        # The sqlite_master fallback only ever produces the first two, so the
+        # extra branches cost nothing on older SQLite versions.
+        table_type_by_kind = {
+            "table": TableType.BASE_TABLE,
+            "view": TableType.VIEW,
+            "shadow": TableType.SYSTEM_TABLE,
+            "virtual": TableType.EXTERNAL,
+        }
         tables = []
         for row in rows:
             type_str = row.get("type", "table").lower()
-            if type_str == "table":
-                table_type = TableType.BASE_TABLE
-            elif type_str == "view":
-                table_type = TableType.VIEW
-            else:
-                table_type = TableType.EXTERNAL
+            table_type = table_type_by_kind.get(type_str, TableType.EXTERNAL)
 
             tables.append(
                 IntrospectionTableInfo(

@@ -37,8 +37,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
 
     def supports_virtual_table(self) -> bool:
         """Whether virtual tables are supported."""
-        version = self.version
-        return version >= (3, 8, 8)
+        return self.version_at_least((3, 8, 8))
 
     def supports_rtree(self) -> bool:
         """Whether R-Tree virtual table is supported.
@@ -49,8 +48,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         compile_options = self.get_runtime_param("compile_options", {})
         if compile_options:
             return "ENABLE_RTREE" in compile_options
-        version = self.version
-        return version >= (3, 6, 0)
+        return self.version_at_least((3, 6, 0))
 
     def supports_fts5(self) -> bool:
         """Whether FTS5 virtual table is supported.
@@ -61,8 +59,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         compile_options = self.get_runtime_param("compile_options", {})
         if compile_options:
             return "ENABLE_FTS5" in compile_options
-        version = self.version
-        return version >= (3, 9, 0)
+        return self.version_at_least((3, 9, 0))
 
     def supports_geopoly(self) -> bool:
         """Whether Geopoly virtual table is supported.
@@ -73,8 +70,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         compile_options = self.get_runtime_param("compile_options", {})
         if compile_options:
             return "ENABLE_GEOPOLY" in compile_options
-        version = self.version
-        return version >= (3, 26, 0)
+        return self.version_at_least((3, 26, 0))
 
     def supports_math_functions(self) -> bool:
         """Whether built-in math functions are supported.
@@ -85,8 +81,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         Returns:
             True if math functions are supported
         """
-        version = self.version
-        if version >= (3, 35, 0):
+        if self.version_at_least((3, 35, 0)):
             return self.get_runtime_param("math_functions_available", True)
         return False
 
@@ -101,8 +96,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         Returns:
             True if json1 extension is available
         """
-        version = self.version
-        if version >= (3, 38, 0):
+        if self.version_at_least((3, 38, 0)):
             return True
         return self.get_runtime_param("json1_available", False)
 

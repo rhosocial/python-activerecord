@@ -9,6 +9,7 @@ vocabulary open for the kinds a catalog actually reports.
 
 import pytest
 
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.introspection.types import TableType
 
 pytestmark = [pytest.mark.feature, pytest.mark.backend]
@@ -35,3 +36,54 @@ class TestTableTypeSpellings:
     def test_every_member_has_its_own_spelling(self):
         spellings = [member.value for member in TableType]
         assert len(spellings) == len(set(spellings))
+
+
+class TestSQLiteTableKinds:
+    """`PRAGMA table_list` reports four kinds; the parser must keep them apart.
+
+    Rows are handed to the parser directly: this is about the mapping, and a
+    database would only add a fixture between the four words and the answer.
+    """
+
+    @staticmethod
+    def _types(rows):
+        backend = SQLiteBackend(database=":memory:")
+        parsed = backend.introspector.parse_tables(rows, "main")
+        return {table.name: table.table_type for table in parsed}
+
+    def test_ordinary_table_and_view(self):
+        kinds = self._types(
+            [{"name": "t", "type": "table"}, {"name": "v", "type": "view"}]
+        )
+        assert kinds == {"t": TableType.BASE_TABLE, "v": TableType.VIEW}
+
+    def test_shadow_tables_are_system_owned_not_external(self):
+        # fts_data / fts_idx and friends are created and maintained by the
+        # virtual-table module. Reporting them as EXTERNAL would put them in
+        # the same bucket as the FTS5 table the user actually created.
+        kinds = self._types([{"name": "fts_data", "type": "shadow"}])
+        assert kinds == {"fts_data": TableType.SYSTEM_TABLE}
+
+    def test_virtual_tables_are_external(self):
+        kinds = self._types([{"name": "fts", "type": "virtual"}])
+        assert kinds == {"fts": TableType.EXTERNAL}
+
+    def test_all_four_kinds_in_one_answer(self):
+        kinds = self._types(
+            [
+                {"name": "t", "type": "table"},
+                {"name": "v", "type": "view"},
+                {"name": "fts", "type": "virtual"},
+                {"name": "fts_data", "type": "shadow"},
+            ]
+        )
+        assert kinds == {
+            "t": TableType.BASE_TABLE,
+            "v": TableType.VIEW,
+            "fts": TableType.EXTERNAL,
+            "fts_data": TableType.SYSTEM_TABLE,
+        }
+
+    def test_unknown_kind_does_not_become_a_base_table(self):
+        kinds = self._types([{"name": "x", "type": "something-new"}])
+        assert kinds == {"x": TableType.EXTERNAL}

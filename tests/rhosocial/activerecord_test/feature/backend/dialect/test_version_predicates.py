@@ -83,6 +83,24 @@ class TestSQLiteNamesItsVersionWithoutAdaptation:
         assert dialect.supports_returning_insert() is False
         assert dialect.supports_window_functions() is False
 
+    def test_every_sqlite_predicate_answers_before_adaptation(self):
+        # None of these may raise: callers ask them in order to decide whether
+        # a feature may be used, and "unknown version" must read as "no".
+        dialect = SQLiteDialect()
+        predicates = (
+            "supports_virtual_table",
+            "supports_rtree",
+            "supports_fts5",
+            "supports_geopoly",
+            "supports_math_functions",
+            "supports_json1_extension",
+            "supports_foreign_key_introspection",
+            "supports_table_list_pragma",
+            "supports_table_xinfo_pragma",
+        )
+        answers = {name: getattr(dialect, name)() for name in predicates}
+        assert all(isinstance(value, bool) for value in answers.values())
+
 
 class TestIntrospectorReportsVersionWithoutIO:
     """`server_version` is the parser-facing answer: no raise, no connection."""
