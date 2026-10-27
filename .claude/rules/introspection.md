@@ -34,6 +34,16 @@ cannot answer a question says so (`UnsupportedFeatureError`) and its CLI does
 not offer the type -- it never returns a successful-looking answer about the
 wrong objects.
 
+The table-kind vocabulary is a different thing and does live in core:
+`TableType` names what a catalogue can report (a base table, a view, a
+materialized view, a partitioned table), and each backend maps its own
+spelling onto it. Spellings that belong to one engine -- BigQuery's `CLONE`
+and `SNAPSHOT`, ClickHouse's engines, Snowflake's `MANAGED` and `EVENT`
+tables -- ride in `extra` beside the member they map to instead of widening
+the enum. The rule is the same in both cases: the introspector is the only
+layer that saw the catalog's distinction, so nothing may be folded away there
+and recovered later.
+
 ## 3. Every backend completes its own semantics.
 
 An introspection class derives from core, and that derivation is the floor, not

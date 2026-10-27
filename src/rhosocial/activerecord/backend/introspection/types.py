@@ -32,10 +32,25 @@ class IntrospectionScope(Enum):
 
 
 class TableType(Enum):
-    """Table type enumeration."""
+    """Table type enumeration.
+
+    One member per kind a catalog reports, including kinds that behave like an
+    ordinary table. A materialized view is refreshed rather than written to,
+    and a partitioned table's rows live in its partitions; collapsing either
+    into ``BASE_TABLE`` loses the distinction at the only layer that saw it,
+    because nothing downstream can recover it.
+
+    Catalog spellings that are vendor-specific rather than standard --
+    BigQuery's ``CLONE`` / ``SNAPSHOT``, ClickHouse's engines, Snowflake's
+    ``MANAGED`` / ``EVENT`` tables -- stay in ``extra`` beside the member they
+    map to, not in this enum.
+    """
 
     BASE_TABLE = "BASE_TABLE"
     VIEW = "VIEW"
+    MATERIALIZED_VIEW = "MATERIALIZED_VIEW"
+    FOREIGN_TABLE = "FOREIGN_TABLE"
+    PARTITIONED_TABLE = "PARTITIONED_TABLE"
     SYSTEM_TABLE = "SYSTEM_TABLE"
     TEMPORARY = "TEMPORARY"
     EXTERNAL = "EXTERNAL"
