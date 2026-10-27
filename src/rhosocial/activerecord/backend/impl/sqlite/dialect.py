@@ -408,14 +408,19 @@ class SQLiteDialect(
         """Return the SQLite version this dialect is configured for."""
         return self.version
 
-    def _effective_version(self) -> Tuple[int, int, int]:
-        """Resolve the version used for capability checks.
+    def _declared_version(self) -> Tuple[int, int, int]:
+        """The sqlite3 library's own version, which needs no adaptation.
 
-        Returns the explicitly configured or adapted version, falling back to
-        the sqlite3 library version, which is always known without adaptation.
+        SQLite has no server to ask: the engine is the library the driver
+        links against, so ``sqlite3.sqlite_version_info`` already *is* the
+        version in force. Capability checks can therefore answer before
+        ``introspect_and_adapt()`` runs, which is what keeps a predicate such
+        as ``supports_foreign_key_introspection()`` from raising.
+
+        The strict :attr:`version` still raises until adaptation, because an
+        unconfigured dialect has not been told which version the caller
+        targets.
         """
-        if self._version is not None:
-            return self._version
         import sqlite3
 
         return tuple(sqlite3.sqlite_version_info[:3])
@@ -465,39 +470,39 @@ class SQLiteDialect(
     # region Protocol Support Checks based on version
     def supports_basic_cte(self) -> bool:
         """Basic CTEs are supported since SQLite 3.8.3."""
-        return self._effective_version() >= (3, 8, 3)
+        return self.version_at_least((3, 8, 3))
 
     def supports_recursive_cte(self) -> bool:
         """Recursive CTEs are supported since SQLite 3.8.3."""
-        return self._effective_version() >= (3, 8, 3)
+        return self.version_at_least((3, 8, 3))
 
     def supports_materialized_cte(self) -> bool:
         """MATERIALIZED hint is supported since SQLite 3.35.0."""
-        return self._effective_version() >= (3, 35, 0)
+        return self.version_at_least((3, 35, 0))
 
     def supports_returning_insert(self) -> bool:
         """RETURNING clause is supported for INSERT since SQLite 3.35.0."""
-        return self.version >= (3, 35, 0)
+        return self.version_at_least((3, 35, 0))
 
     def supports_returning_update(self) -> bool:
         """RETURNING clause is supported for UPDATE since SQLite 3.35.0."""
-        return self.version >= (3, 35, 0)
+        return self.version_at_least((3, 35, 0))
 
     def supports_returning_delete(self) -> bool:
         """RETURNING clause is supported for DELETE since SQLite 3.35.0."""
-        return self.version >= (3, 35, 0)
+        return self.version_at_least((3, 35, 0))
 
     def supports_window_functions(self) -> bool:
         """Window functions are supported since SQLite 3.25.0."""
-        return self.version >= (3, 25, 0)
+        return self.version_at_least((3, 25, 0))
 
     def supports_window_frame_clause(self) -> bool:
         """Whether window frame clauses (ROWS/RANGE) are supported, since SQLite 3.25.0."""
-        return self.version >= (3, 25, 0)
+        return self.version_at_least((3, 25, 0))
 
     def supports_filter_clause(self) -> bool:
         """FILTER clause for aggregate functions is supported since SQLite 3.10.0."""
-        return self.version >= (3, 10, 0)
+        return self.version_at_least((3, 10, 0))
 
     def supports_json_type(self) -> bool:
         """JSON is supported with JSON1 extension.
@@ -506,14 +511,14 @@ class SQLiteDialect(
         - SQLite >= 3.38.0: JSON1 is built-in, always available
         - SQLite < 3.38.0: Check runtime detection result (json1_available)
         """
-        if self.version >= (3, 38, 0):
+        if self.version_at_least((3, 38, 0)):
             return True
         # For older versions, use runtime detection result
         return self.get_runtime_param("json1_available", False)
 
     def supports_json_arrow_operators(self) -> bool:
         """SQLite supports -> and ->> operators from version 3.38.0+."""
-        return self.version >= (3, 38, 0)
+        return self.version_at_least((3, 38, 0))
 
     def format_json_function_expression(self, expr: "JSONDocumentValue") -> Tuple[str, tuple]:
         """Render a JSON path access with SQLite's own JSON1 functions.
@@ -653,7 +658,7 @@ class SQLiteDialect(
     def supports_upsert(self) -> bool:
         """Whether UPSERT (ON CONFLICT) is supported."""
         # UPSERT (ON CONFLICT) is supported since SQLite 3.24.0
-        return self.version >= (3, 24, 0)
+        return self.version_at_least((3, 24, 0))
 
     def get_upsert_syntax_type(self) -> str:
         """
@@ -673,7 +678,7 @@ class SQLiteDialect(
 
         Multiple ON CONFLICT clauses are supported since SQLite 3.35.0.
         """
-        return self.version >= (3, 35, 0)
+        return self.version_at_least((3, 35, 0))
 
     # Probed once per process and shared across instances: the result depends only on the
     # linked SQLite library build, which is fixed for the lifetime of the process.
@@ -705,7 +710,7 @@ class SQLiteDialect(
 
     def supports_distinct_from(self) -> bool:
         """Whether SQLite accepts ``IS [NOT] DISTINCT FROM`` (3.39.0+)."""
-        return self.version >= (3, 39, 0)
+        return self.version_at_least((3, 39, 0))
 
     def format_distinct_from_predicate(self, expr: "DistinctFromPredicate") -> Tuple[str, tuple]:
         """Format a NULL-safe distinctness check, refusing below SQLite 3.39.0.
@@ -801,7 +806,7 @@ class SQLiteDialect(
     def supports_generated_columns(self) -> bool:
         """Whether generated columns are supported."""
         # Generated columns (STORED/VIRTUAL) are supported since SQLite 3.31.0
-        return self.version >= (3, 31, 0)
+        return self.version_at_least((3, 31, 0))
 
     def supports_stored_generated_columns(self) -> bool:
         """Whether STORED generated columns are supported."""
@@ -856,12 +861,12 @@ class SQLiteDialect(
     def supports_rename_column(self) -> bool:
         """Whether RENAME COLUMN is supported."""
         # RENAME COLUMN is supported since SQLite 3.25.0
-        return self.version >= (3, 25, 0)
+        return self.version_at_least((3, 25, 0))
 
     def supports_drop_column(self) -> bool:
         """Whether DROP COLUMN is supported."""
         # DROP COLUMN is supported since SQLite 3.35.0
-        return self.version >= (3, 35, 0)
+        return self.version_at_least((3, 35, 0))
 
     def supports_table_partitioning(self) -> bool:
         """Whether table partitioning is supported."""
@@ -881,7 +886,7 @@ class SQLiteDialect(
         Returns:
             True if SQLite version >= 3.53.0, False otherwise.
         """
-        return self.version >= (3, 53, 0)
+        return self.version_at_least((3, 53, 0))
 
     def supports_drop_constraint(self) -> bool:
         """Whether ALTER TABLE DROP CONSTRAINT is supported.
@@ -891,7 +896,7 @@ class SQLiteDialect(
         Returns:
             True if SQLite version >= 3.53.0, False otherwise.
         """
-        return self.version >= (3, 53, 0)
+        return self.version_at_least((3, 53, 0))
 
     def supports_fk_match(self) -> bool:
         """SQLite does not support MATCH clause in FOREIGN KEY."""
@@ -941,7 +946,7 @@ class SQLiteDialect(
     def supports_partial_index(self) -> bool:
         """Whether partial indexes (WHERE clause) are supported."""
         # Partial indexes are supported since SQLite 3.8.0
-        return self.version >= (3, 8, 0)
+        return self.version_at_least((3, 8, 0))
 
     def supports_functional_index(self) -> bool:
         """Whether functional/expression indexes are supported."""
@@ -1027,12 +1032,12 @@ class SQLiteDialect(
     def supports_intersect(self) -> bool:
         """Whether INTERSECT operation is supported."""
         # INTERSECT is supported in SQLite since version 3.7.6 (2011-02-25)
-        return self.version >= (3, 7, 6)
+        return self.version_at_least((3, 7, 6))
 
     def supports_except(self) -> bool:
         """Whether EXCEPT operation is supported."""
         # EXCEPT is supported in SQLite since version 3.7.6 (2011-02-25)
-        return self.version >= (3, 7, 6)
+        return self.version_at_least((3, 7, 6))
 
     def supports_fetch_with_ties(self) -> bool:
         """SQLite does not support FETCH ... WITH TIES."""

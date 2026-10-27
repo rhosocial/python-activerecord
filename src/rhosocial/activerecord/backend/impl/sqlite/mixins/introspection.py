@@ -90,8 +90,7 @@ class SQLiteIntrospectionCapabilityMixin:
         Note: Foreign key constraints are disabled by default and must be
         enabled via 'PRAGMA foreign_keys = ON'.
         """
-        version = self.version
-        return version >= (3, 6, 19)
+        return self.version_at_least((3, 6, 19))
 
     def supports_view_introspection(self) -> bool:
         """SQLite supports view introspection."""
@@ -152,7 +151,7 @@ class SQLiteIntrospectionCapabilityMixin:
             True if PRAGMA table_list is available.
             If False, fallback to sqlite_master query.
         """
-        return self.version >= (3, 37, 0)
+        return self.version_at_least((3, 37, 0))
 
     def supports_table_xinfo_pragma(self) -> bool:
         """PRAGMA table_xinfo (includes hidden columns) requires SQLite 3.26.0+.
@@ -161,7 +160,7 @@ class SQLiteIntrospectionCapabilityMixin:
             True if PRAGMA table_xinfo is available.
             If False, use PRAGMA table_info instead.
         """
-        return self.version >= (3, 26, 0)
+        return self.version_at_least((3, 26, 0))
 
     def get_supported_introspection_scopes(self) -> List["IntrospectionScope"]:
         """Get list of supported introspection scopes."""

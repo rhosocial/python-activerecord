@@ -32,7 +32,7 @@ class SQLiteRTreeMixin(SQLiteExtensionMixin):
         compile_options = self.get_runtime_param("compile_options", {})
         if compile_options:
             return "ENABLE_RTREE" in compile_options
-        return self.version >= (3, 6, 0)
+        return self.version_at_least((3, 6, 0))
 
     # ========== SQL Formatting ==========
 

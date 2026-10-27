@@ -38,7 +38,7 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
         compile_options = self.get_runtime_param("compile_options", {})
         if compile_options:
             return "ENABLE_FTS5" in compile_options
-        return self.version >= (3, 9, 0)
+        return self.version_at_least((3, 9, 0))
 
     def supports_fts5_bm25(self) -> bool:
         """Whether BM25 ranking function is supported (available since FTS5 was introduced)."""
@@ -55,7 +55,7 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
     def get_supported_fts5_tokenizers(self) -> List[str]:
         """Get list of supported FTS5 tokenizers."""
         tokenizers = ["unicode61", "ascii", "porter"]
-        if self.supports_fts5() and self.version >= (3, 34, 0):
+        if self.supports_fts5() and self.version_at_least((3, 34, 0)):
             tokenizers.append("trigram")
         return tokenizers
 

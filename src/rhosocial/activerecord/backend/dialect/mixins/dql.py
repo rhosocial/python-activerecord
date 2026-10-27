@@ -55,7 +55,7 @@ class DQLMixin:
         The default mirrors PostgreSQL's version gate (13+). Every other
         backend overrides this with its own real capability.
         """
-        return self.version >= (13, 0, 0)
+        return self.version_at_least((13, 0, 0))
 
     def format_limit_offset(self, limit=None, offset=None) -> Tuple[str, List]:
         """Format a LIMIT/OFFSET fragment.

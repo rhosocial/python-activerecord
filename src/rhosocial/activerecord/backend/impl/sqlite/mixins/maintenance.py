@@ -28,7 +28,7 @@ class SQLiteMaintenanceMixin:
 
     def supports_vacuum_into(self) -> bool:
         """VACUUM INTO 'filename' is supported since SQLite 3.27.0."""
-        return self.version >= (3, 27, 0)
+        return self.version_at_least((3, 27, 0))
 
     def supports_analyze(self) -> bool:
         """ANALYZE is supported since SQLite 3.0."""

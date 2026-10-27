@@ -32,7 +32,7 @@ Design principles:
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from .cache import InMemoryIntrospectionCache, IntrospectionCache
 from .types import (
@@ -82,6 +82,25 @@ class IntrospectorMixin:
     def dialect(self) -> "SQLDialectBase":
         """Get the SQL dialect from the backend."""
         return self._backend.dialect
+
+    @property
+    def server_version(self) -> Optional[Tuple[int, int, int]]:
+        """The server version to report, or ``None`` when nothing knows it.
+
+        Three sources, cheapest and most authoritative first: the adapted
+        dialect, the version the dialect names without a handshake (SQLite's
+        engine *is* its driver's library), then what the backend cached from
+        its last connection. Reading it never raises and never performs I/O.
+
+        Parsers fill ``IntrospectionDatabaseInfo.version`` from this rather
+        than from ``dialect.version``: the strict property raises before
+        adaptation, and a parser has no business refusing to report a
+        database just because the version is not known yet.
+        """
+        version = self.dialect.version_or_none
+        if version is not None:
+            return version
+        return self._backend.get_cached_server_version()
 
     @property
     def default_schema(self) -> str:

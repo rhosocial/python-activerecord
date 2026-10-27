@@ -60,6 +60,13 @@ class SQLDialectBase:
 
     @property
     def version(self) -> Tuple[int, int, int]:
+        """The adapted server version, or a raise when there is none.
+
+        Strict on purpose: a renderer that gates SQL on a version must know
+        which version it is gating against, so silence would be worse than a
+        failure. A caller that only needs to *report* or *probe* uses
+        :attr:`version_or_none` / :meth:`version_at_least`, which never raise.
+        """
         if self._version is None:
             from .exceptions import DialectNotAdaptedException
 
@@ -69,6 +76,47 @@ class SQLDialectBase:
     @version.setter
     def version(self, value: Tuple[int, int, int]) -> None:
         self._version = value
+
+    def _declared_version(self) -> Optional[Tuple[int, int, int]]:
+        """The version this dialect can name without asking a server.
+
+        A capability check has to answer before a connection exists, and some
+        dialects already have the answer: SQLite has no server to ask, because
+        the engine is the library its driver links against, so
+        ``sqlite3.sqlite_version_info`` is the version in force. A
+        client/server backend has no such answer -- the driver's own version
+        says nothing about the server -- so the default is ``None`` and asking
+        for the strict :attr:`version` keeps raising until adaptation.
+
+        Override this to name the version that holds before
+        ``backend.introspect_and_adapt()`` runs. :attr:`version_or_none` and
+        :meth:`version_at_least` then answer instead of raising.
+        """
+        return None
+
+    @property
+    def version_or_none(self) -> Optional[Tuple[int, int, int]]:
+        """The version in force, or ``None`` when it is not known yet.
+
+        :attr:`version` is the strict form and raises when the dialect has not
+        been adapted. This one is for callers that would rather learn nothing
+        than fail, and it is what :meth:`version_at_least` reads.
+        """
+        if self._version is not None:
+            return self._version
+        return self._declared_version()
+
+    def version_at_least(self, floor: Tuple[int, int, int]) -> bool:
+        """Whether the version in force reaches *floor*, without raising.
+
+        This is the predicate capability checks must use. A dialect that
+        cannot name its version answers ``False``: a capability nobody has
+        confirmed is not claimed. Asking must not throw either, because a
+        caller deciding *whether* to use a feature cannot be expected to catch
+        an exception just to learn "no".
+        """
+        version = self.version_or_none
+        return version is not None and version >= floor
 
     @property
     def name(self) -> str:
