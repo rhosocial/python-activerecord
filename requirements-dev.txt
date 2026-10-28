@@ -2,15 +2,18 @@
 # Testing framework for unit and integration tests
 # Core framework for running test suites and fixtures
 #
-# Pinned below 9.2 on purpose. 9.2 removed the private ``node._nodeid`` alias
-# that pytest-benchmark 5.3.0 still reads, so every benchmark test errored at
-# setup with ``'Function' object has no attribute '_nodeid'``; the same release
-# also changed how the suite behaves under ``-n auto``, which turned 14 shared-
-# state tests (worker hooks, the deep named-series CLI) red on a day when no
-# line of the library had changed. A toolchain that arrives new every morning
-# turns a green matrix into a coin toss, so the pin holds it at the version CI
-# was last green on, and a bump is a deliberate act with a run to prove it.
-pytest~=9.1.1
+# Pinned on purpose, per Python line.  pytest 9.x does not install on 3.8/3.9,
+# so the floor is 8.4 there and 9.1 above; and 9.2 is excluded everywhere. 9.2
+# removed the private ``node._nodeid`` alias that pytest-benchmark still reads,
+# so every benchmark test errored at setup with ``'Function' object has no
+# attribute '_nodeid'``; the same release also changed how the suite behaves
+# under ``-n auto``, which turned 14 shared-state tests (worker hooks, the deep
+# named-series CLI) red on a day when not one line of the library had changed.
+# A toolchain that arrives new every morning turns a green matrix into a coin
+# toss, so these pins hold it where CI was last green (2026-10-27: pytest 8.4.2
+# on 3.9, 9.1.1 on 3.10+), and a bump is a deliberate act with a run to prove it.
+pytest~=8.4.2; python_version < "3.10"
+pytest~=9.1.1; python_version >= "3.10"
 pytest-asyncio
 
 # Pytest plugin for performance benchmarking
