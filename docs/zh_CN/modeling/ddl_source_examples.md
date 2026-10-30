@@ -92,10 +92,10 @@ PlainAccount.table_constraints()
 # []
 
 PlainAccount.column_constraints("id")
-# ColumnConstraint(PRIMARY_KEY), ColumnConstraint(NOT_NULL)
+# ColumnConstraint(branch=ColumnPrimaryKeyConstraint), ColumnConstraint(branch=ColumnNotNullConstraint)
 
 PlainAccount.column_constraints("name")
-# ColumnConstraint(NOT_NULL)
+# ColumnConstraint(branch=ColumnNotNullConstraint)
 
 PlainAccount.column_constraints("note")
 # []
@@ -186,7 +186,7 @@ CoreDeclared.column_attributes("name")[0].name
 # 'und:ci'
 
 CoreDeclared.column_constraints("status")
-# ColumnConstraint(NOT_NULL)
+# ColumnConstraint(branch=ColumnNotNullConstraint)
 ```
 
 同一个核心表达式被各后端绑定后，实际 SQL 片段如下：

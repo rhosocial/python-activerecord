@@ -67,7 +67,7 @@ The model base class. Inherits from Pydantic `BaseModel`.
 
 ### FieldProxy (base/field_proxy.py)
 Enables type-safe, IDE-friendly query expressions.
-- **Usage**: `User.c.age >= 18` returns a `ComparisonExpression`, not a boolean.
+- **Usage**: `User.c.age >= 18` returns a `ComparisonPredicate`, not a boolean.
 - **Pattern**: Declare as `c: ClassVar[FieldProxy] = FieldProxy()` on the model class.
 
 ### Query Types (query/)
@@ -90,12 +90,19 @@ Three core query builders with full sync/async parity:
 
 ### Expression hierarchy (expression/)
 All expressions implement `ToSQLProtocol` (i.e., they have `.to_sql(dialect) -> (str, list)`).
-- `SQLColumn("users", "age")` — a column reference.
-- `SQLLiteral(42)` — a bound parameter.
-- `ComparisonExpression(left, op, right)` — e.g., `age >= 18`.
-- `LogicalExpression(op, children)` — AND/OR/NOT combinator.
-- `AggregateExpression(func, column)` — COUNT, SUM, etc.
-- `WindowExpression`, `CTEClause` — advanced SQL constructs.
+- `Column(dialect, "age", "users")` — a column reference. Comparison, arithmetic and `LIKE` are **not** on this
+  base class: a typed column (`StringColumn`, `IntegerColumn`, `NumericColumn`, `TimestampColumn`,
+  `BooleanColumn`, ...) mixes in the operations its value type can carry.
+- `Literal(dialect, 42)` — a bound parameter; `Literal(dialect, 42, inline=True)` renders as SQL text for a
+  DDL position, which accepts no bind parameters.
+- `ComparisonPredicate(dialect, ComparisonOperator.GTE, left, right)` — e.g. `age >= 18`
+  (operators: `EQ`/`NE`/`GT`/`GTE`/`LT`/`LTE`). `StringColumn(...) == "x"` builds this node.
+- `LogicalPredicate` — AND/OR/NOT combinator.
+- Function factories (`count`, `sum_`, `avg`, `case`, ...) — return function/case nodes; there is no
+  `AggregateExpression` class.
+- Table sources: `NamedRelationRef(dialect, Table(dialect, "users"), alias="u")`; relations themselves
+  (`Table`, `View`, `MaterializedView`, `ForeignTable`) live in `expression/objects/`.
+- `WindowSpecification`, `CTEClause` — advanced SQL constructs.
 
 ### Dialect (dialect/)
 Translates expressions into backend-specific SQL strings.

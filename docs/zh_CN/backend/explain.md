@@ -45,10 +45,11 @@ backend/impl/sqlite/explain/
 所有解释结果均继承自 `BaseExplainResult`，它是普通的 `pydantic.BaseModel`（而非 `ActiveRecord`）：
 
 ```python
-class BaseExplainResult(BaseModel):
-    raw_rows: List[Dict[str, Any]]  # 来自 fetch_all() 的原始行数据
-    sql: str                         # 实际执行的 EXPLAIN SQL
-    duration: float                  # 执行耗时（秒）
+from rhosocial.activerecord.backend.explain.types import BaseExplainResult
+
+# 每个解释结果都携带的模型字段
+for name, field in BaseExplainResult.model_fields.items():
+    print(f"{name}: {field.annotation}")
 ```
 
 使用 `pydantic.BaseModel` 可避免后端层对 ActiveRecord 模型层的反向依赖。
@@ -64,8 +65,9 @@ from rhosocial.activerecord.backend.expression import RawSQL
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 dialect = SQLiteDialect()
-backend = SQLiteBackend(database="mydb.sqlite3")
+backend = SQLiteBackend(database=":memory:")
 backend.connect()
+backend.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)")
 
 # 获取查询的字节码解释
 expr = RawSQL(dialect, "SELECT * FROM users WHERE id = 1")
@@ -83,15 +85,15 @@ for row in result.rows:
 可以传入任何 `BaseExpression`（`ExplainStatement` 本身除外）：
 
 ```python
-from rhosocial.activerecord.backend.expression.core import (
-    TableExpression, AllColumnsWildcard,
+from rhosocial.activerecord.backend.expression import (
+    AllColumnsWildcard, NamedRelationRef, QueryStatement,
 )
-from rhosocial.activerecord.backend.expression.statements import QueryStatement
+from rhosocial.activerecord.backend.expression.objects import Table
 
 query = QueryStatement(
     dialect,
     select=[AllColumnsWildcard(dialect)],
-    from_=TableExpression(dialect, "users"),
+    from_=NamedRelationRef(dialect, Table(dialect, "users")),
 )
 result = backend.explain(query)
 ```
@@ -117,13 +119,25 @@ for row in result.rows:
 ### 异步 API
 
 ```python
+import asyncio
+
 from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
 
-backend = AsyncSQLiteBackend(database="mydb.sqlite3")
-await backend.connect()
+async_backend = AsyncSQLiteBackend(database=":memory:")
 
-result = await backend.explain(query)           # 字节码
-result = await backend.explain(query, opts)     # 查询计划
+
+async def main():
+    await async_backend.connect()
+    await async_backend.execute(
+        "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)"
+    )
+
+    result = await async_backend.explain(query)        # 字节码
+    result = await async_backend.explain(query, opts)  # 查询计划
+    await async_backend.disconnect()
+
+
+asyncio.run(main())
 ```
 
 ## SQLite 结果类型
@@ -135,20 +149,22 @@ SQLite 根据 EXPLAIN 模式的不同，输出的列格式完全不同。后端�
 由普通 `EXPLAIN <stmt>` 返回。每行代表一条 VDBE（Virtual DataBase Engine，虚拟数据库引擎）指令：
 
 ```python
-class SQLiteExplainRow(BaseModel):
-    addr: int           # 程序计数器地址
-    opcode: str         # 指令名称（如 "OpenRead"、"SeekGE"、"Column"）
-    p1: int             # 第一操作数（通常是游标编号）
-    p2: int             # 第二操作数（通常是 B 树页号或跳转目标）
-    p3: int             # 第三操作数
-    p4: Optional[str]   # 可选的字符串或 blob 操作数
-    p5: int             # 标志位掩码
-    comment: Optional[str]  # 人类可读的注释
+from rhosocial.activerecord.backend.impl.sqlite.explain import SQLiteExplainRow
+
+# addr: 程序计数器地址；opcode: 指令名称
+# p1: 第一操作数（通常是游标编号）
+# p2: 第二操作数（通常是 B 树页号或跳转目标）
+# p3: 第三操作数；p4: 可选的字符串或 blob 操作数
+# p5: 标志位掩码；comment: 人类可读的注释
+for name, field in SQLiteExplainRow.model_fields.items():
+    print(f"{name}: {field.annotation}")
 ```
 
 ```python
-class SQLiteExplainResult(BaseExplainResult):
-    rows: List[SQLiteExplainRow]
+from rhosocial.activerecord.backend.impl.sqlite.explain import SQLiteExplainResult
+
+for name, field in SQLiteExplainResult.model_fields.items():
+    print(f"{name}: {field.annotation}")
 ```
 
 #### 核心操作码说明
@@ -170,16 +186,23 @@ class SQLiteExplainResult(BaseExplainResult):
 由 `EXPLAIN QUERY PLAN <stmt>` 返回。每行描述查询策略中的一个步骤：
 
 ```python
-class SQLiteExplainQueryPlanRow(BaseModel):
-    id: int       # 行标识符（用于构建树形结构）
-    parent: int   # 父行 id（0 表示顶层）
-    notused: int  # 保留字段（当前 SQLite 版本始终为 0）
-    detail: str   # 该步骤的人类可读描述
+from rhosocial.activerecord.backend.impl.sqlite.explain import SQLiteExplainQueryPlanRow
+
+# id: 行标识符（用于构建树形结构）
+# parent: 父行 id（0 表示顶层）
+# notused: 保留字段（当前 SQLite 版本始终为 0）
+# detail: 该步骤的人类可读描述
+for name, field in SQLiteExplainQueryPlanRow.model_fields.items():
+    print(f"{name}: {field.annotation}")
 ```
 
 ```python
-class SQLiteExplainQueryPlanResult(BaseExplainResult):
-    rows: List[SQLiteExplainQueryPlanRow]
+from rhosocial.activerecord.backend.impl.sqlite.explain import (
+    SQLiteExplainQueryPlanResult,
+)
+
+for name, field in SQLiteExplainQueryPlanResult.model_fields.items():
+    print(f"{name}: {field.annotation}")
 ```
 
 `detail` 文本中使用 `SCAN`、`SEARCH`、`USING (COVERING) INDEX` 等关键词，直接反映查询策略。
@@ -211,11 +234,23 @@ class SQLiteExplainQueryPlanResult(BaseExplainResult):
 
 ```python
 from rhosocial.activerecord.backend.expression import RawSQL
-from rhosocial.activerecord.backend.expression.statements import ExplainOptions, ExplainType
+from rhosocial.activerecord.backend.expression.statements import (
+    ExplainOptions, ExplainType,
+)
 
-dialect = SQLiteDialect()
-backend = SQLiteBackend(database="mydb.sqlite3")
-backend.connect()
+backend.execute(
+    "CREATE TABLE IF NOT EXISTS orders "
+    "(id INTEGER PRIMARY KEY, status TEXT, total REAL)"
+)
+backend.execute("CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (status)")
+backend.execute(
+    "CREATE TABLE IF NOT EXISTS order_items "
+    "(id INTEGER PRIMARY KEY, order_id INTEGER, sku TEXT)"
+)
+backend.execute(
+    "CREATE INDEX IF NOT EXISTS idx_order_items_order_sku "
+    "ON order_items (order_id, sku)"
+)
 
 queries = {
     "全表扫描":   "SELECT * FROM orders",
@@ -293,17 +328,22 @@ assert isinstance(async_backend, AsyncExplainBackendProtocol)
 3. **覆写 `_parse_explain_result()`**，返回您的后端专属结果类。
 
 ```python
-from rhosocial.activerecord.backend.explain import SyncExplainBackendMixin
-from rhosocial.activerecord.backend.base import StorageBackend
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
+from rhosocial.activerecord.backend.base import StorageBackend
+from rhosocial.activerecord.backend.explain import SyncExplainBackendMixin
+from rhosocial.activerecord.backend.explain.types import BaseExplainResult
+
 
 class MyExplainRow(BaseModel):
     # 定义与您的数据库 EXPLAIN 输出匹配的字段
-    ...
+    detail: str
+
 
 class MyExplainResult(BaseExplainResult):
     rows: List[MyExplainRow]
+
 
 class MyBackend(SyncExplainBackendMixin, StorageBackend):
     def _parse_explain_result(

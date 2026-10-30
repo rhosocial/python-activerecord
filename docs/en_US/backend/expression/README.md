@@ -94,15 +94,16 @@ The expression system allows you to compose queries programmatically:
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    QueryStatement, TableExpression, Column, Literal
+    QueryStatement, NamedRelationRef, Column, IntegerColumn
 )
+from rhosocial.activerecord.backend.expression.objects import Table
 
 # SELECT name, age FROM users WHERE age >= 18
 query = QueryStatement(
     dialect,
     select=[Column(dialect, "name"), Column(dialect, "age")],
-    from_=TableExpression(dialect, "users"),
-    where=Column(dialect, "age") >= Literal(dialect, 18)
+    from_=NamedRelationRef(dialect, Table(dialect, "users")),
+    where=IntegerColumn(dialect, "age") >= 18
 )
 sql, params = query.to_sql()
 # sql: 'SELECT "name", "age" FROM "users" WHERE "age" >= ?'

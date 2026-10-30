@@ -12,12 +12,14 @@ The preferred way is through the `cast()` method on expressions:
 
 ```python
 from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.types import CustomType
 
 col = Column(dialect, "amount")
-expr = col.cast("money")
+expr = col.cast(CustomType(dialect, raw="money"))
 sql, params = expr.to_sql()
-# PostgreSQL: ("amount"::money, ())
-# Other backends: (CAST("amount" AS money), ())
+# sql: 'CAST("amount" AS money)'
+# params: ()
+# PostgreSQL spells the same cast with its own operator: '"amount"::money'
 ```
 
 ### Using the cast() Function
@@ -25,76 +27,88 @@ sql, params = expr.to_sql()
 For more flexibility, you can use the `cast()` function from the functions module:
 
 ```python
-from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression import Column, IntegerColumn, Literal
 from rhosocial.activerecord.backend.expression.functions import cast
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 
-# Cast a column
+# Cast a column -- the target is a DataType instance, never a string
 col = Column(dialect, "price")
-expr = cast(dialect, col, "integer")
+expr = cast(dialect, col, IntegerType(dialect))
 sql, params = expr.to_sql()
-# PostgreSQL: ("price"::integer, ())
-# Other backends: (CAST("price" AS integer), ())
+# sql: 'CAST("price" AS INTEGER)'
+# params: ()
 
 # Cast a literal value
-expr = cast(dialect, "123", "INTEGER")
+expr = cast(dialect, Literal(dialect, "123"), TextType(dialect))
 sql, params = expr.to_sql()
-# PostgreSQL: ('123'::INTEGER, ())
-# Other backends: (CAST('123' AS INTEGER), ())
+# sql: 'CAST(? AS TEXT)'
+# params: ('123',)
 
-# Cast an arithmetic expression
-expr = cast(dialect, Column(dialect, "value") + Literal(dialect, 1), "TEXT")
+# Cast an arithmetic expression -- arithmetic needs a numeric column class
+expr = cast(dialect, IntegerColumn(dialect, "value") + 1, TextType(dialect))
 sql, params = expr.to_sql()
-# PostgreSQL: ("value" + 1)::TEXT, ())
-# Other backends: (CAST("value" + 1 AS TEXT), ())
+# sql: 'CAST("value" + ? AS TEXT)'
+# params: (1,)
 ```
 
 ### Chained Type Conversions
 
 ```python
 from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.types import (
+    CustomType, DecimalType, FloatType,
+)
 
 col = Column(dialect, "amount")
-# Multi-level type conversion: money -> numeric -> float8
-expr = col.cast("money").cast("numeric").cast("float8")
+# Multi-level type conversion: money -> decimal -> float
+expr = col.cast(CustomType(dialect, raw="money"))
+expr = expr.cast(DecimalType(dialect)).cast(FloatType(dialect))
 sql, params = expr.to_sql()
-# PostgreSQL: ("amount"::money::numeric::float8, ())
+# sql: 'CAST(CAST(CAST("amount" AS money) AS DECIMAL) AS FLOAT)'
+# params: ()
 ```
 
 ### With Type Modifiers
 
-Type modifiers should be included directly in the type string:
+Type modifiers are constructor arguments of the `DataType`:
 
 ```python
 from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.types import DecimalType, VarCharType
 
 col = Column(dialect, "name")
-expr = col.cast("VARCHAR(100)")
+expr = col.cast(VarCharType(dialect, length=100))
 sql, params = expr.to_sql()
-# PostgreSQL: ("name"::VARCHAR(100), ())
+# sql: 'CAST("name" AS VARCHAR(100))'
+# params: ()
 
 col2 = Column(dialect, "price")
-expr2 = col2.cast("NUMERIC(10,2)")
+expr2 = col2.cast(DecimalType(dialect, precision=10, scale=2))
 sql, params = expr2.to_sql()
-# PostgreSQL: ("price"::NUMERIC(10,2), ())
+# sql: 'CAST("price" AS DECIMAL(10,2))'
+# params: ()
 ```
 
 ### Using in Queries
 
 ```python
 from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.types import DecimalType
 
 # Use in WHERE clause
 col = Column(dialect, "amount")
-predicate = col.cast("numeric") > 100
+predicate = col.cast(DecimalType(dialect)) > 100
 sql, params = predicate.to_sql()
-# PostgreSQL: ("amount"::numeric > %s, (100,))
+# sql: 'CAST("amount" AS DECIMAL) > ?'
+# params: (100,)
 
 # Use in arithmetic expressions
 col1 = Column(dialect, "price1")
 col2 = Column(dialect, "price2")
-expr = col1.cast("numeric") + col2.cast("numeric")
+expr = col1.cast(DecimalType(dialect)) + col2.cast(DecimalType(dialect))
 sql, params = expr.to_sql()
-# PostgreSQL: ("price1"::numeric + "price2"::numeric, ())
+# sql: 'CAST("price1" AS DECIMAL) + CAST("price2" AS DECIMAL)'
+# params: ()
 ```
 
 ### PostgreSQL Type Casting Syntax
@@ -119,7 +133,9 @@ A window function call is a `FunctionCall` carrying a `window_spec`: attach
 it fluently with `.over(...)`, or pass `window_spec=` at construction.
 
 ```python
-from rhosocial.activerecord.backend.expression import FunctionCall, WindowSpecification, Column, Literal
+from rhosocial.activerecord.backend.expression import (
+    Column, FunctionCall, Literal, WindowSpecification,
+)
 from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
 
 # Define Window Specification
@@ -165,7 +181,10 @@ CTEs provide a way to write auxiliary statements for use in a larger query.
 Represents a complete `WITH` statement: the CTE definitions plus the query they precede. A single CTE definition is a `CTEClause`.
 
 ```python
-from rhosocial.activerecord.backend.expression import WithStatement, CTEClause, Subquery, QueryStatement, TableExpression, Column
+from rhosocial.activerecord.backend.expression import (
+    CTEClause, Column, NamedRelationRef, QueryStatement, Subquery, WithStatement,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
 
 # Define a CTE
 cte_query = Subquery(dialect, "SELECT id, name FROM users WHERE status = ?", ("active",))
@@ -175,52 +194,57 @@ cte = CTEClause(dialect, name="active_users", query=cte_query)
 main_query = QueryStatement(
     dialect,
     select=[Column(dialect, "name")],
-    from_=TableExpression(dialect, "active_users")
+    from_=NamedRelationRef(dialect, Table(dialect, "active_users"))
 )
 
 # Combine into WITH query
 with_query = WithStatement(dialect, ctes=[cte], query=main_query)
 
 sql, params = with_query.to_sql()
-# sql: 'WITH "active_users" AS (SELECT id, name FROM users WHERE status = ?) SELECT "name" FROM "active_users"'
-# params: ("active",)
+# sql: 'WITH "active_users" AS ((SELECT id, name FROM users WHERE status = ?)) '
+#      'SELECT "name" FROM "active_users"'
+# params: ('active',)
 ```
 
 ## Set Operations
 
 Combine the results of two or more queries into a single result set.
 
-### SetOperationStatement
+### SetOperation
 
-Supports `UNION`, `UNION ALL`, `INTERSECT`, and `EXCEPT`.
+Supports `UNION`, `UNION ALL`, `INTERSECT`, and `EXCEPT`. The operation is a
+`SetOperationKind` member; `UNION ALL` is the `UNION_ALL` member.
 
 ```python
-from rhosocial.activerecord.backend.expression import SetOperationStatement, Subquery
+from rhosocial.activerecord.backend.expression import Subquery
+from rhosocial.activerecord.backend.expression.query_sources import (
+    SetOperation, SetOperationKind,
+)
 
 query1 = Subquery(dialect, "SELECT id FROM table1 WHERE col = ?", ("a",))
 query2 = Subquery(dialect, "SELECT id FROM table2 WHERE col = ?", ("b",))
 
 # UNION
-union_op = SetOperationStatement(
+union_op = SetOperation(
     dialect,
+    op=SetOperationKind.UNION,
     left=query1,
-    right=query2,
-    operation="UNION"
+    right=query2
 )
 sql, params = union_op.to_sql()
 # sql: '(SELECT id FROM table1 WHERE col = ?) UNION (SELECT id FROM table2 WHERE col = ?)'
-# params: ("a", "b")
+# params: ('a', 'b')
 
 # INTERSECT
-intersect_op = SetOperationStatement(
+intersect_op = SetOperation(
     dialect,
+    op=SetOperationKind.INTERSECT,
     left=query1,
-    right=query2,
-    operation="INTERSECT"
+    right=query2
 )
 sql, params = intersect_op.to_sql()
 # sql: '(SELECT id FROM table1 WHERE col = ?) INTERSECT (SELECT id FROM table2 WHERE col = ?)'
-# params: ("a", "b")
+# params: ('a', 'b')
 ```
 
 ## JSON Functions
@@ -249,8 +273,9 @@ json_extract = JSONTextValue(dialect, col, "$.user.name", operation="->>")
 nested = JSONDocumentValue(dialect, col, "$.user", operation="->")
 
 sql, params = json_extract.to_sql()
-# sql: '"data"->>?', or dialect-specific equivalent like 'JSON_EXTRACT("data", ?)'
-# params: ("$.user.name",)
+# sql: 'JSON_UNQUOTE(JSON_EXTRACT("data", '$.user.name'))'
+# params: ()
+# Dialects that spell the operator directly render '"data"->>?' form instead.
 ```
 
 ## Table Functions

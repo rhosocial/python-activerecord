@@ -90,10 +90,10 @@ PlainAccount.table_constraints()
 # []
 
 PlainAccount.column_constraints("id")
-# ColumnConstraint(PRIMARY_KEY), ColumnConstraint(NOT_NULL)
+# ColumnConstraint(branch=ColumnPrimaryKeyConstraint), ColumnConstraint(branch=ColumnNotNullConstraint)
 
 PlainAccount.column_constraints("name")
-# ColumnConstraint(NOT_NULL)
+# ColumnConstraint(branch=ColumnNotNullConstraint)
 
 PlainAccount.column_constraints("note")
 # []
@@ -182,7 +182,7 @@ CoreDeclared.column_attributes("name")[0].name
 # 'und:ci'
 
 CoreDeclared.column_constraints("status")
-# ColumnConstraint(NOT_NULL)
+# ColumnConstraint(branch=ColumnNotNullConstraint)
 ```
 
 The same core type renders differently after the consumer binds each dialect:

@@ -188,6 +188,22 @@ behavior on the *actually connected* server version. Backends re-adapt their dia
 `introspect_and_adapt()` after connecting, so capability is "negotiated with the server"
 rather than statically declared.
 
+A capability question asked **before** adaptation answered differently: it used to raise
+`DialectNotAdaptedException`, so every caller that merely wanted to know whether a feature
+existed had to catch it. The version vocabulary now answers first:
+
+| Accessor | Answers |
+|----------|---------|
+| `dialect._declared_version()` | the version the dialect can name without asking a server (SQLite's is the linked engine's), or `None` |
+| `dialect.version_or_none` | the adapted version, else the declared one, else `None` -- never raises |
+| `dialect.version_at_least(v)` | whether the version in force reaches `v`; `False` when unknown |
+| `backend.get_cached_server_version()` | the version the backend already resolved, without a round trip -- `None` until something resolves it |
+| `introspector.server_version` | the version the introspector read from the server |
+
+So `supports_*()` reports "not supported" when the version is unknown, while the strict
+`dialect.version` still raises: a renderer deciding *which* SQL to emit must know the
+version it gates against, and guessing there would produce SQL the server rejects.
+
 ## See Also
 
 - **[Custom Backend](custom_backend.md)** — how to assemble your own backend from these

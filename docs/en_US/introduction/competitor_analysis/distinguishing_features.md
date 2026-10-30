@@ -59,7 +59,7 @@ SQLQueryAndParams = Tuple[str, tuple]
 
 Three properties follow directly from this design:
 
-1. **Values never touch SQL text.** By default `inline_literals=False`, so
+1. **Values never touch SQL text.** By default `inline=False`, so
    literals render as bind-parameter placeholders (`?`, or `%s`/`$1` etc.
    per-dialect via `get_parameter_placeholder()`), and values are carried in
    the separate tuple. Inline rendering is an explicit, opt-in,

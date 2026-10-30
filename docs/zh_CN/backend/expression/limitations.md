@@ -15,9 +15,12 @@ rhosocial-activerecord 的表达式系统是一个强大而灵活的工具，用
 ```python
 # 以下代码在表达式系统中是有效的，但可能在数据库执行时失败
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, QueryStatement, TableExpression
+    Column, NamedRelationRef, QueryStatement
 )
-from rhosocial.activerecord.backend.expression.query_sources import SetOperationStatement
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.query_sources import (
+    SetOperation, SetOperationKind
+)
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 dialect = DummyDialect()
@@ -26,23 +29,26 @@ dialect = DummyDialect()
 query1 = QueryStatement(
     dialect,
     select=[Column(dialect, "id"), Column(dialect, "name")],
-    from_=TableExpression(dialect, "users")
+    from_=NamedRelationRef(dialect, Table(dialect, "users"))
 )
 
 # 第二个查询返回文本 email 和整数年龄
 query2 = QueryStatement(
     dialect,
     select=[Column(dialect, "email"), Column(dialect, "age")],
-    from_=TableExpression(dialect, "customers")
+    from_=NamedRelationRef(dialect, Table(dialect, "customers"))
 )
 
 # 表达式系统会成功构建此 UNION，但数据库执行时会报错
-union_query = SetOperationStatement(
+union_query = SetOperation(
     dialect,
+    op=SetOperationKind.UNION,
     left=query1,
-    right=query2,
-    operation="UNION"
+    right=query2
 )
+sql, params = union_query.to_sql()
+# sql: 'SELECT "id", "name" FROM "users" UNION SELECT "email", "age" FROM "customers"'
+# params: ()
 ```
 
 尽管上述代码在表达式系统层面是有效的，但在数据库执行时会因为列类型不匹配而失败。

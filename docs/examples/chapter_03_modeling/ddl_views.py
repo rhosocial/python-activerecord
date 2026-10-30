@@ -1,27 +1,5 @@
-from rhosocial.activerecord.backend.expression.statements import (
-    ColumnNotNullConstraint,
-    ColumnPrimaryKeyConstraint,
-)
-from rhosocial.activerecord.backend.expression.statements import (
-    ColumnConstraint,
-)
-from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
-from rhosocial.activerecord.backend.expression import (
-    ColumnDefinition,
-    CreateTableStatement,
-    CreateViewStatement,
-    DropViewStatement,
-    QueryStatement,
-    TableExpression,
-    Column,
-)
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.base import FieldProxy
-from rhosocial.activerecord.model import ActiveRecord
-from typing import ClassVar
-"""
-Chapter 3: Modeling Data - DDL Views Examples
+"""Chapter 3: Modeling Data - DDL Views Examples
+
 Demonstrates DDL operations for views:
 1. Create basic view
 2. Create view with column aliases
@@ -30,20 +8,41 @@ Demonstrates DDL operations for views:
 5. Introspection to verify view creation
 """
 
+from typing import ClassVar
+
+from rhosocial.activerecord.backend.expression import (
+    Column,
+    ColumnDefinition,
+    NamedRelationRef,
+    QueryStatement,
+)
+from rhosocial.activerecord.backend.expression.objects import Table, View
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnConstraint,
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+    CreateTableStatement,
+    CreateViewStatement,
+    DropViewStatement,
+)
+from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.base import FieldProxy
+from rhosocial.activerecord.model import ActiveRecord
 
 
 class User(ActiveRecord):
     """User Model for DDL view demo"""
 
+    __table_name__ = "users"
+
+    id: int = None
     name: str
     email: str
     status: str = "active"
 
     c: ClassVar[FieldProxy] = FieldProxy()
-
-    @classmethod
-    def table_name(cls) -> str:
-        return "users"
 
 
 def main():
@@ -58,15 +57,24 @@ def main():
 
     # Create base table first
     user_columns = [
-        ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))]),
-        ColumnDefinition("name", VarCharType(100), constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
-        ColumnDefinition("email", VarCharType(255), constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
-        ColumnDefinition("status", VarCharType(20)),
+        ColumnDefinition(
+            dialect, "id", IntegerType(dialect),
+            constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))]
+        ),
+        ColumnDefinition(
+            dialect, "name", VarCharType(dialect, length=100),
+            constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]
+        ),
+        ColumnDefinition(
+            dialect, "email", VarCharType(dialect, length=255),
+            constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]
+        ),
+        ColumnDefinition(dialect, "status", VarCharType(dialect, length=20)),
     ]
 
-    create_users = CreateTableStatement(dialect=dialect, table_name="users", columns=user_columns)
-    sql_str, params_str = create_users.to_sql()
-    backend.execute(sql_str, params_str)
+    create_users = CreateTableStatement(dialect, Table(dialect, "users"), columns=user_columns)
+    sql_str, params = create_users.to_sql()
+    backend.execute(sql_str, params)
     print("Users table created.")
 
     # Insert some sample data
@@ -86,18 +94,20 @@ def main():
     all_users_query = QueryStatement(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "name"), Column(dialect, "email")],
-        from_=TableExpression(dialect, "users"),
+        from_=NamedRelationRef(dialect, Table(dialect, "users")),
     )
 
-    create_active_view = CreateViewStatement(dialect, view_name="all_users", query=all_users_query)
+    create_all_users_view = CreateViewStatement(
+        dialect, View(dialect, "all_users"), query=all_users_query
+    )
 
-    sql, params = create_active_view.to_sql()
+    sql, params = create_all_users_view.to_sql()
     print("=== Create Basic View ===")
     print(f"SQL: {sql}")
     print()
 
-    sql_str, params_str = create_active_view.to_sql()
-    backend.execute(sql_str, params_str)
+    sql_str, params = create_all_users_view.to_sql()
+    backend.execute(sql_str, params)
 
     # Introspection: Verify view was created
     print("--- Views after creation ---")
@@ -108,10 +118,8 @@ def main():
     # Query the view
     print()
     print("--- Querying the view ---")
-    result = backend.execute("SELECT * FROM all_users")
-    if result and result.data:
-        for row in result.data:
-            print(f"  {row}")
+    for row in backend.fetch_all("SELECT * FROM all_users"):
+        print(f"  {row}")
     print()
 
     # ============================================================
@@ -119,13 +127,18 @@ def main():
     # ============================================================
     user_details_query = QueryStatement(
         dialect,
-        select=[Column(dialect, "id"), Column(dialect, "name"), Column(dialect, "email"), Column(dialect, "status")],
-        from_=TableExpression(dialect, "users"),
+        select=[
+            Column(dialect, "id"),
+            Column(dialect, "name"),
+            Column(dialect, "email"),
+            Column(dialect, "status"),
+        ],
+        from_=NamedRelationRef(dialect, Table(dialect, "users")),
     )
 
     create_aliased_view = CreateViewStatement(
         dialect,
-        view_name="user_details",
+        View(dialect, "user_details"),
         query=user_details_query,
         column_aliases=["user_id", "full_name", "contact_email", "user_status"],
     )
@@ -135,57 +148,59 @@ def main():
     print(f"SQL: {sql}")
     print()
 
-    sql_str, params_str = create_aliased_view.to_sql()
-    backend.execute(sql_str, params_str)
+    sql_str, params = create_aliased_view.to_sql()
+    backend.execute(sql_str, params)
 
     # Query the view
     print("--- Querying aliased view ---")
-    result = backend.execute("SELECT * FROM user_details")
-    if result and result.data:
-        for row in result.data:
-            print(f"  {row}")
+    for row in backend.fetch_all("SELECT * FROM user_details"):
+        print(f"  {row}")
     print()
 
     # ============================================================
     # Example 3: Create view with OR REPLACE
     # ============================================================
-    all_users_query = QueryStatement(
-        dialect, select=[Column(dialect, "id"), Column(dialect, "name")], from_=TableExpression(dialect, "users")
+    active_users_query = QueryStatement(
+        dialect,
+        select=[Column(dialect, "id"), Column(dialect, "name")],
+        from_=NamedRelationRef(dialect, Table(dialect, "users")),
     )
 
-    create_replace_view = CreateViewStatement(dialect, view_name="active_users", query=all_users_query, replace=True)
+    create_replace_view = CreateViewStatement(
+        dialect, View(dialect, "active_users"), query=active_users_query, replace=True
+    )
 
     sql, params = create_replace_view.to_sql()
     print("=== Create View with OR REPLACE ===")
     print(f"SQL: {sql}")
+    print("Note: SQLite has no CREATE OR REPLACE VIEW; its dialect renders IF NOT EXISTS instead.")
     print()
 
-    sql_str, params_str = create_replace_view.to_sql()
-    backend.execute(sql_str, params_str)
+    sql_str, params = create_replace_view.to_sql()
+    backend.execute(sql_str, params)
 
     # Query the replaced view
     print("--- Querying replaced view ---")
-    result = backend.execute("SELECT * FROM active_users")
-    if result and result.data:
-        for row in result.data:
-            print(f"  {row}")
+    for row in backend.fetch_all("SELECT * FROM active_users"):
+        print(f"  {row}")
     print()
 
     # ============================================================
     # Example 4: Drop view
     # ============================================================
-    drop_view = DropViewStatement(dialect, view_name="user_details", if_exists=True)
+    drop_view = DropViewStatement(dialect, View(dialect, "user_details"), if_exists=True)
 
     sql, params = drop_view.to_sql()
     print("=== Drop View ===")
     print(f"SQL: {sql}")
     print()
 
-    sql_str, params_str = drop_view.to_sql()
-    backend.execute(sql_str, params_str)
+    sql_str, params = drop_view.to_sql()
+    backend.execute(sql_str, params)
 
     # Introspection: Verify view was dropped
     print("--- Views after drop ---")
+    introspector.clear_cache()
     views = introspector.list_views()
     for v in views:
         print(f"  View: {v.name}")

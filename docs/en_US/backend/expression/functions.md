@@ -15,27 +15,24 @@ construction-time `is_aggregate` fact. It supports `FILTER (WHERE ...)`
 clauses and `OVER (...)` window clauses.
 
 ```python
-class FunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringPatternPredicateMixin, mixins.TypeCastingMixin, mixins.ResultTypeMixin, bases.SQLValue):
-    def __init__(self, dialect: "SQLDialectBase", func_name: str, *args,
-                 is_distinct: bool = False, alias: Optional[str] = None,
-                 niladic: bool = False, filter_predicate: "SQLPredicate" = None,
-                 window_spec: Union["WindowSpecification", str] = None,
-                 is_aggregate: bool = False): ...
+import inspect
+from rhosocial.activerecord.backend.expression import FunctionCall
 
-    def filter(self, predicate: "SQLPredicate") -> 'FunctionCall':
-        """Applies a FILTER (WHERE ...) clause to the aggregate expression."""
-        ...
-
-    def over(self, window_spec: Union["WindowSpecification", str]) -> 'FunctionCall':
-        """Attaches an OVER (...) clause to the call."""
-        ...
+print(inspect.signature(FunctionCall.__init__))
+print(inspect.signature(FunctionCall.filter))
+print(inspect.signature(FunctionCall.over))
 ```
 
 **Example:**
 ```python
-# COUNT with FILTER
+from rhosocial.activerecord.backend.expression import (
+    BooleanColumn, Column, StringColumn,
+)
+from rhosocial.activerecord.backend.expression.functions import count, sum_
+
+# COUNT with FILTER -- typed columns build real predicates
 active_count = count(dialect, "*", alias="active_count").filter(
-    Column(dialect, "status") == Literal(dialect, "active")
+    StringColumn(dialect, "status") == "active"
 )
 sql, params = active_count.to_sql()
 # sql: 'COUNT(*) FILTER (WHERE "status" = ?) AS "active_count"'
@@ -43,9 +40,9 @@ sql, params = active_count.to_sql()
 
 # SUM with multiple chained filters
 high_value_sum = sum_(dialect, Column(dialect, "amount"), alias="high_value_sum").filter(
-    Column(dialect, "category") == Literal(dialect, "sales")
+    StringColumn(dialect, "category") == "sales"
 ).filter(
-    Column(dialect, "priority") == Literal(dialect, True)
+    BooleanColumn(dialect, "priority") == True
 )
 sql, params = high_value_sum.to_sql()
 # sql: 'SUM("amount") FILTER (WHERE "category" = ? AND "priority" = ?) AS "high_value_sum"'
@@ -57,16 +54,23 @@ sql, params = high_value_sum.to_sql()
 Creates a `COUNT` aggregate function call.
 
 ```python
-def count(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"] = "*", is_distinct: bool = False, alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import count
+
+# The signature as the library declares it
+print(inspect.signature(count))
 ```
 
 **Usage Rules:**
-- `count(dialect, "*")` -> `COUNT(*)`
-- `count(dialect, Column(dialect, "id"))` -> `COUNT(id)`
-- `count(dialect, "val")` -> `COUNT('val')` (Literal)
+- `count(dialect, "*")` -> `COUNT(*)` (a `RowCountWildcard`)
+- `count(dialect, Column(dialect, "id"))` -> `COUNT("id")`
+- `count(dialect, "val")` -> `COUNT("val")` (a column reference)
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import count
+
 # Basic COUNT(*)
 c1 = count(dialect, "*")
 sql, params = c1.to_sql()
@@ -85,11 +89,18 @@ sql, params = c2.to_sql()
 Creates a `SUM` aggregate function call. Note the trailing underscore to avoid conflict with Python's built-in `sum`.
 
 ```python
-def sum_(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], is_distinct: bool = False, alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import sum_
+
+# The signature as the library declares it
+print(inspect.signature(sum_))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import sum_
+
 s = sum_(dialect, Column(dialect, "amount"))
 sql, params = s.to_sql()
 # sql: 'SUM("amount")'
@@ -101,11 +112,18 @@ sql, params = s.to_sql()
 Creates an `AVG` aggregate function call.
 
 ```python
-def avg(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], is_distinct: bool = False, alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import avg
+
+# The signature as the library declares it
+print(inspect.signature(avg))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import avg
+
 a = avg(dialect, Column(dialect, "score"), is_distinct=True, alias="avg_score")
 sql, params = a.to_sql()
 # sql: 'AVG(DISTINCT "score") AS "avg_score"'
@@ -117,11 +135,18 @@ sql, params = a.to_sql()
 Creates a `MIN` aggregate function call. Note the trailing underscore.
 
 ```python
-def min_(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import min_
+
+# The signature as the library declares it
+print(inspect.signature(min_))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import min_
+
 m = min_(dialect, Column(dialect, "price"))
 sql, params = m.to_sql()
 # sql: 'MIN("price")'
@@ -133,11 +158,18 @@ sql, params = m.to_sql()
 Creates a `MAX` aggregate function call. Note the trailing underscore.
 
 ```python
-def max_(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import max_
+
+# The signature as the library declares it
+print(inspect.signature(max_))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import max_
+
 m = max_(dialect, Column(dialect, "price"))
 sql, params = m.to_sql()
 # sql: 'MAX("price")'
@@ -151,11 +183,18 @@ sql, params = m.to_sql()
 Creates a `CONCAT` scalar function call.
 
 ```python
-def concat(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import concat
+
+# The signature as the library declares it
+print(inspect.signature(concat))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import concat
+
 c = concat(dialect, Column(dialect, "first_name"), " ", Column(dialect, "last_name"))
 sql, params = c.to_sql()
 # sql: 'CONCAT("first_name", ?, "last_name")'
@@ -167,11 +206,18 @@ sql, params = c.to_sql()
 Creates a `COALESCE` scalar function call.
 
 ```python
-def coalesce(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import coalesce
+
+# The signature as the library declares it
+print(inspect.signature(coalesce))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import coalesce
+
 c = coalesce(dialect, Column(dialect, "nickname"), Column(dialect, "real_name"), "Anonymous")
 sql, params = c.to_sql()
 # sql: 'COALESCE("nickname", "real_name", ?)'
@@ -183,11 +229,18 @@ sql, params = c.to_sql()
 Creates a `LENGTH` scalar function call.
 
 ```python
-def length(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import length
+
+# The signature as the library declares it
+print(inspect.signature(length))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import length
+
 l = length(dialect, Column(dialect, "description"))
 sql, params = l.to_sql()
 # sql: 'LENGTH("description")'
@@ -199,11 +252,18 @@ sql, params = l.to_sql()
 Creates a `SUBSTRING` scalar function call.
 
 ```python
-def substring(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], start: Union[int, "bases.BaseExpression"], length: Optional[Union[int, "bases.BaseExpression"]] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import substring
+
+# The signature as the library declares it
+print(inspect.signature(substring))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import substring
+
 # With length
 s1 = substring(dialect, Column(dialect, "text"), 1, 5)
 sql, params = s1.to_sql()
@@ -222,11 +282,18 @@ sql, params = s2.to_sql()
 Creates a `TRIM` scalar function call.
 
 ```python
-def trim(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], chars: Optional[Union[str, "bases.BaseExpression"]] = None, direction: str = "BOTH") -> "operators.RawSQL": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import trim
+
+# The signature as the library declares it
+print(inspect.signature(trim))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import trim
+
 # Default trim (spaces from both sides)
 t1 = trim(dialect, Column(dialect, "name"))
 sql, params = t1.to_sql()
@@ -245,11 +312,18 @@ sql, params = t2.to_sql()
 Creates a `REPLACE` scalar function call.
 
 ```python
-def replace(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], pattern: Union[str, "bases.BaseExpression"], replacement: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import replace
+
+# The signature as the library declares it
+print(inspect.signature(replace))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import replace
+
 r = replace(dialect, Column(dialect, "content"), "http", "https")
 sql, params = r.to_sql()
 # sql: 'REPLACE("content", ?, ?)'
@@ -261,11 +335,18 @@ sql, params = r.to_sql()
 Creates an `UPPER` scalar function call.
 
 ```python
-def upper(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import upper
+
+# The signature as the library declares it
+print(inspect.signature(upper))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import upper
+
 u = upper(dialect, Column(dialect, "email"))
 sql, params = u.to_sql()
 # sql: 'UPPER("email")'
@@ -277,11 +358,18 @@ sql, params = u.to_sql()
 Creates a `LOWER` scalar function call.
 
 ```python
-def lower(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import lower
+
+# The signature as the library declares it
+print(inspect.signature(lower))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import lower
+
 l = lower(dialect, Column(dialect, "email"))
 sql, params = l.to_sql()
 # sql: 'LOWER("email")'
@@ -293,11 +381,18 @@ sql, params = l.to_sql()
 Creates an `INITCAP` scalar function call (title case).
 
 ```python
-def initcap(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import initcap
+
+# The signature as the library declares it
+print(inspect.signature(initcap))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import initcap
+
 i = initcap(dialect, Column(dialect, "title"))
 sql, params = i.to_sql()
 # sql: 'INITCAP("title")'
@@ -309,11 +404,18 @@ sql, params = i.to_sql()
 Creates a `LEFT` scalar function call.
 
 ```python
-def left(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], n: int) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import left
+
+# The signature as the library declares it
+print(inspect.signature(left))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import left
+
 l = left(dialect, Column(dialect, "code"), 3)
 sql, params = l.to_sql()
 # sql: 'LEFT("code", ?)'
@@ -325,11 +427,18 @@ sql, params = l.to_sql()
 Creates a `RIGHT` scalar function call.
 
 ```python
-def right(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], n: int) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import right
+
+# The signature as the library declares it
+print(inspect.signature(right))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import right
+
 r = right(dialect, Column(dialect, "code"), 4)
 sql, params = r.to_sql()
 # sql: 'RIGHT("code", ?)'
@@ -341,11 +450,18 @@ sql, params = r.to_sql()
 Creates an `LPAD` scalar function call.
 
 ```python
-def lpad(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], length: int, pad: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import lpad
+
+# The signature as the library declares it
+print(inspect.signature(lpad))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import lpad
+
 p = lpad(dialect, Column(dialect, "id"), 5, "0")
 sql, params = p.to_sql()
 # sql: 'LPAD("id", ?, ?)'
@@ -357,11 +473,18 @@ sql, params = p.to_sql()
 Creates an `RPAD` scalar function call.
 
 ```python
-def rpad(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], length: int, pad: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import rpad
+
+# The signature as the library declares it
+print(inspect.signature(rpad))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import rpad
+
 p = rpad(dialect, Column(dialect, "id"), 5, " ")
 sql, params = p.to_sql()
 # sql: 'RPAD("id", ?, ?)'
@@ -373,11 +496,18 @@ sql, params = p.to_sql()
 Creates a `REVERSE` scalar function call.
 
 ```python
-def reverse(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import reverse
+
+# The signature as the library declares it
+print(inspect.signature(reverse))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import reverse
+
 r = reverse(dialect, Column(dialect, "text"))
 sql, params = r.to_sql()
 # sql: 'REVERSE("text")'
@@ -389,11 +519,18 @@ sql, params = r.to_sql()
 Creates a `STRPOS` scalar function call (find substring position).
 
 ```python
-def strpos(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], substring: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import strpos
+
+# The signature as the library declares it
+print(inspect.signature(strpos))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import strpos
+
 p = strpos(dialect, Column(dialect, "text"), "world")
 sql, params = p.to_sql()
 # sql: 'STRPOS("text", ?)'
@@ -407,11 +544,17 @@ sql, params = p.to_sql()
 Creates an `ABS` scalar function call. Note the trailing underscore to avoid conflict with Python's built-in `abs`.
 
 ```python
-def abs_(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import abs_
+
+# The signature as the library declares it
+print(inspect.signature(abs_))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import abs_
+
 a = abs_(dialect, -5)
 sql, params = a.to_sql()
 # sql: 'ABS(?)'
@@ -423,15 +566,21 @@ sql, params = a.to_sql()
 Creates a `ROUND` scalar function call. Note the trailing underscore.
 
 ```python
-def round_(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"], decimals: Optional[int] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import round_
+
+# The signature as the library declares it
+print(inspect.signature(round_))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import round_
+
 r = round_(dialect, 3.14159, 2)
 sql, params = r.to_sql()
 # sql: 'ROUND(?, ?)'
-# params: (3.14159, 2)
+# params: (Decimal('3.14159'), 2)  -- numeric literals bind as Decimal
 ```
 
 ### ceil
@@ -439,15 +588,21 @@ sql, params = r.to_sql()
 Creates a `CEIL` scalar function call.
 
 ```python
-def ceil(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import ceil
+
+# The signature as the library declares it
+print(inspect.signature(ceil))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import ceil
+
 c = ceil(dialect, 3.14)
 sql, params = c.to_sql()
 # sql: 'CEIL(?)'
-# params: (3.14,)
+# params: (Decimal('3.14'),)
 ```
 
 ### floor
@@ -455,15 +610,21 @@ sql, params = c.to_sql()
 Creates a `FLOOR` scalar function call.
 
 ```python
-def floor(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import floor
+
+# The signature as the library declares it
+print(inspect.signature(floor))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import floor
+
 f = floor(dialect, 3.99)
 sql, params = f.to_sql()
 # sql: 'FLOOR(?)'
-# params: (3.99,)
+# params: (Decimal('3.99'),)
 ```
 
 ### sqrt
@@ -471,11 +632,17 @@ sql, params = f.to_sql()
 Creates a `SQRT` scalar function call.
 
 ```python
-def sqrt(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import sqrt
+
+# The signature as the library declares it
+print(inspect.signature(sqrt))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import sqrt
+
 s = sqrt(dialect, 16)
 sql, params = s.to_sql()
 # sql: 'SQRT(?)'
@@ -487,11 +654,17 @@ sql, params = s.to_sql()
 Creates a `POWER` scalar function call.
 
 ```python
-def power(dialect: "SQLDialectBase", base: Union[int, float, "bases.BaseExpression"], exponent: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import power
+
+# The signature as the library declares it
+print(inspect.signature(power))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import power
+
 p = power(dialect, 2, 3)
 sql, params = p.to_sql()
 # sql: 'POWER(?, ?)'
@@ -503,11 +676,17 @@ sql, params = p.to_sql()
 Creates an `EXP` scalar function call.
 
 ```python
-def exp(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import exp
+
+# The signature as the library declares it
+print(inspect.signature(exp))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import exp
+
 e = exp(dialect, 1)
 sql, params = e.to_sql()
 # sql: 'EXP(?)'
@@ -519,11 +698,17 @@ sql, params = e.to_sql()
 Creates a `LOG` scalar function call.
 
 ```python
-def log(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"], base: Optional[Union[int, float, "bases.BaseExpression"]] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import log
+
+# The signature as the library declares it
+print(inspect.signature(log))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import log
+
 l = log(dialect, 100, 10)
 sql, params = l.to_sql()
 # sql: 'LOG(?, ?)'
@@ -535,13 +720,19 @@ sql, params = l.to_sql()
 Creates trigonometric function calls.
 
 ```python
-def sin(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
-def cos(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
-def tan(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import sin, cos, tan
+
+# The signature as the library declares it
+print(inspect.signature(sin))
+print(inspect.signature(cos))
+print(inspect.signature(tan))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import cos, sin, tan
+
 s = sin(dialect, 0)
 c = cos(dialect, 0)
 t = tan(dialect, 0)
@@ -554,11 +745,17 @@ t = tan(dialect, 0)
 Creates a `NOW` scalar function call.
 
 ```python
-def now(dialect: "SQLDialectBase") -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import now
+
+# The signature as the library declares it
+print(inspect.signature(now))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import now
+
 n = now(dialect)
 sql, params = n.to_sql()
 # sql: 'NOW()'
@@ -570,12 +767,18 @@ sql, params = n.to_sql()
 Creates a `CURRENT_DATE` niladic value function. Per SQL:2003, generates `CURRENT_DATE` without parentheses.
 
 ```python
-def current_date(dialect: "SQLDialectBase") -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import current_date
+
+# The signature as the library declares it
+print(inspect.signature(current_date))
 ```
 
 **Example:**
 
 ```python
+from rhosocial.activerecord.backend.expression.functions import current_date
+
 d = current_date(dialect)
 sql, params = d.to_sql()
 # sql: 'CURRENT_DATE'
@@ -587,12 +790,18 @@ sql, params = d.to_sql()
 Creates a `CURRENT_TIME` niladic value function. Per SQL:2003, generates `CURRENT_TIME` without parentheses.
 
 ```python
-def current_time(dialect: "SQLDialectBase") -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import current_time
+
+# The signature as the library declares it
+print(inspect.signature(current_time))
 ```
 
 **Example:**
 
 ```python
+from rhosocial.activerecord.backend.expression.functions import current_time
+
 t = current_time(dialect)
 sql, params = t.to_sql()
 # sql: 'CURRENT_TIME'
@@ -604,16 +813,23 @@ sql, params = t.to_sql()
 Creates date part extraction function calls.
 
 ```python
-def year(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
-def month(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
-def day(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
-def hour(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
-def minute(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
-def second(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import year, month, day, hour, minute, second
+
+# The signature as the library declares it
+print(inspect.signature(year))
+print(inspect.signature(month))
+print(inspect.signature(day))
+print(inspect.signature(hour))
+print(inspect.signature(minute))
+print(inspect.signature(second))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import year
+
 y = year(dialect, Column(dialect, "created_at"))
 sql, params = y.to_sql()
 # sql: 'YEAR("created_at")'
@@ -625,15 +841,22 @@ sql, params = y.to_sql()
 Creates a `DATE_PART` scalar function call.
 
 ```python
-def date_part(dialect: "SQLDialectBase", field: str, expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import date_part
+
+# The signature as the library declares it
+print(inspect.signature(date_part))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import date_part
+
 p = date_part(dialect, "year", Column(dialect, "created_at"))
 sql, params = p.to_sql()
-# sql: 'DATE_PART(?, "created_at")'
-# params: ("year",)
+# sql: 'EXTRACT(YEAR FROM "created_at")'
+# params: ()
 ```
 
 ### date_trunc
@@ -641,15 +864,22 @@ sql, params = p.to_sql()
 Creates a `DATE_TRUNC` scalar function call.
 
 ```python
-def date_trunc(dialect: "SQLDialectBase", precision: str, expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import date_trunc
+
+# The signature as the library declares it
+print(inspect.signature(date_trunc))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import date_trunc
+
 t = date_trunc(dialect, "month", Column(dialect, "created_at"))
 sql, params = t.to_sql()
-# sql: 'DATE_TRUNC(?, "created_at")'
-# params: ("month",)
+# sql: 'DATE_TRUNC('month', "created_at")'
+# params: ()
 ```
 
 ## Conditional Functions
@@ -659,13 +889,31 @@ sql, params = t.to_sql()
 Creates a `CASE` expression.
 
 ```python
-def case(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "core.CaseExpression": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import case
+
+# The signature as the library declares it
+print(inspect.signature(case))
 ```
 
 **Example:**
 ```python
-c = case(dialect).when(Column(dialect, "status") == "active", "Active").else_("Inactive")
+from rhosocial.activerecord.backend.expression import Literal, StringColumn
+from rhosocial.activerecord.backend.expression.advanced_functions import CaseExpression
+from rhosocial.activerecord.backend.expression.functions import case
+
+# The factory creates an empty CASE node
+c = case(dialect)
+
+# Branches are supplied as (condition, result) pairs at construction
+c = CaseExpression(
+    dialect,
+    cases=[(StringColumn(dialect, "status") == "active", Literal(dialect, "Active"))],
+    else_result=Literal(dialect, "Inactive"),
+)
 sql, params = c.to_sql()
+# sql: 'CASE WHEN "status" = ? THEN ? ELSE ? END'
+# params: ("active", "Active", "Inactive")
 ```
 
 ### nullif
@@ -673,11 +921,18 @@ sql, params = c.to_sql()
 Creates a `NULLIF` scalar function call.
 
 ```python
-def nullif(dialect: "SQLDialectBase", expr1: Union[str, "bases.BaseExpression"], expr2: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import nullif
+
+# The signature as the library declares it
+print(inspect.signature(nullif))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import nullif
+
 n = nullif(dialect, Column(dialect, "value"), "N/A")
 sql, params = n.to_sql()
 # sql: 'NULLIF("value", ?)'
@@ -689,11 +944,18 @@ sql, params = n.to_sql()
 Creates a `GREATEST` scalar function call.
 
 ```python
-def greatest(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import greatest
+
+# The signature as the library declares it
+print(inspect.signature(greatest))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import greatest
+
 g = greatest(dialect, Column(dialect, "a"), Column(dialect, "b"), Column(dialect, "c"))
 sql, params = g.to_sql()
 # sql: 'GREATEST("a", "b", "c")'
@@ -705,11 +967,18 @@ sql, params = g.to_sql()
 Creates a `LEAST` scalar function call.
 
 ```python
-def least(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import least
+
+# The signature as the library declares it
+print(inspect.signature(least))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import least
+
 l = least(dialect, Column(dialect, "a"), Column(dialect, "b"), Column(dialect, "c"))
 sql, params = l.to_sql()
 # sql: 'LEAST("a", "b", "c")'
@@ -723,11 +992,17 @@ sql, params = l.to_sql()
 Creates a `ROW_NUMBER` window function call.
 
 ```python
-def row_number(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import row_number
+
+# The signature as the library declares it
+print(inspect.signature(row_number))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import row_number
+
 r = row_number(dialect)
 sql, params = r.to_sql()
 # sql: 'ROW_NUMBER()'
@@ -739,8 +1014,12 @@ sql, params = r.to_sql()
 Creates `RANK` and `DENSE_RANK` window function calls.
 
 ```python
-def rank(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "core.FunctionCall": ...
-def dense_rank(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import rank, dense_rank
+
+# The signature as the library declares it
+print(inspect.signature(rank))
+print(inspect.signature(dense_rank))
 ```
 
 ### lag, lead
@@ -748,8 +1027,12 @@ def dense_rank(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "core.
 Creates `LAG` and `LEAD` window function calls.
 
 ```python
-def lag(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], offset: Optional[int] = 1, default: Optional[Union[str, "bases.BaseExpression"]] = None, alias: Optional[str] = None) -> "core.FunctionCall": ...
-def lead(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], offset: Optional[int] = 1, default: Optional[Union[str, "bases.BaseExpression"]] = None, alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import lag, lead
+
+# The signature as the library declares it
+print(inspect.signature(lag))
+print(inspect.signature(lead))
 ```
 
 ### first_value, last_value, nth_value
@@ -757,9 +1040,13 @@ def lead(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], of
 Creates value window function calls.
 
 ```python
-def first_value(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], alias: Optional[str] = None) -> "core.FunctionCall": ...
-def last_value(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], alias: Optional[str] = None) -> "core.FunctionCall": ...
-def nth_value(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], n: int, alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import first_value, last_value, nth_value
+
+# The signature as the library declares it
+print(inspect.signature(first_value))
+print(inspect.signature(last_value))
+print(inspect.signature(nth_value))
 ```
 
 ## JSON Functions
@@ -769,12 +1056,19 @@ def nth_value(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"
 Creates JSON extraction function calls.
 
 ```python
-def json_extract(dialect: "SQLDialectBase", expr: "bases.BaseExpression", path: str) -> "operators.BinaryExpression": ...
-def json_extract_text(dialect: "SQLDialectBase", expr: "bases.BaseExpression", path: str) -> "operators.BinaryExpression": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import json_extract, json_extract_text
+
+# The signature as the library declares it
+print(inspect.signature(json_extract))
+print(inspect.signature(json_extract_text))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import json_extract
+
 j = json_extract(dialect, Column(dialect, "data"), "$.name")
 sql, params = j.to_sql()
 # Uses -> operator to extract JSON value
@@ -785,7 +1079,11 @@ sql, params = j.to_sql()
 Creates a `JSON_BUILD_OBJECT` function call.
 
 ```python
-def json_build_object(dialect: "SQLDialectBase", *args: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import json_build_object
+
+# The signature as the library declares it
+print(inspect.signature(json_build_object))
 ```
 
 ### json_array_elements
@@ -793,7 +1091,11 @@ def json_build_object(dialect: "SQLDialectBase", *args: Union[str, "bases.BaseEx
 Creates a `JSON_ARRAY_ELEMENTS` function call.
 
 ```python
-def json_array_elements(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import json_array_elements
+
+# The signature as the library declares it
+print(inspect.signature(json_array_elements))
 ```
 
 ### json_objectagg, json_arrayagg
@@ -801,8 +1103,12 @@ def json_array_elements(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseE
 Creates JSON aggregate function calls.
 
 ```python
-def json_objectagg(dialect: "SQLDialectBase", key_expr: Union[str, "bases.BaseExpression"], value_expr: Union[str, "bases.BaseExpression"], is_distinct: bool = False, alias: Optional[str] = None) -> "core.FunctionCall": ...
-def json_arrayagg(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], is_distinct: bool = False, alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import json_objectagg, json_arrayagg
+
+# The signature as the library declares it
+print(inspect.signature(json_objectagg))
+print(inspect.signature(json_arrayagg))
 ```
 
 ## Array Functions
@@ -812,7 +1118,11 @@ def json_arrayagg(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpress
 Creates an `ARRAY_AGG` aggregate function call.
 
 ```python
-def array_agg(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], is_distinct: bool = False, alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import array_agg
+
+# The signature as the library declares it
+print(inspect.signature(array_agg))
 ```
 
 ### unnest
@@ -820,7 +1130,11 @@ def array_agg(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"
 Creates an `UNNEST` function call.
 
 ```python
-def unnest(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import unnest
+
+# The signature as the library declares it
+print(inspect.signature(unnest))
 ```
 
 ### array_length
@@ -828,7 +1142,11 @@ def unnest(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) 
 Creates an `ARRAY_LENGTH` function call.
 
 ```python
-def array_length(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], dimension: int = 1) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import array_length
+
+# The signature as the library declares it
+print(inspect.signature(array_length))
 ```
 
 ## Type Conversion Functions
@@ -838,12 +1156,21 @@ def array_length(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpressi
 Creates a type conversion expression.
 
 ```python
-def cast(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], type_name: str) -> "core.Column": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import cast
+
+# The signature as the library declares it
+print(inspect.signature(cast))
 ```
 
 **Example:**
 ```python
-c = cast(dialect, Column(dialect, "value"), "INTEGER")
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import cast
+from rhosocial.activerecord.backend.expression.types import IntegerType
+
+# The target type is a DataType object, never a type-name string
+c = cast(dialect, Column(dialect, "value"), IntegerType(dialect))
 sql, params = c.to_sql()
 # sql: 'CAST("value" AS INTEGER)'
 # params: ()
@@ -854,7 +1181,11 @@ sql, params = c.to_sql()
 Creates a `TO_CHAR` function call.
 
 ```python
-def to_char(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], format: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import to_char
+
+# The signature as the library declares it
+print(inspect.signature(to_char))
 ```
 
 ### to_number
@@ -862,7 +1193,11 @@ def to_char(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"],
 Creates a `TO_NUMBER` function call.
 
 ```python
-def to_number(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], format: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import to_number
+
+# The signature as the library declares it
+print(inspect.signature(to_number))
 ```
 
 ### to_date
@@ -870,7 +1205,11 @@ def to_number(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"
 Creates a `TO_DATE` function call.
 
 ```python
-def to_date(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], format: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import to_date
+
+# The signature as the library declares it
+print(inspect.signature(to_date))
 ```
 
 ## Grouping Functions
@@ -880,11 +1219,18 @@ def to_date(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"],
 Creates a `ROLLUP` grouping expression.
 
 ```python
-def rollup(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"]) -> "query_parts.GroupingExpression": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import rollup
+
+# The signature as the library declares it
+print(inspect.signature(rollup))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import rollup
+
 r = rollup(dialect, Column(dialect, "department"), Column(dialect, "region"))
 sql, params = r.to_sql()
 # sql: 'ROLLUP("department", "region")'
@@ -896,7 +1242,11 @@ sql, params = r.to_sql()
 Creates a `CUBE` grouping expression.
 
 ```python
-def cube(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"]) -> "query_parts.GroupingExpression": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import cube
+
+# The signature as the library declares it
+print(inspect.signature(cube))
 ```
 
 ### grouping_sets
@@ -904,7 +1254,11 @@ def cube(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"]) 
 Creates a `GROUPING SETS` grouping expression.
 
 ```python
-def grouping_sets(dialect: "SQLDialectBase", *sets: List[Union[str, "bases.BaseExpression"]]) -> "query_parts.GroupingExpression": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import grouping_sets
+
+# The signature as the library declares it
+print(inspect.signature(grouping_sets))
 ```
 
 ## String Concatenation Operator
@@ -914,11 +1268,18 @@ def grouping_sets(dialect: "SQLDialectBase", *sets: List[Union[str, "bases.BaseE
 Creates a string concatenation expression using the `||` operator.
 
 ```python
-def concat_op(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"]) -> "operators.BinaryExpression": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import concat_op
+
+# The signature as the library declares it
+print(inspect.signature(concat_op))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import concat_op
+
 # Concatenate two columns
 expr = concat_op(dialect, Column(dialect, "first_name"), Column(dialect, "last_name"))
 sql, params = expr.to_sql()
@@ -943,11 +1304,17 @@ The following functions are defined in SQL:2003 standard but were not previously
 Creates a `MOD` function call (modulo operation).
 
 ```python
-def mod(dialect: "SQLDialectBase", dividend: Union[int, float, "bases.BaseExpression"], divisor: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import mod
+
+# The signature as the library declares it
+print(inspect.signature(mod))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import mod
+
 m = mod(dialect, 10, 3)
 sql, params = m.to_sql()
 # sql: 'MOD(?, ?)'
@@ -959,11 +1326,17 @@ sql, params = m.to_sql()
 Creates a `SIGN` function call (returns -1, 0, or 1).
 
 ```python
-def sign(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import sign
+
+# The signature as the library declares it
+print(inspect.signature(sign))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import sign
+
 s = sign(dialect, -42)
 sql, params = s.to_sql()
 # sql: 'SIGN(?)'
@@ -975,15 +1348,21 @@ sql, params = s.to_sql()
 Creates a `TRUNCATE` function call (truncates a number).
 
 ```python
-def truncate(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"], precision: Optional[int] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import truncate
+
+# The signature as the library declares it
+print(inspect.signature(truncate))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import truncate
+
 t = truncate(dialect, 3.14159, 2)
 sql, params = t.to_sql()
 # sql: 'TRUNCATE(?, ?)'
-# params: (3.14159, 2)
+# params: (Decimal('3.14159'), 2)
 ```
 
 ### chr_
@@ -991,11 +1370,17 @@ sql, params = t.to_sql()
 Creates a `CHR` function call (ASCII code to character). Note the trailing underscore.
 
 ```python
-def chr_(dialect: "SQLDialectBase", code: Union[int, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import chr_
+
+# The signature as the library declares it
+print(inspect.signature(chr_))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import chr_
+
 c = chr_(dialect, 65)  # Returns 'A'
 sql, params = c.to_sql()
 # sql: 'CHR(?)'
@@ -1007,11 +1392,17 @@ sql, params = c.to_sql()
 Creates an `ASCII` function call (character to ASCII code).
 
 ```python
-def ascii(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import ascii
+
+# The signature as the library declares it
+print(inspect.signature(ascii))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import ascii
+
 a = ascii(dialect, "A")
 sql, params = a.to_sql()
 # sql: 'ASCII(?)'
@@ -1023,11 +1414,18 @@ sql, params = a.to_sql()
 Creates an `OCTET_LENGTH` function call (returns byte length).
 
 ```python
-def octet_length(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import octet_length
+
+# The signature as the library declares it
+print(inspect.signature(octet_length))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import octet_length
+
 o = octet_length(dialect, Column(dialect, "text"))
 sql, params = o.to_sql()
 # sql: 'OCTET_LENGTH("text")'
@@ -1039,11 +1437,18 @@ sql, params = o.to_sql()
 Creates a `BIT_LENGTH` function call (returns bit length).
 
 ```python
-def bit_length(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import bit_length
+
+# The signature as the library declares it
+print(inspect.signature(bit_length))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import bit_length
+
 b = bit_length(dialect, Column(dialect, "text"))
 sql, params = b.to_sql()
 # sql: 'BIT_LENGTH("text")'
@@ -1055,11 +1460,18 @@ sql, params = b.to_sql()
 Creates a `POSITION` function call (find substring position, 1-based).
 
 ```python
-def position(dialect: "SQLDialectBase", substring: Union[str, "bases.BaseExpression"], expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import position
+
+# The signature as the library declares it
+print(inspect.signature(position))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import position
+
 p = position(dialect, "world", Column(dialect, "text"))
 sql, params = p.to_sql()
 # sql: 'POSITION(?, "text")'
@@ -1071,11 +1483,18 @@ sql, params = p.to_sql()
 Creates an `OVERLAY` function call (replace substring).
 
 ```python
-def overlay(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], replacement: Union[str, "bases.BaseExpression"], start: int, length: Optional[int] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import overlay
+
+# The signature as the library declares it
+print(inspect.signature(overlay))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import overlay
+
 o = overlay(dialect, Column(dialect, "text"), "xxx", 1, 3)
 sql, params = o.to_sql()
 # sql: 'OVERLAY("text", ?, ?, ?)'
@@ -1087,11 +1506,18 @@ sql, params = o.to_sql()
 Creates a `TRANSLATE` function call (character substitution).
 
 ```python
-def translate(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], from_chars: str, to_chars: str) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import translate
+
+# The signature as the library declares it
+print(inspect.signature(translate))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import translate
+
 t = translate(dialect, Column(dialect, "text"), "abc", "xyz")
 sql, params = t.to_sql()
 # sql: 'TRANSLATE("text", ?, ?)'
@@ -1103,11 +1529,17 @@ sql, params = t.to_sql()
 Creates a `REPEAT` function call (repeat string).
 
 ```python
-def repeat(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], count: int) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import repeat
+
+# The signature as the library declares it
+print(inspect.signature(repeat))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import repeat
+
 r = repeat(dialect, "ab", 3)
 sql, params = r.to_sql()
 # sql: 'REPEAT(?, ?)'
@@ -1119,11 +1551,17 @@ sql, params = r.to_sql()
 Creates a `SPACE` function call (generate spaces).
 
 ```python
-def space(dialect: "SQLDialectBase", count: int) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import space
+
+# The signature as the library declares it
+print(inspect.signature(space))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import space
+
 s = space(dialect, 5)
 sql, params = s.to_sql()
 # sql: 'SPACE(?)'
@@ -1135,12 +1573,18 @@ sql, params = s.to_sql()
 Creates a `CURRENT_TIMESTAMP` niladic value function. Per SQL:2003, generates `CURRENT_TIMESTAMP` without parentheses when no precision is specified. When precision is specified, generates `CURRENT_TIMESTAMP(precision)` with parentheses.
 
 ```python
-def current_timestamp(dialect: "SQLDialectBase", precision: Optional[int] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import current_timestamp
+
+# The signature as the library declares it
+print(inspect.signature(current_timestamp))
 ```
 
 **Example:**
 
 ```python
+from rhosocial.activerecord.backend.expression.functions import current_timestamp
+
 # Without precision — niladic form (no parentheses)
 c = current_timestamp(dialect)
 sql, params = c.to_sql()
@@ -1159,12 +1603,18 @@ sql, params = c.to_sql()
 Creates a `LOCALTIMESTAMP` niladic value function. Per SQL:2003, generates `LOCALTIMESTAMP` without parentheses when no precision is specified. When precision is specified, generates `LOCALTIMESTAMP(precision)` with parentheses.
 
 ```python
-def localtimestamp(dialect: "SQLDialectBase", precision: Optional[int] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import localtimestamp
+
+# The signature as the library declares it
+print(inspect.signature(localtimestamp))
 ```
 
 **Example:**
 
 ```python
+from rhosocial.activerecord.backend.expression.functions import localtimestamp
+
 # Without precision — niladic form (no parentheses)
 l = localtimestamp(dialect)
 sql, params = l.to_sql()
@@ -1177,15 +1627,22 @@ sql, params = l.to_sql()
 Creates an `EXTRACT` function call (extract datetime part).
 
 ```python
-def extract(dialect: "SQLDialectBase", field: str, expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import extract
+
+# The signature as the library declares it
+print(inspect.signature(extract))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import extract
+
 e = extract(dialect, "YEAR", Column(dialect, "created_at"))
 sql, params = e.to_sql()
-# sql: 'EXTRACT(?, "created_at")'
-# params: ("YEAR",)
+# sql: 'EXTRACT(YEAR FROM "created_at")'
+# params: ()
 ```
 
 ### current_user, session_user, system_user
@@ -1193,13 +1650,19 @@ sql, params = e.to_sql()
 Creates SQL:2003 niladic value functions. These generate `CURRENT_USER`, `SESSION_USER`, `SYSTEM_USER` without parentheses.
 
 ```python
-def current_user(dialect: "SQLDialectBase") -> "core.FunctionCall": ...
-def session_user(dialect: "SQLDialectBase") -> "core.FunctionCall": ...
-def system_user(dialect: "SQLDialectBase") -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import current_user, session_user, system_user
+
+# The signature as the library declares it
+print(inspect.signature(current_user))
+print(inspect.signature(session_user))
+print(inspect.signature(system_user))
 ```
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import current_user
+
 u = current_user(dialect)
 sql, params = u.to_sql()
 # sql: 'CURRENT_USER'
@@ -1215,16 +1678,18 @@ This section describes SQL/XML standard expression factory functions, defined in
 Parses a string into an XML type.
 
 ```python
+from rhosocial.activerecord.backend.expression import Column
+
 from rhosocial.activerecord.backend.expression.functions.xml import xmlparse
 
 # Parse string as XML DOCUMENT
-expr = xmlparse(dialect, Column(dialect, "xml_string"), doc_type="DOCUMENT")
+expr = xmlparse(dialect, Column(dialect, "xml_string"), document=True)
 sql, params = expr.to_sql()
 # sql: 'XMLPARSE(DOCUMENT "xml_string")'
 # params: ()
 
 # Parse string as XML CONTENT
-expr = xmlparse(dialect, Column(dialect, "xml_string"), doc_type="CONTENT")
+expr = xmlparse(dialect, Column(dialect, "xml_string"), document=False)
 ```
 
 ### xmlserialize
@@ -1232,11 +1697,15 @@ expr = xmlparse(dialect, Column(dialect, "xml_string"), doc_type="CONTENT")
 Serializes an XML type to a string.
 
 ```python
-from rhosocial.activerecord.backend.expression.functions.xml import xmlserialize
+from rhosocial.activerecord.backend.expression import Column
 
-expr = xmlserialize(dialect, Column(dialect, "xml_data"), "VARCHAR(255)")
+from rhosocial.activerecord.backend.expression.functions.xml import xmlserialize
+from rhosocial.activerecord.backend.expression.types import VarCharType
+
+# The target type is a DataType object, never a type-name string
+expr = xmlserialize(dialect, Column(dialect, "xml_data"), VarCharType(dialect, length=255))
 sql, params = expr.to_sql()
-# sql: 'XMLSERIALIZE(DOCUMENT "xml_data" AS VARCHAR(255))'
+# sql: 'XMLSERIALIZE(CONTENT "xml_data" AS VARCHAR(255))'
 # params: ()
 ```
 
@@ -1245,18 +1714,24 @@ sql, params = expr.to_sql()
 Constructs an XML element.
 
 ```python
+from rhosocial.activerecord.backend.expression import Column
+
 from rhosocial.activerecord.backend.expression.functions.xml import xmlelement, xmlattributes
 
 # Simple element
 elem = xmlelement(dialect, "name", Column(dialect, "user_name"))
 sql, params = elem.to_sql()
-# sql: 'XMLELEMENT(NAME "name", "user_name")'
+# sql: 'XMLELEMENT(NAME name, "user_name")'
 # params: ()
 
-# Element with attributes
-elem = xmlelement(dialect, "person",
-    xmlattributes(dialect, Column(dialect, "id"), "id"),
-    Column(dialect, "name"))
+# Element with attributes -- attributes are passed by name, not as content
+elem = xmlelement(
+    dialect,
+    "person",
+    Column(dialect, "name"),
+    attributes=xmlattributes(dialect, (Column(dialect, "id"), "id")),
+)
+# sql: 'XMLELEMENT(NAME person, XMLATTRIBUTES("id" AS id), "name")'
 ```
 
 ### xmlforest
@@ -1264,13 +1739,15 @@ elem = xmlelement(dialect, "person",
 Constructs an XML forest (sequence of elements).
 
 ```python
+from rhosocial.activerecord.backend.expression import Column
+
 from rhosocial.activerecord.backend.expression.functions.xml import xmlforest
 
 expr = xmlforest(dialect,
     (Column(dialect, "first_name"), "first"),
     (Column(dialect, "last_name"), "last"))
 sql, params = expr.to_sql()
-# sql: 'XMLFOREST("first_name" AS "first", "last_name" AS "last")'
+# sql: 'XMLFOREST("first_name" AS first, "last_name" AS last)'
 # params: ()
 ```
 
@@ -1279,6 +1756,8 @@ sql, params = expr.to_sql()
 Concatenates multiple XML values.
 
 ```python
+from rhosocial.activerecord.backend.expression import Column
+
 from rhosocial.activerecord.backend.expression.functions.xml import xmlconcat
 
 expr = xmlconcat(dialect, Column(dialect, "xml1"), Column(dialect, "xml2"))
@@ -1304,7 +1783,7 @@ Creates an XML processing instruction.
 from rhosocial.activerecord.backend.expression.functions.xml import xmlpi
 
 expr = xmlpi(dialect, "xml-stylesheet", 'type="text/xsl" href="style.xsl"')
-# sql: 'XMLPI(NAME "xml-stylesheet", ?)'
+# sql: 'XMLPI(NAME xml-stylesheet, ?)'
 # params: ('type="text/xsl" href="style.xsl"',)
 ```
 
@@ -1313,9 +1792,19 @@ expr = xmlpi(dialect, "xml-stylesheet", 'type="text/xsl" href="style.xsl"')
 Modifies the root node attributes of an XML value.
 
 ```python
-from rhosocial.activerecord.backend.expression.functions.xml import xmlroot
+from rhosocial.activerecord.backend.expression import Column
 
-expr = xmlroot(dialect, Column(dialect, "xml_data"), version="1.0", standalone="YES")
+from rhosocial.activerecord.backend.expression.functions.xml import xmlroot
+from rhosocial.activerecord.backend.expression.xml import XMLStandaloneOption
+
+expr = xmlroot(
+    dialect,
+    Column(dialect, "xml_data"),
+    version="1.0",
+    standalone=XMLStandaloneOption.YES,
+)
+# sql: 'XMLROOT("xml_data", VERSION ?, STANDALONE YES)'
+# params: ('1.0',)
 ```
 
 ### xmlagg
@@ -1323,10 +1812,12 @@ expr = xmlroot(dialect, Column(dialect, "xml_data"), version="1.0", standalone="
 XML aggregate function.
 
 ```python
+from rhosocial.activerecord.backend.expression import Column
+
 from rhosocial.activerecord.backend.expression.functions.xml import xmlagg
 
-expr = xmlagg(dialect, Column(dialect, "xml_column"), alias="combined_xml")
-# sql: 'XMLAGG("xml_column") AS "combined_xml"'
+expr = xmlagg(dialect, Column(dialect, "xml_column"))
+# sql: 'XMLAGG("xml_column")'
 # params: ()
 ```
 
@@ -1335,11 +1826,13 @@ expr = xmlagg(dialect, Column(dialect, "xml_column"), alias="combined_xml")
 XQuery evaluation.
 
 ```python
+from rhosocial.activerecord.backend.expression import Column
+
 from rhosocial.activerecord.backend.expression.functions.xml import xmlquery
 
 expr = xmlquery(dialect, "/root/element/text()",
-    passing=Column(dialect, "xml_column"))
-# sql: 'XMLQUERY(?) PASSING BY VALUE "xml_column" EMPTY ON EMPTY'
+    passing=[Column(dialect, "xml_column")])
+# sql: 'XMLQUERY(? PASSING "xml_column" RETURNING CONTENT)'
 # params: ('/root/element/text()',)
 ```
 
@@ -1348,11 +1841,13 @@ expr = xmlquery(dialect, "/root/element/text()",
 XQuery existence check.
 
 ```python
+from rhosocial.activerecord.backend.expression import Column
+
 from rhosocial.activerecord.backend.expression.functions.xml import xmlexists
 
 expr = xmlexists(dialect, "/root/element",
-    passing=Column(dialect, "xml_column"))
-# sql: 'XMLEXISTS(?) PASSING BY VALUE "xml_column"'
+    passing=[Column(dialect, "xml_column")])
+# sql: 'XMLEXISTS(? PASSING "xml_column")'
 # params: ('/root/element',)
 ```
 
@@ -1361,15 +1856,91 @@ expr = xmlexists(dialect, "/root/element",
 Generates a table-valued result from an XQuery expression.
 
 ```python
-from rhosocial.activerecord.backend.expression.functions.xml import xmltable
+from rhosocial.activerecord.backend.expression import Column
 
-expr = xmltable(dialect,
-    xquery="/root/row",
-    passing=Column(dialect, "xml_data"),
+from rhosocial.activerecord.backend.expression.functions.xml import xmltable
+from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
+from rhosocial.activerecord.backend.expression.xml import XMLTableColumn
+
+expr = xmltable(
+    dialect,
+    "/root/row",
+    passing=[Column(dialect, "xml_data")],
     columns=[
-        ("id", "INTEGER", "id"),
-        ("name", "VARCHAR(100)", "name"),
-    ])
-# sql: 'XMLTABLE(?) PASSING BY VALUE "xml_data" COLUMNS ("id" INTEGER PATH "id", "name" VARCHAR(100) PATH "name")'
+        XMLTableColumn("id", IntegerType(dialect), path=Column(dialect, "id")),
+        XMLTableColumn(
+            "name", VarCharType(dialect, length=100), path=Column(dialect, "name")
+        ),
+    ],
+)
+# sql: 'XMLTABLE(? PASSING "xml_data" COLUMNS ("id" INTEGER PATH "id", "name" VARCHAR(100) PATH "name"))'
 # params: ('/root/row',)
+```
+
+## Date/Time Interval Expressions
+
+Functions defined in `rhosocial.activerecord.backend.expression.functions.datetime`.
+
+### extract
+
+Creates a structured `EXTRACT` expression (stricter field enumeration than the `extract` factory above).
+
+```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.datetime import (
+    DateTimeField, ExtractExpression,
+)
+
+# Extract the year
+expr = ExtractExpression(dialect, DateTimeField.YEAR, Column(dialect, "created_at"))
+sql, params = expr.to_sql()
+# sql: 'EXTRACT(YEAR FROM "created_at")'
+# params: ()
+```
+
+### interval
+
+Creates a structured interval value.
+
+```python
+from rhosocial.activerecord.backend.expression.datetime import (
+    IntervalExpression, IntervalUnit,
+)
+
+# A 7-day interval
+interval = IntervalExpression(dialect, 7, IntervalUnit.DAY)
+sql, params = interval.to_sql()
+# sql: "INTERVAL '7' DAY"
+# params: ()
+```
+
+### Date/time arithmetic
+
+```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.datetime import (
+    DateTimeField,
+    DatetimeAddExpression,
+    DatetimeDiffExpression,
+    DatetimeSubtractExpression,
+    IntervalExpression,
+    IntervalUnit,
+)
+
+# date + interval
+expr = DatetimeAddExpression(dialect,
+    Column(dialect, "created_at"),
+    IntervalExpression(dialect, 30, IntervalUnit.DAY))
+# sql: '"created_at" + INTERVAL '30' DAY'
+# params: ()
+
+# date - interval
+expr = DatetimeSubtractExpression(dialect,
+    Column(dialect, "created_at"),
+    IntervalExpression(dialect, 7, IntervalUnit.DAY))
+
+# date difference -- rendering is dialect-specific (SQL Server: DATEDIFF(DAY, ...))
+expr = DatetimeDiffExpression(dialect, DateTimeField.DAY,
+    Column(dialect, "start_date"),
+    Column(dialect, "end_date"))
 ```

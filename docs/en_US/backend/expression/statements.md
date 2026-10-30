@@ -9,25 +9,42 @@ The `statements` module defines the core DML (Data Manipulation Language) and DD
 `QueryStatement` represents a `SELECT` statement. It composes various clauses (SELECT, FROM, WHERE, GROUP BY, etc.) into a complete query.
 
 ```python
-from rhosocial.activerecord.backend.expression import QueryStatement, TableExpression, Column, Literal
+from rhosocial.activerecord.backend.expression import (
+    Column,
+    ComparisonOperator,
+    ComparisonPredicate,
+    Literal,
+    NamedRelationRef,
+    QueryStatement,
+    StringColumn,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
 
-# Basic SELECT
+# Basic SELECT -- a typed column builds the predicate
 query = QueryStatement(
     dialect,
     select=[Column(dialect, "name"), Column(dialect, "email")],
-    from_=TableExpression(dialect, "users"),
-    where=Column(dialect, "status") == Literal(dialect, "active")
+    from_=NamedRelationRef(dialect, Table(dialect, "users")),
+    where=StringColumn(dialect, "status") == "active"
 )
 sql, params = query.to_sql()
 # sql: 'SELECT "name", "email" FROM "users" WHERE "status" = ?'
 # params: ("active",)
+
+# The same predicate spelled out as a node
+predicate = ComparisonPredicate(
+    dialect,
+    ComparisonOperator.EQ,
+    Column(dialect, "status"),
+    Literal(dialect, "active"),
+)
 
 # SELECT with DISTINCT
 from rhosocial.activerecord.backend.expression import SelectModifier
 query = QueryStatement(
     dialect,
     select=[Column(dialect, "category")],
-    from_=TableExpression(dialect, "products"),
+    from_=NamedRelationRef(dialect, Table(dialect, "products")),
     select_modifier=SelectModifier.DISTINCT
 )
 sql, params = query.to_sql()
@@ -41,6 +58,7 @@ sql, params = query.to_sql()
 
 ```python
 from rhosocial.activerecord.backend.expression import InsertStatement, ValuesSource, Literal
+from rhosocial.activerecord.backend.expression.objects import Table
 
 # Single row insert
 source = ValuesSource(dialect, values_list=[
@@ -48,9 +66,9 @@ source = ValuesSource(dialect, values_list=[
 ])
 insert = InsertStatement(
     dialect,
-    into="users",
-    columns=["name", "email"],
-    source=source
+    Table(dialect, "users"),
+    source=source,
+    columns=["name", "email"]
 )
 sql, params = insert.to_sql()
 # sql: 'INSERT INTO "users" ("name", "email") VALUES (?, ?)'
@@ -65,9 +83,9 @@ on_conflict = OnConflictClause(
 )
 insert = InsertStatement(
     dialect,
-    into="products",
-    columns=["id", "name"],
+    Table(dialect, "products"),
     source=source,
+    columns=["id", "name"],
     on_conflict=on_conflict
 )
 sql, params = insert.to_sql()
@@ -80,30 +98,36 @@ sql, params = insert.to_sql()
 `UpdateStatement` represents an `UPDATE` statement. It supports `SET` assignments, `WHERE` clauses, and optional `FROM` clauses (for joins).
 
 ```python
-from rhosocial.activerecord.backend.expression import UpdateStatement, Literal, Column
+from rhosocial.activerecord.backend.expression import (
+    IntegerColumn,
+    Literal,
+    ReturningClause,
+    StringColumn,
+    UpdateStatement,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
 
 # Basic UPDATE
 update = UpdateStatement(
     dialect,
-    table="users",
+    Table(dialect, "users"),
     assignments={
         "status": Literal(dialect, "inactive"),
         "updated_at": Literal(dialect, "2023-01-01")
     },
-    where=Column(dialect, "last_login") < Literal(dialect, "2022-01-01")
+    where=StringColumn(dialect, "last_login") < "2022-01-01"
 )
 sql, params = update.to_sql()
 # sql: 'UPDATE "users" SET "status" = ?, "updated_at" = ? WHERE "last_login" < ?'
 # params: ("inactive", "2023-01-01", "2022-01-01")
 
-# UPDATE with RETURNING
-from rhosocial.activerecord.backend.expression import ReturningClause
+# UPDATE with RETURNING -- arithmetic needs a numeric column class
 update = UpdateStatement(
     dialect,
-    table="items",
-    assignments={"quantity": Column(dialect, "quantity") - Literal(dialect, 1)},
-    where=Column(dialect, "id") == Literal(dialect, 123),
-    returning=ReturningClause(dialect, [Column(dialect, "quantity")])
+    Table(dialect, "items"),
+    assignments={"quantity": IntegerColumn(dialect, "quantity") - 1},
+    where=IntegerColumn(dialect, "id") == 123,
+    returning=ReturningClause(dialect, [IntegerColumn(dialect, "quantity")])
 )
 sql, params = update.to_sql()
 # sql: 'UPDATE "items" SET "quantity" = "quantity" - ? WHERE "id" = ? RETURNING "quantity"'
@@ -115,13 +139,21 @@ sql, params = update.to_sql()
 `DeleteStatement` represents a `DELETE` statement. It supports `WHERE` clauses and optional `USING` clauses (for joins).
 
 ```python
-from rhosocial.activerecord.backend.expression import DeleteStatement, Literal, Column
+from rhosocial.activerecord.backend.expression import (
+    Column,
+    ComparisonOperator,
+    ComparisonPredicate,
+    DeleteStatement,
+    NamedRelationRef,
+    StringColumn,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
 
 # Basic DELETE
 delete = DeleteStatement(
     dialect,
-    table="sessions",
-    where=Column(dialect, "expires_at") < Literal(dialect, "NOW()")
+    Table(dialect, "sessions"),
+    where=StringColumn(dialect, "expires_at") < "NOW()"
 )
 sql, params = delete.to_sql()
 # sql: 'DELETE FROM "sessions" WHERE "expires_at" < ?'
@@ -130,9 +162,14 @@ sql, params = delete.to_sql()
 # DELETE with USING (Join delete)
 delete = DeleteStatement(
     dialect,
-    table="users",
-    using="old_users",
-    where=Column(dialect, "id", "users") == Column(dialect, "old_id", "old_users")
+    Table(dialect, "users"),
+    using=NamedRelationRef(dialect, Table(dialect, "old_users")),
+    where=ComparisonPredicate(
+        dialect,
+        ComparisonOperator.EQ,
+        Column(dialect, "id", "users"),
+        Column(dialect, "old_id", "old_users")
+    )
 )
 sql, params = delete.to_sql()
 # sql: 'DELETE FROM "users" USING "old_users" WHERE "users"."id" = "old_users"."old_id"'
@@ -143,14 +180,14 @@ sql, params = delete.to_sql()
 
 > **Inline Literals in DDL**
 >
-> DDL clauses (`DEFAULT`, `CHECK`, partial-index `WHERE`, partition boundaries, etc.) do **not** accept bind parameters — the database engine requires these positions to contain directly parseable SQL text. Therefore, when using `Literal` expressions in DDL, you **must** set `inline_literals=True`:
+> DDL clauses (`DEFAULT`, `CHECK`, partial-index `WHERE`, partition boundaries, etc.) do **not** accept bind parameters — the database engine requires these positions to contain directly parseable SQL text. A literal therefore needs `inline=True` wherever the clause does not normalise the value itself:
 >
 > ```python
 > # ✗ Wrong: DEFAULT ? in DDL causes execution failure
-> default_value=Literal(dialect, 0)
+> Literal(dialect, 0)
 >
 > # ✓ Correct: inlined produces DEFAULT 0
-> default_value=Literal(dialect, 0, inline_literals=True)
+> Literal(dialect, 0, inline=True)
 > ```
 >
 > DML statements (`INSERT`/`SELECT`/`UPDATE`/`DELETE`) are not affected — the default bind-parameter mode works normally.
@@ -163,21 +200,25 @@ Data types should use `DataType` expressions (e.g. `IntegerType`, `TextType`, `V
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    CreateTableStatement, ColumnDefinition,
-    ColumnConstraint, Literal, Column,
+    ColumnConstraint,
+    ColumnDefinition,
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
 )
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType, VarCharType, RealType
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.statements import CreateTableStatement
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType, VarCharType
 
 # Create table — using DataType expressions
 create = CreateTableStatement(
     dialect,
-    table="new_users",
+    Table(dialect, "new_users"),
     columns=[
         ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[
             ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
         ]),
         ColumnDefinition(dialect, "name", VarCharType(dialect, length=255), constraints=[
-            ColumnConstraint(dialect, branch=dialectNotNullConstraint(dialect)),
+            ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
         ]),
         ColumnDefinition(dialect, "bio", TextType(dialect)),
     ],
@@ -185,42 +226,54 @@ create = CreateTableStatement(
 )
 sql, params = create.to_sql()
 # sql: 'CREATE TABLE IF NOT EXISTS "new_users" ("id" INTEGER PRIMARY KEY AUTOINCREMENT,
-#        "name" VARCHAR(255) NOT NULL, "bio" TEXT)'
+#        "name" TEXT NOT NULL, "bio" TEXT)'
 # params: ()
 ```
 
 #### Inline Literals in DEFAULT and CHECK Constraints
 
-DDL `DEFAULT` and `CHECK` clauses require inline literals. Use `Literal(..., inline_literals=True)`:
+A DDL syntax position accepts no bind parameters. `ColumnDefaultConstraint`
+normalises whatever it is given to an inline literal, so a plain value is
+enough; a predicate inside `CHECK` keeps the literals it was built with, so mark
+them `inline=True`:
 
 ```python
+from rhosocial.activerecord.backend.expression import (
+    ComparisonOperator,
+    ComparisonPredicate,
+    IntegerColumn,
+    Literal,
+)
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnCheckConstraint,
+    ColumnDefaultConstraint,
+)
+from rhosocial.activerecord.backend.expression.types import RealType
+
 # Column with DEFAULT value
 ColumnDefinition(dialect, "status", TextType(dialect), constraints=[
-    ColumnConstraint(dialect,
-        branch=ColumnDefaultConstraint(
-            value=Literal(dialect, "active", inline_literals=True),  # -> DEFAULT 'active'
-    ),
-]),
+    ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, "active")),
+])
+# -> "status" TEXT DEFAULT 'active'
 
-# Column with CHECK constraint
+# Column with CHECK constraint -- inline=True keeps the value out of params
 ColumnDefinition(dialect, "age", IntegerType(dialect), constraints=[
-    ColumnConstraint(dialect,
-        branch=ColumnCheckConstraint(
-            condition=ComparisonPredicate(
-            dialect, ">=",
-            Column(dialect, "age"),
-            Literal(dialect, 0, inline_literals=True),  # -> CHECK ("age" >= 0)
+    ColumnConstraint(dialect, branch=ColumnCheckConstraint(
+        dialect,
+        ComparisonPredicate(
+            dialect,
+            ComparisonOperator.GTE,
+            IntegerColumn(dialect, "age"),
+            Literal(dialect, 0, inline=True),  # -> CHECK ("age" >= 0)
         ),
-    ),
-]),
+    )),
+])
 
 # DEFAULT numeric value
 ColumnDefinition(dialect, "score", RealType(dialect), constraints=[
-    ColumnConstraint(dialect,
-        branch=ColumnDefaultConstraint(
-            value=Literal(dialect, 0.0, inline_literals=True),  # -> DEFAULT 0.0
-    ),
-]),
+    ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, 0.0)),
+])
+# -> "score" REAL DEFAULT 0.0
 ```
 
 #### Generated Columns (SQLite 3.31.0+, PostgreSQL 12+, MySQL 5.7+)
@@ -229,35 +282,42 @@ Generated columns (computed columns) use the `ColumnGeneratedConstraint` express
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    CreateTableStatement, ColumnDefinition, ColumnConstraint, Column,
+    ColumnConstraint,
+    ColumnDefinition,
+    ColumnPrimaryKeyConstraint,
+    IntegerColumn,
+    NumericColumn,
 )
+from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.types import IntegerType, RealType
 from rhosocial.activerecord.backend.expression.statements import (
-    ColumnGeneratedConstraint, GeneratedColumnType,
+    ColumnGeneratedConstraint,
+    CreateTableStatement,
+    GeneratedColumnType,
 )
 
 # Create table with generated columns
 columns = [
     ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[
-        ColumnConstraint(dialect, branch=dialectPrimaryKeyConstraint(dialect)),
+        ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect)),
     ]),
     ColumnDefinition(dialect, "price", RealType(dialect)),
     ColumnDefinition(dialect, "quantity", IntegerType(dialect)),
     # STORED generated column - computed and stored on disk
     ColumnDefinition(dialect,
-        name="total",
-        data_type=RealType(dialect),
+        "total",
+        RealType(dialect),
         generated_expression=ColumnGeneratedConstraint(
             dialect,
-            expression=Column(dialect, "price") * Column(dialect, "quantity"),
+            expression=NumericColumn(dialect, "price") * IntegerColumn(dialect, "quantity"),
             storage_type=GeneratedColumnType.STORED,
         ),
     ),
 ]
 
 create = CreateTableStatement(
-    dialect=dialect,
-    table="products",
+    dialect,
+    Table(dialect, "products"),
     columns=columns,
 )
 sql, params = create.to_sql()
@@ -276,11 +336,12 @@ sql, params = create.to_sql()
 `DropTableStatement` represents a `DROP TABLE` statement.
 
 ```python
-from rhosocial.activerecord.backend.expression import DropTableStatement
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.statements import DropTableStatement
 
 drop = DropTableStatement(
     dialect,
-    table_name="old_users",
+    Table(dialect, "old_users"),
     if_exists=True,
     cascade=True
 )
@@ -294,22 +355,32 @@ sql, params = drop.to_sql()
 Expressions for managing database views.
 
 ```python
-from rhosocial.activerecord.backend.expression import CreateViewStatement
+from rhosocial.activerecord.backend.expression.objects import Table, View
+from rhosocial.activerecord.backend.expression.statements import (
+    CreateViewStatement,
+    DropViewStatement,
+)
 
 # Create View
 query = QueryStatement(
     dialect,
     select=[Column(dialect, "name")],
-    from_=TableExpression(dialect, "users")
+    from_=NamedRelationRef(dialect, Table(dialect, "users"))
 )
 create_view = CreateViewStatement(
     dialect,
-    view_name="user_names",
+    View(dialect, "user_names"),
     query=query,
-    or_replace=True
+    replace=True
 )
 sql, params = create_view.to_sql()
 # sql: 'CREATE OR REPLACE VIEW "user_names" AS SELECT "name" FROM "users"'
+# params: ()
+
+# Drop View
+drop_view = DropViewStatement(dialect, View(dialect, "user_names"), if_exists=True)
+sql, params = drop_view.to_sql()
+# sql: 'DROP VIEW IF EXISTS "user_names"'
 # params: ()
 ```
 
@@ -323,7 +394,7 @@ from rhosocial.activerecord.backend.expression import TruncateStatement
 # Basic TRUNCATE
 truncate = TruncateStatement(
     dialect,
-    table_name="logs"
+    Table(dialect, "logs")
 )
 sql, params = truncate.to_sql()
 # sql: 'TRUNCATE TABLE "logs"'
@@ -332,7 +403,7 @@ sql, params = truncate.to_sql()
 # TRUNCATE with RESTART IDENTITY and CASCADE
 truncate = TruncateStatement(
     dialect,
-    table_name="orders",
+    Table(dialect, "orders"),
     restart_identity=True,
     cascade=True
 )
@@ -348,12 +419,13 @@ sql, params = truncate.to_sql()
 `CreateSchemaStatement` represents a `CREATE SCHEMA` statement for creating database schemas (namespaces).
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import CreateSchemaStatement
+from rhosocial.activerecord.backend.expression.objects import Schema
+from rhosocial.activerecord.backend.expression.statements import CreateSchemaStatement
 
 # Basic CREATE SCHEMA
 create_schema = CreateSchemaStatement(
     dialect,
-    schema_name="my_schema"
+    Schema(dialect, "my_schema")
 )
 sql, params = create_schema.to_sql()
 # sql: 'CREATE SCHEMA "my_schema"'
@@ -362,7 +434,7 @@ sql, params = create_schema.to_sql()
 # CREATE SCHEMA IF NOT EXISTS with AUTHORIZATION
 create_schema = CreateSchemaStatement(
     dialect,
-    schema_name="app_schema",
+    Schema(dialect, "app_schema"),
     if_not_exists=True,
     authorization="app_user"
 )
@@ -376,12 +448,12 @@ sql, params = create_schema.to_sql()
 `DropSchemaStatement` represents a `DROP SCHEMA` statement.
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import DropSchemaStatement
+from rhosocial.activerecord.backend.expression.statements import DropSchemaStatement
 
 # DROP SCHEMA with options
 drop_schema = DropSchemaStatement(
     dialect,
-    schema_name="old_schema",
+    Schema(dialect, "old_schema"),
     if_exists=True,
     cascade=True
 )
@@ -397,13 +469,15 @@ sql, params = drop_schema.to_sql()
 `CreateIndexStatement` represents a `CREATE INDEX` statement with support for various index types and options.
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import CreateIndexStatement
+from rhosocial.activerecord.backend.expression import StringColumn
+from rhosocial.activerecord.backend.expression.objects import Index, Table
+from rhosocial.activerecord.backend.expression.statements import CreateIndexStatement
 
 # Basic CREATE INDEX
 create_index = CreateIndexStatement(
     dialect,
-    index_name="idx_users_email",
-    table_name="users",
+    Index(dialect, "idx_users_email"),
+    Table(dialect, "users"),
     columns=["email"]
 )
 sql, params = create_index.to_sql()
@@ -413,11 +487,11 @@ sql, params = create_index.to_sql()
 # UNIQUE INDEX with WHERE clause (partial index)
 create_index = CreateIndexStatement(
     dialect,
-    index_name="idx_active_users",
-    table_name="users",
+    Index(dialect, "idx_active_users"),
+    Table(dialect, "users"),
     columns=["email"],
     unique=True,
-    where=Column(dialect, "status") == Literal(dialect, "active")
+    where=StringColumn(dialect, "status") == "active"
 )
 sql, params = create_index.to_sql()
 # sql: 'CREATE UNIQUE INDEX "idx_active_users" ON "users" ("email") WHERE "status" = ?'
@@ -426,8 +500,8 @@ sql, params = create_index.to_sql()
 # Composite index with index type
 create_index = CreateIndexStatement(
     dialect,
-    index_name="idx_orders_user_date",
-    table_name="orders",
+    Index(dialect, "idx_orders_user_date"),
+    Table(dialect, "orders"),
     columns=["user_id", "created_at"],
     index_type="BTREE"
 )
@@ -438,8 +512,8 @@ sql, params = create_index.to_sql()
 # Index with INCLUDE clause (covering index)
 create_index = CreateIndexStatement(
     dialect,
-    index_name="idx_users_email",
-    table_name="users",
+    Index(dialect, "idx_users_email"),
+    Table(dialect, "users"),
     columns=["email"],
     include=["id", "name"]
 )
@@ -453,14 +527,14 @@ sql, params = create_index.to_sql()
 `DropIndexStatement` represents a `DROP INDEX` statement.
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import DropIndexStatement
+from rhosocial.activerecord.backend.expression.statements import DropIndexStatement
 
 # DROP INDEX
 drop_index = DropIndexStatement(
     dialect,
-    index_name="idx_old_index",
+    Index(dialect, "idx_old_index"),
     if_exists=True,
-    table_name="users"  # Optional: provides table context
+    table=Table(dialect, "users")  # Optional: provides table context
 )
 sql, params = drop_index.to_sql()
 # sql: 'DROP INDEX IF EXISTS "idx_old_index" ON "users"'
@@ -474,12 +548,13 @@ sql, params = drop_index.to_sql()
 `CreateSequenceStatement` represents a `CREATE SEQUENCE` statement for generating unique numeric identifiers.
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import CreateSequenceStatement
+from rhosocial.activerecord.backend.expression.objects import Sequence
+from rhosocial.activerecord.backend.expression.statements import CreateSequenceStatement
 
 # Basic CREATE SEQUENCE
 create_seq = CreateSequenceStatement(
     dialect,
-    sequence_name="user_id_seq"
+    Sequence(dialect, "user_id_seq")
 )
 sql, params = create_seq.to_sql()
 # sql: 'CREATE SEQUENCE "user_id_seq" NO CYCLE'
@@ -488,7 +563,7 @@ sql, params = create_seq.to_sql()
 # CREATE SEQUENCE with all options
 create_seq = CreateSequenceStatement(
     dialect,
-    sequence_name="order_seq",
+    Sequence(dialect, "order_seq"),
     if_not_exists=True,
     start=1000,
     increment=1,
@@ -508,11 +583,11 @@ sql, params = create_seq.to_sql()
 `DropSequenceStatement` represents a `DROP SEQUENCE` statement.
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import DropSequenceStatement
+from rhosocial.activerecord.backend.expression.statements import DropSequenceStatement
 
 drop_seq = DropSequenceStatement(
     dialect,
-    sequence_name="old_seq",
+    Sequence(dialect, "old_seq"),
     if_exists=True
 )
 sql, params = drop_seq.to_sql()
@@ -525,12 +600,12 @@ sql, params = drop_seq.to_sql()
 `AlterSequenceStatement` represents an `ALTER SEQUENCE` statement for modifying existing sequences.
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import AlterSequenceStatement
+from rhosocial.activerecord.backend.expression.statements import AlterSequenceStatement
 
 # Restart sequence
 alter_seq = AlterSequenceStatement(
     dialect,
-    sequence_name="user_id_seq",
+    Sequence(dialect, "user_id_seq"),
     restart=1000
 )
 sql, params = alter_seq.to_sql()
@@ -540,7 +615,7 @@ sql, params = alter_seq.to_sql()
 # Multiple changes
 alter_seq = AlterSequenceStatement(
     dialect,
-    sequence_name="order_seq",
+    Sequence(dialect, "order_seq"),
     increment=2,
     maxvalue=1000000,
     cycle=True
@@ -555,14 +630,25 @@ sql, params = alter_seq.to_sql()
 `MergeStatement` represents a `MERGE` statement (Upsert).
 
 ```python
-from rhosocial.activerecord.backend.expression import MergeStatement, MergeAction, MergeActionType
+from rhosocial.activerecord.backend.expression import (
+    Column,
+    ComparisonOperator,
+    ComparisonPredicate,
+    MergeAction,
+    MergeActionType,
+    MergeStatement,
+    NamedRelationRef,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
 
 # Define Actions
 when_matched = MergeAction(
+    dialect,
     action_type=MergeActionType.UPDATE,
     assignments={"name": Column(dialect, "name", "source")}
 )
 when_not_matched = MergeAction(
+    dialect,
     action_type=MergeActionType.INSERT,
     assignments={
         "id": Column(dialect, "id", "source"),
@@ -573,15 +659,20 @@ when_not_matched = MergeAction(
 # Merge Statement
 merge = MergeStatement(
     dialect,
-    target_table=TableExpression(dialect, "target", "t"),
-    source=TableExpression(dialect, "source", "s"),
-    on_condition=Column(dialect, "id", "t") == Column(dialect, "id", "s"),
+    target_table=Table(dialect, "target"),
+    source=NamedRelationRef(dialect, Table(dialect, "source"), alias="s"),
+    on_condition=ComparisonPredicate(
+        dialect,
+        ComparisonOperator.EQ,
+        Column(dialect, "id", "target"),
+        Column(dialect, "id", "s")
+    ),
     when_matched=[when_matched],
     when_not_matched=[when_not_matched]
 )
 
 sql, params = merge.to_sql()
-# sql: 'MERGE INTO "target" AS "t" USING "source" AS "s" ON "t"."id" = "s"."id" ...'
+# sql: 'MERGE INTO "target" USING "source" AS "s" ON "target"."id" = "s"."id" ...'
 # params: ()
 ```
 
@@ -600,18 +691,24 @@ Materialized views are database objects that pre-compute and store query results
 `CreateMaterializedViewStatement` represents a `CREATE MATERIALIZED VIEW` statement.
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import CreateMaterializedViewStatement
+from rhosocial.activerecord.backend.expression import (
+    Column,
+    FunctionCall,
+    GroupByHavingClause,
+)
+from rhosocial.activerecord.backend.expression.objects import MaterializedView, Table
+from rhosocial.activerecord.backend.expression.statements import CreateMaterializedViewStatement
 
 # Basic CREATE MATERIALIZED VIEW
 query = QueryStatement(
     dialect,
     select=[Column(dialect, "user_id"), FunctionCall(dialect, "COUNT", Column(dialect, "id"))],
-    from_=TableExpression(dialect, "orders"),
+    from_=NamedRelationRef(dialect, Table(dialect, "orders")),
     group_by_having=GroupByHavingClause(dialect, group_by=[Column(dialect, "user_id")])
 )
 create_mv = CreateMaterializedViewStatement(
     dialect,
-    view_name="order_counts",
+    MaterializedView(dialect, "order_counts"),
     query=query
 )
 sql, params = create_mv.to_sql()
@@ -621,10 +718,10 @@ sql, params = create_mv.to_sql()
 # Materialized view with TABLESPACE (PostgreSQL)
 create_mv = CreateMaterializedViewStatement(
     dialect,
-    view_name="user_summary",
+    MaterializedView(dialect, "user_summary"),
     query=query,
     tablespace="fast_storage",
-    with_data=False
+    no_data=True
 )
 sql, params = create_mv.to_sql()
 # sql: 'CREATE MATERIALIZED VIEW "user_summary" TABLESPACE "fast_storage" AS SELECT ... WITH NO DATA'
@@ -636,12 +733,12 @@ sql, params = create_mv.to_sql()
 `DropMaterializedViewStatement` represents a `DROP MATERIALIZED VIEW` statement.
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import DropMaterializedViewStatement
+from rhosocial.activerecord.backend.expression.statements import DropMaterializedViewStatement
 
 # DROP MATERIALIZED VIEW
 drop_mv = DropMaterializedViewStatement(
     dialect,
-    view_name="old_summary",
+    MaterializedView(dialect, "old_summary"),
     if_exists=True,
     cascade=True
 )
@@ -655,12 +752,12 @@ sql, params = drop_mv.to_sql()
 `RefreshMaterializedViewStatement` represents a `REFRESH MATERIALIZED VIEW` statement for refreshing materialized view data.
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import RefreshMaterializedViewStatement
+from rhosocial.activerecord.backend.expression.statements import RefreshMaterializedViewStatement
 
 # Basic refresh
 refresh_mv = RefreshMaterializedViewStatement(
     dialect,
-    view_name="order_counts"
+    MaterializedView(dialect, "order_counts")
 )
 sql, params = refresh_mv.to_sql()
 # sql: 'REFRESH MATERIALIZED VIEW "order_counts"'
@@ -669,7 +766,7 @@ sql, params = refresh_mv.to_sql()
 # CONCURRENTLY refresh (PostgreSQL 9.4+, requires unique index)
 refresh_mv = RefreshMaterializedViewStatement(
     dialect,
-    view_name="order_counts",
+    MaterializedView(dialect, "order_counts"),
     concurrent=True
 )
 sql, params = refresh_mv.to_sql()
@@ -679,7 +776,7 @@ sql, params = refresh_mv.to_sql()
 # WITH DATA/WITH NO DATA option
 refresh_mv = RefreshMaterializedViewStatement(
     dialect,
-    view_name="order_counts",
+    MaterializedView(dialect, "order_counts"),
     with_data=True
 )
 sql, params = refresh_mv.to_sql()
@@ -702,14 +799,14 @@ if dialect.supports_refresh_materialized_view():
     # Can refresh materialized view
     pass
 
-# Check CONCURRENTLY refresh support (PostgreSQL 9.4+)
-if dialect.supports_materialized_view_concurrent_refresh():
-    # Can use CONCURRENTLY option
-    pass
-
 # Check TABLESPACE support
 if dialect.supports_materialized_view_tablespace():
     # Can specify tablespace for materialized view
+    pass
+
+# Check storage options support (WITH DATA / WITH NO DATA)
+if dialect.supports_with_data_clause():
+    # Can spell the WITH [NO] DATA clause
     pass
 
 # Check storage options support

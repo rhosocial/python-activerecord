@@ -15,51 +15,144 @@
 
 ### ColumnDefinition
 
-定义列及其数据类型和可选约束。
+定义列及其数据类型和可选约束。数据类型是 `DataType` 对象而非字符串——类型的拼写由 dialect 决定。
 
 ```python
 from rhosocial.activerecord.backend.expression import ColumnDefinition
-from rhosocial.activerecord.backend.expression.statements import ColumnConstraint, ColumnNotNullConstraint, ColumnUniqueConstraint
+from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnConstraint,
+    ColumnDefaultConstraint,
+    ColumnNotNullConstraint,
+    ColumnUniqueConstraint,
+)
+
 # 基本列
-ColumnDefinition("name", "VARCHAR(100)")
+ColumnDefinition(dialect, "name", VarCharType(dialect, length=100))
+# sql: '"name" TEXT'   （SQLite 把 VARCHAR 适配为 TEXT）
 
 # 带约束的列
 ColumnDefinition(
+    dialect,
     "email",
-    "VARCHAR(255)",
+    VarCharType(dialect, length=255),
     constraints=[
         ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
-        ColumnConstraint(dialect, branch=ColumnUniqueConstraint(dialect))
+        ColumnConstraint(dialect, branch=ColumnUniqueConstraint(dialect)),
     ]
 )
+# sql: '"email" TEXT NOT NULL UNIQUE'
 
-# 带默认值的列
+# DEFAULT 也是约束分支，不是关键字参数
 ColumnDefinition(
+    dialect,
     "status",
-    "VARCHAR(20)",
-    default="active"
+    VarCharType(dialect, length=20),
+    constraints=[
+        ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, "active"))
+    ]
 )
+# sql: '"status" TEXT DEFAULT \'active\''
 ```
 
 ### ColumnConstraint
 
-| 类型 | 说明 |
-|------|------|
-| `NOT_NULL` | 列不能为 NULL |
-| `NULL` | 列允许 NULL（默认） |
-| `PRIMARY_KEY` | 主键列 |
-| `UNIQUE` | 列值必须唯一 |
-| `AUTO_INCREMENT` | 自增（取决于数据库） |
+列约束分两层，与语法结构对应：`ColumnConstraint` 是**子句**（`CONSTRAINT <name>` 前缀与尾部性状），每个备选形式是它引用的**分支**。分支不能单独写出；分支种类无法承载的性状在构造时就被拒绝，而不是在渲染时被丢弃。
+
+| 分支 | 渲染结果 |
+|------|---------|
+| `ColumnPrimaryKeyConstraint` | `PRIMARY KEY`（SQLite 在 `is_auto_increment=True` 时追加 `AUTOINCREMENT`） |
+| `ColumnUniqueConstraint` | `UNIQUE` |
+| `ColumnNotNullConstraint` | `NOT NULL` |
+| `ColumnNullableConstraint` | `NULL` |
+| `ColumnDefaultConstraint` | `DEFAULT <value>` |
+| `ColumnCheckConstraint` | `CHECK (<condition>)` |
+| `ColumnForeignKeyConstraint` | `REFERENCES <table> (<columns>)` |
+| `ColumnGeneratedConstraint` | `GENERATED ALWAYS AS (<expression>) [STORED\|VIRTUAL]` |
+
+子句还承载标准允许出现在约束上的性状：
+
+```python
+from rhosocial.activerecord.backend.expression import (
+    ColumnCheckConstraint,
+    ColumnConstraint,
+    ColumnUniqueConstraint,
+    StringColumn,
+)
+
+# CONSTRAINT <name> <branch> ...
+ColumnConstraint(
+    dialect,
+    branch=ColumnUniqueConstraint(dialect),
+    name="uq_users_email"
+)
+# sql: ' CONSTRAINT "uq_users_email" UNIQUE'   （前导空格：该子句是追加到列定义上的）
+
+# ... DEFERRABLE INITIALLY DEFERRED
+ColumnConstraint(
+    dialect,
+    branch=ColumnUniqueConstraint(dialect),
+    deferrable=True,
+    initially_deferred=True
+)
+# sql: ' UNIQUE DEFERRABLE INITIALLY DEFERRED'
+
+# CHECK (<condition>)
+ColumnConstraint(
+    dialect,
+    branch=ColumnCheckConstraint(dialect, StringColumn(dialect, "status") != "deleted")
+)
+# sql: ' CHECK ("status" <> ?)'   params: ('deleted',)
+```
+
+每个性状都是一对互斥标志，并且经过两道关卡：
+
+| 性状 | 标志 | 由谁授权 | 可承载的分支 |
+|------|------|---------|-------------|
+| 命名 | `name=` | `supports_constraint_naming` | 全部分支 |
+| 延迟 | `deferrable` / `not_deferrable` | `supports_deferrable_constraint` | PRIMARY KEY、UNIQUE、FOREIGN KEY |
+| 时机 | `initially_deferred` / `initially_immediate` | `supports_deferrable_constraint` | PRIMARY KEY、UNIQUE、FOREIGN KEY |
+| 强制 | `enforced` / `not_enforced` | `supports_constraint_enforcement` | PRIMARY KEY、UNIQUE、FOREIGN KEY、CHECK |
+
+同一对标志同时置位，或把性状用在种类上无此含义的分支，都是构造期错误：
+
+```python
+# ValueError: deferrable and not_deferrable are mutually exclusive options
+try:
+    ColumnConstraint(dialect, branch=ColumnUniqueConstraint(dialect),
+                     deferrable=True, not_deferrable=True)
+except ValueError as exc:
+    print(exc)
+
+# ValueError: DEFERRABLE / INITIALLY cannot ride a ColumnNotNullConstraint;
+#             the SQL:2016 kinds are PRIMARY KEY, UNIQUE and FOREIGN KEY
+try:
+    ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect), deferrable=True)
+except ValueError as exc:
+    print(exc)
+```
+
+dialect 无法拼写某个已被接受的性状时，会在渲染阶段拒绝，因此语句不会悄悄丢掉调用者要求的约束：
+
+```python
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
+try:
+    ColumnConstraint(dialect, branch=ColumnUniqueConstraint(dialect), enforced=True).to_sql()
+except UnsupportedFeatureError as exc:
+    print(exc)  # 'SQLite' dialect does not support ENFORCED/NOT ENFORCED constraint.
+```
 
 ### TableConstraint
 
-定义表级约束，如主键、唯一约束和外键。
+定义表级约束，如主键、唯一约束和外键。它与 `ColumnConstraint` 一样采用子句/分支的划分。
 
 ```python
+from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.statements import (
-    ForeignKeyConstraint,
     ReferentialAction,
     TableConstraint,
+    TableForeignKeyConstraint,
     TablePrimaryKeyConstraint,
 )
 
@@ -68,55 +161,77 @@ TableConstraint(
     dialect,
     branch=TablePrimaryKeyConstraint(dialect, ["user_id", "role_id"]),
 )
+# sql: 'PRIMARY KEY ("user_id", "role_id")'
 
 # 带引用操作的外键
-ForeignKeyConstraint(
-    columns=["author_id"],
-    reference_table="authors",
-    reference_columns=["id"],
-    on_delete=ReferentialAction.CASCADE,
-    on_update=ReferentialAction.RESTRICT
+TableConstraint(
+    dialect,
+    branch=TableForeignKeyConstraint(
+        dialect,
+        ["author_id"],
+        (Table(dialect, "authors"), ["id"]),
+        on_delete=ReferentialAction.CASCADE,
+        on_update=ReferentialAction.RESTRICT,
+    ),
+    name="fk_posts_author",
 )
+# sql: 'CONSTRAINT "fk_posts_author" FOREIGN KEY ("author_id")
+#       REFERENCES "authors"("id") ON DELETE CASCADE ON UPDATE RESTRICT'
 ```
+
 
 ## 基本操作
 
 ### 创建表
 
+表由 `Table` 对象命名，语句把它作为位置参数接收。
+
 ```python
-from rhosocial.activerecord.backend.expression import CreateTableStatement
+from rhosocial.activerecord.backend.expression import (
+    ColumnConstraint,
+    ColumnDefinition,
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+    ColumnUniqueConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.statements import CreateTableStatement
+from rhosocial.activerecord.backend.expression.types import IntegerType, TimestampType, VarCharType
 
 columns = [
     ColumnDefinition(
+        dialect,
         "id",
-        "INTEGER",
+        IntegerType(dialect),
         constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))]
     ),
     ColumnDefinition(
+        dialect,
         "username",
-        "VARCHAR(50)",
+        VarCharType(dialect, length=50),
         constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]
     ),
     ColumnDefinition(
+        dialect,
         "email",
-        "VARCHAR(100)",
+        VarCharType(dialect, length=100),
         constraints=[
             ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ColumnConstraint(dialect, branch=ColumnUniqueConstraint(dialect))
         ]
     ),
-    ColumnDefinition("created_at", "TIMESTAMP")
+    ColumnDefinition(dialect, "created_at", TimestampType(dialect))
 ]
 
 create = CreateTableStatement(
-    dialect=dialect,
-    table_name="users",
+    dialect,
+    Table(dialect, "users"),
     columns=columns
 )
 
 sql, params = create.to_sql()
-# sql: 'CREATE TABLE "users" ("id" INTEGER PRIMARY KEY, "username" VARCHAR(50) NOT NULL,
-#      "email" VARCHAR(100) NOT NULL UNIQUE, "created_at" TIMESTAMP)'
+# sql: 'CREATE TABLE "users" ("id" INTEGER PRIMARY KEY, "username" TEXT NOT NULL,
+#      "email" TEXT NOT NULL UNIQUE, "created_at" NUMERIC)'
 # params: ()
 ```
 
@@ -124,8 +239,8 @@ sql, params = create.to_sql()
 
 ```python
 create = CreateTableStatement(
-    dialect=dialect,
-    table_name="users",
+    dialect,
+    Table(dialect, "users"),
     columns=columns,
     if_not_exists=True
 )
@@ -137,8 +252,8 @@ sql, params = create.to_sql()
 
 ```python
 create = CreateTableStatement(
-    dialect=dialect,
-    table_name="temp_sessions",
+    dialect,
+    Table(dialect, "temp_sessions"),
     columns=columns,
     temporary=True
 )
@@ -153,46 +268,55 @@ from rhosocial.activerecord.backend.expression import DropTableStatement
 
 drop = DropTableStatement(
     dialect,
-    table_name="old_users",
-    if_exists=True,
-    cascade=True
+    Table(dialect, "old_users"),
+    if_exists=True
 )
 sql, params = drop.to_sql()
-# sql: 'DROP TABLE IF EXISTS "old_users" CASCADE'
+# sql: 'DROP TABLE IF EXISTS "old_users"'
+```
+
+`cascade=True` 由 `supports_drop_table_cascade` 授权，因此 SQLite（`DROP TABLE` 既没有 `CASCADE` 也没有 `RESTRICT`）会直接拒绝，而不是悄悄丢掉子句：
+
+```python
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
+try:
+    DropTableStatement(dialect, Table(dialect, "old_users"), cascade=True).to_sql()
+except UnsupportedFeatureError as exc:
+    print(exc)  # 'SQLite' dialect does not support DROP TABLE ... CASCADE.
 ```
 
 ### 修改表
 
+每个动作都是独立节点，由语句持有列表。
+
 ```python
 from rhosocial.activerecord.backend.expression import (
     AlterTableStatement,
-    AddColumn,
-    DropColumn,
-    AlterColumn
+    AddColumnAction,
+    DropColumnAction
 )
 
 # 添加新列
 alter = AlterTableStatement(
     dialect,
-    table_name="users",
+    Table(dialect, "users"),
     actions=[
-        AddColumn(
-            ColumnDefinition(
-                "phone",
-                "VARCHAR(20)"
-            )
+        AddColumnAction(
+            dialect,
+            ColumnDefinition(dialect, "phone", VarCharType(dialect, length=20))
         )
     ]
 )
 sql, params = alter.to_sql()
-# sql: 'ALTER TABLE "users" ADD COLUMN "phone" VARCHAR(20)'
+# sql: 'ALTER TABLE "users" ADD COLUMN "phone" TEXT'
 
 # 删除列
 alter = AlterTableStatement(
     dialect,
-    table_name="users",
+    Table(dialect, "users"),
     actions=[
-        DropColumn("old_field")
+        DropColumnAction(dialect, "old_field")
     ]
 )
 sql, params = alter.to_sql()
@@ -203,14 +327,18 @@ sql, params = alter.to_sql()
 
 ### 创建索引
 
+索引与表都是具名对象，列名是普通列表。
+
 ```python
-from rhosocial.activerecord.backend.expression.statement import CreateIndexStatement
+from rhosocial.activerecord.backend.expression import StringColumn
+from rhosocial.activerecord.backend.expression.objects import Index, Table
+from rhosocial.activerecord.backend.expression.statements import CreateIndexStatement
 
 # 基本索引
 create_idx = CreateIndexStatement(
     dialect,
-    index_name="idx_users_email",
-    table_name="users",
+    Index(dialect, "idx_users_email"),
+    Table(dialect, "users"),
     columns=["email"]
 )
 sql, params = create_idx.to_sql()
@@ -219,88 +347,102 @@ sql, params = create_idx.to_sql()
 # 唯一索引
 create_idx = CreateIndexStatement(
     dialect,
-    index_name="idx_users_username",
-    table_name="users",
+    Index(dialect, "idx_users_username"),
+    Table(dialect, "users"),
     columns=["username"],
     unique=True
 )
 
-# 局部索引（带 WHERE 子句）
-from rhosocial.activerecord.backend.expression import Column, Literal
-
+# 局部索引（带 WHERE 子句）—— 谓词由可比较的带类型列构建
 create_idx = CreateIndexStatement(
     dialect,
-    index_name="idx_active_users",
-    table_name="users",
+    Index(dialect, "idx_active_users"),
+    Table(dialect, "users"),
     columns=["email"],
-    where=Column(dialect, "status") == Literal(dialect, "active")
+    unique=True,
+    where=StringColumn(dialect, "status") == "active"
 )
 sql, params = create_idx.to_sql()
-# sql: 'CREATE INDEX "idx_active_users" ON "users" ("email") WHERE "status" = ?'
+# sql: 'CREATE UNIQUE INDEX "idx_active_users" ON "users" ("email") WHERE "status" = ?'
+# params: ('active',)
 ```
+
+> 谓词来自能够比较的列类，而不是裸 `Column` 上的 `==`：`Column` 只提供别名、空值判断和类型转换，因此 `Column(...) == ...` 只是一次 Python 同一性比较。任何需要比较的场合都请使用 `StringColumn`、`NumericColumn` 及其兄弟类。
 
 ### 删除索引
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import DropIndexStatement
+from rhosocial.activerecord.backend.expression.statements import DropIndexStatement
 
 drop_idx = DropIndexStatement(
     dialect,
-    index_name="idx_users_email",
+    Index(dialect, "idx_users_email"),
     if_exists=True
 )
 sql, params = drop_idx.to_sql()
 # sql: 'DROP INDEX IF EXISTS "idx_users_email"'
 ```
 
+
 ## 模式操作
 
 ### 创建模式
 
+模式是 `Schema` 对象。SQLite 没有模式，因此它的 dialect 会拒绝该语句，而不是生成引擎会拒绝的 SQL：
+
 ```python
-from rhosocial.activerecord.backend.expression.statement import CreateSchemaStatement
+from rhosocial.activerecord.backend.expression.objects import Schema
+from rhosocial.activerecord.backend.expression.statements import CreateSchemaStatement
 
 create_schema = CreateSchemaStatement(
     dialect,
-    schema_name="app_schema",
+    Schema(dialect, "app_schema"),
     if_not_exists=True
 )
-sql, params = create_schema.to_sql()
+# 在支持模式的后端上：
 # sql: 'CREATE SCHEMA IF NOT EXISTS "app_schema"'
+# 在 SQLite 上：
+# UnsupportedFeatureError: 'SQLite' dialect does not support CREATE SCHEMA.
 ```
 
 ### 删除模式
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import DropSchemaStatement
+from rhosocial.activerecord.backend.expression.statements import DropSchemaStatement
 
 drop_schema = DropSchemaStatement(
     dialect,
-    schema_name="old_schema",
+    Schema(dialect, "old_schema"),
     cascade=True
 )
-sql, params = drop_schema.to_sql()
+# 在支持模式的后端上：
 # sql: 'DROP SCHEMA "old_schema" CASCADE'
 ```
 
 ## 执行 DDL 语句
 
-DDL 表达式可以直接在后端上执行：
+语句渲染为 `(sql, params)`；后端执行的是 SQL 文本，所以两步是分开的：
 
 ```python
-from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.statements import CreateTableStatement
 
 # 创建表
-create = CreateTableStatement(dialect, "users", columns)
-User.__backend__.execute(create)
+create = CreateTableStatement(
+    dialect,
+    Table(dialect, "users"),
+    columns=columns
+)
+sql, params = create.to_sql()
+backend.execute(sql, params)
 
 # 或者先构建 SQL 并检查
-sql, params = create.to_sql()
 print(f"SQL: {sql}")
 print(f"Params: {params}")
 ```
 
 > **注意**：`rhosocial-activerecord` 中的 DDL 语句不需要 `ExecutionOptions(stmt_type=StatementType.DDL)` — 表达式对象自带语句类型信息。
+
 
 ## 内省用于架构验证
 
@@ -321,6 +463,8 @@ if table_info:
         print(f"Column: {col.name}, Type: {col.data_type}, PK: {col.is_primary_key}")
 ```
 
+`TableType` 区分目录实际报告的种类 —— `BASE_TABLE`、`VIEW`、`MATERIALIZED_VIEW`、`FOREIGN_TABLE`、`PARTITIONED_TABLE`、`SYSTEM_TABLE`、`EXTERNAL` —— 关系不会被悄悄折叠成"表"。
+
 ### 后端差异
 
 > ⚠️ **重要提示**：本文档以 SQLite 作为示例后端。不同的数据库后端存在显著差异：
@@ -328,10 +472,11 @@ if table_info:
 | 特性 | SQLite | MySQL | PostgreSQL |
 |------|--------|-------|------------|
 | **内省 API** | `list_tables()`、`get_table_info()`、`pragma.*` | 不同的方法名 | 不同的方法名 |
-| **DDL 支持** | 有限的 ALTER TABLE（仅支持 ADD/DROP column） | 完整的 ALTER TABLE | 完整的 ALTER TABLE |
+| **DDL 支持** | 有限的 ALTER TABLE（仅支持 ADD/DROP column）；没有 `CREATE SCHEMA` | 完整的 ALTER TABLE | 完整的 ALTER TABLE |
 | **索引类型** | 不支持 USING 子句 | BTREE、HASH 等 | BTREE、HASH、GIN 等 |
 | **局部索引** | 支持（WHERE 子句） | 不支持 | 支持 |
 | **生成列** | 3.31.0+ | 5.7.31+ | 支持 |
+| **约束性状** | 命名与延迟可渲染；`ENFORCED` 被拒绝 | 命名可渲染 | 全部可渲染 |
 
 请始终参考你所用后端的文档以获取准确的 API 用法。
 

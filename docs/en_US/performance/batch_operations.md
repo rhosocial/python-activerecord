@@ -18,9 +18,13 @@ Both methods support synchronous and asynchronous variants with identical APIs.
 ```python
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.expression import InsertStatement, ValuesSource, Literal
+from rhosocial.activerecord.backend.expression.objects import Table
 
 backend = SQLiteBackend(database=":memory:")
 backend.connect()
+backend.execute(
+    "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT)"
+)
 
 # Create a list of INSERT expressions
 expressions = []
@@ -31,7 +35,7 @@ for i in range(100):
     ])
     expr = InsertStatement(
         backend.dialect,
-        into="users",
+        into=Table(backend.dialect, "users"),
         columns=["name", "email"],
         source=source
     )
@@ -40,8 +44,6 @@ for i in range(100):
 # Execute in batches of 20
 for batch_result in backend.execute_batch_dml(expressions, batch_size=20):
     print(f"Batch {batch_result.batch_index}: {batch_result.total_affected_rows} rows affected")
-
-backend.disconnect()
 ```
 
 ### Commit Modes
@@ -54,6 +56,11 @@ The entire batch operation is wrapped in a single transaction. If any error occu
 
 ```python
 from rhosocial.activerecord.backend.result import BatchCommitMode
+
+
+def process_batch(batch):
+    print(f"Batch {batch.batch_index}: {batch.total_affected_rows} rows affected")
+
 
 # All-or-nothing: either all batches succeed or none do
 for batch in backend.execute_batch_dml(
@@ -114,6 +121,36 @@ Batch DML requires **homogeneous expressions**:
 
 ```python
 # Valid: All INSERT expressions targeting the same table
+from rhosocial.activerecord.backend.expression import IntegerColumn, Literal
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.statements import (
+    InsertStatement,
+    UpdateStatement,
+    ValuesSource,
+)
+
+
+def make_insert(name, email):
+    return InsertStatement(
+        backend.dialect,
+        into=Table(backend.dialect, "users"),
+        columns=["name", "email"],
+        source=ValuesSource(
+            backend.dialect,
+            values_list=[[Literal(backend.dialect, name), Literal(backend.dialect, email)]],
+        ),
+    )
+
+
+def make_update(user_id, name):
+    return UpdateStatement(
+        backend.dialect,
+        Table(backend.dialect, "users"),
+        assignments={"name": Literal(backend.dialect, name)},
+        where=(IntegerColumn(backend.dialect, "id") == user_id),
+    )
+
+
 expressions = [
     make_insert("user1", "user1@example.com"),
     make_insert("user2", "user2@example.com"),
@@ -121,10 +158,15 @@ expressions = [
 ]
 
 # Invalid: Mixed expression types
-expressions = [
-    make_insert("user1", "user1@example.com"),
-    make_update(1, "new_name"),  # TypeError: heterogeneous expressions
-]
+try:
+    mixed = [
+        make_insert("user1", "user1@example.com"),
+        make_update(1, "new_name"),
+    ]
+    for _ in backend.execute_batch_dml(mixed):
+        pass
+except TypeError as exc:
+    print(f"TypeError: {exc}")
 ```
 
 ## Batch DQL Operations
@@ -134,12 +176,22 @@ expressions = [
 `execute_batch_dql` provides memory-efficient pagination for large result sets:
 
 ```python
-from rhosocial.activerecord.backend.expression import QueryStatement, TableExpression, AllColumnsWildcard
+from rhosocial.activerecord.backend.expression import (
+    AllColumnsWildcard,
+    NamedRelationRef,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.statements import QueryStatement
+
+
+def process_row(row):
+    return row["id"]
+
 
 query = QueryStatement(
     backend.dialect,
     select=[AllColumnsWildcard(backend.dialect)],
-    from_=TableExpression(backend.dialect, "large_table"),
+    from_=NamedRelationRef(backend.dialect, Table(backend.dialect, "users")),
 )
 
 # Process 1000-row pages one at a time
@@ -172,23 +224,41 @@ for page in backend.execute_batch_dql(query, page_size=100):
 
 ```python
 # CTE example
-from rhosocial.activerecord.backend.expression.query_sources import WithStatement, CTEClause
+from rhosocial.activerecord.backend.expression import (
+    AllColumnsWildcard,
+    NamedRelationRef,
+    StringColumn,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+from rhosocial.activerecord.backend.expression.query_sources import CTEClause, WithStatement
+from rhosocial.activerecord.backend.expression.statements import QueryStatement
+
+backend.execute("CREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INTEGER, status TEXT)")
 
 cte_query = QueryStatement(
     backend.dialect,
     select=[AllColumnsWildcard(backend.dialect)],
-    from_=TableExpression(backend.dialect, "orders"),
-    where=WhereClause(backend.dialect, condition=...),
+    from_=NamedRelationRef(backend.dialect, Table(backend.dialect, "orders")),
+    where=WhereClause(
+        backend.dialect,
+        condition=(StringColumn(backend.dialect, "status") == "open"),
+    ),
 )
 cte = CTEClause(backend.dialect, name="recent_orders", query=cte_query)
 
 main_query = QueryStatement(
     backend.dialect,
     select=[AllColumnsWildcard(backend.dialect)],
-    from_=TableExpression(backend.dialect, "recent_orders"),
+    from_=NamedRelationRef(backend.dialect, Table(backend.dialect, "recent_orders")),
 )
 
 with_query = WithStatement(backend.dialect, ctes=[cte], query=main_query)
+
+
+def process_orders(rows):
+    return len(rows)
+
 
 for page in backend.execute_batch_dql(with_query, page_size=50):
     process_orders(page.data)
@@ -200,12 +270,61 @@ Both batch methods have async equivalents with identical semantics:
 
 ```python
 # Async batch DML
-async for batch in async_backend.execute_batch_dml(expressions, batch_size=20):
-    await process_batch(batch)
+import asyncio
 
-# Async batch DQL
-async for page in async_backend.execute_batch_dql(query, page_size=1000):
-    await process_page(page)
+from rhosocial.activerecord.backend.expression import (
+    AllColumnsWildcard,
+    InsertStatement,
+    Literal,
+    NamedRelationRef,
+    ValuesSource,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.statements import QueryStatement
+from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import AsyncSQLiteBackend
+
+
+async def run_async_batches():
+    async_backend = AsyncSQLiteBackend(database=":memory:")
+    await async_backend.connect()
+    await async_backend.execute(
+        "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT)"
+    )
+
+    async_dialect = async_backend.dialect
+    async_expressions = [
+        InsertStatement(
+            async_dialect,
+            into=Table(async_dialect, "users"),
+            columns=["name", "email"],
+            source=ValuesSource(
+                async_dialect,
+                values_list=[[
+                    Literal(async_dialect, f"async{i}"),
+                    Literal(async_dialect, f"async{i}@example.com"),
+                ]],
+            ),
+        )
+        for i in range(10)
+    ]
+
+    # Async batch DML
+    async for batch in async_backend.execute_batch_dml(async_expressions, batch_size=4):
+        print(f"Batch {batch.batch_index}: {batch.total_affected_rows} rows affected")
+
+    # Async batch DQL
+    async_query = QueryStatement(
+        async_dialect,
+        select=[AllColumnsWildcard(async_dialect)],
+        from_=NamedRelationRef(async_dialect, Table(async_dialect, "users")),
+    )
+    async for page in async_backend.execute_batch_dql(async_query, page_size=4):
+        print(f"Page {page.page_index}: {page.page_size} rows")
+
+    await async_backend.disconnect()
+
+
+asyncio.run(run_async_batches())
 ```
 
 ## Transaction Interaction
@@ -225,6 +344,8 @@ with backend.transaction():
 ### Error Handling
 
 ```python
+from rhosocial.activerecord.backend.errors import IntegrityError
+
 try:
     for batch in backend.execute_batch_dml(
         expressions,
@@ -232,10 +353,10 @@ try:
         commit_mode=BatchCommitMode.WHOLE
     ):
         process_batch(batch)
-except IntegrityError:
+except IntegrityError as exc:
     # In WHOLE mode: all changes rolled back
     # In PER_BATCH mode: previous batches may be committed
-    handle_error()
+    print(f"Integrity error, batch rolled back: {exc}")
 ```
 
 ## Performance Considerations

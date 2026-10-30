@@ -46,7 +46,7 @@ SQLQueryAndParams = Tuple[str, tuple]
 
 这一设计直接带来三条性质：
 
-1. **参数值绝不进入 SQL 文本。** 默认 `inline_literals=False`，字面量渲染成绑定参数
+1. **参数值绝不进入 SQL 文本。** 默认 `inline=False`，字面量渲染成绑定参数
    占位符（`?`，或按方言 `%s`/`$1` 等由 `get_parameter_placeholder()` 决定），参数值
    放在独立的元组里。内联渲染是显式开启的、涉及安全的选择，仅留给完全由开发者声明、
    不暴露给终端用户的内容（例如派生出的 DDL）。

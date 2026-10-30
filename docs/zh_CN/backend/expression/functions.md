@@ -13,27 +13,24 @@
 聚合调用就是 `FunctionCall`；聚合工厂会在构造时设置其 `is_aggregate` 事实。它支持 `FILTER` (WHERE) 子句和 `OVER (...)` 窗口子句。
 
 ```python
-class FunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringPatternPredicateMixin, mixins.TypeCastingMixin, mixins.ResultTypeMixin, bases.SQLValue):
-    def __init__(self, dialect: "SQLDialectBase", func_name: str, *args,
-                 is_distinct: bool = False, alias: Optional[str] = None,
-                 niladic: bool = False, filter_predicate: "SQLPredicate" = None,
-                 window_spec: Union["WindowSpecification", str] = None,
-                 is_aggregate: bool = False): ...
+import inspect
+from rhosocial.activerecord.backend.expression import FunctionCall
 
-    def filter(self, predicate: "SQLPredicate") -> 'FunctionCall':
-        """应用 FILTER (WHERE ...) 子句到聚合表达式。"""
-        ...
-
-    def over(self, window_spec: Union["WindowSpecification", str]) -> 'FunctionCall':
-        """为调用附加 OVER (...) 子句。"""
-        ...
+print(inspect.signature(FunctionCall.__init__))
+print(inspect.signature(FunctionCall.filter))
+print(inspect.signature(FunctionCall.over))
 ```
 
 **示例:**
 ```python
-# 带 FILTER 的 COUNT
+from rhosocial.activerecord.backend.expression import (
+    BooleanColumn, Column, StringColumn,
+)
+from rhosocial.activerecord.backend.expression.functions import count, sum_
+
+# 带 FILTER 的 COUNT —— 带类型的列会构造真正的谓词
 active_count = count(dialect, "*", alias="active_count").filter(
-    Column(dialect, "status") == Literal(dialect, "active")
+    StringColumn(dialect, "status") == "active"
 )
 sql, params = active_count.to_sql()
 # sql: 'COUNT(*) FILTER (WHERE "status" = ?) AS "active_count"'
@@ -41,9 +38,9 @@ sql, params = active_count.to_sql()
 
 # 带多个链式过滤器的 SUM
 high_value_sum = sum_(dialect, Column(dialect, "amount"), alias="high_value_sum").filter(
-    Column(dialect, "category") == Literal(dialect, "sales")
+    StringColumn(dialect, "category") == "sales"
 ).filter(
-    Column(dialect, "priority") == Literal(dialect, True)
+    BooleanColumn(dialect, "priority") == True
 )
 sql, params = high_value_sum.to_sql()
 # sql: 'SUM("amount") FILTER (WHERE "category" = ? AND "priority" = ?) AS "high_value_sum"'
@@ -55,16 +52,23 @@ sql, params = high_value_sum.to_sql()
 创建 `COUNT` 聚合函数调用。
 
 ```python
-def count(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"] = "*", is_distinct: bool = False, alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import count
+
+# 库实际声明的函数签名
+print(inspect.signature(count))
 ```
 
 **使用规则:**
-- `count(dialect, "*")` -> `COUNT(*)`
-- `count(dialect, Column(dialect, "id"))` -> `COUNT(id)`
-- `count(dialect, "val")` -> `COUNT('val')` (字面量)
+- `count(dialect, "*")` -> `COUNT(*)`（`RowCountWildcard`）
+- `count(dialect, Column(dialect, "id"))` -> `COUNT("id")`
+- `count(dialect, "val")` -> `COUNT("val")`（列引用）
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import count
+
 # 基本 COUNT(*)
 c1 = count(dialect, "*")
 sql, params = c1.to_sql()
@@ -83,11 +87,18 @@ sql, params = c2.to_sql()
 创建 `SUM` 聚合函数调用。注意尾随下划线以避免与 Python 内置的 `sum` 冲突。
 
 ```python
-def sum_(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], is_distinct: bool = False, alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import sum_
+
+# 库实际声明的函数签名
+print(inspect.signature(sum_))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import sum_
+
 s = sum_(dialect, Column(dialect, "amount"))
 sql, params = s.to_sql()
 # sql: 'SUM("amount")'
@@ -99,11 +110,18 @@ sql, params = s.to_sql()
 创建 `AVG` 聚合函数调用。
 
 ```python
-def avg(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], is_distinct: bool = False, alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import avg
+
+# 库实际声明的函数签名
+print(inspect.signature(avg))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import avg
+
 a = avg(dialect, Column(dialect, "score"), is_distinct=True, alias="avg_score")
 sql, params = a.to_sql()
 # sql: 'AVG(DISTINCT "score") AS "avg_score"'
@@ -115,11 +133,18 @@ sql, params = a.to_sql()
 创建 `MIN` 聚合函数调用。注意尾随下划线。
 
 ```python
-def min_(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import min_
+
+# 库实际声明的函数签名
+print(inspect.signature(min_))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import min_
+
 m = min_(dialect, Column(dialect, "price"))
 sql, params = m.to_sql()
 # sql: 'MIN("price")'
@@ -131,11 +156,18 @@ sql, params = m.to_sql()
 创建 `MAX` 聚合函数调用。注意尾随下划线。
 
 ```python
-def max_(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import max_
+
+# 库实际声明的函数签名
+print(inspect.signature(max_))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import max_
+
 m = max_(dialect, Column(dialect, "price"))
 sql, params = m.to_sql()
 # sql: 'MAX("price")'
@@ -149,11 +181,18 @@ sql, params = m.to_sql()
 创建 `CONCAT` 标量函数调用。
 
 ```python
-def concat(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import concat
+
+# 库实际声明的函数签名
+print(inspect.signature(concat))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import concat
+
 c = concat(dialect, Column(dialect, "first_name"), " ", Column(dialect, "last_name"))
 sql, params = c.to_sql()
 # sql: 'CONCAT("first_name", ?, "last_name")'
@@ -165,11 +204,18 @@ sql, params = c.to_sql()
 创建 `COALESCE` 标量函数调用。
 
 ```python
-def coalesce(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import coalesce
+
+# 库实际声明的函数签名
+print(inspect.signature(coalesce))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import coalesce
+
 c = coalesce(dialect, Column(dialect, "nickname"), Column(dialect, "real_name"), "Anonymous")
 sql, params = c.to_sql()
 # sql: 'COALESCE("nickname", "real_name", ?)'
@@ -181,11 +227,18 @@ sql, params = c.to_sql()
 创建 `LENGTH` 标量函数调用。
 
 ```python
-def length(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import length
+
+# 库实际声明的函数签名
+print(inspect.signature(length))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import length
+
 l = length(dialect, Column(dialect, "description"))
 sql, params = l.to_sql()
 # sql: 'LENGTH("description")'
@@ -197,11 +250,18 @@ sql, params = l.to_sql()
 创建 `SUBSTRING` 标量函数调用。
 
 ```python
-def substring(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], start: Union[int, "bases.BaseExpression"], length: Optional[Union[int, "bases.BaseExpression"]] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import substring
+
+# 库实际声明的函数签名
+print(inspect.signature(substring))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import substring
+
 # 指定长度
 s1 = substring(dialect, Column(dialect, "text"), 1, 5)
 sql, params = s1.to_sql()
@@ -220,11 +280,18 @@ sql, params = s2.to_sql()
 创建 `TRIM` 标量函数调用。
 
 ```python
-def trim(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], chars: Optional[Union[str, "bases.BaseExpression"]] = None, direction: str = "BOTH") -> "operators.RawSQL": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import trim
+
+# 库实际声明的函数签名
+print(inspect.signature(trim))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import trim
+
 # 默认 TRIM (去除两侧空格)
 t1 = trim(dialect, Column(dialect, "name"))
 sql, params = t1.to_sql()
@@ -243,11 +310,18 @@ sql, params = t2.to_sql()
 创建 `REPLACE` 标量函数调用。
 
 ```python
-def replace(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], pattern: Union[str, "bases.BaseExpression"], replacement: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import replace
+
+# 库实际声明的函数签名
+print(inspect.signature(replace))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import replace
+
 r = replace(dialect, Column(dialect, "content"), "http", "https")
 sql, params = r.to_sql()
 # sql: 'REPLACE("content", ?, ?)'
@@ -259,11 +333,18 @@ sql, params = r.to_sql()
 创建 `UPPER` 标量函数调用。
 
 ```python
-def upper(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import upper
+
+# 库实际声明的函数签名
+print(inspect.signature(upper))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import upper
+
 u = upper(dialect, Column(dialect, "email"))
 sql, params = u.to_sql()
 # sql: 'UPPER("email")'
@@ -275,11 +356,18 @@ sql, params = u.to_sql()
 创建 `LOWER` 标量函数调用。
 
 ```python
-def lower(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import lower
+
+# 库实际声明的函数签名
+print(inspect.signature(lower))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import lower
+
 l = lower(dialect, Column(dialect, "email"))
 sql, params = l.to_sql()
 # sql: 'LOWER("email")'
@@ -291,11 +379,18 @@ sql, params = l.to_sql()
 创建 `INITCAP` 标量函数调用 (首字母大写)。
 
 ```python
-def initcap(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import initcap
+
+# 库实际声明的函数签名
+print(inspect.signature(initcap))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import initcap
+
 i = initcap(dialect, Column(dialect, "title"))
 sql, params = i.to_sql()
 # sql: 'INITCAP("title")'
@@ -307,11 +402,18 @@ sql, params = i.to_sql()
 创建 `LEFT` 标量函数调用。
 
 ```python
-def left(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], n: int) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import left
+
+# 库实际声明的函数签名
+print(inspect.signature(left))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import left
+
 l = left(dialect, Column(dialect, "code"), 3)
 sql, params = l.to_sql()
 # sql: 'LEFT("code", ?)'
@@ -323,11 +425,18 @@ sql, params = l.to_sql()
 创建 `RIGHT` 标量函数调用。
 
 ```python
-def right(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], n: int) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import right
+
+# 库实际声明的函数签名
+print(inspect.signature(right))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import right
+
 r = right(dialect, Column(dialect, "code"), 4)
 sql, params = r.to_sql()
 # sql: 'RIGHT("code", ?)'
@@ -339,11 +448,18 @@ sql, params = r.to_sql()
 创建 `LPAD` 标量函数调用。
 
 ```python
-def lpad(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], length: int, pad: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import lpad
+
+# 库实际声明的函数签名
+print(inspect.signature(lpad))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import lpad
+
 p = lpad(dialect, Column(dialect, "id"), 5, "0")
 sql, params = p.to_sql()
 # sql: 'LPAD("id", ?, ?)'
@@ -355,11 +471,18 @@ sql, params = p.to_sql()
 创建 `RPAD` 标量函数调用。
 
 ```python
-def rpad(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], length: int, pad: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import rpad
+
+# 库实际声明的函数签名
+print(inspect.signature(rpad))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import rpad
+
 p = rpad(dialect, Column(dialect, "id"), 5, " ")
 sql, params = p.to_sql()
 # sql: 'RPAD("id", ?, ?)'
@@ -371,11 +494,18 @@ sql, params = p.to_sql()
 创建 `REVERSE` 标量函数调用。
 
 ```python
-def reverse(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import reverse
+
+# 库实际声明的函数签名
+print(inspect.signature(reverse))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import reverse
+
 r = reverse(dialect, Column(dialect, "text"))
 sql, params = r.to_sql()
 # sql: 'REVERSE("text")'
@@ -387,11 +517,18 @@ sql, params = r.to_sql()
 创建 `STRPOS` 标量函数调用 (查找子字符串位置)。
 
 ```python
-def strpos(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], substring: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import strpos
+
+# 库实际声明的函数签名
+print(inspect.signature(strpos))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import strpos
+
 p = strpos(dialect, Column(dialect, "text"), "world")
 sql, params = p.to_sql()
 # sql: 'STRPOS("text", ?)'
@@ -405,11 +542,17 @@ sql, params = p.to_sql()
 创建 `ABS` 标量函数调用。注意尾随下划线以避免与 Python 内置的 `abs` 冲突。
 
 ```python
-def abs_(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import abs_
+
+# 库实际声明的函数签名
+print(inspect.signature(abs_))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import abs_
+
 a = abs_(dialect, -5)
 sql, params = a.to_sql()
 # sql: 'ABS(?)'
@@ -421,15 +564,21 @@ sql, params = a.to_sql()
 创建 `ROUND` 标量函数调用。注意尾随下划线。
 
 ```python
-def round_(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"], decimals: Optional[int] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import round_
+
+# 库实际声明的函数签名
+print(inspect.signature(round_))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import round_
+
 r = round_(dialect, 3.14159, 2)
 sql, params = r.to_sql()
 # sql: 'ROUND(?, ?)'
-# params: (3.14159, 2)
+# params: (Decimal('3.14159'), 2)  -- 数值字面量以 Decimal 绑定
 ```
 
 ### ceil
@@ -437,15 +586,21 @@ sql, params = r.to_sql()
 创建 `CEIL` 标量函数调用。
 
 ```python
-def ceil(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import ceil
+
+# 库实际声明的函数签名
+print(inspect.signature(ceil))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import ceil
+
 c = ceil(dialect, 3.14)
 sql, params = c.to_sql()
 # sql: 'CEIL(?)'
-# params: (3.14,)
+# params: (Decimal('3.14'),)
 ```
 
 ### floor
@@ -453,15 +608,21 @@ sql, params = c.to_sql()
 创建 `FLOOR` 标量函数调用。
 
 ```python
-def floor(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import floor
+
+# 库实际声明的函数签名
+print(inspect.signature(floor))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import floor
+
 f = floor(dialect, 3.99)
 sql, params = f.to_sql()
 # sql: 'FLOOR(?)'
-# params: (3.99,)
+# params: (Decimal('3.99'),)
 ```
 
 ### sqrt
@@ -469,11 +630,17 @@ sql, params = f.to_sql()
 创建 `SQRT` 标量函数调用。
 
 ```python
-def sqrt(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import sqrt
+
+# 库实际声明的函数签名
+print(inspect.signature(sqrt))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import sqrt
+
 s = sqrt(dialect, 16)
 sql, params = s.to_sql()
 # sql: 'SQRT(?)'
@@ -485,11 +652,17 @@ sql, params = s.to_sql()
 创建 `POWER` 标量函数调用。
 
 ```python
-def power(dialect: "SQLDialectBase", base: Union[int, float, "bases.BaseExpression"], exponent: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import power
+
+# 库实际声明的函数签名
+print(inspect.signature(power))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import power
+
 p = power(dialect, 2, 3)
 sql, params = p.to_sql()
 # sql: 'POWER(?, ?)'
@@ -501,11 +674,17 @@ sql, params = p.to_sql()
 创建 `EXP` 标量函数调用。
 
 ```python
-def exp(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import exp
+
+# 库实际声明的函数签名
+print(inspect.signature(exp))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import exp
+
 e = exp(dialect, 1)
 sql, params = e.to_sql()
 # sql: 'EXP(?)'
@@ -517,11 +696,17 @@ sql, params = e.to_sql()
 创建 `LOG` 标量函数调用。
 
 ```python
-def log(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"], base: Optional[Union[int, float, "bases.BaseExpression"]] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import log
+
+# 库实际声明的函数签名
+print(inspect.signature(log))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import log
+
 l = log(dialect, 100, 10)
 sql, params = l.to_sql()
 # sql: 'LOG(?, ?)'
@@ -533,13 +718,19 @@ sql, params = l.to_sql()
 创建三角函数调用。
 
 ```python
-def sin(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
-def cos(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
-def tan(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import sin, cos, tan
+
+# 库实际声明的函数签名
+print(inspect.signature(sin))
+print(inspect.signature(cos))
+print(inspect.signature(tan))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import cos, sin, tan
+
 s = sin(dialect, 0)
 c = cos(dialect, 0)
 t = tan(dialect, 0)
@@ -552,11 +743,17 @@ t = tan(dialect, 0)
 创建 `NOW` 标量函数调用。
 
 ```python
-def now(dialect: "SQLDialectBase") -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import now
+
+# 库实际声明的函数签名
+print(inspect.signature(now))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import now
+
 n = now(dialect)
 sql, params = n.to_sql()
 # sql: 'NOW()'
@@ -568,12 +765,18 @@ sql, params = n.to_sql()
 创建 `CURRENT_DATE` 零元值函数。根据 SQL:2003 标准，生成不含括号的 `CURRENT_DATE`。
 
 ```python
-def current_date(dialect: "SQLDialectBase") -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import current_date
+
+# 库实际声明的函数签名
+print(inspect.signature(current_date))
 ```
 
 **示例:**
 
 ```python
+from rhosocial.activerecord.backend.expression.functions import current_date
+
 d = current_date(dialect)
 sql, params = d.to_sql()
 # sql: 'CURRENT_DATE'
@@ -585,12 +788,18 @@ sql, params = d.to_sql()
 创建 `CURRENT_TIME` 零元值函数。根据 SQL:2003 标准，生成不含括号的 `CURRENT_TIME`。
 
 ```python
-def current_time(dialect: "SQLDialectBase") -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import current_time
+
+# 库实际声明的函数签名
+print(inspect.signature(current_time))
 ```
 
 **示例:**
 
 ```python
+from rhosocial.activerecord.backend.expression.functions import current_time
+
 t = current_time(dialect)
 sql, params = t.to_sql()
 # sql: 'CURRENT_TIME'
@@ -602,16 +811,23 @@ sql, params = t.to_sql()
 创建提取日期部分的函数调用。
 
 ```python
-def year(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
-def month(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
-def day(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
-def hour(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
-def minute(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
-def second(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import year, month, day, hour, minute, second
+
+# 库实际声明的函数签名
+print(inspect.signature(year))
+print(inspect.signature(month))
+print(inspect.signature(day))
+print(inspect.signature(hour))
+print(inspect.signature(minute))
+print(inspect.signature(second))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import year
+
 y = year(dialect, Column(dialect, "created_at"))
 sql, params = y.to_sql()
 # sql: 'YEAR("created_at")'
@@ -623,15 +839,22 @@ sql, params = y.to_sql()
 创建 `DATE_PART` 标量函数调用。
 
 ```python
-def date_part(dialect: "SQLDialectBase", field: str, expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import date_part
+
+# 库实际声明的函数签名
+print(inspect.signature(date_part))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import date_part
+
 p = date_part(dialect, "year", Column(dialect, "created_at"))
 sql, params = p.to_sql()
-# sql: 'DATE_PART(?, "created_at")'
-# params: ("year",)
+# sql: 'EXTRACT(YEAR FROM "created_at")'
+# params: ()
 ```
 
 ### date_trunc
@@ -639,15 +862,22 @@ sql, params = p.to_sql()
 创建 `DATE_TRUNC` 标量函数调用。
 
 ```python
-def date_trunc(dialect: "SQLDialectBase", precision: str, expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import date_trunc
+
+# 库实际声明的函数签名
+print(inspect.signature(date_trunc))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import date_trunc
+
 t = date_trunc(dialect, "month", Column(dialect, "created_at"))
 sql, params = t.to_sql()
-# sql: 'DATE_TRUNC(?, "created_at")'
-# params: ("month",)
+# sql: 'DATE_TRUNC('month', "created_at")'
+# params: ()
 ```
 
 ## 条件函数 (Conditional Functions)
@@ -657,13 +887,31 @@ sql, params = t.to_sql()
 创建 `CASE` 表达式。
 
 ```python
-def case(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "core.CaseExpression": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import case
+
+# 库实际声明的函数签名
+print(inspect.signature(case))
 ```
 
 **示例:**
 ```python
-c = case(dialect).when(Column(dialect, "status") == "active", "Active").else_("Inactive")
+from rhosocial.activerecord.backend.expression import Literal, StringColumn
+from rhosocial.activerecord.backend.expression.advanced_functions import CaseExpression
+from rhosocial.activerecord.backend.expression.functions import case
+
+# 工厂创建一个空的 CASE 节点
+c = case(dialect)
+
+# 分支以 (条件, 结果) 对的形式在构造时传入
+c = CaseExpression(
+    dialect,
+    cases=[(StringColumn(dialect, "status") == "active", Literal(dialect, "Active"))],
+    else_result=Literal(dialect, "Inactive"),
+)
 sql, params = c.to_sql()
+# sql: 'CASE WHEN "status" = ? THEN ? ELSE ? END'
+# params: ("active", "Active", "Inactive")
 ```
 
 ### nullif
@@ -671,11 +919,18 @@ sql, params = c.to_sql()
 创建 `NULLIF` 标量函数调用。
 
 ```python
-def nullif(dialect: "SQLDialectBase", expr1: Union[str, "bases.BaseExpression"], expr2: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import nullif
+
+# 库实际声明的函数签名
+print(inspect.signature(nullif))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import nullif
+
 n = nullif(dialect, Column(dialect, "value"), "N/A")
 sql, params = n.to_sql()
 # sql: 'NULLIF("value", ?)'
@@ -687,11 +942,18 @@ sql, params = n.to_sql()
 创建 `GREATEST` 标量函数调用。
 
 ```python
-def greatest(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import greatest
+
+# 库实际声明的函数签名
+print(inspect.signature(greatest))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import greatest
+
 g = greatest(dialect, Column(dialect, "a"), Column(dialect, "b"), Column(dialect, "c"))
 sql, params = g.to_sql()
 # sql: 'GREATEST("a", "b", "c")'
@@ -703,11 +965,18 @@ sql, params = g.to_sql()
 创建 `LEAST` 标量函数调用。
 
 ```python
-def least(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import least
+
+# 库实际声明的函数签名
+print(inspect.signature(least))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import least
+
 l = least(dialect, Column(dialect, "a"), Column(dialect, "b"), Column(dialect, "c"))
 sql, params = l.to_sql()
 # sql: 'LEAST("a", "b", "c")'
@@ -721,11 +990,17 @@ sql, params = l.to_sql()
 创建 `ROW_NUMBER` 窗口函数调用。
 
 ```python
-def row_number(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import row_number
+
+# 库实际声明的函数签名
+print(inspect.signature(row_number))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import row_number
+
 r = row_number(dialect)
 sql, params = r.to_sql()
 # sql: 'ROW_NUMBER()'
@@ -737,8 +1012,12 @@ sql, params = r.to_sql()
 创建 `RANK` 和 `DENSE_RANK` 窗口函数调用。
 
 ```python
-def rank(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "core.FunctionCall": ...
-def dense_rank(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import rank, dense_rank
+
+# 库实际声明的函数签名
+print(inspect.signature(rank))
+print(inspect.signature(dense_rank))
 ```
 
 ### lag, lead
@@ -746,8 +1025,12 @@ def dense_rank(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "core.
 创建 `LAG` 和 `LEAD` 窗口函数调用。
 
 ```python
-def lag(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], offset: Optional[int] = 1, default: Optional[Union[str, "bases.BaseExpression"]] = None, alias: Optional[str] = None) -> "core.FunctionCall": ...
-def lead(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], offset: Optional[int] = 1, default: Optional[Union[str, "bases.BaseExpression"]] = None, alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import lag, lead
+
+# 库实际声明的函数签名
+print(inspect.signature(lag))
+print(inspect.signature(lead))
 ```
 
 ### first_value, last_value, nth_value
@@ -755,9 +1038,13 @@ def lead(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], of
 创建值窗口函数调用。
 
 ```python
-def first_value(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], alias: Optional[str] = None) -> "core.FunctionCall": ...
-def last_value(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], alias: Optional[str] = None) -> "core.FunctionCall": ...
-def nth_value(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], n: int, alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import first_value, last_value, nth_value
+
+# 库实际声明的函数签名
+print(inspect.signature(first_value))
+print(inspect.signature(last_value))
+print(inspect.signature(nth_value))
 ```
 
 ## JSON 函数 (JSON Functions)
@@ -767,12 +1054,19 @@ def nth_value(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"
 创建 JSON 提取函数调用。
 
 ```python
-def json_extract(dialect: "SQLDialectBase", expr: "bases.BaseExpression", path: str) -> "operators.BinaryExpression": ...
-def json_extract_text(dialect: "SQLDialectBase", expr: "bases.BaseExpression", path: str) -> "operators.BinaryExpression": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import json_extract, json_extract_text
+
+# 库实际声明的函数签名
+print(inspect.signature(json_extract))
+print(inspect.signature(json_extract_text))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import json_extract
+
 j = json_extract(dialect, Column(dialect, "data"), "$.name")
 sql, params = j.to_sql()
 # 使用 -> 操作符提取 JSON 值
@@ -783,7 +1077,11 @@ sql, params = j.to_sql()
 创建 `JSON_BUILD_OBJECT` 函数调用。
 
 ```python
-def json_build_object(dialect: "SQLDialectBase", *args: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import json_build_object
+
+# 库实际声明的函数签名
+print(inspect.signature(json_build_object))
 ```
 
 ### json_array_elements
@@ -791,7 +1089,11 @@ def json_build_object(dialect: "SQLDialectBase", *args: Union[str, "bases.BaseEx
 创建 `JSON_ARRAY_ELEMENTS` 函数调用。
 
 ```python
-def json_array_elements(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import json_array_elements
+
+# 库实际声明的函数签名
+print(inspect.signature(json_array_elements))
 ```
 
 ### json_objectagg, json_arrayagg
@@ -799,8 +1101,12 @@ def json_array_elements(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseE
 创建 JSON 聚合函数调用。
 
 ```python
-def json_objectagg(dialect: "SQLDialectBase", key_expr: Union[str, "bases.BaseExpression"], value_expr: Union[str, "bases.BaseExpression"], is_distinct: bool = False, alias: Optional[str] = None) -> "core.FunctionCall": ...
-def json_arrayagg(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], is_distinct: bool = False, alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import json_objectagg, json_arrayagg
+
+# 库实际声明的函数签名
+print(inspect.signature(json_objectagg))
+print(inspect.signature(json_arrayagg))
 ```
 
 ## 数组函数 (Array Functions)
@@ -810,7 +1116,11 @@ def json_arrayagg(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpress
 创建 `ARRAY_AGG` 聚合函数调用。
 
 ```python
-def array_agg(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], is_distinct: bool = False, alias: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import array_agg
+
+# 库实际声明的函数签名
+print(inspect.signature(array_agg))
 ```
 
 ### unnest
@@ -818,7 +1128,11 @@ def array_agg(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"
 创建 `UNNEST` 函数调用。
 
 ```python
-def unnest(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import unnest
+
+# 库实际声明的函数签名
+print(inspect.signature(unnest))
 ```
 
 ### array_length
@@ -826,7 +1140,11 @@ def unnest(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) 
 创建 `ARRAY_LENGTH` 函数调用。
 
 ```python
-def array_length(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], dimension: int = 1) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import array_length
+
+# 库实际声明的函数签名
+print(inspect.signature(array_length))
 ```
 
 ## 类型转换函数 (Type Conversion Functions)
@@ -836,12 +1154,21 @@ def array_length(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpressi
 创建类型转换表达式。
 
 ```python
-def cast(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], type_name: str) -> "core.Column": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import cast
+
+# 库实际声明的函数签名
+print(inspect.signature(cast))
 ```
 
 **示例:**
 ```python
-c = cast(dialect, Column(dialect, "value"), "INTEGER")
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import cast
+from rhosocial.activerecord.backend.expression.types import IntegerType
+
+# 目标类型是 DataType 对象，绝不是类型名字符串
+c = cast(dialect, Column(dialect, "value"), IntegerType(dialect))
 sql, params = c.to_sql()
 # sql: 'CAST("value" AS INTEGER)'
 # params: ()
@@ -852,7 +1179,11 @@ sql, params = c.to_sql()
 创建 `TO_CHAR` 函数调用。
 
 ```python
-def to_char(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], format: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import to_char
+
+# 库实际声明的函数签名
+print(inspect.signature(to_char))
 ```
 
 ### to_number
@@ -860,7 +1191,11 @@ def to_char(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"],
 创建 `TO_NUMBER` 函数调用。
 
 ```python
-def to_number(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], format: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import to_number
+
+# 库实际声明的函数签名
+print(inspect.signature(to_number))
 ```
 
 ### to_date
@@ -868,7 +1203,11 @@ def to_number(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"
 创建 `TO_DATE` 函数调用。
 
 ```python
-def to_date(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], format: Optional[str] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import to_date
+
+# 库实际声明的函数签名
+print(inspect.signature(to_date))
 ```
 
 ## 分组函数 (Grouping Functions)
@@ -878,11 +1217,18 @@ def to_date(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"],
 创建 `ROLLUP` 分组表达式。
 
 ```python
-def rollup(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"]) -> "query_parts.GroupingExpression": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import rollup
+
+# 库实际声明的函数签名
+print(inspect.signature(rollup))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import rollup
+
 r = rollup(dialect, Column(dialect, "department"), Column(dialect, "region"))
 sql, params = r.to_sql()
 # sql: 'ROLLUP("department", "region")'
@@ -894,7 +1240,11 @@ sql, params = r.to_sql()
 创建 `CUBE` 分组表达式。
 
 ```python
-def cube(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"]) -> "query_parts.GroupingExpression": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import cube
+
+# 库实际声明的函数签名
+print(inspect.signature(cube))
 ```
 
 ### grouping_sets
@@ -902,7 +1252,11 @@ def cube(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"]) 
 创建 `GROUPING SETS` 分组表达式。
 
 ```python
-def grouping_sets(dialect: "SQLDialectBase", *sets: List[Union[str, "bases.BaseExpression"]]) -> "query_parts.GroupingExpression": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import grouping_sets
+
+# 库实际声明的函数签名
+print(inspect.signature(grouping_sets))
 ```
 
 ## 字符串连接操作符 (String Concatenation Operator)
@@ -912,11 +1266,18 @@ def grouping_sets(dialect: "SQLDialectBase", *sets: List[Union[str, "bases.BaseE
 使用 `||` 操作符创建字符串连接表达式。
 
 ```python
-def concat_op(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"]) -> "operators.BinaryExpression": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import concat_op
+
+# 库实际声明的函数签名
+print(inspect.signature(concat_op))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import concat_op
+
 # 连接两列
 expr = concat_op(dialect, Column(dialect, "first_name"), Column(dialect, "last_name"))
 sql, params = expr.to_sql()
@@ -941,11 +1302,17 @@ sql, params = expr.to_sql()
 创建 `MOD` 函数调用 (取模运算)。
 
 ```python
-def mod(dialect: "SQLDialectBase", dividend: Union[int, float, "bases.BaseExpression"], divisor: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import mod
+
+# 库实际声明的函数签名
+print(inspect.signature(mod))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import mod
+
 m = mod(dialect, 10, 3)
 sql, params = m.to_sql()
 # sql: 'MOD(?, ?)'
@@ -957,11 +1324,17 @@ sql, params = m.to_sql()
 创建 `SIGN` 函数调用 (返回 -1, 0, 或 1)。
 
 ```python
-def sign(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import sign
+
+# 库实际声明的函数签名
+print(inspect.signature(sign))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import sign
+
 s = sign(dialect, -42)
 sql, params = s.to_sql()
 # sql: 'SIGN(?)'
@@ -973,15 +1346,21 @@ sql, params = s.to_sql()
 创建 `TRUNCATE` 函数调用 (截断数字)。
 
 ```python
-def truncate(dialect: "SQLDialectBase", expr: Union[int, float, "bases.BaseExpression"], precision: Optional[int] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import truncate
+
+# 库实际声明的函数签名
+print(inspect.signature(truncate))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import truncate
+
 t = truncate(dialect, 3.14159, 2)
 sql, params = t.to_sql()
 # sql: 'TRUNCATE(?, ?)'
-# params: (3.14159, 2)
+# params: (Decimal('3.14159'), 2)
 ```
 
 ### chr_
@@ -989,11 +1368,17 @@ sql, params = t.to_sql()
 创建 `CHR` 函数调用 (ASCII 码转字符)。注意尾随下划线。
 
 ```python
-def chr_(dialect: "SQLDialectBase", code: Union[int, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import chr_
+
+# 库实际声明的函数签名
+print(inspect.signature(chr_))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import chr_
+
 c = chr_(dialect, 65)  # 返回 'A'
 sql, params = c.to_sql()
 # sql: 'CHR(?)'
@@ -1005,11 +1390,17 @@ sql, params = c.to_sql()
 创建 `ASCII` 函数调用 (字符转 ASCII 码)。
 
 ```python
-def ascii(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import ascii
+
+# 库实际声明的函数签名
+print(inspect.signature(ascii))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import ascii
+
 a = ascii(dialect, "A")
 sql, params = a.to_sql()
 # sql: 'ASCII(?)'
@@ -1021,11 +1412,18 @@ sql, params = a.to_sql()
 创建 `OCTET_LENGTH` 函数调用 (返回字节长度)。
 
 ```python
-def octet_length(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import octet_length
+
+# 库实际声明的函数签名
+print(inspect.signature(octet_length))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import octet_length
+
 o = octet_length(dialect, Column(dialect, "text"))
 sql, params = o.to_sql()
 # sql: 'OCTET_LENGTH("text")'
@@ -1037,11 +1435,18 @@ sql, params = o.to_sql()
 创建 `BIT_LENGTH` 函数调用 (返回位长度)。
 
 ```python
-def bit_length(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import bit_length
+
+# 库实际声明的函数签名
+print(inspect.signature(bit_length))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import bit_length
+
 b = bit_length(dialect, Column(dialect, "text"))
 sql, params = b.to_sql()
 # sql: 'BIT_LENGTH("text")'
@@ -1053,11 +1458,18 @@ sql, params = b.to_sql()
 创建 `POSITION` 函数调用 (查找子字符串位置，1-based)。
 
 ```python
-def position(dialect: "SQLDialectBase", substring: Union[str, "bases.BaseExpression"], expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import position
+
+# 库实际声明的函数签名
+print(inspect.signature(position))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import position
+
 p = position(dialect, "world", Column(dialect, "text"))
 sql, params = p.to_sql()
 # sql: 'POSITION(?, "text")'
@@ -1069,11 +1481,18 @@ sql, params = p.to_sql()
 创建 `OVERLAY` 函数调用 (替换子字符串)。
 
 ```python
-def overlay(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], replacement: Union[str, "bases.BaseExpression"], start: int, length: Optional[int] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import overlay
+
+# 库实际声明的函数签名
+print(inspect.signature(overlay))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import overlay
+
 o = overlay(dialect, Column(dialect, "text"), "xxx", 1, 3)
 sql, params = o.to_sql()
 # sql: 'OVERLAY("text", ?, ?, ?)'
@@ -1085,11 +1504,18 @@ sql, params = o.to_sql()
 创建 `TRANSLATE` 函数调用 (字符替换)。
 
 ```python
-def translate(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], from_chars: str, to_chars: str) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import translate
+
+# 库实际声明的函数签名
+print(inspect.signature(translate))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import translate
+
 t = translate(dialect, Column(dialect, "text"), "abc", "xyz")
 sql, params = t.to_sql()
 # sql: 'TRANSLATE("text", ?, ?)'
@@ -1101,11 +1527,17 @@ sql, params = t.to_sql()
 创建 `REPEAT` 函数调用 (重复字符串)。
 
 ```python
-def repeat(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], count: int) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import repeat
+
+# 库实际声明的函数签名
+print(inspect.signature(repeat))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import repeat
+
 r = repeat(dialect, "ab", 3)
 sql, params = r.to_sql()
 # sql: 'REPEAT(?, ?)'
@@ -1117,11 +1549,17 @@ sql, params = r.to_sql()
 创建 `SPACE` 函数调用 (生成空格)。
 
 ```python
-def space(dialect: "SQLDialectBase", count: int) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import space
+
+# 库实际声明的函数签名
+print(inspect.signature(space))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression.functions import space
+
 s = space(dialect, 5)
 sql, params = s.to_sql()
 # sql: 'SPACE(?)'
@@ -1133,12 +1571,18 @@ sql, params = s.to_sql()
 创建 `CURRENT_TIMESTAMP` 零元值函数。根据 SQL:2003 标准，无精度参数时生成不含括号的 `CURRENT_TIMESTAMP`；指定精度时生成 `CURRENT_TIMESTAMP(precision)`（带括号）。
 
 ```python
-def current_timestamp(dialect: "SQLDialectBase", precision: Optional[int] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import current_timestamp
+
+# 库实际声明的函数签名
+print(inspect.signature(current_timestamp))
 ```
 
 **示例:**
 
 ```python
+from rhosocial.activerecord.backend.expression.functions import current_timestamp
+
 # 无精度参数 — 零元形式（无括号）
 c = current_timestamp(dialect)
 sql, params = c.to_sql()
@@ -1157,12 +1601,18 @@ sql, params = c.to_sql()
 创建 `LOCALTIMESTAMP` 零元值函数。根据 SQL:2003 标准，无精度参数时生成不含括号的 `LOCALTIMESTAMP`；指定精度时生成 `LOCALTIMESTAMP(precision)`（带括号）。
 
 ```python
-def localtimestamp(dialect: "SQLDialectBase", precision: Optional[int] = None) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import localtimestamp
+
+# 库实际声明的函数签名
+print(inspect.signature(localtimestamp))
 ```
 
 **示例:**
 
 ```python
+from rhosocial.activerecord.backend.expression.functions import localtimestamp
+
 # 无精度参数 — 零元形式（无括号）
 l = localtimestamp(dialect)
 sql, params = l.to_sql()
@@ -1175,15 +1625,46 @@ sql, params = l.to_sql()
 创建 `EXTRACT` 函数调用 (提取日期时间部分)。
 
 ```python
-def extract(dialect: "SQLDialectBase", field: str, expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall": ...
+import inspect
+from rhosocial.activerecord.backend.expression.functions import extract
+
+# 库实际声明的函数签名
+print(inspect.signature(extract))
 ```
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.functions import extract
+
 e = extract(dialect, "YEAR", Column(dialect, "created_at"))
 sql, params = e.to_sql()
-# sql: 'EXTRACT(?, "created_at")'
-# params: ("YEAR",)
+# sql: 'EXTRACT(YEAR FROM "created_at")'
+# params: ()
+```
+
+### current_user, session_user, system_user
+
+创建 SQL:2003 零元值函数。生成不含括号的 `CURRENT_USER`、`SESSION_USER`、`SYSTEM_USER`。
+
+```python
+import inspect
+from rhosocial.activerecord.backend.expression.functions import current_user, session_user, system_user
+
+# 库实际声明的函数签名
+print(inspect.signature(current_user))
+print(inspect.signature(session_user))
+print(inspect.signature(system_user))
+```
+
+**示例:**
+```python
+from rhosocial.activerecord.backend.expression.functions import current_user
+
+u = current_user(dialect)
+sql, params = u.to_sql()
+# sql: 'CURRENT_USER'
+# params: ()
 ```
 
 ## SQL/XML 函数
@@ -1195,16 +1676,18 @@ sql, params = e.to_sql()
 XML 解析：将字符串解析为 XML 类型。
 
 ```python
+from rhosocial.activerecord.backend.expression import Column
+
 from rhosocial.activerecord.backend.expression.functions.xml import xmlparse
 
 # 将字符串解析为 XML DOCUMENT
-expr = xmlparse(dialect, Column(dialect, "xml_string"), doc_type="DOCUMENT")
+expr = xmlparse(dialect, Column(dialect, "xml_string"), document=True)
 sql, params = expr.to_sql()
 # sql: 'XMLPARSE(DOCUMENT "xml_string")'
 # params: ()
 
 # 将字符串解析为 XML CONTENT
-expr = xmlparse(dialect, Column(dialect, "xml_string"), doc_type="CONTENT")
+expr = xmlparse(dialect, Column(dialect, "xml_string"), document=False)
 ```
 
 ### xmlserialize
@@ -1212,11 +1695,15 @@ expr = xmlparse(dialect, Column(dialect, "xml_string"), doc_type="CONTENT")
 XML 序列化：将 XML 类型序列化为字符串。
 
 ```python
-from rhosocial.activerecord.backend.expression.functions.xml import xmlserialize
+from rhosocial.activerecord.backend.expression import Column
 
-expr = xmlserialize(dialect, Column(dialect, "xml_data"), "VARCHAR(255)")
+from rhosocial.activerecord.backend.expression.functions.xml import xmlserialize
+from rhosocial.activerecord.backend.expression.types import VarCharType
+
+# 目标类型是 DataType 对象，绝不是类型名字符串
+expr = xmlserialize(dialect, Column(dialect, "xml_data"), VarCharType(dialect, length=255))
 sql, params = expr.to_sql()
-# sql: 'XMLSERIALIZE(DOCUMENT "xml_data" AS VARCHAR(255))'
+# sql: 'XMLSERIALIZE(CONTENT "xml_data" AS VARCHAR(255))'
 # params: ()
 ```
 
@@ -1225,18 +1712,24 @@ sql, params = expr.to_sql()
 构造 XML 元素。
 
 ```python
+from rhosocial.activerecord.backend.expression import Column
+
 from rhosocial.activerecord.backend.expression.functions.xml import xmlelement, xmlattributes
 
 # 简单元素
 elem = xmlelement(dialect, "name", Column(dialect, "user_name"))
 sql, params = elem.to_sql()
-# sql: 'XMLELEMENT(NAME "name", "user_name")'
+# sql: 'XMLELEMENT(NAME name, "user_name")'
 # params: ()
 
-# 带属性的元素
-elem = xmlelement(dialect, "person",
-    xmlattributes(dialect, Column(dialect, "id"), "id"),
-    Column(dialect, "name"))
+# 带属性的元素 —— 属性按名称传入，而不是作为内容
+elem = xmlelement(
+    dialect,
+    "person",
+    Column(dialect, "name"),
+    attributes=xmlattributes(dialect, (Column(dialect, "id"), "id")),
+)
+# sql: 'XMLELEMENT(NAME person, XMLATTRIBUTES("id" AS id), "name")'
 ```
 
 ### xmlforest
@@ -1244,13 +1737,15 @@ elem = xmlelement(dialect, "person",
 构造 XML 森林（多个元素的序列）。
 
 ```python
+from rhosocial.activerecord.backend.expression import Column
+
 from rhosocial.activerecord.backend.expression.functions.xml import xmlforest
 
 expr = xmlforest(dialect,
     (Column(dialect, "first_name"), "first"),
     (Column(dialect, "last_name"), "last"))
 sql, params = expr.to_sql()
-# sql: 'XMLFOREST("first_name" AS "first", "last_name" AS "last")'
+# sql: 'XMLFOREST("first_name" AS first, "last_name" AS last)'
 # params: ()
 ```
 
@@ -1259,6 +1754,8 @@ sql, params = expr.to_sql()
 连接多个 XML 值。
 
 ```python
+from rhosocial.activerecord.backend.expression import Column
+
 from rhosocial.activerecord.backend.expression.functions.xml import xmlconcat
 
 expr = xmlconcat(dialect, Column(dialect, "xml1"), Column(dialect, "xml2"))
@@ -1283,8 +1780,8 @@ expr = xmlcomment(dialect, "This is a comment")
 ```python
 from rhosocial.activerecord.backend.expression.functions.xml import xmlpi
 
-expr = xmlpi(dialect, "xml-stylesheet", "type=\"text/xsl\" href=\"style.xsl\"")
-# sql: 'XMLPI(NAME "xml-stylesheet", ?)'
+expr = xmlpi(dialect, "xml-stylesheet", 'type="text/xsl" href="style.xsl"')
+# sql: 'XMLPI(NAME xml-stylesheet, ?)'
 # params: ('type="text/xsl" href="style.xsl"',)
 ```
 
@@ -1293,9 +1790,19 @@ expr = xmlpi(dialect, "xml-stylesheet", "type=\"text/xsl\" href=\"style.xsl\"")
 修改 XML 值的根节点属性。
 
 ```python
-from rhosocial.activerecord.backend.expression.functions.xml import xmlroot
+from rhosocial.activerecord.backend.expression import Column
 
-expr = xmlroot(dialect, Column(dialect, "xml_data"), version="1.0", standalone="YES")
+from rhosocial.activerecord.backend.expression.functions.xml import xmlroot
+from rhosocial.activerecord.backend.expression.xml import XMLStandaloneOption
+
+expr = xmlroot(
+    dialect,
+    Column(dialect, "xml_data"),
+    version="1.0",
+    standalone=XMLStandaloneOption.YES,
+)
+# sql: 'XMLROOT("xml_data", VERSION ?, STANDALONE YES)'
+# params: ('1.0',)
 ```
 
 ### xmlagg
@@ -1303,10 +1810,12 @@ expr = xmlroot(dialect, Column(dialect, "xml_data"), version="1.0", standalone="
 XML 聚合函数。
 
 ```python
+from rhosocial.activerecord.backend.expression import Column
+
 from rhosocial.activerecord.backend.expression.functions.xml import xmlagg
 
-expr = xmlagg(dialect, Column(dialect, "xml_column"), alias="combined_xml")
-# sql: 'XMLAGG("xml_column") AS "combined_xml"'
+expr = xmlagg(dialect, Column(dialect, "xml_column"))
+# sql: 'XMLAGG("xml_column")'
 # params: ()
 ```
 
@@ -1315,11 +1824,13 @@ expr = xmlagg(dialect, Column(dialect, "xml_column"), alias="combined_xml")
 XQuery 查询评估。
 
 ```python
+from rhosocial.activerecord.backend.expression import Column
+
 from rhosocial.activerecord.backend.expression.functions.xml import xmlquery
 
 expr = xmlquery(dialect, "/root/element/text()",
-    passing=Column(dialect, "xml_column"))
-# sql: 'XMLQUERY(?) PASSING BY VALUE "xml_column" EMPTY ON EMPTY'
+    passing=[Column(dialect, "xml_column")])
+# sql: 'XMLQUERY(? PASSING "xml_column" RETURNING CONTENT)'
 # params: ('/root/element/text()',)
 ```
 
@@ -1328,11 +1839,13 @@ expr = xmlquery(dialect, "/root/element/text()",
 XQuery 存在性检查。
 
 ```python
+from rhosocial.activerecord.backend.expression import Column
+
 from rhosocial.activerecord.backend.expression.functions.xml import xmlexists
 
 expr = xmlexists(dialect, "/root/element",
-    passing=Column(dialect, "xml_column"))
-# sql: 'XMLEXISTS(?) PASSING BY VALUE "xml_column"'
+    passing=[Column(dialect, "xml_column")])
+# sql: 'XMLEXISTS(? PASSING "xml_column")'
 # params: ('/root/element',)
 ```
 
@@ -1341,16 +1854,24 @@ expr = xmlexists(dialect, "/root/element",
 通过 XQuery 表达式生成表值。
 
 ```python
-from rhosocial.activerecord.backend.expression.functions.xml import xmltable
+from rhosocial.activerecord.backend.expression import Column
 
-expr = xmltable(dialect,
-    xquery="/root/row",
-    passing=Column(dialect, "xml_data"),
+from rhosocial.activerecord.backend.expression.functions.xml import xmltable
+from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
+from rhosocial.activerecord.backend.expression.xml import XMLTableColumn
+
+expr = xmltable(
+    dialect,
+    "/root/row",
+    passing=[Column(dialect, "xml_data")],
     columns=[
-        ("id", "INTEGER", "id"),
-        ("name", "VARCHAR(100)", "name"),
-    ])
-# sql: 'XMLTABLE(?) PASSING BY VALUE "xml_data" COLUMNS ("id" INTEGER PATH "id", "name" VARCHAR(100) PATH "name")'
+        XMLTableColumn("id", IntegerType(dialect), path=Column(dialect, "id")),
+        XMLTableColumn(
+            "name", VarCharType(dialect, length=100), path=Column(dialect, "name")
+        ),
+    ],
+)
+# sql: 'XMLTABLE(? PASSING "xml_data" COLUMNS ("id" INTEGER PATH "id", "name" VARCHAR(100) PATH "name"))'
 # params: ('/root/row',)
 ```
 
@@ -1363,7 +1884,11 @@ expr = xmltable(dialect,
 创建结构化的 `EXTRACT` 表达式（相比 `core.md` 中的 `extract` 函数，本实现支持更严格的字段枚举）。
 
 ```python
-from rhosocial.activerecord.backend.expression.datetime import ExtractExpression, DateTimeField
+from rhosocial.activerecord.backend.expression import Column
+
+from rhosocial.activerecord.backend.expression.datetime import (
+    DateTimeField, ExtractExpression,
+)
 
 # 提取年份
 expr = ExtractExpression(dialect, DateTimeField.YEAR, Column(dialect, "created_at"))
@@ -1377,18 +1902,22 @@ sql, params = expr.to_sql()
 创建结构化时间间隔值。
 
 ```python
-from rhosocial.activerecord.backend.expression.datetime import IntervalExpression, IntervalUnit
+from rhosocial.activerecord.backend.expression.datetime import (
+    IntervalExpression, IntervalUnit,
+)
 
 # 间隔 7 天
 interval = IntervalExpression(dialect, 7, IntervalUnit.DAY)
 sql, params = interval.to_sql()
-# sql: 'INTERVAL ? DAY'
-# params: (7,)
+# sql: "INTERVAL '7' DAY"
+# params: ()
 ```
 
 ### 日期时间运算
 
 ```python
+from rhosocial.activerecord.backend.expression import Column
+
 from rhosocial.activerecord.backend.expression.datetime import (
     DatetimeAddExpression, DatetimeSubtractExpression, DatetimeDiffExpression,
     IntervalExpression, IntervalUnit, DateTimeField
@@ -1398,8 +1927,8 @@ from rhosocial.activerecord.backend.expression.datetime import (
 expr = DatetimeAddExpression(dialect,
     Column(dialect, "created_at"),
     IntervalExpression(dialect, 30, IntervalUnit.DAY))
-# sql: '"created_at" + INTERVAL ? DAY'
-# params: (30,)
+# sql: '"created_at" + INTERVAL '30' DAY'
+# params: ()
 
 # 日期 - 间隔
 expr = DatetimeSubtractExpression(dialect,
@@ -1411,22 +1940,4 @@ expr = DatetimeDiffExpression(dialect, DateTimeField.DAY,
     Column(dialect, "start_date"),
     Column(dialect, "end_date"))
 # sql: 'DATEDIFF(DAY, "start_date", "end_date")'
-```
-
-### current_user, session_user, system_user
-
-创建 SQL:2003 零元值函数。生成不含括号的 `CURRENT_USER`、`SESSION_USER`、`SYSTEM_USER`。
-
-```python
-def current_user(dialect: "SQLDialectBase") -> "core.FunctionCall": ...
-def session_user(dialect: "SQLDialectBase") -> "core.FunctionCall": ...
-def system_user(dialect: "SQLDialectBase") -> "core.FunctionCall": ...
-```
-
-**示例:**
-```python
-u = current_user(dialect)
-sql, params = u.to_sql()
-# sql: 'CURRENT_USER'
-# params: ()
 ```

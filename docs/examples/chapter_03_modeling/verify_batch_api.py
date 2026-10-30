@@ -13,7 +13,8 @@ Correct import paths confirmed by this script:
   - InsertStatement  ← from rhosocial.activerecord.backend.expression
   - QueryStatement   ← from rhosocial.activerecord.backend.expression.statements
   - AllColumnsWildcard← from rhosocial.activerecord.backend.expression
-  - TableExpression   ← from rhosocial.activerecord.backend.expression
+  - Table            ← from rhosocial.activerecord.backend.expression.objects
+  - NamedRelationRef ← from rhosocial.activerecord.backend.expression
   - ValuesSource      ← from rhosocial.activerecord.backend.expression
   - Column, Literal   ← from rhosocial.activerecord.backend.expression
   - OrderByClause     ← from rhosocial.activerecord.backend.expression.query_parts
@@ -128,7 +129,8 @@ def assert_import_paths() -> None:
     try_import("rhosocial.activerecord.backend.expression", "InsertStatement")
     try_import("rhosocial.activerecord.backend.expression", "UpdateStatement")
     try_import("rhosocial.activerecord.backend.expression", "DeleteStatement")
-    try_import("rhosocial.activerecord.backend.expression", "TableExpression")
+    try_import("rhosocial.activerecord.backend.expression.objects", "Table")
+    try_import("rhosocial.activerecord.backend.expression", "NamedRelationRef")
     try_import("rhosocial.activerecord.backend.expression", "ValuesSource")
     try_import("rhosocial.activerecord.backend.expression", "Column")
     try_import("rhosocial.activerecord.backend.expression", "Literal")
@@ -178,6 +180,7 @@ def demonstrate_batch_dml() -> None:
         ValuesSource,
         Literal,
     )
+    from rhosocial.activerecord.backend.expression.objects import Table
     from rhosocial.activerecord.backend.result import BatchCommitMode
     from rhosocial.activerecord.backend.options import ExecutionOptions
     from rhosocial.activerecord.backend.schema import StatementType
@@ -205,7 +208,7 @@ def demonstrate_batch_dml() -> None:
     exprs = [
         InsertStatement(
             dialect,
-            into="users",
+            into=Table(dialect, "users"),
             columns=["name", "email"],
             source=ValuesSource(
                 dialect,
@@ -260,8 +263,9 @@ def demonstrate_batch_dql() -> None:
     from rhosocial.activerecord.backend.expression.statements import QueryStatement
     from rhosocial.activerecord.backend.expression import (
         AllColumnsWildcard,
-        TableExpression,
+        NamedRelationRef,
     )
+    from rhosocial.activerecord.backend.expression.objects import Table
     from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
     from rhosocial.activerecord.backend.expression import Column
     from rhosocial.activerecord.backend.options import ExecutionOptions
@@ -291,7 +295,7 @@ def demonstrate_batch_dql() -> None:
     query_expr = QueryStatement(
         dialect,
         select=[AllColumnsWildcard(dialect)],
-        from_=TableExpression(dialect, "items"),
+        from_=NamedRelationRef(dialect, Table(dialect, "items")),
         order_by=OrderByClause(
             dialect,
             expressions=[(Column(dialect, "id"), "ASC")],

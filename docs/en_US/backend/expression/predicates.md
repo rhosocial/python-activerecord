@@ -13,21 +13,32 @@ Predicates are expressions that evaluate to a boolean result (TRUE, FALSE, or UN
 Represents standard comparison operations between two expressions.
 
 ```python
-class ComparisonPredicate(bases.SQLPredicate):
-    def __init__(self, dialect: "SQLDialectBase", op: str, left: "SQLValue", right: "SQLValue"): ...
+import inspect
+
+from rhosocial.activerecord.backend.expression import ComparisonPredicate
+
+print(inspect.signature(ComparisonPredicate))
+# (dialect: 'SQLDialectBase', op: Any, left: 'SQLValue', right: 'SQLValue')
 ```
 
 **Parameters:**
 - `dialect`: The SQL dialect instance.
-- `op`: The comparison operator (e.g., `=`, `>`, `<`, `>=`, `<=`, `<>`).
+- `op`: The comparison operation — a `ComparisonOperator` member (`EQ`, `NE`, `GT`, `GTE`, `LT`, `LTE`) or its SQL spelling (`=`, `!=`, `>`, `>=`, `<`, `<=`).
 - `left`: The left-side expression.
 - `right`: The right-side expression.
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import (
+    ComparisonPredicate, IntegerColumn, Literal,
+)
+
 # users.age >= 18
-    # pred = ComparisonPredicate(dialect, ">=", Column(dialect, "age"), Literal(dialect, 18))
-    # -> ('"age" >= ?', (18,))
+pred = ComparisonPredicate(
+    dialect, ">=", IntegerColumn(dialect, "age"), Literal(dialect, 18)
+)
+pred.to_sql()
+# -> ('"age" >= ?', (18,))
 ```
 
 ### LogicalPredicate
@@ -35,22 +46,32 @@ class ComparisonPredicate(bases.SQLPredicate):
 Represents logical operations combining other predicates.
 
 ```python
-class LogicalPredicate(bases.SQLPredicate):
-    def __init__(self, dialect: "SQLDialectBase", op: str, *predicates: "bases.SQLPredicate"): ...
+import inspect
+
+from rhosocial.activerecord.backend.expression import LogicalPredicate
+
+print(inspect.signature(LogicalPredicate))
+# (dialect: 'SQLDialectBase', op: str, *operands: 'SQLPredicate')
 ```
 
 **Parameters:**
 - `dialect`: The SQL dialect instance.
 - `op`: The logical operator (e.g., `AND`, `OR`, `NOT`).
-- `*predicates`: One or more predicates to combine.
+- `*operands`: One or more predicates to combine.
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import (
+    IntegerColumn, LogicalPredicate, StringColumn,
+)
+
 # (age >= 18) AND (status = 'active')
-    # pred1 = ComparisonPredicate(dialect, ">=", Column(dialect, "age"), Literal(dialect, 18))
-    # pred2 = ComparisonPredicate(dialect, "=", Column(dialect, "status"), Literal(dialect, "active"))
-    # combined = LogicalPredicate(dialect, "AND", pred1, pred2)
-    # -> ('"age" >= ? AND "status" = ?', (18, 'active'))
+# Typed columns build comparison predicates with Python operators.
+pred1 = IntegerColumn(dialect, "age") >= 18
+pred2 = StringColumn(dialect, "status") == "active"
+combined = LogicalPredicate(dialect, "AND", pred1, pred2)
+combined.to_sql()
+# -> ('"age" >= ? AND "status" = ?', (18, 'active'))
 ```
 
 ### LikePredicate
@@ -58,21 +79,32 @@ class LogicalPredicate(bases.SQLPredicate):
 Represents pattern matching operations (`LIKE`, `ILIKE`).
 
 ```python
-class LikePredicate(bases.SQLPredicate):
-    def __init__(self, dialect: "SQLDialectBase", op: str, expr: "SQLValue", pattern: "SQLValue"): ...
+import inspect
+
+from rhosocial.activerecord.backend.expression import LikePredicate
+
+print(inspect.signature(LikePredicate))
+# (dialect: 'SQLDialectBase', op: 'LikeOperator', left: 'SQLValue', pattern: 'SQLValue')
 ```
 
 **Parameters:**
 - `dialect`: The SQL dialect instance.
-- `op`: The operator (`LIKE`, `ILIKE`, `NOT LIKE`, etc.).
-- `expr`: The expression to test.
+- `op`: The operation — a `LikeOperator` member (`like`, `not_like`, `ilike`) or its SQL keyword (`LIKE`, `NOT LIKE`, `ILIKE`).
+- `left`: The expression to test.
 - `pattern`: The pattern to match against.
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import (
+    LikePredicate, Literal, StringColumn,
+)
+
 # name LIKE 'User%'
-    # pred = LikePredicate(dialect, "LIKE", Column(dialect, "name"), Literal(dialect, "User%"))
-    # -> ('"name" LIKE ?', ('User%',))
+pred = LikePredicate(
+    dialect, "like", StringColumn(dialect, "name"), Literal(dialect, "User%")
+)
+pred.to_sql()
+# -> ('"name" LIKE ?', ('User%',))
 ```
 
 ### InPredicate
@@ -80,19 +112,33 @@ class LikePredicate(bases.SQLPredicate):
 Represents set membership tests (`IN`).
 
 ```python
-class InPredicate(bases.SQLPredicate):
-    def __init__(self, dialect: "SQLDialectBase", expr: "SQLValue", values: "bases.BaseExpression"): ...
+import inspect
+
+from rhosocial.activerecord.backend.expression import InPredicate
+
+print(inspect.signature(InPredicate))
+# (dialect: 'SQLDialectBase', operand: 'SQLValue', values: 'BaseExpression')
 ```
 
 **Parameters:**
 - `dialect`: The SQL dialect instance.
-- `expr`: The expression to test.
+- `operand`: The expression to test.
 - `values`: A `Literal` containing a collection (list/tuple) or a subquery expression.
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import (
+    InPredicate, Literal, StringColumn,
+)
+
 # status IN ('active', 'pending')
-pred = InPredicate(dialect, Column(dialect, "status"), Literal(dialect, ["active", "pending"]))
+pred = InPredicate(
+    dialect,
+    StringColumn(dialect, "status"),
+    Literal(dialect, ["active", "pending"]),
+)
+pred.to_sql()
+# -> ('"status" IN (?, ?)', ('active', 'pending'))
 ```
 
 ### BetweenPredicate
@@ -100,20 +146,33 @@ pred = InPredicate(dialect, Column(dialect, "status"), Literal(dialect, ["active
 Represents range tests (`BETWEEN`).
 
 ```python
-class BetweenPredicate(bases.SQLPredicate):
-    def __init__(self, dialect: "SQLDialectBase", expr: "bases.BaseExpression", low: "bases.BaseExpression", high: "bases.BaseExpression"): ...
+import inspect
+
+from rhosocial.activerecord.backend.expression import BetweenPredicate
+
+print(inspect.signature(BetweenPredicate))
+# (dialect: 'SQLDialectBase', operand: 'BaseExpression',
+#  low: 'BaseExpression', high: 'BaseExpression')
 ```
 
 **Parameters:**
 - `dialect`: The SQL dialect instance.
-- `expr`: The expression to test.
+- `operand`: The expression to test.
 - `low`: The lower bound.
 - `high`: The upper bound.
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import (
+    BetweenPredicate, IntegerColumn, Literal,
+)
+
 # age BETWEEN 18 AND 65
-pred = BetweenPredicate(dialect, Column(dialect, "age"), Literal(dialect, 18), Literal(dialect, 65))
+pred = BetweenPredicate(
+    dialect, IntegerColumn(dialect, "age"), Literal(dialect, 18), Literal(dialect, 65)
+)
+pred.to_sql()
+# -> ('"age" BETWEEN ? AND ?', (18, 65))
 ```
 
 ### IsNullPredicate
@@ -121,20 +180,27 @@ pred = BetweenPredicate(dialect, Column(dialect, "age"), Literal(dialect, 18), L
 Represents NULL tests (`IS NULL`, `IS NOT NULL`).
 
 ```python
-class IsNullPredicate(bases.SQLPredicate):
-    def __init__(self, dialect: "SQLDialectBase", expr: "bases.BaseExpression", is_not: bool = False): ...
+import inspect
+
+from rhosocial.activerecord.backend.expression import IsNullPredicate
+
+print(inspect.signature(IsNullPredicate))
+# (dialect: 'SQLDialectBase', operand: 'BaseExpression', is_not: bool = False)
 ```
 
 **Parameters:**
 - `dialect`: The SQL dialect instance.
-- `expr`: The expression to test.
+- `operand`: The expression to test.
 - `is_not`: If `True`, creates `IS NOT NULL`. Default is `False` (`IS NULL`).
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import IsNullPredicate, StringColumn
+
 # email IS NOT NULL
-    # pred = IsNullPredicate(dialect, Column(dialect, "email"), is_not=True)
-    # -> ('"email" IS NOT NULL', ())
+pred = IsNullPredicate(dialect, StringColumn(dialect, "email"), is_not=True)
+pred.to_sql()
+# -> ('"email" IS NOT NULL', ())
 ```
 
 ### IsBooleanPredicate
@@ -142,8 +208,12 @@ class IsNullPredicate(bases.SQLPredicate):
 Represents boolean value tests (`IS TRUE`, `IS NOT TRUE`, `IS FALSE`, `IS NOT FALSE`).
 
 ```python
-class IsBooleanPredicate(bases.SQLPredicate):
-    def __init__(self, dialect: "SQLDialectBase", expr: "bases.BaseExpression", value: bool, is_not: bool = False): ...
+import inspect
+
+from rhosocial.activerecord.backend.expression import IsBooleanPredicate
+
+print(inspect.signature(IsBooleanPredicate))
+# (dialect: 'SQLDialectBase', expr: 'BaseExpression', value: bool, is_not: bool = False)
 ```
 
 **Parameters:**
@@ -164,22 +234,32 @@ This is different from direct equality comparisons (`= TRUE` or `= FALSE`) which
 
 **Example:**
 ```python
+from rhosocial.activerecord.backend.expression import BooleanColumn, IsBooleanPredicate
+
 # is_active IS TRUE
-pred = IsBooleanPredicate(dialect, Column(dialect, "is_active"), value=True, is_not=False)
+pred = IsBooleanPredicate(
+    dialect, BooleanColumn(dialect, "is_active"), value=True, is_not=False
+)
+pred.to_sql()
 # -> ('"is_active" IS TRUE', ())
 
 # is_active IS NOT FALSE
-pred = IsBooleanPredicate(dialect, Column(dialect, "is_active"), value=False, is_not=True)
+pred = IsBooleanPredicate(
+    dialect, BooleanColumn(dialect, "is_active"), value=False, is_not=True
+)
+pred.to_sql()
 # -> ('"is_active" IS NOT FALSE', ())
 ```
 
 **Convenience Methods:**
-The `Column` class provides convenience methods for creating these predicates:
+The `BooleanColumn` class provides convenience methods for creating these predicates:
 
 ```python
-col = Column(dialect, "is_active")
-col.is_true()       # IS TRUE
-col.is_not_true()   # IS NOT TRUE
-col.is_false()      # IS FALSE
-col.is_not_false()  # IS NOT FALSE
+from rhosocial.activerecord.backend.expression import BooleanColumn
+
+col = BooleanColumn(dialect, "is_active")
+col.is_true().to_sql()       # -> ('"is_active" IS TRUE', ())
+col.is_not_true().to_sql()   # -> ('"is_active" IS NOT TRUE', ())
+col.is_false().to_sql()      # -> ('"is_active" IS FALSE', ())
+col.is_not_false().to_sql()  # -> ('"is_active" IS NOT FALSE', ())
 ```

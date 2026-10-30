@@ -137,6 +137,7 @@
 ### SQLite 后端
 
 * [概述](backend/sqlite/README.md)
+* [命令行界面](backend/sqlite/cli/README.md)
 * [Pragma](backend/sqlite/backend_specific_features/pragma.md)
 * [FTS5](backend/sqlite/backend_specific_features/fts5.md)
 * [扩展](backend/sqlite/backend_specific_features/extension.md)
