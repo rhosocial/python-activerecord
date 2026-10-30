@@ -152,6 +152,11 @@ class IntrospectionColumnInfo:
     is_unique: bool = False
     is_auto_increment: bool = False
     is_generated: bool = False
+    #: The expression a generated column is computed from, when the backend's
+    #: catalogue carries it. None means "not read", never "not generated" --
+    #: ``is_generated`` answers that. No backend fills this yet: SQLite's
+    #: ``PRAGMA table_xinfo`` reports only *that* a column is generated, and the
+    #: expression lives in the table's DDL.
     generated_expression: Optional[str] = None
     comment: Optional[str] = None
     character_maximum_length: Optional[int] = None
