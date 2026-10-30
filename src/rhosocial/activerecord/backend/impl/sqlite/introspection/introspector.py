@@ -266,7 +266,10 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
         for row in rows:
             hidden = row.get("hidden", 0)
             if hidden == 1:
-                continue  # Skip rowid alias columns only
+                # A hidden column of a virtual table (FTS shadow columns and
+                # the like): part of the module's storage, not of the table a
+                # caller reads. Generated columns are hidden==2/3 and are kept.
+                continue
             nullable = ColumnNullable.NULLABLE if row["notnull"] == 0 else ColumnNullable.NOT_NULL
             raw_type = row.get("type") or "TEXT"
             # Extract base type (e.g., "VARCHAR" from "VARCHAR(255)")
@@ -279,9 +282,13 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             parsed = DataType.parse_data_type_str(self._backend.dialect, raw_type)
             # Auto-increment: only applies to INTEGER PRIMARY KEY with AUTOINCREMENT keyword
             is_auto_inc = is_pk and has_auto_increment
-            # Generated columns (hidden=2 => virtual, hidden=3 => stored)
+            # Generated columns (hidden=2 => virtual, hidden=3 => stored).
+            # SQLite reports *that* a column is generated, not what it is made
+            # of: the expression lives in the table's DDL, which `table_xinfo`
+            # does not return. Reading it would mean parsing that DDL, so the
+            # field stays None here rather than carrying a guess.
             is_generated = hidden in (2, 3)
-            gen_expr = row.get("generated_expression") if is_generated else None
+            gen_expr = None
             # Extract precision/length from raw type
             params = self._extract_type_params(raw_type)
             columns.append(
@@ -596,7 +603,9 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
         if cached is not None:
             return cached
 
-        sql, params = self.column_info_statement(table_name=table_name, schema=schema).to_sql()
+        sql, params = self.column_info_statement(
+            table_name=table_name, schema=schema, include_hidden=True
+        ).to_sql()
         rows = self._executor.execute(sql, params)
 
         # Query the DDL for AUTOINCREMENT detection, and the index pragmas for
@@ -806,7 +815,9 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
         if cached is not None:
             return cached
 
-        sql, params = self.column_info_statement(table_name=table_name, schema=schema).to_sql()
+        sql, params = self.column_info_statement(
+            table_name=table_name, schema=schema, include_hidden=True
+        ).to_sql()
         rows = await self._executor.execute(sql, params)
 
         # Query the DDL for AUTOINCREMENT detection

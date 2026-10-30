@@ -181,13 +181,26 @@ class IntrospectorBase(IntrospectorMixin, ABC):
         *,
         table_name: str,
         schema: Optional[str],
+        include_hidden: bool = False,
     ) -> "ColumnInfoQueryStatement":
-        """Return the statement that asks for a table's columns."""
+        """Return the statement that asks for a table's columns.
+
+        *include_hidden* asks the engine for the columns a plain listing leaves
+        out. What that means is the backend's business: SQLite keeps generated
+        columns behind ``PRAGMA table_xinfo`` and PostgreSQL hides system
+        columns unless asked. The default is ``False`` because most callers
+        want the table as it reads, but a backend whose own column question
+        cannot be answered without them says so at its call site rather than
+        changing the default for everyone.
+        """
         from ..expression.introspection import ColumnInfoQueryStatement
 
         target_schema = schema if schema is not None else self.default_schema
         return ColumnInfoQueryStatement(
-            self.dialect, table_name=table_name, schema=target_schema
+            self.dialect,
+            table_name=table_name,
+            schema=target_schema,
+            include_hidden=include_hidden,
         )
 
     def index_info_statement(
