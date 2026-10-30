@@ -557,7 +557,7 @@ class FTS5Extension(SQLiteExtensionBase):
     def get_supported_tokenizers(self, version: Tuple[int, int, int]) -> List[str]:
         """获取指定版本支持的 tokenizer"""
         
-    def format_create_virtual_table(...) -> Tuple[str, tuple]:
+    def format_create_virtual_table_statement(...) -> Tuple[str, tuple]:
         """生成创建语句"""
         
     def format_match_expression(...) -> Tuple[str, tuple]:
@@ -572,7 +572,7 @@ class FTS5Extension(SQLiteExtensionBase):
     def format_snippet_expression(...) -> Tuple[str, tuple]:
         """生成摘要表达式"""
         
-    def format_drop_virtual_table(...) -> Tuple[str, tuple]:
+    def format_drop_virtual_table_statement(...) -> Tuple[str, tuple]:
         """生成删除语句"""
 ```
 

@@ -1,43 +1,60 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    TableCheckConstraint,
+    TableForeignKeyConstraint,
+)
+from .ddl_table import normalize_foreign_key_match_type
+from ...expression.objects import Index, Table
+from ...expression.core import Literal
+from ...expression.bases import BaseExpression, ToSQLProtocol
+from typing import Any, List, Tuple, TYPE_CHECKING
 # src/rhosocial/activerecord/backend/dialect/mixins/ddl_column.py
 """DDL column formatting: column references, definitions, constraints, and
 ALTER TABLE column/constraint actions."""
 
-from copy import copy
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
-
-from ...expression.bases import BaseExpression, ToSQLProtocol
-from ...expression.core import Literal
-from ...expression.objects import Index, Table
-from .ddl_table import normalize_column_constraint_type, normalize_table_constraint_type
-
 if TYPE_CHECKING:  # pragma: no cover
-    from ....base.ddl import ColumnAttribute
+    from ...expression.statements.ddl_table import (
+        ColumnCheckConstraint,
+        ColumnConstraint,
+        ColumnDefaultConstraint,
+        ColumnForeignKeyConstraint,
+        ColumnGeneratedConstraint,
+        ColumnNotNullConstraint,
+        ColumnNullableConstraint,
+        ColumnPrimaryKeyConstraint,
+        ColumnUniqueConstraint,
+        TableCheckConstraint,
+        TableConstraint,
+        TableExcludeConstraint,
+        TableForeignKeyConstraint,
+        TablePrimaryKeyConstraint,
+        TableUniqueConstraint,
+    )
     from ...expression.core import Column
     from ...expression.statements.ddl_alter import (
-        AddColumn,
-        AddIndex,
-        AddTableConstraint,
-        AlterColumn,
-        AlterConstraint,
-        ChangeColumn,
-        DropColumn,
-        DropIndex,
-        DropTableConstraint,
-        ModifyColumn,
-        RenameObject,
-        RenameTable,
-        ValidateConstraint,
+        AddColumnAction,
+        AddIndexAction,
+        AddTableConstraintAction,
+        AlterColumnAction,
+        AlterConstraintAction,
+        ChangeColumnAction,
+        DropColumnAction,
+        DropIndexAction,
+        DropTableConstraintAction,
+        ModifyColumnAction,
+        RenameColumnAction,
+        RenameTableAction,
+        ValidateConstraintAction,
     )
     from ...expression.statements.ddl_table import (
+        CharacterSetClause,
+        CollationClause,
+        ColumnClause,
         ColumnCommentClause,
-        ColumnConstraint,
         ColumnDefinition,
         DefaultValueClause,
-        GeneratedColumnExpression,
         IndexDefinition,
         ReferencesClause,
         StorageOptionsExpression,
-        TableConstraint,
     )
 
 
@@ -86,7 +103,7 @@ class DDLColumnMixin:
                 self.name, "COLUMN COMMENT",
                 f"{self.name} does not support COLUMN COMMENT."
             )
-        escaped = self._escape_sql_string(clause.comment)
+        escaped = self.escape_sql_string(clause.comment)
         return f" COMMENT '{escaped}'", ()
 
     def supports_column_collation(self) -> bool:
@@ -108,33 +125,92 @@ class DDLColumnMixin:
         """
         return False
 
-    def format_column_attribute(self, attr: "ColumnAttribute") -> Tuple[str, Tuple]:
-        """Render one selected column attribute as a definition fragment.
+    def format_column_attribute(self, attr: "ColumnClause") -> Tuple[str, Tuple]:
+        """Render one selected column clause as a definition fragment.
 
-        Identity reuses :meth:`IdentityColumnMixin.format_identity_clause`
-        (per-backend syntax, capability-gated); collation renders the
-        SQL-standard ``COLLATE <name>``. Backend-only kinds (or unknown kinds)
-        raise ``UnsupportedFeatureError``.
+        The subject is an expression-layer node: :class:`CollationClause`,
+        :class:`CharacterSetClause`, :class:`IdentityClause` or
+        :class:`AutoIncrementClause`. Each names its own formatter through
+        ``format_method``, so this method only has to dispatch.
 
-        Known coupling, recorded but not fixed here: ``attr`` is an AR-layer
-        ``IdentityAttribute`` because ``ColumnDefinition.attributes`` accepts
-        only AR-layer attribute objects -- passing an expression-layer
-        ``IdentityClause`` directly raises ``UnsupportedFeatureError``. This
-        reverse dependency (expression layer -> AR layer) predates the
-        identity split and removing it would touch the AR layer.
+        An AR-layer ``ColumnAttribute`` is accepted at the entrance and
+        translated before dispatch, because no deriver turns a model's
+        declarations into clauses yet -- that layer does not exist, so this is
+        currently the only route from ``UseColumnAttributes`` to SQL. The
+        translation lives in its own method so it can be deleted whole when a
+        deriver lands. It has to be here rather than in
+        :meth:`format_column_attributes` because backend
+        ``format_column_definition`` overrides call this method directly.
+        """
+        from ..exceptions import UnsupportedFeatureError
+        from ...expression.statements.ddl_table import (
+            CharacterSetClause,
+            CollationClause,
+        )
+
+        if not isinstance(attr, BaseExpression):
+            # An AR-layer ColumnAttribute, not an expression. The test is the
+            # type, not `hasattr(attr, "format_method")`: that probed a field
+            # every expression declares, and it also answered False for an
+            # expression whose base property raises -- which is a different
+            # question than "is this one of ours". §11.2: asserting to a known
+            # base is the way to ask what an argument is.
+            original = attr
+            attr = self.translate_ar_attribute(original)
+            if attr is None:
+                raise UnsupportedFeatureError(
+                    self.name,
+                    f"COLUMN CLAUSE {type(original).__name__}",
+                    f"{self.name} cannot render this column clause; declare it "
+                    f"only on backends that support it.",
+                )
+        if isinstance(attr, CollationClause):
+            if not self.supports_column_collation():
+                raise UnsupportedFeatureError(self.name, "column-level COLLATE")
+            return self.format_collation_clause(attr)
+        if isinstance(attr, CharacterSetClause):
+            if not self.supports_column_character_set():
+                raise UnsupportedFeatureError(self.name, "column-level CHARACTER SET")
+            return self.format_character_set_clause(attr)
+        formatter = getattr(self, attr.format_method, None)
+        if formatter is None:
+            raise UnsupportedFeatureError(
+                self.name,
+                f"{type(attr).__name__} formatter",
+                f"{self.name} has no formatter for the column clause "
+                f"{type(attr).__name__}; declare it only on backends that "
+                f"support it.",
+            )
+        return formatter(attr)
+
+    def translate_ar_attribute(self, attr: Any) -> Any:
+        """Turn an AR-layer ``ColumnAttribute`` into an expression-layer clause.
+
+        Transitional, and the reason is a missing layer rather than a
+        preference: nothing in the library turns a model's ``UseColumnAttributes``
+        declaration into column clauses, so the AR-layer objects reach
+        ``ColumnDefinition.attributes`` directly and the dialect has to accept
+        them. Once that translation layer exists it belongs there, and this
+        method goes with it. Public because backend ``format_column_definition``
+        overrides call it: a protocol member that outside callers need is
+        public even when its implementation is transitional.
         """
         from ....base.ddl import (
+            CharacterSetAttribute,
             CollationAttribute,
             IdentityAttribute,
         )
-        from ...expression.statements.ddl_table import IdentityClause
-        from ..exceptions import UnsupportedFeatureError
+        from ...expression.statements.ddl_table import (
+            CharacterSetClause,
+            CollationClause,
+            IdentityClause,
+        )
 
         if isinstance(attr, IdentityAttribute):
             # The AR-layer IdentityAttribute keeps its tri-state until the AR
             # layer's exposure of the split is decided (out of scope for this
             # round); translate it to the expression layer's two parameters.
-            clause = IdentityClause(
+            return IdentityClause(
                 self,
                 attr.generation,
                 start=attr.start,
@@ -144,14 +220,11 @@ class DDLColumnMixin:
                 cycle=attr.cycle is True,
                 no_cycle=attr.cycle is False,
             )
-            return self.format_identity_clause(clause)
         if isinstance(attr, CollationAttribute):
-            return f" COLLATE {attr.name}", ()
-        raise UnsupportedFeatureError(
-            self.name, f"COLUMN ATTRIBUTE {type(attr).__name__}",
-            f"{self.name} cannot render the {type(attr).__name__} column "
-            f"attribute; declare it only on backends that support it.",
-        )
+            return CollationClause(self, attr.name)
+        if isinstance(attr, CharacterSetAttribute):
+            return CharacterSetClause(self, attr.name)
+        return None
 
     def format_column(self, expr: "Column") -> Tuple[str, Tuple]:
         """Format a :class:`~...expression.core.Column`.
@@ -211,20 +284,56 @@ class DDLColumnMixin:
         return False
 
     def format_column_attributes(self, col_def: "ColumnDefinition") -> Tuple[str, Tuple]:
-        """Render all of a column's attributes as one definition fragment.
+        """Render all of a column's clauses as one definition fragment.
 
         Shared by the generic formatter and by backend ``format_column_definition``
-        overrides (which otherwise would not render the dialect-free
-        ``attributes`` channel). Returns the concatenated fragments with a
-        leading space each, and the accumulated parameters.
+        overrides (which otherwise would not render the ``attributes`` channel).
+        Returns the concatenated fragments with a leading space each, and the
+        accumulated parameters.
+
+        Order is the order the clauses were built in; this method does not sort.
         """
         sql = ""
         params: List[Any] = []
-        for attr in getattr(col_def, "attributes", None) or ():
+        for attr in col_def.attributes or ():
             attr_sql, attr_params = self.format_column_attribute(attr)
             sql += attr_sql
             params.extend(attr_params)
         return sql, tuple(params)
+
+    def format_collation_clause(self, clause: "CollationClause") -> Tuple[str, Tuple]:
+        """Render a column's ``COLLATE <name>`` clause.
+
+        Generic reusable implementation: ``COLLATE <name>`` with the name
+        spelled bare, which is what every backend emitted before the clause
+        became an expression node. Quoting it as an identifier would be the
+        more defensive choice, but it changes the SQL of seven backends and is
+        not this change's business. Backends that want a quoted specification
+        rather than a bare name (Snowflake, BigQuery) override this.
+
+        Args:
+            clause: The clause carrying the collation name.
+
+        Returns:
+            A ``(sql, params)`` tuple (params is always empty for DDL).
+        """
+        return f" COLLATE {clause.name}", ()
+
+    def format_character_set_clause(
+        self, clause: "CharacterSetClause"
+    ) -> Tuple[str, Tuple]:
+        """Render a column's ``CHARACTER SET <name>`` clause.
+
+        Generic reusable implementation: ``CHARACTER SET <name>`` with the name
+        spelled bare, for the same reason as :meth:`format_collation_clause`.
+
+        Args:
+            clause: The clause carrying the character set name.
+
+        Returns:
+            A ``(sql, params)`` tuple (params is always empty for DDL).
+        """
+        return f" CHARACTER SET {clause.name}", ()
 
     def format_column_definition(self, col_def: "ColumnDefinition") -> Tuple[str, Tuple]:
         """Format a column definition clause (name, type, constraints, comment).
@@ -259,8 +368,10 @@ class DDLColumnMixin:
             all_params.extend(comment_params)
         return col_sql, tuple(all_params)
 
-    def format_generated_column_expression(self, expr: "GeneratedColumnExpression") -> Tuple[str, Tuple]:
-        """Format a :class:`~...statements.ddl_table.GeneratedColumnExpression`.
+    def format_column_generated_constraint(
+        self, constraint: "ColumnGeneratedConstraint"
+    ) -> Tuple[str, Tuple]:
+        """Format a column-level ``GENERATED ALWAYS AS`` branch.
 
         Renders ``GENERATED ALWAYS AS (<expr>) STORED|VIRTUAL`` and delegates
         to :meth:`supports_generated_columns` /
@@ -271,7 +382,8 @@ class DDLColumnMixin:
         should override this method.
 
         Args:
-            expr: The generated column expression to render.
+            constraint: The branch carrying the generating expression and the
+                storage type.
 
         Returns:
             A ``(sql, params)`` tuple with a leading space.
@@ -290,9 +402,9 @@ class DDLColumnMixin:
                 f"{self.name} does not support generated (computed) columns.",
             )
 
-        inner_sql, inner_params = expr.expression.to_sql()
+        inner_sql, inner_params = constraint.expression.to_sql()
 
-        if expr.storage_type == GeneratedColumnType.STORED:
+        if constraint.storage_type == GeneratedColumnType.STORED:
             if not self.supports_stored_generated_columns():
                 raise UnsupportedFeatureError(
                     self.name,
@@ -309,242 +421,318 @@ class DDLColumnMixin:
                 )
             storage = " VIRTUAL"
 
-        return f" GENERATED ALWAYS AS ({inner_sql}){storage}", inner_params
+        return f" GENERATED ALWAYS AS ({inner_sql}){storage}", ()
 
-    @staticmethod
-    def _call_constraint_capability(checker: Any, constraint_type: Any) -> bool:
-        import inspect
+    def format_constraint_enforcement(self, constraint: "ColumnConstraint") -> str:
+        """Render the ``[NOT] ENFORCED`` trait a constraint asked for.
 
-        parameters = inspect.signature(checker).parameters
-        if "constraint_type" in parameters or any(
-            parameter.kind == inspect.Parameter.VAR_POSITIONAL
-            for parameter in parameters.values()
-        ):
-            return bool(checker(constraint_type))
-        return bool(checker())
+        The kinds that may carry the trait come from the standard-derived
+        whitelist (SQL:2016 fixes them to PRIMARY KEY, UNIQUE, FOREIGN KEY,
+        and CHECK); a dialect narrows that set inside its own constraint
+        formatter and may not widen it.
 
-    def _format_constraint_enforcement(self, constraint: Any) -> str:
-        enforced = getattr(constraint, "enforced", False)
-        not_enforced = getattr(constraint, "not_enforced", False)
+        Returns:
+            ``""`` when the constraint asked for neither spelling, else the
+            ``ENFORCED`` / ``NOT ENFORCED`` fragment.
+
+        Raises:
+            TypeError: The flags are not bools.
+            ValueError: The constraint asked for both spellings at once.
+            UnsupportedFeatureError: The dialect does not support the trait.
+        """
+        enforced = constraint.enforced
+        not_enforced = constraint.not_enforced
         if not enforced and not not_enforced:
             return ""
         if not isinstance(enforced, bool) or not isinstance(not_enforced, bool):
             raise TypeError("constraint enforced/not_enforced must be bools")
-        from ...expression.statements import TableConstraintType
-
-        constraint_type = normalize_table_constraint_type(
-            getattr(constraint, "constraint_type", None)
-        )
-        if constraint_type not in {TableConstraintType.CHECK, TableConstraintType.FOREIGN_KEY}:
-            raise ValueError(
-                "ENFORCED/NOT ENFORCED is only valid for CHECK and FOREIGN KEY constraints"
-            )
-        checker = getattr(self, "supports_constraint_enforced", None)
-        if checker is None or not self._call_constraint_capability(checker, constraint_type):
+        # The clause refuses both spellings at construction, but an attribute
+        # assigned afterwards bypasses __init__, so the pair is re-checked
+        # here as the last line of defence.
+        if enforced and not_enforced:
+            raise ValueError("enforced and not_enforced are mutually exclusive")
+        # Which kinds may carry the trait is settled by the node now:
+        # ``ColumnConstraint``/``TableConstraint`` refuse a branch that cannot,
+        # at construction. Nothing here has to guess which kind this is.
+        if not self.supports_constraint_enforced():
             from ..exceptions import UnsupportedFeatureError
 
-            raise UnsupportedFeatureError(
-                getattr(self, "name", type(self).__name__),
-                "ENFORCED/NOT ENFORCED constraint",
-            )
+            raise UnsupportedFeatureError(self.name, "ENFORCED/NOT ENFORCED constraint")
         return "ENFORCED" if enforced else "NOT ENFORCED"
 
-    def _format_constraint_validation(self, constraint: Any) -> str:
-        from ...expression.statements import ConstraintValidation, TableConstraintType
+    def format_constraint_validation(self, constraint: "TableConstraint") -> str:
+        """Render the ``NOT VALID`` trait a table constraint asked for.
 
-        constraint_type = normalize_table_constraint_type(
-            getattr(constraint, "constraint_type", None)
+        Serves ``ALTER TABLE ADD CONSTRAINT``; PostgreSQL accepts the trait on
+        CHECK and FOREIGN KEY only, and that restriction lives here -- asked of
+        the branch, which is what names the kind.
+
+        Returns:
+            ``""`` when the constraint asked for no validation state or the
+            default VALIDATE, else ``" NOT VALID"``.
+
+        Raises:
+            TypeError: ``validation`` is not a ``ConstraintValidation``.
+            ValueError: The trait rides a branch that cannot carry it.
+            UnsupportedFeatureError: The dialect has no ``NOT VALID``.
+        """
+        from ...expression.statements import (
+            ConstraintValidation,
+            TableCheckConstraint,
+            TableForeignKeyConstraint,
         )
-        validation = getattr(constraint, "validation", None)
-        value = getattr(validation, "value", validation)
-        if value is None:
-            return ""
-        if not isinstance(value, str):
-            raise TypeError("constraint validation must be a ConstraintValidation or string")
-        normalized = "".join(value.strip().upper().split())
-        if normalized == "".join(ConstraintValidation.VALIDATE.value.split()):
-            return ""
-        if normalized not in {
-            "".join(ConstraintValidation.NOVALIDATE.value.split()),
-            "".join(ConstraintValidation.NOVALIDATE.name.split()),
-        }:
-            raise ValueError("constraint validation must be VALIDATE or NOT VALID")
-        if constraint_type not in {TableConstraintType.CHECK, TableConstraintType.FOREIGN_KEY}:
-            raise ValueError("NOT VALID is only valid for CHECK and FOREIGN KEY constraints")
-        checker = getattr(self, "supports_constraint_novalidate", None)
-        if checker is None or not checker():
-            from ..exceptions import UnsupportedFeatureError
+        from ..exceptions import UnsupportedFeatureError
 
-            raise UnsupportedFeatureError(
-                getattr(self, "name", type(self).__name__),
-                "NOT VALID constraint",
+        validation = constraint.validation
+        if validation is None:
+            return ""
+        if not isinstance(validation, ConstraintValidation):
+            raise TypeError(
+                "constraint validation must be a ConstraintValidation, got "
+                f"{type(validation).__name__}"
             )
+        if validation is ConstraintValidation.VALIDATE:
+            return ""
+        if not isinstance(constraint.branch, (TableCheckConstraint, TableForeignKeyConstraint)):
+            raise ValueError("NOT VALID is only valid for CHECK and FOREIGN KEY constraints")
+        if not self.supports_constraint_novalidate():
+            raise UnsupportedFeatureError(self.name, "NOT VALID constraint")
         return " NOT VALID"
 
-    def _prepare_ddl_check_predicate(
-        self,
-        value: Any,
-        memo: Optional[Dict[int, Any]] = None,
-    ) -> Any:
-        if memo is None:
-            memo = {}
-        if isinstance(value, BaseExpression):
-            identity = id(value)
-            if identity in memo:
-                return memo[identity]
-            bound = copy(value)
-            memo[identity] = bound
-            bound.dialect = self
-            for name, child in value.__dict__.items():
-                if name == "_dialect":
-                    continue
-                setattr(bound, name, self._prepare_ddl_check_predicate(child, memo))
-            if isinstance(value, Literal):
-                bound.inline_literals = True
-            return bound
-        if isinstance(value, list):
-            return [self._prepare_ddl_check_predicate(child, memo) for child in value]
-        if isinstance(value, tuple):
-            return tuple(self._prepare_ddl_check_predicate(child, memo) for child in value)
-        if isinstance(value, set):
-            return {self._prepare_ddl_check_predicate(child, memo) for child in value}
-        if isinstance(value, dict):
-            return {
-                self._prepare_ddl_check_predicate(key, memo): self._prepare_ddl_check_predicate(
-                    child,
-                    memo,
-                )
-                for key, child in value.items()
-            }
-        return value
-
-    def _format_ddl_check_predicate(self, predicate: Any) -> str:
-        prepared = self._prepare_ddl_check_predicate(predicate)
-        check_sql, check_params = prepared.to_sql()
-        if check_params:
-            raise ValueError("DDL CHECK predicates must not contain bind parameters")
-        return check_sql
-
     def format_column_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, Tuple]:
-        """Format a single column constraint clause.
+        """Format one column-level constraint clause.
 
-        Dispatches to the specialised formatter for the constraint type.
-        Simple constraints (PRIMARY KEY, NOT NULL, NULL, UNIQUE) are rendered
-        directly.
+        Renders what the grammar hangs on the **production** -- the
+        ``CONSTRAINT <name>`` prefix, then the branch's own body, then the
+        trailing traits -- and dispatches to the branch's formatter for the
+        body. Which kind this is, is the branch's business, not this
+        method's: the fat node that used to switch on a ``constraint_type``
+        field here is gone, and so is the silent acceptance of a trait the
+        kind cannot carry (the clause refuses it at construction).
 
         Args:
-            constraint: The column constraint expression to render.
+            constraint: The column constraint clause to render.
 
         Returns:
             A ``(sql, params)`` tuple. The ``sql`` value is prefixed with a
-            leading space so it can be appended directly to a column definition.
+            leading space so it can be appended directly to a column
+            definition.
 
         Raises:
-            TypeError: ``ColumnConstraint.foreign_key_reference`` is not a Table.
-            The referenced relation would be named by whichever object kind it
-            actually was, so the FK would point somewhere else.
+            UnsupportedFeatureError: The dialect refuses the named prefix, the
+                trait, or the branch's own construct.
         """
-        reference = constraint.foreign_key_reference
-        if reference is not None and not isinstance(reference[0], Table):
-            raise TypeError(
-                f"ColumnConstraint.foreign_key_reference must pair a Table "
-                f"with its columns, got "
-                f"{type(reference[0]).__name__}"
-            )
-        from ...expression.statements import ColumnConstraintType
-        ctype = normalize_column_constraint_type(constraint.constraint_type)
-        simple_constraints = {
-            ColumnConstraintType.PRIMARY_KEY: " PRIMARY KEY",
-            ColumnConstraintType.NOT_NULL: " NOT NULL",
-            ColumnConstraintType.NULL: " NULL",
-            ColumnConstraintType.UNIQUE: " UNIQUE",
-        }
-        if ctype in simple_constraints:
-            if getattr(constraint, "enforced", False) or getattr(
-                constraint, "not_enforced", False
-            ):
-                self._format_constraint_enforcement(constraint)
-            return simple_constraints[ctype], ()
-        if ctype == ColumnConstraintType.DEFAULT:
-            if getattr(constraint, "enforced", False) or getattr(
-                constraint, "not_enforced", False
-            ):
-                self._format_constraint_enforcement(constraint)
-            return self.format_default_constraint(constraint)
-        if ctype == ColumnConstraintType.CHECK:
-            return self.format_column_check_constraint(constraint)
-        if ctype == ColumnConstraintType.FOREIGN_KEY:
-            return self.format_column_fk_constraint(constraint)
-        raise ValueError(f"Unsupported column constraint type: {ctype.value}")
+        prefix = ""
+        if constraint.name:
+            if not self.supports_constraint_naming():
+                from ..exceptions import UnsupportedFeatureError
 
-    def format_column_check_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, Tuple]:
-        """Format a column-level ``CHECK`` constraint.
+                raise UnsupportedFeatureError(
+                    self.name, "CONSTRAINT name on a column constraint"
+                )
+            prefix = f" CONSTRAINT {self.format_identifier(constraint.name)}"
+        branch_sql, branch_params = self.format_constraint_branch(constraint.branch)
+        return f"{prefix}{branch_sql}{self.format_constraint_traits(constraint)}", tuple(
+            branch_params
+        )
+
+    def format_constraint_branch(self, branch: "BaseExpression") -> Tuple[str, tuple]:
+        """Render a constraint branch through its own formatter.
+
+        The branch declares which formatter spells it (``format_method``),
+        so a dialect that spells one kind differently overrides that one
+        formatter and nothing else.
 
         Args:
-            constraint: The constraint whose ``check_condition`` is rendered.
+            branch: The branch node to render.
+
+        Returns:
+            A ``(sql, params)`` tuple, with a leading space for the
+            column-level branches.
+        """
+        formatter = getattr(self, branch.format_method, None)
+        if formatter is None:
+            raise NotImplementedError(
+                f"{self.name} has no {branch.format_method}() for "
+                f"{type(branch).__name__}; declare the constraint on backends "
+                f"that support it."
+            )
+        return formatter(branch)
+
+    def format_constraint_traits(self, constraint: "ColumnConstraint") -> Tuple[str, str]:
+        """Render the production-level traits of a column constraint.
+
+        Both halves of one trait: the deferral half (``DEFERRABLE`` /
+        ``NOT DEFERRABLE``), which PostgreSQL's grammar puts on PRIMARY KEY,
+        UNIQUE and FOREIGN KEY, and the enforcement half (``ENFORCED`` /
+        ``NOT ENFORCED``). Only the foreign-key branch used to read them, so
+        a request on a PRIMARY KEY was dropped without a word; rendering them
+        here is what the production level is for.
+
+        Args:
+            constraint: The clause whose traits are rendered.
+
+        Returns:
+            The fragment to append, including its leading space, or ``""``.
+
+        Raises:
+            UnsupportedFeatureError: The dialect declares neither the deferral
+                trait nor the enforcement trait.
+        """
+        parts = []
+        wants_deferral = (
+            constraint.deferrable
+            or constraint.not_deferrable
+            or constraint.initially_deferred
+            or constraint.initially_immediate
+        )
+        if wants_deferral:
+            from ..exceptions import UnsupportedFeatureError
+
+            if not self.supports_deferrable_constraint():
+                raise UnsupportedFeatureError(
+                    self.name, "DEFERRABLE / INITIALLY constraint trait"
+                )
+            if constraint.deferrable or constraint.not_deferrable:
+                parts.append("DEFERRABLE" if constraint.deferrable else "NOT DEFERRABLE")
+            if constraint.initially_deferred or constraint.initially_immediate:
+                parts.append(
+                    "INITIALLY DEFERRED"
+                    if constraint.initially_deferred
+                    else "INITIALLY IMMEDIATE"
+                )
+        enforcement = self.format_constraint_enforcement(constraint)
+        if enforcement:
+            parts.append(enforcement)
+        return f" {' '.join(parts)}" if parts else ""
+
+    def format_column_primary_key_constraint(
+        self, constraint: "ColumnPrimaryKeyConstraint"
+    ) -> Tuple[str, Tuple]:
+        """Format a column-level ``PRIMARY KEY`` branch.
+
+        Split out because a dialect may add to the clause itself: SQLite
+        spells ``AUTOINCREMENT`` as part of this grammar and nowhere else.
+
+        Args:
+            constraint: The branch to render.
 
         Returns:
             A ``(sql, params)`` tuple with a leading space.
+
+        Raises:
+            UnsupportedFeatureError: The dialect has no primary keys.
         """
-        if constraint.check_condition is None:
-            return "", ()
-        check_sql = self._format_ddl_check_predicate(constraint.check_condition)
-        enforcement = self._format_constraint_enforcement(constraint)
-        suffix = f" {enforcement}" if enforcement else ""
-        return f" CHECK ({check_sql}){suffix}", ()
+        from ..exceptions import UnsupportedFeatureError
+
+        if not self.supports_primary_key_constraint():
+            raise UnsupportedFeatureError(self.name, "PRIMARY KEY column constraint")
+        # The flag is not rendered here: AUTOINCREMENT is part of SQLite's
+        # grammar, so the dialect that spells it says so in an override of
+        # this formatter. Core renders the constraint the standard defines.
+        return " PRIMARY KEY", ()
+
+    def format_column_unique_constraint(
+        self, constraint: "ColumnUniqueConstraint"
+    ) -> Tuple[str, Tuple]:
+        """Format a column-level ``UNIQUE`` branch."""
+        from ..exceptions import UnsupportedFeatureError
+
+        if not self.supports_unique_constraint():
+            raise UnsupportedFeatureError(self.name, "UNIQUE column constraint")
+        return " UNIQUE", ()
+
+    def format_column_not_null_constraint(
+        self, constraint: "ColumnNotNullConstraint"
+    ) -> Tuple[str, Tuple]:
+        """Format a column-level ``NOT NULL`` branch."""
+        from ..exceptions import UnsupportedFeatureError
+
+        if not self.supports_not_null_constraint():
+            raise UnsupportedFeatureError(self.name, "NOT NULL column constraint")
+        return " NOT NULL", ()
+
+    def format_column_nullable_constraint(
+        self, constraint: "ColumnNullableConstraint"
+    ) -> Tuple[str, Tuple]:
+        """Format a column-level ``NULL`` branch.
+
+        An explicitly nullable column is part of every SQL grammar rather
+        than an optional construct, so it consults no probe.
+        """
+        return " NULL", ()
+
+    def format_column_check_constraint(
+        self, constraint: "ColumnCheckConstraint"
+    ) -> Tuple[str, Tuple]:
+        """Format a column-level ``CHECK`` branch.
+
+        Args:
+            constraint: The branch whose ``condition`` is rendered.
+
+        Returns:
+            A ``(sql, params)`` tuple with a leading space.
+
+        Raises:
+            UnsupportedFeatureError: The dialect has no CHECK constraints.
+        """
+        from ..exceptions import UnsupportedFeatureError
+
+        if not self.supports_check_constraint():
+            raise UnsupportedFeatureError(self.name, "CHECK column constraint")
+        check_sql, check_params = constraint.condition.to_sql()
+        return f" CHECK ({check_sql})", tuple(check_params)
 
     def format_default_value_clause(self, expr: "DefaultValueClause") -> Tuple[str, Tuple]:
         """Format the value clause of a ``DEFAULT`` constraint.
 
-        Scalars are inlined with dialect-controlled escaping; a
-        ``BaseExpression`` value renders through its own ``to_sql`` (a
-        parameterised ``Literal`` is inlined so DDL carries no bind params).
+        The clause normalised its value at construction: a ``DEFAULT`` position
+        carries no bind parameters, so whatever arrives is a ``Literal`` with
+        ``inline`` set. Rendering it is therefore the literal's own rendering,
+        and anything that still produces a bind value is a value the caller
+        marked as binding in a position that cannot bind -- a refusal, not a
+        fallback.
 
         Args:
             expr: The ``DefaultValueClause`` carrying the value.
 
         Returns:
-            A ``(sql, params)`` tuple (params is always empty for DDL).
+            A ``(sql, params)`` tuple; params is always empty for DDL.
+
+        Raises:
+            ValueError: The expression value still carries bind parameters
+                (e.g. a ``RawSQL`` with bound values), which a DEFAULT
+                position cannot accept.
         """
-        from ...dialect.base import SQLDialectBase
-        value = expr.value
-        if isinstance(value, BaseExpression):
-            value_sql, value_params = value.to_sql()
-            if value_params and isinstance(value, Literal):
-                # A parameterized literal inside DDL: re-render inline.
-                value_sql = self.inline_sql_literal(value.value)
-                value_params = ()
-            return value_sql, tuple(value_params)
-        if isinstance(value, str):
-            escaped = SQLDialectBase._escape_sql_string(value)
-            return f"'{escaped}'", ()
-        return self.inline_sql_literal(value), ()
+        value_sql, value_params = expr.value.to_sql()
+        if value_params:
+            raise ValueError("DEFAULT value must render without bind parameters")
+        return value_sql, ()
 
-    def format_default_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, Tuple]:
-        """Format a ``DEFAULT`` constraint.
+    def format_column_default_constraint(
+        self, constraint: "ColumnDefaultConstraint"
+    ) -> Tuple[str, Tuple]:
+        """Format a column-level ``DEFAULT`` branch.
 
-        The default value is always rendered inline (DDL carries no bind
-        parameters); value rendering is delegated to
-        :meth:`format_default_value_clause`.
+        The value is always rendered inline (DDL carries no bind parameters;
+        ``ColumnDefaultConstraint`` declares ``inline_binding = True``);
+        value rendering is delegated to :meth:`format_default_value_clause`.
 
         Args:
-            constraint: The constraint whose ``default_value`` is rendered.
+            constraint: The branch whose ``value`` is rendered.
 
         Returns:
             A ``(sql, params)`` tuple with a leading space.
-
-        Raises:
-            ValueError: If ``default_value`` is ``None``.
         """
         from ...expression.statements.ddl_table import DefaultValueClause
-        if constraint.default_value is None:
-            raise ValueError("DEFAULT constraint must have a default value specified.")
-        if isinstance(constraint.default_value, DefaultValueClause):
-            value_clause = constraint.default_value
+
+        value = constraint.value
+        if isinstance(value, DefaultValueClause):
+            value_clause = value
         else:
-            value_clause = DefaultValueClause(self, constraint.default_value)
-        value_sql, value_params = self.format_default_value_clause(value_clause)
-        return f" DEFAULT {value_sql}", tuple(value_params)
+            value_clause = DefaultValueClause(self, value)
+        value_sql, _ = self.format_default_value_clause(value_clause)
+        return f" DEFAULT {value_sql}", ()
 
     def format_references_clause(self, expr: "ReferencesClause") -> Tuple[str, Tuple]:
         """Format a ``REFERENCES`` clause (shared by column/table foreign keys).
@@ -565,32 +753,26 @@ class DDLColumnMixin:
             relation.
             ValueError: If the referenced table has no columns.
         """
+        from ..exceptions import UnsupportedFeatureError
+        from ...expression.statements import ReferentialAction
+
         if not isinstance(expr.referenced_table, Table):
             raise TypeError(
                 f"ReferencesClause.referenced_table must be a Table, "
                 f"got {type(expr.referenced_table).__name__}"
             )
-        from ...expression.statements import ReferentialAction
         if not expr.referenced_columns:
             raise ValueError("REFERENCES clause requires at least one referenced column.")
         ref_cols_str = ", ".join(self.format_identifier(col) for col in expr.referenced_columns)
         result = f"REFERENCES {expr.referenced_table.to_sql()[0]}({ref_cols_str})"
         if expr.match_type is not None:
-            if not isinstance(expr.match_type, str):
-                raise ValueError("FOREIGN KEY MATCH type must be a string")
-            match_type = " ".join(expr.match_type.strip().upper().split())
-            if match_type not in {"SIMPLE", "PARTIAL", "FULL"}:
-                raise ValueError(
-                    f"Invalid MATCH type '{expr.match_type}'. "
-                    "Must be one of: FULL, PARTIAL, SIMPLE"
-                )
+            match_type = normalize_foreign_key_match_type(expr.match_type)
             if not self.supports_fk_match():
-                from ..exceptions import UnsupportedFeatureError
                 raise UnsupportedFeatureError(
                     self.name, "FOREIGN KEY MATCH",
                     f"{self.name} does not support MATCH for foreign keys."
                 )
-            result += f" MATCH {match_type}"
+            result += f" MATCH {match_type.value}"
         on_delete = (
             self._referential_action_value(expr.on_delete)
             if expr.on_delete is not None
@@ -598,7 +780,6 @@ class DDLColumnMixin:
         )
         if on_delete is not None and on_delete != ReferentialAction.NO_ACTION.value:
             if not self.supports_foreign_key_on_delete():
-                from ..exceptions import UnsupportedFeatureError
                 raise UnsupportedFeatureError(
                     self.name, "FOREIGN KEY ON DELETE",
                     f"{self.name} does not support ON DELETE for foreign keys."
@@ -611,17 +792,28 @@ class DDLColumnMixin:
         )
         if on_update is not None and on_update != ReferentialAction.NO_ACTION.value:
             if not self.supports_foreign_key_on_update():
-                from ..exceptions import UnsupportedFeatureError
                 raise UnsupportedFeatureError(
                     self.name, "FOREIGN KEY ON UPDATE",
                     f"{self.name} does not support ON UPDATE for foreign keys."
                 )
             result += f" ON UPDATE {on_update}"
-        if expr.deferrable or expr.not_deferrable:
-            result += " DEFERRABLE" if expr.deferrable else " NOT DEFERRABLE"
         # INITIALLY ... is an independent constraint attribute in the SQL
         # grammar (PostgreSQL accepts it alone), so it is rendered whenever it
-        # was requested rather than dropped when DEFERRABLE is absent.
+        # was requested rather than dropped when DEFERRABLE is absent. Both
+        # spellings are authorised by the same capability.
+        has_deferral = (
+            expr.deferrable
+            or expr.not_deferrable
+            or expr.initially_deferred
+            or expr.initially_immediate
+        )
+        if has_deferral and not self.supports_deferrable_constraint():
+
+            raise UnsupportedFeatureError(
+                self.name, "DEFERRABLE / INITIALLY clause on a foreign key"
+            )
+        if expr.deferrable or expr.not_deferrable:
+            result += " DEFERRABLE" if expr.deferrable else " NOT DEFERRABLE"
         if expr.initially_deferred or expr.initially_immediate:
             result += (
                 " INITIALLY DEFERRED"
@@ -650,42 +842,50 @@ class DDLColumnMixin:
             f"{', '.join(member.value for member in ReferentialAction)}"
         )
 
-    def format_column_fk_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, Tuple]:
-        """Format a column-level ``REFERENCES`` (foreign key) constraint.
+    def format_column_fk_constraint(
+        self, constraint: "ColumnForeignKeyConstraint"
+    ) -> Tuple[str, Tuple]:
+        """Format a column-level ``REFERENCES`` branch.
 
-        Delegates the reference body to :meth:`format_references_clause`.
+        Delegates the reference body to :meth:`format_references_clause`. The
+        deferral traits are the production's to render (see
+        :meth:`format_constraint_traits`), so they are not passed down here.
 
         Args:
-            constraint: The constraint whose ``foreign_key_reference`` is
-                rendered.
+            constraint: The branch whose ``references`` are rendered.
 
         Returns:
             A ``(sql, params)`` tuple with a leading space.
 
         Raises:
-            ValueError: If ``foreign_key_reference`` is ``None``.
+            UnsupportedFeatureError: The dialect has no foreign keys.
         """
-        if constraint.foreign_key_reference is None:
-            raise ValueError("Foreign key constraint must have a foreign_key_reference specified.")
-        referenced_table, referenced_columns = constraint.foreign_key_reference
+        from ..exceptions import UnsupportedFeatureError
         from ...expression.statements.ddl_table import ReferencesClause
+
+        # Known coupling: this is the table-level probe reused for the
+        # column-level grammar. A dialect whose *column* REFERENCES clause is
+        # unusable while its table-level FOREIGN KEY works (SQL Server) cannot
+        # be expressed until the two levels get separate probes.
+        if not self.supports_foreign_key_constraint():
+            raise UnsupportedFeatureError(self.name, "REFERENCES column constraint")
+
+        referenced_table, referenced_columns = constraint.references
+
         references = ReferencesClause(
             self,
             referenced_table,
             referenced_columns,
             on_delete=constraint.on_delete,
             on_update=constraint.on_update,
-            deferrable=constraint.deferrable,
-            not_deferrable=constraint.not_deferrable,
-            initially_deferred=constraint.initially_deferred,
-            initially_immediate=constraint.initially_immediate,
+            match_type=constraint.match_type,
         )
         ref_sql, ref_params = self.format_references_clause(references)
-        enforcement = self._format_constraint_enforcement(constraint)
-        suffix = f" {enforcement}" if enforcement else ""
-        return f" {ref_sql}{suffix}", tuple(ref_params)
+        return f" {ref_sql}", tuple(ref_params)
 
-    def format_pk_constraint(self, t_const: "TableConstraint") -> Tuple[str, tuple]:
+    def format_table_primary_key_constraint(
+        self, constraint: "TablePrimaryKeyConstraint"
+    ) -> Tuple[str, tuple]:
         """Format the body of a ``PRIMARY KEY`` table constraint.
 
         Args:
@@ -697,12 +897,14 @@ class DDLColumnMixin:
         Raises:
             ValueError: If no columns are specified.
         """
-        if not t_const.columns:
+        if not constraint.columns:
             raise ValueError("PRIMARY KEY constraint must have at least one column specified.")
-        cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
+        cols_str = ", ".join(self.format_identifier(col) for col in constraint.columns)
         return f"PRIMARY KEY ({cols_str})", ()
 
-    def format_unique_constraint(self, t_const: "TableConstraint") -> Tuple[str, tuple]:
+    def format_table_unique_constraint(
+        self, constraint: "TableUniqueConstraint"
+    ) -> Tuple[str, tuple]:
         """Format the body of a ``UNIQUE`` table constraint.
 
         Args:
@@ -714,12 +916,14 @@ class DDLColumnMixin:
         Raises:
             ValueError: If no columns are specified.
         """
-        if not t_const.columns:
+        if not constraint.columns:
             raise ValueError("UNIQUE constraint must have at least one column specified.")
-        cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
+        cols_str = ", ".join(self.format_identifier(col) for col in constraint.columns)
         return f"UNIQUE ({cols_str})", ()
 
-    def format_table_check_constraint(self, t_const: "TableConstraint") -> Tuple[str, Tuple]:
+    def format_table_check_constraint(
+        self, constraint: "TableCheckConstraint"
+    ) -> Tuple[str, Tuple]:
         """Format a table-level ``CHECK`` constraint body.
 
         Args:
@@ -731,119 +935,133 @@ class DDLColumnMixin:
         Raises:
             ValueError: If ``check_condition`` is ``None``.
         """
-        if t_const.check_condition is None:
+        if constraint.condition is None:
             raise ValueError("CHECK constraint must have a check condition specified.")
-        check_sql = self._format_ddl_check_predicate(t_const.check_condition)
-        return f"CHECK ({check_sql})", ()
+        check_sql, check_params = constraint.condition.to_sql()
+        return f"CHECK ({check_sql})", tuple(check_params)
 
-    def format_foreign_key_constraint(self, t_const: "TableConstraint") -> Tuple[str, Tuple]:
-        """Format a table-level ``FOREIGN KEY`` constraint body.
+    def format_table_foreign_key_constraint(
+        self, constraint: "TableForeignKeyConstraint"
+    ) -> Tuple[str, Tuple]:
+        """Format a table-level ``FOREIGN KEY`` branch.
 
         Args:
-            t_const: The constraint carrying the local columns, referenced
-                table, and referenced columns.
+            constraint: The branch carrying the local columns, the referenced
+                table and columns, and the referential actions.
+
+        Returns:
+            A ``(sql, params)`` tuple; ``sql`` has no leading space.
+
+        Raises:
+            ValueError: The local columns, the referenced columns or the
+                referenced table are missing.
+        """
+        if not constraint.columns:
+            raise ValueError("FOREIGN KEY constraint must have at least one local column specified.")
+        referenced_table, referenced_columns = constraint.references
+        if not referenced_columns:
+            raise ValueError("FOREIGN KEY constraint must have at least one foreign key column specified.")
+        if not referenced_table:
+            raise ValueError("FOREIGN KEY constraint must have a foreign key table specified.")
+        from ...expression.statements.ddl_table import ReferencesClause
+
+        cols_str = ", ".join(self.format_identifier(col) for col in constraint.columns)
+
+        references = ReferencesClause(
+            self,
+            referenced_table,
+            list(referenced_columns),
+            on_delete=constraint.on_delete,
+            on_update=constraint.on_update,
+            match_type=constraint.match_type,
+        )
+        ref_sql, ref_params = self.format_references_clause(references)
+        return f"FOREIGN KEY ({cols_str}) {ref_sql}", tuple(ref_params)
+
+    def format_table_exclude_constraint(
+        self, constraint: "TableExcludeConstraint"
+    ) -> Tuple[str, Tuple]:
+        """Format a table-level ``EXCLUDE`` branch.
+
+        Core has no EXCLUDE grammar to fall back on, so the default refuses
+        by name rather than rendering SQL a server would reject. The branch
+        exists because the constraint is enumerable (规范 4.9's table
+        constraint kinds), and a dialect whose server can spell it overrides
+        this formatter.
+
+        Args:
+            constraint: The branch carrying the columns, the operator and the
+                optional index method.
 
         Returns:
             A ``(sql, params)`` tuple.
 
         Raises:
-            ValueError: If local columns, foreign key columns, or the
-                referenced table are missing.
+            UnsupportedFeatureError: Always, unless a dialect overrides this.
         """
-        if not t_const.columns:
-            raise ValueError("FOREIGN KEY constraint must have at least one local column specified.")
-        if not t_const.foreign_key_columns:
-            raise ValueError("FOREIGN KEY constraint must have at least one foreign key column specified.")
-        if not t_const.foreign_key_table:
-            raise ValueError("FOREIGN KEY constraint must have a foreign key table specified.")
-        cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
-        from ...expression.statements import ForeignKeyConstraint
-        from ...expression.statements.ddl_table import ReferencesClause
-        if isinstance(t_const, ForeignKeyConstraint):
-            on_delete = t_const.on_delete
-            on_update = t_const.on_update
-            match_type = t_const.match_type
-        else:
-            on_delete = on_update = match_type = None
-        references = ReferencesClause(
-            self,
-            t_const.foreign_key_table,
-            list(t_const.foreign_key_columns),
-            on_delete=on_delete,
-            on_update=on_update,
-            match_type=match_type,
-            deferrable=t_const.deferrable,
-            not_deferrable=t_const.not_deferrable,
-            initially_deferred=t_const.initially_deferred,
-            initially_immediate=t_const.initially_immediate,
-        )
-        ref_sql, ref_params = self.format_references_clause(references)
-        return f"FOREIGN KEY ({cols_str}) {ref_sql}", tuple(ref_params)
+        from ..exceptions import UnsupportedFeatureError
+
+        if not self.supports_exclude_constraint():
+            raise UnsupportedFeatureError(self.name, "EXCLUDE constraint")
+        raise UnsupportedFeatureError(self.name, "EXCLUDE constraint formatter")
 
     def format_table_constraint(self, expr: "TableConstraint") -> Tuple[str, Tuple]:
-        """Format a :class:`~...expression.statements.TableConstraint` clause.
+        """Format a table-level constraint clause.
 
-        Renders the optional ``CONSTRAINT <name>`` prefix followed by the
-        type-specific body (PRIMARY KEY, UNIQUE, CHECK, or FOREIGN KEY).
+        The table counterpart of :meth:`format_column_constraint`: the
+        ``CONSTRAINT <name>`` prefix, then the branch's body, then the
+        enforcement trait. The branch says which kind this is, so this method
+        no longer switches on a tag -- and ``EXCLUDE`` is a branch like the
+        rest rather than an enum member nothing could render.
 
         Args:
-            expr: The table constraint expression to render.
+            expr: The table constraint clause to render.
 
         Returns:
             A ``(sql, params)`` tuple; ``sql`` is empty when no clause parts
             are produced.
 
         Raises:
-            TypeError: ``TableConstraint.foreign_key_table`` is not a Table. Another
-            object kind would have had its own name rendered as the referenced
-            relation.
+            UnsupportedFeatureError: The dialect refuses the named prefix, the
+                trait, or the branch's construct.
         """
-        if expr.foreign_key_table is not None and not isinstance(expr.foreign_key_table, Table):
-            raise TypeError(
-                f"TableConstraint.foreign_key_table must be a Table, "
-                f"got {type(expr.foreign_key_table).__name__}"
-            )
-        from ...expression.statements import TableConstraintType
-        body_parts = []
-        params: Tuple = ()
-        ctype = normalize_table_constraint_type(expr.constraint_type)
-        if ctype == TableConstraintType.PRIMARY_KEY:
-            pk_sql, params = self.format_pk_constraint(expr)
-            body_parts.append(pk_sql)
-        elif ctype == TableConstraintType.UNIQUE:
-            unique_sql, params = self.format_unique_constraint(expr)
-            body_parts.append(unique_sql)
-        elif ctype == TableConstraintType.CHECK:
-            check_sql, params = self.format_table_check_constraint(expr)
-            body_parts.append(check_sql)
-        elif ctype == TableConstraintType.FOREIGN_KEY:
-            fk_sql, params = self.format_foreign_key_constraint(expr)
-            body_parts.append(fk_sql)
-        elif ctype == TableConstraintType.EXCLUDE:
-            checker = getattr(self, "supports_exclude_constraint", None)
-            from ..exceptions import UnsupportedFeatureError
+        from ..exceptions import UnsupportedFeatureError
 
-            if checker is None or not checker():
-                raise UnsupportedFeatureError(
-                    getattr(self, "name", type(self).__name__),
-                    "EXCLUDE constraint",
-                )
-            raise UnsupportedFeatureError(
-                getattr(self, "name", type(self).__name__),
-                "EXCLUDE constraint formatter",
-            )
-        if not body_parts:
-            raise ValueError(f"Unsupported table constraint type: {ctype.value}")
-        const_parts = []
+        parts = []
         if expr.name:
-            const_parts.append(f"CONSTRAINT {self.format_identifier(expr.name)}")
-        const_parts.extend(body_parts)
-        enforcement = self._format_constraint_enforcement(expr)
+            if not self.supports_constraint_naming():
+                raise UnsupportedFeatureError(
+                    self.name, "CONSTRAINT name on a table constraint"
+                )
+            parts.append(f"CONSTRAINT {self.format_identifier(expr.name)}")
+        branch_sql, branch_params = self.format_constraint_branch(expr.branch)
+        if branch_sql:
+            parts.append(branch_sql)
+        wants_deferral = (
+            expr.deferrable
+            or expr.not_deferrable
+            or expr.initially_deferred
+            or expr.initially_immediate
+        )
+        if wants_deferral:
+            if not self.supports_deferrable_constraint():
+                raise UnsupportedFeatureError(
+                    self.name, "DEFERRABLE / INITIALLY constraint trait"
+                )
+            if expr.deferrable or expr.not_deferrable:
+                parts.append("DEFERRABLE" if expr.deferrable else "NOT DEFERRABLE")
+            if expr.initially_deferred or expr.initially_immediate:
+                parts.append(
+                    "INITIALLY DEFERRED"
+                    if expr.initially_deferred
+                    else "INITIALLY IMMEDIATE"
+                )
+        enforcement = self.format_constraint_enforcement(expr)
         if enforcement:
-            const_parts.append(enforcement)
-        return " ".join(const_parts), tuple(params)
+            parts.append(enforcement)
+        return " ".join(parts), tuple(branch_params)
 
-    def format_storage_options(self, expr: "StorageOptionsExpression") -> Tuple[str, tuple]:
+    def format_storage_options_expression(self, expr: "StorageOptionsExpression") -> Tuple[str, tuple]:
         """Format a ``WITH (...)`` storage-options clause.
 
         Each option value is rendered as an inline SQL literal via
@@ -865,7 +1083,7 @@ class DDLColumnMixin:
             return " WITH (" + ", ".join(storage_parts) + ")", ()
         return "", ()
 
-    def format_add_column_action(self, action: "AddColumn") -> Tuple[str, Tuple]:
+    def format_add_column_action(self, action: "AddColumnAction") -> Tuple[str, Tuple]:
         """Format an ``ADD COLUMN`` ALTER TABLE action.
 
         Args:
@@ -880,7 +1098,7 @@ class DDLColumnMixin:
         """
         from ..exceptions import UnsupportedFeatureError
         column_sql, column_params = self.format_column_definition(action.column)
-        if getattr(action, "if_not_exists", None):
+        if action.if_not_exists:
             if not self.supports_add_column_if_not_exists():
                 raise UnsupportedFeatureError(
                     self.name, "ADD COLUMN IF NOT EXISTS",
@@ -889,7 +1107,7 @@ class DDLColumnMixin:
             return f"ADD COLUMN IF NOT EXISTS {column_sql}", column_params
         return f"ADD COLUMN {column_sql}", column_params
 
-    def format_drop_column_action(self, action: "DropColumn") -> Tuple[str, Tuple]:
+    def format_drop_column_action(self, action: "DropColumnAction") -> Tuple[str, Tuple]:
         """Format a ``DROP COLUMN`` ALTER TABLE action.
 
         Emits ``DROP COLUMN IF EXISTS`` when the action requests it.
@@ -911,7 +1129,7 @@ class DDLColumnMixin:
                 self.name, "ALTER TABLE DROP COLUMN",
                 f"{self.name} does not support DROP COLUMN.",
             )
-        if hasattr(action, "if_exists") and action.if_exists:
+        if action.if_exists:
             if not self.supports_drop_column_if_exists():
                 raise UnsupportedFeatureError(
                     self.name, "DROP COLUMN IF EXISTS",
@@ -920,12 +1138,13 @@ class DDLColumnMixin:
             return f"DROP COLUMN IF EXISTS {self.format_identifier(action.column_name)}", ()
         return f"DROP COLUMN {self.format_identifier(action.column_name)}", ()
 
-    def format_alter_column_action(self, action: "AlterColumn") -> Tuple[str, Tuple]:
+    def format_alter_column_action(self, action: "AlterColumnAction") -> Tuple[str, Tuple]:
         """Format an ``ALTER COLUMN`` ALTER TABLE action.
 
-        Handles ``SET DATA TYPE`` (validated type text), string values
-        (escaped and inlined), expression values rendered through
-        ``to_sql``, and plain values inlined via ``inline_sql_literal``.
+        Handles ``SET DATA TYPE`` (a type, rendered through the dialect),
+        string values (escaped and inlined), expression values rendered
+        through ``to_sql``, and plain values inlined via
+        ``inline_sql_literal``.
 
         Args:
             action: The action carrying the column name, operation, and
@@ -938,12 +1157,13 @@ class DDLColumnMixin:
             UnsupportedFeatureError: If the dialect does not support the
                 requested alteration (data-type changes and column-property
                 changes are gated by separate capability switches).
-            ValueError: If a ``SET DATA TYPE`` value is not a valid data type
-                specification.
         """
         from ..exceptions import UnsupportedFeatureError
         all_params: List[Any] = []
-        operation_str = action.operation.value if hasattr(action.operation, "value") else str(action.operation)
+        
+        from ...expression.statements.ddl_alter import operation_spelling
+
+        operation_str = operation_spelling(action.operation)
         if operation_str == "SET DATA TYPE":
             if not self.supports_alter_column_type():
                 raise UnsupportedFeatureError(
@@ -957,32 +1177,39 @@ class DDLColumnMixin:
                 "(SET/DROP DEFAULT, SET/DROP NOT NULL).",
             )
         column_part = f"ALTER COLUMN {self.format_identifier(action.column_name)} {operation_str}"
-        if hasattr(action, "new_value") and action.new_value is not None:
+        if action.new_value is not None:
             if operation_str == "SET DATA TYPE":
-                from ...dialect.base import SQLDialectBase
-                if not SQLDialectBase._validate_data_type(str(action.new_value)):
-                    raise ValueError(f"Invalid data type specification: '{action.new_value}'")
-                column_part += f" {action.new_value}"
+                type_sql, _ = action.new_value.to_sql()
+                column_part += f" {type_sql}"
             elif isinstance(action.new_value, str):
-                # DDL accepts no bind parameters: inline with escaping.
-                from ...dialect.base import SQLDialectBase
-                column_part += f" '{SQLDialectBase._escape_sql_string(action.new_value)}'"
-            elif isinstance(action.new_value, ToSQLProtocol):
-                value_sql, value_params = action.new_value.to_sql()
-                if value_params:
-                    # Parameterized literal inside DDL → render inline.
-                    if isinstance(action.new_value, Literal):
-                        value_sql = self.inline_sql_literal(action.new_value.value)
-                        value_params = ()
+                # DDL accepts no bind parameters, so the value is written into
+                # the SQL text. The literal is the controlled path: it escapes
+                # and quotes exactly as DEFAULT does.
+                value_sql, value_params = Literal(
+                    self, action.new_value, inline=True
+                ).to_sql()
                 column_part += f" {value_sql}"
-                all_params.extend(value_params)
+            elif isinstance(action.new_value, ToSQLProtocol):
+                if isinstance(action.new_value, Literal):
+                    # The value carries its own DDL decision; the controlled
+                    # path escapes and quotes it exactly as DEFAULT does.
+                    value_sql, value_params = Literal(
+                        self, action.new_value.value, inline=True
+                    ).to_sql()
+                else:
+                    value_sql, value_params = action.new_value.to_sql()
+                    if value_params:
+                        raise ValueError(
+                            "ALTER COLUMN value must render without bind parameters"
+                        )
+                column_part += f" {value_sql}"
             else:
                 column_part += f" {self.inline_sql_literal(action.new_value)}"
-        if hasattr(action, "cascade") and action.cascade:
+        if action.cascade:
             column_part += " CASCADE"
         return column_part, tuple(all_params)
 
-    def format_add_table_constraint_action(self, action: "AddTableConstraint") -> Tuple[str, Tuple]:
+    def format_add_table_constraint_action(self, action: "AddTableConstraintAction") -> Tuple[str, Tuple]:
         """Format an ``ADD CONSTRAINT`` ALTER TABLE action.
 
         Args:
@@ -1001,19 +1228,34 @@ class DDLColumnMixin:
         constraint_sql, params = self.format_table_constraint(action.constraint)
         if not constraint_sql:
             return "ADD UNKNOWN CONSTRAINT", ()
-        validation_sql = self._format_constraint_validation(action.constraint)
+        validation_sql = self.format_constraint_validation(action.constraint)
         return f"ADD {constraint_sql}{validation_sql}", tuple(params)
 
-    def format_alter_constraint_action(self, action: "AlterConstraint") -> Tuple[str, Tuple]:
-        from ...expression.statements import TableConstraintType
+    def format_alter_constraint_action(self, action: "AlterConstraintAction") -> Tuple[str, Tuple]:
+        """Format an ``ALTER CONSTRAINT`` enforcement action.
 
-        constraint_type = normalize_table_constraint_type(action.constraint_type)
-        if constraint_type not in {TableConstraintType.CHECK, TableConstraintType.FOREIGN_KEY}:
+        The kind restriction — CHECK and FOREIGN KEY only — is this
+        operation's own narrowing of the ENFORCABLE kinds and lives in the
+        formatter, not in the capability probe.
+
+        Raises:
+            TypeError: ``constraint_branch`` is not a CHECK or FOREIGN KEY branch.
+            ValueError: The kind cannot carry the ALTER CONSTRAINT trait.
+            UnsupportedFeatureError: The dialect has no ALTER CONSTRAINT
+                enforcement control.
+        """
+
+        branch = action.constraint_branch
+        if branch not in (TableCheckConstraint, TableForeignKeyConstraint):
+            raise TypeError(
+                "constraint_branch must be TableCheckConstraint or "
+                f"TableForeignKeyConstraint, got {type(branch).__name__}"
+            )
+        if branch not in (TableCheckConstraint, TableForeignKeyConstraint):
             raise ValueError(
                 "ALTER CONSTRAINT enforcement is only valid for CHECK and FOREIGN KEY constraints"
             )
-        checker = getattr(self, "supports_alter_constraint_enforced", None)
-        if checker is None or not self._call_constraint_capability(checker, constraint_type):
+        if not self.supports_alter_constraint_enforced():
             from ..exceptions import UnsupportedFeatureError
 
             raise UnsupportedFeatureError(
@@ -1028,15 +1270,14 @@ class DDLColumnMixin:
             (),
         )
 
-    def format_validate_constraint_action(self, action: "ValidateConstraint") -> Tuple[str, Tuple]:
-        checker = getattr(self, "supports_validate_constraint", None)
-        if checker is None or not checker():
+    def format_validate_constraint_action(self, action: "ValidateConstraintAction") -> Tuple[str, Tuple]:
+        if not self.supports_validate_constraint():
             from ..exceptions import UnsupportedFeatureError
 
             raise UnsupportedFeatureError(self.name, "VALIDATE CONSTRAINT")
         return f"VALIDATE CONSTRAINT {self.format_identifier(action.constraint_name)}", ()
 
-    def format_drop_table_constraint_action(self, action: "DropTableConstraint") -> Tuple[str, Tuple]:
+    def format_drop_table_constraint_action(self, action: "DropTableConstraintAction") -> Tuple[str, Tuple]:
         """Format a ``DROP CONSTRAINT`` ALTER TABLE action.
 
         Args:
@@ -1053,8 +1294,14 @@ class DDLColumnMixin:
         from ..exceptions import UnsupportedFeatureError
         if not self.supports_drop_constraint():
             raise UnsupportedFeatureError(self.name, "ALTER TABLE DROP CONSTRAINT")
-        result = f"DROP CONSTRAINT {self.format_identifier(action.constraint_name)}"
-        if hasattr(action, "cascade") and action.cascade:
+        if action.if_exists and not self.supports_drop_constraint_if_exists():
+            raise UnsupportedFeatureError(
+                self.name, "DROP CONSTRAINT IF EXISTS",
+                f"{self.name} does not support DROP CONSTRAINT IF EXISTS."
+            )
+        if_exists = "IF EXISTS " if action.if_exists else ""
+        result = f"DROP CONSTRAINT {if_exists}{self.format_identifier(action.constraint_name)}"
+        if action.cascade:
             result += " CASCADE"
         return result, ()
 
@@ -1091,7 +1338,7 @@ class DDLColumnMixin:
             tuple(all_params),
         )
 
-    def format_add_index_action(self, action: "AddIndex") -> Tuple[str, Tuple]:
+    def format_add_index_action(self, action: "AddIndexAction") -> Tuple[str, Tuple]:
         """Format an ``ADD INDEX`` ALTER TABLE action.
 
         Args:
@@ -1118,7 +1365,7 @@ class DDLColumnMixin:
             (),
         )
 
-    def format_drop_index_action(self, action: "DropIndex") -> Tuple[str, Tuple]:
+    def format_drop_index_action(self, action: "DropIndexAction") -> Tuple[str, Tuple]:
         """Format a ``DROP INDEX`` ALTER TABLE action.
 
         Emits ``DROP INDEX IF EXISTS`` when the action requests it.
@@ -1130,14 +1377,14 @@ class DDLColumnMixin:
             A ``(sql, params)`` tuple with empty parameters.
 
         Raises:
-            TypeError: ``DropIndex.index`` is not an Index. Another object kind
+            TypeError: ``DropIndexAction.index`` is not an Index. Another object kind
             would have had its own name rendered as the index's.
             UnsupportedFeatureError: If the dialect does not support
                 ``ALTER TABLE DROP INDEX``.
         """
         if not isinstance(action.index, Index):
             raise TypeError(
-                f"DropIndex.index must be an Index, "
+                f"DropIndexAction.index must be an Index, "
                 f"got {type(action.index).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError
@@ -1150,7 +1397,7 @@ class DDLColumnMixin:
         head = "DROP INDEX IF EXISTS" if action.if_exists else "DROP INDEX"
         return f"{head} {index_sql}", index_params
 
-    def format_rename_column_action(self, action: "RenameObject") -> Tuple[str, Tuple]:
+    def format_rename_column_action(self, action: "RenameColumnAction") -> Tuple[str, Tuple]:
         """Format a ``RENAME COLUMN`` ALTER TABLE action.
 
         Args:
@@ -1174,7 +1421,7 @@ class DDLColumnMixin:
             (),
         )
 
-    def format_rename_table_action(self, action: "RenameTable") -> Tuple[str, Tuple]:
+    def format_rename_table_action(self, action: "RenameTableAction") -> Tuple[str, Tuple]:
         """Format a ``RENAME TO`` ALTER TABLE action.
 
         Args:
@@ -1195,7 +1442,7 @@ class DDLColumnMixin:
             )
         return f"RENAME TO {self.format_identifier(action.new_name)}", ()
 
-    def format_modify_column_action(self, action: "ModifyColumn") -> Tuple[str, Tuple]:
+    def format_modify_column_action(self, action: "ModifyColumnAction") -> Tuple[str, Tuple]:
         """Format a ``MODIFY COLUMN`` ALTER TABLE action.
 
         The core implementation always raises, since ``MODIFY COLUMN`` is
@@ -1210,7 +1457,7 @@ class DDLColumnMixin:
         from ..exceptions import UnsupportedFeatureError
         raise UnsupportedFeatureError(self.name, "MODIFY COLUMN")
 
-    def format_change_column_action(self, action: "ChangeColumn") -> Tuple[str, Tuple]:
+    def format_change_column_action(self, action: "ChangeColumnAction") -> Tuple[str, Tuple]:
         """Format a ``CHANGE COLUMN`` ALTER TABLE action.
 
         The core implementation always raises, since ``CHANGE COLUMN`` is

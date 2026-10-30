@@ -6,7 +6,7 @@ Understanding these principles is essential for working with the expression syst
 
 ### 1. Expressions Are Declarative
 
-An expression instance **collects all parameters** that affect SQL generation. It is a data container, not an SQL generator. When you construct `Column('age') >= Literal(18)`, you are building a data structure that captures the column name, the operator, and the value — not generating SQL.
+An expression instance **collects all parameters** that affect SQL generation. It is a data container, not an SQL generator. When you construct `ComparisonPredicate(dialect, ComparisonOperator.GTE, Column(dialect, "age"), Literal(dialect, 18))`, you are building a data structure that captures the column name, the operator, and the value — not generating SQL.
 
 ### 2. Delegation to Dialect
 
@@ -39,8 +39,17 @@ rhosocial-activerecord's expression system has two layers:
 This means the **same expression class** produces different SQL depending on which backend is configured:
 
 ```python
+from rhosocial.activerecord.backend.expression import (
+    Column,
+    ComparisonOperator,
+    ComparisonPredicate,
+    Literal,
+)
+
 # Core expression — works on any backend
-expr = Column('age') >= Literal(18)
+expr = ComparisonPredicate(
+    dialect, ComparisonOperator.GTE, Column(dialect, "age"), Literal(dialect, 18)
+)
 
 # On MySQL dialect:   `age` >= %s
 # On PostgreSQL dialect: "age" >= $1
@@ -71,7 +80,7 @@ Because protocols are `@runtime_checkable`, you can check whether a dialect impl
 ```python
 from rhosocial.activerecord.backend.dialect.protocols import WindowFunctionSupport
 
-dialect = get_current_dialect()
+# dialect is your configured backend's dialect (backend.dialect)
 
 if isinstance(dialect, WindowFunctionSupport):
     # Window functions are available — check version-gated specifics
@@ -87,8 +96,8 @@ Each protocol exposes `supports_*()` methods that return `True` or `False`. Thes
 ```python
 # Check if the backend supports a specific feature
 if dialect.supports_returning_insert():
-    # Use RETURNING clause
-    query = User.query().insert(...).returning('id')
+    # RETURNING can be attached to an INSERT statement
+    ...
 
 if dialect.supports_json_type():
     # Use JSON column type
@@ -145,8 +154,9 @@ The following expression classes are shared across all backends. They live in `r
 | `Literal` | Parameter placeholder (e.g., `?`, `%s`, `$1`) |
 | `FunctionCall` | Function invocation (`FUNC(args)`), aggregate `FILTER (WHERE ...)` and window `OVER (...)` |
 | `Subquery` | Subquery as expression |
-| `TableExpression` | Table reference with temporal options |
-| `WildcardExpression` | `*` wildcard |
+| `Table` | Table object naming a relation |
+| `NamedRelationRef` | A relation in a FROM list, optionally aliased |
+| `AllColumnsWildcard` | `*` wildcard |
 | `ComparisonPredicate` | `=`, `!=`, `>`, `>=`, `<`, `<=` |
 | `LikePredicate` | `LIKE`, `ILIKE` |
 | `InPredicate` | `IN (...)` |
@@ -154,11 +164,11 @@ The following expression classes are shared across all backends. They live in `r
 | `IsNullPredicate` | `IS NULL`, `IS NOT NULL` |
 | `LogicalPredicate` | `AND`, `OR`, `NOT` |
 | `BinaryExpression` | Binary operators |
-| `BinaryArithmeticExpression` | `+`, `-`, `*`, `/`, `%` |
+| `ArithmeticOperation` | `add`, `sub`, `mul`, `div`, `mod` (written as `+`, `-`, `*`, `/`, `%`) |
 | `CaseExpression` | `CASE WHEN ... THEN ... END` |
-| `JSONDocumentExpression` | JSON path, yielding a document (`->`) |
-| `JSONTextExpression` | JSON path, yielding text (`->>`) |
-| `ArrayExpression` | Array operators |
+| `JSONDocumentValue` | JSON path, yielding a document (`->`) |
+| `JSONTextValue` | JSON path, yielding text (`->>`) |
+| `ArrayValue` | Array operators |
 
 ### Mixin Classes (Operator Overloading)
 
@@ -265,18 +275,49 @@ In addition to overriding core methods, the {backend} backend provides its own e
 
 ```python
 # Using core expression classes directly
-from rhosocial.activerecord.backend.expression import Column, Literal, FunctionCall
+from rhosocial.activerecord.backend.expression import (
+    Column,
+    FunctionCall,
+    NamedRelationRef,
+    QueryStatement,
+    StringColumn,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
 
 # Column references
-query = User.query().where(Column('age') >= Literal(18))
+query = QueryStatement(
+    dialect,
+    select=[Column(dialect, "id")],
+    from_=NamedRelationRef(dialect, Table(dialect, "users")),
+    where=(StringColumn(dialect, "name") == "Alice"),
+)
 
 # Function calls
-query = User.query().select(FunctionCall('COUNT', Column('id')))
+query = QueryStatement(
+    dialect,
+    select=[FunctionCall(dialect, "COUNT", Column(dialect, "id"))],
+    from_=NamedRelationRef(dialect, Table(dialect, "users")),
+)
 ```
 
 ### Through Model Proxies
 
 ```python
+from typing import ClassVar
+
+from rhosocial.activerecord.base import FieldProxy
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.model import ActiveRecord
+
+class User(ActiveRecord):
+    __table_name__ = "users"
+    c: ClassVar[FieldProxy] = FieldProxy()
+    id: int
+    age: int
+
+User.configure(SQLiteConnectionConfig(database=":memory:"), SQLiteBackend)
+
 # More idiomatic: use model.c proxy
 query = User.query().where(User.c.age >= 18)
 

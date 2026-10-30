@@ -12,10 +12,14 @@ from ....expression.bases import SQLPredicate
 
 if TYPE_CHECKING:
     from ......dialect.base import SQLDialectBase
-    from ....expression.bases import SQLQueryAndParams
 
 
 class SQLiteMatchPredicate(SQLPredicate):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect method that renders this expression."""
+        return "format_match_predicate"
     """SQLite FTS MATCH predicate expression.
 
     This predicate is used for full-text search operations in SQLite's
@@ -59,11 +63,3 @@ class SQLiteMatchPredicate(SQLPredicate):
         self.query = query
         self.columns = columns
         self.negate = negate
-
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Format the MATCH predicate using SQLite dialect.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
-        return self.dialect.format_match_predicate(self)

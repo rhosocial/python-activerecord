@@ -63,7 +63,7 @@ MySQL supports subpartitioning (partitioning a partition), which PostgreSQL does
 
 > **Declaring partitions.** Partitions are declared by constructing
 > backend-specific expression classes and passing them to
-> `CreateTableExpression(partition=...)`. The example below shows the
+> `CreateTableStatement(partition=...)`. The example below shows the
 > expression-level path.
 
 ### PostgreSQL Example

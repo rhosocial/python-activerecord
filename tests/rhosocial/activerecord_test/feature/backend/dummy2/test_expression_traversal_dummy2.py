@@ -18,9 +18,9 @@ TEST PURPOSE:
     - Core expressions: Column, Literal, FunctionCall, NamedRelationRef, etc.
     - Predicates: ComparisonPredicate, LogicalPredicate, LikePredicate, etc.
     - Query parts: WhereClause, GroupByHavingClause, OrderByClause, etc.
-    - DML/DDL statements: InsertExpression, DeleteExpression, CreateTableExpression, etc.
+    - DML/DDL statements: InsertStatement, DeleteStatement, CreateTableStatement, etc.
     - Graph expressions: GraphVertex, GraphEdge, MatchClause
-    - Transaction expressions: BeginTransactionExpression, CommitExpression, etc.
+    - Transaction statements: BeginTransactionStatement, CommitStatement, etc.
 
     See also: sqlite/test_expression_traversal.py for dialect_options and backend-specific tests.
 """
@@ -30,7 +30,8 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    WildcardExpression,
+    AllColumnsWildcard,
+    RowCountWildcard,
     FunctionCall,
     ComparisonPredicate,
     LogicalPredicate,
@@ -49,14 +50,14 @@ from rhosocial.activerecord.backend.expression.query_parts import (
     JoinClause,
 )
 from rhosocial.activerecord.backend.expression.query_sources import (
-    SetOperationExpression,
+    SetOperation,
     ValuesExpression,
 )
-from rhosocial.activerecord.backend.expression.statements.dql import QueryExpression
+from rhosocial.activerecord.backend.expression.statements.dql import QueryStatement
 from rhosocial.activerecord.backend.expression.transaction import (
-    BeginTransactionExpression,
-    CommitTransactionExpression,
-    RollbackTransactionExpression,
+    BeginTransactionStatement,
+    CommitStatement,
+    RollbackStatement,
 )
 from rhosocial.activerecord.backend.expression.graph import (
     GraphVertex,
@@ -64,12 +65,12 @@ from rhosocial.activerecord.backend.expression.graph import (
     GraphEdgeDirection,
 )
 from rhosocial.activerecord.backend.expression.advanced_functions import (
-    AllExpression,
-    AnyExpression,
-    ArrayExpression,
+    AllPredicate,
+    AnyPredicate,
+    ArrayOperation,
     CaseExpression,
-    ExistsExpression,
-    JSONDocumentExpression,
+    ExistsPredicate,
+    JSONDocumentValue,
     OrderedSetAggregation,
     WindowClause,
     WindowDefinition,
@@ -79,7 +80,7 @@ from rhosocial.activerecord.backend.expression.advanced_functions import (
 from rhosocial.activerecord.backend.expression.core import Subquery
 from rhosocial.activerecord.backend.expression.literals import Identifier
 from rhosocial.activerecord.backend.expression.operators import (
-    BinaryArithmeticExpression,
+    ArithmeticOperation,
     SQLOperation,
 )
 from rhosocial.activerecord.backend.expression.query_parts import (
@@ -88,26 +89,38 @@ from rhosocial.activerecord.backend.expression.query_parts import (
     ForUpdateClause,
 )
 from rhosocial.activerecord.backend.expression.query_sources import (
-    CTEExpression,
+    CTEClause,
     LateralExpression,
     TableFunctionExpression,
-    WithQueryExpression,
+    WithStatement,
 )
 from rhosocial.activerecord.backend.expression.transaction import (
-    SavepointExpression,
-    ReleaseSavepointExpression,
-    SetTransactionExpression,
+    SavepointStatement,
+    ReleaseSavepointStatement,
+    SetTransactionStatement,
 )
 from rhosocial.activerecord.backend.expression.operators import (
     BinaryExpression,
     UnaryExpression,
-    RawSQLExpression,
+    RawSQL,
     RawSQLPredicate,
 )
 from rhosocial.activerecord.backend.expression import serialization
-from rhosocial.activerecord.backend.expression.serialization import _reconstruct
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.objects import EdgeTable, NodeTable
+
+
+def _codec_registry():
+    """The default table plus the two kinds it deliberately leaves out.
+
+    This file is about the codec, not about what the default table admits. A
+    kind the framework ships is still a kind, and reading one back is the thing
+    under test -- so `RawSQL` is registered here rather than skipped.
+    """
+    view = serialization.default_registry().copy()
+    for cls in (RawSQL, RawSQLPredicate):
+        view.register_node(cls)
+    return view
 
 
 EXPRESSION_TEST_CASES = [
@@ -115,11 +128,12 @@ EXPRESSION_TEST_CASES = [
     dict(name="Literal", cls=Literal, params_func=lambda d: dict(dialect=d, value=42)),
     dict(name="Literal_string", cls=Literal, params_func=lambda d: dict(dialect=d, value="hello")),
     dict(name="Literal_none", cls=Literal, params_func=lambda d: dict(dialect=d, value=None)),
-    dict(name="WildcardExpression", cls=WildcardExpression, params_func=lambda d: dict(dialect=d)),
+    dict(name="AllColumnsWildcard", cls=AllColumnsWildcard, params_func=lambda d: dict(dialect=d)),
+    dict(name="RowCountWildcard", cls=RowCountWildcard, params_func=lambda d: dict(dialect=d)),
     dict(
         name="FunctionCall",
         cls=FunctionCall,
-        params_func=lambda d: dict(dialect=d, func_name="COUNT", args=(WildcardExpression(d),)),
+        params_func=lambda d: dict(dialect=d, func_name="COUNT", args=(RowCountWildcard(d),)),
     ),
     dict(
         name="FunctionCallDistinct",
@@ -142,7 +156,7 @@ EXPRESSION_TEST_CASES = [
         params_func=lambda d: dict(
             dialect=d,
             op="AND",
-            predicates=(
+            operands=(
                 ComparisonPredicate(d, "=", Column(d, "a"), Literal(d, 1)),
                 ComparisonPredicate(d, "=", Column(d, "b"), Literal(d, 2)),
             ),
@@ -151,15 +165,15 @@ EXPRESSION_TEST_CASES = [
     dict(
         name="LikePredicate",
         cls=LikePredicate,
-        params_func=lambda d: dict(dialect=d, op="LIKE", expr=Column(d, "name"), pattern=Literal(d, "A%")),
+        params_func=lambda d: dict(dialect=d, op="LIKE", left=Column(d, "name"), pattern=Literal(d, "A%")),
     ),
     dict(
         name="InPredicate",
         cls=InPredicate,
-        params_func=lambda d: dict(dialect=d, expr=Column(d, "category"), values=Literal(d, ["A", "B", "C"])),
+        params_func=lambda d: dict(dialect=d, operand=Column(d, "category"), values=Literal(d, ["A", "B", "C"])),
     ),
     dict(
-        name="IsNullPredicate", cls=IsNullPredicate, params_func=lambda d: dict(dialect=d, expr=Column(d, "deleted_at"))
+        name="IsNullPredicate", cls=IsNullPredicate, params_func=lambda d: dict(dialect=d, operand=Column(d, "deleted_at"))
     ),
     dict(
         name="IsBooleanPredicate",
@@ -169,7 +183,7 @@ EXPRESSION_TEST_CASES = [
     dict(
         name="BetweenPredicate",
         cls=BetweenPredicate,
-        params_func=lambda d: dict(dialect=d, expr=Column(d, "age"), low=Literal(d, 18), high=Literal(d, 65)),
+        params_func=lambda d: dict(dialect=d, operand=Column(d, "age"), low=Literal(d, 18), high=Literal(d, 65)),
     ),
     dict(
         name="FunctionCallAggregate",
@@ -204,13 +218,13 @@ EXPRESSION_TEST_CASES = [
         ),
     ),
     dict(
-        name="SetOperationExpression",
-        cls=SetOperationExpression,
+        name="SetOperation",
+        cls=SetOperation,
         params_func=lambda d: dict(
             dialect=d,
-            operation="UNION",
-            left=QueryExpression(d, select=[Column(d, "id")], from_=NamedRelationRef(d, Table(d, "users"))),
-            right=QueryExpression(d, select=[Column(d, "id")], from_=NamedRelationRef(d, Table(d, "admins"))),
+            op="union",
+            left=QueryStatement(d, select=[Column(d, "id")], from_=NamedRelationRef(d, Table(d, "users"))),
+            right=QueryStatement(d, select=[Column(d, "id")], from_=NamedRelationRef(d, Table(d, "admins"))),
         ),
     ),
     dict(
@@ -221,17 +235,17 @@ EXPRESSION_TEST_CASES = [
         ),
     ),
     dict(
-        name="QueryExpression",
-        cls=QueryExpression,
+        name="QueryStatement",
+        cls=QueryStatement,
         params_func=lambda d: dict(
             dialect=d, select=[Column(d, "id"), Column(d, "name")], from_=NamedRelationRef(d, Table(d, "users"))
         ),
     ),
-    dict(name="BeginTransactionExpression", cls=BeginTransactionExpression, params_func=lambda d: dict(dialect=d)),
-    dict(name="CommitTransactionExpression", cls=CommitTransactionExpression, params_func=lambda d: dict(dialect=d)),
+    dict(name="BeginTransactionStatement", cls=BeginTransactionStatement, params_func=lambda d: dict(dialect=d)),
+    dict(name="CommitStatement", cls=CommitStatement, params_func=lambda d: dict(dialect=d)),
     dict(
-        name="RollbackTransactionExpression",
-        cls=RollbackTransactionExpression,
+        name="RollbackStatement",
+        cls=RollbackStatement,
         params_func=lambda d: dict(dialect=d),
     ),
     dict(
@@ -262,8 +276,8 @@ EXPRESSION_TEST_CASES = [
     #     GraphVertex(d, variable="v2", table=NodeTable(d, "users")),
     # )),
     dict(
-        name="RawSQLExpression",
-        cls=RawSQLExpression,
+        name="RawSQL",
+        cls=RawSQL,
         params_func=lambda d: dict(dialect=d, expression="SELECT 1", params=(1,)),
     ),
     dict(
@@ -283,28 +297,28 @@ EXPRESSION_TEST_CASES = [
     ),
     # advanced_functions
     dict(
-        name="AllExpression",
-        cls=AllExpression,
+        name="AllPredicate",
+        cls=AllPredicate,
         params_func=lambda d: dict(
             dialect=d,
             expr=Column(d, "x"),
             op=">",
-            array_expr=ArrayExpression(d, operation="ARRAY", elements=[Literal(d, 1)]),
+            array_expr=ArrayOperation(d, operation="ARRAY", elements=[Literal(d, 1)]),
         ),
     ),
     dict(
-        name="AnyExpression",
-        cls=AnyExpression,
+        name="AnyPredicate",
+        cls=AnyPredicate,
         params_func=lambda d: dict(
             dialect=d,
             expr=Column(d, "x"),
             op=">",
-            array_expr=ArrayExpression(d, operation="ARRAY", elements=[Literal(d, 1)]),
+            array_expr=ArrayOperation(d, operation="ARRAY", elements=[Literal(d, 1)]),
         ),
     ),
     dict(
-        name="ArrayExpression",
-        cls=ArrayExpression,
+        name="ArrayOperation",
+        cls=ArrayOperation,
         params_func=lambda d: dict(dialect=d, operation="ARRAY", elements=[Literal(d, 1), Literal(d, 2)]),
     ),
     dict(
@@ -315,13 +329,13 @@ EXPRESSION_TEST_CASES = [
         ),
     ),
     dict(
-        name="ExistsExpression",
-        cls=ExistsExpression,
+        name="ExistsPredicate",
+        cls=ExistsPredicate,
         params_func=lambda d: dict(dialect=d, subquery=Subquery(d, "SELECT 1")),
     ),
     dict(
-        name="JSONDocumentExpression",
-        cls=JSONDocumentExpression,
+        name="JSONDocumentValue",
+        cls=JSONDocumentValue,
         params_func=lambda d: dict(dialect=d, column=Column(d, "data"), path="$.key", operation="->"),
     ),
     dict(
@@ -377,8 +391,8 @@ EXPRESSION_TEST_CASES = [
     # MatchClause uses *path (VAR_POSITIONAL) - import present, skipped (commented above)
     # query_sources
     dict(
-        name="CTEExpression",
-        cls=CTEExpression,
+        name="CTEClause",
+        cls=CTEClause,
         params_func=lambda d: dict(dialect=d, name="cte1", query=Subquery(d, "SELECT 1")),
     ),
     dict(
@@ -394,12 +408,12 @@ EXPRESSION_TEST_CASES = [
         ),
     ),
     dict(
-        name="WithQueryExpression",
-        cls=WithQueryExpression,
+        name="WithStatement",
+        cls=WithStatement,
         params_func=lambda d: dict(
             dialect=d,
-            ctes=[CTEExpression(d, name="cte1", query=Subquery(d, "SELECT 1"))],
-            main_query=QueryExpression(d, select=[Column(d, "id")], from_=NamedRelationRef(d, Table(d, "users"))),
+            ctes=[CTEClause(d, name="cte1", query=Subquery(d, "SELECT 1"))],
+            query=QueryStatement(d, select=[Column(d, "id")], from_=NamedRelationRef(d, Table(d, "users"))),
         ),
     ),
     # query_parts
@@ -426,9 +440,9 @@ EXPRESSION_TEST_CASES = [
     # They are tested in backend-specific test files (e.g., sqlite).
     # operators
     dict(
-        name="BinaryArithmeticExpression",
-        cls=BinaryArithmeticExpression,
-        params_func=lambda d: dict(dialect=d, op="+", left=Column(d, "a"), right=Column(d, "b")),
+        name="ArithmeticOperation",
+        cls=ArithmeticOperation,
+        params_func=lambda d: dict(dialect=d, op="add", left=Column(d, "a"), right=Column(d, "b")),
     ),
     dict(
         name="SQLOperation",
@@ -440,26 +454,65 @@ EXPRESSION_TEST_CASES = [
     # literals
     dict(name="Identifier", cls=Identifier, params_func=lambda d: dict(dialect=d, name="my_id")),
     # transaction
-    dict(name="SavepointExpression", cls=SavepointExpression, params_func=lambda d: dict(dialect=d, name="sp1")),
+    dict(name="SavepointStatement", cls=SavepointStatement, params_func=lambda d: dict(dialect=d, name="sp1")),
     dict(
-        name="ReleaseSavepointExpression",
-        cls=ReleaseSavepointExpression,
+        name="ReleaseSavepointStatement",
+        cls=ReleaseSavepointStatement,
         params_func=lambda d: dict(dialect=d, name="sp1"),
     ),
-    dict(name="SetTransactionExpression", cls=SetTransactionExpression, params_func=lambda d: dict(dialect=d)),
+    dict(name="SetTransactionStatement", cls=SetTransactionStatement, params_func=lambda d: dict(dialect=d)),
 ]
 
 
 class TestExpressionRoundtrip:
     """Test serialization/deserialization roundtrip for all expression types."""
 
+    @staticmethod
+    def _as_params(params):
+        """Constructor arguments turned into artifact parameter values.
+
+        Two translations, both of them things the reader would otherwise
+        rightly refuse:
+
+        * ``dialect`` is dropped. It is *context*, passed separately to
+          :func:`deserialize`, and §10 keeps it out of the artifact. The old
+          constructor helper took the dialect twice -- once as its own
+          argument and once out of this dict -- so the duplicate went unnoticed
+          for as long as it existed.
+        * live instances become encoded nodes, because a ``params_func``
+          hands back objects while an artifact carries JSON. A node is written
+          as itself -- nested and top-level nodes have the same shape.
+
+        The public writer does the encoding; there is no "build this class
+        from these arguments" entry point any more, because the artifact *is*
+        the node.
+        """
+        from rhosocial.activerecord.backend.expression.bases import BaseExpression
+
+        if isinstance(params, BaseExpression):
+            # A nested node is its own {kind, params}; there is no marker to add.
+            return serialization.serialize(params)
+        if isinstance(params, dict):
+            return {
+                k: TestExpressionRoundtrip._as_params(v)
+                for k, v in params.items()
+                if k != "dialect"
+            }
+        if isinstance(params, (list, tuple)):
+            # A tuple goes out as an array, like a list: the artifact draws no
+            # distinction, and a marker to draw one would be a dispatch every
+            # language had to reimplement.
+            return [TestExpressionRoundtrip._as_params(v) for v in params]
+        return params
+
     @pytest.mark.parametrize("test_case", EXPRESSION_TEST_CASES, ids=[x["name"] for x in EXPRESSION_TEST_CASES])
     def test_expression_roundtrip(self, dummy_dialect, test_case):
-        """Generic test: serialize → deserialize → compare SQL output."""
+        """Generic test: build the artifact → read it → re-write → compare SQL."""
         cls = test_case["cls"]
         params = test_case["params_func"](dummy_dialect)
 
-        instance = _reconstruct(cls, dummy_dialect, params)
+        artifact = {"kind": cls.kind(), "params": self._as_params(params)}
+        instance = serialization.deserialize(artifact, dummy_dialect, registry=_codec_registry())
         spec = serialization.serialize(instance)
-        restored = serialization.deserialize(spec, dummy_dialect)
+        restored = serialization.deserialize(spec, dummy_dialect, registry=_codec_registry())
         assert restored.to_sql() == instance.to_sql()

@@ -3,7 +3,7 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
     ComparisonPredicate,
-    MergeExpression,
+    MergeStatement,
     MergeAction,
     MergeActionType,
 )
@@ -43,7 +43,7 @@ class TestMergeStatements:
             },
         )
 
-        merge_expr = MergeExpression(
+        merge_expr = MergeStatement(
             dummy_dialect,
             target_table=target_table,
             source=source_values,
@@ -81,7 +81,7 @@ class TestMergeStatements:
             },
         )
 
-        merge_expr = MergeExpression(
+        merge_expr = MergeStatement(
             dummy_dialect,
             target_table=target_table,
             source=source_values,
@@ -115,7 +115,7 @@ class TestMergeStatements:
             },
         )
 
-        merge_expr = MergeExpression(
+        merge_expr = MergeStatement(
             dummy_dialect,
             target_table=target_table,
             source=source_values,
@@ -148,7 +148,7 @@ class TestMergeStatements:
             ),
         )
 
-        merge_expr = MergeExpression(
+        merge_expr = MergeStatement(
             dummy_dialect,
             target_table=target_table,
             source=source_values,
@@ -200,7 +200,7 @@ class TestMergeStatements:
             ),
         )
 
-        merge_expr = MergeExpression(
+        merge_expr = MergeStatement(
             dummy_dialect,
             target_table=target_table,
             source=source_values,
@@ -242,7 +242,7 @@ class TestMergeStatements:
             ),
         )
 
-        merge_expr = MergeExpression(
+        merge_expr = MergeStatement(
             dummy_dialect,
             target_table=target_table,
             source=source_cancel,
@@ -295,7 +295,7 @@ class TestMergeNotMatchedBySource:
         # WHEN NOT MATCHED BY SOURCE: DELETE (remove unmatched records from target)
         when_not_matched_by_source_delete = MergeAction(dummy_dialect, action_type=MergeActionType.DELETE)
 
-        merge_expr = MergeExpression(
+        merge_expr = MergeStatement(
             dummy_dialect,
             target_table=target_table,
             source=source_values,
@@ -336,7 +336,7 @@ class TestMergeNotMatchedBySource:
             dummy_dialect, action_type=MergeActionType.UPDATE, assignments={"status": Literal(dummy_dialect, "inactive")}
         )
 
-        merge_expr = MergeExpression(
+        merge_expr = MergeStatement(
             dummy_dialect,
             target_table=target_table,
             source=source_values,
@@ -379,7 +379,7 @@ class TestMergeNotMatchedBySource:
             ),
         )
 
-        merge_expr = MergeExpression(
+        merge_expr = MergeStatement(
             dummy_dialect,
             target_table=target_table,
             source=source_values,

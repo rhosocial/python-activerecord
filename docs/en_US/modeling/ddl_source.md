@@ -112,7 +112,7 @@ The table below describes the default `DDLSourceMixin` implementation. A custom 
 | `column_attributes(field)` | `Sequence[ColumnAttribute]` | Expands markers in order without dialect filtering. |
 | `column_indexes(field)` | `Sequence[IndexDefinition]` | Builds one definition per `UseIndex` and substitutes the physical column name. |
 | `column_comment(field)` | `Optional[str]` | Returns the first `UseComment` text. |
-| `generated_column(field)` | `Optional[GeneratedColumnExpression or factory]` | Returns the first `UseGeneratedColumn` value without calling a factory. |
+| `generated_column(field)` | `Optional[ColumnGeneratedConstraint or factory]` | Returns the first `UseGeneratedColumn` value without calling a factory. |
 | `column_options(field)` | `None`, `ColumnOptions`, or a sequence | Returns values written by a handler to `DDLFieldMetadata.column_options`; one value is returned directly, multiple values as a list. |
 | `table_options()` | `None`, expression, or sequence | `None` by default; an override is returned unchanged. |
 | `table_storage_options()` | `None`, expression, or sequence | `None` by default; an override is returned unchanged. |
@@ -207,7 +207,7 @@ This code belongs to the backend expression consumer, not to `DDLSourceMixin`.
 | Snowflake | `Snowflake*Type`, `SnowflakeCreateTableOptions`, Snowflake partition/clone expressions | VARIANT, OBJECT, ARRAY, and other types remain candidates; the source does not perform Snowflake-specific selection. |
 | ClickHouse | `ClickHouse*Type`, `ClickHouseColumnOptions`, `ClickHouseIndexDefinition`, ClickHouse partition expressions | Unsupported UNIQUE or foreign-key capabilities fail in the ClickHouse dialect; declarations can still be presented. |
 | BigQuery | Currently mainly generic `DataType`, constraints, and `CreateTableOptions` | The package currently has no automatically registered BigQuery-specific `ColumnOptions`; generic declarations can still be collected. |
-| Firebird | `Firebird*Type`, `FirebirdColumnOptions`, `FirebirdCreateTableExpression`, Firebird partition/computed-column expressions | Computed columns, tablespaces, and specialized create-table classes are handled by the Firebird consumer. |
+| Firebird | `Firebird*Type`, `FirebirdColumnOptions`, `FirebirdCreateTableStatement`, Firebird partition/computed-column expressions | Computed columns, tablespaces, and specialized create-table classes are handled by the Firebird consumer. |
 
 Backend tests should verify at least three things: the objects and order returned by the source, that backend-specific types/options are not rewritten early, and that collected values can be passed to an existing backend expression construction path. Collection tests do not need a live database; render assertions should use the backend dialect and minimal expressions separately.
 
@@ -225,7 +225,7 @@ from rhosocial.activerecord.base import (
     UseIndex,
     UseSqlType,
 )
-from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType
+
 from rhosocial.activerecord.backend.expression.types import VarCharType
 from rhosocial.activerecord.model import ActiveRecord
 
@@ -245,7 +245,7 @@ class Account(ActiveRecord):
     ]
     status: Annotated[
         str,
-        UseConstraint(ColumnConstraintType.NOT_NULL),
+        UseConstraint(ColumnNotNullConstraint),
     ] = "active"
     note: Optional[str] = None
 

@@ -9,7 +9,7 @@ tests enforce.
 from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.advanced_functions import ArrayExpression
+    from ....expression.advanced_functions import ArrayValue
 
 
 @runtime_checkable
@@ -30,12 +30,12 @@ class ArraySupport(Protocol):
 
     def format_array_expression(
         self,
-        expr: "ArrayExpression",
+        expr: "ArrayValue",
     ) -> Tuple[str, Tuple]:
         """Format array expression.
 
         Args:
-            expr: ArrayExpression node carrying all formatting state
+            expr: ArrayValue node carrying all formatting state
                   (operation, elements, base_expr, index_expr).
 
         Returns:

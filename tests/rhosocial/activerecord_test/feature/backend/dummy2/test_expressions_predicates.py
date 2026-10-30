@@ -3,7 +3,7 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    RawSQLExpression,
+    RawSQL,
     Subquery,
     BooleanColumn,
     ComparisonPredicate,
@@ -25,8 +25,12 @@ class TestPredicateExpressions:
         [
             ((Column, ("age",)), "=", (Literal, (18,)), '"age" = ?', (18,)),
             ((Column, ("price",)), ">", (Literal, (100.0,)), '"price" > ?', (100.0,)),
-            ((Column, ("status",)), "!=", (Literal, ("inactive",)), '"status" != ?', ("inactive",)),
-            ((RawSQLExpression, ("NOW()",)), "<", (Column, ("end_date",)), 'NOW() < "end_date"', ()),
+            # `!=` and `<>` are one operation, so the node accepts either and the formatter
+            # writes the standard spelling; the operator travels the artifact as
+            # the word "ne". See ComparisonOperator.
+            ((Column, ("status",)), "!=", (Literal, ("inactive",)), '"status" <> ?', ("inactive",)),
+            ((Column, ("status",)), "<>", (Literal, ("inactive",)), '"status" <> ?', ("inactive",)),
+            ((RawSQL, ("NOW()",)), "<", (Column, ("end_date",)), 'NOW() < "end_date"', ()),
         ],
     )
     def test_comparison_predicate(
@@ -90,7 +94,7 @@ class TestPredicateExpressions:
         [
             ((Column, ("quantity",)), (Literal, (10,)), (Literal, (20,)), '"quantity" BETWEEN ? AND ?', (10, 20)),
             (
-                (RawSQLExpression, ("order_date",)),
+                (RawSQL, ("order_date",)),
                 (Literal, ("2023-01-01",)),
                 (Literal, ("2023-12-31",)),
                 "order_date BETWEEN ? AND ?",
@@ -180,8 +184,8 @@ class TestPredicateExpressions:
             ((Column, ("is_active",)), True, True, '"is_active" IS NOT TRUE', ()),
             ((Column, ("is_deleted",)), False, False, '"is_deleted" IS FALSE', ()),
             ((Column, ("is_deleted",)), False, True, '"is_deleted" IS NOT FALSE', ()),
-            ((RawSQLExpression, ("verified",)), True, False, "verified IS TRUE", ()),
-            ((RawSQLExpression, ("verified",)), False, True, "verified IS NOT FALSE", ()),
+            ((RawSQL, ("verified",)), True, False, "verified IS TRUE", ()),
+            ((RawSQL, ("verified",)), False, True, "verified IS NOT FALSE", ()),
         ],
     )
     def test_is_boolean_predicate(

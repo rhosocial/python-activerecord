@@ -4,14 +4,14 @@ Literal identifiers in SQL expressions.
 """
 
 from typing import TYPE_CHECKING
-from .bases import SQLValueExpression
+from .bases import SQLValue
 from .mixins import ComparisonMixin
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
-class Identifier(ComparisonMixin, SQLValueExpression):
+class Identifier(ComparisonMixin, SQLValue):
     """Represents a generic SQL identifier (e.g., table name, column name, alias).
 
     Per-role quoting fields (all default to ``True``):
@@ -27,8 +27,8 @@ class Identifier(ComparisonMixin, SQLValueExpression):
         alias_need_quote: bool = True,
     ):
         super().__init__(dialect)
-        self.name_need_quote = name_need_quote
-        self.alias_need_quote = alias_need_quote
+        self.name_need_quote = self.quote_flag(name_need_quote, "name_need_quote")
+        self.alias_need_quote = self.quote_flag(alias_need_quote, "alias_need_quote")
         self.name = name
 
     @property
@@ -40,9 +40,6 @@ class Identifier(ComparisonMixin, SQLValueExpression):
         return f"Identifier({self.name!r})"
 
 
-# Register Identifier in the expression registry for serialization support.
-# This is done here rather than in serialization._auto_register_builtins
-# to avoid circular import issues during module initialization.
-from .serialization import ExpressionRegistry  # noqa: E402
-
-ExpressionRegistry.register(Identifier)
+# No registration call: the framework's assembly point walks this package and
+# registers Identifier like every other node. The old class index needed to be
+# told about a class defined outside its own walk; the registry does not.

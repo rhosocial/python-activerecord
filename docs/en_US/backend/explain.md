@@ -45,10 +45,11 @@ The explain system follows the project's sync/async parity principle. Protocols 
 All explain results inherit from `BaseExplainResult`, a plain `pydantic.BaseModel` (not an `ActiveRecord`):
 
 ```python
-class BaseExplainResult(BaseModel):
-    raw_rows: List[Dict[str, Any]]  # Raw rows from fetch_all()
-    sql: str                         # The EXPLAIN SQL that was executed
-    duration: float                  # Execution time in seconds
+from rhosocial.activerecord.backend.explain.types import BaseExplainResult
+
+# The model fields every explain result carries
+for name, field in BaseExplainResult.model_fields.items():
+    print(f"{name}: {field.annotation}")
 ```
 
 Using `pydantic.BaseModel` avoids a reverse dependency from the backend layer back to the ActiveRecord model layer.
@@ -60,15 +61,16 @@ Using `pydantic.BaseModel` avoids a reverse dependency from the backend layer ba
 ```python
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.explain import SQLiteExplainResult
-from rhosocial.activerecord.backend.expression import RawSQLExpression
+from rhosocial.activerecord.backend.expression import RawSQL
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 dialect = SQLiteDialect()
-backend = SQLiteBackend(database="mydb.sqlite3")
+backend = SQLiteBackend(database=":memory:")
 backend.connect()
+backend.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)")
 
 # Explain the bytecode for a query
-expr = RawSQLExpression(dialect, "SELECT * FROM users WHERE id = 1")
+expr = RawSQL(dialect, "SELECT * FROM users WHERE id = 1")
 result = backend.explain(expr)
 
 assert isinstance(result, SQLiteExplainResult)
@@ -80,18 +82,18 @@ for row in result.rows:
 
 ### Using the Expression Builder
 
-You can pass any `BaseExpression` (except `ExplainExpression` itself):
+You can pass any `BaseExpression` (except `ExplainStatement` itself):
 
 ```python
-from rhosocial.activerecord.backend.expression.core import (
-    TableExpression, WildcardExpression,
+from rhosocial.activerecord.backend.expression import (
+    AllColumnsWildcard, NamedRelationRef, QueryStatement,
 )
-from rhosocial.activerecord.backend.expression.statements import QueryExpression
+from rhosocial.activerecord.backend.expression.objects import Table
 
-query = QueryExpression(
+query = QueryStatement(
     dialect,
-    select=[WildcardExpression(dialect)],
-    from_=TableExpression(dialect, "users"),
+    select=[AllColumnsWildcard(dialect)],
+    from_=NamedRelationRef(dialect, Table(dialect, "users")),
 )
 result = backend.explain(query)
 ```
@@ -117,13 +119,25 @@ for row in result.rows:
 ### Async API
 
 ```python
+import asyncio
+
 from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
 
-backend = AsyncSQLiteBackend(database="mydb.sqlite3")
-await backend.connect()
+async_backend = AsyncSQLiteBackend(database=":memory:")
 
-result = await backend.explain(query)                # bytecode
-result = await backend.explain(query, opts)          # query plan
+
+async def main():
+    await async_backend.connect()
+    await async_backend.execute(
+        "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)"
+    )
+
+    result = await async_backend.explain(query)        # bytecode
+    result = await async_backend.explain(query, opts)  # query plan
+    await async_backend.disconnect()
+
+
+asyncio.run(main())
 ```
 
 ## SQLite Result Types
@@ -135,20 +149,22 @@ SQLite provides two completely different output schemas depending on the EXPLAIN
 Returned for plain `EXPLAIN <stmt>`. Each row represents one VDBE (Virtual DataBase Engine) instruction:
 
 ```python
-class SQLiteExplainRow(BaseModel):
-    addr: int           # Program counter address
-    opcode: str         # Instruction name (e.g. "OpenRead", "SeekGE", "Column")
-    p1: int             # First operand (often cursor number)
-    p2: int             # Second operand (often B-tree page number or jump target)
-    p3: int             # Third operand
-    p4: Optional[str]   # Optional string or blob operand
-    p5: int             # Flags bitmask
-    comment: Optional[str]  # Human-readable annotation
+from rhosocial.activerecord.backend.impl.sqlite.explain import SQLiteExplainRow
+
+# addr: program counter address;  opcode: instruction name
+# p1: first operand (often cursor number)
+# p2: second operand (often B-tree page number or jump target)
+# p3: third operand;  p4: optional string or blob operand
+# p5: flags bitmask;  comment: human-readable annotation
+for name, field in SQLiteExplainRow.model_fields.items():
+    print(f"{name}: {field.annotation}")
 ```
 
 ```python
-class SQLiteExplainResult(BaseExplainResult):
-    rows: List[SQLiteExplainRow]
+from rhosocial.activerecord.backend.impl.sqlite.explain import SQLiteExplainResult
+
+for name, field in SQLiteExplainResult.model_fields.items():
+    print(f"{name}: {field.annotation}")
 ```
 
 #### Understanding Bytecode Opcodes
@@ -170,16 +186,23 @@ The most important opcodes for query analysis:
 Returned for `EXPLAIN QUERY PLAN <stmt>`. Each row describes one step in the query strategy:
 
 ```python
-class SQLiteExplainQueryPlanRow(BaseModel):
-    id: int       # Row identifier (used to build the tree structure)
-    parent: int   # Parent row id (0 = top-level)
-    notused: int  # Reserved field (always 0 in current SQLite)
-    detail: str   # Human-readable description of the step
+from rhosocial.activerecord.backend.impl.sqlite.explain import SQLiteExplainQueryPlanRow
+
+# id: row identifier (used to build the tree structure)
+# parent: parent row id (0 = top-level)
+# notused: reserved field (always 0 in current SQLite)
+# detail: human-readable description of the step
+for name, field in SQLiteExplainQueryPlanRow.model_fields.items():
+    print(f"{name}: {field.annotation}")
 ```
 
 ```python
-class SQLiteExplainQueryPlanResult(BaseExplainResult):
-    rows: List[SQLiteExplainQueryPlanRow]
+from rhosocial.activerecord.backend.impl.sqlite.explain import (
+    SQLiteExplainQueryPlanResult,
+)
+
+for name, field in SQLiteExplainQueryPlanResult.model_fields.items():
+    print(f"{name}: {field.annotation}")
 ```
 
 The `detail` text uses keywords such as `SCAN`, `SEARCH`, and `USING (COVERING) INDEX` that directly indicate the query strategy.
@@ -210,11 +233,24 @@ Returns one of four string labels:
 ### Example: Diagnosing Index Usage
 
 ```python
-from rhosocial.activerecord.backend.expression import RawSQLExpression
+from rhosocial.activerecord.backend.expression import RawSQL
+from rhosocial.activerecord.backend.expression.statements import (
+    ExplainOptions, ExplainType,
+)
 
-dialect = SQLiteDialect()
-backend = SQLiteBackend(database="mydb.sqlite3")
-backend.connect()
+backend.execute(
+    "CREATE TABLE IF NOT EXISTS orders "
+    "(id INTEGER PRIMARY KEY, status TEXT, total REAL)"
+)
+backend.execute("CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (status)")
+backend.execute(
+    "CREATE TABLE IF NOT EXISTS order_items "
+    "(id INTEGER PRIMARY KEY, order_id INTEGER, sku TEXT)"
+)
+backend.execute(
+    "CREATE INDEX IF NOT EXISTS idx_order_items_order_sku "
+    "ON order_items (order_id, sku)"
+)
 
 queries = {
     "full scan":       "SELECT * FROM orders",
@@ -224,7 +260,7 @@ queries = {
 
 for label, sql in queries.items():
     # Bytecode analysis
-    result = backend.explain(RawSQLExpression(dialect, sql))
+    result = backend.explain(RawSQL(dialect, sql))
     print(f"{label}: {result.analyze_index_usage()}")
     print(f"  is_full_scan={result.is_full_scan}, "
           f"is_index_used={result.is_index_used}, "
@@ -232,7 +268,7 @@ for label, sql in queries.items():
 
     # Query plan analysis (same properties available)
     plan = backend.explain(
-        RawSQLExpression(dialect, sql),
+        RawSQL(dialect, sql),
         ExplainOptions(type=ExplainType.QUERY_PLAN),
     )
     for row in plan.rows:
@@ -292,17 +328,22 @@ assert isinstance(async_backend, AsyncExplainBackendProtocol)
 3. **Override `_parse_explain_result()`** to return your backend's typed result class.
 
 ```python
-from rhosocial.activerecord.backend.explain import SyncExplainBackendMixin
-from rhosocial.activerecord.backend.base import StorageBackend
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
+from rhosocial.activerecord.backend.base import StorageBackend
+from rhosocial.activerecord.backend.explain import SyncExplainBackendMixin
+from rhosocial.activerecord.backend.explain.types import BaseExplainResult
+
 
 class MyExplainRow(BaseModel):
     # Define fields matching your database's EXPLAIN output
-    ...
+    detail: str
+
 
 class MyExplainResult(BaseExplainResult):
     rows: List[MyExplainRow]
+
 
 class MyBackend(SyncExplainBackendMixin, StorageBackend):
     def _parse_explain_result(
@@ -323,7 +364,7 @@ You also need to override `format_explain_statement()` in your dialect if your d
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `expression` | `BaseExpression` | Any expression except `ExplainExpression` |
+| `expression` | `BaseExpression` | Any expression except `ExplainStatement` |
 | `options` | `ExplainOptions \| None` | Optional explain options (type, format, analyze) |
 
 **Returns**: A `BaseExplainResult` subclass specific to the backend.

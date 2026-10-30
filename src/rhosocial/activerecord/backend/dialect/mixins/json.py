@@ -10,7 +10,7 @@ from ..exceptions import UnsupportedFeatureError
 from ...expression import bases
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.advanced_functions import JSONDocumentExpression
+    from ...expression.advanced_functions import JSONDocumentValue
 
 
 class JSONMixin:
@@ -72,14 +72,14 @@ class JSONMixin:
     # Arrow-operator formatting (-> / ->>)
     # ------------------------------------------------------------------
 
-    def format_json_arrow_expression(self, expr: "JSONDocumentExpression") -> Tuple[str, Tuple]:
+    def format_json_arrow_expression(self, expr: "JSONDocumentValue") -> Tuple[str, Tuple]:
         """Format JSON expression using arrow operators (-> / ->>).
 
         This method always uses arrow operator syntax. If the dialect does
         not support arrow operators, it raises UnsupportedFeatureError.
 
         Args:
-            expr: The JSONDocumentExpression node with column, path, operation, and
+            expr: The JSONDocumentValue node with column, path, operation, and
                 optional alias.
 
         Returns:
@@ -101,7 +101,7 @@ class JSONMixin:
         else:
             col_sql, col_params = self.format_identifier(str(expr.column)), ()
 
-        escaped_path = self._escape_sql_string(expr.path)
+        escaped_path = self.escape_sql_string(expr.path)
         sql = f"{col_sql}{expr.operation}'{escaped_path}'"
         params = col_params
 
@@ -114,7 +114,7 @@ class JSONMixin:
     # Function-based formatting (JSON_EXTRACT / JSON_UNQUOTE etc.)
     # ------------------------------------------------------------------
 
-    def format_json_function_expression(self, expr: "JSONDocumentExpression") -> Tuple[str, Tuple]:
+    def format_json_function_expression(self, expr: "JSONDocumentValue") -> Tuple[str, Tuple]:
         """Format JSON expression using function-based equivalents.
 
         Default implementation uses JSON_EXTRACT for -> and
@@ -124,7 +124,7 @@ class JSONMixin:
         method to provide the correct function-based SQL.
 
         Args:
-            expr: The JSONDocumentExpression node with column, path, operation, and
+            expr: The JSONDocumentValue node with column, path, operation, and
                 optional alias.
 
         Returns:
@@ -135,7 +135,7 @@ class JSONMixin:
         else:
             col_sql, col_params = self.format_identifier(str(expr.column)), ()
 
-        escaped_path = self._escape_sql_string(expr.path)
+        escaped_path = self.escape_sql_string(expr.path)
 
         if expr.operation == "->":
             sql = f"JSON_EXTRACT({col_sql}, '{escaped_path}')"
@@ -156,7 +156,7 @@ class JSONMixin:
     # Dispatch entry point
     # ------------------------------------------------------------------
 
-    def format_json_expression(self, expr: "JSONDocumentExpression") -> Tuple[str, Tuple]:
+    def format_json_expression(self, expr: "JSONDocumentValue") -> Tuple[str, Tuple]:
         """Format JSON expression, dispatching on mode and capability.
 
         Dispatches to arrow-operator or function-based formatting depending
@@ -169,7 +169,7 @@ class JSONMixin:
         The default mode is ``JSONPathMode.AUTO``.
 
         Args:
-            expr: The JSONDocumentExpression node to format.
+            expr: The JSONDocumentValue node to format.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the expression.
@@ -216,7 +216,7 @@ class JSONMixin:
         #
         # A dialect that forces ARROW on a backend without arrows still gets an
         # error, from format_json_arrow_expression below.
-        mode: JSONPathMode = getattr(expr, "mode", JSONPathMode.AUTO)
+        mode: JSONPathMode = expr.mode
 
         if mode is JSONPathMode.ARROW:
             return self.format_json_arrow_expression(expr)
@@ -252,16 +252,15 @@ class JSONMixin:
         else:
             json_col_sql, params = self.format_identifier(str(expr.json_column)), ()
 
-        escaped_path = self._escape_sql_string(expr.path)
+        escaped_path = self.escape_sql_string(expr.path)
 
         cols_defs = []
         for col in expr.columns:
             col_name = self.format_identifier(col.name)
-            if isinstance(col.data_type, _bases.BaseExpression):
-                col_type, _ = col.data_type.to_sql()
-            else:
-                col_type = str(col.data_type)
-            col_path = self._escape_sql_string(col.path)
+            from ...expression.types import DataType
+
+            col_type, _ = DataType.as_type(self, col.data_type).to_sql()
+            col_path = self.escape_sql_string(col.path)
             cols_defs.append(f"{col_name} {col_type} PATH '{col_path}'")
 
         columns_sql = f"COLUMNS({', '.join(cols_defs)})"

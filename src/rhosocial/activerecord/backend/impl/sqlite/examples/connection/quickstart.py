@@ -1,3 +1,28 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnConstraint,
+    ColumnDefinition,
+)
+from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.core import Column, Literal
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression import (
+    CreateTableStatement,
+    DropTableStatement,
+    InsertStatement,
+    QueryStatement,
+    ValuesSource,
+    WhereClause,
+)
 """
 Quick Start: Connect to SQLite and execute queries.
 
@@ -11,28 +36,7 @@ This example demonstrates:
 # ============================================================
 # SECTION: Connection Setup
 # ============================================================
-from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression,
-    DropTableExpression,
-    InsertExpression,
-    QueryExpression,
-    ValuesSource,
-    WhereClause,
-)
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.core import Column, Literal
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
-from rhosocial.activerecord.backend.expression.statements import (
-    ColumnConstraint,
-    ColumnConstraintType,
-    ColumnDefinition,
-)
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
-from .....expression.objects import Table
+
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(connection_config=config)
@@ -51,7 +55,7 @@ def execute_expression(expression, options=None):
 
 
 def create_demo_tables():
-    users_table = CreateTableExpression(
+    users_table = CreateTableStatement(
         dialect=dialect,
         table=Table(dialect, 'users'),
         columns=[
@@ -59,14 +63,14 @@ def create_demo_tables():
                 "id",
                 IntegerType(),
                 constraints=[
-                    ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
-                    ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                    ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
+                    ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
                 ],
             ),
             ColumnDefinition(dialect, 
                 "name",
                 TextType(),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)],
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))],
             ),
             ColumnDefinition(dialect, "status", TextType()),
         ],
@@ -74,7 +78,7 @@ def create_demo_tables():
     )
     execute_expression(users_table, ddl_options)
 
-    logs_table = CreateTableExpression(
+    logs_table = CreateTableStatement(
         dialect=dialect,
         table=Table(dialect, 'logs'),
         columns=[
@@ -82,14 +86,14 @@ def create_demo_tables():
                 "id",
                 IntegerType(),
                 constraints=[
-                    ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
-                    ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                    ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
+                    ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
                 ],
             ),
             ColumnDefinition(dialect, 
                 "message",
                 TextType(),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)],
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))],
             ),
         ],
         if_not_exists=True,
@@ -98,12 +102,11 @@ def create_demo_tables():
 
 
 def seed_demo_data():
-    insert_users = InsertExpression(
+    insert_users = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'users'),
         columns=["name", "status"],
         source=ValuesSource(
-            dialect,
             [
                 [Literal(dialect, "Alice"), Literal(dialect, "active")],
                 [Literal(dialect, "Bob"), Literal(dialect, "inactive")],
@@ -125,7 +128,7 @@ print(f"Is memory: {config.database == ':memory:'}")
 # ============================================================
 # SECTION: Execute Queries
 # ============================================================
-query = QueryExpression(
+query = QueryStatement(
     dialect=dialect,
     select=[
         Column(dialect, "id"),
@@ -136,7 +139,6 @@ query = QueryExpression(
     where=WhereClause(
         dialect,
         condition=ComparisonPredicate(
-            dialect,
             "=",
             Column(dialect, "status"),
             Literal(dialect, "active"),
@@ -160,7 +162,7 @@ if result.data:
 # ============================================================
 # SECTION: Execute Parameterized Queries (Recommended)
 # ============================================================
-filtered_query = QueryExpression(
+filtered_query = QueryStatement(
     dialect=dialect,
     select=[
         Column(dialect, "id"),
@@ -171,13 +173,11 @@ filtered_query = QueryExpression(
     where=WhereClause(
         dialect,
         condition=ComparisonPredicate(
-            dialect,
             "=",
             Column(dialect, "id"),
             Literal(dialect, 1),
         )
         & ComparisonPredicate(
-            dialect,
             "=",
             Column(dialect, "status"),
             Literal(dialect, "active"),
@@ -191,7 +191,7 @@ print(f"Parameterized query result: {result.data}")
 # SECTION: Handle Transactions
 # ============================================================
 with backend.transaction():
-    insert_log = InsertExpression(
+    insert_log = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'logs'),
         columns=["message"],
@@ -199,7 +199,7 @@ with backend.transaction():
     )
     execute_expression(insert_log)
 
-logs_query = QueryExpression(
+logs_query = QueryStatement(
     dialect=dialect,
     select=[Column(dialect, "id"), Column(dialect, "message")],
     from_=NamedRelationRef(dialect, Table(dialect, "logs")),
@@ -211,7 +211,7 @@ print(f"Transaction result: {result.data}")
 # SECTION: Error Handling
 # ============================================================
 try:
-    invalid_query = QueryExpression(
+    invalid_query = QueryStatement(
         dialect=dialect,
         select=[Column(dialect, "id")],
         from_=NamedRelationRef(dialect, Table(dialect, "nonexistent_table")),
@@ -223,10 +223,10 @@ except Exception as error:
 # ============================================================
 # SECTION: Disconnect
 # ============================================================
-drop_logs = DropTableExpression(dialect=dialect, table=Table(dialect, 'logs'), if_exists=True)
+drop_logs = DropTableStatement(dialect=dialect, table=Table(dialect, 'logs'), if_exists=True)
 execute_expression(drop_logs, ddl_options)
 
-drop_users = DropTableExpression(dialect=dialect, table=Table(dialect, 'users'), if_exists=True)
+drop_users = DropTableStatement(dialect=dialect, table=Table(dialect, 'users'), if_exists=True)
 execute_expression(drop_users, ddl_options)
 
 backend.disconnect()

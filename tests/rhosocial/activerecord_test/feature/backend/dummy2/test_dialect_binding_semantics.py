@@ -36,20 +36,22 @@ DataType 继承自 BaseExpression，其 SQL 文本**不由类型自身构建**�
 """
 
 import pytest
-
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnPrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnConstraint,
+    ColumnDefinition,
+    CreateTableStatement,
+)
+from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.types import (
     ArrayType,
     IntegerType,
     VarCharType,
 )
-from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-from rhosocial.activerecord.backend.expression.statements import (
-    ColumnConstraint,
-    ColumnConstraintType,
-    ColumnDefinition,
-    CreateTableExpression,
-)
-from rhosocial.activerecord.backend.expression.objects import Table
+
 
 
 class TestExplicitPerNodeBinding:
@@ -65,7 +67,7 @@ class TestExplicitPerNodeBinding:
 
     def test_nested_tree_explicit_per_node(self, dummy_dialect: DummyDialect):
         # 嵌套树：每一层构造时都显式传方言。
-        arr = ArrayType(dummy_dialect, IntegerType(dummy_dialect))
+        arr = ArrayType(dummy_dialect, element_type=IntegerType(dummy_dialect))
         assert arr._dialect is dummy_dialect
         assert arr.element_type._dialect is dummy_dialect
         sql, _ = arr.to_sql()
@@ -74,7 +76,7 @@ class TestExplicitPerNodeBinding:
     def test_ddl_tree_explicit_per_node(self, dummy_dialect: DummyDialect):
         # 端到端：DDL 全树逐节点显式方言——两种写法渲染结果一致。
         def build(varchar: VarCharType) -> str:
-            expr = CreateTableExpression(
+            expr = CreateTableStatement(
                 dummy_dialect,
                 Table(dummy_dialect, 't'),
                 [
@@ -83,9 +85,7 @@ class TestExplicitPerNodeBinding:
                         "id",
                         IntegerType(dummy_dialect),
                         constraints=[
-                            ColumnConstraint(
-                                dummy_dialect, ColumnConstraintType.PRIMARY_KEY
-                            )
+                            ColumnConstraint(dummy_dialect, branch=ColumnPrimaryKeyConstraint(dummy_dialect))
                         ],
                     ),
                     ColumnDefinition(dummy_dialect, "name", varchar),
@@ -108,7 +108,7 @@ class TestPerNodeInjection:
 
     def test_injection_walk_binds_every_node(self, dummy_dialect: DummyDialect):
         # 声明期形态：全部无方言。
-        arr = ArrayType(None, IntegerType(None))
+        arr = ArrayType(None, element_type=IntegerType(None))
         col = ColumnDefinition(None, "name", arr)
         tree = [col]
 
@@ -149,7 +149,7 @@ class TestDeferredAssignment:
 
     def test_setter_does_not_propagate(self, dummy_dialect: DummyDialect):
         # setter 只影响本节点——这是 D4 决策的锚点断言。
-        arr = ArrayType(None, IntegerType(None))
+        arr = ArrayType(None, element_type=IntegerType(None))
         arr.dialect = dummy_dialect
         assert arr._dialect is dummy_dialect
         assert arr.element_type._dialect is None  # 未传播

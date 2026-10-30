@@ -10,7 +10,7 @@ from typing import Any, List, Tuple, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.bases import BaseExpression
-    from ...expression.pivot import PivotExpression, UnpivotExpression
+    from ...expression.pivot import Pivot, Unpivot
 
 
 class PivotMixin:
@@ -42,7 +42,7 @@ class PivotMixin:
             return sql, tuple(params)
         return self.format_literal(value), ()
 
-    def format_pivot_expression(self, expr: "PivotExpression") -> Tuple[str, tuple]:
+    def format_pivot(self, expr: "Pivot") -> Tuple[str, tuple]:
         """Format a PIVOT clause.
 
         Raises:
@@ -75,7 +75,7 @@ class PivotMixin:
 
         return sql, tuple(all_params)
 
-    def format_unpivot_expression(self, expr: "UnpivotExpression") -> Tuple[str, tuple]:
+    def format_unpivot(self, expr: "Unpivot") -> Tuple[str, tuple]:
         """Format an UNPIVOT clause.
 
         Raises:

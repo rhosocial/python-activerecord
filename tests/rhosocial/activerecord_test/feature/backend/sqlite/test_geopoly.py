@@ -62,12 +62,22 @@ class TestSQLiteGeopolyCreateVirtualTableConstruction:
         assert sql == 'CREATE VIRTUAL TABLE "zones" USING geopoly()'
         assert params == ()
 
-    def test_with_content_table(self):
-        sql, _ = SQLiteGeopolyCreateVirtualTable(
-            SQLiteDialect(version=(3, 26, 0)),
-            table=Table(SQLiteDialect(version=(3, 26, 0)), "zones"), content_table=Table(SQLiteDialect(version=(3, 26, 0)), "zones_data")
-        ).to_sql()
-        assert "content='zones_data'" in sql
+    def test_there_is_no_content_table(self):
+        """Geopoly has no external content table, so the parameter is gone.
+
+        ``content=`` is an R-Tree option that names the table the shapes live
+        in. Geopoly has no such option -- the shapes are the rows of the
+        table itself, and ``extra_columns`` hold the caller's auxiliary data
+        -- and a statement carrying ``content=`` is one SQLite refuses to
+        parse. So the node offers no parameter for it: asking for one is a
+        TypeError for an unknown argument, not a statement that cannot run.
+        """
+        with pytest.raises(TypeError):
+            SQLiteGeopolyCreateVirtualTable(
+                SQLiteDialect(version=(3, 26, 0)),
+                table=Table(SQLiteDialect(version=(3, 26, 0)), "zones"),
+                content_table=Table(SQLiteDialect(version=(3, 26, 0)), "zones_data"),
+            )
 
     def test_with_extra_columns(self):
         sql, _ = SQLiteGeopolyCreateVirtualTable(
@@ -81,14 +91,13 @@ class TestSQLiteGeopolyCreateVirtualTableConstruction:
         )
 
     def test_with_extra_columns_and_content(self):
-        sql, params = SQLiteGeopolyCreateVirtualTable(
-            SQLiteDialect(version=(3, 26, 0)),
-            table=Table(SQLiteDialect(version=(3, 26, 0)), "zones"), extra_columns=["name"],
-            content_table=Table(SQLiteDialect(version=(3, 26, 0)), "zones_data")
-        ).to_sql()
-        assert '"name"' in sql
-        assert "content='zones_data'" in sql
-        assert params == ()
+        with pytest.raises(TypeError):
+            SQLiteGeopolyCreateVirtualTable(
+                SQLiteDialect(version=(3, 26, 0)),
+                table=Table(SQLiteDialect(version=(3, 26, 0)), "zones"),
+                extra_columns=["name"],
+                content_table=Table(SQLiteDialect(version=(3, 26, 0)), "zones_data"),
+            )
 
     def test_empty_extra_columns(self):
         expr = SQLiteGeopolyCreateVirtualTable(
@@ -122,13 +131,20 @@ class TestSQLiteGeopolyCreateVirtualTableConstruction:
 class TestSQLiteGeopolyInjectionSafety:
     """Geopoly expression safety: malicious identifiers must be rejected."""
 
-    def test_content_table_malicious_identifier_rejected(self):
-        with pytest.raises(ValueError, match="Unsafe identifier"):
-            SQLiteGeopolyCreateVirtualTable(
-                SQLiteDialect(version=(3, 26, 0)),
-                table=Table(SQLiteDialect(version=(3, 26, 0)), "zones"),
-                content_table=Table(SQLiteDialect(version=(3, 26, 0)), "tab'; DROP TABLE users; --")
-            ).to_sql()
+    def test_extra_column_malicious_identifier_is_quoted_not_spliced(self):
+        """An auxiliary column name cannot escape its quoting.
+
+        The column names reach the SQL as identifiers, so a name carrying a
+        double quote is quoted and that quote doubled -- which is what keeps
+        the statement one SQLite accepts. A single quote inside a
+        double-quoted identifier is just a character.
+        """
+        sql, _ = SQLiteGeopolyCreateVirtualTable(
+            SQLiteDialect(version=(3, 26, 0)),
+            table=Table(SQLiteDialect(version=(3, 26, 0)), "zones"),
+            extra_columns=['col"name; DROP TABLE users; --'],
+        ).to_sql()
+        assert '"col""name; DROP TABLE users; --"' in sql
 
 
 class TestSQLiteGeopolyContainsExpressionConstruction:

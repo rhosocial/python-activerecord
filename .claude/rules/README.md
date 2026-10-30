@@ -6,10 +6,13 @@ stands alone; read the one that concerns the change in front of you.
 | Rule | Covers |
 |---|---|
 | [expression-direction.md](expression-direction.md) | `expr -> format` and why the reverse direction is where injection and unreviewable inference live. What a factory signature may accept. |
+| [expression-node-design.md](expression-node-design.md) | When a grammar construct is a clause node and when it is a parameter. One expression one formatter; counting paths rather than keywords; the four parameter shapes; why a constraint clause is two levels, not a class hierarchy. |
 | [column-and-result-types.md](column-and-result-types.md) | Designing column classes; the core / backend / user layering; stating a result type the source cannot settle, and why it is a mixin rather than a keyword. |
 | [operation-contracts.md](operation-contracts.md) | What each operation promises once the ten-backend survey measured it: the string boundary refusals, the rendering-name contracts, the temporal result types, the value-layer echo, and where version gates refuse. |
 | [static-analysis.md](static-analysis.md) | Making a checker actually check: `py.typed`, a configuration that loads, and the defects that opt out of checking silently. |
 | [anti-patterns.md](anti-patterns.md) | The catalogue, with what each one cost. Read this before adding a runtime lookup, a coercion helper, or a `__getattr__`. |
+| [python-hazards.md](python-hazards.md) | Python spelling and measured surface for the organisation's language-neutral clauses on override order, reflection and enums (expression-dialect.md §11). |
+| [introspection.md](introspection.md) | The four introspection rules: nobody spells SQL; core keeps the smallest set and does not arbitrate capability; each backend completes its own semantics; each CLI introspects one connection. |
 
 Two rules decide most of the rest:
 
@@ -25,3 +28,4 @@ A third applies to the checks themselves, and it is the one most often skipped:
 afternoon — four version gates that could not say no, an argument inserted into
 the wrong call — were all in files that had been edited and not tested. Run the
 directory.
+

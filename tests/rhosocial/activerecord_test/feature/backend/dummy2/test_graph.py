@@ -9,7 +9,7 @@ from rhosocial.activerecord.backend.expression.graph import (
     GraphVertex, GraphEdge, GraphEdgeDirection,
     QuantifiedPath, PathPattern, MatchClause,
 )
-from rhosocial.activerecord.backend.expression.operators import RawSQLExpression
+from rhosocial.activerecord.backend.expression.operators import RawSQL
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.objects import EdgeTable, NodeTable
 
@@ -289,7 +289,7 @@ class TestPathPattern:
 
     def test_rejects_unsupported_path_element(self, dummy_dialect: DummyDialect):
         vertex = GraphVertex(dummy_dialect, "a", NodeTable(dummy_dialect, "person"))
-        raw = RawSQLExpression(dummy_dialect, "1); DROP TABLE people; --")
+        raw = RawSQL(dummy_dialect, "1); DROP TABLE people; --")
         pattern = PathPattern(dummy_dialect, vertex, raw, GraphVertex(dummy_dialect, "b", NodeTable(dummy_dialect, "person")))
 
         with pytest.raises(TypeError, match="PathPattern elements"):

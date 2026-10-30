@@ -14,7 +14,7 @@ These tests verify:
 
 import pytest
 
-from rhosocial.activerecord.backend.expression import RawSQLExpression
+from rhosocial.activerecord.backend.expression import RawSQL
 from rhosocial.activerecord.backend.explain import (
     BaseExplainResult,
     SyncExplainBackendProtocol,
@@ -22,12 +22,12 @@ from rhosocial.activerecord.backend.explain import (
     SyncExplainBackendMixin,
     AsyncExplainBackendMixin,
 )
-from rhosocial.activerecord.backend.expression import WildcardExpression
+from rhosocial.activerecord.backend.expression import AllColumnsWildcard
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.statements import (
     ExplainOptions,
     ExplainType,
-    QueryExpression,
+    QueryStatement,
 )
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.explain import (
@@ -68,9 +68,9 @@ def sync_backend():
 @pytest.fixture()
 def query_expr(dialect):
     """Simple SELECT * FROM items expression."""
-    return QueryExpression(
+    return QueryStatement(
         dialect,
-        select=[WildcardExpression(dialect)],
+        select=[AllColumnsWildcard(dialect)],
         from_=NamedRelationRef(dialect, Table(dialect, "items")),
     )
 
@@ -281,17 +281,17 @@ class TestExplainBytecodeIndexAnalysis:
 
     @pytest.fixture()
     def full_scan_result(self, indexed_backend, dialect):
-        expr = RawSQLExpression(dialect, "SELECT * FROM orders")
+        expr = RawSQL(dialect, "SELECT * FROM orders")
         return indexed_backend.explain(expr)
 
     @pytest.fixture()
     def index_lookup_result(self, indexed_backend, dialect):
-        expr = RawSQLExpression(dialect, "SELECT * FROM orders WHERE status = 'pending'")
+        expr = RawSQL(dialect, "SELECT * FROM orders WHERE status = 'pending'")
         return indexed_backend.explain(expr)
 
     @pytest.fixture()
     def covering_index_result(self, indexed_backend, dialect):
-        expr = RawSQLExpression(dialect, "SELECT sku FROM order_items WHERE order_id = 1")
+        expr = RawSQL(dialect, "SELECT sku FROM order_items WHERE order_id = 1")
         return indexed_backend.explain(expr)
 
     # --- full scan ---
@@ -377,17 +377,17 @@ class TestExplainQueryPlanIndexAnalysis:
 
     @pytest.fixture()
     def full_scan_result(self, indexed_backend, dialect, qp_opts):
-        expr = RawSQLExpression(dialect, "SELECT * FROM orders")
+        expr = RawSQL(dialect, "SELECT * FROM orders")
         return indexed_backend.explain(expr, qp_opts)
 
     @pytest.fixture()
     def index_lookup_result(self, indexed_backend, dialect, qp_opts):
-        expr = RawSQLExpression(dialect, "SELECT * FROM orders WHERE status = 'pending'")
+        expr = RawSQL(dialect, "SELECT * FROM orders WHERE status = 'pending'")
         return indexed_backend.explain(expr, qp_opts)
 
     @pytest.fixture()
     def covering_index_result(self, indexed_backend, dialect, qp_opts):
-        expr = RawSQLExpression(dialect, "SELECT sku FROM order_items WHERE order_id = 1")
+        expr = RawSQL(dialect, "SELECT sku FROM order_items WHERE order_id = 1")
         return indexed_backend.explain(expr, qp_opts)
 
     # --- full scan ---

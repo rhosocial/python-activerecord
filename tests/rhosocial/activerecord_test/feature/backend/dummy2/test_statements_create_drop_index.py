@@ -1,7 +1,7 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_create_drop_index.py
 import pytest
 from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Literal
-from rhosocial.activerecord.backend.expression.statements import CreateIndexExpression, DropIndexExpression
+from rhosocial.activerecord.backend.expression.statements import CreateIndexStatement, DropIndexStatement
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.objects import Index
 from rhosocial.activerecord.backend.expression.objects import Table
@@ -12,7 +12,7 @@ class TestCreateDropIndexStatements:
 
     def test_basic_create_index(self, dummy_dialect: DummyDialect):
         """Tests basic CREATE INDEX statement."""
-        create_index = CreateIndexExpression(
+        create_index = CreateIndexStatement(
             dummy_dialect, index=Index(dummy_dialect, "idx_users_email"), table=Table(dummy_dialect, "users"), columns=["email"]
         )
         sql, params = create_index.to_sql()
@@ -24,7 +24,7 @@ class TestCreateDropIndexStatements:
 
     def test_create_unique_index(self, dummy_dialect: DummyDialect):
         """Tests CREATE UNIQUE INDEX statement."""
-        create_index = CreateIndexExpression(
+        create_index = CreateIndexStatement(
             dummy_dialect, index=Index(dummy_dialect, "idx_users_username"), table=Table(dummy_dialect, "users"), columns=["username"], unique=True
         )
         sql, params = create_index.to_sql()
@@ -36,7 +36,7 @@ class TestCreateDropIndexStatements:
 
     def test_create_index_if_not_exists(self, dummy_dialect: DummyDialect):
         """Tests CREATE INDEX IF NOT EXISTS statement."""
-        create_index = CreateIndexExpression(
+        create_index = CreateIndexStatement(
             dummy_dialect, index=Index(dummy_dialect, "idx_users_email"), table=Table(dummy_dialect, "users"), columns=["email"], if_not_exists=True
         )
         sql, params = create_index.to_sql()
@@ -46,7 +46,7 @@ class TestCreateDropIndexStatements:
 
     def test_create_composite_index(self, dummy_dialect: DummyDialect):
         """Tests CREATE INDEX with multiple columns."""
-        create_index = CreateIndexExpression(
+        create_index = CreateIndexStatement(
             dummy_dialect, index=Index(dummy_dialect, "idx_orders_user_date"), table=Table(dummy_dialect, "orders"), columns=["user_id", "created_at"]
         )
         sql, params = create_index.to_sql()
@@ -59,7 +59,7 @@ class TestCreateDropIndexStatements:
 
     def test_create_index_with_type(self, dummy_dialect: DummyDialect):
         """Tests CREATE INDEX with index type."""
-        create_index = CreateIndexExpression(
+        create_index = CreateIndexStatement(
             dummy_dialect, index=Index(dummy_dialect, "idx_users_name_hash"), table=Table(dummy_dialect, "users"), columns=["name"], index_type="HASH"
         )
         sql, params = create_index.to_sql()
@@ -73,22 +73,22 @@ class TestCreateDropIndexStatements:
             dummy_dialect,
             "=",
             Column(dummy_dialect, "status"),
-            Literal(dummy_dialect, "active", inline_literals=True)
+            Literal(dummy_dialect, "active", inline=True)
         )
-        create_index = CreateIndexExpression(
+        create_index = CreateIndexStatement(
             dummy_dialect, index=Index(dummy_dialect, "idx_active_users"), table=Table(dummy_dialect, "users"), columns=["email"], where=where_condition
         )
         sql, params = create_index.to_sql()
 
         assert 'CREATE INDEX "idx_active_users"' in sql
         # DDL clauses accept no bind parameters: WHERE literals are inline
-        # (the CreateIndexExpression inlines its WHERE at construction).
+        # (the CreateIndexStatement inlines its WHERE at construction).
         assert 'WHERE "status" = \'active\'' in sql
         assert params == ()
 
     def test_create_index_with_include(self, dummy_dialect: DummyDialect):
         """Tests CREATE INDEX with INCLUDE clause."""
-        create_index = CreateIndexExpression(
+        create_index = CreateIndexStatement(
             dummy_dialect, index=Index(dummy_dialect, "idx_users_email"), table=Table(dummy_dialect, "users"), columns=["email"], include=["id", "name"]
         )
         sql, params = create_index.to_sql()
@@ -98,7 +98,7 @@ class TestCreateDropIndexStatements:
 
     def test_create_index_with_tablespace(self, dummy_dialect: DummyDialect):
         """Tests CREATE INDEX with TABLESPACE."""
-        create_index = CreateIndexExpression(
+        create_index = CreateIndexStatement(
             dummy_dialect, index=Index(dummy_dialect, "idx_large_table"), table=Table(dummy_dialect, "large_table"), columns=["id"], tablespace="fast_ssd"
         )
         sql, params = create_index.to_sql()
@@ -111,7 +111,7 @@ class TestCreateDropIndexStatements:
         from rhosocial.activerecord.backend.expression import FunctionCall
 
         lower_expr = FunctionCall(dummy_dialect, "LOWER", Column(dummy_dialect, "email"))
-        create_index = CreateIndexExpression(
+        create_index = CreateIndexStatement(
             dummy_dialect, index=Index(dummy_dialect, "idx_users_email_lower"), table=Table(dummy_dialect, "users"), columns=[lower_expr]
         )
         sql, params = create_index.to_sql()
@@ -121,7 +121,7 @@ class TestCreateDropIndexStatements:
 
     def test_basic_drop_index(self, dummy_dialect: DummyDialect):
         """Tests basic DROP INDEX statement."""
-        drop_index = DropIndexExpression(dummy_dialect, index=Index(dummy_dialect, "idx_users_email"))
+        drop_index = DropIndexStatement(dummy_dialect, index=Index(dummy_dialect, "idx_users_email"))
         sql, params = drop_index.to_sql()
 
         assert sql == 'DROP INDEX "idx_users_email"'
@@ -129,7 +129,7 @@ class TestCreateDropIndexStatements:
 
     def test_drop_index_if_exists(self, dummy_dialect: DummyDialect):
         """Tests DROP INDEX IF EXISTS statement."""
-        drop_index = DropIndexExpression(dummy_dialect, index=Index(dummy_dialect, "idx_old_index"), if_exists=True)
+        drop_index = DropIndexStatement(dummy_dialect, index=Index(dummy_dialect, "idx_old_index"), if_exists=True)
         sql, params = drop_index.to_sql()
 
         assert sql == 'DROP INDEX IF EXISTS "idx_old_index"'
@@ -137,7 +137,7 @@ class TestCreateDropIndexStatements:
 
     def test_drop_index_with_table_name(self, dummy_dialect: DummyDialect):
         """Tests DROP INDEX with table context."""
-        drop_index = DropIndexExpression(dummy_dialect, index=Index(dummy_dialect, "idx_orders_status"), table=Table(dummy_dialect, "orders"))
+        drop_index = DropIndexStatement(dummy_dialect, index=Index(dummy_dialect, "idx_orders_status"), table=Table(dummy_dialect, "orders"))
         sql, params = drop_index.to_sql()
 
         assert sql == 'DROP INDEX "idx_orders_status" ON "orders"'
@@ -145,7 +145,7 @@ class TestCreateDropIndexStatements:
 
     def test_drop_index_if_exists_with_table_name(self, dummy_dialect: DummyDialect):
         """Tests DROP INDEX IF EXISTS with table context."""
-        drop_index = DropIndexExpression(
+        drop_index = DropIndexStatement(
             dummy_dialect, index=Index(dummy_dialect, "idx_old_index"), table=Table(dummy_dialect, "old_table"), if_exists=True
         )
         sql, params = drop_index.to_sql()
@@ -155,12 +155,12 @@ class TestCreateDropIndexStatements:
 
     def test_index_roundtrip_creation_and_deletion(self, dummy_dialect: DummyDialect):
         """Tests creating an index and then dropping it."""
-        create_index = CreateIndexExpression(
+        create_index = CreateIndexStatement(
             dummy_dialect, index=Index(dummy_dialect, "idx_test"), table=Table(dummy_dialect, "test_table"), columns=["id"]
         )
         create_sql, create_params = create_index.to_sql()
 
-        drop_index = DropIndexExpression(dummy_dialect, index=Index(dummy_dialect, "idx_test"))
+        drop_index = DropIndexStatement(dummy_dialect, index=Index(dummy_dialect, "idx_test"))
         drop_sql, drop_params = drop_index.to_sql()
 
         assert 'CREATE INDEX "idx_test"' in create_sql
@@ -179,7 +179,7 @@ class TestCreateDropIndexStatements:
     )
     def test_create_index_various_names(self, dummy_dialect: DummyDialect, index_name, expected_identifier):
         """Tests CREATE INDEX with various index name formats."""
-        create_index = CreateIndexExpression(
+        create_index = CreateIndexStatement(
             dummy_dialect,
             index=Index(dummy_dialect, index_name),
             table=Table(dummy_dialect, "users"),
@@ -196,9 +196,9 @@ class TestCreateDropIndexStatements:
             dummy_dialect,
             "=",
             Column(dummy_dialect, "active"),
-            Literal(dummy_dialect, True, inline_literals=True)
+            Literal(dummy_dialect, True, inline=True)
         )
-        create_index = CreateIndexExpression(
+        create_index = CreateIndexStatement(
             dummy_dialect,
             index=Index(dummy_dialect, "idx_complex"),
             table=Table(dummy_dialect, "users"),

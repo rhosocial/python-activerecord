@@ -23,7 +23,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-class CommentObjectType(Enum):
+class CommentObjectType(str, Enum):
     """Database object kinds a standalone ``COMMENT ON`` may target.
 
     The enum value is the SQL keyword sequence (``TABLE`` / ``COLUMN`` /
@@ -31,6 +31,9 @@ class CommentObjectType(Enum):
     Firebird's ``GENERATOR`` / ``DOMAIN``) may subclass this enum; dialect
     formatters accept either the enum or its string value.
     """
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     TABLE = "TABLE"
     COLUMN = "COLUMN"
@@ -47,7 +50,7 @@ class CommentObjectType(Enum):
     TABLESPACE = "TABLESPACE"
 
 
-class CommentOnExpression(BaseExpression):
+class CommentOnStatement(BaseExpression):
     """Standalone ``COMMENT ON <object> IS '<text>'`` statement.
 
     This is an independent DDL statement, deliberately distinct from the
@@ -63,7 +66,7 @@ class CommentOnExpression(BaseExpression):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_comment_statement"
+        return "format_comment_on_statement"
 
     def __init__(
         self,
@@ -82,4 +85,4 @@ class CommentOnExpression(BaseExpression):
         self.column = column
 
 
-__all__ = ["CommentObjectType", "CommentOnExpression"]
+__all__ = ["CommentObjectType", "CommentOnStatement"]

@@ -7,6 +7,7 @@ import pytest
 from unittest.mock import Mock
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.expression.query_parts import JoinType
 
 
 class TestSQLiteDialectFormatting:
@@ -41,34 +42,44 @@ class TestSQLiteDialectFormatting:
         result = dialect.format_identifier(identifier)
         assert result == expected
 
+    # A Mock rather than a JoinClause, so join_type has to hold the member the
+    # node's contract declares -- the formatter reads the member, and reading a
+    # bare string only ever worked because it did text operations instead.
     def test_format_join_clause_right_join_error(self):
         """Test RIGHT JOIN formatting error"""
         dialect = SQLiteDialect()
         mock_join_expr = Mock()
-        mock_join_expr.join_type = "RIGHT JOIN"
+        mock_join_expr.join_type = JoinType.RIGHT
 
         with pytest.raises(UnsupportedFeatureError, match="does not support RIGHT JOIN"):
             dialect.format_join_clause(mock_join_expr)
 
     def test_format_join_clause_full_join_error(self):
-        """Test FULL OUTER JOIN formatting error"""
+        """Test FULL JOIN formatting error"""
         dialect = SQLiteDialect()
         mock_join_expr = Mock()
-        mock_join_expr.join_type = "FULL OUTER JOIN"
+        mock_join_expr.join_type = JoinType.FULL
 
         with pytest.raises(UnsupportedFeatureError, match="does not support FULL JOIN"):
             dialect.format_join_clause(mock_join_expr)
 
     def test_format_join_clause_full_outer_join_error(self):
-        """Test FULL OUTER JOIN formatting error (alternative form)"""
+        """Test FULL OUTER JOIN formatting error.
+
+        The message names the join that was asked for; it read "FULL JOIN" before
+        only because the formatter discarded the type and hardcoded the wording.
+        """
         dialect = SQLiteDialect()
         mock_join_expr = Mock()
-        mock_join_expr.join_type = "FULL OUTER JOIN"
+        mock_join_expr.join_type = JoinType.FULL_OUTER
 
-        with pytest.raises(UnsupportedFeatureError, match="does not support FULL JOIN"):
+        with pytest.raises(UnsupportedFeatureError, match="does not support FULL OUTER JOIN"):
             dialect.format_join_clause(mock_join_expr)
 
-    @pytest.mark.parametrize("join_type", ["RIGHT JOIN", "FULL OUTER JOIN", "FULL JOIN"])
+    @pytest.mark.parametrize(
+        "join_type",
+        [JoinType.RIGHT, JoinType.RIGHT_OUTER, JoinType.FULL, JoinType.FULL_OUTER],
+    )
     def test_format_join_clause_unsupported_joins(self, join_type):
         """Parametrized test for unsupported JOIN types"""
         dialect = SQLiteDialect()
@@ -78,8 +89,9 @@ class TestSQLiteDialectFormatting:
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             dialect.format_join_clause(mock_join_expr)
 
-        expected_keyword = join_type.upper().split()[0]
-        assert expected_keyword in str(exc_info.value)
+        # The whole phrase is named, so RIGHT OUTER is distinguishable from
+        # RIGHT -- the old split-on-space check could not tell them apart.
+        assert join_type.phrase in str(exc_info.value)
 
     def test_format_grouping_clause_rollup_error(self):
         """Test ROLLUP formatting error"""
@@ -142,12 +154,12 @@ class TestSQLiteDialectFormatting:
     def test_format_array_expression_error(self):
         """Test array expression formatting error"""
         from unittest.mock import MagicMock
-        from rhosocial.activerecord.backend.expression.advanced_functions import ArrayExpression
+        from rhosocial.activerecord.backend.expression.advanced_functions import ArrayOperation
 
         dialect = SQLiteDialect()
 
-        # Create a mock ArrayExpression to pass to format_array_expression
-        mock_expr = MagicMock(spec=ArrayExpression)
+        # Create a mock ArrayOperation to pass to format_array_expression
+        mock_expr = MagicMock(spec=ArrayOperation)
         mock_expr.operation = "CONSTRUCTOR"
         mock_expr.elements = []
         mock_expr.base_expr = None
@@ -224,14 +236,14 @@ class TestSQLiteDialectFormatting:
     def test_formatting_methods_unsupported(self, operation, method_name, expected_error_part):
         """Parametrized test for unsupported formatting methods"""
         from unittest.mock import MagicMock
-        from rhosocial.activerecord.backend.expression.advanced_functions import ArrayExpression
+        from rhosocial.activerecord.backend.expression.advanced_functions import ArrayOperation
 
         dialect = SQLiteDialect()
         method = getattr(dialect, method_name)
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             if method_name == "format_array_expression":
-                mock_expr = MagicMock(spec=ArrayExpression)
+                mock_expr = MagicMock(spec=ArrayOperation)
                 mock_expr.operation = "CONSTRUCTOR"
                 mock_expr.elements = []
                 mock_expr.base_expr = None

@@ -17,6 +17,7 @@ import aiosqlite
 from .common import SQLiteBackendMixin, SQLiteConcurrencyMixin, DEFAULT_PRAGMAS
 from ..config import SQLiteConnectionConfig
 from ..dialect import SQLiteDialect
+from ..expression.introspection import SQLitePragmaQueryStatement, SQLitePragmaSetStatement
 from ..async_transaction import AsyncSQLiteTransactionManager
 from rhosocial.activerecord.backend.base import AsyncStorageBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig
@@ -137,10 +138,10 @@ class AsyncSQLiteBackend(
         self.config.pragmas[pragma_key] = pragma_value_str
 
         if self._connection:
-            pragma_statement = f"PRAGMA {pragma_key} = {pragma_value_str}"
-            self.log(logging.DEBUG, f"Setting pragma: {pragma_statement}")
+            sql = SQLitePragmaSetStatement(self.dialect, pragma_key, pragma_value_str).to_sql()[0]
+            self.log(logging.DEBUG, f"Setting pragma: {sql}")
             try:
-                await self._connection.execute(pragma_statement)
+                await self._connection.execute(sql)
             except sqlite3.Error as e:
                 error_msg = f"Failed to set pragma {pragma_key}: {str(e)}"
                 self.log(logging.ERROR, error_msg)
@@ -149,12 +150,12 @@ class AsyncSQLiteBackend(
     async def _apply_pragmas(self) -> None:
         """Apply PRAGMA settings."""
         for pragma_key, pragma_value in self.config.pragmas.items():
-            pragma_statement = f"PRAGMA {pragma_key} = {pragma_value}"
-            self.log(logging.DEBUG, f"Executing pragma: {pragma_statement}")
+            sql = SQLitePragmaSetStatement(self.dialect, pragma_key, pragma_value).to_sql()[0]
+            self.log(logging.DEBUG, f"Executing pragma: {sql}")
             try:
-                await self._connection.execute(pragma_statement)
+                await self._connection.execute(sql)
             except sqlite3.Error as e:
-                self.log(logging.WARNING, f"Failed to execute pragma {pragma_statement}: {str(e)}")
+                self.log(logging.WARNING, f"Failed to execute pragma {sql}: {str(e)}")
 
     async def connect(self) -> None:
         """Establish a connection to the SQLite database asynchronously.
@@ -507,7 +508,8 @@ class AsyncSQLiteBackend(
         options: Dict[str, str] = {}
         try:
             cursor = await self._connection.cursor()
-            await cursor.execute("PRAGMA compile_options")
+            sql = SQLitePragmaQueryStatement(self.dialect, "compile_options").to_sql()[0]
+            await cursor.execute(sql)
             rows = await cursor.fetchall()
             for row in rows:
                 opt_name = row[0]

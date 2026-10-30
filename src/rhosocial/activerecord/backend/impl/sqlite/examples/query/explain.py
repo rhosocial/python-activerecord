@@ -1,3 +1,27 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
+from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.statements.explain import ExplainType, ExplainOptions
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefinition,
+    ColumnConstraint,
+)
+from rhosocial.activerecord.backend.expression.core import Literal, Column
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression import (
+    CreateTableStatement,
+    InsertStatement,
+    ValuesSource,
+    QueryStatement,
+    ExplainStatement,
+    CreateIndexStatement,
+)
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 """
 EXPLAIN and Query Plan analysis - SQLite.
 
@@ -11,33 +35,13 @@ This example demonstrates:
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression,
-    InsertExpression,
-    ValuesSource,
-    QueryExpression,
-    ExplainExpression,
-    CreateIndexExpression,
-)
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.core import Literal, Column
-from rhosocial.activerecord.backend.expression.statements import (
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
-)
-from rhosocial.activerecord.backend.expression.statements.explain import ExplainType, ExplainOptions
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
-from .....expression.objects import Table
+
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table_name="users",
     columns=[
@@ -45,15 +49,15 @@ create_table = CreateTableExpression(
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, 
             "name",
             TextType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, "email", TextType()),
@@ -63,7 +67,7 @@ create_table = CreateTableExpression(
 sql, params = create_table.to_sql()
 backend.execute(sql, params)
 
-create_index = CreateIndexExpression(
+create_index = CreateIndexStatement(
     dialect=dialect,
     index_name="idx_users_email",
     table_name="users",
@@ -79,7 +83,7 @@ users = [
     ("Charlie", "charlie@example.com"),
 ]
 for name, email in users:
-    insert_expr = InsertExpression(
+    insert_expr = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'users'),
         columns=["name", "email"],
@@ -93,18 +97,17 @@ for name, email in users:
 # ============================================================
 
 # 1. EXPLAIN QUERY PLAN for table scan (no index on name column)
-query1 = QueryExpression(
+query1 = QueryStatement(
     dialect=dialect,
     select=[Column(dialect, "*")],
     from_=NamedRelationRef(dialect, Table(dialect, "users")),
     where=ComparisonPredicate(
-        dialect,
         "=",
         Column(dialect, "name"),
         Literal(dialect, "Alice"),
     ),
 )
-explain_scan = ExplainExpression(
+explain_scan = ExplainStatement(
     dialect=dialect,
     statement=query1,
     options=ExplainOptions(type=ExplainType.QUERY_PLAN),
@@ -117,18 +120,17 @@ for row in result.data:
     print(f"  {row}")
 
 # 2. EXPLAIN QUERY PLAN for index search (email has index)
-query2 = QueryExpression(
+query2 = QueryStatement(
     dialect=dialect,
     select=[Column(dialect, "*")],
     from_=NamedRelationRef(dialect, Table(dialect, "users")),
     where=ComparisonPredicate(
-        dialect,
         "=",
         Column(dialect, "email"),
         Literal(dialect, "alice@example.com"),
     ),
 )
-explain_search = ExplainExpression(
+explain_search = ExplainStatement(
     dialect=dialect,
     statement=query2,
     options=ExplainOptions(type=ExplainType.QUERY_PLAN),

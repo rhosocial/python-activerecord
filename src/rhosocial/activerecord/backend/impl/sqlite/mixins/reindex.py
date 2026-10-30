@@ -9,7 +9,7 @@ from typing import Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:
-    from ..expression.reindex import SQLiteReindexExpression
+    from ..expression.reindex import SQLiteReindexStatement
 
 
 class SQLiteReindexMixin:
@@ -25,9 +25,9 @@ class SQLiteReindexMixin:
 
     def supports_reindex_expressions(self) -> bool:
         """SQLite 3.53.0+ supports REINDEX EXPRESSIONS."""
-        return self.version >= (3, 53, 0)
+        return self.version_at_least((3, 53, 0))
 
-    def format_reindex_statement(self, expr: "SQLiteReindexExpression") -> Tuple[str, tuple]:
+    def format_reindex_statement(self, expr: "SQLiteReindexStatement") -> Tuple[str, tuple]:
         """Format REINDEX statement for SQLite.
 
         SQLite REINDEX syntax:
@@ -37,7 +37,7 @@ class SQLiteReindexMixin:
         - REINDEX EXPRESSIONS              -- Rebuild all expression indexes (3.53.0+)
 
         Args:
-            expr: SQLiteReindexExpression object
+            expr: SQLiteReindexStatement object
 
         Returns:
             Tuple of (SQL string, empty parameters tuple)

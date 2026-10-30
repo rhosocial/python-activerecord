@@ -32,9 +32,9 @@ class DummyCallable:
     """Dummy callable for testing."""
 
     def __call__(self, dialect, limit: int = 100):
-        from rhosocial.activerecord.backend.expression import QueryExpression
+        from rhosocial.activerecord.backend.expression import QueryStatement
 
-        return QueryExpression(dialect)
+        return QueryStatement(dialect)
 
 
 class TestNamedExpressionResolverInit:
@@ -238,12 +238,12 @@ class TestNamedExpressionResolverExecute:
                 resolver.execute(mock_dialect, {})
 
     def test_execute_extra_params(self, mock_dialect):
-        from rhosocial.activerecord.backend.expression import QueryExpression
+        from rhosocial.activerecord.backend.expression import QueryStatement
 
         module = types.ModuleType("test_queries")
 
         def func(dialect, limit: int = 100):
-            return QueryExpression(dialect)
+            return QueryStatement(dialect)
 
         module.func = func
         with patch("importlib.import_module", return_value=module):
@@ -362,26 +362,26 @@ class TestClassifyProbeUtilities:
 
     def test_classify_clause(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
-        from rhosocial.activerecord.backend.expression import RawSQLExpression
+        from rhosocial.activerecord.backend.expression import RawSQL
 
-        result = _classify(RawSQLExpression(self._dialect(), "SELECT 1"))
+        result = _classify(RawSQL(self._dialect(), "SELECT 1"))
         assert result == ["CLAUSE"]
 
     def test_classify_dql(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
-        from rhosocial.activerecord.backend.expression import QueryExpression, Literal
+        from rhosocial.activerecord.backend.expression import QueryStatement, Literal
 
         d = self._dialect()
-        q = QueryExpression(d, [Literal(d, 1)])
+        q = QueryStatement(d, [Literal(d, 1)])
         result = _classify(q)
         assert result == ["DQL"]
 
     def test_classify_dml(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
-        from rhosocial.activerecord.backend.expression import InsertExpression, Literal
+        from rhosocial.activerecord.backend.expression import InsertStatement, Literal
 
         d = self._dialect()
-        expr = InsertExpression(d, Table(d, 't'), [Literal(d, 1)])
+        expr = InsertStatement(d, Table(d, 't'), [Literal(d, 1)])
         result = _classify(expr)
         assert result == ["DML"]
 
@@ -394,10 +394,10 @@ class TestClassifyProbeUtilities:
         which test_classify_ddl_by_stubbed_statement_type covers.
         """
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
-        from rhosocial.activerecord.backend.expression import CreateTableExpression
+        from rhosocial.activerecord.backend.expression import CreateTableStatement
 
         d = self._dialect()
-        expr = CreateTableExpression(d, Table(d, "t"), [])
+        expr = CreateTableStatement(d, Table(d, "t"), [])
         result = _classify(expr)
         assert result == ["CLAUSE"]
 
@@ -408,10 +408,10 @@ class TestClassifyProbeUtilities:
         has no core expression reaching it either.
         """
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
-        from rhosocial.activerecord.backend.expression import BeginTransactionExpression
+        from rhosocial.activerecord.backend.expression import BeginTransactionStatement
 
         d = self._dialect()
-        expr = BeginTransactionExpression(d)
+        expr = BeginTransactionStatement(d)
         result = _classify(expr)
         assert result == ["CLAUSE"]
 
@@ -431,13 +431,13 @@ class TestClassifyProbeUtilities:
 
     def test_classify_explain(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
-        from rhosocial.activerecord.backend.expression import ExplainExpression
+        from rhosocial.activerecord.backend.expression import ExplainStatement
 
         d = self._dialect()
-        from rhosocial.activerecord.backend.expression import QueryExpression, Literal
+        from rhosocial.activerecord.backend.expression import QueryStatement, Literal
 
-        inner = QueryExpression(d, [Literal(d, 1)])
-        expr = ExplainExpression(d, inner)
+        inner = QueryStatement(d, [Literal(d, 1)])
+        expr = ExplainStatement(d, inner)
         result = _classify(expr)
         assert result == ["EXPLAIN"]
 
@@ -488,20 +488,20 @@ class TestClassifyProbeUtilities:
 
     def test_probe_tags_success(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _probe_tags
-        from rhosocial.activerecord.backend.expression import QueryExpression, Literal
+        from rhosocial.activerecord.backend.expression import QueryStatement, Literal
 
         def f(dialect, x: int = 1):
-            return QueryExpression(dialect, [Literal(dialect, 1)])
+            return QueryStatement(dialect, [Literal(dialect, 1)])
 
         result = _probe_tags(f, dialect=self._dialect())
         assert result == ["DQL"]
 
     def test_probe_tags_returns_clause(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _probe_tags
-        from rhosocial.activerecord.backend.expression import RawSQLExpression
+        from rhosocial.activerecord.backend.expression import RawSQL
 
         def f(dialect, x: int = 1):
-            return RawSQLExpression(dialect, "1")
+            return RawSQL(dialect, "1")
 
         result = _probe_tags(f, dialect=self._dialect())
         assert result == ["CLAUSE"]
@@ -603,10 +603,10 @@ class TestClassifyProbeUtilities:
 
     def test_probe_tags_returns_clause_by_stubbed_dialect(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _probe_tags
-        from rhosocial.activerecord.backend.expression import RawSQLExpression
+        from rhosocial.activerecord.backend.expression import RawSQL
 
         def f(dialect, x: int = 1):
-            return RawSQLExpression(dialect, "1")
+            return RawSQL(dialect, "1")
 
         from rhosocial.activerecord.backend.dialect import SQLDialectBase
         result = _probe_tags(f, dialect=MagicMock(spec=SQLDialectBase))

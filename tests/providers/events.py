@@ -17,7 +17,7 @@ import sys
 import logging
 from typing import Type, List
 
-from rhosocial.activerecord.backend.expression import DropTableExpression
+from rhosocial.activerecord.backend.expression import DropTableStatement
 from rhosocial.activerecord.model import ActiveRecord
 
 # Setup logging for fixture selection debugging
@@ -207,7 +207,7 @@ class EventsSyncProvider(EventsProviderBase, IEventsSyncProvider):
         from rhosocial.activerecord.backend.schema import StatementType
 
         try:
-            drop_expr = DropTableExpression(
+            drop_expr = DropTableStatement(
                 dialect=model_class.__backend__.dialect,
                 table=Table(model_class.__backend__.dialect, table_name),
                 if_exists=True,
@@ -329,7 +329,7 @@ class EventsAsyncProvider(EventsProviderBase, IEventsAsyncProvider):
         from rhosocial.activerecord.backend.schema import StatementType
 
         try:
-            drop_expr = DropTableExpression(
+            drop_expr = DropTableStatement(
                 dialect=model_class.__backend__.dialect,
                 table=Table(model_class.__backend__.dialect, table_name),
                 if_exists=True,

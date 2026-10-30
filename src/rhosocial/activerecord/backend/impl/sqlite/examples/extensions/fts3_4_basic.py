@@ -28,23 +28,23 @@ dialect = backend.dialect
 # ============================================================
 from rhosocial.activerecord.backend.expression import (
     Column,
-    InsertExpression,
+    InsertStatement,
     ValuesSource,
-    QueryExpression,
+    QueryStatement,
     FunctionCall,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
 from rhosocial.activerecord.backend.impl.sqlite.expression import (
     SQLiteMatchPredicate,  # noqa: E402
-    CreateVirtualTableExpression,  # noqa: E402
+    CreateVirtualTableStatement,  # noqa: E402
 )
 from .....expression.objects import Table
 
 # Create FTS4 virtual table using the dialect's generic virtual table
 # formatting method. For FTS4, module='fts4' and tokenizer options
 # are passed via the options dict.
-create_expr = CreateVirtualTableExpression(
+create_expr = CreateVirtualTableStatement(
     dialect=dialect,
     module="fts4",
     table_name="documents",
@@ -64,7 +64,7 @@ documents = [
 ]
 
 for title, content in documents:
-    insert_expr = InsertExpression(
+    insert_expr = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'documents'),
         columns=["title", "content"],
@@ -81,7 +81,7 @@ for title, content in documents:
     sql, params = insert_expr.to_sql()
     backend.execute(sql, params)
 
-# Full-text search using SQLiteMatchPredicate with QueryExpression
+# Full-text search using SQLiteMatchPredicate with QueryStatement
 # SQLiteMatchPredicate delegates to the dialect's format_match_predicate,
 # which in turn calls the FTS extension's formatting logic.
 search_pred = SQLiteMatchPredicate(dialect, table="documents", query="programming")
@@ -93,7 +93,7 @@ snippet_pred = SQLiteMatchPredicate(dialect, table="documents", query="language"
 # ... offsets query example ...
 offsets_pred = SQLiteMatchPredicate(dialect, table="documents", query="database")
 
-offsets_query = QueryExpression(
+offsets_query = QueryStatement(
     dialect=dialect,
     select=[
         Column(dialect, "title", table="documents"),

@@ -36,9 +36,9 @@ from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.objects import Sequence
 from rhosocial.activerecord.backend.expression.statements import (
-    AlterSequenceExpression,
-    CreateSequenceExpression,
-    DropSequenceExpression,
+    AlterSequenceStatement,
+    CreateSequenceStatement,
+    DropSequenceStatement,
 )
 
 
@@ -56,9 +56,9 @@ SEQUENCE_FORMATTERS = {
 
 #: The three expression classes, so a rename of ``format_method`` fails here.
 SEQUENCE_EXPRESSIONS = (
-    CreateSequenceExpression,
-    DropSequenceExpression,
-    AlterSequenceExpression,
+    CreateSequenceStatement,
+    DropSequenceStatement,
+    AlterSequenceStatement,
 )
 
 
@@ -177,7 +177,7 @@ def _render_alter_start(dialect_cls: type):
     behind the classification.
     """
     dialect = dialect_cls()
-    expr = AlterSequenceExpression(dialect, Sequence(dialect, "s"), start=5)
+    expr = AlterSequenceStatement(dialect, Sequence(dialect, "s"), start=5)
     try:
         return True, expr.to_sql()[0]
     except UnsupportedFeatureError:
@@ -198,14 +198,14 @@ class TestAlterSequenceStartSplit:
     def test_false_probe_refuses_alter_start(self):
         """A dialect whose ALTER probe is False must not render START."""
         dialect = AlterStartRefusingDialect()
-        expr = AlterSequenceExpression(dialect, Sequence(dialect, "s"), start=5)
+        expr = AlterSequenceStatement(dialect, Sequence(dialect, "s"), start=5)
         with pytest.raises(UnsupportedFeatureError, match="ALTER SEQUENCE START"):
             expr.to_sql()
 
     def test_false_probe_leaves_create_start_alone(self):
         """The split is real: the same dialect still renders CREATE ... START."""
         dialect = AlterStartRefusingDialect()
-        sql, _ = CreateSequenceExpression(
+        sql, _ = CreateSequenceStatement(
             dialect, Sequence(dialect, "s"), start=5
         ).to_sql()
         assert "START WITH 5" in sql
@@ -213,7 +213,7 @@ class TestAlterSequenceStartSplit:
     def test_true_probe_renders_alter_start(self):
         """The two dialects that accept ALTER ... START declare True and render."""
         dialect = DummyDialect()
-        sql, _ = AlterSequenceExpression(
+        sql, _ = AlterSequenceStatement(
             dialect, Sequence(dialect, "s"), start=5
         ).to_sql()
         assert "START WITH 5" in sql
@@ -221,7 +221,7 @@ class TestAlterSequenceStartSplit:
     def test_restart_is_not_gated_by_the_start_probe(self):
         """RESTART is ALTER-only and independent of the START probe."""
         dialect = AlterStartRefusingDialect()
-        sql, _ = AlterSequenceExpression(
+        sql, _ = AlterSequenceStatement(
             dialect, Sequence(dialect, "s"), restart=5
         ).to_sql()
         assert "RESTART WITH 5" in sql
@@ -271,84 +271,84 @@ def _withdrawing_dialect(probe_name: str) -> type:
 SEQUENCE_OPTION_CASES = (
     (
         "supports_sequence_cycle",
-        CreateSequenceExpression,
+        CreateSequenceStatement,
         {"cycle": True},
         "CYCLE",
         "SEQUENCE CYCLE",
     ),
     (
         "supports_sequence_cycle",
-        CreateSequenceExpression,
+        CreateSequenceStatement,
         {"no_cycle": True},
         "NO CYCLE",
         "SEQUENCE CYCLE",
     ),
     (
         "supports_sequence_cache",
-        CreateSequenceExpression,
+        CreateSequenceStatement,
         {"cache": 10},
         "CACHE 10",
         "SEQUENCE CACHE",
     ),
     (
         "supports_sequence_cache",
-        CreateSequenceExpression,
+        CreateSequenceStatement,
         {"no_cache": True},
         "NO CACHE",
         "SEQUENCE CACHE",
     ),
     (
         "supports_sequence_order",
-        CreateSequenceExpression,
+        CreateSequenceStatement,
         {"order": True},
         "ORDER",
         "SEQUENCE ORDER",
     ),
     (
         "supports_sequence_order",
-        CreateSequenceExpression,
+        CreateSequenceStatement,
         {"no_order": True},
         "NO ORDER",
         "SEQUENCE ORDER",
     ),
     (
         "supports_sequence_cycle",
-        AlterSequenceExpression,
+        AlterSequenceStatement,
         {"cycle": True},
         "CYCLE",
         "ALTER SEQUENCE CYCLE",
     ),
     (
         "supports_sequence_cycle",
-        AlterSequenceExpression,
+        AlterSequenceStatement,
         {"no_cycle": True},
         "NO CYCLE",
         "ALTER SEQUENCE CYCLE",
     ),
     (
         "supports_sequence_cache",
-        AlterSequenceExpression,
+        AlterSequenceStatement,
         {"cache": 10},
         "CACHE 10",
         "ALTER SEQUENCE CACHE",
     ),
     (
         "supports_sequence_cache",
-        AlterSequenceExpression,
+        AlterSequenceStatement,
         {"no_cache": True},
         "NO CACHE",
         "ALTER SEQUENCE CACHE",
     ),
     (
         "supports_sequence_order",
-        AlterSequenceExpression,
+        AlterSequenceStatement,
         {"order": True},
         "ORDER",
         "ALTER SEQUENCE ORDER",
     ),
     (
         "supports_sequence_order",
-        AlterSequenceExpression,
+        AlterSequenceStatement,
         {"no_order": True},
         "NO ORDER",
         "ALTER SEQUENCE ORDER",
@@ -408,16 +408,16 @@ class TestSequenceOptionGates:
     def test_neither_spelling_renders_nothing(self):
         """The reference dialect renders no option when the pair is unset."""
         dialect = DummyDialect()
-        sql = CreateSequenceExpression(dialect, Sequence(dialect, "s")).to_sql()[0]
+        sql = CreateSequenceStatement(dialect, Sequence(dialect, "s")).to_sql()[0]
         assert "CYCLE" not in sql and "ORDER" not in sql and "CACHE" not in sql
-        sql = AlterSequenceExpression(dialect, Sequence(dialect, "s")).to_sql()[0]
+        sql = AlterSequenceStatement(dialect, Sequence(dialect, "s")).to_sql()[0]
         assert sql == 'ALTER SEQUENCE "s"'
 
     def test_both_spellings_of_a_pair_are_refused(self):
         dialect = DummyDialect()
         with pytest.raises(ValueError, match="cycle and no_cycle are mutually exclusive"):
-            CreateSequenceExpression(dialect, Sequence(dialect, "s"), cycle=True, no_cycle=True)
+            CreateSequenceStatement(dialect, Sequence(dialect, "s"), cycle=True, no_cycle=True)
         with pytest.raises(ValueError, match="cache and no_cache are mutually exclusive"):
-            AlterSequenceExpression(dialect, Sequence(dialect, "s"), cache=10, no_cache=True)
+            AlterSequenceStatement(dialect, Sequence(dialect, "s"), cache=10, no_cache=True)
         with pytest.raises(ValueError, match="order and no_order are mutually exclusive"):
-            CreateSequenceExpression(dialect, Sequence(dialect, "s"), order=True, no_order=True)
+            CreateSequenceStatement(dialect, Sequence(dialect, "s"), order=True, no_order=True)

@@ -9,26 +9,18 @@ from typing import Any, List, Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:
-    from ..expression.fts5 import SQLiteFTS5MatchExpression
-    from rhosocial.activerecord.backend.expression.statements import InsertExpression, ReturningClause
+    from ..expression.fts5 import SQLiteFTS5MatchPredicate
+    from rhosocial.activerecord.backend.expression.statements import InsertStatement, ReturningClause
 
 class SQLiteDMLMixin:
     """SQLite-specific INSERT and RETURNING formatting."""
 
-    def format_insert_statement(self, expr: "InsertExpression") -> Tuple[str, tuple]:
-        """Format INSERT statement with SQLite-specific OR REPLACE / OR IGNORE support."""
-        or_replace = getattr(expr, "or_replace", False)
-        or_ignore = getattr(expr, "or_ignore", False)
+    def format_insert_statement(self, expr: "InsertStatement") -> Tuple[str, tuple]:
+        """Format INSERT statement with SQLite-specific OR REPLACE / OR IGNORE support.
 
-        if or_replace and or_ignore:
-            raise ValueError("Cannot specify both 'or_replace' and 'or_ignore'.")
-        if (or_replace or or_ignore) and expr.on_conflict:
-            raise ValueError(
-                "Cannot use 'or_replace'/'or_ignore' together with 'on_conflict'. "
-                "Use either the SQLite-specific OR REPLACE/IGNORE syntax or the "
-                "standard ON CONFLICT clause, but not both."
-            )
-
+        The mutual-exclusion rules are enforced when the node is built, so the
+        render path only spells what the node was given.
+        """
         if self.strict_validation:
             expr.validate(strict=True)
 
@@ -50,24 +42,19 @@ class SQLiteDMLMixin:
         if isinstance(expr.source, DefaultValuesSource):
             source_sql = "DEFAULT VALUES"
         elif isinstance(expr.source, ValuesSource):
-            all_rows_sql = []
-            for row in expr.source.values_list:
-                row_sql, row_params = [], []
-                for val in row:
-                    s, p = val.to_sql()
-                    row_sql.append(s)
-                    row_params.extend(p)
-                all_rows_sql.append(f"({', '.join(row_sql)})")
-                all_params.extend(row_params)
-            source_sql = "VALUES " + ", ".join(all_rows_sql)
+            # Delegate to the base formatter so the cell-vs-bare-value
+            # distinction is decided once, in format_insert_values_source,
+            # rather than re-implemented here.
+            source_sql, values_params = self.format_insert_values_source(expr.source)
+            all_params.extend(values_params)
         elif isinstance(expr.source, SelectSource):
             s_sql, s_params = expr.source.select_query.to_sql()
             source_sql = s_sql
             all_params.extend(s_params)
 
-        if or_replace:
+        if expr.or_replace:
             sql = f"INSERT OR REPLACE INTO {table_sql} {columns_sql} {source_sql}".strip()
-        elif or_ignore:
+        elif expr.or_ignore:
             sql = f"INSERT OR IGNORE INTO {table_sql} {columns_sql} {source_sql}".strip()
         else:
             sql = f"INSERT INTO {table_sql} {columns_sql} {source_sql}".strip()
@@ -108,7 +95,7 @@ class SQLiteDMLMixin:
 
     def format_match_predicate(
         self,
-        expr: "SQLiteFTS5MatchExpression",
+        expr: "SQLiteFTS5MatchPredicate",
     ) -> Tuple[str, tuple]:
         """Format full-text search MATCH predicate for FTS5."""
         return self.format_fts5_match_expression(expr)

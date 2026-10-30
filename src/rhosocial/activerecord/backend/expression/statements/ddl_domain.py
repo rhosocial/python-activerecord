@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, List, Optional, Sequence, TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLPredicate, SQLValueExpression
+from ..bases import BaseExpression, SQLPredicate, SQLValue
 from ..mixins import (
     ComparisonMixin,
     StringPatternPredicateMixin,
@@ -30,7 +30,9 @@ def _normalize_default(dialect: "SQLDialectBase", value: Any) -> DefaultValueCla
     return DefaultValueClause(dialect, value)
 
 
-class DomainNullability(Enum):
+class DomainNullability(str, Enum):
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
     """Nullability declaration for a domain."""
 
     UNSPECIFIED = "UNSPECIFIED"
@@ -42,7 +44,7 @@ class DomainValueExpression(
     ComparisonMixin,
     StringPatternPredicateMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """The ``VALUE`` expression available inside a domain check."""
 
@@ -52,7 +54,13 @@ class DomainValueExpression(
 
 
 class DomainCheckConstraint(BaseExpression):
-    """A domain ``CHECK`` constraint with an optional constraint name."""
+    """A domain ``CHECK`` constraint with an optional constraint name.
+
+    A CHECK position accepts no bind parameters, so the class declares
+    the literals are marked inline; the dialect renders the condition inline-only
+    and refuses any residual bind value.
+    """
+
 
     @property
     def format_method(self) -> str:
@@ -184,7 +192,7 @@ class RenameDomainAction(DomainAlterAction):
         self.new_name = new_name
 
 
-class CreateDomainExpression(BaseExpression):
+class CreateDomainStatement(BaseExpression):
     """Expression for ``CREATE DOMAIN``."""
 
     def __init__(
@@ -251,7 +259,7 @@ class CreateDomainExpression(BaseExpression):
         return "format_create_domain_statement"
 
 
-class AlterDomainExpression(BaseExpression):
+class AlterDomainStatement(BaseExpression):
     """Expression for ``ALTER DOMAIN``."""
 
     def __init__(
@@ -276,7 +284,7 @@ class AlterDomainExpression(BaseExpression):
         return "format_alter_domain_statement"
 
 
-class DropDomainExpression(BaseExpression):
+class DropDomainStatement(BaseExpression):
     """Expression for ``DROP DOMAIN``."""
 
     def __init__(
@@ -308,7 +316,7 @@ __all__ = [
     "AddDomainCheckAction",
     "DropDomainCheckAction",
     "RenameDomainAction",
-    "CreateDomainExpression",
-    "AlterDomainExpression",
-    "DropDomainExpression",
+    "CreateDomainStatement",
+    "AlterDomainStatement",
+    "DropDomainStatement",
 ]

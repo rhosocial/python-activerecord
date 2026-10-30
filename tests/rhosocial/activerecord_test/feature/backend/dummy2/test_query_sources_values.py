@@ -1,5 +1,5 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_query_sources_values.py
-from rhosocial.activerecord.backend.expression import Column, QueryExpression
+from rhosocial.activerecord.backend.expression import Column, QueryStatement
 from rhosocial.activerecord.backend.expression.query_sources import ValuesExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
@@ -80,7 +80,7 @@ class TestValuesExpression:
         )
 
         # Create a query using the VALUES expression as FROM
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "name", table="products"), Column(dummy_dialect, "price", table="products")],
             from_=values_expr,  # Using VALUES as data source

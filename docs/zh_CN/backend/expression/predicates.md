@@ -13,21 +13,32 @@
 表示两个表达式之间的标准比较操作。
 
 ```python
-class ComparisonPredicate(bases.SQLPredicate):
-    def __init__(self, dialect: "SQLDialectBase", op: str, left: "SQLValueExpression", right: "SQLValueExpression"): ...
+import inspect
+
+from rhosocial.activerecord.backend.expression import ComparisonPredicate
+
+print(inspect.signature(ComparisonPredicate))
+# (dialect: 'SQLDialectBase', op: Any, left: 'SQLValue', right: 'SQLValue')
 ```
 
 **参数:**
 - `dialect`: SQL 方言实例。
-- `op`: 比较运算符 (例如 `=`, `>`, `<`, `>=`, `<=`, `<>`)。
+- `op`: 比较操作——`ComparisonOperator` 成员（`EQ`、`NE`、`GT`、`GTE`、`LT`、`LTE`）或其 SQL 写法（`=`、`!=`、`>`、`>=`、`<`、`<=`）。
 - `left`: 左侧表达式。
 - `right`: 右侧表达式。
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import (
+    ComparisonPredicate, IntegerColumn, Literal,
+)
+
 # users.age >= 18
-    pred = ComparisonPredicate(dialect, ">=", Column(dialect, "age"), Literal(dialect, 18))
-    # -> ('"age" >= ?', (18,))
+pred = ComparisonPredicate(
+    dialect, ">=", IntegerColumn(dialect, "age"), Literal(dialect, 18)
+)
+pred.to_sql()
+# -> ('"age" >= ?', (18,))
 ```
 
 ### LogicalPredicate
@@ -35,22 +46,32 @@ class ComparisonPredicate(bases.SQLPredicate):
 表示组合其他谓词的逻辑操作。
 
 ```python
-class LogicalPredicate(bases.SQLPredicate):
-    def __init__(self, dialect: "SQLDialectBase", op: str, *predicates: "bases.SQLPredicate"): ...
+import inspect
+
+from rhosocial.activerecord.backend.expression import LogicalPredicate
+
+print(inspect.signature(LogicalPredicate))
+# (dialect: 'SQLDialectBase', op: str, *operands: 'SQLPredicate')
 ```
 
 **参数:**
 - `dialect`: SQL 方言实例。
 - `op`: 逻辑运算符 (例如 `AND`, `OR`, `NOT`)。
-- `*predicates`: 一个或多个要组合的谓词。
+- `*operands`: 一个或多个要组合的谓词。
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import (
+    IntegerColumn, LogicalPredicate, StringColumn,
+)
+
 # (age >= 18) AND (status = 'active')
-    pred1 = ComparisonPredicate(dialect, ">=", Column(dialect, "age"), Literal(dialect, 18))
-    pred2 = ComparisonPredicate(dialect, "=", Column(dialect, "status"), Literal(dialect, "active"))
-    combined = LogicalPredicate(dialect, "AND", pred1, pred2)
-    # -> ('"age" >= ? AND "status" = ?', (18, 'active'))
+# 带类型的列用 Python 运算符构建比较谓词。
+pred1 = IntegerColumn(dialect, "age") >= 18
+pred2 = StringColumn(dialect, "status") == "active"
+combined = LogicalPredicate(dialect, "AND", pred1, pred2)
+combined.to_sql()
+# -> ('"age" >= ? AND "status" = ?', (18, 'active'))
 ```
 
 ### LikePredicate
@@ -58,21 +79,32 @@ class LogicalPredicate(bases.SQLPredicate):
 表示模式匹配操作 (`LIKE`, `ILIKE`)。
 
 ```python
-class LikePredicate(bases.SQLPredicate):
-    def __init__(self, dialect: "SQLDialectBase", op: str, expr: "SQLValueExpression", pattern: "SQLValueExpression"): ...
+import inspect
+
+from rhosocial.activerecord.backend.expression import LikePredicate
+
+print(inspect.signature(LikePredicate))
+# (dialect: 'SQLDialectBase', op: 'LikeOperator', left: 'SQLValue', pattern: 'SQLValue')
 ```
 
 **参数:**
 - `dialect`: SQL 方言实例。
-- `op`: 运算符 (`LIKE`, `ILIKE`, `NOT LIKE` 等)。
-- `expr`: 要测试的表达式。
+- `op`: 操作——`LikeOperator` 成员（`like`、`not_like`、`ilike`）或其 SQL 关键字（`LIKE`、`NOT LIKE`、`ILIKE`）。
+- `left`: 要测试的表达式。
 - `pattern`: 要匹配的模式。
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import (
+    LikePredicate, Literal, StringColumn,
+)
+
 # name LIKE 'User%'
-    pred = LikePredicate(dialect, "LIKE", Column(dialect, "name"), Literal(dialect, "User%"))
-    # -> ('"name" LIKE ?', ('User%',))
+pred = LikePredicate(
+    dialect, "like", StringColumn(dialect, "name"), Literal(dialect, "User%")
+)
+pred.to_sql()
+# -> ('"name" LIKE ?', ('User%',))
 ```
 
 ### InPredicate
@@ -80,19 +112,33 @@ class LikePredicate(bases.SQLPredicate):
 表示集合成员测试 (`IN`)。
 
 ```python
-class InPredicate(bases.SQLPredicate):
-    def __init__(self, dialect: "SQLDialectBase", expr: "SQLValueExpression", values: "bases.BaseExpression"): ...
+import inspect
+
+from rhosocial.activerecord.backend.expression import InPredicate
+
+print(inspect.signature(InPredicate))
+# (dialect: 'SQLDialectBase', operand: 'SQLValue', values: 'BaseExpression')
 ```
 
 **参数:**
 - `dialect`: SQL 方言实例。
-- `expr`: 要测试的表达式。
+- `operand`: 要测试的表达式。
 - `values`: 包含集合（列表/元组）的 `Literal` 或子查询表达式。
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import (
+    InPredicate, Literal, StringColumn,
+)
+
 # status IN ('active', 'pending')
-pred = InPredicate(dialect, Column(dialect, "status"), Literal(dialect, ["active", "pending"]))
+pred = InPredicate(
+    dialect,
+    StringColumn(dialect, "status"),
+    Literal(dialect, ["active", "pending"]),
+)
+pred.to_sql()
+# -> ('"status" IN (?, ?)', ('active', 'pending'))
 ```
 
 ### BetweenPredicate
@@ -100,20 +146,33 @@ pred = InPredicate(dialect, Column(dialect, "status"), Literal(dialect, ["active
 表示范围测试 (`BETWEEN`)。
 
 ```python
-class BetweenPredicate(bases.SQLPredicate):
-    def __init__(self, dialect: "SQLDialectBase", expr: "bases.BaseExpression", low: "bases.BaseExpression", high: "bases.BaseExpression"): ...
+import inspect
+
+from rhosocial.activerecord.backend.expression import BetweenPredicate
+
+print(inspect.signature(BetweenPredicate))
+# (dialect: 'SQLDialectBase', operand: 'BaseExpression',
+#  low: 'BaseExpression', high: 'BaseExpression')
 ```
 
 **参数:**
 - `dialect`: SQL 方言实例。
-- `expr`: 要测试的表达式。
+- `operand`: 要测试的表达式。
 - `low`: 下界。
 - `high`: 上界。
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import (
+    BetweenPredicate, IntegerColumn, Literal,
+)
+
 # age BETWEEN 18 AND 65
-pred = BetweenPredicate(dialect, Column(dialect, "age"), Literal(dialect, 18), Literal(dialect, 65))
+pred = BetweenPredicate(
+    dialect, IntegerColumn(dialect, "age"), Literal(dialect, 18), Literal(dialect, 65)
+)
+pred.to_sql()
+# -> ('"age" BETWEEN ? AND ?', (18, 65))
 ```
 
 ### IsNullPredicate
@@ -121,20 +180,27 @@ pred = BetweenPredicate(dialect, Column(dialect, "age"), Literal(dialect, 18), L
 表示 NULL 测试 (`IS NULL`, `IS NOT NULL`)。
 
 ```python
-class IsNullPredicate(bases.SQLPredicate):
-    def __init__(self, dialect: "SQLDialectBase", expr: "bases.BaseExpression", is_not: bool = False): ...
+import inspect
+
+from rhosocial.activerecord.backend.expression import IsNullPredicate
+
+print(inspect.signature(IsNullPredicate))
+# (dialect: 'SQLDialectBase', operand: 'BaseExpression', is_not: bool = False)
 ```
 
 **参数:**
 - `dialect`: SQL 方言实例。
-- `expr`: 要测试的表达式。
+- `operand`: 要测试的表达式。
 - `is_not`: 如果为 `True`，创建 `IS NOT NULL`。默认为 `False` (`IS NULL`)。
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import IsNullPredicate, StringColumn
+
 # email IS NOT NULL
-    pred = IsNullPredicate(dialect, Column(dialect, "email"), is_not=True)
-    # -> ('"email" IS NOT NULL', ())
+pred = IsNullPredicate(dialect, StringColumn(dialect, "email"), is_not=True)
+pred.to_sql()
+# -> ('"email" IS NOT NULL', ())
 ```
 
 ### IsBooleanPredicate
@@ -142,8 +208,12 @@ class IsNullPredicate(bases.SQLPredicate):
 表示布尔值测试 (`IS TRUE`, `IS NOT TRUE`, `IS FALSE`, `IS NOT FALSE`)。
 
 ```python
-class IsBooleanPredicate(bases.SQLPredicate):
-    def __init__(self, dialect: "SQLDialectBase", expr: "bases.BaseExpression", value: bool, is_not: bool = False): ...
+import inspect
+
+from rhosocial.activerecord.backend.expression import IsBooleanPredicate
+
+print(inspect.signature(IsBooleanPredicate))
+# (dialect: 'SQLDialectBase', expr: 'BaseExpression', value: bool, is_not: bool = False)
 ```
 
 **参数:**
@@ -164,22 +234,32 @@ class IsBooleanPredicate(bases.SQLPredicate):
 
 **示例:**
 ```python
+from rhosocial.activerecord.backend.expression import BooleanColumn, IsBooleanPredicate
+
 # is_active IS TRUE
-pred = IsBooleanPredicate(dialect, Column(dialect, "is_active"), value=True, is_not=False)
+pred = IsBooleanPredicate(
+    dialect, BooleanColumn(dialect, "is_active"), value=True, is_not=False
+)
+pred.to_sql()
 # -> ('"is_active" IS TRUE', ())
 
 # is_active IS NOT FALSE
-pred = IsBooleanPredicate(dialect, Column(dialect, "is_active"), value=False, is_not=True)
+pred = IsBooleanPredicate(
+    dialect, BooleanColumn(dialect, "is_active"), value=False, is_not=True
+)
+pred.to_sql()
 # -> ('"is_active" IS NOT FALSE', ())
 ```
 
 **便捷方法:**
-`Column` 类提供了创建这些谓词的便捷方法：
+`BooleanColumn` 类提供了创建这些谓词的便捷方法：
 
 ```python
-col = Column(dialect, "is_active")
-col.is_true()       # IS TRUE
-col.is_not_true()   # IS NOT TRUE
-col.is_false()      # IS FALSE
-col.is_not_false()  # IS NOT FALSE
+from rhosocial.activerecord.backend.expression import BooleanColumn
+
+col = BooleanColumn(dialect, "is_active")
+col.is_true().to_sql()       # -> ('"is_active" IS TRUE', ())
+col.is_not_true().to_sql()   # -> ('"is_active" IS NOT TRUE', ())
+col.is_false().to_sql()      # -> ('"is_active" IS FALSE', ())
+col.is_not_false().to_sql()  # -> ('"is_active" IS NOT FALSE', ())
 ```

@@ -90,7 +90,8 @@ class SQLiteTransactionManager(TransactionManager):
         # READ_UNCOMMITTED: read_uncommitted = 1
         if level is not None:
             pragma_value = 1 if level == IsolationLevel.READ_UNCOMMITTED else 0
-            self._backend.execute(f"PRAGMA read_uncommitted = {pragma_value}")
+            statement = self._backend.dialect.pragma_set_statement("read_uncommitted", pragma_value)
+            self._backend.execute(statement.to_sql()[0])
 
         self._isolation_level = level
         self.log(logging.INFO, f"Isolation level set to {level}")
@@ -127,15 +128,15 @@ class SQLiteTransactionManager(TransactionManager):
 
     def _build_begin_sql(self) -> Tuple[str, tuple]:
         """Build BEGIN TRANSACTION SQL with SQLite-specific options."""
-        from rhosocial.activerecord.backend.expression.transaction import BeginTransactionExpression
+        from rhosocial.activerecord.backend.expression.transaction import BeginTransactionStatement
 
-        expr = BeginTransactionExpression(self._backend.dialect)
+        expr = BeginTransactionStatement(self._backend.dialect)
 
         if self._begin_type is not None:
             # Explicit begin_type overrides isolation level mapping
-            expr.begin_type(self._begin_type)
+            expr.with_begin_type(self._begin_type)
         elif self._isolation_level is not None:
-            expr.isolation_level(self._isolation_level)
+            expr.with_isolation_level(self._isolation_level)
 
         if self._transaction_mode == TransactionMode.READ_ONLY:
             expr.read_only()

@@ -4,8 +4,8 @@ from rhosocial.activerecord.backend.expression.operators import (
     SQLOperation,
     BinaryExpression,
     UnaryExpression,
-    RawSQLExpression,
-    BinaryArithmeticExpression,
+    RawSQL,
+    ArithmeticOperation,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
@@ -80,14 +80,14 @@ class TestUnaryExpression:
         assert params == ()
 
 
-class TestBinaryArithmeticExpression:
-    """Tests for BinaryArithmeticExpression representing arithmetic operations."""
+class TestArithmeticOperation:
+    """Tests for ArithmeticOperation representing arithmetic operations."""
 
     def test_addition_arithmetic_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test addition arithmetic expression."""
         left = Column(sqlite_dialect_3_8_0, "price")
         right = Literal(sqlite_dialect_3_8_0, 10)
-        arithmetic_expr = BinaryArithmeticExpression(sqlite_dialect_3_8_0, "+", left, right)
+        arithmetic_expr = ArithmeticOperation(sqlite_dialect_3_8_0, "add", left, right)
 
         sql, params = arithmetic_expr.to_sql()
         assert sql == '"price" + ?'
@@ -97,7 +97,7 @@ class TestBinaryArithmeticExpression:
         """Test subtraction arithmetic expression."""
         left = Column(sqlite_dialect_3_8_0, "balance")
         right = Literal(sqlite_dialect_3_8_0, 50)
-        arithmetic_expr = BinaryArithmeticExpression(sqlite_dialect_3_8_0, "-", left, right)
+        arithmetic_expr = ArithmeticOperation(sqlite_dialect_3_8_0, "sub", left, right)
 
         sql, params = arithmetic_expr.to_sql()
         assert sql == '"balance" - ?'
@@ -107,7 +107,7 @@ class TestBinaryArithmeticExpression:
         """Test multiplication arithmetic expression."""
         left = Column(sqlite_dialect_3_8_0, "quantity")
         right = Column(sqlite_dialect_3_8_0, "unit_price")
-        arithmetic_expr = BinaryArithmeticExpression(sqlite_dialect_3_8_0, "*", left, right)
+        arithmetic_expr = ArithmeticOperation(sqlite_dialect_3_8_0, "mul", left, right)
 
         sql, params = arithmetic_expr.to_sql()
         assert sql == '"quantity" * "unit_price"'
@@ -117,7 +117,7 @@ class TestBinaryArithmeticExpression:
         """Test division arithmetic expression."""
         left = Column(sqlite_dialect_3_8_0, "total")
         right = Literal(sqlite_dialect_3_8_0, 12)
-        arithmetic_expr = BinaryArithmeticExpression(sqlite_dialect_3_8_0, "/", left, right)
+        arithmetic_expr = ArithmeticOperation(sqlite_dialect_3_8_0, "div", left, right)
 
         sql, params = arithmetic_expr.to_sql()
         assert sql == '"total" / ?'
@@ -127,26 +127,26 @@ class TestBinaryArithmeticExpression:
         """Test modulo arithmetic expression."""
         left = Column(sqlite_dialect_3_8_0, "value")
         right = Literal(sqlite_dialect_3_8_0, 10)
-        arithmetic_expr = BinaryArithmeticExpression(sqlite_dialect_3_8_0, "%", left, right)
+        arithmetic_expr = ArithmeticOperation(sqlite_dialect_3_8_0, "mod", left, right)
 
         sql, params = arithmetic_expr.to_sql()
         assert sql == '"value" % ?'
         assert params == (10,)
 
 
-class TestRawSQLExpression:
-    """Tests for RawSQLExpression representing raw SQL strings."""
+class TestRawSQL:
+    """Tests for RawSQL representing raw SQL strings."""
 
     def test_raw_sql_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test basic RawSQLExpression."""
-        raw_expr = RawSQLExpression(sqlite_dialect_3_8_0, "CURRENT_TIMESTAMP")
+        """Test basic RawSQL."""
+        raw_expr = RawSQL(sqlite_dialect_3_8_0, "CURRENT_TIMESTAMP")
         sql, params = raw_expr.to_sql()
         assert sql == "CURRENT_TIMESTAMP"
         assert params == ()
 
     def test_raw_sql_with_params(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test RawSQLExpression with parameters."""
-        raw_expr = RawSQLExpression(sqlite_dialect_3_8_0, "datetime('now', 'localtime')", ())
+        """Test RawSQL with parameters."""
+        raw_expr = RawSQL(sqlite_dialect_3_8_0, "datetime('now', 'localtime')", ())
         sql, params = raw_expr.to_sql()
         assert sql == "datetime('now', 'localtime')"
         assert params == ()

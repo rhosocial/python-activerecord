@@ -240,26 +240,26 @@ class TestSQLiteStatusIntrospectorMixin:
     """Tests for SQLiteStatusIntrospectorMixin helper methods."""
 
     def test_parse_pragma_value_int(self, sqlite_backend):
-        """Test _parse_pragma_value handles integers."""
+        """Test parse_pragma_value handles integers."""
         status = sqlite_backend.introspector.status
 
-        result = status._parse_pragma_value(42)
+        result = status.parse_pragma_value(42)
         assert result == 42
         assert isinstance(result, int)
 
     def test_parse_pragma_value_str_int(self, sqlite_backend):
-        """Test _parse_pragma_value parses string integers."""
+        """Test parse_pragma_value parses string integers."""
         status = sqlite_backend.introspector.status
 
-        result = status._parse_pragma_value("42")
+        result = status.parse_pragma_value("42")
         assert result == 42
         assert isinstance(result, int)
 
     def test_parse_pragma_value_str_non_int(self, sqlite_backend):
-        """Test _parse_pragma_value preserves non-integer strings."""
+        """Test parse_pragma_value preserves non-integer strings."""
         status = sqlite_backend.introspector.status
 
-        result = status._parse_pragma_value("wal")
+        result = status.parse_pragma_value("wal")
         assert result == "wal"
         assert isinstance(result, str)
 

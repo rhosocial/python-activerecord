@@ -1,73 +1,15 @@
 # src/rhosocial/activerecord/backend/impl/sqlite/mixins/set_operation.py
 """
-SQLite-specific Set Operation implementation.
+SQLite-specific set-operation module.
 
-This module provides the SQLiteSetOperationMixin class.
+Set-operation formatting is provided by the core
+``SetOperationMixin.format_set_operation`` (the SQLite-specific override that
+used to live here rendered trailing clauses the node no longer carries, so
+the core implementation is authoritative now).
+
+This module keeps the view DDL support that shares the file.
 """
-
-from typing import Tuple, TYPE_CHECKING
-from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-
-if TYPE_CHECKING:
-    from rhosocial.activerecord.backend.expression import bases
-
-_SUGGESTION_FOR_UPDATE_SET_OP = "SQLite does not support FOR UPDATE clause in set operations (UNION, INTERSECT, EXCEPT)"
-
-
-class SQLiteSetOperationMixin:
-    """SQLite-specific set operation (UNION, INTERSECT, EXCEPT) formatting."""
-
-    def format_set_operation_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
-        """Format set operation expression (UNION, INTERSECT, EXCEPT)."""
-        left = expr.left
-        right = expr.right
-        operation = expr.operation
-        alias = expr.alias
-        all_ = expr.all_
-        distinct = expr.distinct
-        order_by_clause = expr.order_by_clause
-        limit_offset_clause = expr.limit_offset_clause
-        for_update_clause = expr.for_update_clause
-        left_sql, left_params = left.to_sql()
-        right_sql, right_params = right.to_sql()
-        if all_:
-            all_str = " ALL"
-        elif distinct:
-            all_str = " DISTINCT"
-        else:
-            all_str = ""
-
-        base_sql = f"{left_sql} {operation}{all_str} {right_sql}"
-
-        all_params = list(left_params + right_params)
-        sql_parts = [base_sql]
-
-        if alias:
-            sql_parts.append(f"AS {self.format_identifier(alias)}")
-
-        if order_by_clause:
-            order_by_sql, order_by_params = order_by_clause.to_sql()
-            sql_parts.append(order_by_sql)
-            all_params.extend(order_by_params)
-
-        if limit_offset_clause:
-            limit_offset_sql, limit_offset_params = limit_offset_clause.to_sql()
-            sql_parts.append(limit_offset_sql)
-            all_params.extend(limit_offset_params)
-
-        if for_update_clause:
-            if self.supports_set_operation_for_update():
-                for_update_sql, for_update_params = for_update_clause.to_sql()
-                sql_parts.append(for_update_sql)
-                all_params.extend(for_update_params)
-            else:
-                raise UnsupportedFeatureError(self.name, "FOR UPDATE in set operations", _SUGGESTION_FOR_UPDATE_SET_OP)
-
-        sql = " ".join(sql_parts)
-        return sql, tuple(all_params)
-
 
 # =============================================================================
 # SQLiteViewMixin — View DDL support
 # =============================================================================
-

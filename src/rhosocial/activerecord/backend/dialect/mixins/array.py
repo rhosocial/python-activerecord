@@ -4,7 +4,7 @@ from typing import Tuple, TYPE_CHECKING
 
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.advanced_functions import ArrayExpression
+    from ...expression.advanced_functions import ArrayValue
 
 
 class ArrayMixin:
@@ -35,14 +35,14 @@ class ArrayMixin:
         """
         return False
 
-    def format_array_expression(self, expr: "ArrayExpression") -> Tuple[str, Tuple]:
+    def format_array_expression(self, expr: "ArrayValue") -> Tuple[str, Tuple]:
         """Format an array expression.
 
         Renders either the ``ARRAY[...]`` constructor or a subscript access
         ``(base[index])`` form depending on ``expr.operation``.
 
         Args:
-            expr: ArrayExpression object to format.
+            expr: ArrayValue object to format.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.

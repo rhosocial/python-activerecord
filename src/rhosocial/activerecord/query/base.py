@@ -15,6 +15,7 @@ from ..backend.expression import (
     LimitOffsetClause,
     ForUpdateClause,
 )
+from ..backend.expression.query_parts import SortDirection
 from ..interface import IQueryBuilding
 from ..logging.defaults import _LOGGER_QUERY
 from ..logging.mixin import BackendLoggingMixin
@@ -236,9 +237,9 @@ class BaseQueryMixin(IQueryBuilding):
             if converted_columns:
                 self.select_columns = converted_columns
             else:
-                from ..backend.expression import WildcardExpression
+                from ..backend.expression import AllColumnsWildcard
 
-                self.select_columns = [WildcardExpression(dialect)]
+                self.select_columns = [AllColumnsWildcard(dialect)]
 
         return self
 
@@ -304,15 +305,16 @@ class BaseQueryMixin(IQueryBuilding):
                 else:
                     raise TypeError(f"Expression must be str or BaseExpression, got {type(expr)}")
 
-                # Validate direction
-                direction = direction.upper()
-                if direction not in ("ASC", "DESC"):
-                    raise ValueError(f"Order direction must be 'ASC' or 'DESC', got '{direction}'")
+                # Validate direction. Through the enum rather than a literal
+                # pair, so the accepted set is declared once -- the same reason
+                # the artifact writes a word: a list of spellings checked here
+                # is a list that can drift from the type that defines them.
+                direction = SortDirection.parse(direction)
 
                 order_expressions.append((expr_obj, direction))
             elif isinstance(clause, BaseExpression):
                 # Expression object with default direction
-                order_expressions.append((clause, "ASC"))
+                order_expressions.append((clause, SortDirection.ASC))
             else:
                 raise TypeError(
                     f"Order clause must be str, BaseExpression, or (expression, direction) tuple, got {type(clause)}"

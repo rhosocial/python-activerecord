@@ -1,8 +1,9 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite/test_explain.py
-from rhosocial.activerecord.backend.expression.statements import ExplainType, ExplainOptions, ExplainExpression
+from rhosocial.activerecord.backend.expression.statements import ExplainType, ExplainOptions, ExplainStatement
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.column_types import NumericColumn
 from rhosocial.activerecord.backend.expression.objects import Table
 
 
@@ -10,16 +11,16 @@ def test_format_explain_basic():
     """Test basic EXPLAIN SQL formatting"""
     dialect = SQLiteDialect()
 
-    # Test basic EXPLAIN - need to create an ExplainExpression
+    # Test basic EXPLAIN - need to create an ExplainStatement
     from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-    from rhosocial.activerecord.backend.expression.statements import QueryExpression
+    from rhosocial.activerecord.backend.expression.statements import QueryStatement
 
     # Create a query expression to explain
-    query_expr = QueryExpression(
+    query_expr = QueryStatement(
         dialect=dialect, select=[Literal(dialect, "*")], from_=NamedRelationRef(dialect, Table(dialect, "users"))
     )
 
-    explain_expr = ExplainExpression(dialect, statement=query_expr)
+    explain_expr = ExplainStatement(dialect, statement=query_expr)
     explain_sql, params = dialect.format_explain_statement(explain_expr)
     assert "EXPLAIN" in explain_sql
     assert "SELECT" in explain_sql
@@ -30,19 +31,19 @@ def test_format_explain_query_plan():
     """Test EXPLAIN QUERY PLAN SQL formatting"""
     dialect = SQLiteDialect()
 
-    from rhosocial.activerecord.backend.expression import Column
+    from rhosocial.activerecord.backend.expression import NumericColumn
     from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-    from rhosocial.activerecord.backend.expression.statements import QueryExpression
+    from rhosocial.activerecord.backend.expression.statements import QueryStatement
 
-    query_expr = QueryExpression(
+    query_expr = QueryStatement(
         dialect=dialect,
         select=[Literal(dialect, "*")],
         from_=NamedRelationRef(dialect, Table(dialect, "users")),
-        where=Column(dialect, "id") == Literal(dialect, 1),
+        where=NumericColumn(dialect, "id") == Literal(dialect, 1),
     )
 
     options = ExplainOptions(analyze=False, type=ExplainType.QUERY_PLAN)
-    explain_expr = ExplainExpression(dialect, statement=query_expr, options=options)
+    explain_expr = ExplainStatement(dialect, statement=query_expr, options=options)
     explain_sql, params = dialect.format_explain_statement(explain_expr)
     assert "EXPLAIN" in explain_sql
 
@@ -54,29 +55,29 @@ def test_format_explain_with_complex_sql():
     # Test with JOIN
     from rhosocial.activerecord.backend.expression import Column, Literal
     from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-    from rhosocial.activerecord.backend.expression.statements import QueryExpression
+    from rhosocial.activerecord.backend.expression.statements import QueryStatement
 
     # Create a more complex query
-    query_expr = QueryExpression(
+    query_expr = QueryStatement(
         dialect=dialect,
         select=[Literal(dialect, "u.*"), Literal(dialect, "o.total")],
         from_=NamedRelationRef(dialect, Table(dialect, "users"), alias="u"),
         # Note: JOIN expressions would be handled differently in a real scenario
     )
 
-    explain_expr = ExplainExpression(dialect, statement=query_expr)
+    explain_expr = ExplainStatement(dialect, statement=query_expr)
     explain_sql, params = dialect.format_explain_statement(explain_expr)
     assert "EXPLAIN" in explain_sql
 
     # Test with subquery
-    QueryExpression(
+    QueryStatement(
         dialect=dialect,
         select=[Column(dialect, "user_id")],
         from_=NamedRelationRef(dialect, Table(dialect, "orders")),
-        where=Column(dialect, "total") > Literal(dialect, 100),
+        where=NumericColumn(dialect, "total") > Literal(dialect, 100),
     )
 
-    main_query = QueryExpression(
+    main_query = QueryStatement(
         dialect=dialect,
         select=[Literal(dialect, "*")],
         from_=NamedRelationRef(dialect, Table(dialect, "users")),
@@ -84,7 +85,7 @@ def test_format_explain_with_complex_sql():
     )
 
     options = ExplainOptions(type=ExplainType.QUERY_PLAN)
-    explain_expr = ExplainExpression(dialect, statement=main_query, options=options)
+    explain_expr = ExplainStatement(dialect, statement=main_query, options=options)
     explain_sql, params = dialect.format_explain_statement(explain_expr)
     assert "EXPLAIN" in explain_sql
 
@@ -95,10 +96,10 @@ def test_format_explain_with_options():
 
     from rhosocial.activerecord.backend.expression import Literal
     from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-    from rhosocial.activerecord.backend.expression.statements import QueryExpression
+    from rhosocial.activerecord.backend.expression.statements import QueryStatement
 
     # Create a query expression to explain
-    query_expr = QueryExpression(
+    query_expr = QueryStatement(
         dialect=dialect, select=[Literal(dialect, "*")], from_=NamedRelationRef(dialect, Table(dialect, "users"))
     )
 
@@ -108,14 +109,14 @@ def test_format_explain_with_options():
 
     for format_type in [ExplainFormat.TEXT, ExplainFormat.JSON]:
         options = ExplainOptions(format=format_type)
-        explain_expr = ExplainExpression(dialect, statement=query_expr, options=options)
+        explain_expr = ExplainStatement(dialect, statement=query_expr, options=options)
         explain_sql, params = dialect.format_explain_statement(explain_expr)
         assert "EXPLAIN" in explain_sql
 
     # Test with costs option
     # Note: SQLite ignores costs option but we still test the interface
     options = ExplainOptions(costs=False)
-    explain_expr = ExplainExpression(dialect, statement=query_expr, options=options)
+    explain_expr = ExplainStatement(dialect, statement=query_expr, options=options)
     explain_sql, params = dialect.format_explain_statement(explain_expr)
     assert "EXPLAIN" in explain_sql
 
@@ -126,7 +127,7 @@ def test_format_explain_integration():
     from rhosocial.activerecord.backend.schema import StatementType
     from rhosocial.activerecord.backend.expression import Literal, Column
     from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-    from rhosocial.activerecord.backend.expression.statements import QueryExpression, ExplainExpression, ExplainOptions
+    from rhosocial.activerecord.backend.expression.statements import QueryStatement, ExplainStatement, ExplainOptions
     from rhosocial.activerecord.backend.expression.statements import ExplainType as ExpType  # Renamed to avoid conflict
 
     backend = SQLiteBackend(database=":memory:")
@@ -150,22 +151,22 @@ def test_format_explain_integration():
     )
 
     # Test basic SELECT explain
-    # We need to use the proper ExplainExpression approach
-    query_expr = QueryExpression(
+    # We need to use the proper ExplainStatement approach
+    query_expr = QueryStatement(
         dialect=backend.dialect,
         select=[Literal(backend.dialect, "*")],
         from_=NamedRelationRef(backend.dialect, Table(backend.dialect, "users")),
         # No where clause to avoid parameter binding issues in EXPLAIN
     )
 
-    explain_expr = ExplainExpression(backend.dialect, statement=query_expr)
+    explain_expr = ExplainStatement(backend.dialect, statement=query_expr)
     explain_sql, params = backend.dialect.format_explain_statement(explain_expr)
 
     result = backend.execute(explain_sql, params, options=ExecutionOptions(stmt_type=StatementType.SELECT))
     assert result is not None
 
     # Test SELECT with JOIN explain
-    query_expr = QueryExpression(
+    query_expr = QueryStatement(
         dialect=backend.dialect,
         select=[Column(backend.dialect, "name", "u1")],
         from_=NamedRelationRef(backend.dialect, Table(backend.dialect, "users"), alias="u1"),
@@ -173,7 +174,7 @@ def test_format_explain_integration():
     )
 
     options = ExplainOptions(type=ExpType.QUERY_PLAN)
-    explain_expr = ExplainExpression(backend.dialect, statement=query_expr, options=options)
+    explain_expr = ExplainStatement(backend.dialect, statement=query_expr, options=options)
     explain_sql, params = backend.dialect.format_explain_statement(explain_expr)
 
     result = backend.execute(explain_sql, params, options=ExecutionOptions(stmt_type=StatementType.SELECT))
@@ -188,7 +189,7 @@ def test_format_explain_with_transactions():
     from rhosocial.activerecord.backend.schema import StatementType
     from rhosocial.activerecord.backend.expression import Literal
     from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-    from rhosocial.activerecord.backend.expression.statements import QueryExpression, ExplainExpression, ExplainOptions
+    from rhosocial.activerecord.backend.expression.statements import QueryStatement, ExplainStatement, ExplainOptions
     from rhosocial.activerecord.backend.expression.statements import ExplainType as ExpType  # Renamed to avoid conflict
 
     backend = SQLiteBackend(database=":memory:")
@@ -213,8 +214,8 @@ def test_format_explain_with_transactions():
         )
 
         # Test simple query
-        # We need to use the proper ExplainExpression approach
-        query_expr = QueryExpression(
+        # We need to use the proper ExplainStatement approach
+        query_expr = QueryStatement(
             dialect=backend.dialect,
             select=[Literal(backend.dialect, "*")],
             from_=NamedRelationRef(backend.dialect, Table(backend.dialect, "test")),
@@ -222,21 +223,21 @@ def test_format_explain_with_transactions():
         )
 
         options = ExplainOptions(type=ExpType.QUERY_PLAN)
-        explain_expr = ExplainExpression(backend.dialect, statement=query_expr, options=options)
+        explain_expr = ExplainStatement(backend.dialect, statement=query_expr, options=options)
         explain_sql, params = backend.dialect.format_explain_statement(explain_expr)
 
         result = backend.execute(explain_sql, params, options=ExecutionOptions(stmt_type=StatementType.SELECT))
         assert result is not None
 
         # Test aggregate query
-        agg_query = QueryExpression(
+        agg_query = QueryStatement(
             dialect=backend.dialect,
             select=[Literal(backend.dialect, "COUNT(*) as cnt")],
             from_=NamedRelationRef(backend.dialect, Table(backend.dialect, "test")),
             # group_by_having=GroupByHavingClause(backend.dialect, group_by=[Column(backend.dialect, "value")])  # Simplified  # noqa: E501
         )
 
-        explain_expr = ExplainExpression(backend.dialect, statement=agg_query)
+        explain_expr = ExplainStatement(backend.dialect, statement=agg_query)
         explain_sql, params = backend.dialect.format_explain_statement(explain_expr)
 
         result = backend.execute(explain_sql, params, options=ExecutionOptions(stmt_type=StatementType.SELECT))

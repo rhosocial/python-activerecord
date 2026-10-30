@@ -12,7 +12,7 @@ from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from .....expression.statements import (
-        DropSequenceExpression,
+        DropSequenceStatement,
     )
 
 
@@ -38,8 +38,8 @@ class DropSequenceSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_drop_sequence_statement(self, expr: "DropSequenceExpression") -> Tuple[str, tuple]:
-        """Render a :class:`~....expression.statements.DropSequenceExpression`.
+    def format_drop_sequence_statement(self, expr: "DropSequenceStatement") -> Tuple[str, tuple]:
+        """Render a :class:`~....expression.statements.DropSequenceStatement`.
 
         Raises rather than emitting an unsupported form: a statement the
         engine cannot parse is not a statement worth producing.

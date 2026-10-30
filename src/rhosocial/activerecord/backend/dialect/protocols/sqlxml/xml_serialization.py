@@ -20,7 +20,7 @@ class SQLXMLSerializationSupport(Protocol):
         """Whether SQL/XML XMLSERIALIZE is supported."""
         ...  # pragma: no cover
 
-    def format_xmlserialize_expression(
+    def format_xml_serialize_expression(
         self,
         expr: "XMLSerializeExpression",
     ) -> Tuple[str, tuple]:

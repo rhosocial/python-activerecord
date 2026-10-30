@@ -1,9 +1,36 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.expression.transaction import BeginTransactionStatement
+from rhosocial.activerecord.backend.transaction import IsolationLevel
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnConstraint,
+    ColumnDefinition,
+)
+from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.core import Column, Literal
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression import (
+    CreateTableStatement,
+    DropTableStatement,
+    InsertStatement,
+    QueryStatement,
+    UpdateStatement,
+    ValuesSource,
+    WhereClause,
+)
 """
 SQLite transaction modes.
 
 This example demonstrates:
 1. DEFERRED and IMMEDIATE transaction behavior via transaction manager settings
-2. EXCLUSIVE transaction mode via BeginTransactionExpression.begin_type()
+2. EXCLUSIVE transaction mode via BeginTransactionStatement.with_begin_type()
 3. Nested transactions with automatic savepoints
 4. WAL mode for better concurrency
 """
@@ -11,28 +38,6 @@ This example demonstrates:
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression,
-    DropTableExpression,
-    InsertExpression,
-    QueryExpression,
-    UpdateExpression,
-    ValuesSource,
-    WhereClause,
-)
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.core import Column, Literal
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
-from rhosocial.activerecord.backend.expression.statements import (
-    ColumnConstraint,
-    ColumnConstraintType,
-    ColumnDefinition,
-)
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
-from rhosocial.activerecord.backend.transaction import IsolationLevel
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
@@ -51,7 +56,7 @@ def execute_expression(expression, options=None):
 
 
 def update_balance(name, amount):
-    return UpdateExpression(
+    return UpdateStatement(
         dialect=dialect,
         table=Table(dialect, 'accounts'),
         assignments={
@@ -60,7 +65,6 @@ def update_balance(name, amount):
         where=WhereClause(
             dialect,
             condition=ComparisonPredicate(
-                dialect,
                 "=",
                 Column(dialect, "name"),
                 Literal(dialect, name),
@@ -70,7 +74,7 @@ def update_balance(name, amount):
 
 
 def fetch_balances():
-    query = QueryExpression(
+    query = QueryStatement(
         dialect=dialect,
         select=[Column(dialect, "name"), Column(dialect, "balance")],
         from_=NamedRelationRef(dialect, Table(dialect, "accounts")),
@@ -78,19 +82,19 @@ def fetch_balances():
     return execute_expression(query, dql_options).data
 
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table=Table(dialect, 'accounts'),
     columns=[
         ColumnDefinition(dialect, 
             "id",
             IntegerType(),
-            constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
+            constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))],
         ),
         ColumnDefinition(dialect, 
             "name",
             TextType(),
-            constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)],
+            constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))],
         ),
         ColumnDefinition(dialect, "balance", FloatType()),
     ],
@@ -98,12 +102,11 @@ create_table = CreateTableExpression(
 )
 execute_expression(create_table, ddl_options)
 
-insert = InsertExpression(
+insert = InsertStatement(
     dialect=dialect,
     into=Table(dialect, 'accounts'),
     columns=["name", "balance"],
     source=ValuesSource(
-        dialect,
         [
             [Literal(dialect, "Alice"), Literal(dialect, 1000)],
             [Literal(dialect, "Bob"), Literal(dialect, 500)],
@@ -132,10 +135,8 @@ print(f"After IMMEDIATE transaction: {fetch_balances()}")
 # This is different from PRAGMA locking_mode:
 # - BEGIN EXCLUSIVE: exclusive lock only for this transaction
 # - PRAGMA locking_mode=EXCLUSIVE: persistent lock across all transactions
-from rhosocial.activerecord.backend.expression.transaction import BeginTransactionExpression  # noqa: E402
-from .....expression.objects import Table
 
-exclusive_begin = BeginTransactionExpression(dialect).begin_type("EXCLUSIVE")
+exclusive_begin = BeginTransactionStatement(dialect).with_begin_type("EXCLUSIVE")
 sql, params = exclusive_begin.to_sql()
 print(f"EXCLUSIVE BEGIN SQL: {sql}")
 
@@ -171,7 +172,7 @@ print(f"Journal mode: {journal_mode}")
 # ============================================================
 # SECTION: Teardown
 # ============================================================
-drop_table = DropTableExpression(dialect=dialect, table=Table(dialect, 'accounts'), if_exists=True)
+drop_table = DropTableStatement(dialect=dialect, table=Table(dialect, 'accounts'), if_exists=True)
 execute_expression(drop_table, ddl_options)
 backend.disconnect()
 
@@ -181,7 +182,7 @@ backend.disconnect()
 # Key points:
 # 1. READ_UNCOMMITTED maps to SQLite's DEFERRED transaction behavior
 # 2. SERIALIZABLE maps to SQLite's IMMEDIATE transaction behavior
-# 3. Use BeginTransactionExpression.begin_type("EXCLUSIVE") for exclusive transactions
+# 3. Use BeginTransactionStatement.with_begin_type("EXCLUSIVE") for exclusive transactions
 # 4. Or set transaction_manager.begin_type = "EXCLUSIVE" for all subsequent transactions
 # 5. Nested backend.transaction() calls use savepoints automatically
 # 6. WAL mode improves concurrent read/write behavior

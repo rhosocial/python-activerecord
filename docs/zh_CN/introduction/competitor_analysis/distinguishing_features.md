@@ -30,7 +30,7 @@ rhosocial-activerecord 会拒绝继续——它抛出显式错误（`Unsupported
 # 每个表达式只声明一件事：渲染它的方言方法名。
 @property
 def format_method(self) -> str:
-    return "format_cte_expression"   # 例如 CTEQuery 声明这个
+    return "format_cte_clause"   # 例如 CTEClause 声明这个
 ```
 
 `BaseExpression.to_sql()` **只在根部实现一次**，是唯一的渲染入口。具体表达式类
@@ -46,7 +46,7 @@ SQLQueryAndParams = Tuple[str, tuple]
 
 这一设计直接带来三条性质：
 
-1. **参数值绝不进入 SQL 文本。** 默认 `inline_literals=False`，字面量渲染成绑定参数
+1. **参数值绝不进入 SQL 文本。** 默认 `inline=False`，字面量渲染成绑定参数
    占位符（`?`，或按方言 `%s`/`$1` 等由 `get_parameter_placeholder()` 决定），参数值
    放在独立的元组里。内联渲染是显式开启的、涉及安全的选择，仅留给完全由开发者声明、
    不暴露给终端用户的内容（例如派生出的 DDL）。

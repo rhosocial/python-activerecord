@@ -84,6 +84,10 @@ class TestSQLiteRTreeCreateVirtualTableConstruction:
             table=Table(SQLiteDialect(version=(3, 6, 0)), "places"), content_table=Table(SQLiteDialect(version=(3, 6, 0)), "places_data")
         ).to_sql()
         assert "content='places_data'" in sql
+        # R-Tree counts each of content= and content_rowid= as a column of
+        # its own, and the total has to stay odd, so the two go together.
+        # Without the rowid name the statement is one SQLite refuses.
+        assert "content_rowid='rowid'" in sql
         assert params == ()
 
     def test_with_content_rowid(self):
@@ -102,6 +106,43 @@ class TestSQLiteRTreeCreateVirtualTableConstruction:
             table=Table(SQLiteDialect(version=(3, 6, 0)), "places"), content_rowid="pk"
         ).to_sql()
         assert "content_rowid" not in sql
+
+    def test_the_statement_sqlite_accepts(self):
+        """The generated statement has to be one SQLite can run.
+
+        R-Tree counts content= and content_rowid= as columns of its own and
+        requires an odd total, so a content table without a rowid name is a
+        statement SQLite refuses. Asserting the SQL text is not enough: the
+        text can look right and still be a statement the server rejects.
+        """
+        import sqlite3
+
+        dialect = SQLiteDialect(version=(3, 6, 0))
+        sql, _ = SQLiteRTreeCreateVirtualTable(
+            dialect,
+            table=Table(dialect, "places"),
+            content_table=Table(dialect, "places_data"),
+        ).to_sql()
+
+        connection = sqlite3.connect(":memory:")
+        connection.execute("CREATE TABLE places_data(id INTEGER PRIMARY KEY, minX REAL, maxX REAL)")
+        # No exception is the assertion.
+        connection.execute(sql)
+
+    def test_the_statement_sqlite_accepts_with_a_named_rowid(self):
+        import sqlite3
+
+        dialect = SQLiteDialect(version=(3, 6, 0))
+        sql, _ = SQLiteRTreeCreateVirtualTable(
+            dialect,
+            table=Table(dialect, "places"),
+            content_table=Table(dialect, "places_data"),
+            content_rowid="id",
+        ).to_sql()
+
+        connection = sqlite3.connect(":memory:")
+        connection.execute("CREATE TABLE places_data(id INTEGER PRIMARY KEY, minX REAL, maxX REAL)")
+        connection.execute(sql)
 
     def test_unsupported_version_raises_error(self):
         expr = SQLiteRTreeCreateVirtualTable(

@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/dialect/protocols/setoperationsupport.py
+# src/rhosocial/activerecord/backend/dialect/protocols/query/set_operation.py
 """SetOperationSupport protocol.
 
 Re-exported from :mod:`rhosocial.activerecord.backend.dialect.protocols`;
@@ -30,25 +30,8 @@ class SetOperationSupport(Protocol):
         """Whether EXCEPT operation is supported."""
         ...  # pragma: no cover
 
-    def supports_set_operation_order_by(self) -> bool:
-        """Whether set operations support ORDER BY clauses."""
-        ...  # pragma: no cover
-
-    def supports_set_operation_limit_offset(self) -> bool:
-        """Whether set operations support LIMIT and OFFSET clauses."""
-        ...  # pragma: no cover
-
-    def supports_set_operation_for_update(self) -> bool:
-        """Whether set operations support FOR UPDATE clauses."""
-        ...  # pragma: no cover
-
-    def format_set_operation_expression(
+    def format_set_operation(
         self, expr: "bases.BaseExpression"
     ) -> Tuple[str, Tuple]:
-        """Format a SetOperationExpression node (UNION, INTERSECT, EXCEPT)."""
+        """Format a SetOperation node (UNION, INTERSECT, EXCEPT)."""
         ...  # pragma: no cover
-
-
-# ============================================================
-# DDL (Data Definition Language) Support Protocols
-# ============================================================

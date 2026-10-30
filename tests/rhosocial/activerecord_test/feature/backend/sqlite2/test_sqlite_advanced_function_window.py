@@ -4,10 +4,10 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
     CaseExpression,
-    ExistsExpression,
-    AnyExpression,
-    AllExpression,
-)
+    ExistsPredicate,
+    AnyPredicate,
+    AllPredicate,
+    NumericColumn,)
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.types import RealType
 
@@ -18,9 +18,9 @@ class TestAdvancedFunctionWindow:
     # --- CaseExpression ---
     def test_case_searched_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Tests a searched CASE expression (CASE WHEN ... THEN ... ELSE ... END)."""
-        condition1 = Column(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 18)
+        condition1 = NumericColumn(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 18)
         result1 = Literal(sqlite_dialect_3_8_0, "adult")
-        condition2 = Column(sqlite_dialect_3_8_0, "age") <= Literal(sqlite_dialect_3_8_0, 18)
+        condition2 = NumericColumn(sqlite_dialect_3_8_0, "age") <= Literal(sqlite_dialect_3_8_0, 18)
         result2 = Literal(sqlite_dialect_3_8_0, "minor")
 
         case_expr = CaseExpression(sqlite_dialect_3_8_0, cases=[(condition1, result1), (condition2, result2)])
@@ -55,13 +55,13 @@ class TestAdvancedFunctionWindow:
         assert "CAST" in sql.upper()
         assert params == ()
 
-    # --- ExistsExpression ---
+    # --- ExistsPredicate ---
     def test_exists_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Tests EXISTS expression."""
         from rhosocial.activerecord.backend.expression.core import Subquery
 
         subquery = Subquery(sqlite_dialect_3_8_0, "SELECT 1 FROM orders WHERE user_id = users.id", ())
-        exists_expr = ExistsExpression(sqlite_dialect_3_8_0, subquery)
+        exists_expr = ExistsPredicate(sqlite_dialect_3_8_0, subquery)
         sql, params = exists_expr.to_sql()
         assert "EXISTS" in sql.upper()
         assert params == ()
@@ -71,7 +71,7 @@ class TestAdvancedFunctionWindow:
         from rhosocial.activerecord.backend.expression.core import Subquery
 
         subquery = Subquery(sqlite_dialect_3_8_0, "SELECT 1 FROM orders WHERE user_id = users.id", ())
-        exists_expr = ExistsExpression(sqlite_dialect_3_8_0, subquery, is_not=True)
+        exists_expr = ExistsPredicate(sqlite_dialect_3_8_0, subquery, is_not=True)
         sql, params = exists_expr.to_sql()
         assert "NOT EXISTS" in sql.upper()
         assert params == ()
@@ -79,7 +79,7 @@ class TestAdvancedFunctionWindow:
     # --- Any/All Expressions ---
     def test_any_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Tests ANY expression."""
-        any_expr = AnyExpression(
+        any_expr = AnyPredicate(
             sqlite_dialect_3_8_0,
             Column(sqlite_dialect_3_8_0, "price"),
             ">",
@@ -92,7 +92,7 @@ class TestAdvancedFunctionWindow:
 
     def test_all_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Tests ALL expression."""
-        all_expr = AllExpression(
+        all_expr = AllPredicate(
             sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "price"), ">", Literal(sqlite_dialect_3_8_0, [50, 75])
         )
         sql, params = all_expr.to_sql()

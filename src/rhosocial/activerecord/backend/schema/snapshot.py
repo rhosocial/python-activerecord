@@ -13,12 +13,12 @@ from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from ..introspection.base import SyncAbstractIntrospector, AsyncAbstractIntrospector
 from ..introspection.types import (
-    DatabaseInfo,
-    TableInfo,
-    ColumnInfo,
+    IntrospectionDatabaseInfo,
+    IntrospectionTableInfo,
+    IntrospectionColumnInfo,
     IndexInfo,
     IndexColumnInfo,
-    ForeignKeyInfo,
+    IntrospectionForeignKeyInfo,
     TableType,
     ColumnNullable,
     IndexType,
@@ -102,12 +102,12 @@ _ANNOTATION_NS: Dict[str, Any] = {
     "TableType": TableType,
     "IndexType": IndexType,
     "ReferentialAction": ReferentialAction,
-    "DatabaseInfo": DatabaseInfo,
-    "TableInfo": TableInfo,
-    "ColumnInfo": ColumnInfo,
+    "IntrospectionDatabaseInfo": IntrospectionDatabaseInfo,
+    "IntrospectionTableInfo": IntrospectionTableInfo,
+    "IntrospectionColumnInfo": IntrospectionColumnInfo,
     "IndexInfo": IndexInfo,
     "IndexColumnInfo": IndexColumnInfo,
-    "ForeignKeyInfo": ForeignKeyInfo,
+    "IntrospectionForeignKeyInfo": IntrospectionForeignKeyInfo,
     "DataType": None,  # marker — handled by content-based detection
 }
 
@@ -117,7 +117,7 @@ def _resolve_forward_ref(t: type) -> type:
 
     Some Python versions (notably 3.8 with ``from __future__ import annotations``)
     fail to resolve particularly quoted forward references (e.g.
-    ``"'DatabaseInfo'"``) inside a ``ForwardRef``, returning the ``ForwardRef``
+    ``"'IntrospectionDatabaseInfo'"``) inside a ``ForwardRef``, returning the ``ForwardRef``
     instance itself instead of the target class.  We work around this by
     manually stripping surrounding quotes and looking up the name.
     """
@@ -282,18 +282,18 @@ class SchemaSnapshot:
         serialised, and compared without holding a runtime reference.
     captured_at : datetime
         UTC timestamp when the snapshot was taken.
-    database_info : DatabaseInfo
+    database_info : IntrospectionDatabaseInfo
         Vendor / version metadata from ``introspector.get_database_info()``.
-    tables : Dict[str, TableInfo]
-        Mapping of table name → ``TableInfo`` (columns, indexes, FKs).
+    tables : Dict[str, IntrospectionTableInfo]
+        Mapping of table name → ``IntrospectionTableInfo`` (columns, indexes, FKs).
     schema_name : Optional[str]
         The schema / database name scoped during capture.
     """
 
     dialect_class: str
     captured_at: datetime
-    database_info: "DatabaseInfo"
-    tables: Dict[str, "TableInfo"]
+    database_info: "IntrospectionDatabaseInfo"
+    tables: Dict[str, "IntrospectionTableInfo"]
     schema_name: Optional[str] = None
     extra: Dict = field(default_factory=dict)
 
@@ -349,7 +349,7 @@ class SyncSchemaSnapshotBuilder:
         self._introspector.invalidate_cache()
         db_info = self._introspector.get_database_info()
         table_list = self._introspector.list_tables(schema=schema, include_system=include_system)
-        tables: Dict[str, "TableInfo"] = {}
+        tables: Dict[str, "IntrospectionTableInfo"] = {}
         for tbl in table_list:
             full = self._introspector.get_table_info(tbl.name, schema=schema)
             if full is not None:
@@ -384,7 +384,7 @@ class AsyncSchemaSnapshotBuilder:
         self._introspector.invalidate_cache()
         db_info = await self._introspector.get_database_info()
         table_list = await self._introspector.list_tables(schema=schema, include_system=include_system)
-        tables: Dict[str, "TableInfo"] = {}
+        tables: Dict[str, "IntrospectionTableInfo"] = {}
         for tbl in table_list:
             full = await self._introspector.get_table_info(tbl.name, schema=schema)
             if full is not None:

@@ -4,7 +4,7 @@
 import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression import Column, Literal, QueryExpression
+from rhosocial.activerecord.backend.expression import Column, Literal, QueryStatement
 from rhosocial.activerecord.backend.expression.datetime import (
     DateTimeField,
     IntervalUnit,
@@ -236,7 +236,7 @@ class TestSQLiteDateTimeIntervalExpressions:
         shifted = date_add(
             sqlite_dialect_3_8_0,
             Column(sqlite_dialect_3_8_0, "created_at"), 1, "day",)
-        query = QueryExpression(
+        query = QueryStatement(
             sqlite_dialect_3_8_0,
             select=[
                 extract(

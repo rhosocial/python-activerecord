@@ -82,7 +82,7 @@ pip install rhosocial-activerecord
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.expression import CreateTableExpression
+from rhosocial.activerecord.backend.expression import CreateTableStatement
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnConstraint, ColumnConstraintType, ColumnDefinition,
 )
@@ -109,7 +109,7 @@ User.configure(config, SQLiteBackend)
 # Create table using DDL expressions. Every node takes the dialect as its
 # first argument, and column types are DataType instances rather than strings.
 dialect = User.__backend__.dialect
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table="users",
     columns=[
@@ -149,7 +149,7 @@ sql, params = User.query().where(User.c.age >= 18).to_sql()
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.expression import CreateTableExpression
+from rhosocial.activerecord.backend.expression import CreateTableStatement
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnConstraint, ColumnConstraintType, ColumnDefinition,
     ForeignKeyConstraint, ReferentialAction,
@@ -185,7 +185,7 @@ Post.__backend__ = Author.__backend__
 # Create tables using DDL expressions
 dialect = Author.__backend__.dialect
 
-Author.__backend__.execute(*CreateTableExpression(
+Author.__backend__.execute(*CreateTableStatement(
     dialect=dialect,
     table="authors",
     columns=[
@@ -196,7 +196,7 @@ Author.__backend__.execute(*CreateTableExpression(
     ]
 ).to_sql())
 
-Author.__backend__.execute(*CreateTableExpression(
+Author.__backend__.execute(*CreateTableStatement(
     dialect=dialect,
     table="posts",
     columns=[
@@ -237,11 +237,11 @@ All features support both **sync** and **async** APIs with identical method name
 
 Type-safe schema definition without raw SQL:
 
-* **[CreateTableExpression](src/rhosocial/activerecord/backend/expression/statements/ddl_table.py)** — Create tables with columns and constraints
-* **[DropTableExpression](src/rhosocial/activerecord/backend/expression/statements/ddl_table.py)** — Drop tables with IF EXISTS support
-* **[AlterTableExpression](src/rhosocial/activerecord/backend/expression/statements/ddl_alter.py)** — Add/drop columns, rename tables
-* **[CreateIndexExpression](src/rhosocial/activerecord/backend/expression/statements/ddl_index.py)** — Create indexes with IF NOT EXISTS
-* **[CreateViewExpression](src/rhosocial/activerecord/backend/expression/statements/ddl_view.py)** — Create views from query expressions
+* **[CreateTableStatement](src/rhosocial/activerecord/backend/expression/statements/ddl_table.py)** — Create tables with columns and constraints
+* **[DropTableStatement](src/rhosocial/activerecord/backend/expression/statements/ddl_table.py)** — Drop tables with IF EXISTS support
+* **[AlterTableStatement](src/rhosocial/activerecord/backend/expression/statements/ddl_alter.py)** — Add/drop columns, rename tables
+* **[CreateIndexStatement](src/rhosocial/activerecord/backend/expression/statements/ddl_index.py)** — Create indexes with IF NOT EXISTS
+* **[CreateViewStatement](src/rhosocial/activerecord/backend/expression/statements/ddl_view.py)** — Create views from query expressions
 
 ### Query Builders
 

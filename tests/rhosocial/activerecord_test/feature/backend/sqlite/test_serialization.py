@@ -9,17 +9,17 @@ can be serialized and deserialized correctly.
 import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.impl.sqlite.expression.reindex import SQLiteReindexExpression
+from rhosocial.activerecord.backend.impl.sqlite.expression.reindex import SQLiteReindexStatement
 from rhosocial.activerecord.backend.impl.sqlite.expression.vacuum import (
-    SQLiteVacuumExpression,
-    SQLiteAnalyzeExpression,
+    SQLiteVacuumStatement,
+    SQLiteAnalyzeStatement,
 )
 from rhosocial.activerecord.backend.impl.sqlite.expression.attach import (
-    SQLiteAttachExpression,
-    SQLiteDetachExpression,
+    SQLiteAttachStatement,
+    SQLiteDetachStatement,
 )
 from rhosocial.activerecord.backend.expression.serialization import serialize, deserialize
-from rhosocial.activerecord.backend.expression.introspection import TableListExpression
+from rhosocial.activerecord.backend.expression.introspection import TableListQueryStatement
 from rhosocial.activerecord.backend.expression.objects import Index, Table
 
 
@@ -34,28 +34,28 @@ class TestSQLiteSpecificExpressionSerialization:
 
     def test_reindex_expression_table_name(self, sqlite_dialect):
         """Test REINDEX with table_name."""
-        expr = SQLiteReindexExpression(sqlite_dialect, table=Table(sqlite_dialect, "users"))
+        expr = SQLiteReindexStatement(sqlite_dialect, table=Table(sqlite_dialect, "users"))
         spec = serialize(expr)
         restored = deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_reindex_expression_index_name(self, sqlite_dialect):
         """Test REINDEX with index_name."""
-        expr = SQLiteReindexExpression(sqlite_dialect, index=Index(sqlite_dialect, "idx_users"))
+        expr = SQLiteReindexStatement(sqlite_dialect, index=Index(sqlite_dialect, "idx_users"))
         spec = serialize(expr)
         restored = deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_reindex_expression_expressions(self, sqlite_dialect):
         """Test REINDEX with expressions=True (requires SQLite 3.53.0+)."""
-        expr = SQLiteReindexExpression(sqlite_dialect, expressions=True)
+        expr = SQLiteReindexStatement(sqlite_dialect, expressions=True)
         spec = serialize(expr)
         restored = deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_reindex_expression_has_no_dialect_options(self, sqlite_dialect):
         """The SQLite REINDEX expression carries no dialect_options bag."""
-        expr = SQLiteReindexExpression(sqlite_dialect, table=Table(sqlite_dialect, "users"))
+        expr = SQLiteReindexStatement(sqlite_dialect, table=Table(sqlite_dialect, "users"))
         assert not hasattr(expr, "dialect_options")
         spec = serialize(expr)
         assert "dialect_options" not in spec["params"]
@@ -67,28 +67,28 @@ class TestSQLiteMaintenanceExpressionSerialization:
     """SQLite VACUUM / ANALYZE / ATTACH / DETACH serialization tests."""
 
     def test_vacuum_expression_roundtrip(self, sqlite_dialect):
-        expr = SQLiteVacuumExpression(sqlite_dialect)
+        expr = SQLiteVacuumStatement(sqlite_dialect)
         spec = serialize(expr)
         restored = deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_vacuum_into_expression_roundtrip(self, sqlite_dialect):
-        expr = SQLiteVacuumExpression(sqlite_dialect, into="backup.db")
+        expr = SQLiteVacuumStatement(sqlite_dialect, into="backup.db")
         restored = deserialize(serialize(expr), sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_analyze_expression_roundtrip(self, sqlite_dialect):
-        expr = SQLiteAnalyzeExpression(sqlite_dialect)
+        expr = SQLiteAnalyzeStatement(sqlite_dialect)
         restored = deserialize(serialize(expr), sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_attach_expression_roundtrip(self, sqlite_dialect):
-        expr = SQLiteAttachExpression(sqlite_dialect, database="aux.db", schema="aux")
+        expr = SQLiteAttachStatement(sqlite_dialect, database="aux.db", schema="aux")
         restored = deserialize(serialize(expr), sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_detach_expression_roundtrip(self, sqlite_dialect):
-        expr = SQLiteDetachExpression(sqlite_dialect, schema="aux")
+        expr = SQLiteDetachStatement(sqlite_dialect, schema="aux")
         restored = deserialize(serialize(expr), sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
@@ -97,22 +97,22 @@ class TestSQLiteIntrospectionExpressionSerialization:
     """SQLite introspection expression serialization tests."""
 
     def test_table_list_expression_roundtrip(self, sqlite_dialect):
-        """Test TableListExpression round-trip."""
-        expr = TableListExpression(sqlite_dialect, schema="main", include_views=True)
+        """Test TableListQueryStatement round-trip."""
+        expr = TableListQueryStatement(sqlite_dialect, schema="main", include_views=True)
         spec = serialize(expr)
         restored = deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_table_list_expression_default_params(self, sqlite_dialect):
         """
-        Test TableListExpression with default parameters.
+        Test TableListQueryStatement with default parameters.
 
         The generic introspection-based get_params() returns every declared
         __init__ parameter (including schema=None) for round-trip
         completeness. This test verifies that serialization preserves the
         full parameter set and the round-trip is lossless.
         """
-        expr = TableListExpression(sqlite_dialect)
+        expr = TableListQueryStatement(sqlite_dialect)
         spec = serialize(expr)
         assert "schema" in spec["params"]
         assert spec["params"]["schema"] is None

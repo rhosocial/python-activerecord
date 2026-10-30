@@ -3,29 +3,36 @@
 
 import math
 from enum import Enum
-from typing import Any, Dict, TYPE_CHECKING, Union
+from typing import Any, Dict, Optional, TYPE_CHECKING, Union
 
 from .mixins import (
+    IntervalMixin,
     AliasableMixin,
     ComparisonMixin,
     TypeCastingMixin,
 )
 
 from .advanced_functions import DeclaredValueType
-from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression
-from .core import (
-    IntegerValueExpression,
-    IntervalValueExpression,
-    NumericValueExpression,
-    TimestampValueExpression,
-)
+from .bases import BaseExpression, SQLValue
+from .core import Literal
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
+from .value_types import (
+    NumericValue,
+    TemporalValue,
+)
+
 class DateTimeField(str, Enum):
     """Supported datetime fields."""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    #: Without this, ``str(member)`` yields ``DateTimeField.YEAR``, and both the
+    #: XML codec and every f-string that interpolates the field would carry a
+    #: Python spelling across the wire.
+    __str__ = str.__str__
 
     YEAR = "year"
     MONTH = "month"
@@ -38,8 +45,12 @@ class DateTimeField(str, Enum):
     DOY = "doy"
 
 
+
 class IntervalUnit(str, Enum):
     """Supported interval units."""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     YEAR = "year"
     MONTH = "month"
@@ -50,57 +61,46 @@ class IntervalUnit(str, Enum):
     SECOND = "second"
 
 
-_FIELD_ALIASES = {
-    "years": DateTimeField.YEAR,
-    "yyyy": DateTimeField.YEAR,
-    "yy": DateTimeField.YEAR,
-    "months": DateTimeField.MONTH,
-    "mon": DateTimeField.MONTH,
-    "mm": DateTimeField.MONTH,
-    "weeks": DateTimeField.WEEK,
-    "wk": DateTimeField.WEEK,
-    "ww": DateTimeField.WEEK,
-    "days": DateTimeField.DAY,
-    "dd": DateTimeField.DAY,
-    "hours": DateTimeField.HOUR,
-    "hh": DateTimeField.HOUR,
-    "minutes": DateTimeField.MINUTE,
-    "mins": DateTimeField.MINUTE,
-    "mi": DateTimeField.MINUTE,
-    "seconds": DateTimeField.SECOND,
-    "secs": DateTimeField.SECOND,
-    "ss": DateTimeField.SECOND,
-    "dow": DateTimeField.DOW,
+
+#: Accepted spellings for :class:`DateTimeField`, each mapped to the member it
+#: names -- ``"yyyy"``, ``"yy"`` and ``"years"`` are three ways of writing YEAR.
+#: It sits here, beside the enum that owns the domain, rather than as a private
+#: table elsewhere. It cannot live in the enum body: every non-descriptor
+#: assignment in an Enum body becomes a *member*, so a dict there would be an
+#: enum member rather than a lookup table.
+DATETIME_FIELD_ALIASES = {
+    "years": DateTimeField.YEAR, "yyyy": DateTimeField.YEAR, "yy": DateTimeField.YEAR,
+    "months": DateTimeField.MONTH, "mon": DateTimeField.MONTH, "mm": DateTimeField.MONTH,
+    "weeks": DateTimeField.WEEK, "wk": DateTimeField.WEEK, "ww": DateTimeField.WEEK,
+    "days": DateTimeField.DAY, "dd": DateTimeField.DAY,
+    "hours": DateTimeField.HOUR, "hh": DateTimeField.HOUR,
+    "minutes": DateTimeField.MINUTE, "mins": DateTimeField.MINUTE, "mi": DateTimeField.MINUTE,
+    "seconds": DateTimeField.SECOND, "secs": DateTimeField.SECOND, "ss": DateTimeField.SECOND,
     "weekday": DateTimeField.DOW,
-    "doy": DateTimeField.DOY,
     "dayofyear": DateTimeField.DOY,
 }
 
-_UNIT_ALIASES = {
-    "years": IntervalUnit.YEAR,
-    "yyyy": IntervalUnit.YEAR,
-    "yy": IntervalUnit.YEAR,
-    "months": IntervalUnit.MONTH,
-    "mon": IntervalUnit.MONTH,
-    "mm": IntervalUnit.MONTH,
-    "weeks": IntervalUnit.WEEK,
-    "wk": IntervalUnit.WEEK,
-    "ww": IntervalUnit.WEEK,
-    "days": IntervalUnit.DAY,
-    "dd": IntervalUnit.DAY,
-    "hours": IntervalUnit.HOUR,
-    "hh": IntervalUnit.HOUR,
-    "minutes": IntervalUnit.MINUTE,
-    "mins": IntervalUnit.MINUTE,
-    "mi": IntervalUnit.MINUTE,
-    "seconds": IntervalUnit.SECOND,
-    "secs": IntervalUnit.SECOND,
-    "ss": IntervalUnit.SECOND,
+
+#: Accepted spellings for :class:`IntervalUnit`, same shape as
+#: :data:`DATETIME_FIELD_ALIASES`.
+INTERVAL_UNIT_ALIASES = {
+    "years": IntervalUnit.YEAR, "yyyy": IntervalUnit.YEAR, "yy": IntervalUnit.YEAR,
+    "months": IntervalUnit.MONTH, "mon": IntervalUnit.MONTH, "mm": IntervalUnit.MONTH,
+    "weeks": IntervalUnit.WEEK, "wk": IntervalUnit.WEEK, "ww": IntervalUnit.WEEK,
+    "days": IntervalUnit.DAY, "dd": IntervalUnit.DAY,
+    "hours": IntervalUnit.HOUR, "hh": IntervalUnit.HOUR,
+    "minutes": IntervalUnit.MINUTE, "mins": IntervalUnit.MINUTE, "mi": IntervalUnit.MINUTE,
+    "seconds": IntervalUnit.SECOND, "secs": IntervalUnit.SECOND, "ss": IntervalUnit.SECOND,
 }
 
 
 def normalize_datetime_field(field: Union[str, DateTimeField]) -> DateTimeField:
-    """Normalize and validate a datetime field token."""
+    """Normalize and validate a datetime field token.
+
+    A member passes through; a word that is a member's own value becomes that
+    member; a word that is an alias of one becomes that member. Anything else is
+    refused, so a typo cannot silently pick a neighbouring field.
+    """
     if isinstance(field, DateTimeField):
         return field
     normalized = str(field).strip().lower()
@@ -108,8 +108,9 @@ def normalize_datetime_field(field: Union[str, DateTimeField]) -> DateTimeField:
         raise ValueError("datetime field cannot be empty")
     if normalized in DateTimeField._value2member_map_:
         return DateTimeField(normalized)
-    if normalized in _FIELD_ALIASES:
-        return _FIELD_ALIASES[normalized]
+    aliased = DATETIME_FIELD_ALIASES.get(normalized)
+    if aliased is not None:
+        return DateTimeField(aliased)
     raise ValueError(f"unsupported datetime field: {field!r}")
 
 
@@ -122,8 +123,9 @@ def normalize_interval_unit(unit: Union[str, IntervalUnit]) -> IntervalUnit:
         raise ValueError("interval unit cannot be empty")
     if normalized in IntervalUnit._value2member_map_:
         return IntervalUnit(normalized)
-    if normalized in _UNIT_ALIASES:
-        return _UNIT_ALIASES[normalized]
+    aliased = INTERVAL_UNIT_ALIASES.get(normalized)
+    if aliased is not None:
+        return IntervalUnit(aliased)
     raise ValueError(f"unsupported interval unit: {unit!r}")
 
 
@@ -136,11 +138,11 @@ def validate_interval_value(value: Union[int, float]) -> Union[int, float]:
     return value
 
 
-class _TemporalValueExpression(
+class _TemporalValue(
     AliasableMixin,
     ComparisonMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """Shared base for the temporal operation nodes.
 
@@ -153,7 +155,7 @@ class _TemporalValueExpression(
     type's class alongside this one. Two consequences, both wanted:
 
     * What the operation yields is readable off the object — ``EXTRACT`` is a
-      :class:`~...expression.core.NumericValueExpression` because it derives
+      :class:`~...expression.value_types.NumericValue` because it derives
       from one, not because a tag said so and a tag could disagree with the
       class it sat on.
     * The operations follow from it. ``extract("year") + 1`` composes because a
@@ -168,19 +170,33 @@ class _TemporalValueExpression(
     :meth:`BaseExpression.__init__` rather than through ``super()``.
     """
 
+    @staticmethod
+    def _precision(dialect: "SQLDialectBase", precision: Optional[int]):
+        """The fractional-seconds scale as a node, or ``None`` when absent.
 
-class ExtractExpression(_TemporalValueExpression, DeclaredValueType, NumericValueExpression):
-    """``EXTRACT(field FROM source)`` -- a number.
+        A bare ``int`` is what a caller writes, and it is not what the formatter
+        can render -- the precision is a parameter of the function, so it goes
+        into the parameter sequence like any other. Normalising here rather than
+        in each factory means constructing the node directly is safe too.
+        """
+        if precision is None:
+            return None
 
-    Numeric rather than integral because ``EXTRACT(EPOCH FROM ts)`` is
-    fractional. Widening here is deliberate: claiming a whole number would offer
-    ``bit_length`` on a value that may be a million and a half.
+        return precision if isinstance(precision, BaseExpression) else Literal(dialect, precision)
 
-    It is a :class:`~...expression.core.NumericValueExpression` because that is
-    what it is, and that is why ``extract("year") + 1`` composes. The class
-    declares the type rather than a tag recording it, so ``isinstance`` answers
-    from the class alone.
+
+class _ExtractBase(_TemporalValue):
+    """The field-and-source shape both extract spellings share.
+
+    ``EXTRACT(YEAR FROM ts)`` and ``YEAR(ts)`` ask the same question of the same
+    operands, so the fields, the validation and :attr:`spelling` live here once.
+    What is *not* shared is the type they answer with, which is the reason there
+    are two classes below rather than one -- see each one's own docstring.
     """
+
+    #: The spellings this node can be asked for. ``EXTRACT`` is the standard's
+    #: form; the rest name the field after the function that takes it.
+    SPELLINGS = ("EXTRACT", "YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND")
 
     def __init__(
         self,
@@ -188,11 +204,28 @@ class ExtractExpression(_TemporalValueExpression, DeclaredValueType, NumericValu
         field: Union[str, DateTimeField],
         source: BaseExpression,
         alias: str = None,
+        spelling: str = "EXTRACT",
     ):
+        spelling = spelling.upper()
+        if spelling not in self.SPELLINGS:
+            raise ValueError(
+                f"unknown extract spelling {spelling!r}: the spellings are {list(self.SPELLINGS)}"
+            )
+        normalized_field = normalize_datetime_field(field)
+        if spelling != "EXTRACT" and normalized_field.value.upper() != spelling:
+            # The field-named form writes ``YEAR(ts)`` and nothing else, so a
+            # mismatched field would be silently dropped from the SQL and the
+            # node would answer a different question than it was asked. Caught
+            # here, where the caller can still see which of the two was meant.
+            raise ValueError(
+                f"spelling {spelling!r} extracts {spelling.lower()}, not "
+                f"{normalized_field.value!r}"
+            )
         BaseExpression.__init__(self, dialect)
-        self.field = normalize_datetime_field(field)
+        self.field = normalized_field
         self.source = source
         self.alias = alias
+        self.spelling = spelling
 
     @property
     def format_method(self) -> str:
@@ -200,13 +233,64 @@ class ExtractExpression(_TemporalValueExpression, DeclaredValueType, NumericValu
         return "format_extract_expression"
 
 
-class DatePartExpression(_TemporalValueExpression, DeclaredValueType, NumericValueExpression):
-    """The SQL-standard spelling of :class:`ExtractExpression`, and a number too.
+class ExtractExpression(
+    _ExtractBase,
+    DeclaredValueType,
+    NumericValue,
+):
+    """``EXTRACT(field FROM source)`` -- a number.
 
-    Separate because a backend may render it differently, and because a caller
-    writing standard SQL should say so. Same answer, same class family: some
-    parts of a timestamp are whole numbers, but the unit decides, and a unit
-    this cannot rule out being fractional exists.
+    Numeric rather than integral because ``EXTRACT(EPOCH FROM ts)`` is
+    fractional. Widening here is deliberate: claiming a whole number would offer
+    ``bit_length`` on a value that may be a million and a half.
+
+    It is a :class:`~...expression.value_types.NumericValue` because that is
+    what it is, and that is why ``extract("year") + 1`` composes. The class
+    declares the type rather than a tag recording it, so ``isinstance`` answers
+    from the class alone.
+
+    :attr:`spelling` is the same answer asked the way a backend spells it. The
+    default is the standard's own, so ``extract()`` and a deserialized artifact
+    that names no spelling both mean ``EXTRACT``. The field-named form is
+    :class:`ExtractFieldExpression` rather than this class with a spelling,
+    because it answers with a whole number and this one may not.
+    """
+
+
+class ExtractFieldExpression(
+    _ExtractBase,
+    DeclaredValueType,
+    NumericValue,
+):
+    """``YEAR(source)`` / ``MONTH(source)`` / ... -- a whole number.
+
+    One class for all six field-named extractions rather than six, which is what
+    catalog 3.4 asks for: they differ only in the field, and a backend's
+    differences in spelling are the formatter's business.
+
+    Integral, unlike :class:`ExtractExpression`: a calendar component is a whole
+    number on every backend, so claiming a fractional one would offer
+    ``bit_length`` on a year. The two are separate classes precisely because
+    ``EXTRACT(EPOCH FROM ts)`` is *not* a whole number -- one field splits the
+    question, so the type cannot.
+    """
+
+
+class DatePartExpression(
+    _ExtractBase,
+    DeclaredValueType,
+    NumericValue,
+):
+    """``DATE_PART('field', source)`` -- the standard's spelling, and a number.
+
+    Separate from :class:`ExtractExpression` because a caller writing standard
+    SQL should say so, and a backend may render it differently.
+
+    Its :attr:`spelling` is ``EXTRACT``, because that is how it renders: the
+    base dialect formats ``DATE_PART`` as ``EXTRACT`` (they are the same answer),
+    and a backend that has a native ``DATE_PART`` overrides the formatter. The
+    field and the spelling are therefore both present, and agreeing -- the same
+    invariant the field-named form holds.
     """
 
     def __init__(
@@ -216,10 +300,7 @@ class DatePartExpression(_TemporalValueExpression, DeclaredValueType, NumericVal
         source: BaseExpression,
         alias: str = None,
     ):
-        BaseExpression.__init__(self, dialect)
-        self.field = normalize_datetime_field(field)
-        self.source = source
-        self.alias = alias
+        super().__init__(dialect, field, source, alias=alias, spelling="EXTRACT")
 
     @property
     def format_method(self) -> str:
@@ -227,7 +308,11 @@ class DatePartExpression(_TemporalValueExpression, DeclaredValueType, NumericVal
         return "format_date_part_expression"
 
 
-class DateTruncExpression(_TemporalValueExpression, DeclaredValueType, TimestampValueExpression):
+class DateTruncExpression(
+    _TemporalValue,
+    DeclaredValueType,
+    TemporalValue,
+):
     """Truncating a timestamp to a field gives a timestamp.
 
     Not an integer: the parts are dropped, not rounded away, so what comes back
@@ -253,7 +338,12 @@ class DateTruncExpression(_TemporalValueExpression, DeclaredValueType, Timestamp
         return "format_date_trunc_expression"
 
 
-class IntervalExpression(_TemporalValueExpression, DeclaredValueType, IntervalValueExpression):
+class IntervalExpression(
+    _TemporalValue,
+    DeclaredValueType,
+    TemporalValue,
+    IntervalMixin,
+):
     """A structured interval value -- a span of time, its own type.
 
     Not a timestamp and not a number: `
@@ -280,7 +370,11 @@ ow() + INTERVAL '1 day'`` is a
         return "format_interval_expression"
 
 
-class DateTimeAddExpression(_TemporalValueExpression, DeclaredValueType, TimestampValueExpression):
+class DatetimeAddExpression(
+    _TemporalValue,
+    DeclaredValueType,
+    TemporalValue,
+):
     """Adding an interval to a timestamp gives a timestamp.
 
     Shifting time keeps it time. The result is a point in time, not a count of
@@ -307,10 +401,14 @@ ow().date_add(1, "day").date_trunc("day")`` chain.
         return "format_datetime_add_expression"
 
 
-class DateTimeSubtractExpression(_TemporalValueExpression, DeclaredValueType, TimestampValueExpression):
+class DatetimeSubtractExpression(
+    _TemporalValue,
+    DeclaredValueType,
+    TemporalValue,
+):
     """Subtracting an interval from a timestamp gives a timestamp.
 
-    The mirror of :class:`DateTimeAddExpression`, and the same answer: going back
+    The mirror of :class:`DatetimeAddExpression`, and the same answer: going back
     in time leaves you at a point in time.
     """
 
@@ -332,7 +430,11 @@ class DateTimeSubtractExpression(_TemporalValueExpression, DeclaredValueType, Ti
         return "format_datetime_subtract_expression"
 
 
-class DateTimeDiffExpression(_TemporalValueExpression, DeclaredValueType, IntegerValueExpression):
+class DatetimeDiffExpression(
+    _TemporalValue,
+    DeclaredValueType,
+    NumericValue,
+):
     """The difference between two timestamps, counted in whole units.
 
     This is the one temporal operation that is not a temporal value: `
@@ -363,6 +465,147 @@ ow() -
         return "format_datetime_diff_expression"
 
 
+class NowFunction(
+    _TemporalValue,
+    DeclaredValueType,
+    TemporalValue,
+):
+    """``NOW()`` -- the instant the statement began.
+
+    A timestamp, so the temporal operations are on it: ``now().date_add(...)``
+    and ``now() - some_interval`` compose. The parentheses are a spelling the
+    backend decides (MySQL's ``NOW`` requires them, and its
+    ``CURRENT_TIMESTAMP`` may omit them), which is why the node is not named after
+    the text it writes.
+    """
+
+    #: The standard writes this with parentheses; ``NOW`` without them is
+    #: a syntax error on MySQL, which is why it is declared rather than
+    #: assumed.
+    niladic = False
+
+    def __init__(self, dialect: "SQLDialectBase", precision: Optional[int] = None, alias: str = None):
+        BaseExpression.__init__(self, dialect)
+        self.precision = self._precision(dialect, precision)
+        self.alias = alias
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_now_function"
+
+
+class CurrentDateFunction(
+    _TemporalValue,
+    DeclaredValueType,
+    TemporalValue,
+):
+    """``CURRENT_DATE`` -- today's date, with no time and no zone.
+
+    A date rather than a timestamp, so ``CURRENT_TIMESTAMP()::date`` and
+    ``CURRENT_DATE`` are distinguishable at the type level even where a backend
+    would render them alike.
+
+    The standard writes this with no arguments, so :attr:`precision` is
+    normally ``None``; it is carried because a backend that spells the scale
+    (``CURRENT_DATE(6)``) needs somewhere to read it from.
+    """
+
+    #: The standard writes this without parentheses, and the backend may
+    #: keep that spelling or add them.
+    niladic = True
+
+    def __init__(
+        self, dialect: "SQLDialectBase", precision: Optional[int] = None, alias: str = None
+    ):
+        BaseExpression.__init__(self, dialect)
+        self.precision = self._precision(dialect, precision)
+        self.alias = alias
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_current_date_function"
+
+
+class CurrentTimeFunction(
+    _TemporalValue,
+    DeclaredValueType,
+    TemporalValue,
+):
+    """``CURRENT_TIME`` -- the time of day, with no date and no zone."""
+
+    #: The standard writes this without parentheses, and the backend may
+    #: keep that spelling or add them.
+    niladic = True
+
+    def __init__(self, dialect: "SQLDialectBase", precision: Optional[int] = None, alias: str = None):
+        BaseExpression.__init__(self, dialect)
+        self.precision = self._precision(dialect, precision)
+        self.alias = alias
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_current_time_function"
+
+
+class CurrentTimestampFunction(
+    _TemporalValue,
+    DeclaredValueType,
+    TemporalValue,
+):
+    """``CURRENT_TIMESTAMP`` -- the instant the statement began, as a timestamp.
+
+    :attr:`precision` is the fractional-seconds scale, and it is also a
+    **spelling** question rather than only a value one: the standard writes this
+    without parentheses when there is no precision and with them when there is
+    one, and not every backend agrees either way. Both cases are this node, so
+    the parentheses are the formatter's decision.
+    """
+
+    #: The standard writes this without parentheses, and the backend may
+    #: keep that spelling or add them.
+    niladic = True
+
+    def __init__(self, dialect: "SQLDialectBase", precision: Optional[int] = None, alias: str = None):
+        BaseExpression.__init__(self, dialect)
+        self.precision = self._precision(dialect, precision)
+        self.alias = alias
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_current_timestamp_function"
+
+
+class LocalTimestampFunction(
+    _TemporalValue,
+    DeclaredValueType,
+    TemporalValue,
+):
+    """``LOCALTIMESTAMP`` -- the instant as the session's time zone reads it.
+
+    Distinct from :class:`CurrentTimestampFunction` because the two disagree
+    wherever the session zone is not UTC, and on PostgreSQL only the latter is
+    stored as an instant while this one is a wall-clock reading.
+    """
+
+    #: The standard writes this without parentheses, and the backend may
+    #: keep that spelling or add them.
+    niladic = True
+
+    def __init__(self, dialect: "SQLDialectBase", precision: Optional[int] = None, alias: str = None):
+        BaseExpression.__init__(self, dialect)
+        self.precision = self._precision(dialect, precision)
+        self.alias = alias
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_localtimestamp_function"
+
+
 class TemporalOptionsExpression(BaseExpression):
     """FOR SYSTEM_TIME AS OF ... temporal table options."""
 
@@ -372,4 +615,4 @@ class TemporalOptionsExpression(BaseExpression):
 
     @property
     def format_method(self) -> str:
-        return "format_temporal_options"
+        return "format_temporal_options_expression"

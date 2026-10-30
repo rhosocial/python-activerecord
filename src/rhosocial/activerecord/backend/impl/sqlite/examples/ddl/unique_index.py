@@ -1,3 +1,20 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.expression import CreateIndexStatement
+from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
+from rhosocial.activerecord.backend.expression.core import Literal, AllColumnsWildcard
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression import (
+    CreateTableStatement,
+    QueryStatement,
+    InsertStatement,
+    ValuesSource,
+)
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 """
 CREATE UNIQUE INDEX - SQLite.
 
@@ -10,28 +27,13 @@ This example demonstrates:
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression,
-    QueryExpression,
-    InsertExpression,
-    ValuesSource,
-)
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression  # noqa: E402
-from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
-)
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table_name="users",
     columns=[
@@ -39,22 +41,22 @@ create_table = CreateTableExpression(
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, 
             "email",
             TextType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, 
             "username",
             TextType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
     ],
@@ -66,11 +68,9 @@ backend.execute(sql, params)
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import CreateIndexExpression  # noqa: E402
-from .....expression.objects import Table
 
 # 1. CREATE UNIQUE INDEX on a single column
-create_email_idx = CreateIndexExpression(
+create_email_idx = CreateIndexStatement(
     dialect=dialect,
     index_name="idx_users_email",
     table_name="users",
@@ -83,7 +83,7 @@ print(f"SQL: {sql}")
 print(f"Params: {params}")
 
 # 2. CREATE UNIQUE INDEX on multiple columns (composite unique)
-create_composite_idx = CreateIndexExpression(
+create_composite_idx = CreateIndexStatement(
     dialect=dialect,
     index_name="idx_users_username_email",
     table_name="users",
@@ -109,12 +109,11 @@ backend.execute(sql, params)
 print("Index created: idx_users_username_email (UNIQUE on username, email)")
 
 # Insert initial row
-insert_expr = InsertExpression(
+insert_expr = InsertStatement(
     dialect=dialect,
     into=Table(dialect, 'users'),
     columns=["email", "username"],
     source=ValuesSource(
-        dialect,
         [
             [Literal(dialect, "alice@example.com"), Literal(dialect, "alice")],
         ],
@@ -126,12 +125,11 @@ print("Inserted: alice@example.com / alice")
 
 # 3. Verify uniqueness: attempt duplicate email (should fail)
 try:
-    duplicate_insert = InsertExpression(
+    duplicate_insert = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'users'),
         columns=["email", "username"],
         source=ValuesSource(
-            dialect,
             [
                 [Literal(dialect, "alice@example.com"), Literal(dialect, "alice2")],
             ],
@@ -144,9 +142,9 @@ except Exception as e:
     print(f"Uniqueness constraint enforced: {e}")
 
 # Verify data after failed insert
-verify_query = QueryExpression(
+verify_query = QueryStatement(
     dialect=dialect,
-    select=[WildcardExpression(dialect)],
+    select=[AllColumnsWildcard(dialect)],
     from_=NamedRelationRef(dialect, Table(dialect, "users")),
 )
 sql, params = verify_query.to_sql()

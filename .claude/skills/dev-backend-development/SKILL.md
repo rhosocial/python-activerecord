@@ -283,13 +283,18 @@ is a second, unreliable parse of data the formatter already had as typed values.
 of SQL is also an injection surface: a mismatch between scanner assumptions and real dialect
 syntax silently corrupts the statement.
 
-**The single exception — inline-literal resolution.** When a statement
-(`requires_inline_literals() == True`, trusted developer-declared DDL) renders literal values
-inline, the dialect's `format_literal` produces **escaped, quoted atoms** concatenated directly
-during formatting — no re-scanning of the assembled SQL. Because this exception splices raw
-values into SQL text, it is a **SQL-injection hazard by nature**: developers must be highly
-alert that inline content is trusted-only and never reachable by end users, and the inline
-switch must default to `False` (bind parameters).
+**The single exception — inline literals.** A value can be spliced into the SQL text
+instead of bound, and the call site asks for that per value:
+`Literal(dialect, value, inline=True)`. The dialect then produces **escaped, quoted atoms**
+(`inline_sql_literal`) concatenated directly during formatting — no re-scanning of the
+assembled SQL.
+
+Whether to inline is **the caller's decision, not the framework's**: some engines reject a
+statement carrying a bind parameter in a position with no room for one, and the developer
+knows which engine the statement is for. The default is bind parameters (`inline=False`),
+because inlining is a **SQL-injection hazard by nature** — inline content must be trusted-only
+and never reachable by end users. A formatter must not inline on its own initiative, and must
+not refuse a statement merely because it binds where an engine would prefer text.
 
 ## Type Adaptation
 

@@ -16,7 +16,7 @@ from ..exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.uuid import (
-        UUIDCastExpression,
+        UUIDCastFunction,
         UUIDConstantExpression,
         UUIDGenerationExpression,
     )
@@ -91,7 +91,7 @@ class UUIDMixin:
     # Formatters
     # ------------------------------------------------------------------
 
-    def format_uuid_generation(
+    def format_uuid_generation_expression(
         self, expr: "UUIDGenerationExpression"
     ) -> Tuple[str, Tuple]:
         """Render a fresh-UUID expression.
@@ -103,11 +103,11 @@ class UUIDMixin:
             Tuple of (SQL string, parameters tuple).
         """
         sql = self._require_uuid("generation", "UUID generation")
-        if getattr(expr, "alias", None):
+        if expr.alias:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
         return sql, ()
 
-    def format_uuid_constant(self, expr: "UUIDConstantExpression") -> Tuple[str, Tuple]:
+    def format_uuid_constant_expression(self, expr: "UUIDConstantExpression") -> Tuple[str, Tuple]:
         """Render the nil or max UUID constant.
 
         Args:
@@ -124,15 +124,15 @@ class UUIDMixin:
                 f"UUID {expr.which} constant",
                 self.UUID_SUGGESTIONS.get("constant", ""),
             )
-        if getattr(expr, "alias", None):
+        if expr.alias:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
         return sql, ()
 
-    def format_uuid_cast(self, expr: "UUIDCastExpression") -> Tuple[str, Tuple]:
+    def format_uuid_cast(self, expr: "UUIDCastFunction") -> Tuple[str, Tuple]:
         """Render a text-to-UUID conversion.
 
         Args:
-            expr: The UUIDCastExpression node.
+            expr: The UUIDCastFunction node.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
@@ -140,7 +140,7 @@ class UUIDMixin:
         template = self._require_uuid("cast", "UUID cast")
         inner_sql, inner_params = expr.expression.to_sql()
         sql = template.format(inner=inner_sql)
-        if getattr(expr, "alias", None):
+        if expr.alias:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
         return sql, inner_params
 

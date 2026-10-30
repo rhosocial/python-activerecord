@@ -1,11 +1,24 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_delete.py
 import pytest
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefaultConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression import bases
+from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression import (
+    BetweenPredicate,
+    InPredicate,
+    IsNullPredicate,
+    LikePredicate,
+)
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    RawSQLExpression,
-    QueryExpression,
-    DeleteExpression,
+    RawSQL,
+    QueryStatement,
+    DeleteStatement,
     JoinClause,
     LogicalPredicate,
     NumericColumn,
@@ -13,17 +26,6 @@ from rhosocial.activerecord.backend.expression import (
     ComparisonPredicate,
     StringColumn,
 )
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression import (
-    InPredicate,
-    IsNullPredicate,
-    BetweenPredicate,
-    LikePredicate,
-)
-from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-from rhosocial.activerecord.backend.expression import bases  # For set_dialect_recursive
-from rhosocial.activerecord.backend.expression.types import VarCharType
-from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestDeleteStatements:
@@ -54,19 +56,21 @@ class TestDeleteStatements:
             self.set_dialect_recursive(expr.left, dialect)
         if hasattr(expr, "right"):
             self.set_dialect_recursive(expr.right, dialect)
-        if hasattr(expr, "expr"):  # For predicates
+        if hasattr(expr, "expr"):  # For predicates that still name it `expr`
             self.set_dialect_recursive(expr.expr, dialect)
+        if hasattr(expr, "operand"):  # For predicates (is_null / in / between)
+            self.set_dialect_recursive(expr.operand, dialect)
         if hasattr(expr, "value") and isinstance(
             expr.value, bases.BaseExpression
         ):  # For Literal, if value is an expression
             self.set_dialect_recursive(expr.value, dialect)
-        if hasattr(expr, "subquery"):  # For QueryExpression in from_ or assignments
+        if hasattr(expr, "subquery"):  # For QueryStatement in from_ or assignments
             self.set_dialect_recursive(expr.subquery, dialect)
         if isinstance(expr, NamedRelationRef):
             # A row source renders through the object it points at,
             # and that object needs the dialect as much as the source.
             self.set_dialect_recursive(expr.relation, dialect)
-        if isinstance(expr, QueryExpression):  # For QueryExpression itself
+        if isinstance(expr, QueryStatement):  # For QueryStatement itself
             for s_elem in expr.select:
                 self.set_dialect_recursive(s_elem, dialect)
             if expr.from_:
@@ -84,8 +88,8 @@ class TestDeleteStatements:
             self.set_dialect_recursive(expr.right_table, dialect)
             self.set_dialect_recursive(expr.condition, dialect)
 
-        if isinstance(expr, LogicalPredicate):  # LogicalPredicate has 'predicates'
-            for pred in expr.predicates:
+        if isinstance(expr, LogicalPredicate):  # LogicalPredicate has 'operands'
+            for pred in expr.operands:
                 self.set_dialect_recursive(pred, dialect)
 
         # Handle specific expression types that have left/right attributes
@@ -163,11 +167,11 @@ class TestDeleteStatements:
             ),
             pytest.param(
                 Table(None, "products"),
-                QueryExpression(
+                QueryStatement(
                     None,
                     select=[Column(None, "id")],
                     from_="archived_products",
-                    where=ComparisonPredicate(None, "<", Column(None, "deleted_at"), RawSQLExpression(None, "NOW()")),
+                    where=ComparisonPredicate(None, "<", Column(None, "deleted_at"), RawSQL(None, "NOW()")),
                 ),
                 ComparisonPredicate(None, "=", Column(None, "id", "products"), Column(None, "id")),
                 None,
@@ -251,7 +255,7 @@ class TestDeleteStatements:
                 self.set_dialect_recursive(item, dummy_dialect)
             dialect_returning_param = ReturningClause(dummy_dialect, expressions=returning_param)
 
-        delete_expr = DeleteExpression(
+        delete_expr = DeleteStatement(
             dummy_dialect,
             tables=dialect_table_param,
             using=dialect_using_param,
@@ -263,16 +267,16 @@ class TestDeleteStatements:
         assert params == expected_params
 
     def test_delete_from_unsupported_source_type_raises_type_error(self, dummy_dialect: DummyDialect):
-        """Tests that DeleteExpression raises TypeError for unsupported FROM source types."""
+        """Tests that DeleteStatement raises TypeError for unsupported FROM source types."""
         unsupported_source = 123  # An integer, not a string or BaseExpression
 
         where = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 1))
 
         with pytest.raises(
             TypeError,
-            match=r"using must be one of: str, NamedRelationRef, Subquery, SetOperationExpression, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, QueryExpression, got <class 'int'>",  # noqa: E501
+            match=r"using must be one of: str, NamedRelationRef, Subquery, SetOperation, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, QueryStatement, got <class 'int'>",  # noqa: E501
         ):
-            delete_expr = DeleteExpression(dummy_dialect, tables=Table(dummy_dialect, 'users'), using=unsupported_source, where=where)
+            delete_expr = DeleteStatement(dummy_dialect, tables=Table(dummy_dialect, 'users'), using=unsupported_source, where=where)
             delete_expr.to_sql()
 
     # --- Additional tests from the original test_delete_statements.py ---
@@ -289,7 +293,9 @@ class TestDeleteStatements:
             (
                 "users",
                 ComparisonPredicate(None, "!=", Column(None, "status"), Literal(None, "active")),  # Mock
-                'DELETE FROM "users" WHERE "status" != ?',
+                # `!=` and `<>` are one operation; the formatter writes the
+                # standard spelling. See ComparisonOperator.
+                'DELETE FROM "users" WHERE "status" <> ?',
                 ("active",),
             ),
             (
@@ -318,7 +324,7 @@ class TestDeleteStatements:
                 dummy_dialect, "=", Column(dummy_dialect, "category_id"), Literal(dummy_dialect, 5)
             )
 
-        delete_expr = DeleteExpression(dummy_dialect, tables=Table(dummy_dialect, table), where=where_condition)
+        delete_expr = DeleteStatement(dummy_dialect, tables=Table(dummy_dialect, table), where=where_condition)
         sql, params = delete_expr.to_sql()
         assert sql == expected_sql
         assert params == expected_params
@@ -346,13 +352,15 @@ class TestDeleteStatements:
             value_expr = Literal(dummy_dialect, right_value)
             where_condition = ComparisonPredicate(dummy_dialect, comparison_op, column_expr, value_expr)
 
-        delete_expr = DeleteExpression(dummy_dialect, tables=Table(dummy_dialect, 'temp_records'), where=where_condition)
+        delete_expr = DeleteStatement(dummy_dialect, tables=Table(dummy_dialect, 'temp_records'), where=where_condition)
         sql, params = delete_expr.to_sql()
         assert 'DELETE FROM "temp_records" WHERE' in sql
         if comparison_op in ["IS", "IS NOT"]:
             assert comparison_op.replace(" ", " ") in sql  # "IS NULL" or "IS NOT NULL"
         else:
-            assert comparison_op in sql
+            # Compare against what the operator renders, not what the caller
+            # passed: `!=` and `<>` are one operation, standard spelling wins.
+            assert ComparisonPredicate.coerce_operator(comparison_op).symbol in sql
         if comparison_op not in ["IS", "IS NOT"]:
             assert params == (right_value,)
 
@@ -366,7 +374,7 @@ class TestDeleteStatements:
         )
         complex_condition = LogicalPredicate(dummy_dialect, "AND", condition1, condition2)
 
-        delete_expr = DeleteExpression(dummy_dialect, tables=Table(dummy_dialect, 'temp_records'), where=complex_condition)
+        delete_expr = DeleteStatement(dummy_dialect, tables=Table(dummy_dialect, 'temp_records'), where=complex_condition)
         sql, params = delete_expr.to_sql()
         assert sql == 'DELETE FROM "temp_records" WHERE "status" = ? AND "user_id" IN (?, ?, ?)'
         assert params == ("cancelled", 101, 102, 103)
@@ -384,7 +392,7 @@ class TestDeleteStatements:
         """Tests DELETE with IN condition for different value lists."""
         in_condition = InPredicate(dummy_dialect, Column(dummy_dialect, "user_id"), Literal(dummy_dialect, values_list))
 
-        delete_expr = DeleteExpression(dummy_dialect, tables=Table(dummy_dialect, 'records'), where=in_condition)
+        delete_expr = DeleteStatement(dummy_dialect, tables=Table(dummy_dialect, 'records'), where=in_condition)
         sql, params = delete_expr.to_sql()
         if not values_list:  # Empty list case
             assert "IN ()" in sql
@@ -402,9 +410,9 @@ class TestDeleteStatements:
     # from_ parameter is also converted but we can still test the converted value
 
     def test_delete_expression_invalid_where_type_after_construction(self, dummy_dialect: DummyDialect):
-        """Tests that DeleteExpression raises TypeError for invalid where parameter type after construction."""
+        """Tests that DeleteStatement raises TypeError for invalid where parameter type after construction."""
         # Manually set an invalid type after construction to test validation
-        delete_expr = DeleteExpression(
+        delete_expr = DeleteStatement(
             dummy_dialect, tables=Table(dummy_dialect, 'users'), where=ComparisonPredicate(
                 dummy_dialect,
                 "=",
@@ -419,8 +427,8 @@ class TestDeleteStatements:
             delete_expr.validate(strict=True)
 
     def test_delete_expression_invalid_using_type_after_construction(self, dummy_dialect: DummyDialect):
-        """Tests that DeleteExpression raises TypeError for invalid using parameter type."""
-        delete_expr = DeleteExpression(
+        """Tests that DeleteStatement raises TypeError for invalid using parameter type."""
+        delete_expr = DeleteStatement(
             dummy_dialect, tables=Table(dummy_dialect, 'users'), where=ComparisonPredicate(
                 dummy_dialect,
                 "=",
@@ -433,14 +441,14 @@ class TestDeleteStatements:
 
         with pytest.raises(
             TypeError,
-            match=r"using must be one of: str, NamedRelationRef, Subquery, SetOperationExpression, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, QueryExpression, got <class 'int'>",  # noqa: E501
+            match=r"using must be one of: str, NamedRelationRef, Subquery, SetOperation, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, QueryStatement, got <class 'int'>",  # noqa: E501
         ):
             delete_expr.validate(strict=True)
 
     def test_delete_expression_invalid_where_type_initial(self, dummy_dialect: DummyDialect):
-        """Tests that DeleteExpression raises TypeError for invalid where parameter type (initial case)."""
+        """Tests that DeleteStatement raises TypeError for invalid where parameter type (initial case)."""
         # This tests the case where an invalid type is passed initially
-        delete_expr = DeleteExpression(
+        delete_expr = DeleteStatement(
             dummy_dialect, tables=Table(dummy_dialect, 'users'), where=ComparisonPredicate(
                 dummy_dialect,
                 "=",
@@ -455,8 +463,8 @@ class TestDeleteStatements:
             delete_expr.validate(strict=True)
 
     def test_delete_expression_invalid_returning_type(self, dummy_dialect: DummyDialect):
-        """Tests that DeleteExpression raises TypeError for invalid returning parameter type."""
-        delete_expr = DeleteExpression(
+        """Tests that DeleteStatement raises TypeError for invalid returning parameter type."""
+        delete_expr = DeleteStatement(
             dummy_dialect, tables=Table(dummy_dialect, 'users'), where=ComparisonPredicate(
                 dummy_dialect,
                 "=",
@@ -477,7 +485,7 @@ class TestDeleteStatements:
         arrives at the formatter as a one-element list; the formatter is the
         party that knows which entries it can render after DELETE FROM.
         """
-        delete_expr = DeleteExpression(
+        delete_expr = DeleteStatement(
             dummy_dialect,
             tables="invalid_type",
             where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 1)),
@@ -488,8 +496,8 @@ class TestDeleteStatements:
             delete_expr.to_sql()
 
     def test_delete_expression_empty_tables_value_error(self, dummy_dialect: DummyDialect):
-        """Tests that DeleteExpression raises ValueError for empty tables parameter."""
-        delete_expr = DeleteExpression(
+        """Tests that DeleteStatement raises ValueError for empty tables parameter."""
+        delete_expr = DeleteStatement(
             dummy_dialect, tables=Table(dummy_dialect, 'users'), where=ComparisonPredicate(
                 dummy_dialect,
                 "=",
@@ -510,7 +518,7 @@ class TestDeleteStatements:
         statement could tell the mistake apart from a correct DELETE; the
         formatter names the entry and where it sits.
         """
-        delete_expr = DeleteExpression(
+        delete_expr = DeleteStatement(
             dummy_dialect,
             tables=[Column(dummy_dialect, "invalid_table")],
             where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 1)),
@@ -521,13 +529,13 @@ class TestDeleteStatements:
             delete_expr.to_sql()
 
     def test_delete_expression_empty_table_list_value_error(self, dummy_dialect: DummyDialect):
-        """Tests that DeleteExpression raises ValueError for empty table list."""
+        """Tests that DeleteStatement raises ValueError for empty table list."""
         with pytest.raises(ValueError, match=r"Table list cannot be empty for a DELETE statement."):
-            DeleteExpression(dummy_dialect, tables=[])
+            DeleteStatement(dummy_dialect, tables=[])
 
     def test_delete_expression_single_table_in_list(self, dummy_dialect: DummyDialect):
-        """Tests DeleteExpression with single table in list."""
-        delete_expr = DeleteExpression(
+        """Tests DeleteStatement with single table in list."""
+        delete_expr = DeleteStatement(
             dummy_dialect, tables=[Table(dummy_dialect, 'users')], where=ComparisonPredicate(
                 dummy_dialect,
                 "=",
@@ -546,8 +554,8 @@ class TestDeleteStatements:
         assert params == (1,)
 
     def test_delete_expression_multiple_tables_in_list(self, dummy_dialect: DummyDialect):
-        """Tests DeleteExpression with multiple tables in list."""
-        delete_expr = DeleteExpression(
+        """Tests DeleteStatement with multiple tables in list."""
+        delete_expr = DeleteStatement(
             dummy_dialect,
             tables=[Table(dummy_dialect, 'users'), Table(dummy_dialect, 'profiles')],
             where=ComparisonPredicate(
@@ -573,7 +581,7 @@ class TestDeleteStatements:
         users = Table(dummy_dialect, "users")
         orders = Table(dummy_dialect, "orders")
 
-        delete_expr = DeleteExpression(
+        delete_expr = DeleteStatement(
             dummy_dialect,
             tables=[users, orders],
             where=ComparisonPredicate(
@@ -592,8 +600,8 @@ class TestDeleteStatements:
         assert params == (123,)
 
     def test_delete_expression_validate_with_strict_false(self, dummy_dialect: DummyDialect):
-        """Tests that DeleteExpression.validate with strict=False skips validation."""
-        delete_expr = DeleteExpression(
+        """Tests that DeleteStatement.validate with strict=False skips validation."""
+        delete_expr = DeleteStatement(
             dummy_dialect, tables=Table(dummy_dialect, 'users'), where=ComparisonPredicate(
                 dummy_dialect,
                 "=",
@@ -608,7 +616,7 @@ class TestDeleteStatements:
         delete_expr.validate(strict=False)  # Should not raise any exception
 
         # Also test with valid parameters and strict=False
-        delete_expr_valid = DeleteExpression(
+        delete_expr_valid = DeleteStatement(
             dummy_dialect, tables=Table(dummy_dialect, 'products'), where=ComparisonPredicate(
                 dummy_dialect,
                 "=",
@@ -637,7 +645,7 @@ class TestDeleteStatements:
         else:
             raise ValueError(f"Unsupported LIKE operation: {op}")
 
-        delete_expr = DeleteExpression(dummy_dialect, tables=Table(dummy_dialect, 'users'), where=like_condition)
+        delete_expr = DeleteStatement(dummy_dialect, tables=Table(dummy_dialect, 'users'), where=like_condition)
         sql, params = delete_expr.to_sql()
 
         expected_sql = f'DELETE FROM "users" WHERE {expected_sql_part}'
@@ -654,7 +662,7 @@ class TestDeleteStatements:
         age_condition = age_col > Literal(dummy_dialect, 18)
         combined_condition = like_condition & age_condition
 
-        delete_expr = DeleteExpression(dummy_dialect, tables=Table(dummy_dialect, 'users'), where=combined_condition)
+        delete_expr = DeleteStatement(dummy_dialect, tables=Table(dummy_dialect, 'users'), where=combined_condition)
         sql, params = delete_expr.to_sql()
 
         assert 'DELETE FROM "users" WHERE' in sql
@@ -671,7 +679,7 @@ class TestDeleteStatements:
             Literal(dummy_dialect, "2023-12-31"),
         )
 
-        delete_expr = DeleteExpression(dummy_dialect, tables=Table(dummy_dialect, 'old_logs'), where=between_condition)
+        delete_expr = DeleteStatement(dummy_dialect, tables=Table(dummy_dialect, 'old_logs'), where=between_condition)
         sql, params = delete_expr.to_sql()
         assert 'DELETE FROM "old_logs" WHERE "date_created" BETWEEN ? AND ?' == sql
         assert params == ("2023-01-01", "2023-12-31")
@@ -690,7 +698,7 @@ class TestDeleteStatements:
             dummy_dialect, "LIKE", Column(dummy_dialect, column_name), Literal(dummy_dialect, pattern)
         )
 
-        delete_expr = DeleteExpression(dummy_dialect, tables=Table(dummy_dialect, table_name), where=like_condition)
+        delete_expr = DeleteStatement(dummy_dialect, tables=Table(dummy_dialect, table_name), where=like_condition)
         sql, params = delete_expr.to_sql()
         assert f'DELETE FROM "{table_name}" WHERE "{column_name}" LIKE ?' == sql
         assert params == (pattern,)
@@ -710,7 +718,7 @@ class TestDeleteStatements:
         and_condition = LogicalPredicate(dummy_dialect, "AND", condition1, condition2)
         final_condition = LogicalPredicate(dummy_dialect, "OR", and_condition, condition3)
 
-        delete_expr = DeleteExpression(dummy_dialect, tables=Table(dummy_dialect, 'users'), where=final_condition)
+        delete_expr = DeleteStatement(dummy_dialect, tables=Table(dummy_dialect, 'users'), where=final_condition)
         sql, params = delete_expr.to_sql()
         # Verify the structure contains the expected elements
         assert 'DELETE FROM "users" WHERE' in sql
@@ -718,10 +726,10 @@ class TestDeleteStatements:
         assert params == (65, "retired", "2023-01-01")
 
     def test_delete_expression_without_where_clause(self, dummy_dialect: DummyDialect):
-        """Test DeleteExpression with no WHERE clause to cover the else branch where where=None."""
+        """Test DeleteStatement with no WHERE clause to cover the else branch where where=None."""
 
-        # Create a DeleteExpression without a WHERE clause
-        delete_expr = DeleteExpression(
+        # Create a DeleteStatement without a WHERE clause
+        delete_expr = DeleteStatement(
             dummy_dialect,
             tables=Table(dummy_dialect, 'users'),  # No where clause provided
         )
@@ -732,7 +740,7 @@ class TestDeleteStatements:
         assert params == ()
 
     def test_delete_expression_with_where_clause_object(self, dummy_dialect: DummyDialect):
-        """Test DeleteExpression with a WhereClause object to cover the isinstance(where, WhereClause) branch."""
+        """Test DeleteStatement with a WhereClause object to cover the isinstance(where, WhereClause) branch."""
         from rhosocial.activerecord.backend.expression.query_parts import WhereClause
 
         # Create a WhereClause object using comparison operator
@@ -745,8 +753,8 @@ class TestDeleteStatements:
             )
         )
 
-        # Create a DeleteExpression with the WhereClause object
-        delete_expr = DeleteExpression(
+        # Create a DeleteStatement with the WhereClause object
+        delete_expr = DeleteStatement(
             dummy_dialect,
             tables=Table(dummy_dialect, 'users'),
             where=where_clause_obj,  # Pass WhereClause object directly
@@ -787,27 +795,11 @@ class TestDeleteStatements:
         ):
             dummy_dialect.format_window_specification(window_spec)
 
-    def test_format_column_definition_with_default_constraint_but_no_value_raises_error(
-        self, dummy_dialect: DummyDialect
-    ):
-        """Tests that format_column_definition raises ValueError when DEFAULT constraint has no value."""
-        from rhosocial.activerecord.backend.expression.statements import (
-            ColumnDefinition,
-            ColumnConstraint,
-            ColumnConstraintType,
-        )
-
-        # Create a ColumnDefinition with DEFAULT constraint but no value
-        col_def = ColumnDefinition(dummy_dialect, 
-            name="test_col",
-            data_type=VarCharType(dummy_dialect, 255),
-            constraints=[
-                ColumnConstraint(dummy_dialect, 
-                    constraint_type=ColumnConstraintType.DEFAULT,
-                    default_value=None,  # No default value provided but constraint type is DEFAULT
-                )
-            ],
-        )
-
-        with pytest.raises(ValueError, match=r"DEFAULT constraint must have a default value specified."):
-            dummy_dialect.format_column_definition(col_def)
+        """Refused where the branch is built.
+        
+        The branch is what states this constraint, so a constraint
+        without its payload cannot be written at all.
+        """
+        
+        with pytest.raises(ValueError, match="needs a value"):
+            ColumnDefaultConstraint(dummy_dialect, None)

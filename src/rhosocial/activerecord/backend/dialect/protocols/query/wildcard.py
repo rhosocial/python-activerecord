@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/dialect/protocols/wildcardsupport.py
+# src/rhosocial/activerecord/backend/dialect/protocols/query/wildcard.py
 """WildcardSupport protocol.
 
 Re-exported from :mod:`rhosocial.activerecord.backend.dialect.protocols`;
@@ -12,8 +12,18 @@ from ....expression import bases
 
 @runtime_checkable
 class WildcardSupport(Protocol):
-    """Protocol for wildcard expression support (SELECT *)."""
+    """Protocol for wildcard support in its two grammar positions.
 
-    def format_wildcard(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
-        """Format a WildcardExpression node (* or table.* or schema.table.*)."""
+    The asterisk is one lexical token in two contracts (spec 4.10): the
+    select-list/RETURNING expansion and the aggregate row count. Each names
+    its own formatter; a dialect spells one differently by overriding that
+    one entry alone.
+    """
+
+    def format_all_columns_wildcard(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+        """Format an AllColumnsWildcard node (* or rel.*)."""
+        ...  # pragma: no cover
+
+    def format_row_count_wildcard(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+        """Format a RowCountWildcard node (the bare * of COUNT(*))."""
         ...  # pragma: no cover

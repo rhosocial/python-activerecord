@@ -25,8 +25,8 @@ backend = SQLiteBackend(config)
 dialect = backend.dialect
 
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableExpression,
-    InsertExpression,
+    CreateTableStatement,
+    InsertStatement,
     ValuesSource,
 )
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
@@ -42,7 +42,7 @@ tables = [
 ]
 
 for table_name, columns in tables:
-    create = CreateTableExpression(
+    create = CreateTableStatement(
         dialect=dialect,
         table=Table(dialect, table_name),
         columns=[ColumnDefinition(dialect, c.split()[0], c.split()[1]) for c in columns],
@@ -59,7 +59,7 @@ sample_data = [
 ]
 for table, cols, rows in sample_data:
     for row in rows:
-        insert = InsertExpression(
+        insert = InsertStatement(
             dialect=dialect,
             into=Table(dialect, table),
             columns=cols,

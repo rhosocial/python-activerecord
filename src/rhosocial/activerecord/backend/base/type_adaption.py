@@ -94,7 +94,7 @@ class TypeAdaptionMixin:
 
         raise TypeError("Unsupported types for params and param_adapters.")
 
-    def _adapt_row_types(
+    def adapt_row_types(
         self, row_dict: Dict[str, Any], column_adapters: Dict[str, Tuple[SQLTypeAdapter, Type]]
     ) -> Dict[str, Any]:
         """
@@ -129,7 +129,7 @@ class TypeAdaptionMixin:
                 processed_row[col_name] = value
         return processed_row
 
-    def _remap_row_columns(self, row_dict: Dict[str, Any], column_mapping: Dict[str, str]) -> Dict[str, Any]:
+    def remap_row_columns(self, row_dict: Dict[str, Any], column_mapping: Dict[str, str]) -> Dict[str, Any]:
         """
         Maps database column names to Python field names in a result row.
 
@@ -163,8 +163,8 @@ class TypeAdaptionMixin:
         Args:
             cursor: The database cursor object after a query has been executed
             is_select: Flag indicating if it was a SELECT query
-            column_adapters: Dictionary for type conversion, passed to `_adapt_row_types`
-            column_mapping: Dictionary for key remapping, passed to `_remap_row_columns`
+            column_adapters: Dictionary for type conversion, passed to `adapt_row_types`
+            column_mapping: Dictionary for key remapping, passed to `remap_row_columns`
 
         Returns:
             List of fully processed row dictionaries, or None if not a SELECT query.
@@ -182,8 +182,8 @@ class TypeAdaptionMixin:
             mapping = column_mapping or {}
             for row in rows:
                 row_dict = dict(zip(column_names, row))
-                adapted_row = self._adapt_row_types(row_dict, adapters)
-                final_row = self._remap_row_columns(adapted_row, mapping)
+                adapted_row = self.adapt_row_types(row_dict, adapters)
+                final_row = self.remap_row_columns(adapted_row, mapping)
                 final_results.append(final_row)
             return final_results
         except Exception as e:
@@ -223,8 +223,8 @@ class AsyncTypeAdaptionMixin(TypeAdaptionMixin):
         Args:
             cursor: The async database cursor object after a query has been executed
             is_select: Flag indicating if it was a SELECT query
-            column_adapters: Dictionary for type conversion, passed to `_adapt_row_types`
-            column_mapping: Dictionary for key remapping, passed to `_remap_row_columns`
+            column_adapters: Dictionary for type conversion, passed to `adapt_row_types`
+            column_mapping: Dictionary for key remapping, passed to `remap_row_columns`
 
         Returns:
             List of fully processed row dictionaries, or None if not a SELECT query.
@@ -242,8 +242,8 @@ class AsyncTypeAdaptionMixin(TypeAdaptionMixin):
             mapping = column_mapping or {}
             for row in rows:
                 row_dict = dict(zip(column_names, row))
-                adapted_row = self._adapt_row_types(row_dict, adapters)
-                final_row = self._remap_row_columns(adapted_row, mapping)
+                adapted_row = self.adapt_row_types(row_dict, adapters)
+                final_row = self.remap_row_columns(adapted_row, mapping)
                 final_results.append(final_row)
             return final_results
         except Exception as e:

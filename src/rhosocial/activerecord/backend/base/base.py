@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/backend/base/base.py
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Tuple
 
 from ..config import ConnectionConfig
 from ..dialect import SQLDialectBase
@@ -107,3 +107,19 @@ class StorageBackendBase(ABC):
             Optional[str]: Default schema name, or None if not configured
         """
         return None
+
+    def get_cached_server_version(self) -> Optional[Tuple[int, int, int]]:
+        """The server version this backend already knows, without asking.
+
+        The I/O-free counterpart of :meth:`get_server_version`: a caller that
+        only wants to *report* the version -- introspection's
+        ``IntrospectionDatabaseInfo``, for one -- should not have to open a
+        connection to learn it. Returns ``None`` when nothing has resolved the
+        version yet, which is the honest answer rather than a guess.
+
+        The default reads :attr:`_server_version_cache`, where the backends
+        that probe the server on connect keep what they found. A backend that
+        resolves the version some other way (from its configuration, or from
+        the driver, as SQLite can) overrides this to say so.
+        """
+        return self._server_version_cache

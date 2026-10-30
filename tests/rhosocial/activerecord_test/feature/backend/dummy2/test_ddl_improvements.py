@@ -6,27 +6,27 @@ from unittest.mock import patch
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    QueryExpression,
-    CreateViewExpression,
-    DropViewExpression,
+    QueryStatement,
+    CreateViewStatement,
+    DropViewStatement,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.statements import (
     ViewCheckOption,
     ViewOptions,
-    CreateTableExpression,
+    CreateTableStatement,
     ColumnDefinition,
     IndexDefinition,
-    CreateTriggerExpression,
-    DropTriggerExpression,
+    CreateTriggerStatement,
+    DropTriggerStatement,
     TriggerTiming,
     TriggerEvent,
 )
 from rhosocial.activerecord.backend.expression.types import IntegerType
 from rhosocial.activerecord.backend.expression.statements.ddl_database import (
-    CreateDatabaseExpression,
-    DropDatabaseExpression,
-    AlterDatabaseExpression,
+    CreateDatabaseStatement,
+    DropDatabaseStatement,
+    AlterDatabaseStatement,
     AlterDatabaseAction,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -43,12 +43,12 @@ class TestViewParenthesesFix:
 
     def test_create_view_no_parentheses_around_query(self, dummy_dialect: DummyDialect):
         """CREATE VIEW should not wrap query_sql in parentheses."""
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
         )
-        create_view = CreateViewExpression(dummy_dialect, view=View(dummy_dialect, "v"), query=query)
+        create_view = CreateViewStatement(dummy_dialect, view=View(dummy_dialect, "v"), query=query)
         sql, _ = create_view.to_sql()
         assert "AS (" not in sql
         assert "AS SELECT" in sql
@@ -59,12 +59,12 @@ class TestViewCapabilityGating:
 
     def test_create_or_replace_view_raises_when_unsupported(self, dummy_dialect: DummyDialect):
         """CREATE OR REPLACE VIEW should raise UnsupportedFeatureError when not supported."""
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
         )
-        create_view = CreateViewExpression(
+        create_view = CreateViewStatement(
             dummy_dialect, view=View(dummy_dialect, "v"), query=query, replace=True
         )
         with patch.object(type(dummy_dialect), "supports_create_or_replace_view", return_value=False):
@@ -73,12 +73,12 @@ class TestViewCapabilityGating:
 
     def test_create_view_if_not_exists_raises_when_unsupported(self, dummy_dialect: DummyDialect):
         """CREATE VIEW IF NOT EXISTS should raise UnsupportedFeatureError when not supported."""
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
         )
-        create_view = CreateViewExpression(
+        create_view = CreateViewStatement(
             dummy_dialect, view=View(dummy_dialect, "v"), query=query, if_not_exists=True
         )
         with patch.object(type(dummy_dialect), "supports_if_not_exists_view", return_value=False):
@@ -87,7 +87,7 @@ class TestViewCapabilityGating:
 
     def test_drop_view_if_exists_raises_when_unsupported(self, dummy_dialect: DummyDialect):
         """DROP VIEW IF EXISTS should raise UnsupportedFeatureError when not supported."""
-        drop_view = DropViewExpression(
+        drop_view = DropViewStatement(
             dummy_dialect, view=View(dummy_dialect, "v"), if_exists=True
         )
         with patch.object(type(dummy_dialect), "supports_if_exists_view", return_value=False):
@@ -96,7 +96,7 @@ class TestViewCapabilityGating:
 
     def test_drop_view_cascade_raises_when_unsupported(self, dummy_dialect: DummyDialect):
         """DROP VIEW CASCADE should raise UnsupportedFeatureError when not supported."""
-        drop_view = DropViewExpression(
+        drop_view = DropViewStatement(
             dummy_dialect, view=View(dummy_dialect, "v"), cascade=True
         )
         with patch.object(type(dummy_dialect), "supports_cascade_view", return_value=False):
@@ -105,12 +105,12 @@ class TestViewCapabilityGating:
 
     def test_create_view_check_option_raises_when_unsupported(self, dummy_dialect: DummyDialect):
         """CREATE VIEW WITH CHECK OPTION should raise when unsupported."""
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
         )
-        create_view = CreateViewExpression(
+        create_view = CreateViewStatement(
             dummy_dialect,
             view=View(dummy_dialect, "v"),
             query=query,
@@ -125,7 +125,7 @@ class TestTableCapabilityGating:
     """Tests for CREATE TABLE capability gating."""
 
     def _table(self, dummy_dialect: DummyDialect, **kwargs):
-        return CreateTableExpression(
+        return CreateTableStatement(
             dummy_dialect,
             table=Table(dummy_dialect, 't'),
             columns=[ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect))],
@@ -209,7 +209,7 @@ class TestTriggerCapabilityGating:
 
     def test_create_trigger_if_not_exists_raises_when_unsupported(self, dummy_dialect: DummyDialect):
         """CREATE TRIGGER IF NOT EXISTS should raise UnsupportedFeatureError when not supported."""
-        trigger = CreateTriggerExpression(
+        trigger = CreateTriggerStatement(
             dummy_dialect,
             trigger=Trigger(dummy_dialect, "t"),
             table=Table(dummy_dialect, "t"),
@@ -224,7 +224,7 @@ class TestTriggerCapabilityGating:
 
     def test_create_trigger_referencing_raises_when_unsupported(self, dummy_dialect: DummyDialect):
         """CREATE TRIGGER REFERENCING should raise UnsupportedFeatureError when not supported."""
-        trigger = CreateTriggerExpression(
+        trigger = CreateTriggerStatement(
             dummy_dialect,
             trigger=Trigger(dummy_dialect, "t"),
             table=Table(dummy_dialect, "t"),
@@ -240,7 +240,7 @@ class TestTriggerCapabilityGating:
     def test_create_trigger_when_raises_when_unsupported(self, dummy_dialect: DummyDialect):
         """CREATE TRIGGER WHEN should raise UnsupportedFeatureError when not supported."""
         from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
-        trigger = CreateTriggerExpression(
+        trigger = CreateTriggerStatement(
             dummy_dialect,
             trigger=Trigger(dummy_dialect, "t"),
             table=Table(dummy_dialect, "t"),
@@ -260,7 +260,7 @@ class TestTriggerCapabilityGating:
 
     def test_drop_trigger_if_exists_raises_when_unsupported(self, dummy_dialect: DummyDialect):
         """DROP TRIGGER IF EXISTS should raise UnsupportedFeatureError when not supported."""
-        trigger = DropTriggerExpression(
+        trigger = DropTriggerStatement(
             dummy_dialect, trigger=Trigger(dummy_dialect, "t"), if_exists=True
         )
         with patch.object(type(dummy_dialect), "supports_trigger_if_exists", return_value=False):
@@ -304,24 +304,24 @@ class TestDatabaseExpressions:
     """Tests for DATABASE DDL expressions."""
 
     def test_create_database_expression(self, dummy_dialect: DummyDialect):
-        """Test CreateDatabaseExpression generates correct SQL."""
-        expr = CreateDatabaseExpression(dummy_dialect, database=Database(dummy_dialect, "testdb"))
+        """Test CreateDatabaseStatement generates correct SQL."""
+        expr = CreateDatabaseStatement(dummy_dialect, database=Database(dummy_dialect, "testdb"))
         sql, params = expr.to_sql()
         assert "CREATE DATABASE" in sql
         assert '"testdb"' in sql or "testdb" in sql
         assert params == ()
 
     def test_drop_database_expression(self, dummy_dialect: DummyDialect):
-        """Test DropDatabaseExpression generates correct SQL."""
-        expr = DropDatabaseExpression(dummy_dialect, database=Database(dummy_dialect, "testdb"))
+        """Test DropDatabaseStatement generates correct SQL."""
+        expr = DropDatabaseStatement(dummy_dialect, database=Database(dummy_dialect, "testdb"))
         sql, params = expr.to_sql()
         assert "DROP DATABASE" in sql
         assert '"testdb"' in sql or "testdb" in sql
         assert params == ()
 
     def test_alter_database_expression(self, dummy_dialect: DummyDialect):
-        """Test AlterDatabaseExpression generates correct SQL."""
-        expr = AlterDatabaseExpression(
+        """Test AlterDatabaseStatement generates correct SQL."""
+        expr = AlterDatabaseStatement(
             dummy_dialect,
             database=Database(dummy_dialect, "testdb"),
             action=AlterDatabaseAction.RENAME_TO,

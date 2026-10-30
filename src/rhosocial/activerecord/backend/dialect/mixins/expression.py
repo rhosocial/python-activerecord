@@ -10,17 +10,18 @@ from typing import Any, List, Optional, Tuple
 from ...expression import bases
 from ...expression.core import (
     CastExpression,
-    QualifiedIdentifierExpression,
+    QualifiedIdentifier,
     Subquery,
-    WildcardExpression,
+    AllColumnsWildcard,
 )
 from ...expression.literals import Identifier
+from ...expression.mixins import AliasableMixin
 from ...expression.operators import (
-    BinaryArithmeticExpression,
+    ArithmeticOperation,
     BinaryExpression,
-    RawSQLExpression,
+    RawSQL,
     SQLOperation,
-    StringConcatExpression,
+    ConcatenationOperation,
     UnaryExpression,
 )
 from .function import FunctionCallMixin
@@ -44,28 +45,55 @@ class ExpressionMixin(FunctionCallMixin):
         """
         return self.format_identifier(expr.name, expr.name_need_quote), ()
 
-    def format_wildcard(self, expr: WildcardExpression) -> Tuple[str, tuple]:
-        """Format a :class:`~...expression.core.WildcardExpression`.
+    def format_all_columns_wildcard(self, expr: "AllColumnsWildcard") -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.core.AllColumnsWildcard`.
+
+        A bare ``*`` when no relation is set -- the surrounding clause's
+        formatter decides what the expansion spans. With a relation, the
+        qualifier is the spelling the query itself uses: the alias when the
+        reference carries one, the relation's own qualified name otherwise.
 
         Args:
-            expr: Wildcard expression optionally carrying a table and schema.
+            expr: The all-columns wildcard being rendered.
+
+        Returns:
+            A ``(sql, params)`` tuple; ``params`` is empty.
+
+        Raises:
+            TypeError: ``relation`` is set but is not a ``NamedRelationRef``.
+        """
+        relation = expr.relation
+        if relation is None:
+            return "*", ()
+        from ...expression.sources import NamedRelationRef
+
+        if not isinstance(relation, NamedRelationRef):
+            raise TypeError(
+                f"AllColumnsWildcard.relation must be a NamedRelationRef, "
+                f"got {type(relation).__name__}"
+            )
+        if relation.alias:
+            qualifier = self.format_identifier(relation.alias, relation.alias_need_quote)
+        else:
+            qualifier, _ = relation.relation.to_sql()
+        return f"{qualifier}.*", ()
+
+    def format_row_count_wildcard(self, expr: "RowCountWildcard") -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.core.RowCountWildcard`.
+
+        The bare asterisk, and nothing else: the row-count wildcard carries
+        no relation by contract.
+
+        Args:
+            expr: The row-count wildcard being rendered.
 
         Returns:
             A ``(sql, params)`` tuple; ``params`` is empty.
         """
-        if expr.schema_name and expr.table:
-            wildcard_sql = (
-                f"{self.format_identifier(expr.schema_name, expr.schema_need_quote)}."
-                f"{self.format_identifier(expr.table, expr.table_need_quote)}.*"
-            )
-        elif expr.table:
-            wildcard_sql = f"{self.format_identifier(expr.table, expr.table_need_quote)}.*"
-        else:
-            wildcard_sql = "*"
-        return wildcard_sql, ()
+        return "*", ()
 
-    def format_qualified_identifier(self, expr: QualifiedIdentifierExpression) -> Tuple[str, tuple]:
-        """Format a :class:`~...expression.core.QualifiedIdentifierExpression`.
+    def format_qualified_identifier(self, expr: QualifiedIdentifier) -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.core.QualifiedIdentifier`.
 
         Args:
             expr: Qualified identifier optionally carrying a schema.
@@ -81,31 +109,31 @@ class ExpressionMixin(FunctionCallMixin):
             )
         return self.format_identifier(expr.name, expr.name_need_quote), ()
 
-    def format_literal_expression(self, expr: "bases.SQLValueExpression") -> Tuple[str, tuple]:
-        """Format a :class:`~...expression.core.Literal`.
+    def format_literal_expression(self, expr: "bases.Literal") -> Tuple[str, tuple]:
+        """Format a value held at one position of an expression.
 
         Args:
-            expr: Literal expression exposing ``inline_literals``, ``value``
-                and optional ``alias``.
+            expr: The literal carrying ``value`` and ``inline``.
 
         Returns:
-            A ``(sql, params)`` tuple; ``params`` holds the literal value when
-            it is rendered as a bind parameter, otherwise it is empty.
+            A ``(sql, params)`` tuple; ``params`` holds the value when it is
+            rendered as a bind parameter, otherwise it is empty.
 
-        The construction-time ``inline_literals`` switch decides between an
-        inline (escaped, quoted) SQL atom and a bind-parameter placeholder.
+        ``expr.inline`` is the only decision here. ``False`` — the default, and
+        what every DQL/DML data position wants — emits a placeholder and hands
+        the value to the driver. ``True`` writes the value as SQL text through
+        the dialect's controlled literal construction (escaped, quoted), for
+        the DDL syntax positions that accept no bind parameters. Because the
+        answer lives on the literal, a node holding several values can treat
+        them differently without the formatter learning anything new.
+
+        There is no alias to apply. A literal is the one thing in the tree with
+        nothing to name: a bind parameter belongs to the driver, and inline SQL
+        text is text.
         """
-        if expr.inline_literals:
-            sql = self.format_literal(expr.value)
-            params: tuple = ()
-        else:
-            sql = self.get_parameter_placeholder()
-            params = (expr.value,)
-
-        if expr.alias:
-            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
-
-        return sql, params
+        if expr.inline:
+            return self.format_literal(expr.value), ()
+        return self.get_parameter_placeholder(), (expr.value,)
 
     def format_cast_expression(self, expr: CastExpression) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.core.CastExpression` node.
@@ -152,13 +180,8 @@ class ExpressionMixin(FunctionCallMixin):
             return f"{expr.op}({', '.join(formatted_operands_sql)})", tuple(params)
         return f"{expr.op}()", tuple(params)
 
-    def format_binary_operator(self, expr: BinaryExpression) -> Tuple[str, tuple]:
+    def format_binary_expression(self, expr: BinaryExpression) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.operators.BinaryExpression`.
-
-        String concatenation is routed to
-        :meth:`format_string_concatenation` rather than inlined, because the
-        operator token does not determine the meaning: ``||`` concatenates on
-        most backends but is logical OR on MySQL, MariaDB and SQL Server.
 
         Args:
             expr: Binary expression exposing ``left``, ``op`` and ``right``.
@@ -166,21 +189,22 @@ class ExpressionMixin(FunctionCallMixin):
         Returns:
             A ``(sql, params)`` tuple of ``left op right``.
         """
-        if isinstance(expr, StringConcatExpression):
-            return self.format_string_concatenation(expr)
-
         left_sql, left_params = expr.left.to_sql()
         right_sql, right_params = expr.right.to_sql()
         sql = f"{left_sql} {expr.op} {right_sql}"
-        alias = getattr(expr, "alias", None)
+        alias = expr.alias if isinstance(expr, AliasableMixin) else None
         if alias:
             sql = f"{sql} AS {self.format_identifier(alias)}"
         return sql, left_params + right_params
 
-    def format_string_concatenation(
-        self, expr: "StringConcatExpression"
+    def format_concatenation_operation(
+        self, expr: "ConcatenationOperation"
     ) -> Tuple[str, tuple]:
-        """Render a string concatenation using this dialect's spelling.
+        """Render a :class:`~...expression.operators.ConcatenationOperation`.
+
+        The node states the *intent* — its kind is ``concatenation_operation``
+        and it carries no operator parameter; this formatter states the
+        spelling this dialect writes for that intent.
 
         Args:
             expr: The concatenation node exposing ``left`` and ``right``.
@@ -195,10 +219,15 @@ class ExpressionMixin(FunctionCallMixin):
             sql = f"{left_sql} || {right_sql}"
         else:
             sql = f"{function}({left_sql}, {right_sql})"
-        alias = getattr(expr, "alias", None)
+        alias = expr.alias if isinstance(expr, AliasableMixin) else None
         if alias:
             sql = f"{sql} AS {self.format_identifier(alias)}"
         return sql, left_params + right_params
+
+    #: The function this dialect spells concatenation with, or ``None`` for the
+    #: standard's ``||``. Declared so :meth:`string_concatenation_function` can
+    #: read it without asking whether it exists.
+    STRING_CONCATENATION: Optional[str] = None
 
     def string_concatenation_function(self) -> Optional[str]:
         """Return the function name this dialect uses for concatenation.
@@ -207,20 +236,31 @@ class ExpressionMixin(FunctionCallMixin):
         overriding this: MySQL, MariaDB and SQL Server read ``||`` as logical
         OR, and BigQuery does not accept it as concatenation at all.
 
-        The lookup is by name through ``getattr`` rather than by inheriting a
-        base implementation, because MRO order decides which definition wins
-        and the core mixin's position depends on how many generic mixins a
-        given dialect happens to inherit — which a backend author cannot see or
-        control. Looking the name up on the instance finds the dialect's own
-        declaration wherever it sits.
+        Declared on the mixin as ``None`` and overridden by the dialects that
+        need it, which is why this reads the attribute rather than looking a
+        name up: the field is part of the mixin's shape, so a checker sees it
+        and no one has to ask whether a given dialect happens to carry it.
+
+        A dialect that declares its own must be listed **before** this mixin in
+        its base list, or the declaration here wins -- the same override-order
+        rule as everywhere else, and the reason a backend author controls it by
+        ordering rather than by a name lookup.
+
+        A declaration that is not a string is ignored and answered as ``None``,
+        which is the same as never having declared one. The value is
+        interpolated straight into the statement as a function name, so there is
+        nothing safe to do with a value of the wrong type: passing it on would
+        put whatever the author wrote into the SQL text. Reading it as "no
+        override" keeps the standard's ``||``, which is the answer a dialect
+        that never declared one gets.
 
         Returns:
             The function name, or ``None`` to use the standard's ``||``.
         """
-        declaration = getattr(self, "STRING_CONCATENATION", None)
-        return declaration if isinstance(declaration, str) else None
+        declared = self.STRING_CONCATENATION
+        return declared if isinstance(declared, str) else None
 
-    def format_unary_operator(self, expr: UnaryExpression) -> Tuple[str, tuple]:
+    def format_unary_expression(self, expr: UnaryExpression) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.operators.UnaryExpression`.
 
         Args:
@@ -235,19 +275,20 @@ class ExpressionMixin(FunctionCallMixin):
             return f"{expr.op} {operand_sql}", operand_params
         return f"{operand_sql} {expr.op}", operand_params
 
-    def format_binary_arithmetic_expression(self, expr: BinaryArithmeticExpression) -> Tuple[str, tuple]:
-        """Format a :class:`~...expression.operators.BinaryArithmeticExpression`.
+    def format_arithmetic_operation(self, expr: ArithmeticOperation) -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.operators.ArithmeticOperation`.
 
         Args:
-            expr: Arithmetic expression exposing ``left``, ``op``, ``right``
-                and optional ``alias``.
+            expr: Arithmetic operation exposing ``left``, ``op`` and ``right``.
 
         Returns:
             A ``(sql, params)`` tuple; parentheses are inserted where dictated
             by the operator-precedence table.
 
-        Parenthesization follows the operator-precedence table carried on the
-        expression class (``OPERATOR_PRECEDENCE``).
+        The node's ``op`` is an operation word (``add``/``sub``/``mul``/
+        ``div``/``mod``), and the rendered SQL takes the character the word
+        maps to in the class's ``OPERATOR_SYMBOLS`` table. Parenthesization
+        follows ``OPERATOR_PRECEDENCE``, keyed by the same words.
         """
         left_sql, left_params = expr.left.to_sql()
         right_sql, right_params = expr.right.to_sql()
@@ -258,7 +299,7 @@ class ExpressionMixin(FunctionCallMixin):
         if self._needs_parens(expr.right, current_precedence):
             right_sql = f"({right_sql})"
 
-        sql = f"{left_sql} {expr.op} {right_sql}"
+        sql = f"{left_sql} {expr.OPERATOR_SYMBOLS[expr.op]} {right_sql}"
         params = left_params + right_params
         if expr.alias:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
@@ -266,14 +307,14 @@ class ExpressionMixin(FunctionCallMixin):
 
     def _needs_parens(self, operand, current_precedence):
         """Check if an arithmetic operand needs parentheses based on precedence."""
-        from ...expression.operators import BinaryArithmeticExpression
+        from ...expression.operators import ArithmeticOperation
 
-        if isinstance(operand, BinaryArithmeticExpression):
+        if isinstance(operand, ArithmeticOperation):
             return operand.OPERATOR_PRECEDENCE.get(operand.op, 0) < current_precedence
         return False
 
-    def format_raw_sql(self, expr: RawSQLExpression) -> Tuple[str, tuple]:
-        """Format a :class:`~...expression.operators.RawSQLExpression` / ``RawSQLPredicate``.
+    def format_raw_sql(self, expr: RawSQL) -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.operators.RawSQL` / ``RawSQLPredicate``.
 
         Args:
             expr: Raw SQL expression exposing ``expression`` and ``params``.
@@ -284,8 +325,13 @@ class ExpressionMixin(FunctionCallMixin):
         The raw SQL text is embedded verbatim together with its parameters —
         it bypasses the building mechanism by design and is the caller's
         responsibility to keep safe.
+
+        ``params`` holds :class:`~...expression.core.Literal` nodes rather than
+        bare values, which is what lets each bind value keep its kind on the wire
+        (§10). A driver binds plain values, so the nodes are unwrapped here — the
+        one boundary that owes the driver something it can actually use.
         """
-        return expr.expression, expr.params
+        return expr.expression, tuple(p.value for p in expr.params)
 
     def format_subquery(self, expr: Subquery) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.core.Subquery` (parenthesized query).
@@ -319,22 +365,38 @@ class ExpressionMixin(FunctionCallMixin):
     def format_values_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
         """Format a :class:`~...expression.query_sources.ValuesExpression` node.
 
+        Each cell is either an expression, which is rendered in place, or a
+        plain value, which becomes a bind parameter -- the same rule
+        :meth:`~.relation_source.format_values_table` applies to a row
+        constructor, and for the same reason. Writing a placeholder for every
+        cell and handing the cells themselves to the driver looks equivalent
+        for a table of literals and is wrong the moment a cell is not one: a
+        ``Column`` in a row rendered as ``?`` and reached the driver as a node.
+
         Args:
             expr: VALUES expression exposing ``values``, optional ``alias`` and
                 optional ``column_names``.
 
         Returns:
-            A ``(sql, params)`` tuple; each row value becomes a bind parameter.
+            A ``(sql, params)`` tuple.
         """
         values = expr.values
         alias = expr.alias
         column_names = expr.column_names
+        placeholder = self.get_parameter_placeholder()
         all_params: List[Any] = []
         rows_sql = []
         for row in values:
-            placeholders = ", ".join([self.get_parameter_placeholder()] * len(row))
-            rows_sql.append(f"({placeholders})")
-            all_params.extend(row)
+            cells_sql = []
+            for cell in row:
+                if isinstance(cell, bases.BaseExpression):
+                    cell_sql, cell_params = cell.to_sql()
+                    all_params.extend(cell_params)
+                    cells_sql.append(cell_sql)
+                else:
+                    all_params.append(cell)
+                    cells_sql.append(placeholder)
+            rows_sql.append(f"({', '.join(cells_sql)})")
         values_sql = ", ".join(rows_sql)
         cols_sql = ""
         if column_names:
@@ -447,7 +509,7 @@ class ExpressionMixin(FunctionCallMixin):
         """Format a FILTER clause.
 
         Args:
-            expr: FilterClauseExpression containing the condition.
+            expr: FilterClause containing the condition.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the rendered clause.

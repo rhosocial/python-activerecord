@@ -80,6 +80,14 @@ dependencies = [
     "backports.zoneinfo>=0.2.1; python_version < '3.9'",
 ]
 
+# Console scripts
+# The SQLite backend ships a command-line interface for executing SQL and
+# introspecting databases. It is registered here so that it can be invoked as
+# `rhosocial-activerecord-sqlite` once the package is installed, instead of
+# requiring `python -m rhosocial.activerecord.backend.impl.sqlite`.
+[project.scripts]
+rhosocial-activerecord-sqlite = "rhosocial.activerecord.backend.impl.sqlite.__main__:main"
+
 [project.optional-dependencies]
 # Async support for SQLite backend
 # These are required only when using AsyncSQLiteBackend

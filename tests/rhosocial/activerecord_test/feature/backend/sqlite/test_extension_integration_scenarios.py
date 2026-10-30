@@ -9,53 +9,55 @@ expression-dialect system for SQL generation. No raw SQL strings are used.
 import json
 
 import pytest
-from rhosocial.activerecord.testsuite.utils import (
-    requires_functions,
-    requires_protocol,
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnPrimaryKeyConstraint,
 )
-
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.protocols import (
-    SQLiteFTS5Support,
-    SQLiteRTreeSupport,
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteTextType
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.impl.sqlite.functions import (
+    json_extract as json_extract_func,
+)
+from rhosocial.activerecord.backend.expression.functions import (
+    json_extract_text,
+)
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression import (
+    Column,
+    ComparisonPredicate,
+    ColumnConstraint,
+    ColumnDefinition,
+    CreateTableStatement,
+    FunctionCall,
+    InsertStatement,
+    JoinClause,
+    Literal,
+    QueryStatement,
+    SelectSource,
+    Subquery,
+    ValuesSource,
 )
 from rhosocial.activerecord.backend.impl.sqlite.expression import (
     SQLiteFTS5CreateVirtualTable,
     SQLiteMatchPredicate,
-    DropVirtualTableExpression,
+    DropVirtualTableStatement,
     SQLiteRTreeCreateVirtualTable,
     SQLiteRTreeRangeQuery,
     SQLiteGeopolyCreateVirtualTable,
     SQLiteGeopolyContainsExpression,
     SQLiteGeopolyAreaExpression,
 )
-from rhosocial.activerecord.backend.expression import (
-    Column,
-    ComparisonPredicate,
-    ColumnConstraint,
-    ColumnConstraintType,
-    ColumnDefinition,
-    CreateTableExpression,
-    FunctionCall,
-    InsertExpression,
-    JoinClause,
-    Literal,
-    QueryExpression,
-    SelectSource,
-    Subquery,
-    ValuesSource,
+from rhosocial.activerecord.backend.impl.sqlite.protocols import (
+    SQLiteFTS5Support,
+    SQLiteRTreeSupport,
 )
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.functions import (
-    json_extract_text,
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.testsuite.utils import (
+    requires_functions,
+    requires_protocol,
 )
-from rhosocial.activerecord.backend.impl.sqlite.functions import (
-    json_extract as json_extract_func,
-)
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteTextType
-from rhosocial.activerecord.backend.expression.objects import Table
+
 
 
 # =============================================================================
@@ -102,11 +104,11 @@ class TestGeoDocumentScenario:
 
         # --- Setup: JSON metadata table ---
         backend.execute(
-            *CreateTableExpression(
+            *CreateTableStatement(
                 dialect, table=Table(dialect, 'doc_meta'),
                 columns=[
                     ColumnDefinition(dialect, "doc_id", SQLiteIntegerType(dialect), constraints=[
-                        ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)
+                        ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))
                     ]),
                     ColumnDefinition(dialect, "extra", SQLiteTextType(dialect=dialect)),
                 ]
@@ -127,7 +129,7 @@ class TestGeoDocumentScenario:
         ]
 
         backend.execute(
-            *InsertExpression(
+            *InsertStatement(
                 dialect, into=Table(dialect, 'docs_fts'),
                 columns=["rowid", "title", "body", "author"],
                 source=ValuesSource(dialect, [
@@ -138,7 +140,7 @@ class TestGeoDocumentScenario:
             options=insert
         )
         backend.execute(
-            *InsertExpression(
+            *InsertStatement(
                 dialect, into=Table(dialect, 'doc_locations'),
                 source=ValuesSource(dialect, [
                     [Literal(dialect, d[0]), Literal(dialect, 0),
@@ -149,7 +151,7 @@ class TestGeoDocumentScenario:
             options=insert
         )
         backend.execute(
-            *InsertExpression(
+            *InsertStatement(
                 dialect, into=Table(dialect, 'doc_meta'),
                 columns=["doc_id", "extra"],
                 source=ValuesSource(dialect, [
@@ -161,7 +163,7 @@ class TestGeoDocumentScenario:
 
         # --- Text search via expression ---
         rows = backend.fetch_all(
-            *QueryExpression(
+            *QueryStatement(
                 dialect,
                 select=[Column(dialect, "rowid"), Column(dialect, "title")],
                 from_=NamedRelationRef(dialect, Table(dialect, "docs_fts")),
@@ -187,7 +189,7 @@ class TestGeoDocumentScenario:
 
         # --- Combined text + spatial search via expressions ---
         rows = backend.fetch_all(
-            *QueryExpression(
+            *QueryStatement(
                 dialect,
                 select=[
                     Column(dialect, "rowid", table="docs_fts"),
@@ -218,7 +220,7 @@ class TestGeoDocumentScenario:
 
         # --- JSON metadata query via expression ---
         rows = backend.fetch_all(
-            *QueryExpression(
+            *QueryStatement(
                 dialect,
                 select=[Column(dialect, "doc_id")],
                 from_=NamedRelationRef(dialect, Table(dialect, "doc_meta")),
@@ -232,10 +234,10 @@ class TestGeoDocumentScenario:
 
         # --- Cleanup ---
         backend.execute(
-            *DropVirtualTableExpression(dialect, table=Table(dialect, "docs_fts")).to_sql(), options=ddl
+            *DropVirtualTableStatement(dialect, table=Table(dialect, "docs_fts")).to_sql(), options=ddl
         )
         backend.execute(
-            *DropVirtualTableExpression(dialect, table=Table(dialect, "doc_locations")).to_sql(), options=ddl
+            *DropVirtualTableStatement(dialect, table=Table(dialect, "doc_locations")).to_sql(), options=ddl
         )
 
 
@@ -275,7 +277,7 @@ class TestGeofencingScenario:
 
         # Regular hexagon centered at (0,0) radius 3
         backend.execute(
-            *InsertExpression(
+            *InsertStatement(
                 dialect, into=Table(dialect, 'zones'),
                 columns=["name", "category", "config", "_shape"],
                 source=ValuesSource(dialect, [[
@@ -290,7 +292,7 @@ class TestGeofencingScenario:
             options=insert
         )
         backend.execute(
-            *InsertExpression(
+            *InsertStatement(
                 dialect, into=Table(dialect, 'zones'),
                 columns=["name", "category", "config", "_shape"],
                 source=ValuesSource(dialect, [[
@@ -315,10 +317,10 @@ class TestGeofencingScenario:
 
         # Sync content from zones to FTS (real app uses triggers)
         backend.execute(
-            *InsertExpression(
+            *InsertStatement(
                 dialect, into=Table(dialect, 'zone_fts'),
                 columns=["rowid", "name", "category"],
-                source=SelectSource(dialect, QueryExpression(
+                source=SelectSource(dialect, QueryStatement(
                     dialect,
                     select=[
                         Column(dialect, "rowid"),
@@ -350,7 +352,7 @@ class TestGeofencingScenario:
 
         # --- Search zones with FTS5 ---
         rows = backend.fetch_all(
-            *QueryExpression(
+            *QueryStatement(
                 dialect,
                 select=[Column(dialect, "name")],
                 from_=NamedRelationRef(dialect, Table(dialect, "zone_fts")),
@@ -362,7 +364,7 @@ class TestGeofencingScenario:
 
         # --- Combined: search zone by text + geofence check ---
         rows = backend.fetch_all(
-            *QueryExpression(
+            *QueryStatement(
                 dialect,
                 select=[
                     Column(dialect, "name", table="z"),
@@ -403,10 +405,10 @@ class TestGeofencingScenario:
 
         # --- Cleanup ---
         backend.execute(
-            *DropVirtualTableExpression(dialect, table=Table(dialect, "zones")).to_sql(), options=ddl
+            *DropVirtualTableStatement(dialect, table=Table(dialect, "zones")).to_sql(), options=ddl
         )
         backend.execute(
-            *DropVirtualTableExpression(dialect, table=Table(dialect, "zone_fts")).to_sql(), options=ddl
+            *DropVirtualTableStatement(dialect, table=Table(dialect, "zone_fts")).to_sql(), options=ddl
         )
 
 
@@ -437,11 +439,11 @@ class TestSpatialCatalogScenario:
 
         # --- Main data table ---
         backend.execute(
-            *CreateTableExpression(
+            *CreateTableStatement(
                 dialect, table=Table(dialect, 'features'),
                 columns=[
                     ColumnDefinition(dialect, "id", SQLiteIntegerType(dialect), constraints=[
-                        ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)
+                        ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))
                     ]),
                     ColumnDefinition(dialect, "name", SQLiteTextType(dialect=dialect)),
                     ColumnDefinition(dialect, "description", SQLiteTextType(dialect=dialect)),
@@ -481,7 +483,7 @@ class TestSpatialCatalogScenario:
         ]
 
         backend.execute(
-            *InsertExpression(
+            *InsertStatement(
                 dialect, into=Table(dialect, 'features_fts'),
                 columns=["rowid", "name", "description"],
                 source=ValuesSource(dialect, [
@@ -492,7 +494,7 @@ class TestSpatialCatalogScenario:
             options=insert
         )
         backend.execute(
-            *InsertExpression(
+            *InsertStatement(
                 dialect, into=Table(dialect, 'features_rtree'),
                 source=ValuesSource(dialect, [
                     [Literal(dialect, f[0]), Literal(dialect, f[4]),
@@ -505,7 +507,7 @@ class TestSpatialCatalogScenario:
 
         # --- FTS5 search: find features matching "hospital" via expression ---
         rows = backend.fetch_all(
-            *QueryExpression(
+            *QueryStatement(
                 dialect,
                 select=[Column(dialect, "rowid"), Column(dialect, "name")],
                 from_=NamedRelationRef(dialect, Table(dialect, "features_fts")),
@@ -527,11 +529,11 @@ class TestSpatialCatalogScenario:
 
         # --- Combined FTS5 + spatial + JSON filter via expressions ---
         backend.execute(
-            *CreateTableExpression(
+            *CreateTableStatement(
                 dialect, table=Table(dialect, 'feature_props'),
                 columns=[
                     ColumnDefinition(dialect, "feature_id", SQLiteIntegerType(dialect), constraints=[
-                        ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)
+                        ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))
                     ]),
                     ColumnDefinition(dialect, "props", SQLiteTextType(dialect=dialect)),
                 ]
@@ -539,7 +541,7 @@ class TestSpatialCatalogScenario:
             options=ddl
         )
         backend.execute(
-            *InsertExpression(
+            *InsertStatement(
                 dialect, into=Table(dialect, 'feature_props'),
                 columns=["feature_id", "props"],
                 source=ValuesSource(dialect, [
@@ -550,7 +552,7 @@ class TestSpatialCatalogScenario:
         )
 
         rows = backend.fetch_all(
-            *QueryExpression(
+            *QueryStatement(
                 dialect,
                 select=[
                     Column(dialect, "rowid", table="features_fts"),
@@ -603,7 +605,7 @@ class TestSpatialCatalogScenario:
         # --- Cleanup ---
         for tbl in ["features_rtree", "features_fts"]:
             backend.execute(
-                *DropVirtualTableExpression(
+                *DropVirtualTableStatement(
                     dialect, table=Table(dialect, tbl)
                 ).to_sql(),
                 options=ddl,

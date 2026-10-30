@@ -10,7 +10,9 @@ Every call to `MyModel.configure(config, Backend)` writes the backend instance t
 
 In a multi-threaded environment, two threads calling `MyModel.find()` simultaneously will interleave their operations on the same connection. Most database drivers do not support this: cursors get corrupted, queries fail with cryptic errors, and connections leak. The `mysql-connector-python` documentation states this explicitly, and `psycopg` does as well.
 
-The same problem exists with async code, but in a subtler way. An event loop is single-threaded, so two coroutines cannot truly run concurrently — but they can interleave at every `await` point. If one coroutine is in the middle of a query when another starts, the connection state is corrupted.
+Transactions make this concrete rather than probable: a transaction belongs to the thread that opened it, and only that thread may nest it (nesting becomes a savepoint). A second thread starting one on the same connection is refused with a `TransactionError` that names the cause, instead of being allowed to interleave `BEGIN`/`COMMIT` until the bookkeeping reports "No active transaction to commit" somewhere far away. Ownership is released when the outermost transaction ends, so the connection is usable by another thread afterwards.
+
+The same problem exists with async code, but in a subtler way. An event loop is single-threaded, so two coroutines cannot truly run concurrently — but they can interleave at every `await` point. If one coroutine is in the middle of a query when another starts, the connection state is corrupted. Tasks are told apart by identity here rather than by thread.
 
 The solution in both cases is the same: **do not share a connection**. Each independent unit of work needs its own backend instance.
 
@@ -57,10 +59,10 @@ The critical detail is that `configure()` runs inside the child process, not bef
 
 ## Async Behavior: Sequential Within a Process
 
-Within a single process, async code using a single-connection backend executes sequentially. You cannot use `asyncio.gather()` to run multiple queries concurrently on the same connection — the second query will fail because the first one is still in progress.
+Within a single process, async code using a single-connection backend executes sequentially. You cannot use `asyncio.gather()` to run multiple transactions concurrently on the same connection: the first task to begin owns the connection's transaction, and the second is refused with a `TransactionError` rather than quietly corrupting the level counter.
 
 ```python
-# This will raise RuntimeError
+# This raises TransactionError for every task after the first
 async def wrong(post_ids: list[int]):
     await asyncio.gather(*[update_one(pid) for pid in post_ids])
 
@@ -68,7 +70,14 @@ async def wrong(post_ids: list[int]):
 async def correct(post_ids: list[int]):
     for pid in post_ids:
         await update_one(pid)
+
+# And this gives each task its own connection
+async def parallel(post_ids: list[int]):
+    async with pool.transaction() as tx:
+        ...
 ```
+
+A pool is how you get concurrency: `AsyncBackendPool.connection()` and `AsyncBackendPool.transaction()` hand each task a connection of its own, so the ownership check never fires. `pool.transaction()` goes through the same `begin()` gate rather than bypassing it.
 
 The advantage of async is not concurrency within a process, but efficiency at the I/O boundary. When a coroutine sends a query and awaits the response, the event loop can handle other work — reading from a queue, processing an HTTP request, writing logs. The database query itself still executes one at a time.
 

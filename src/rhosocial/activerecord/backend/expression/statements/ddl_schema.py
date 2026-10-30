@@ -10,7 +10,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-class CreateSchemaExpression(BaseExpression):
+class CreateSchemaStatement(BaseExpression):
     """
     Represents a CREATE SCHEMA statement.
 
@@ -22,20 +22,20 @@ class CreateSchemaExpression(BaseExpression):
 
     Examples:
         # Basic schema creation
-        create_schema = CreateSchemaExpression(
+        create_schema = CreateSchemaStatement(
             dialect,
             schema=Schema(dialect, "my_schema")
         )
 
         # Schema with authorization
-        create_schema = CreateSchemaExpression(
+        create_schema = CreateSchemaStatement(
             dialect,
             schema=Schema(dialect, "app_schema"),
             authorization="app_user"
         )
 
         # Safe schema creation
-        create_schema = CreateSchemaExpression(
+        create_schema = CreateSchemaStatement(
             dialect,
             schema=Schema(dialect, "reporting"),
             if_not_exists=True
@@ -60,33 +60,33 @@ class CreateSchemaExpression(BaseExpression):
         return "format_create_schema_statement"
 
 
-class DropSchemaExpression(BaseExpression):
+class DropSchemaStatement(BaseExpression):
     """
     Represents a DROP SCHEMA statement.
 
     Examples:
         # Basic schema drop
-        drop_schema = DropSchemaExpression(
+        drop_schema = DropSchemaStatement(
             dialect,
             schema=Schema(dialect, "old_schema")
         )
 
         # Safe drop with IF EXISTS
-        drop_schema = DropSchemaExpression(
+        drop_schema = DropSchemaStatement(
             dialect,
             schema=Schema(dialect, "test_schema"),
             if_exists=True
         )
 
         # Cascade drop (removes all objects in schema)
-        drop_schema = DropSchemaExpression(
+        drop_schema = DropSchemaStatement(
             dialect,
             schema=Schema(dialect, "legacy"),
             cascade=True
         )
 
         # Restrict drop (refuses if objects depend on the schema)
-        drop_schema = DropSchemaExpression(
+        drop_schema = DropSchemaStatement(
             dialect,
             schema=Schema(dialect, "legacy"),
             restrict=True
@@ -102,8 +102,7 @@ class DropSchemaExpression(BaseExpression):
         restrict: bool = False,
     ):
         super().__init__(dialect)
-        if cascade and restrict:
-            raise ValueError("cascade and restrict are mutually exclusive options")
+        self.require_exclusive_options(cascade, restrict, "cascade", "restrict")
         self.schema = schema
         self.if_exists = if_exists
         self.cascade = cascade

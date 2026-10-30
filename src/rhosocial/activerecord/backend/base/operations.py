@@ -9,7 +9,7 @@ from typing import Dict, Tuple, Type
 from typing import List, Optional
 
 from ..dialect.base import SQLDialectBase
-from ..expression import InsertExpression, UpdateExpression, DeleteExpression, Literal, Column
+from ..expression import InsertStatement, UpdateStatement, DeleteStatement, Literal, Column
 from ..expression.objects import Table
 from ..expression.bases import ToSQLProtocol
 from ..expression.statements import ReturningClause, ValuesSource
@@ -28,7 +28,7 @@ from ..schema import StatementType
 from ..type_adapter import SQLTypeAdapter
 
 
-def _is_sql_expression(obj) -> bool:
+def is_sql_expression(obj) -> bool:
     """Check if an object is a valid SQL expression.
 
     A valid SQL expression must implement ToSQLProtocol and have a dialect
@@ -50,7 +50,7 @@ class SQLOperationsMixin:
         """
         Inserts a record into the database using encapsulated InsertOptions.
 
-        This method generates an `InsertExpression` and executes it.
+        This method generates an `InsertStatement` and executes it.
         It uses the Options pattern to keep the method signature clean and extensible.
 
         Args:
@@ -62,14 +62,14 @@ class SQLOperationsMixin:
         processed_values = []
         for v in options.data.values():
             # Check if the value is a SQL expression that should be used directly in SQL
-            if _is_sql_expression(v):
+            if is_sql_expression(v):
                 # This is an expression object like FunctionCall, BinaryExpression, etc.
                 processed_values.append(v)
             else:
                 # This is a regular value that should be wrapped in a Literal
                 processed_values.append(Literal(self.dialect, v))
 
-        # Create a ValuesSource to use as the data source for the InsertExpression
+        # Create a ValuesSource to use as the data source for the InsertStatement
         values_source = ValuesSource(self.dialect, [processed_values])
 
         # Create ReturningClause if returning_columns is specified
@@ -80,7 +80,7 @@ class SQLOperationsMixin:
             returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
             returning_clause = ReturningClause(self.dialect, returning_expressions)
 
-        insert_expr = InsertExpression(
+        insert_expr = InsertStatement(
             dialect=self.dialect,
             into=Table(
                 self.dialect,
@@ -112,7 +112,7 @@ class SQLOperationsMixin:
         """
         Updates records in the database using encapsulated UpdateOptions.
 
-        This method generates an `UpdateExpression` and executes it.
+        This method generates an `UpdateStatement` and executes it.
         It expects a `SQLPredicate` for the `where` clause.
 
         Args:
@@ -126,7 +126,7 @@ class SQLOperationsMixin:
         # Process each item in the data dictionary
         for k, v in options.data.items():
             # Check if the value is a SQL expression that should be used directly in SQL
-            if _is_sql_expression(v):
+            if is_sql_expression(v):
                 # This is an expression object like FunctionCall, BinaryExpression, etc.
                 assignments[k] = v
             else:
@@ -141,7 +141,7 @@ class SQLOperationsMixin:
             returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
             returning_clause = ReturningClause(self.dialect, returning_expressions)
 
-        update_expr = UpdateExpression(
+        update_expr = UpdateStatement(
             dialect=self.dialect,
             table=Table(
                 self.dialect,
@@ -173,7 +173,7 @@ class SQLOperationsMixin:
         """
         Deletes records from the database using encapsulated DeleteOptions.
 
-        This method generates a `DeleteExpression` and executes it.
+        This method generates a `DeleteStatement` and executes it.
         It expects a `SQLPredicate` for the `where` clause.
 
         Args:
@@ -189,7 +189,7 @@ class SQLOperationsMixin:
             returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
             returning_clause = ReturningClause(self.dialect, returning_expressions)
 
-        delete_expr = DeleteExpression(
+        delete_expr = DeleteStatement(
             dialect=self.dialect,
             tables=Table(
                 self.dialect,
@@ -281,7 +281,7 @@ class SQLOperationsMixin:
         for row in options.rows:
             processed_values = []
             for v in row:
-                if _is_sql_expression(v):
+                if is_sql_expression(v):
                     processed_values.append(v)
                 else:
                     processed_values.append(Literal(self.dialect, v))
@@ -296,7 +296,7 @@ class SQLOperationsMixin:
             returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
             returning_clause = ReturningClause(self.dialect, returning_expressions)
 
-        insert_expr = InsertExpression(
+        insert_expr = InsertStatement(
             dialect=self.dialect,
             into=Table(
                 self.dialect,
@@ -354,7 +354,7 @@ class SQLOperationsMixin:
         pk_literals = Literal(self.dialect, options.pk_values)
         where_predicate = InPredicate(self.dialect, pk_col, pk_literals)
 
-        update_expr = UpdateExpression(
+        update_expr = UpdateStatement(
             dialect=self.dialect,
             table=Table(
                 self.dialect,
@@ -397,14 +397,14 @@ class AsyncSQLOperationsMixin:
         processed_values = []
         for v in options.data.values():
             # Check if the value is a SQL expression that should be used directly in SQL
-            if _is_sql_expression(v):
+            if is_sql_expression(v):
                 # This is an expression object like FunctionCall, BinaryExpression, etc.
                 processed_values.append(v)
             else:
                 # This is a regular value that should be wrapped in a Literal
                 processed_values.append(Literal(self.dialect, v))
 
-        # Create a ValuesSource to use as the data source for the InsertExpression
+        # Create a ValuesSource to use as the data source for the InsertStatement
         values_source = ValuesSource(self.dialect, [processed_values])
 
         # Create ReturningClause if returning_columns is specified
@@ -415,7 +415,7 @@ class AsyncSQLOperationsMixin:
             returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
             returning_clause = ReturningClause(self.dialect, returning_expressions)
 
-        insert_expr = InsertExpression(
+        insert_expr = InsertStatement(
             dialect=self.dialect,
             into=Table(
                 self.dialect,
@@ -458,7 +458,7 @@ class AsyncSQLOperationsMixin:
         # Process each item in the data dictionary
         for k, v in options.data.items():
             # Check if the value is a SQL expression that should be used directly in SQL
-            if _is_sql_expression(v):
+            if is_sql_expression(v):
                 # This is an expression object like FunctionCall, BinaryExpression, etc.
                 assignments[k] = v
             else:
@@ -473,7 +473,7 @@ class AsyncSQLOperationsMixin:
             returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
             returning_clause = ReturningClause(self.dialect, returning_expressions)
 
-        update_expr = UpdateExpression(
+        update_expr = UpdateStatement(
             dialect=self.dialect,
             table=Table(
                 self.dialect,
@@ -518,7 +518,7 @@ class AsyncSQLOperationsMixin:
             returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
             returning_clause = ReturningClause(self.dialect, returning_expressions)
 
-        delete_expr = DeleteExpression(
+        delete_expr = DeleteStatement(
             dialect=self.dialect,
             tables=Table(
                 self.dialect,
@@ -608,7 +608,7 @@ class AsyncSQLOperationsMixin:
         for row in options.rows:
             processed_values = []
             for v in row:
-                if _is_sql_expression(v):
+                if is_sql_expression(v):
                     processed_values.append(v)
                 else:
                     processed_values.append(Literal(self.dialect, v))
@@ -623,7 +623,7 @@ class AsyncSQLOperationsMixin:
             returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
             returning_clause = ReturningClause(self.dialect, returning_expressions)
 
-        insert_expr = InsertExpression(
+        insert_expr = InsertStatement(
             dialect=self.dialect,
             into=Table(
                 self.dialect,
@@ -675,7 +675,7 @@ class AsyncSQLOperationsMixin:
         pk_literals = Literal(self.dialect, options.pk_values)
         where_predicate = InPredicate(self.dialect, pk_col, pk_literals)
 
-        update_expr = UpdateExpression(
+        update_expr = UpdateStatement(
             dialect=self.dialect,
             table=Table(
                 self.dialect,

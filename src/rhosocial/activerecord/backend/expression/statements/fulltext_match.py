@@ -3,7 +3,7 @@ from typing import List, Optional
 from ..core import BaseExpression
 
 
-class FulltextMatchExpression(BaseExpression):
+class FulltextMatch(BaseExpression):
     """MATCH ... AGAINST full-text search expression."""
 
     def __init__(self, dialect, columns: List[str], search_term: str,

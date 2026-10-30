@@ -394,79 +394,99 @@ class AsyncBackendPool:
                 f"in_use={self._stats.current_in_use}"
             )
 
-        while True:
-            async with self._lock:
-                if self._closed:
-                    self._semaphore.release()
-                    raise RuntimeError("Pool is closed")
+        # The permit is owned from here on. Every exit returns it except the
+        # success path, where ownership moves to the caller until ``release()``.
+        # ``CancelledError`` is a ``BaseException``, so the old ``except
+        # Exception`` clauses let a cancelled acquire keep its permit forever:
+        # a readiness probe that gave up after two seconds permanently shrank
+        # the pool, and after enough timeouts ``acquire`` reported
+        # ``available=0, in_use=0`` while every request waited 30s and failed.
+        pooled = None
+        try:
+            while True:
+                async with self._lock:
+                    if self._closed:
+                        raise RuntimeError("Pool is closed")
 
-                if self._available:
-                    pooled = self._available.popleft()
-                    self._stats.current_available -= 1
-                    is_new_backend = False
-                else:
-                    pooled = None
-                    is_new_backend = True
+                    if self._available:
+                        pooled = self._available.popleft()
+                        self._stats.current_available -= 1
+                        is_new_backend = False
+                    else:
+                        pooled = None
+                        is_new_backend = True
 
-            if pooled is None:
-                try:
+                if pooled is None:
                     should_connect = self._is_persistent or (
                         not self._is_persistent and self.config.auto_connect_on_acquire
                     )
                     pooled = await self._create_backend(connect=should_connect)
-                except Exception:
-                    self._semaphore.release()
-                    raise
+                    if pooled is None:
+                        raise RuntimeError("Failed to acquire connection")
 
-                if pooled is None:
-                    self._semaphore.release()
-                    raise RuntimeError("Failed to acquire connection")
+                try:
+                    if self._is_persistent and self.config.validate_on_borrow:
+                        if not await self._validate_backend(pooled):
+                            if not await self._reconnect_backend(pooled):
+                                await self._destroy_backend(pooled)
+                                pooled = None
+                                if is_new_backend:
+                                    raise RuntimeError("Failed to validate new connection")
+                                continue
 
-            try:
-                if self._is_persistent and self.config.validate_on_borrow:
-                    if not await self._validate_backend(pooled):
-                        if not await self._reconnect_backend(pooled):
-                            await self._destroy_backend(pooled)
-                            if is_new_backend:
-                                self._semaphore.release()
-                                raise RuntimeError("Failed to validate new connection")
-                            continue
+                    if not self._is_persistent and not is_new_backend:
+                        if self.config.auto_connect_on_acquire:
+                            await self._async_connect(pooled.backend)
+                        if self.config.validate_on_borrow:
+                            if not await self._validate_backend(pooled):
+                                await self._destroy_backend(pooled)
+                                pooled = None
+                                continue
 
-                if not self._is_persistent and not is_new_backend:
-                    if self.config.auto_connect_on_acquire:
-                        await self._async_connect(pooled.backend)
-                    if self.config.validate_on_borrow:
+                    if (
+                        not self._is_persistent
+                        and is_new_backend
+                        and self.config.validate_on_borrow
+                    ):
                         if not await self._validate_backend(pooled):
                             await self._destroy_backend(pooled)
-                            continue
-
-                if not self._is_persistent and is_new_backend and self.config.validate_on_borrow:
-                    if not await self._validate_backend(pooled):
+                            pooled = None
+                            raise RuntimeError("Failed to validate new connection")
+                except Exception as e:
+                    if not isinstance(e, RuntimeError):
+                        pooled.mark_unhealthy()
                         await self._destroy_backend(pooled)
-                        self._semaphore.release()
-                        raise RuntimeError("Failed to validate new connection")
-            except Exception as e:
-                if not isinstance(e, RuntimeError):
-                    pooled.mark_unhealthy()
-                    await self._destroy_backend(pooled)
-                    logger.error(f"Failed to prepare acquired backend: {e}")
-                if is_new_backend:
-                    self._semaphore.release()
-                    raise
-                continue
+                        pooled = None
+                        logger.error(f"Failed to prepare acquired backend: {e}")
+                    if is_new_backend:
+                        raise
+                    continue
 
-            async with self._lock:
-                if self._closed:
-                    await self._destroy_backend(pooled)
-                    self._semaphore.release()
-                    raise RuntimeError("Pool is closed")
+                async with self._lock:
+                    if self._closed:
+                        await self._destroy_backend(pooled)
+                        pooled = None
+                        raise RuntimeError("Pool is closed")
 
-                pooled.mark_used()
-                self._in_use[id(pooled.backend)] = pooled
-                self._stats.current_in_use += 1
-                self._stats.total_acquired += 1
-                self._stats.last_acquired_at = datetime.now()
-                return pooled.backend
+                    pooled.mark_used()
+                    self._in_use[id(pooled.backend)] = pooled
+                    self._stats.current_in_use += 1
+                    self._stats.total_acquired += 1
+                    self._stats.last_acquired_at = datetime.now()
+                    backend = pooled.backend
+                    pooled = None
+                    return backend
+        except BaseException:
+            # Nothing was handed out, so nothing may stay checked out: a backend
+            # that was mid-connect (or mid-validation) is not trustworthy, and
+            # the permit must go back or the pool dies a little on each cancel.
+            if pooled is not None:
+                try:
+                    await self._destroy_backend(pooled)
+                except BaseException:  # noqa: BLE001 - we are already unwinding
+                    pass
+            self._semaphore.release()
+            raise
 
     async def release(self, backend: Any) -> None:
         """Release Backend instance.
@@ -613,8 +633,8 @@ class AsyncBackendPool:
                 await existing_conn.begin_transaction()
                 yield existing_conn
                 await existing_conn.commit_transaction()
-            except Exception:
-                await existing_conn.rollback_transaction()
+            except Exception as original:
+                await self._rollback_after_failure(existing_conn, original)
                 raise
             finally:
                 ctx._reset_async_transaction_backend(tx_token)
@@ -628,13 +648,34 @@ class AsyncBackendPool:
             await backend.begin_transaction()
             yield backend
             await backend.commit_transaction()
-        except Exception:
-            await backend.rollback_transaction()
+        except Exception as original:
+            await self._rollback_after_failure(backend, original)
             raise
         finally:
             ctx._reset_async_connection_backend(conn_token)
             ctx._reset_async_transaction_backend(tx_token)
             await self.release(backend)
+
+    async def _rollback_after_failure(self, backend: Any, original: BaseException) -> None:
+        """Roll back after the body failed, without hiding what failed.
+
+        A rollback can legitimately fail for reasons that say nothing about the
+        original error: the transaction was already ended (a statement error
+        aborts it), the connection is gone, or another coroutine finished it.
+        Letting that error replace the body's exception is how
+        ``TransactionError: No active transaction to rollback`` came to be
+        reported for what was actually a duplicate-key ``IntegrityError``: the
+        caller lost the only fact it could act on. The rollback failure is
+        logged, and the original exception is what propagates.
+        """
+        try:
+            await backend.rollback_transaction()
+        except Exception as rollback_error:  # noqa: BLE001 - the original wins
+            logger.warning(
+                "Rollback after %s failed; keeping the original error: %s",
+                type(original).__name__,
+                rollback_error,
+            )
 
     async def close(self, timeout: Optional[float] = None, force: bool = False) -> None:
         """Close connection pool gracefully.

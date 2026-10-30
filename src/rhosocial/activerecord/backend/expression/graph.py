@@ -20,7 +20,9 @@ if TYPE_CHECKING:  # pragma: no cover
     from .query_parts import WhereClause
 
 
-class GraphEdgeDirection(Enum):
+class GraphEdgeDirection(str, Enum):
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
     """Specifies the direction of an edge in a graph pattern according to SQL 2023 standard."""
 
     LEFT = "<-"  # Left-directed: <-[edge]-
@@ -271,11 +273,17 @@ class VertexTable(BaseExpression):
         return "format_vertex_table"
 
 
-class EdgeTable(BaseExpression):
+class EdgeTableDefinition(BaseExpression):
     """Represents an edge table definition in CREATE PROPERTY GRAPH.
 
     Renders: table [AS alias] [KEY (cols)] SOURCE KEY (cols) [REFERENCES t (c)]
-            DESTINATION KEY (cols) [REFERENCES t (c)] [LABEL ...] [PROPERTIES ...]"""
+            DESTINATION KEY (cols) [REFERENCES t (c)] [LABEL ...] [PROPERTIES ...]
+
+    Named ``...Definition`` because it is the definition, not the table: the
+    table it names is a relation object (:class:`~..objects.relation.EdgeTable`,
+    a sibling of ``Table``), and the two were previously both called
+    ``EdgeTable`` — one name, two contracts, and therefore one derived kind for
+    two different things (§4.11.1)."""
 
     def __init__(self, dialect: "SQLDialectBase", table: "EdgeTableObject",
                  source_key: List[str], destination_key: List[str],
@@ -300,15 +308,15 @@ class EdgeTable(BaseExpression):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_edge_table"
+        return "format_edge_table_definition"
 
 
-class CreatePropertyGraphExpression(BaseExpression):
+class CreatePropertyGraphStatement(BaseExpression):
     """Represents a CREATE PROPERTY GRAPH DDL statement."""
 
     def __init__(self, dialect: "SQLDialectBase", graph: "PropertyGraph",
                  vertex_tables: List[VertexTable],
-                 edge_tables: Optional[List[EdgeTable]] = None,
+                 edge_tables: Optional[List[EdgeTableDefinition]] = None,
                  if_not_exists: bool = False,
                  ):
         super().__init__(dialect)
@@ -323,7 +331,7 @@ class CreatePropertyGraphExpression(BaseExpression):
         return "format_create_property_graph_statement"
 
 
-class DropPropertyGraphExpression(BaseExpression):
+class DropPropertyGraphStatement(BaseExpression):
     """Represents a DROP PROPERTY GRAPH DDL statement."""
 
     def __init__(self, dialect: "SQLDialectBase", graph: "PropertyGraph",
@@ -340,13 +348,13 @@ class DropPropertyGraphExpression(BaseExpression):
         return "format_drop_property_graph_statement"
 
 
-class AlterPropertyGraphExpression(BaseExpression):
+class AlterPropertyGraphStatement(BaseExpression):
     """Represents an ALTER PROPERTY GRAPH DDL statement."""
 
     def __init__(self, dialect: "SQLDialectBase", graph: "PropertyGraph",
                  action: str, target: str,
                  vertex_tables: Optional[List[VertexTable]] = None,
-                 edge_tables: Optional[List[EdgeTable]] = None,
+                 edge_tables: Optional[List[EdgeTableDefinition]] = None,
                  ):
         super().__init__(dialect)
         self.graph = graph

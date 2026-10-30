@@ -8,7 +8,7 @@ including virtual table creation, point-in-polygon queries, and area calculation
 
 from typing import List, Optional, TYPE_CHECKING
 
-from ....expression.bases import BaseExpression, SQLQueryAndParams
+from ....expression.bases import BaseExpression
 from rhosocial.activerecord.backend.expression.objects import Table
 
 if TYPE_CHECKING:
@@ -16,13 +16,22 @@ if TYPE_CHECKING:
 
 
 class SQLiteGeopolyCreateVirtualTable(BaseExpression):
-    """Geopoly CREATE VIRTUAL TABLE statement expression."""
+
+    @property
+    def format_method(self) -> str:
+        """The dialect method that renders this expression."""
+        return "format_geopoly_create_virtual_table"
+    """Geopoly CREATE VIRTUAL TABLE statement expression.
+
+    Geopoly has no external content table: the polygons are the rows of the
+    table itself, and ``extra_columns`` hold the caller's own auxiliary
+    data. So there is no content table to name, and no parameter for one.
+    """
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         table: "Table",
-        content_table: Optional["Table"] = None,
         extra_columns: Optional[List[str]] = None,
     ):
         super().__init__(dialect)
@@ -32,19 +41,13 @@ class SQLiteGeopolyCreateVirtualTable(BaseExpression):
                 f"got {type(table).__name__}"
             )
         self.table = table
-        if content_table is not None and not isinstance(content_table, Table):
-            raise TypeError(
-                f"content_table must be a Table, "
-                f"got {type(content_table).__name__}"
-            )
-        self.content_table = content_table
         self.extra_columns = extra_columns or []
-
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_geopoly_create_virtual_table(self)
-
-
 class SQLiteGeopolyContainsExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect method that renders this expression."""
+        return "format_geopoly_contains_expression"
     """Geopoly point-in-polygon query expression."""
 
     def __init__(
@@ -63,12 +66,12 @@ class SQLiteGeopolyContainsExpression(BaseExpression):
         self.table = table
         self.longitude = longitude
         self.latitude = latitude
-
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_geopoly_contains_query(self)
-
-
 class SQLiteGeopolyAreaExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect method that renders this expression."""
+        return "format_geopoly_area_expression"
     """Geopoly area calculation expression."""
 
     def __init__(
@@ -83,6 +86,3 @@ class SQLiteGeopolyAreaExpression(BaseExpression):
                 f"got {type(table).__name__}"
             )
         self.table = table
-
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_geopoly_area_expression(self)

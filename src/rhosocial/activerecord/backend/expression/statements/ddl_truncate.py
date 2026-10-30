@@ -10,7 +10,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-class TruncateExpression(BaseExpression):
+class TruncateStatement(BaseExpression):
     """
     Represents a TRUNCATE TABLE statement supporting SQL standard and database-specific features.
 
@@ -24,17 +24,17 @@ class TruncateExpression(BaseExpression):
 
     Examples:
         # Basic truncate
-        truncate_expr = TruncateExpression(dialect, table_name="users")
+        truncate_expr = TruncateStatement(dialect, table_name="users")
 
         # Truncate with restart identity (PostgreSQL)
-        truncate_expr = TruncateExpression(
+        truncate_expr = TruncateStatement(
             dialect,
             table_name="users",
             restart_identity=True
         )
 
         # Truncate with cascade (PostgreSQL)
-        truncate_expr = TruncateExpression(
+        truncate_expr = TruncateStatement(
             dialect,
             table_name="orders",
             cascade=True
@@ -67,12 +67,10 @@ class TruncateExpression(BaseExpression):
             TypeError: If the table is not a Table
         """
         super().__init__(dialect)
-        if restart_identity and continue_identity:
-            raise ValueError(
-                "restart_identity and continue_identity are mutually exclusive options"
-            )
-        if cascade and restrict:
-            raise ValueError("cascade and restrict are mutually exclusive options")
+        self.require_exclusive_options(
+            restart_identity, continue_identity, "restart_identity", "continue_identity"
+        )
+        self.require_exclusive_options(cascade, restrict, "cascade", "restrict")
         self.table = table
         self.restart_identity = restart_identity
         self.continue_identity = continue_identity

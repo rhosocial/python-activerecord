@@ -15,7 +15,7 @@ from decimal import Decimal
 from typing import List, Dict, Any
 
 from rhosocial.activerecord.query import CTEQuery, AsyncCTEQuery
-from rhosocial.activerecord.backend.expression import statements, core
+from rhosocial.activerecord.backend.expression import statements, core, StringColumn
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
@@ -203,9 +203,9 @@ class TestSqliteCTEQueryExplain:
 
     def test_cte_explain_with_query_expression(self, order_fixtures):
         """
-        Test EXPLAIN on CTE query that uses a QueryExpression as the underlying query.
+        Test EXPLAIN on CTE query that uses a QueryStatement as the underlying query.
 
-        This test verifies that EXPLAIN works correctly with CTE queries containing QueryExpression.
+        This test verifies that EXPLAIN works correctly with CTE queries containing QueryStatement.
         """
         User, Order, OrderItem = order_fixtures
 
@@ -230,19 +230,19 @@ class TestSqliteCTEQueryExplain:
         backend = Order.backend()
         dialect = backend.dialect
 
-        # Create a QueryExpression directly (this implements ToSQLProtocol)
+        # Create a QueryStatement directly (this implements ToSQLProtocol)
         from rhosocial.activerecord.backend.expression import query_parts
 
-        query_expr = statements.QueryExpression(
+        query_expr = statements.QueryStatement(
             dialect,
             select=[core.Column(dialect, "id"), core.Column(dialect, "status"), core.Column(dialect, "total_amount")],
             from_=NamedRelationRef(dialect, Table(dialect, Order.table_name())),
             where=query_parts.WhereClause(
-                dialect, condition=core.Column(dialect, "status") == core.Literal(dialect, "active")
+                dialect, condition=StringColumn(dialect, "status") == core.Literal(dialect, "active")
             ),
         )
 
-        # Create a CTE that uses the QueryExpression as its source
+        # Create a CTE that uses the QueryStatement as its source
         cte_query = CTEQuery(backend)
         cte_query.with_cte("query_expr_cte", query_expr)
 
@@ -250,13 +250,13 @@ class TestSqliteCTEQueryExplain:
         plan = cte_query.from_cte("query_expr_cte").select("*").explain().aggregate()
 
         # Validate the explain output
-        _validate_explain_output(plan, "CTE QueryExpression")
+        _validate_explain_output(plan, "CTE QueryStatement")
 
     def test_cte_explain_with_query_expression_as_main_query(self, order_fixtures):
         """
-        Test EXPLAIN on CTE query where the main query is a QueryExpression.
+        Test EXPLAIN on CTE query where the main query is a QueryStatement.
 
-        This test verifies that EXPLAIN works correctly with CTE queries where the main query is a QueryExpression.
+        This test verifies that EXPLAIN works correctly with CTE queries where the main query is a QueryStatement.
         """
         User, Order, OrderItem = order_fixtures
 
@@ -305,7 +305,7 @@ class TestSqliteCTEQueryExplain:
         )
 
         # Validate the explain output
-        _validate_explain_output(plan, "CTE QueryExpression as Main Query")
+        _validate_explain_output(plan, "CTE QueryStatement as Main Query")
 
 
 @pytest.mark.sqlite
@@ -525,19 +525,19 @@ class TestAsyncSqliteCTEQueryExplain:
         backend = AsyncOrder.backend()
         dialect = backend.dialect
 
-        # Create a QueryExpression directly (this implements ToSQLProtocol)
+        # Create a QueryStatement directly (this implements ToSQLProtocol)
         from rhosocial.activerecord.backend.expression import query_parts
 
-        query_expr = statements.QueryExpression(
+        query_expr = statements.QueryStatement(
             dialect,
             select=[core.Column(dialect, "id"), core.Column(dialect, "status"), core.Column(dialect, "total_amount")],
             from_=NamedRelationRef(dialect, Table(dialect, AsyncOrder.table_name())),
             where=query_parts.WhereClause(
-                dialect, condition=core.Column(dialect, "status") == core.Literal(dialect, "active")
+                dialect, condition=StringColumn(dialect, "status") == core.Literal(dialect, "active")
             ),
         )
 
-        # Create a CTE that uses the QueryExpression as its source
+        # Create a CTE that uses the QueryStatement as its source
         cte_query = AsyncCTEQuery(backend)
         cte_query.with_cte("query_expr_cte", query_expr)
 
@@ -545,7 +545,7 @@ class TestAsyncSqliteCTEQueryExplain:
         plan = await cte_query.from_cte("query_expr_cte").select("*").explain().aggregate()
 
         # Validate the explain output
-        _validate_explain_output(plan, "Async CTE QueryExpression")
+        _validate_explain_output(plan, "Async CTE QueryStatement")
 
     async def test_async_cte_explain_with_query_expression_as_main_query(self, async_order_fixtures):
         """
@@ -600,4 +600,4 @@ class TestAsyncSqliteCTEQueryExplain:
         )
 
         # Validate the explain output
-        _validate_explain_output(plan, "Async CTE QueryExpression as Main Query")
+        _validate_explain_output(plan, "Async CTE QueryStatement as Main Query")

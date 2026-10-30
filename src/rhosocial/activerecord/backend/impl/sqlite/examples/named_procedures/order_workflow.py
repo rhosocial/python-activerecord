@@ -1,3 +1,24 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnPrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.named_expression import ProcedureRunner, TransactionMode
+from rhosocial.activerecord.backend.named_expression import (  # noqa: E402
+    Procedure,
+    ProcedureContext,
+    ParallelStep,
+)
+from rhosocial.activerecord.backend.expression.types import (  # noqa: E402
+    IntegerType,
+    TextType,
+)
+from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
+    ColumnDefinition,
+)
+from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression import CreateTableStatement, InsertStatement, ValuesSource, ColumnConstraint
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 # src/rhosocial/activerecord/backend/impl/sqlite/examples/named_procedures/order_workflow.py
 """
 Order processing workflow example - demonstrates Named Procedure flowchart capabilities.
@@ -13,28 +34,11 @@ Named Procedure is a backend feature, independent of ActiveRecord models.
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableExpression,
-    InsertExpression,
-    ValuesSource,
-    ColumnConstraint,
-    ColumnConstraintType,
-)
-from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
-from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
-    ColumnDefinition,
-)
-from rhosocial.activerecord.backend.expression.types import (  # noqa: E402
-    IntegerType,
-    TextType,
-)
 
 
 def _column(name: str, type_name: str):
@@ -42,7 +46,7 @@ def _column(name: str, type_name: str):
     data_type = IntegerType() if type_name == "INTEGER" else TextType()
     constraints = []
     if "PRIMARY KEY" in type_name:
-        constraints.append(ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY))
+        constraints.append(ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect)))
     return ColumnDefinition(dialect, name=name, data_type=data_type, constraints=constraints)
 
 
@@ -58,7 +62,7 @@ tables = [
 ]
 
 for table_name, columns in tables:
-    create = CreateTableExpression(
+    create = CreateTableStatement(
         dialect=dialect,
         table=Table(dialect, table_name),
         columns=[_column(name, type_name) for name, type_name in columns],
@@ -74,7 +78,7 @@ sample_data = [
 ]
 for table, cols, rows in sample_data:
     for row in rows:
-        insert = InsertExpression(
+        insert = InsertStatement(
             dialect=dialect,
             into=Table(dialect, table),
             columns=cols,
@@ -86,11 +90,6 @@ for table, cols, rows in sample_data:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.named_expression import (  # noqa: E402
-    Procedure,
-    ProcedureContext,
-    ParallelStep,
-)
 
 
 class OrderProcessingProcedure(Procedure):
@@ -196,8 +195,6 @@ if __name__ == "__main__":
 # ============================================================
 # SECTION: Execution (run the expression)
 # ============================================================
-from rhosocial.activerecord.backend.named_expression import ProcedureRunner, TransactionMode  # noqa: E402
-from rhosocial.activerecord.backend.expression.objects import Table
 
 if __name__ == "__main__":
     runner = ProcedureRunner(

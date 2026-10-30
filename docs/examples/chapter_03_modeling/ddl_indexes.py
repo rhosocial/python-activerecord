@@ -1,5 +1,5 @@
-"""
-Chapter 3: Modeling Data - DDL with Indexes
+"""Chapter 3: Modeling Data - DDL with Indexes
+
 Demonstrates index creation and management:
 1. Create basic index
 2. Create unique index
@@ -9,38 +9,41 @@ Demonstrates index creation and management:
 """
 
 from typing import ClassVar
-from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.base import FieldProxy
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression import (
     ColumnDefinition,
-    CreateTableExpression,
-    Column,
     Literal,
-    CreateIndexExpression,
-    DropIndexExpression,
+    StringColumn,
 )
-from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, VarCharType
+from rhosocial.activerecord.backend.expression.objects import Index, Table
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnConstraint,
-    ColumnConstraintType,
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+    CreateIndexStatement,
+    CreateTableStatement,
+    DropIndexStatement,
 )
+from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, VarCharType
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.base import FieldProxy
+from rhosocial.activerecord.model import ActiveRecord
 
 
 class Product(ActiveRecord):
     """Product Model for DDL index demo"""
 
+    __table_name__ = "products"
+
+    id: int = None
     name: str
     category: str
     price: float
     status: str = "active"
 
     c: ClassVar[FieldProxy] = FieldProxy()
-
-    @classmethod
-    def table_name(cls) -> str:
-        return "products"
 
 
 def main():
@@ -54,39 +57,49 @@ def main():
 
     # First create the products table
     product_columns = [
-        ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-        ColumnDefinition("name", VarCharType(100), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-        ColumnDefinition("category", VarCharType(50)),
-        ColumnDefinition("price", FloatType()),
-        ColumnDefinition("status", VarCharType(20)),
+        ColumnDefinition(
+            dialect, "id", IntegerType(dialect),
+            constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))]
+        ),
+        ColumnDefinition(
+            dialect, "name", VarCharType(dialect, length=100),
+            constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]
+        ),
+        ColumnDefinition(dialect, "category", VarCharType(dialect, length=50)),
+        ColumnDefinition(dialect, "price", FloatType(dialect)),
+        ColumnDefinition(dialect, "status", VarCharType(dialect, length=20)),
     ]
 
-    create_products = CreateTableExpression(dialect=dialect, table_name="products", columns=product_columns)
+    create_products = CreateTableStatement(
+        dialect, Table(dialect, "products"), columns=product_columns
+    )
 
-    sql_str, params_str = create_products.to_sql()
-    backend.execute(sql_str, params_str)
+    sql_str, params = create_products.to_sql()
+    backend.execute(sql_str, params)
     print("Products table created.")
 
     # ============================================================
     # Example 1: Create basic index
     # ============================================================
-    create_idx = CreateIndexExpression(dialect, index_name="idx_products_name", table_name="products", columns=["name"])
+    create_idx = CreateIndexStatement(
+        dialect, Index(dialect, "idx_products_name"), Table(dialect, "products"), columns=["name"]
+    )
 
     sql, params = create_idx.to_sql()
     print("=== Create Basic Index ===")
     print(f"SQL: {sql}")
     print()
 
-    sql_str, params_str = create_idx.to_sql()
-    backend.execute(sql_str, params_str)
+    sql_str, params = create_idx.to_sql()
+    backend.execute(sql_str, params)
 
     # ============================================================
-    # Example 2: Create unique index
+    # Example 2: Create unique composite index
     # ============================================================
-    create_unique_idx = CreateIndexExpression(
+    create_unique_idx = CreateIndexStatement(
         dialect,
-        index_name="idx_products_category_name",
-        table_name="products",
+        Index(dialect, "idx_products_category_name"),
+        Table(dialect, "products"),
         columns=["category", "name"],
         unique=True,
     )
@@ -96,18 +109,20 @@ def main():
     print(f"SQL: {sql}")
     print()
 
-    sql_str, params_str = create_unique_idx.to_sql()
-    backend.execute(sql_str, params_str)
+    sql_str, params = create_unique_idx.to_sql()
+    backend.execute(sql_str, params)
 
     # ============================================================
     # Example 3: Create partial index (with WHERE clause)
     # ============================================================
-    create_partial_idx = CreateIndexExpression(
+    # The predicate is built by a typed column; the literal is marked
+    # inline because SQLite partial indexes cannot carry bind parameters.
+    create_partial_idx = CreateIndexStatement(
         dialect,
-        index_name="idx_products_active_price",
-        table_name="products",
+        Index(dialect, "idx_products_active_price"),
+        Table(dialect, "products"),
         columns=["price"],
-        where=Column(dialect, "status") == Literal(dialect, "active"),
+        where=StringColumn(dialect, "status") == Literal(dialect, "active", inline=True),
     )
 
     sql, params = create_partial_idx.to_sql()
@@ -116,38 +131,42 @@ def main():
     print(f"Params: {params}")
     print()
 
-    # Note: SQLite partial indexes require literals in WHERE clause, not parameters.
-    # This will fail when executed via parameterized query.
-    # For demonstration, we skip execution but show the generated SQL.
-    # sql_str, params_str = create_partial_idx.to_sql()
-    # backend.execute(sql_str, params_str)
-    print("Note: SQLite partial indexes don't support parameters in WHERE clause.")
-    print("The generated SQL shows how it would look with a literal value.")
-    print()
+    sql_str, params = create_partial_idx.to_sql()
+    backend.execute(sql_str, params)
 
-    # Note: SQLite doesn't support USING BTREE syntax, so this would fail.
-    # Showing it for demonstration purposes only.
+    # ============================================================
+    # Example 4: Index type (not supported in SQLite)
+    # ============================================================
+    # SQLite doesn't support USING BTREE syntax, so the dialect refuses.
     print("=== Index Type (not supported in SQLite) ===")
-    create_btree_idx = CreateIndexExpression(
-        dialect, index_name="idx_products_category", table_name="products", columns=["category"], index_type="BTREE"
-    )
-    sql, params = create_btree_idx.to_sql()
-    print(f"SQL: {sql}")
-    print("Note: SQLite doesn't support index_type (USING BTREE).")
+    try:
+        create_btree_idx = CreateIndexStatement(
+            dialect,
+            Index(dialect, "idx_products_category"),
+            Table(dialect, "products"),
+            columns=["category"],
+            index_type="BTREE",
+        )
+        sql, params = create_btree_idx.to_sql()
+        print(f"SQL: {sql}")
+    except UnsupportedFeatureError as exc:
+        print(f"Refused: {exc}")
     print()
 
     # ============================================================
     # Example 5: Drop index
     # ============================================================
-    drop_idx = DropIndexExpression(dialect, index_name="idx_products_category", if_exists=True)
+    drop_idx = DropIndexStatement(
+        dialect, Index(dialect, "idx_products_active_price"), if_exists=True
+    )
 
     sql, params = drop_idx.to_sql()
     print("=== Drop Index ===")
     print(f"SQL: {sql}")
     print()
 
-    sql_str, params_str = drop_idx.to_sql()
-    backend.execute(sql_str, params_str)
+    sql_str, params = drop_idx.to_sql()
+    backend.execute(sql_str, params)
 
     # Introspection: Verify index was dropped
     print("--- Indexes on products table after drop ---")

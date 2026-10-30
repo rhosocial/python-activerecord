@@ -11,7 +11,10 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-class TriggerTiming(Enum):
+class TriggerTiming(str, Enum):
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
+
     """Trigger execution timing."""
 
     BEFORE = "BEFORE"
@@ -19,8 +22,11 @@ class TriggerTiming(Enum):
     INSTEAD_OF = "INSTEAD OF"
 
 
-class TriggerEvent(Enum):
+class TriggerEvent(str, Enum):
     """Trigger event types."""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     INSERT = "INSERT"
     UPDATE = "UPDATE"
@@ -28,19 +34,22 @@ class TriggerEvent(Enum):
     TRUNCATE = "TRUNCATE"
 
 
-class TriggerLevel(Enum):
+class TriggerLevel(str, Enum):
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
+
     """Trigger execution level."""
 
     ROW = "FOR EACH ROW"
     STATEMENT = "FOR EACH STATEMENT"
 
 
-class CreateTriggerExpression(BaseExpression):
+class CreateTriggerStatement(BaseExpression):
     """SQL:1999 standard CREATE TRIGGER statement.
 
     Examples:
         # Basic trigger
-        create_trigger = CreateTriggerExpression(
+        create_trigger = CreateTriggerStatement(
             dialect,
             trigger=Trigger(dialect, "update_timestamp"),
             table=Table(dialect, "users"),
@@ -50,7 +59,7 @@ class CreateTriggerExpression(BaseExpression):
         )
 
         # Trigger with condition
-        create_trigger = CreateTriggerExpression(
+        create_trigger = CreateTriggerStatement(
             dialect,
             trigger=Trigger(dialect, "check_status"),
             table=Table(dialect, "orders"),
@@ -95,11 +104,11 @@ class CreateTriggerExpression(BaseExpression):
         return "format_create_trigger_statement"
 
 
-class DropTriggerExpression(BaseExpression):
+class DropTriggerStatement(BaseExpression):
     """SQL:1999 standard DROP TRIGGER statement.
 
     Examples:
-        drop_trigger = DropTriggerExpression(
+        drop_trigger = DropTriggerStatement(
             dialect,
             trigger=Trigger(dialect, "update_timestamp"),
             table=Table(dialect, "users")

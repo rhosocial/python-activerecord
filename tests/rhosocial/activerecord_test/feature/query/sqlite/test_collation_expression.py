@@ -5,6 +5,7 @@ Tests for expression-level COLLATE support on SQLite.
 
 from enum import Enum
 
+from rhosocial.activerecord.backend.expression.collation import collate
 import pytest
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
@@ -54,7 +55,7 @@ class TestSQLiteCollationExpression:
         assert params == ()
 
     def test_literal_collate_preserves_parameter_binding(self, dialect):
-        expr = Literal(dialect, "Alice").collate("NOCASE")
+        expr = collate(Literal(dialect, "Alice"), "NOCASE")
 
         sql, params = expr.to_sql()
 
@@ -85,10 +86,14 @@ class TestSQLiteCollationExpression:
             expr.to_sql()
 
     def test_collate_expression_stores_backend_options(self, dialect):
+        # `schema` is a named parameter, not a catch-all. It used to arrive as
+        # **collation_options, which made the class unreadable: a **kwargs
+        # parameter cannot be matched by name when an artifact is rebuilt, so
+        # CollateFunction's payload could not be deserialized at all.
         expr = Column(dialect, "name").collate("case_insensitive", schema="public")
 
         assert expr.collation_name == "case_insensitive"
-        assert expr.collation_options == {"schema": "public"}
+        assert expr.schema == "public"
 
     def test_sqlite_rejects_schema_qualified_collation(self, dialect):
         expr = Column(dialect, "name").collate("case_insensitive", schema="public")

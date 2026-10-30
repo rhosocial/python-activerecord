@@ -12,7 +12,7 @@ from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from .....expression.statements import (
-        CreateTriggerExpression,
+        CreateTriggerStatement,
     )
 
 
@@ -73,8 +73,8 @@ class CreateTriggerSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_create_trigger_statement(self, expr: "CreateTriggerExpression") -> Tuple[str, tuple]:
-        """Render a :class:`~....expression.statements.CreateTriggerExpression`.
+    def format_create_trigger_statement(self, expr: "CreateTriggerStatement") -> Tuple[str, tuple]:
+        """Render a :class:`~....expression.statements.CreateTriggerStatement`.
 
         Raises rather than emitting an unsupported form: a statement the
         engine cannot parse is not a statement worth producing.

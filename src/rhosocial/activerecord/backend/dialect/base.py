@@ -6,12 +6,15 @@ This module defines the minimal base that all SQL dialects must implement.
 All SQL formatting logic lives in Mixin classes in mixins.py.
 """
 
-import re
 import warnings as _warnings
-from typing import Any, ClassVar, Dict, FrozenSet, Optional, Tuple, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, FrozenSet, Optional, Tuple, Union
 
-from .exceptions import DialectNotAdaptedException, ProtocolNotImplementedError, UnsupportedFeatureError
 from ..warnings import IdentifierQuotingWarning
+from .exceptions import (
+    DialectNotAdaptedException,
+    ProtocolNotImplementedError,
+    UnsupportedFeatureError,
+)
 
 if TYPE_CHECKING:
     import datetime as _dt
@@ -57,14 +60,63 @@ class SQLDialectBase:
 
     @property
     def version(self) -> Tuple[int, int, int]:
+        """The adapted server version, or a raise when there is none.
+
+        Strict on purpose: a renderer that gates SQL on a version must know
+        which version it is gating against, so silence would be worse than a
+        failure. A caller that only needs to *report* or *probe* uses
+        :attr:`version_or_none` / :meth:`version_at_least`, which never raise.
+        """
         if self._version is None:
             from .exceptions import DialectNotAdaptedException
+
             raise DialectNotAdaptedException(self.name)
         return self._version
 
     @version.setter
     def version(self, value: Tuple[int, int, int]) -> None:
         self._version = value
+
+    def _declared_version(self) -> Optional[Tuple[int, int, int]]:
+        """The version this dialect can name without asking a server.
+
+        A capability check has to answer before a connection exists, and some
+        dialects already have the answer: SQLite has no server to ask, because
+        the engine is the library its driver links against, so
+        ``sqlite3.sqlite_version_info`` is the version in force. A
+        client/server backend has no such answer -- the driver's own version
+        says nothing about the server -- so the default is ``None`` and asking
+        for the strict :attr:`version` keeps raising until adaptation.
+
+        Override this to name the version that holds before
+        ``backend.introspect_and_adapt()`` runs. :attr:`version_or_none` and
+        :meth:`version_at_least` then answer instead of raising.
+        """
+        return None
+
+    @property
+    def version_or_none(self) -> Optional[Tuple[int, int, int]]:
+        """The version in force, or ``None`` when it is not known yet.
+
+        :attr:`version` is the strict form and raises when the dialect has not
+        been adapted. This one is for callers that would rather learn nothing
+        than fail, and it is what :meth:`version_at_least` reads.
+        """
+        if self._version is not None:
+            return self._version
+        return self._declared_version()
+
+    def version_at_least(self, floor: Tuple[int, int, int]) -> bool:
+        """Whether the version in force reaches *floor*, without raising.
+
+        This is the predicate capability checks must use. A dialect that
+        cannot name its version answers ``False``: a capability nobody has
+        confirmed is not claimed. Asking must not throw either, because a
+        caller deciding *whether* to use a feature cannot be expected to catch
+        an exception just to learn "no".
+        """
+        version = self.version_or_none
+        return version is not None and version >= floor
 
     @property
     def name(self) -> str:
@@ -84,15 +136,16 @@ class SQLDialectBase:
         return self.get_parameter_placeholder(position)
 
     def inline_sql_literal(self, value: Any) -> str:
-        """Render a Python scalar as a safe, inline SQL literal.
+        """Render a Python value as a safe, inline SQL literal.
 
         DDL clauses (CHECK / DEFAULT / partition boundaries / partial-index
         WHERE) accept no bind parameters, so their literal values render
         inline with dialect-controlled escaping — this is the single point
-        of control for that rendering.
+        of control for that rendering, backed by the three-level literal
+        construction (built-in scalars → backend overrides → the
+        literal-construction protocol; no ``str()`` fallback).
         """
         return self.format_literal(value)
-
 
     def get_isolation_level_name(self, level) -> str:
         level_name = level.name if hasattr(level, "name") else str(level)
@@ -133,15 +186,21 @@ class SQLDialectBase:
     def require_protocol(self, protocol_type: type, _feature_name: str, required_by: str) -> None:
         if not isinstance(self, protocol_type):
             raise ProtocolNotImplementedError(
-                dialect_name=self.name, protocol_name=protocol_type.__name__, required_by=required_by
+                dialect_name=self.name,
+                protocol_name=protocol_type.__name__,
+                required_by=required_by,
             )
 
-    def check_feature_support(self, check_method: str, feature_name: str, suggestion: Optional[str] = None) -> None:
+    def check_feature_support(
+        self, check_method: str, feature_name: str, suggestion: Optional[str] = None
+    ) -> None:
         is_supported = False
         if hasattr(self, check_method):
             is_supported = getattr(self, check_method)()
         if not is_supported:
-            raise UnsupportedFeatureError(dialect_name=self.name, feature_name=feature_name, suggestion=suggestion)
+            raise UnsupportedFeatureError(
+                dialect_name=self.name, feature_name=feature_name, suggestion=suggestion
+            )
 
     # ------------------------------------------------------------------
     # Version floors for named features (functions above all)
@@ -182,7 +241,9 @@ class SQLDialectBase:
             The floor as a ``(major, minor, patch)`` tuple, or ``None`` when
             this dialect records no floor for *func_name*.
         """
-        floors: Optional[Dict[str, Tuple[int, int, int]]] = getattr(self, "function_version_floors", None)
+        floors: Optional[Dict[str, Tuple[int, int, int]]] = getattr(
+            self, "function_version_floors", None
+        )
         if not floors:
             return None
         floor = floors.get(func_name)
@@ -285,17 +346,59 @@ class SQLDialectBase:
         escaped = identifier.replace('"', '""')
         return f'"{escaped}"'
 
+    def escape_sql_string(self, value: str) -> str:
+        """This dialect's string-escape policy, for inline literal construction.
+
+        This is the helper the literal-construction protocol must use for
+        every string component it embeds in the literal text it returns:
+        single quotes are doubled so the component is safe inside a
+        single-quoted SQL string. Hand-concatenated quoting is a violation
+        of the protocol.
+
+        The policy belongs to the dialect, because SQL dialects differ in
+        how a string literal represents a quote: most double the quote,
+        while MySQL, MariaDB and ClickHouse treat a backslash as an escape
+        character and BigQuery spells a quote as a backslash-quote. So a
+        dialect overrides this method rather than the framework deciding.
+
+        It is an instance method rather than a static one because a policy
+        may depend on the dialect's own state: MySQL's depends on the
+        session's SQL mode, since under ``NO_BACKSLASH_ESCAPES`` a
+        backslash is a literal character and must not be doubled.
+        """
+        return value.replace("'", "''")
+
     def format_literal(
         self, value: "Optional[Union[bool, int, float, Decimal, _dt.datetime, _dt.date]]"
     ) -> str:
-        """Render a Python scalar as a safe inline SQL literal.
+        """Render a value as a safe inline SQL literal — the three-level
+        construction.
 
         Used by DDL clauses (CHECK / DEFAULT / partition boundaries /
         partial-index WHERE / generated columns), which accept no bind
-        parameters. Only scalar types with portable inline forms are handled
-        here; backends override for type-specific forms (e.g. bytes, native
-        date literals). This is the single point of control for inline literal
-        rendering.
+        parameters, and by every inline-strategy literal node. Construction
+        is attempted at three levels, in order, and an unrenderable value
+        fails explicitly — there is no ``str()`` fallback:
+
+        1. **Dialect base class built-ins** — the host scalars whose inline
+           form is portable or dialect-spelled: ``NULL`` and booleans render
+           as keywords, numbers as numeric text (with a range check: ``NaN``
+           and ``±Inf`` must never reach SQL text — ``float('inf')``
+           stringifies as ``'inf'`` and would degrade to an identifier), and
+           date/time values as ISO-8601 strings through the escape helper.
+           Note ``bool`` is an ``int`` subclass, so the boolean dispatch runs
+           before the numeric check.
+        2. **Backend overrides** — host types whose literal form is
+           backend-specific (``bytes`` BLOB literals, ``UUID``,
+           ``timedelta`` intervals, arrays, JSON). The base class does *not*
+           guess them; a backend dialect must override this method for the
+           value types it supports, and leave the failure explicit for the
+           ones it does not.
+        3. **The literal-construction protocol** — a user-defined or
+           backend-specific value type implements
+           :class:`SQLLiteral`: the returned text is embedded verbatim as an
+           atom. The protocol is a rendering duty, distinct from
+           ``DataType`` column-type declaration.
 
         The returned literal is an **escaped atom** (string values are quoted
         and escaped), so any placeholder character inside it cannot be
@@ -318,27 +421,73 @@ class SQLDialectBase:
                 raise ValueError("non-finite Decimal cannot be inlined into SQL")
             return str(value)
         if isinstance(value, (int, float)):
-            if isinstance(value, float) and value != value:  # NaN
-                raise ValueError("NaN cannot be inlined into SQL")
-            return repr(value) if isinstance(value, float) else str(value)
+            if isinstance(value, float):
+                if value != value:  # NaN
+                    raise ValueError("NaN cannot be inlined into SQL")
+                if value == float("inf") or value == float("-inf"):
+                    raise ValueError("Inf cannot be inlined into SQL")
+                return repr(value)
+            return str(value)
         if isinstance(value, _dt.datetime):
-            escaped = self._escape_sql_string(value.isoformat(sep=" "))
+            escaped = self.escape_sql_string(value.isoformat(sep=" "))
             return f"'{escaped}'"
         if isinstance(value, _dt.date):
-            escaped = self._escape_sql_string(value.isoformat())
+            escaped = self.escape_sql_string(value.isoformat())
+            return f"'{escaped}'"
+        if isinstance(value, _dt.time):
+            # A time of day is a portable quoted form like the other two, and
+            # isoformat keeps the offset an aware time carries. It needs its own
+            # branch because it shares neither base class with datetime/date.
+            escaped = self.escape_sql_string(value.isoformat())
             return f"'{escaped}'"
         if isinstance(value, str):
-            escaped = self._escape_sql_string(value)
+            escaped = self.escape_sql_string(value)
             return f"'{escaped}'"
+        # Level 3: the value type defines its own literal construction.
+        from ..expression.bases import SQLLiteral
+
+        if isinstance(value, SQLLiteral):
+            text = value.__sql_literal__(self)
+            if not isinstance(text, str) or not text:
+                raise TypeError(
+                    f"{self.name}: {value!r} implements the literal-construction "
+                    f"protocol but returned {type(text).__name__}, expected a "
+                    f"non-empty inline literal string."
+                )
+            return text
         raise TypeError(
             f"{self.name}: value {value!r} of type {type(value).__name__} "
-            f"has no inline SQL literal form; use a backend-specific literal."
+            f"has no inline SQL literal form; use a backend-specific literal "
+            f"or implement the literal-construction protocol."
         )
 
-    @staticmethod
-    def _escape_sql_string(value: str) -> str:
-        return value.replace("'", "''")
+    def refuse_ddl_bind_parameters(self, feature: str) -> None:
+        """Refuse a DDL statement whose body carries bind parameters.
 
-    @staticmethod
-    def _validate_data_type(data_type: str) -> bool:
-        return bool(re.fullmatch(r"[A-Za-z0-9\s(),]+", data_type))
+        The body of a DDL statement is a query, and a query may carry bind
+        parameters. Whether the engine accepts them is the dialect's
+        question -- :meth:`supports_create_table_as_bind_parameters`,
+        :meth:`supports_create_view_bind_parameters` and
+        :meth:`supports_materialized_view_bind_parameters` answer it -- and
+        this is where a dialect that answers "no" is told so: by name, with
+        the way out named.
+
+        The reason comes from the dialect
+        (``_ddl_bind_parameter_reason``), so a backend that refuses binds
+        for a *measured* reason says which one; the default lives on the
+        core mixins, not here, because this class sits early in a dialect's
+        MRO and a default here would shadow every backend's own answer.
+
+        The way out is always the same: build the query with an inlined
+        literal, so the value is in the statement's text and not in a
+        parameter.
+        """
+        raise UnsupportedFeatureError(
+            self.name,
+            feature,
+            suggestion=(
+                f"{self._ddl_bind_parameter_reason(feature)} "
+                "Build the query with an inlined literal instead."
+            ),
+        )
+

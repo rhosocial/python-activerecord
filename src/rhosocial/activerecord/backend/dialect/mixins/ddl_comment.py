@@ -14,7 +14,7 @@ from typing import Tuple, TYPE_CHECKING
 from ...expression.objects import SchemaObject
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.statements.ddl_comment import CommentOnExpression
+    from ...expression.statements.ddl_comment import CommentOnStatement
 
 
 class CommentOnMixin:
@@ -28,8 +28,8 @@ class CommentOnMixin:
         """
         return False
 
-    def format_comment_statement(
-        self, expr: "CommentOnExpression"
+    def format_comment_on_statement(
+        self, expr: "CommentOnStatement"
     ) -> Tuple[str, tuple]:
         """Format a standalone ``COMMENT ON <object> IS '<text>'`` statement.
 
@@ -52,13 +52,13 @@ class CommentOnMixin:
             Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            TypeError: ``CommentOnExpression.object`` is not a SchemaObject. Any
+            TypeError: ``CommentOnStatement.object`` is not a SchemaObject. Any
             other value would be named by its own protocol inside COMMENT ON.
             UnsupportedFeatureError: If :meth:`supports_comment_on` is False.
         """
         if not isinstance(expr.object, SchemaObject):
             raise TypeError(
-                f"CommentOnExpression.object must be a SchemaObject, "
+                f"CommentOnStatement.object must be a SchemaObject, "
                 f"got {type(expr.object).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError
@@ -66,7 +66,12 @@ class CommentOnMixin:
         if not self.supports_comment_on():
             raise UnsupportedFeatureError(self.name, "COMMENT ON")
 
-        object_type = getattr(expr.object_type, "value", expr.object_type)
+        from enum import Enum
+
+        # ``object_type`` accepts the enum or its raw spelling.
+        object_type = (
+            expr.object_type.value if isinstance(expr.object_type, Enum) else expr.object_type
+        )
         object_sql, object_params = expr.object.to_sql()
         if expr.column:
             object_sql = f"{object_sql}.{self.format_identifier(expr.column)}"
@@ -74,7 +79,7 @@ class CommentOnMixin:
         head = f"COMMENT ON {object_type} {object_sql} IS"
         if expr.comment is None:
             return f"{head} NULL", object_params
-        escaped = self._escape_sql_string(expr.comment)
+        escaped = self.escape_sql_string(expr.comment)
         return f"{head} '{escaped}'", object_params
 
 

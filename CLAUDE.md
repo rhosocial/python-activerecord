@@ -12,10 +12,40 @@ abstraction layer. Source lives in `src/rhosocial/activerecord/`.
 - **Related repos**: `python-activerecord-mysql`, `-postgres`, `-mariadb`, `-oracle`,
   `-sqlserver` (backends), `python-activerecord-testsuite` (shared test contracts)
 
+## The named series is Python-only
+
+The **named series** — `named-expression`, `named-procedure`,
+`named-procedure-graph`, `named-migration`, `named-connection` — is a
+**Python-only** capability, and the organization rules say so
+(`../.claude/rules/cross-language-backend.md` §8). The Go, Rust and TypeScript
+ports do not provide it, and their absence is a scope boundary rather than a
+backlog item.
+
+The reason is the mechanism, not the idea. The series addresses user code by
+a **string** at **run time**: it imports a module by name
+(`importlib.import_module`), reads an attribute off it, introspects the
+callable's signature and docstring (`inspect.signature` / `inspect.getdoc`),
+asks at run time whether the value is one of ours (`issubclass`), and
+enumerates a module's contents to list what it holds (`dir()`). It also
+prints each parameter's **type annotation**, which exists only because
+Python keeps annotations at run time.
+
+Every Python backend's CLI wires the five subcommands, because the machinery
+lives in the core (`backend/named_expression/`, `backend/migration/`,
+`backend/named_connection/`) and each backend's CLI only supplies the
+backend-specific parts.
+
+When a port needs this, the honest answer is to use Python — not to build a
+runtime module system for a language that has none. The self-describing
+half of the idea (an explicit signature/parameter/doc contract on a trait or
+interface) is portable in principle, but the addressing half is not, so the
+series as a whole stays here.
+
 ## Iron rules (do not skip)
 
-1. **Run tests with `PYTHONPATH=src`** (tests are not on the module path). Never run tests in
-   parallel.
+1. **Run tests with `PYTHONPATH=src`** (tests are not on the module path). Parallel execution is
+   supported and encouraged — use the invocations in `.claude/testing.md` §5, which load the
+   testsuite plugin and keep shared-state tests on the `serial` marker.
 2. **No line exceeds 120 chars**; ruff config in `pyproject.toml` (`[tool.ruff.lint]`, ignore=B024).
 3. **Expressions never concatenate SQL** — always delegate to `self.dialect.format_*()`.
 4. **Sync/async must be functionally equivalent** — same features, same method names.

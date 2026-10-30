@@ -12,7 +12,7 @@ from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from .....expression.statements import (
-        DropIndexExpression,
+        DropIndexStatement,
     )
 
 
@@ -45,8 +45,8 @@ class DropIndexSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_drop_index_statement(self, expr: "DropIndexExpression") -> Tuple[str, tuple]:
-        """Render a :class:`~....expression.statements.DropIndexExpression`.
+    def format_drop_index_statement(self, expr: "DropIndexStatement") -> Tuple[str, tuple]:
+        """Render a :class:`~....expression.statements.DropIndexStatement`.
 
         Raises rather than emitting an unsupported form: a statement the
         engine cannot parse is not a statement worth producing.

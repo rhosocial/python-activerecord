@@ -8,7 +8,7 @@ for retrieving column metadata.
 
 
 from rhosocial.activerecord.backend.introspection.types import (
-    ColumnInfo,
+    IntrospectionColumnInfo,
     ColumnNullable,
 )
 
@@ -17,14 +17,14 @@ class TestListColumns:
     """Tests for list_columns method."""
 
     def test_list_columns_returns_column_info(self, backend_with_tables):
-        """Test that list_columns returns ColumnInfo objects."""
+        """Test that list_columns returns IntrospectionColumnInfo objects."""
         columns = backend_with_tables.introspector.list_columns("users")
 
         assert isinstance(columns, list)
         assert len(columns) > 0
 
         for col in columns:
-            assert isinstance(col, ColumnInfo)
+            assert isinstance(col, IntrospectionColumnInfo)
 
     def test_list_columns_all_columns_present(self, backend_with_tables):
         """Test that all columns are returned."""
@@ -60,7 +60,7 @@ class TestGetColumnInfo:
         col = backend_with_tables.introspector.get_column_info("users", "email")
 
         assert col is not None
-        assert isinstance(col, ColumnInfo)
+        assert isinstance(col, IntrospectionColumnInfo)
         assert col.name == "email"
         assert col.table_name == "users"
 
@@ -155,17 +155,19 @@ class TestColumnInfoDetails:
         assert name_col.is_primary_key is False
 
     def test_column_unique_constraint(self, backend_with_tables):
-        """Test unique constraint detection."""
+        """Test unique constraint detection.
+
+        SQLite records uniqueness on the index, not on the column, so the
+        column list reads ``PRAGMA index_list``/``index_xinfo`` too. ``users``
+        declares ``email TEXT UNIQUE``, which is the index this asserts on.
+        """
         columns = backend_with_tables.introspector.list_columns("users")
 
-        # email has UNIQUE constraint
-        # Note: SQLite doesn't expose UNIQUE constraint directly in PRAGMA table_info
-        # The uniqueness is implemented via an index, not a column constraint
         email_col = next(c for c in columns if c.name == "email")
-        # Check that unique index exists for email
-        indexes = backend_with_tables.introspector.list_indexes("users")
-        email_idx = next((i for i in indexes if "email" in [c.name for c in i.columns]), None)
-        assert email_idx is not None or email_col.is_unique is False
+        assert email_col.is_unique is True
+
+        name_col = next(c for c in columns if c.name == "name")
+        assert name_col.is_unique is False
 
     def test_column_default_value_string(self, backend_with_tables):
         """Test default value detection for string."""
@@ -220,3 +222,53 @@ class TestColumnInfoDetails:
 
         for col in columns:
             assert col.table_name == "posts"
+
+
+class TestGeneratedColumns:
+    """A generated column is a column, and ``table_info`` does not report it.
+
+    SQLite answers ``PRAGMA table_info`` for the columns a table was written
+    with; a generated column is not one of them, and the pragma does not even
+    carry the ``hidden`` field that says so. ``PRAGMA table_xinfo`` does, with
+    ``hidden`` 2 for VIRTUAL and 3 for STORED. The parser had been written for
+    the xinfo rows all along, so the missing half was the question, not the
+    answer.
+    """
+
+    def test_generated_columns_are_listed(self, sqlite_backend):
+        sqlite_backend.executescript(
+            """
+            CREATE TABLE generated_probe (
+                a INTEGER,
+                b INTEGER GENERATED ALWAYS AS (a * 2) VIRTUAL,
+                c INTEGER GENERATED ALWAYS AS (a + 1) STORED
+            );
+            """
+        )
+
+        columns = sqlite_backend.introspector.list_columns("generated_probe")
+
+        assert [col.name for col in columns] == ["a", "b", "c"]
+        assert [col.is_generated for col in columns] == [False, True, True]
+
+    def test_the_expression_stays_unread(self, sqlite_backend):
+        """The flag is answered; the expression is not, and says so by being None.
+
+        ``table_xinfo`` says *that* a column is generated, not what it is made
+        of -- that lives in the table's DDL. The field is None rather than a
+        guess, and this pins the distinction so it is not mistaken for a bug.
+        """
+        sqlite_backend.executescript(
+            """
+            CREATE TABLE generated_expr (
+                a INTEGER,
+                b INTEGER GENERATED ALWAYS AS (a * 2) VIRTUAL
+            );
+            """
+        )
+
+        columns = sqlite_backend.introspector.list_columns("generated_expr")
+        b_col = next(col for col in columns if col.name == "b")
+
+        assert b_col.is_generated is True
+        assert b_col.generated_expression is None

@@ -3,8 +3,8 @@
 
 import pytest
 from rhosocial.activerecord.backend.expression.statements import (
-    CreateFulltextIndexExpression,
-    DropFulltextIndexExpression,
+    CreateFulltextIndexStatement,
+    DropFulltextIndexStatement,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.objects import Index
@@ -16,7 +16,7 @@ class TestCreateFulltextIndexStatements:
 
     def test_basic_create_fulltext_index(self, dummy_dialect: DummyDialect):
         """Tests basic CREATE FULLTEXT INDEX statement."""
-        create_ft = CreateFulltextIndexExpression(
+        create_ft = CreateFulltextIndexStatement(
             dummy_dialect, index=Index(dummy_dialect, "idx_articles_content"), table=Table(dummy_dialect, "articles"), columns=["title", "content"]
         )
         sql, params = create_ft.to_sql()
@@ -31,7 +31,7 @@ class TestCreateFulltextIndexStatements:
 
     def test_create_fulltext_index_single_column(self, dummy_dialect: DummyDialect):
         """Tests CREATE FULLTEXT INDEX with single column."""
-        create_ft = CreateFulltextIndexExpression(
+        create_ft = CreateFulltextIndexStatement(
             dummy_dialect, index=Index(dummy_dialect, "idx_posts_body"), table=Table(dummy_dialect, "posts"), columns=["body"]
         )
         sql, params = create_ft.to_sql()
@@ -43,7 +43,7 @@ class TestCreateFulltextIndexStatements:
 
     def test_create_fulltext_index_with_parser(self, dummy_dialect: DummyDialect):
         """Tests CREATE FULLTEXT INDEX with parser."""
-        create_ft = CreateFulltextIndexExpression(
+        create_ft = CreateFulltextIndexStatement(
             dummy_dialect, index=Index(dummy_dialect, "idx_documents_body"), table=Table(dummy_dialect, "documents"), columns=["body"], parser="ngram"
         )
         sql, params = create_ft.to_sql()
@@ -55,7 +55,7 @@ class TestCreateFulltextIndexStatements:
 
     def test_create_fulltext_index_if_not_exists(self, dummy_dialect: DummyDialect):
         """Tests CREATE FULLTEXT INDEX IF NOT EXISTS."""
-        create_ft = CreateFulltextIndexExpression(
+        create_ft = CreateFulltextIndexStatement(
             dummy_dialect, index=Index(dummy_dialect, "idx_content_ft"), table=Table(dummy_dialect, "content"), columns=["text"], if_not_exists=True
         )
         sql, params = create_ft.to_sql()
@@ -66,7 +66,7 @@ class TestCreateFulltextIndexStatements:
 
     def test_create_fulltext_index_multiple_columns(self, dummy_dialect: DummyDialect):
         """Tests CREATE FULLTEXT INDEX with multiple columns."""
-        create_ft = CreateFulltextIndexExpression(
+        create_ft = CreateFulltextIndexStatement(
             dummy_dialect,
             index=Index(dummy_dialect, "idx_search"),
             table=Table(dummy_dialect, "search_table"),
@@ -86,7 +86,7 @@ class TestDropFulltextIndexStatements:
 
     def test_basic_drop_fulltext_index(self, dummy_dialect: DummyDialect):
         """Tests basic DROP FULLTEXT INDEX statement."""
-        drop_ft = DropFulltextIndexExpression(dummy_dialect, index=Index(dummy_dialect, "idx_articles_content"), table=Table(dummy_dialect, "articles"))
+        drop_ft = DropFulltextIndexStatement(dummy_dialect, index=Index(dummy_dialect, "idx_articles_content"), table=Table(dummy_dialect, "articles"))
         sql, params = drop_ft.to_sql()
 
         assert "DROP INDEX" in sql
@@ -97,7 +97,7 @@ class TestDropFulltextIndexStatements:
 
     def test_drop_fulltext_index_if_exists(self, dummy_dialect: DummyDialect):
         """Tests DROP FULLTEXT INDEX IF EXISTS."""
-        drop_ft = DropFulltextIndexExpression(
+        drop_ft = DropFulltextIndexStatement(
             dummy_dialect, index=Index(dummy_dialect, "idx_old_ft"), table=Table(dummy_dialect, "old_table"), if_exists=True
         )
         sql, params = drop_ft.to_sql()
@@ -109,7 +109,7 @@ class TestDropFulltextIndexStatements:
 
     def test_drop_fulltext_index_without_if_exists(self, dummy_dialect: DummyDialect):
         """Tests DROP FULLTEXT INDEX without IF EXISTS."""
-        drop_ft = DropFulltextIndexExpression(dummy_dialect, index=Index(dummy_dialect, "idx_content"), table=Table(dummy_dialect, "posts"))
+        drop_ft = DropFulltextIndexStatement(dummy_dialect, index=Index(dummy_dialect, "idx_content"), table=Table(dummy_dialect, "posts"))
         sql, params = drop_ft.to_sql()
 
         assert 'DROP INDEX "idx_content"' in sql
@@ -123,12 +123,12 @@ class TestFulltextIndexRoundtrip:
 
     def test_fulltext_index_roundtrip(self, dummy_dialect: DummyDialect):
         """Tests creating and dropping a FULLTEXT index."""
-        create_ft = CreateFulltextIndexExpression(
+        create_ft = CreateFulltextIndexStatement(
             dummy_dialect, index=Index(dummy_dialect, "idx_test_ft"), table=Table(dummy_dialect, "test_table"), columns=["content"]
         )
         create_sql, create_params = create_ft.to_sql()
 
-        drop_ft = DropFulltextIndexExpression(dummy_dialect, index=Index(dummy_dialect, "idx_test_ft"), table=Table(dummy_dialect, "test_table"))
+        drop_ft = DropFulltextIndexStatement(dummy_dialect, index=Index(dummy_dialect, "idx_test_ft"), table=Table(dummy_dialect, "test_table"))
         drop_sql, drop_params = drop_ft.to_sql()
 
         assert 'CREATE FULLTEXT INDEX "idx_test_ft"' in create_sql
@@ -147,7 +147,7 @@ class TestFulltextIndexRoundtrip:
     )
     def test_create_fulltext_index_various_names(self, dummy_dialect: DummyDialect, index_name, expected_identifier):
         """Tests CREATE FULLTEXT INDEX with various index name formats."""
-        create_ft = CreateFulltextIndexExpression(
+        create_ft = CreateFulltextIndexStatement(
             dummy_dialect,
             index=Index(dummy_dialect, index_name),
             table=Table(dummy_dialect, "articles"),

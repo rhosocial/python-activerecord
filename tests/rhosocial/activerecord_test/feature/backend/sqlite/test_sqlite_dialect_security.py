@@ -8,15 +8,17 @@ Tests are run against the actual SQLite dialect.
 """
 
 import pytest
-
-from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteTextType
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefaultConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Function, Table, Trigger
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
     ColumnConstraint,
-    ColumnConstraintType,
 )
-from rhosocial.activerecord.backend.expression.objects import Function, Table, Trigger
+from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteTextType
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
 
 
 @pytest.fixture
@@ -25,19 +27,44 @@ def dialect():
     return SQLiteDialect()
 
 
-def test_sqlite_escape_sql_string(dialect):
-    """Test SQLite inherits _escape_sql_string."""
-    result = dialect._escape_sql_string("test's value")
+def test_sqliteescape_sql_string(dialect):
+    """Test SQLite inherits escape_sql_string."""
+    result = dialect.escape_sql_string("test's value")
     assert result == "test''s value"
 
 
-def test_sqlite_validate_data_type(dialect):
-    """Test SQLite inherits _validate_data_type."""
-    assert dialect._validate_data_type("TEXT")
-    assert dialect._validate_data_type("INTEGER")
-    assert dialect._validate_data_type("REAL")
-    assert dialect._validate_data_type("BLOB")
-    assert not dialect._validate_data_type("TEXT; DROP TABLE users--")
+def test_sqlitea_type_position_refuses_a_payload(dialect):
+    """A type name is a name, and the grammar is what says so.
+
+    The backend has no character filter of its own any more: the type
+    position is guarded by the grammar, which is the framework's rule for
+    what a name may be, and the server decides whether the type exists.
+    """
+    from rhosocial.activerecord.backend.expression import Literal
+    from rhosocial.activerecord.backend.expression.statements import (
+        AlterColumnAction,
+    )
+    from rhosocial.activerecord.backend.expression.type_name import (
+        InvalidTypeNameError,
+    )
+    from rhosocial.activerecord.backend.expression.xml import (
+        XMLSerializeExpression,
+    )
+
+    # A name is a name: the position takes it.
+    XMLSerializeExpression(dialect, Literal(dialect, "x"), "TEXT")
+    AlterColumnAction(dialect, "c", "SET DATA TYPE", new_value="TEXT")
+
+    # A value that is not a name is refused, and refused before the
+    # statement is ever rendered.
+    with pytest.raises(InvalidTypeNameError):
+        XMLSerializeExpression(
+            dialect, Literal(dialect, "x"), "TEXT; DROP TABLE users--"
+        )
+    with pytest.raises(InvalidTypeNameError):
+        AlterColumnAction(
+            dialect, "c", "SET DATA TYPE", new_value="TEXT; DROP TABLE users--"
+        )
 
 
 def test_sqlite_format_column_definition_data_type_validation(dialect):
@@ -62,12 +89,9 @@ def test_sqlite_format_column_definition_data_type_rejects_injection(dialect):
 
 def test_sqlite_format_default_constraint_string_escaping(dialect):
     """Test DEFAULT constraint string is escaped."""
-    constraint = ColumnConstraint(dialect, 
-        constraint_type=ColumnConstraintType.DEFAULT,
-        default_value="test's value",
-    )
+    constraint = ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, "test's value"))
 
-    sql, params = dialect.format_default_constraint(constraint)
+    sql, params = dialect.format_column_default_constraint(constraint.branch)
     assert sql == " DEFAULT 'test''s value'"
     assert params == ()
 
@@ -76,7 +100,7 @@ def test_sqlite_format_storage_options_string_escaping(dialect):
     """Test storage options string values are escaped."""
     from rhosocial.activerecord.backend.expression.statements import StorageOptionsExpression
     storage_opts = StorageOptionsExpression(dialect, {"key": "value's"})
-    sql, params = dialect.format_storage_options(storage_opts)
+    sql, params = dialect.format_storage_options_expression(storage_opts)
     assert "value''s" in sql
     assert "'; DROP" not in sql
 
@@ -141,7 +165,7 @@ def test_format_identifier_empty_string(dialect):
 
 
 # ============================================================
-# format_column_info_query — uses format_identifier for table_name
+# format_column_info_query_statement — uses format_identifier for table_name
 # ============================================================
 
 
@@ -152,26 +176,26 @@ def test_format_column_info_query_with_malicious_table_name(dialect):
     which makes it a table name literal, not executable SQL.
     Balanced quotes = no breakout.
     """
-    from rhosocial.activerecord.backend.expression.introspection import ColumnInfoExpression
+    from rhosocial.activerecord.backend.expression.introspection import ColumnInfoQueryStatement
 
-    expr = ColumnInfoExpression(dialect, table_name='t"; DROP TABLE users--')
-    sql, params = dialect.format_column_info_query(expr)
+    expr = ColumnInfoQueryStatement(dialect, table_name='t"; DROP TABLE users--')
+    sql, params = dialect.format_column_info_query_statement(expr)
     # DROP TABLE appears inside the quoted identifier — verify balanced quotes
     assert sql.count('"') % 2 == 0, f"Unbalanced quotes: {sql}"
 
 
 def test_format_column_info_query_normal_table(dialect):
     """Column info query with normal table name works."""
-    from rhosocial.activerecord.backend.expression.introspection import ColumnInfoExpression
+    from rhosocial.activerecord.backend.expression.introspection import ColumnInfoQueryStatement
 
-    expr = ColumnInfoExpression(dialect, table_name="users")
-    sql, params = dialect.format_column_info_query(expr)
+    expr = ColumnInfoQueryStatement(dialect, table_name="users")
+    sql, params = dialect.format_column_info_query_statement(expr)
     assert '"users"' in sql
     assert params == ()
 
 
 # ============================================================
-# format_index_info_query — uses format_identifier for table_name
+# format_index_info_query_statement — uses format_identifier for table_name
 # ============================================================
 
 
@@ -180,15 +204,15 @@ def test_format_index_info_query_with_malicious_table_name(dialect):
 
     DELETE appears inside the quoted identifier — verify balanced quotes.
     """
-    from rhosocial.activerecord.backend.expression.introspection import IndexInfoExpression
+    from rhosocial.activerecord.backend.expression.introspection import IndexInfoQueryStatement
 
-    expr = IndexInfoExpression(dialect, table_name='t"; DELETE FROM users--')
-    sql, params = dialect.format_index_info_query(expr)
+    expr = IndexInfoQueryStatement(dialect, table_name='t"; DELETE FROM users--')
+    sql, params = dialect.format_index_info_query_statement(expr)
     assert sql.count('"') % 2 == 0, f"Unbalanced quotes: {sql}"
 
 
 # ============================================================
-# format_foreign_key_query — uses format_identifier for table_name
+# format_foreign_key_query_statement — uses format_identifier for table_name
 # ============================================================
 
 
@@ -197,22 +221,22 @@ def test_format_foreign_key_query_with_malicious_table_name(dialect):
 
     DROP TABLE appears inside the quoted identifier — verify balanced quotes.
     """
-    from rhosocial.activerecord.backend.expression.introspection import ForeignKeyExpression
+    from rhosocial.activerecord.backend.expression.introspection import ForeignKeyQueryStatement
 
-    expr = ForeignKeyExpression(dialect, table_name='t"; DROP TABLE users--')
-    sql, params = dialect.format_foreign_key_query(expr)
+    expr = ForeignKeyQueryStatement(dialect, table_name='t"; DROP TABLE users--')
+    sql, params = dialect.format_foreign_key_query_statement(expr)
     assert sql.count('"') % 2 == 0, f"Unbalanced quotes: {sql}"
 
 
 # ============================================================
-# format_drop_virtual_table — manual quoting replaced with format_identifier
+# format_drop_virtual_table_statement — manual quoting replaced with format_identifier
 # ============================================================
 
 
 def test_format_drop_virtual_table_normal(dialect):
     """Drop virtual table with normal table name."""
-    from rhosocial.activerecord.backend.impl.sqlite.expression import DropVirtualTableExpression
-    expr = DropVirtualTableExpression(dialect, table=Table(dialect, "my_fts_table"), if_exists=False)
+    from rhosocial.activerecord.backend.impl.sqlite.expression import DropVirtualTableStatement
+    expr = DropVirtualTableStatement(dialect, table=Table(dialect, "my_fts_table"), if_exists=False)
     sql, params = expr.to_sql()
     assert sql == 'DROP TABLE "my_fts_table"'
     assert params == ()
@@ -220,8 +244,8 @@ def test_format_drop_virtual_table_normal(dialect):
 
 def test_format_drop_virtual_table_if_exists(dialect):
     """Drop virtual table with IF EXISTS."""
-    from rhosocial.activerecord.backend.impl.sqlite.expression import DropVirtualTableExpression
-    expr = DropVirtualTableExpression(dialect, table=Table(dialect, "my_fts_table"), if_exists=True)
+    from rhosocial.activerecord.backend.impl.sqlite.expression import DropVirtualTableStatement
+    expr = DropVirtualTableStatement(dialect, table=Table(dialect, "my_fts_table"), if_exists=True)
     sql, params = expr.to_sql()
     assert sql == 'DROP TABLE IF EXISTS "my_fts_table"'
     assert params == ()
@@ -233,8 +257,8 @@ def test_format_drop_virtual_table_with_malicious_name(dialect):
     Before fix: f'DROP TABLE "{table_name}"' — no escaping of internal ".
     After fix: uses format_identifier which escapes " to "".
     """
-    from rhosocial.activerecord.backend.impl.sqlite.expression import DropVirtualTableExpression
-    expr = DropVirtualTableExpression(dialect, table=Table(dialect, 't"; DROP TABLE users--'), if_exists=False)
+    from rhosocial.activerecord.backend.impl.sqlite.expression import DropVirtualTableStatement
+    expr = DropVirtualTableStatement(dialect, table=Table(dialect, 't"; DROP TABLE users--'), if_exists=False)
     sql, params = expr.to_sql()
     assert "DROP TABLE" not in sql.split('"')[1::2] if len(sql.split('"')) > 2 else "DROP TABLE users" not in sql
     assert sql.count('"') % 2 == 0, f"Unbalanced quotes: {sql}"
@@ -252,13 +276,13 @@ def test_format_create_trigger_function_name_quoted(dialect):
     After fix: uses format_identifier which quotes the function name.
     """
     from rhosocial.activerecord.backend.expression.statements.ddl_trigger import (
-        CreateTriggerExpression,
+        CreateTriggerStatement,
         TriggerTiming,
         TriggerEvent,
         TriggerLevel,
     )
 
-    expr = CreateTriggerExpression(
+    expr = CreateTriggerStatement(
         dialect=dialect,
         trigger=Trigger(dialect, "test_trigger"),
         timing=TriggerTiming.AFTER,
@@ -278,13 +302,13 @@ def test_format_create_trigger_malicious_function_name(dialect):
     Balanced quotes = no breakout from identifier context.
     """
     from rhosocial.activerecord.backend.expression.statements.ddl_trigger import (
-        CreateTriggerExpression,
+        CreateTriggerStatement,
         TriggerTiming,
         TriggerEvent,
         TriggerLevel,
     )
 
-    expr = CreateTriggerExpression(
+    expr = CreateTriggerStatement(
         dialect=dialect,
         trigger=Trigger(dialect, "test_trigger"),
         timing=TriggerTiming.AFTER,
@@ -298,7 +322,7 @@ def test_format_create_trigger_malicious_function_name(dialect):
 
 
 # ============================================================
-# Integration: format_storage_options via SQLite dialect
+# Integration: format_storage_options_expression via SQLite dialect
 # ============================================================
 
 
@@ -307,7 +331,7 @@ def test_sqlite_format_storage_options_key_identifier_quoting(dialect):
     from rhosocial.activerecord.backend.expression.statements import StorageOptionsExpression
     malicious_key = 'key"; DROP TABLE users--'
     storage_opts = StorageOptionsExpression(dialect, {malicious_key: "value"})
-    sql, params = dialect.format_storage_options(storage_opts)
+    sql, params = dialect.format_storage_options_expression(storage_opts)
     # "DROP TABLE" appears inside the quoted identifier — safe.
     # Verify balanced quotes (no breakout).
     assert sql.count('"') % 2 == 0, f"Unbalanced quotes in {sql}"

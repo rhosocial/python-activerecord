@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING, Any, List, Tuple
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression import bases
+    from ...expression.query_sources import CTEClause, WithStatement
 
 
 class CTEMixin:
@@ -42,11 +42,11 @@ class CTEMixin:
         """
         return True
 
-    def format_cte_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_cte_clause(self, expr: "CTEClause") -> Tuple[str, tuple]:
         """Format a single CTE definition (name AS (query)).
 
         Args:
-            expr: CTE expression carrying ``name``, optional ``columns``, the
+            expr: The ``CTEClause`` carrying ``name``, optional ``columns``, the
                 ``materialized`` hint, and the ``query``.
 
         Returns:
@@ -91,42 +91,48 @@ class CTEMixin:
         sql = f"{name_part}{columns_part} AS {materialized_hint}({query_sql})"
         return sql, query_params
 
-    def format_with_query_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
-        """Format a complete query with a WITH clause.
+    def format_with_statement(self, stmt: "WithStatement") -> Tuple[str, tuple]:
+        """Format a query with a ``WITH`` clause: ``WITH [RECURSIVE] cte [, ...] query``.
+
+        The probes this construct consults used to be decorative: a dialect
+        that declares no basic CTE support refused nothing and the clause
+        rendered anyway, and a ``RECURSIVE`` request on a dialect without
+        recursive CTEs was silently spelled. Both are refused by name now,
+        where the construct is spelled.
+
+        Each CTE definition renders through its own formatter
+        (``format_cte_clause``), so a backend re-spells a single CTE there
+        rather than re-implementing the composition around it.
 
         Args:
-            expr: Query expression carrying ``ctes``, ``recursive``, and
-                ``main_query``.
+            stmt: The ``WithStatement`` carrying the ``ctes``, the
+                ``recursive`` modifier, and the trailing ``query``.
 
         Returns:
-            Tuple of (SQL string, parameters tuple) for the full query.
+            Tuple of (SQL string, parameters tuple) for the full statement.
+            A statement with no CTE definitions renders the bare query.
+
+        Raises:
+            UnsupportedFeatureError: If CTEs are present but the dialect
+                declares no basic CTE support, or ``recursive`` was
+                requested on a dialect without recursive CTE support.
         """
+        from ..exceptions import UnsupportedFeatureError
+
+        if not stmt.ctes:
+            query_sql, query_params = stmt.query.to_sql()
+            return query_sql, tuple(query_params)
+        if not self.supports_basic_cte():
+            raise UnsupportedFeatureError(self.name, "WITH clause (basic CTE)")
+        if stmt.recursive and not self.supports_recursive_cte():
+            raise UnsupportedFeatureError(self.name, "WITH RECURSIVE clause")
         all_params: List[Any] = []
         cte_sql_parts: List[str] = []
-        for cte in expr.ctes:
+        for cte in stmt.ctes:
             cte_sql, cte_params = cte.to_sql()
             cte_sql_parts.append(cte_sql)
             all_params.extend(cte_params)
-        main_sql, main_params = expr.main_query.to_sql()
-        all_params.extend(main_params)
-        has_recursive = bool(expr.recursive)
-        if not cte_sql_parts:
-            return main_sql, tuple(all_params)
-        with_clause = self._format_with_clause(cte_sql_parts, has_recursive)
-        return f"{with_clause} {main_sql}", tuple(all_params)
-
-    def _format_with_clause(self, ctes_sql: List[str], has_recursive: bool = False) -> str:
-        """Helper to format complete WITH clause from list of CTE definitions.
-
-        Args:
-            ctes_sql: Rendered CTE definition strings.
-            has_recursive: Whether to emit the ``RECURSIVE`` keyword.
-
-        Returns:
-            The rendered ``WITH`` clause, or an empty string when there are no
-            CTE definitions.
-        """
-        if not ctes_sql:
-            return ""
-        recursive_str = "RECURSIVE " if has_recursive else ""
-        return f"WITH {recursive_str}{', '.join(ctes_sql)}"
+        recursive_str = "RECURSIVE " if stmt.recursive else ""
+        query_sql, query_params = stmt.query.to_sql()
+        all_params.extend(query_params)
+        return f"WITH {recursive_str}{', '.join(cte_sql_parts)} {query_sql}", tuple(all_params)

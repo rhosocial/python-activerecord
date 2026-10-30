@@ -13,9 +13,9 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    InsertExpression,
-    UpdateExpression,
-    DeleteExpression,
+    InsertStatement,
+    UpdateStatement,
+    DeleteStatement,
     ValuesSource,
     ComparisonPredicate,
     ReturningClause,
@@ -32,14 +32,14 @@ from rhosocial.activerecord.backend.expression.objects import Table
 
 
 def _make_insert(dialect, table="users", name_val="Alice", email_val="a@test.com"):
-    """Construct a minimal single-row InsertExpression without RETURNING."""
+    """Construct a minimal single-row InsertStatement without RETURNING."""
     source = ValuesSource(dialect, values_list=[[Literal(dialect, name_val), Literal(dialect, email_val)]])
-    return InsertExpression(dialect, into=Table(dialect, table), columns=["name", "email"], source=source)
+    return InsertStatement(dialect, into=Table(dialect, table), columns=["name", "email"], source=source)
 
 
 def _make_update(dialect, table="users", set_col="name", set_val="Bob", pk_val=1):
-    """Construct a minimal UpdateExpression without RETURNING."""
-    return UpdateExpression(
+    """Construct a minimal UpdateStatement without RETURNING."""
+    return UpdateStatement(
         dialect,
         table=Table(dialect, table),
         assignments={set_col: Literal(dialect, set_val)},
@@ -48,8 +48,8 @@ def _make_update(dialect, table="users", set_col="name", set_val="Bob", pk_val=1
 
 
 def _make_delete(dialect, table="users", pk_val=1):
-    """Construct a minimal DeleteExpression without RETURNING."""
-    return DeleteExpression(
+    """Construct a minimal DeleteStatement without RETURNING."""
+    return DeleteStatement(
         dialect,
         tables=Table(dialect, table),
         where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, pk_val)),
@@ -70,26 +70,26 @@ class TestBatchDMLTypeValidation:
         [e.to_sql() for e in exprs]
         types = {type(e) for e in exprs}
         assert len(types) == 1
-        assert types.pop() is InsertExpression
+        assert types.pop() is InsertStatement
 
     def test_all_update_passes(self, dummy_dialect: DummyDialect):
         exprs = [_make_update(dummy_dialect, set_val=f"name{i}", pk_val=i) for i in range(3)]
         types = {type(e) for e in exprs}
         assert len(types) == 1
-        assert types.pop() is UpdateExpression
+        assert types.pop() is UpdateStatement
 
     def test_all_delete_passes(self, dummy_dialect: DummyDialect):
         exprs = [_make_delete(dummy_dialect, pk_val=i) for i in range(3)]
         types = {type(e) for e in exprs}
         assert len(types) == 1
-        assert types.pop() is DeleteExpression
+        assert types.pop() is DeleteStatement
 
     @pytest.mark.parametrize(
         "maker_a, maker_b, label_a, label_b",
         [
-            pytest.param(_make_insert, _make_update, "InsertExpression", "UpdateExpression", id="insert_update_mixed"),
-            pytest.param(_make_insert, _make_delete, "InsertExpression", "DeleteExpression", id="insert_delete_mixed"),
-            pytest.param(_make_update, _make_delete, "UpdateExpression", "DeleteExpression", id="update_delete_mixed"),
+            pytest.param(_make_insert, _make_update, "InsertStatement", "UpdateStatement", id="insert_update_mixed"),
+            pytest.param(_make_insert, _make_delete, "InsertStatement", "DeleteStatement", id="insert_delete_mixed"),
+            pytest.param(_make_update, _make_delete, "UpdateStatement", "DeleteStatement", id="update_delete_mixed"),
         ],
     )
     def test_mixed_types_detected(self, dummy_dialect, maker_a, maker_b, label_a, label_b):
@@ -103,7 +103,7 @@ class TestBatchDMLTypeValidation:
     def test_single_expression(self, dummy_dialect: DummyDialect):
         exprs = [_make_insert(dummy_dialect)]
         assert len(exprs) == 1
-        assert type(exprs[0]) is InsertExpression
+        assert type(exprs[0]) is InsertStatement
 
     def test_empty_list(self, dummy_dialect: DummyDialect):
         exprs = []
@@ -123,7 +123,7 @@ class TestBatchDMLReturningConflict:
             dummy_dialect, values_list=[[Literal(dummy_dialect, "Alice"), Literal(dummy_dialect, "a@t.com")]]
         )
         clause = ReturningClause(dummy_dialect, expressions=[Column(dummy_dialect, "id")])
-        expr = InsertExpression(
+        expr = InsertStatement(
             dummy_dialect,
             into=Table(dummy_dialect, 'users'),
             columns=["name", "email"],
@@ -134,7 +134,7 @@ class TestBatchDMLReturningConflict:
 
     def test_update_with_returning_detected(self, dummy_dialect: DummyDialect):
         clause = ReturningClause(dummy_dialect, expressions=[Column(dummy_dialect, "id")])
-        expr = UpdateExpression(
+        expr = UpdateStatement(
             dummy_dialect,
             table=Table(dummy_dialect, 'users'),
             assignments={"name": Literal(dummy_dialect, "Bob")},
@@ -145,7 +145,7 @@ class TestBatchDMLReturningConflict:
 
     def test_delete_with_returning_detected(self, dummy_dialect: DummyDialect):
         clause = ReturningClause(dummy_dialect, expressions=[Column(dummy_dialect, "id")])
-        expr = DeleteExpression(
+        expr = DeleteStatement(
             dummy_dialect,
             tables=Table(dummy_dialect, 'users'),
             where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 1)),
@@ -164,7 +164,7 @@ class TestBatchDMLReturningConflict:
         source = ValuesSource(
             dummy_dialect, values_list=[[Literal(dummy_dialect, "B"), Literal(dummy_dialect, "b@t.com")]]
         )
-        expr_dirty = InsertExpression(
+        expr_dirty = InsertStatement(
             dummy_dialect,
             into=Table(dummy_dialect, 'users'),
             columns=["name", "email"],
@@ -191,10 +191,10 @@ class TestBatchDMLTemplateValidation:
 
     def test_different_columns_inconsistent(self, dummy_dialect: DummyDialect):
         source_a = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "Alice")]])
-        expr_a = InsertExpression(dummy_dialect, into=Table(dummy_dialect, 'users'), columns=["name"], source=source_a)
+        expr_a = InsertStatement(dummy_dialect, into=Table(dummy_dialect, 'users'), columns=["name"], source=source_a)
 
         source_b = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "a@t.com")]])
-        expr_b = InsertExpression(dummy_dialect, into=Table(dummy_dialect, 'users'), columns=["email"], source=source_b)
+        expr_b = InsertStatement(dummy_dialect, into=Table(dummy_dialect, 'users'), columns=["email"], source=source_b)
 
         sql_a, _ = expr_a.to_sql()
         sql_b, _ = expr_b.to_sql()
@@ -210,7 +210,7 @@ class TestBatchDMLTemplateValidation:
     def test_different_where_structure_inconsistent(self, dummy_dialect: DummyDialect):
         expr_a = _make_update(dummy_dialect, set_col="name", set_val="A", pk_val=1)
         # Different WHERE column
-        expr_b = UpdateExpression(
+        expr_b = UpdateStatement(
             dummy_dialect,
             table=Table(dummy_dialect, 'users'),
             assignments={"name": Literal(dummy_dialect, "B")},
@@ -374,7 +374,7 @@ class TestBatchDMLValuesSourceModes:
         def make_3row(i):
             rows = [[Literal(dummy_dialect, f"u{i}_{j}"), Literal(dummy_dialect, f"u{i}_{j}@t.com")] for j in range(3)]
             source = ValuesSource(dummy_dialect, values_list=rows)
-            return InsertExpression(dummy_dialect, into=Table(dummy_dialect, 'users'), columns=["name", "email"], source=source)
+            return InsertStatement(dummy_dialect, into=Table(dummy_dialect, 'users'), columns=["name", "email"], source=source)
 
         exprs = [make_3row(i) for i in range(3)]
         templates = {e.to_sql()[0] for e in exprs}
@@ -387,7 +387,7 @@ class TestBatchDMLValuesSourceModes:
         # Triple row
         rows = [[Literal(dummy_dialect, f"u{j}"), Literal(dummy_dialect, f"u{j}@t.com")] for j in range(3)]
         source_3 = ValuesSource(dummy_dialect, values_list=rows)
-        expr_3 = InsertExpression(dummy_dialect, into=Table(dummy_dialect, 'users'), columns=["name", "email"], source=source_3)
+        expr_3 = InsertStatement(dummy_dialect, into=Table(dummy_dialect, 'users'), columns=["name", "email"], source=source_3)
 
         sql_1, _ = expr_1.to_sql()
         sql_3, _ = expr_3.to_sql()

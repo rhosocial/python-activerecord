@@ -7,7 +7,7 @@ Database introspection is the ability to query database structure metadata at ru
 The introspection system is accessible via the `backend.introspector` attribute and provides:
 
 - **Database Information**: Name, version, encoding, size, etc.
-- **Table Information**: Table list, table details, table types (base table, view, system table)
+- **Table Information**: Table list, table details, table types (`BASE_TABLE`, `VIEW`, `MATERIALIZED_VIEW`, `FOREIGN_TABLE`, `PARTITIONED_TABLE`, `SYSTEM_TABLE`, `TEMPORARY`, `EXTERNAL`)
 - **Column Information**: Column name, data type, nullability, default value, primary key info
 - **Index Information**: Index name, columns, uniqueness, index type
 - **Foreign Key Information**: Referenced table, column mapping, update/delete actions
@@ -21,12 +21,27 @@ The introspection system is accessible via the `backend.introspector` attribute 
 ```
 backend/introspection/
 ├── __init__.py          # Module exports
-├── base.py              # Abstract base classes
-├── types.py             # Data structure definitions
+├── base.py              # Abstract introspector bases (sync and async)
+├── types.py             # Data structure definitions (TableType, ...)
 ├── errors.py            # Introspection-specific exceptions
 ├── executor.py          # Executor abstraction
-└── backend_mixin.py     # Backend mixin class
+├── cache.py             # IntrospectionCache -- the injectable result cache
+├── backend_mixin.py     # Backend mixin class
+└── status/              # Server status overview (config, performance, storage)
 ```
+
+### A Catalogue Question Is a Statement
+
+Introspection does not build SQL text inline. Each question is a statement class
+(named `*Statement`, e.g. `TableListQueryStatement`), rendered by a dialect
+`format_*_query_statement` method; the introspector holds the public method pairs
+(`list_tables()` / `parse_tables()`, and so on) that use them. Two consequences
+matter to a backend author:
+
+- the expression layer keeps no state -- a statement holds what it needs to be
+  rendered anywhere;
+- a backend answers a catalogue question by declaring a statement plus a
+  formatter, not by overriding a method that assembles a string.
 
 ### Sync and Async Separation
 
@@ -34,17 +49,17 @@ The introspection system follows the project's sync/async parity principle:
 
 - `SyncAbstractIntrospector` — Synchronous introspector
 - `AsyncAbstractIntrospector` — Asynchronous introspector
-- `IntrospectorMixin` — Shared non-I/O logic (caching, SQL generation, parsing)
+- `IntrospectorMixin` — Shared non-I/O logic (caching, SQL generation, parsing), including `server_version`: the version the introspector read from the server, so a capability question can be answered without asking again
 
 ## Data Structures
 
-### DatabaseInfo
+### IntrospectionDatabaseInfo
 
 Basic database information:
 
 ```python
 @dataclass
-class DatabaseInfo:
+class IntrospectionDatabaseInfo:
     name: str                      # Database name
     version: str                   # Version string
     version_tuple: Tuple[int, ...] # Version tuple
@@ -57,29 +72,36 @@ class DatabaseInfo:
     extra: Dict[str, Any]          # Additional info
 ```
 
-### TableInfo
+### IntrospectionTableInfo
 
 Table information:
 
 ```python
 @dataclass
-class TableInfo:
+class IntrospectionTableInfo:
     name: str                    # Table name
     schema: str                  # Schema name
-    table_type: TableType        # Table type
+    table_type: TableType        # Table type (BASE_TABLE, VIEW, MATERIALIZED_VIEW,
+                                 #  FOREIGN_TABLE, PARTITIONED_TABLE, SYSTEM_TABLE,
+                                 #  TEMPORARY, EXTERNAL)
     comment: Optional[str]       # Table comment
     row_count: Optional[int]     # Row count estimate
     size_bytes: Optional[int]    # Table size
     extra: Dict[str, Any]        # Additional info
 ```
 
-### ColumnInfo
+`table_type` keeps the distinction the catalogue actually makes rather than
+folding every relation into "table". On SQLite, for instance, the storage tables
+behind an FTS or R-Tree virtual table are `SYSTEM_TABLE` and the virtual table
+itself is `EXTERNAL`.
+
+### IntrospectionColumnInfo
 
 Column information:
 
 ```python
 @dataclass
-class ColumnInfo:
+class IntrospectionColumnInfo:
     name: str                         # Column name
     table_name: str                   # Owner table name
     data_type: str                    # Data type
@@ -110,13 +132,13 @@ class IndexInfo:
     extra: Dict[str, Any]          # Additional info
 ```
 
-### ForeignKeyInfo
+### IntrospectionForeignKeyInfo
 
 Foreign key information:
 
 ```python
 @dataclass
-class ForeignKeyInfo:
+class IntrospectionForeignKeyInfo:
     name: str                           # Foreign key name
     table_name: str                     # Owner table name
     columns: List[str]                  # Foreign key columns
@@ -128,13 +150,13 @@ class ForeignKeyInfo:
     extra: Dict[str, Any]               # Additional info
 ```
 
-### ViewInfo
+### IntrospectionViewInfo
 
 View information:
 
 ```python
 @dataclass
-class ViewInfo:
+class IntrospectionViewInfo:
     name: str                    # View name
     schema: str                  # Schema name
     definition: str              # View definition SQL
@@ -143,13 +165,13 @@ class ViewInfo:
     extra: Dict[str, Any]        # Additional info
 ```
 
-### TriggerInfo
+### IntrospectionTriggerInfo
 
 Trigger information:
 
 ```python
 @dataclass
-class TriggerInfo:
+class IntrospectionTriggerInfo:
     name: str                    # Trigger name
     table_name: str              # Associated table name
     event: TriggerEvent          # Trigger event
@@ -317,13 +339,52 @@ triggers = await backend.introspector.list_triggers()
 
 ## Caching Mechanism
 
-Introspection results are cached by default for performance.
+Introspection results are cached by default for performance. The cache is a
+component the manager **owns** and a caller may replace, rather than a hidden
+attribute: `backend.introspector.cache`.
 
-### Cache Configuration
+### The Cache Contract
+
+`IntrospectionCache` (`rhosocial.activerecord.backend.introspection.cache`) is a
+protocol, so a backend can put its own implementation behind the manager instead
+of inheriting this package's expiry policy:
+
+| Method | Purpose |
+|--------|---------|
+| `key(scope, name=None, schema=None, extra=None)` | Build the key two callers asking the same question share |
+| `get(key)` | Return a cached result, or `None` |
+| `set(key, value)` | Store a result |
+| `invalidate(scope=None, name=None)` | Drop results from everything down to one object |
+| `clear()` | Drop every cached result |
+
+`InMemoryIntrospectionCache` is the default: in-process, expiring after a TTL
+(300 seconds by default), dropped lazily the moment somebody looks at an expired
+entry rather than by a background sweeper.
 
 ```python
-# Default TTL is 300 seconds (5 minutes)
-# Automatically set when introspector is initialized
+from rhosocial.activerecord.backend.introspection.cache import InMemoryIntrospectionCache
+
+# Default: in-process, 300 s TTL
+backend.introspector.cache = InMemoryIntrospectionCache(ttl=60)
+
+# Or a cache of your own: anything that satisfies the protocol
+class NoCache:
+    def key(self, scope, name=None, schema=None, extra=None):
+        return (scope, name, schema, extra)
+
+    def get(self, key):
+        return None
+
+    def set(self, key, value):
+        pass
+
+    def invalidate(self, scope=None, name=None):
+        pass
+
+    def clear(self):
+        pass
+
+backend.introspector.cache = NoCache()
 ```
 
 ### Cache Management
@@ -338,38 +399,33 @@ from rhosocial.activerecord.backend.introspection.types import IntrospectionScop
 # Invalidate all table-related cache
 backend.introspector.invalidate_cache(scope=IntrospectionScope.TABLE)
 
-# Invalidate cache for a specific table
+# Invalidate cache for a specific table, index, column set, ...
 backend.introspector.invalidate_cache(
     scope=IntrospectionScope.TABLE,
     name="users"
 )
-
-# Invalidate column-related cache
-backend.introspector.invalidate_cache(
-    scope=IntrospectionScope.COLUMN,
-    table_name="users"
-)
-
-# Invalidate index-related cache
 backend.introspector.invalidate_cache(
     scope=IntrospectionScope.INDEX,
-    table_name="users",
     name="idx_users_email"
 )
 ```
 
 ### Cache Scopes
 
-| Scope | Description | Invalidation Parameters |
-|-------|-------------|------------------------|
-| `DATABASE` | Database information | None |
-| `SCHEMA` | Schema information | `name` |
-| `TABLE` | Table information | `name` |
-| `COLUMN` | Column information | `table_name`, `name` |
-| `INDEX` | Index information | `table_name`, `name` |
-| `FOREIGN_KEY` | Foreign key information | `table_name`, `name` |
-| `VIEW` | View information | `name` |
-| `TRIGGER` | Trigger information | `table_name`, `name` |
+A scope says which cached answers an invalidation reaches, so the table a
+question is about travels in the `name` (or, for `key()`, in `schema`/`extra`):
+
+| Scope | Description |
+|-------|-------------|
+| `DATABASE` | Database information |
+| `SCHEMA` | Schema information |
+| `TABLE` | Table information |
+| `COLUMN` | Column information |
+| `INDEX` | Index information |
+| `FOREIGN_KEY` | Foreign key information |
+| `VIEW` | View information |
+| `TRIGGER` | Trigger information |
+
 
 ## Backend-Specific Implementations
 

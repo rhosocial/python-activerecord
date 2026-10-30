@@ -1,3 +1,26 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression import functions
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression import (
+    QueryStatement,
+    Column,
+    GroupByHavingClause,
+)
+from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
+    CreateTableStatement,
+    InsertStatement,
+    ValuesSource,
+)
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 """
 Aggregate query with GROUP BY and HAVING clauses.
 """
@@ -5,28 +28,13 @@ Aggregate query with GROUP BY and HAVING clauses.
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableExpression,
-    InsertExpression,
-    ValuesSource,
-)
-from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
-from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
-)
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table_name="orders",
     columns=[
@@ -34,8 +42,8 @@ create_table = CreateTableExpression(
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, "user_id", IntegerType()),
@@ -55,7 +63,7 @@ orders_data = [
     (3, 300.0, "completed"),
 ]
 for row in orders_data:
-    insert_expr = InsertExpression(
+    insert_expr = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'orders'),
         columns=["user_id", "amount", "status"],
@@ -67,27 +75,19 @@ for row in orders_data:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (
-    QueryExpression,
-    Column,
-    GroupByHavingClause,
-)
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal  # noqa: E402
-from .....expression.objects import Table
 
-query = QueryExpression(
+query = QueryStatement(
     dialect=dialect,
     select=[
         Column(dialect, "user_id"),
-        FunctionCall(dialect, "SUM", Column(dialect, "amount"), alias="total_amount"),
-        FunctionCall(dialect, "COUNT", Column(dialect, "id"), alias="order_count"),
+        functions.sum_(dialect, Column(dialect, "amount"), alias="total_amount"),
+        functions.count(dialect, Column(dialect, "id"), alias="order_count"),
     ],
     from_=NamedRelationRef(dialect, Table(dialect, "orders")),
     group_by_having=GroupByHavingClause(
         dialect,
         group_by=[Column(dialect, "user_id")],
-        having=FunctionCall(dialect, "SUM", Column(dialect, "amount")) > Literal(dialect, 100),
+        having=functions.sum_(dialect, Column(dialect, "amount")) > Literal(dialect, 100),
     ),
 )
 

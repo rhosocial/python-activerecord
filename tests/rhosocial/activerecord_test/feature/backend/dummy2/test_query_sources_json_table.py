@@ -1,5 +1,5 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_query_sources_json_table.py
-from rhosocial.activerecord.backend.expression import Column, QueryExpression
+from rhosocial.activerecord.backend.expression import Column, QueryStatement
 from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression, JSONTableColumn
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.types import BooleanType, DateType, DecimalType, FloatType, IntegerType, TextType, VarCharType
@@ -80,7 +80,7 @@ class TestJSONTableExpression:
             dummy_dialect, json_column="json_content", path="$.articles[*]", columns=columns, alias="articles"
         )
 
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id", table="articles"), Column(dummy_dialect, "title", table="articles")],
             from_=json_table,
@@ -110,7 +110,7 @@ class TestJSONTableExpression:
         )
 
         # Use the JSON table directly in a query
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[
                 Column(dummy_dialect, "field", table="key_val_pairs"),

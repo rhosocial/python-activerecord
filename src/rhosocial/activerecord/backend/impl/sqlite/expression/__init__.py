@@ -6,7 +6,7 @@ This module provides expression classes that are specific to SQLite,
 such as column info expressions, table list expressions, and REINDEX statement.
 
 Directory structure:
-- introspection.py  - Column info expression
+- introspection.py  - Column info expression, PRAGMA statements, table count and DDL reads
 - table_list.py     - Table list expression
 - reindex.py        - REINDEX expression
 - predicates.py     - FTS MATCH predicate expression
@@ -15,23 +15,31 @@ Directory structure:
 - geopoly.py        - Geopoly expression classes
 """
 
-from .introspection import SQLiteColumnInfoExpression
+from .introspection import (
+    SQLiteColumnInfoExpression,
+    SQLiteIndexDdlStatement,
+    SQLitePragmaQueryStatement,
+    SQLitePragmaSetStatement,
+    SQLiteTableCountStatement,
+    SQLiteTableDdlStatement,
+)
+from .table import SQLiteTable
 from .table_list import SQLiteTableListExpression
-from .reindex import SQLiteReindexExpression
-from .vacuum import SQLiteVacuumExpression, SQLiteAnalyzeExpression
-from .attach import SQLiteAttachExpression, SQLiteDetachExpression
+from .reindex import SQLiteReindexStatement
+from .vacuum import SQLiteVacuumStatement, SQLiteAnalyzeStatement
+from .attach import SQLiteAttachStatement, SQLiteDetachStatement
 from .predicates import SQLiteMatchPredicate
-from .dml import SQLiteInsertExpression
+from .dml import SQLiteInsertStatement
 from .fts5 import (
-    SQLiteFTS5MatchExpression,
+    SQLiteFTS5MatchPredicate,
     SQLiteFTS5CreateVirtualTable,
     SQLiteFTS5RankExpression,
     SQLiteFTS5HighlightExpression,
     SQLiteFTS5SnippetExpression,
 )
 from .virtual_table import (
-    CreateVirtualTableExpression,
-    DropVirtualTableExpression,
+    CreateVirtualTableStatement,
+    DropVirtualTableStatement,
 )
 from .rtree import (
     SQLiteRTreeCreateVirtualTable,
@@ -42,55 +50,77 @@ from .geopoly import (
     SQLiteGeopolyContainsExpression,
     SQLiteGeopolyAreaExpression,
 )
+from .json import SQLiteJsonExtractFunction
 
-__all__ = [
-    "SQLiteColumnInfoExpression",
-    "SQLiteTableListExpression",
-    "SQLiteReindexExpression",
-    "SQLiteVacuumExpression",
-    "SQLiteAnalyzeExpression",
-    "SQLiteAttachExpression",
-    "SQLiteDetachExpression",
-    "SQLiteMatchPredicate",
-    "SQLiteInsertExpression",
-    "SQLiteFTS5MatchExpression",
-    "SQLiteFTS5CreateVirtualTable",
-    "SQLiteFTS5RankExpression",
-    "SQLiteFTS5HighlightExpression",
-    "SQLiteFTS5SnippetExpression",
-    "CreateVirtualTableExpression",
-    "DropVirtualTableExpression",
-    "SQLiteRTreeCreateVirtualTable",
-    "SQLiteRTreeRangeQuery",
-    "SQLiteGeopolyCreateVirtualTable",
-    "SQLiteGeopolyContainsExpression",
-    "SQLiteGeopolyAreaExpression",
-]
-
-# Auto-register all SQLite expression classes when this module is imported
-from rhosocial.activerecord.backend.expression.serialization import ExpressionRegistry
-
-for _expr_cls in (
+# ``SQLite`` is the backend identifier spelled as §4.9.4 requires, and it is a
+# compound word: the general capital-run rule would derive ``sq_lite_json_extract_function``
+# instead of ``sqlite_json_extract_function``. Since a kind is part of the wire
+# contract, the identifier is kept whole — and this is the SQLite package's own
+# declaration, made where it assembles its own expressions. The core holds no
+# backend names, so another backend declaring its own tokens needs no change here
+# or in the core (§5.1: rhosocial's own packages get no privilege).
+for _sqlite_expression in (
     SQLiteColumnInfoExpression,
+    SQLiteIndexDdlStatement,
+    SQLitePragmaQueryStatement,
+    SQLitePragmaSetStatement,
+    SQLiteTableCountStatement,
+    SQLiteTableDdlStatement,
+    SQLiteTable,
     SQLiteTableListExpression,
-    SQLiteReindexExpression,
-    SQLiteVacuumExpression,
-    SQLiteAnalyzeExpression,
-    SQLiteAttachExpression,
-    SQLiteDetachExpression,
+    SQLiteReindexStatement,
+    SQLiteVacuumStatement,
+    SQLiteAnalyzeStatement,
+    SQLiteAttachStatement,
+    SQLiteDetachStatement,
     SQLiteMatchPredicate,
-    SQLiteInsertExpression,
-    SQLiteFTS5MatchExpression,
+    SQLiteInsertStatement,
+    SQLiteFTS5MatchPredicate,
     SQLiteFTS5CreateVirtualTable,
     SQLiteFTS5RankExpression,
     SQLiteFTS5HighlightExpression,
     SQLiteFTS5SnippetExpression,
-    CreateVirtualTableExpression,
-    DropVirtualTableExpression,
     SQLiteRTreeCreateVirtualTable,
     SQLiteRTreeRangeQuery,
     SQLiteGeopolyCreateVirtualTable,
     SQLiteGeopolyContainsExpression,
     SQLiteGeopolyAreaExpression,
+    SQLiteJsonExtractFunction,
 ):
-    ExpressionRegistry.register(_expr_cls)
+    _sqlite_expression.KIND_RESERVED = ("SQLite",)
+del _sqlite_expression
+
+__all__ = [
+    "SQLiteColumnInfoExpression",
+    "SQLiteIndexDdlStatement",
+    "SQLitePragmaQueryStatement",
+    "SQLitePragmaSetStatement",
+    "SQLiteTableCountStatement",
+    "SQLiteTableDdlStatement",
+    "SQLiteTable",
+    "SQLiteTableListExpression",
+    "SQLiteReindexStatement",
+    "SQLiteVacuumStatement",
+    "SQLiteAnalyzeStatement",
+    "SQLiteAttachStatement",
+    "SQLiteDetachStatement",
+    "SQLiteMatchPredicate",
+    "SQLiteInsertStatement",
+    "SQLiteFTS5MatchPredicate",
+    "SQLiteFTS5CreateVirtualTable",
+    "SQLiteFTS5RankExpression",
+    "SQLiteFTS5HighlightExpression",
+    "SQLiteFTS5SnippetExpression",
+    "CreateVirtualTableStatement",
+    "DropVirtualTableStatement",
+    "SQLiteRTreeCreateVirtualTable",
+    "SQLiteRTreeRangeQuery",
+    "SQLiteGeopolyCreateVirtualTable",
+    "SQLiteGeopolyContainsExpression",
+    "SQLiteGeopolyAreaExpression",
+    "SQLiteJsonExtractFunction",
+]
+
+# No registration loop: the framework's assembly point walks this package and
+# registers every expression defined in it, so a hand-maintained list here could
+# only ever be out of date.

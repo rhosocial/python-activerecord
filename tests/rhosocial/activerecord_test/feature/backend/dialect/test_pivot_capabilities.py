@@ -4,7 +4,7 @@
 import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression import PivotExpression, UnpivotExpression
+from rhosocial.activerecord.backend.expression import Pivot, Unpivot
 from rhosocial.activerecord.backend.impl.dummy.backend import DummyDialect
 
 pytestmark = [pytest.mark.feature, pytest.mark.backend]
@@ -25,19 +25,19 @@ class TestPivot:
 
     def test_renders(self):
         dialect = DummyDialect()
-        expr = PivotExpression(dialect, "SUM", "amount", "month", ["Jan", "Feb"], alias="p")
+        expr = Pivot(dialect, "SUM", "amount", "month", ["Jan", "Feb"], alias="p")
         sql, _ = expr.to_sql()
         assert sql == "PIVOT (SUM(\"amount\") FOR \"month\" IN ('Jan', 'Feb')) \"p\""
 
     def test_default_renders(self):
         dialect = DummyDialect()
-        expr = PivotExpression(dialect, "SUM", "amount", "month", ["Jan"], default=0)
+        expr = Pivot(dialect, "SUM", "amount", "month", ["Jan"], default=0)
         sql, _ = expr.to_sql()
         assert sql.endswith("DEFAULT 0)")
 
     def test_raises_when_unsupported(self):
         dialect = NoPivotDialect()
-        expr = PivotExpression(dialect, "SUM", "amount", "month", ["Jan"])
+        expr = Pivot(dialect, "SUM", "amount", "month", ["Jan"])
         with pytest.raises(UnsupportedFeatureError, match="PIVOT"):
             expr.to_sql()
 
@@ -46,19 +46,19 @@ class TestUnpivot:
     def test_renders_unspecified_without_nulls_clause(self):
         """Neither spelling set: no INCLUDE/EXCLUDE NULLS clause at all."""
         dialect = DummyDialect()
-        expr = UnpivotExpression(dialect, "val", "col", ["a", "b"])
+        expr = Unpivot(dialect, "val", "col", ["a", "b"])
         sql, _ = expr.to_sql()
         assert sql == 'UNPIVOT ("val" FOR "col" IN ("a", "b"))'
 
     def test_renders_explicit_exclude_nulls(self):
         dialect = DummyDialect()
-        expr = UnpivotExpression(dialect, "val", "col", ["a", "b"], exclude_nulls=True)
+        expr = Unpivot(dialect, "val", "col", ["a", "b"], exclude_nulls=True)
         sql, _ = expr.to_sql()
         assert sql == 'UNPIVOT EXCLUDE NULLS ("val" FOR "col" IN ("a", "b"))'
 
     def test_renders_include_nulls_with_alias(self):
         dialect = DummyDialect()
-        expr = UnpivotExpression(dialect, "val", "col", ["a", "b"], include_nulls=True, alias="u")
+        expr = Unpivot(dialect, "val", "col", ["a", "b"], include_nulls=True, alias="u")
         sql, _ = expr.to_sql()
         assert sql == 'UNPIVOT INCLUDE NULLS ("val" FOR "col" IN ("a", "b")) "u"'
 
@@ -67,12 +67,12 @@ class TestUnpivot:
         with pytest.raises(
             ValueError, match="include_nulls and exclude_nulls are mutually exclusive"
         ):
-            UnpivotExpression(
+            Unpivot(
                 dialect, "val", "col", ["a"], include_nulls=True, exclude_nulls=True
             )
 
     def test_raises_when_unsupported(self):
         dialect = NoPivotDialect()
-        expr = UnpivotExpression(dialect, "val", "col", ["a"])
+        expr = Unpivot(dialect, "val", "col", ["a"])
         with pytest.raises(UnsupportedFeatureError, match="UNPIVOT"):
             expr.to_sql()

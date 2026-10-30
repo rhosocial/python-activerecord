@@ -13,8 +13,8 @@ from ...expression.objects import Function
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression import bases
     from ...expression.statements import (
-        CreateFunctionExpression,
-        DropFunctionExpression,
+        CreateFunctionStatement,
+        DropFunctionStatement,
     )
 
 
@@ -59,7 +59,7 @@ class FunctionCallMixin:
                 function that its version is below.
         """
         from ...expression import core, operators
-        from ..protocols import FilterClauseSupport
+        from ..protocols import FilterClauseSupport, WindowFunctionSupport
 
         self.check_function_version(expr.func_name)
 
@@ -67,8 +67,8 @@ class FunctionCallMixin:
             expr.func_name.upper() == "COUNT"
             and len(expr.args) == 1
             and (
-                (isinstance(expr.args[0], operators.RawSQLExpression) and expr.args[0].expression == "*")
-                or isinstance(expr.args[0], core.WildcardExpression)
+                (isinstance(expr.args[0], operators.RawSQL) and expr.args[0].expression == "*")
+                or isinstance(expr.args[0], core.RowCountWildcard)
             )
         ):
             args_sql = ["*"]
@@ -87,7 +87,7 @@ class FunctionCallMixin:
         distinct = "DISTINCT " if expr.is_distinct else ""
         args_sql_str = ", ".join(args_sql)
 
-        if getattr(expr, "niladic", False) and not args_sql and not distinct:
+        if expr.niladic and not args_sql and not distinct:
             func_call_sql = expr.func_name.upper()
         else:
             func_call_sql = f"{expr.func_name.upper()}({distinct}{args_sql_str})"
@@ -96,11 +96,11 @@ class FunctionCallMixin:
         for param_tuple in args_params:
             all_params.extend(param_tuple)
 
-        filter_predicate = getattr(expr, "filter_predicate", None)
+        filter_predicate = expr.filter_predicate
         if filter_predicate:
             if isinstance(self, FilterClauseSupport) and self.supports_filter_clause():
-                from ...expression.statements.filter_clause import FilterClauseExpression
-                filter_expr = FilterClauseExpression(self, condition=filter_predicate)
+                from ...expression.statements.filter_clause import FilterClause
+                filter_expr = FilterClause(self, condition=filter_predicate)
                 filter_clause_sql, filter_clause_params = self.format_filter_clause(filter_expr)
                 func_call_sql += f" {filter_clause_sql}"
                 all_params.extend(filter_clause_params)
@@ -112,13 +112,13 @@ class FunctionCallMixin:
                     "Use a CASE expression inside the aggregate function instead.",
                 )
 
-        window_spec = getattr(expr, "window_spec", None)
+        window_spec = expr.window_spec
         if window_spec is not None:
-            # Guarded through getattr(): a dialect that does not compose
-            # WindowFunctionMixin has neither the probe nor the formatter, and
-            # must refuse the clause rather than fail resolving a method.
-            supports_window_functions = getattr(self, "supports_window_functions", None)
-            if supports_window_functions is None or not supports_window_functions():
+            # Checked as a protocol, like the FILTER clause above: a dialect
+            # that does not compose WindowFunctionSupport has neither the probe
+            # nor the formatter, and must refuse the clause rather than fail
+            # resolving a method.
+            if not isinstance(self, WindowFunctionSupport) or not self.supports_window_functions():
                 from ..exceptions import UnsupportedFeatureError
                 raise UnsupportedFeatureError(self.name, "window functions")
             if isinstance(window_spec, str):
@@ -134,6 +134,798 @@ class FunctionCallMixin:
             func_call_sql = f"{func_call_sql} AS {self.format_identifier(expr.alias)}"
 
         return func_call_sql, tuple(all_params)
+
+
+    # ------------------------------------------------------------------
+    # Standard function nodes (catalog §3.4): one entry point per node kind.
+    # ------------------------------------------------------------------
+
+    def format_row_number_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``ROW_NUMBER()``."""
+        sql = f"{expr.function_name}()"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, ()
+
+
+    def format_rank_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``RANK()``."""
+        sql = f"{expr.function_name}()"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, ()
+
+
+    def format_dense_rank_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``DENSE_RANK()``."""
+        sql = f"{expr.function_name}()"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, ()
+
+
+    def format_json_objectagg_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``JSON_OBJECTAGG(key, value)``.
+
+        Written here rather than through the shared aggregate renderer because
+        this aggregate has two operands and that one expects the node's single
+        ``operand``; ``DISTINCT`` does not apply either, since two distinct
+        pairs are still distinct pairs.
+        """
+        key_sql, key_params = expr.operand.to_sql()
+        value_sql, value_params = expr.entry_value.to_sql()
+        sql = f"JSON_OBJECTAGG({key_sql}, {value_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(key_params) + tuple(value_params)
+
+    def format_json_arrayagg_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``JSON_ARRAYAGG([DISTINCT] value)``."""
+        from rhosocial.activerecord.backend.expression.core import RowCountWildcard
+
+        if isinstance(expr.operand, RowCountWildcard):
+            operand_sql, operand_params = "*", ()
+        else:
+            operand_sql, operand_params = expr.operand.to_sql()
+        distinct = "DISTINCT " if expr.distinct else ""
+        sql = f"JSON_ARRAYAGG({distinct}{operand_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(operand_params)
+
+
+    def format_absolute_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``ABSOLUTE(...)`` from the node's own operand list."""
+        parts_sql, parts_params = [], []
+        for operand in expr.arguments:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"{expr.function_name.upper()}({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_round_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``ROUND(...)`` from the node's own operand list."""
+        parts_sql, parts_params = [], []
+        for operand in expr.arguments:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"{expr.function_name.upper()}({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_ceil_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``CEIL(...)`` from the node's own operand list."""
+        parts_sql, parts_params = [], []
+        for operand in expr.arguments:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"{expr.function_name.upper()}({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_floor_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``FLOOR(...)`` from the node's own operand list."""
+        parts_sql, parts_params = [], []
+        for operand in expr.arguments:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"{expr.function_name.upper()}({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_truncate_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``TRUNCATE(...)`` from the node's own operand list."""
+        parts_sql, parts_params = [], []
+        for operand in expr.arguments:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"{expr.function_name.upper()}({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_square_root_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``SQUARE ROOT(...)`` from the node's own operand list."""
+        parts_sql, parts_params = [], []
+        for operand in expr.arguments:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"{expr.function_name.upper()}({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_power_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``POWER(...)`` from the node's own operand list."""
+        parts_sql, parts_params = [], []
+        for operand in expr.arguments:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"{expr.function_name.upper()}({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_exponential_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``EXPONENTIAL(...)`` from the node's own operand list."""
+        parts_sql, parts_params = [], []
+        for operand in expr.arguments:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"{expr.function_name.upper()}({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_logarithm_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``LOGARITHM(...)`` from the node's own operand list."""
+        parts_sql, parts_params = [], []
+        for operand in expr.arguments:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"{expr.function_name.upper()}({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_sine_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``SINE(...)`` from the node's own operand list."""
+        parts_sql, parts_params = [], []
+        for operand in expr.arguments:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"{expr.function_name.upper()}({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_cosine_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``COSINE(...)`` from the node's own operand list."""
+        parts_sql, parts_params = [], []
+        for operand in expr.arguments:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"{expr.function_name.upper()}({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_tangent_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``TANGENT(...)`` from the node's own operand list."""
+        parts_sql, parts_params = [], []
+        for operand in expr.arguments:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"{expr.function_name.upper()}({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_modulo_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``MODULO(...)`` from the node's own operand list."""
+        parts_sql, parts_params = [], []
+        for operand in expr.arguments:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"{expr.function_name.upper()}({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_sign_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``SIGN(...)`` from the node's own operand list."""
+        parts_sql, parts_params = [], []
+        for operand in expr.arguments:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"{expr.function_name.upper()}({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_array_agg_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``ARRAY_AGG([DISTINCT] operand)``."""
+        from rhosocial.activerecord.backend.expression.core import RowCountWildcard
+
+        if isinstance(expr.operand, RowCountWildcard):
+            operand_sql, operand_params = "*", ()
+        else:
+            operand_sql, operand_params = expr.operand.to_sql()
+        distinct = "DISTINCT " if expr.distinct else ""
+        sql = f"ARRAY_AGG({distinct}{operand_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(operand_params)
+
+
+    def format_count_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``COUNT(*)`` or ``COUNT([DISTINCT] operand)``."""
+        from rhosocial.activerecord.backend.expression.core import RowCountWildcard
+
+        if isinstance(expr.operand, RowCountWildcard):
+            operand_sql, operand_params = "*", ()
+        else:
+            operand_sql, operand_params = expr.operand.to_sql()
+        distinct = "DISTINCT " if expr.distinct else ""
+        sql = f"COUNT({distinct}{operand_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(operand_params)
+
+
+    def format_sum_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``SUM([DISTINCT] operand)``."""
+        from rhosocial.activerecord.backend.expression.core import RowCountWildcard
+
+        if isinstance(expr.operand, RowCountWildcard):
+            operand_sql, operand_params = "*", ()
+        else:
+            operand_sql, operand_params = expr.operand.to_sql()
+        distinct = "DISTINCT " if expr.distinct else ""
+        sql = f"SUM({distinct}{operand_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(operand_params)
+
+
+    def format_avg_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``AVG([DISTINCT] operand)``."""
+        from rhosocial.activerecord.backend.expression.core import RowCountWildcard
+
+        if isinstance(expr.operand, RowCountWildcard):
+            operand_sql, operand_params = "*", ()
+        else:
+            operand_sql, operand_params = expr.operand.to_sql()
+        distinct = "DISTINCT " if expr.distinct else ""
+        sql = f"AVG({distinct}{operand_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(operand_params)
+
+
+    def format_min_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``MIN([DISTINCT] operand)``."""
+        from rhosocial.activerecord.backend.expression.core import RowCountWildcard
+
+        if isinstance(expr.operand, RowCountWildcard):
+            operand_sql, operand_params = "*", ()
+        else:
+            operand_sql, operand_params = expr.operand.to_sql()
+        distinct = "DISTINCT " if expr.distinct else ""
+        sql = f"MIN({distinct}{operand_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(operand_params)
+
+
+    def format_max_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``MAX([DISTINCT] operand)``."""
+        from rhosocial.activerecord.backend.expression.core import RowCountWildcard
+
+        if isinstance(expr.operand, RowCountWildcard):
+            operand_sql, operand_params = "*", ()
+        else:
+            operand_sql, operand_params = expr.operand.to_sql()
+        distinct = "DISTINCT " if expr.distinct else ""
+        sql = f"MAX({distinct}{operand_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(operand_params)
+
+
+    def format_upper_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``UPPER(operand)``."""
+        operand_sql, operand_params = expr.operand.to_sql()
+        sql = f"UPPER({operand_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(operand_params)
+
+
+    def format_lower_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``LOWER(operand)``."""
+        operand_sql, operand_params = expr.operand.to_sql()
+        sql = f"LOWER({operand_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(operand_params)
+
+
+    def format_char_length_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``CHAR_LENGTH(operand)`` — the spelling here is ``LENGTH``.
+
+        ``expr.unit`` is deliberately **not read**: it records which length
+        semantics the caller asked for (characters / octets / bits), and this
+        formatter writes the spelling the standard spelling uses. A backend
+        whose ``LENGTH`` answers a different question (MySQL / ClickHouse
+        count bytes, SQL Server counts UTF-16 units) overrides this entry
+        point rather than having the core pick a unit for it.
+        """
+        operand_sql, operand_params = expr.operand.to_sql()
+        sql = f"LENGTH({operand_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(operand_params)
+
+
+    def format_current_user_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``CURRENT_USER``."""
+        sql = "CURRENT_USER"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, ()
+
+
+    def format_session_user_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``SESSION_USER``."""
+        sql = "SESSION_USER"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, ()
+
+
+    def format_system_user_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``SYSTEM_USER``."""
+        sql = "SYSTEM_USER"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, ()
+
+
+    def format_declared_result(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render a declared-result annotation by rendering what it annotates.
+
+        The node underneath is left exactly as it was: the statement was already
+        correct and only the knowledge of what it yields was missing, so the SQL
+        is the annotated node's SQL unchanged. An alias rides along, because a
+        column given a name here is a name the caller asked for.
+        """
+        source_sql, source_params = expr.source.to_sql()
+        if expr.source.alias and not expr.alias:
+            return source_sql, tuple(source_params)
+        if expr.alias:
+            return f"{source_sql} AS {self.format_identifier(expr.alias)}", tuple(source_params)
+        return source_sql, tuple(source_params)
+
+    def format_concat_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``CONCAT(a, b, ...)``.
+
+        A backend whose ``CONCAT`` ignores NULL, or treats it as an empty
+        string, overrides this: the standard says NULL, and ``||`` is the
+        spelling to reach for when concatenating may skip an operand.
+        """
+        parts_sql, parts_params = [], []
+        for operand in expr.operands:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"CONCAT({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_coalesce_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``COALESCE(a, b, ...)``."""
+        parts_sql, parts_params = [], []
+        for operand in expr.operands:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"COALESCE({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_substring_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``SUBSTRING(text FROM start [FOR length])``.
+
+        The base spells it as a plain call, which is what most backends accept
+        and what the pre-node formatter produced. Backends wanting the
+        standard's ``FROM`` / ``FOR`` keywords override this.
+        """
+        operands = [expr.target, expr.start, expr.length]
+        if operands and operands[-1] is None:
+            operands.pop()
+        parts_sql, parts_params = [], []
+        for operand in operands:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"SUBSTRING({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_overlay_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``OVERLAY(text, replacement, start [, length])``."""
+        operands = [expr.target, expr.replacement, expr.start, expr.length]
+        if operands and operands[-1] is None:
+            operands.pop()
+        parts_sql, parts_params = [], []
+        for operand in operands:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"OVERLAY({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_position_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render the position of a substring, in whichever spelling was asked.
+
+        The two spellings put the operands in opposite orders, which is the
+        whole reason they are one node: ``STRPOS(haystack, needle)`` and
+        ``POSITION(needle IN haystack)`` ask the same question and read it
+        differently. The node always holds (haystack, needle); only this
+        formatter knows which way round the SQL wants them.
+        """
+        haystack_sql, haystack_params = expr.haystack.to_sql()
+        needle_sql, needle_params = expr.needle.to_sql()
+        # Ordered as they are written, so the bind values follow the
+        # placeholders: POSITION reverses the operands and must reverse the
+        # parameters with them, or a two-literal call binds them swapped.
+        if expr.spelling == "POSITION":
+            args_sql, args_params = [needle_sql, haystack_sql], [needle_params, haystack_params]
+        else:
+            args_sql, args_params = [haystack_sql, needle_sql], [haystack_params, needle_params]
+        sql = f"{expr.spelling}({', '.join(args_sql)})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        ordered_params: List[Any] = []
+        for part in args_params:
+            ordered_params.extend(part)
+        return sql, tuple(ordered_params)
+
+    def format_replace_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``REPLACE(text, pattern, replacement)``."""
+        parts_sql, parts_params = [], []
+        for operand in (expr.target, expr.pattern, expr.replacement):
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"REPLACE({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_initcap_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``INITCAP(text)``."""
+        parts_sql, parts_params = [], []
+        for operand in (expr.target,):
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"INITCAP({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_left_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``LEFT(text, n)``."""
+        parts_sql, parts_params = [], []
+        for operand in (expr.target, expr.count):
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"LEFT({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_right_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``RIGHT(text, n)``."""
+        parts_sql, parts_params = [], []
+        for operand in (expr.target, expr.count):
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"RIGHT({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_reverse_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``REVERSE(text)``."""
+        parts_sql, parts_params = [], []
+        for operand in (expr.target,):
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"REVERSE({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_translate_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``TRANSLATE(text, from, to)``."""
+        parts_sql, parts_params = [], []
+        for operand in (expr.target, expr.from_chars, expr.to_chars):
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"TRANSLATE({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_space_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``SPACE(n)``."""
+        parts_sql, parts_params = [], []
+        for operand in (expr.count,):
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"SPACE({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_chr_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``CHR(code)``."""
+        parts_sql, parts_params = [], []
+        for operand in (expr.code,):
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"CHR({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_ascii_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``ASCII(text)``."""
+        parts_sql, parts_params = [], []
+        for operand in (expr.target,):
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"ASCII({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_octet_length_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``OCTET_LENGTH(text)``."""
+        parts_sql, parts_params = [], []
+        for operand in (expr.target,):
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"OCTET_LENGTH({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_bit_length_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``BIT_LENGTH(text)``."""
+        parts_sql, parts_params = [], []
+        for operand in (expr.target,):
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"BIT_LENGTH({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    # -- nodes with declared operands, rendered by name -----------------------
+
+    def format_to_char_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``TO_CHAR(value[, format])`` -- text.
+
+        The *format* operand is optional and its absence is the difference
+        between a backend's default rendering and an explicit mask, so it is
+        dropped from the SQL rather than sent as NULL.
+        """
+        operands = [expr.target]
+        if expr.format is not None:
+            operands.append(expr.format)
+        parts_sql, parts_params = [], []
+        for operand in operands:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"TO_CHAR({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_to_number_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``TO_NUMBER(value[, format])`` -- a number."""
+        operands = [expr.target]
+        if expr.format is not None:
+            operands.append(expr.format)
+        parts_sql, parts_params = [], []
+        for operand in operands:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"TO_NUMBER({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_to_date_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``TO_DATE(value[, format])`` -- a **date**.
+
+        Not a timestamp: every backend's ``TO_DATE`` answers with a calendar
+        date, and claiming a timestamp would offer time-of-day operations on a
+        value that has none.
+        """
+        operands = [expr.target]
+        if expr.format is not None:
+            operands.append(expr.format)
+        parts_sql, parts_params = [], []
+        for operand in operands:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"TO_DATE({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_unnest_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``UNNEST(array)`` -- one row per element."""
+        parts_sql, parts_params = [], []
+        for operand in (expr.target,):
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"UNNEST({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_array_length_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``ARRAY_LENGTH(array[, dimension])`` -- a count."""
+        operands = [expr.target]
+        if expr.dimension is not None:
+            operands.append(expr.dimension)
+        parts_sql, parts_params = [], []
+        for operand in operands:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"ARRAY_LENGTH({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_json_build_object_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``JSON_BUILD_OBJECT(key, value, ...)`` -- pairs, in order."""
+        parts_sql, parts_params = [], []
+        for operand in expr.pairs:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"JSON_BUILD_OBJECT({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_json_array_elements_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Render ``JSON_ARRAY_ELEMENTS(json)`` -- the array's elements, one per row."""
+        parts_sql, parts_params = [], []
+        for operand in (expr.target,):
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"JSON_ARRAY_ELEMENTS({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
 
 
 class FunctionMixin:
@@ -186,17 +978,17 @@ class FunctionMixin:
         """
         return {}
 
-    def format_create_function_statement(self, expr: "CreateFunctionExpression") -> Tuple[str, tuple]:
+    def format_create_function_statement(self, expr: "CreateFunctionStatement") -> Tuple[str, tuple]:
         """Format a CREATE FUNCTION statement per SQL/PSM.
 
         Args:
-            expr: The CreateFunctionExpression to render.
+            expr: The CreateFunctionStatement to render.
 
         Returns:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
-            TypeError: ``CreateFunctionExpression.function`` is not a Function.
+            TypeError: ``CreateFunctionStatement.function`` is not a Function.
             Another object kind would have had its own name rendered as the
             function's.
             UnsupportedFeatureError: If the dialect does not support functions.
@@ -205,7 +997,7 @@ class FunctionMixin:
         """
         if not isinstance(expr.function, Function):
             raise TypeError(
-                f"CreateFunctionExpression.function must be a Function, "
+                f"CreateFunctionStatement.function must be a Function, "
                 f"got {type(expr.function).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError
@@ -262,24 +1054,24 @@ class FunctionMixin:
 
         return " ".join(parts), ()
 
-    def format_drop_function_statement(self, expr: "DropFunctionExpression") -> Tuple[str, tuple]:
+    def format_drop_function_statement(self, expr: "DropFunctionStatement") -> Tuple[str, tuple]:
         """Format a DROP FUNCTION statement per SQL/PSM.
 
         Args:
-            expr: The DropFunctionExpression to render.
+            expr: The DropFunctionStatement to render.
 
         Returns:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
-            TypeError: ``DropFunctionExpression.function`` is not a Function.
+            TypeError: ``DropFunctionStatement.function`` is not a Function.
             Another object kind would have had its own name rendered as the
             function's.
             UnsupportedFeatureError: If the dialect does not support functions.
         """
         if not isinstance(expr.function, Function):
             raise TypeError(
-                f"DropFunctionExpression.function must be a Function, "
+                f"DropFunctionStatement.function must be a Function, "
                 f"got {type(expr.function).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError

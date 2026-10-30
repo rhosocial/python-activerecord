@@ -1,33 +1,48 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.expression.predicates import (  # noqa: E402
+    LikeOperator,
+    LikePredicate,
+    InPredicate,
+    BetweenPredicate,
+    IsNullPredicate,
+    LogicalPredicate,
+)
+from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression import (
+    QueryStatement,
+    Column,
+    WhereClause,
+)
+from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
+    CreateTableStatement,
+    InsertStatement,
+    ValuesSource,
+)
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
 """
 Complex predicates: LIKE, IN, BETWEEN, IS NULL.
 """
 
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
-from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableExpression,
-    InsertExpression,
-    ValuesSource,
-)
-from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
-from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
-)
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table_name="products",
     columns=[
@@ -35,15 +50,15 @@ create_table = CreateTableExpression(
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, 
             "name",
             TextType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, "price", FloatType()),
@@ -63,7 +78,7 @@ products_data = [
     ("Broccoli", 1.2, "Vegetable", None),
 ]
 for row in products_data:
-    insert_expr = InsertExpression(
+    insert_expr = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'products'),
         columns=["name", "price", "category", "description"],
@@ -75,31 +90,20 @@ for row in products_data:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (
-    QueryExpression,
-    Column,
-    WhereClause,
-)
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
-from rhosocial.activerecord.backend.expression.predicates import (  # noqa: E402
-    LikePredicate,
-    InPredicate,
-    BetweenPredicate,
-    IsNullPredicate,
-    LogicalPredicate,
-)
-from .....expression.objects import Table
 
 # Combine multiple predicates: (LIKE pattern) AND (IN list) AND (BETWEEN range) AND (IS NOT NULL)
-like_pred = LikePredicate(dialect, "LIKE", Column(dialect, "name"), Literal(dialect, "%a%"))
+# The operator is the *word*, not the SQL keyword: the keyword is a spelling
+# the dialect owns and never reaches the artifact.
+like_pred = LikePredicate(
+    dialect, LikeOperator.LIKE, Column(dialect, "name"), Literal(dialect, "%a%")
+)
 in_pred = InPredicate(dialect, Column(dialect, "category"), Literal(dialect, ("Fruit", "Vegetable")))
 between_pred = BetweenPredicate(dialect, Column(dialect, "price"), Literal(dialect, 0.5), Literal(dialect, 2.0))
 not_null_pred = IsNullPredicate(dialect, Column(dialect, "description"), is_not=True)
 
 combined_pred = LogicalPredicate(dialect, "AND", like_pred, in_pred, between_pred, not_null_pred)
 
-query = QueryExpression(
+query = QueryStatement(
     dialect=dialect,
     select=[
         Column(dialect, "name"),

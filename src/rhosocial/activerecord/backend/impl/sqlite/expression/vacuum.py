@@ -2,20 +2,31 @@
 """
 SQLite-specific VACUUM and ANALYZE expressions.
 
-This module provides SQLiteVacuumExpression and SQLiteAnalyzeExpression.
+This module provides SQLiteVacuumStatement and SQLiteAnalyzeStatement.
 """
 
 from typing import Optional, TYPE_CHECKING
 
-from ....expression.bases import BaseExpression, SQLQueryAndParams
+from ....expression.bases import BaseExpression
 
 if TYPE_CHECKING:
     from ....dialect import SQLDialectBase
 
-__all__ = ["SQLiteVacuumExpression", "SQLiteAnalyzeExpression"]
+__all__ = ["SQLiteVacuumStatement", "SQLiteAnalyzeStatement"]
 
 
-class SQLiteVacuumExpression(BaseExpression):
+class SQLiteVacuumStatement(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect method that renders this expression.
+
+        Declared rather than reached through a ``to_sql`` override: the node
+        names its formatter and the dialect supplies it. A node that calls the
+        dialect itself keeps the lookup inside the node, which is the direction
+        this architecture removes.
+        """
+        return "format_vacuum_statement"
     """SQLite VACUUM statement expression.
 
     VACUUM reclaims storage by rebuilding the database file. It is a
@@ -29,13 +40,13 @@ class SQLiteVacuumExpression(BaseExpression):
 
     Examples:
         # Vacuum the whole database
-        vacuum = SQLiteVacuumExpression(dialect)
+        vacuum = SQLiteVacuumStatement(dialect)
 
         # Vacuum a specific attached schema
-        vacuum = SQLiteVacuumExpression(dialect, schema="aux")
+        vacuum = SQLiteVacuumStatement(dialect, schema="aux")
 
         # Write the vacuumed database to a new file (SQLite 3.27.0+)
-        vacuum = SQLiteVacuumExpression(dialect, into="backup.db")
+        vacuum = SQLiteVacuumStatement(dialect, into="backup.db")
     """
 
     def __init__(
@@ -59,17 +70,18 @@ class SQLiteVacuumExpression(BaseExpression):
         super().__init__(dialect)
         self.schema = schema
         self.into = into
+class SQLiteAnalyzeStatement(BaseExpression):
 
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL for the VACUUM statement.
+    @property
+    def format_method(self) -> str:
+        """The dialect method that renders this expression.
 
-        Returns:
-            Tuple of (SQL string, empty parameters tuple).
+        Declared rather than reached through a ``to_sql`` override: the node
+        names its formatter and the dialect supplies it. A node that calls the
+        dialect itself keeps the lookup inside the node, which is the direction
+        this architecture removes.
         """
-        return self._dialect.format_vacuum_statement(self)
-
-
-class SQLiteAnalyzeExpression(BaseExpression):
+        return "format_analyze_statement"
     """SQLite ANALYZE statement expression.
 
     ANALYZE collects statistics used by the query planner to generate
@@ -87,11 +99,3 @@ class SQLiteAnalyzeExpression(BaseExpression):
         dialect: "SQLDialectBase",
     ):
         super().__init__(dialect)
-
-    def to_sql(self) -> SQLQueryAndParams:
-        """Format the ANALYZE statement.
-
-        Returns:
-            Tuple of ('ANALYZE', empty parameters tuple).
-        """
-        return self._dialect.format_analyze_statement(self)

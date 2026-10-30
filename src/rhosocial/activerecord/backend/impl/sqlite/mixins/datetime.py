@@ -8,10 +8,11 @@ This module provides the SQLiteDateTimeMixin class.
 import re
 from typing import Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.expression.mixins import AliasableMixin
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression import bases
-    from rhosocial.activerecord.backend.expression.collation import CollateExpression
+    from rhosocial.activerecord.backend.expression.collation import CollateFunction
 
 _COLLATION_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -39,7 +40,7 @@ class SQLiteDateTimeMixin:
 
     def apply_alias(self, sql: str, params: tuple, expr) -> Tuple[str, tuple]:
         """Append ``AS alias`` when the expression carries an alias."""
-        if getattr(expr, "alias", None):
+        if isinstance(expr, AliasableMixin) and expr.alias:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
         return sql, params
 
@@ -120,13 +121,10 @@ class SQLiteDateTimeMixin:
         """SQLite supports expression-level COLLATE."""
         return True
 
-    def validate_collation_name(self, expr: "CollateExpression") -> str:
+    def validate_collation_name(self, expr: "CollateFunction") -> str:
         """Validate SQLite collation names and return their SQL representation."""
-        if "schema" in expr.collation_options:
+        if expr.schema is not None:
             raise UnsupportedFeatureError(self.name, "schema-qualified COLLATE")
-        if expr.collation_options:
-            unsupported = ", ".join(sorted(expr.collation_options))
-            raise UnsupportedFeatureError(self.name, f"COLLATE options: {unsupported}")
         if not _COLLATION_NAME_RE.fullmatch(expr.collation_name):
             raise ValueError(f"Unsupported SQLite collation: {expr.collation_name!r}")
         return expr.collation_name

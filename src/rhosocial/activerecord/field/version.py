@@ -31,24 +31,25 @@ Customisation example::
         __version_increment_by__ = 2        # optional
 
         row_version: Annotated[
-            int, UseColumn("row_ver"), UseConstraint(ColumnConstraintType.NOT_NULL)
+            int, UseColumn("row_ver"), UseConstraint(ColumnNotNullConstraint)
         ] = Field(default=1, ge=1)
 """
 
 import sys
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+)
+from .field_config import FieldConfigValidationHandler
+from ..interface.model import IActiveRecord, IAsyncActiveRecord
+from ..interface.update import IUpdateBehavior
+from ..interface import ModelEvent
+from ..backend.result import QueryResult
+from ..backend.expression import SQLPredicate, SQLValue
+from ..backend.errors import DatabaseError
+from ..base.fields import UseConstraint
+from pydantic import Field
 from typing import Any, ClassVar, Dict, List, Union
 
-from pydantic import Field
-
-from ..base.fields import UseConstraint
-from ..backend.errors import DatabaseError
-from ..backend.expression import SQLPredicate, SQLValueExpression
-from ..backend.expression.statements.ddl_table import ColumnConstraintType
-from ..backend.result import QueryResult
-from ..interface import ModelEvent
-from ..interface.update import IUpdateBehavior
-from ..interface.model import IActiveRecord, IAsyncActiveRecord
-from .field_config import FieldConfigValidationHandler
 
 if sys.version_info >= (3, 9):
     from typing import Annotated
@@ -163,7 +164,7 @@ class OptimisticLockMixin(IUpdateBehavior):
         # predicate this is. A silently-always-false check would drop the lock.
         return [ComparisonPredicate(dialect, "=", column, Literal(dialect, self._version_snapshot))]
 
-    def get_update_expressions(self) -> Dict[str, SQLValueExpression]:
+    def get_update_expressions(self) -> Dict[str, SQLValue]:
         """Add the version increment to the UPDATE SET clause.
 
         The key is the *field name*; the update pipeline maps it to the
@@ -265,6 +266,6 @@ class DefaultOptimisticLockMixin(OptimisticLockMixin):
     field should carry a different Python name or column.
     """
 
-    version: Annotated[int, UseConstraint(ColumnConstraintType.NOT_NULL)] = Field(
+    version: Annotated[int, UseConstraint(ColumnNotNullConstraint)] = Field(
         default=1, ge=1
     )

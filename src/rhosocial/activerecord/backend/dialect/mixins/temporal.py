@@ -20,7 +20,7 @@ class TemporalTableMixin:
         """
         return False
 
-    def format_temporal_options(self, expr: "TemporalOptionsExpression") -> Tuple[str, tuple]:
+    def format_temporal_options_expression(self, expr: "TemporalOptionsExpression") -> Tuple[str, tuple]:
         """Format temporal table options.
 
         Args:
@@ -35,7 +35,7 @@ class TemporalTableMixin:
         if not expr.options:
             raise ValueError(
                 "Temporal options cannot be empty. If no temporal options are needed, "
-                "don't call format_temporal_options."
+                "don't call format_temporal_options_expression."
             )
         sql_parts, params = ["FOR SYSTEM_TIME"], []
         # Add temporal options to SQL parts based on the options provided

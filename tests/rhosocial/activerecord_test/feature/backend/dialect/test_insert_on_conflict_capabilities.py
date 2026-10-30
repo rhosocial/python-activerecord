@@ -6,14 +6,14 @@ Covers:
 - Default UpsertMixin capability switch values.
 - Gating: multiple ON CONFLICT clauses rejected when unsupported.
 - Gating: any ON CONFLICT clause rejected when the clause form is unsupported.
-- Serialization round-trip of an InsertExpression with multiple clauses.
+- Serialization round-trip of an InsertStatement with multiple clauses.
 """
 
 import pytest
 
 from rhosocial.activerecord.backend.dialect import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression import (
-    InsertExpression,
+    InsertStatement,
     Literal,
     OnConflictClause,
     ValuesSource,
@@ -58,7 +58,7 @@ class TestOnConflictCapabilitySwitches:
         source = ValuesSource(dialect, values_list=[[Literal(dialect, 1)]])
         clause1 = OnConflictClause(dialect, conflict_target=["a"], do_nothing=True)
         clause2 = OnConflictClause(dialect, conflict_target=["b"], do_nothing=True)
-        expr = InsertExpression(dialect, into=Table(dialect, 't'), source=source, on_conflict=[clause1, clause2])
+        expr = InsertStatement(dialect, into=Table(dialect, 't'), source=source, on_conflict=[clause1, clause2])
 
         with pytest.raises(UnsupportedFeatureError, match="multiple ON CONFLICT clauses"):
             expr.to_sql()
@@ -68,7 +68,7 @@ class TestOnConflictCapabilitySwitches:
         dialect = SingleConflictDialect()
         source = ValuesSource(dialect, values_list=[[Literal(dialect, 1)]])
         clause = OnConflictClause(dialect, conflict_target=["a"], do_nothing=True)
-        expr = InsertExpression(dialect, into=Table(dialect, 't'), source=source, on_conflict=clause)
+        expr = InsertStatement(dialect, into=Table(dialect, 't'), source=source, on_conflict=clause)
 
         sql, params = expr.to_sql()
         assert "ON CONFLICT" in sql
@@ -79,7 +79,7 @@ class TestOnConflictCapabilitySwitches:
         dialect = NoOnConflictClauseDialect()
         source = ValuesSource(dialect, values_list=[[Literal(dialect, 1)]])
         clause = OnConflictClause(dialect, conflict_target=["a"], do_nothing=True)
-        expr = InsertExpression(dialect, into=Table(dialect, 't'), source=source, on_conflict=clause)
+        expr = InsertStatement(dialect, into=Table(dialect, 't'), source=source, on_conflict=clause)
 
         with pytest.raises(UnsupportedFeatureError, match="does not support ON CONFLICT"):
             expr.to_sql()
@@ -89,7 +89,7 @@ class TestOnConflictSerialization:
     """Serialization round-trip for multiple ON CONFLICT clauses."""
 
     def test_multiple_on_conflict_serialization_roundtrip(self):
-        """An InsertExpression with multiple clauses survives serialize/deserialize."""
+        """An InsertStatement with multiple clauses survives serialize/deserialize."""
         dialect = DummyDialect()
         source = ValuesSource(dialect, values_list=[[Literal(dialect, 1), Literal(dialect, "x")]])
         clause1 = OnConflictClause(dialect, conflict_target=["id"], do_nothing=True)
@@ -98,7 +98,7 @@ class TestOnConflictSerialization:
             conflict_target=["name"],
             update_assignments={"name": Literal(dialect, "y")},
         )
-        expr = InsertExpression(
+        expr = InsertStatement(
             dialect,
             into=Table(dialect, 'users'),
             columns=["id", "name"],

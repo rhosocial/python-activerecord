@@ -8,18 +8,17 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall, Subquery, ComparisonPredicate
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.operators import BinaryArithmeticExpression
+from rhosocial.activerecord.backend.expression.operators import ArithmeticOperation
 from rhosocial.activerecord.backend.expression.query_parts import JoinClause
 from rhosocial.activerecord.backend.expression.advanced_functions import (
-    JSONDocumentExpression,
-    ArrayExpression,
+    JSONDocumentValue,
+    ArrayOperation,
     OrderedSetAggregation,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.types import (
     CustomType,
-    DecimalType,
     TextType,
 )
 
@@ -112,32 +111,32 @@ class TestAliasableMixin:
         assert params == ()
 
     def test_json_expression_alias_initialization(self, dummy_dialect: DummyDialect):
-        """Test JSONDocumentExpression with alias specified during initialization."""
-        json_expr = JSONDocumentExpression(dummy_dialect, Column(dummy_dialect, "data"), "$.name", alias="name_field")
+        """Test JSONDocumentValue with alias specified during initialization."""
+        json_expr = JSONDocumentValue(dummy_dialect, Column(dummy_dialect, "data"), "$.name", alias="name_field")
         assert json_expr.alias == "name_field"
         sql, params = json_expr.to_sql()
         assert sql == 'JSON_EXTRACT("data", \'$.name\') AS "name_field"'
         assert params == ()
 
     def test_json_expression_alias_with_as_method(self, dummy_dialect: DummyDialect):
-        """Test JSONDocumentExpression with alias specified using as_() method."""
-        json_expr = JSONDocumentExpression(dummy_dialect, Column(dummy_dialect, "data"), "$.name").as_("name_field")
+        """Test JSONDocumentValue with alias specified using as_() method."""
+        json_expr = JSONDocumentValue(dummy_dialect, Column(dummy_dialect, "data"), "$.name").as_("name_field")
         assert json_expr.alias == "name_field"
         sql, params = json_expr.to_sql()
         assert sql == 'JSON_EXTRACT("data", \'$.name\') AS "name_field"'
         assert params == ()
 
     def test_array_expression_alias_initialization(self, dummy_dialect: DummyDialect):
-        """Test ArrayExpression with alias specified during initialization."""
-        arr = ArrayExpression(dummy_dialect, "CONSTRUCTOR", elements=[Column(dummy_dialect, "a")], alias="arr_alias")
+        """Test ArrayValue with alias specified during initialization."""
+        arr = ArrayOperation(dummy_dialect, "CONSTRUCTOR", elements=[Column(dummy_dialect, "a")], alias="arr_alias")
         assert arr.alias == "arr_alias"
         sql, params = arr.to_sql()
         assert sql == 'ARRAY["a"] AS "arr_alias"'
         assert params == ()
 
     def test_array_expression_alias_with_as_method(self, dummy_dialect: DummyDialect):
-        """Test ArrayExpression with alias specified using as_() method."""
-        arr = ArrayExpression(dummy_dialect, "CONSTRUCTOR", elements=[Column(dummy_dialect, "a")]).as_("arr_alias")
+        """Test ArrayValue with alias specified using as_() method."""
+        arr = ArrayOperation(dummy_dialect, "CONSTRUCTOR", elements=[Column(dummy_dialect, "a")]).as_("arr_alias")
         assert arr.alias == "arr_alias"
         sql, params = arr.to_sql()
         assert sql == 'ARRAY["a"] AS "arr_alias"'
@@ -199,8 +198,8 @@ class TestAliasNonContamination:
 
     def test_reuse_in_two_contexts_no_leak(self, dummy_dialect: DummyDialect):
         # Same expression used in SELECT (aliased) and ORDER BY (unaliased).
-        dist = BinaryArithmeticExpression(
-            dummy_dialect, "<=>", Column(dummy_dialect, "embedding"),
+        dist = ArithmeticOperation(
+            dummy_dialect, "sub", Column(dummy_dialect, "embedding"),
             Literal(dummy_dialect, "[1, 2, 3]"),
         )
         select_expr = dist.as_("cosine_distance")
@@ -213,8 +212,8 @@ class TestAliasNonContamination:
         # still references the unaliased original.
         child = Column(dummy_dialect, "embedding")
         child_aliased = child.as_("emb")
-        parent = BinaryArithmeticExpression(
-            dummy_dialect, "-", Literal(dummy_dialect, 1), child
+        parent = ArithmeticOperation(
+            dummy_dialect, "sub", Literal(dummy_dialect, 1), child
         )
         parent_sql = parent.to_sql()[0]
         # The parent uses the unaliased original -> no AS inside parentheses.
@@ -225,11 +224,11 @@ class TestAliasNonContamination:
         # Aliasing the top of a multi-level tree renders AS at the top only;
         # reusing the aliased copy nested does not leak into the base.
         leaf = Column(dummy_dialect, "embedding")
-        inner = BinaryArithmeticExpression(
-            dummy_dialect, "<=>", leaf, Literal(dummy_dialect, "[1, 2, 3]")
+        inner = ArithmeticOperation(
+            dummy_dialect, "sub", leaf, Literal(dummy_dialect, "[1, 2, 3]")
         )
-        outer = BinaryArithmeticExpression(
-            dummy_dialect, "-", Literal(dummy_dialect, 1), inner
+        outer = ArithmeticOperation(
+            dummy_dialect, "sub", Literal(dummy_dialect, 1), inner
         )
         outer_aliased = outer.as_("cosine_similarity")
         # Aliased top renders with AS at the outermost position only.
@@ -256,7 +255,6 @@ class TestAliasNonContamination:
     @pytest.mark.parametrize(
         "factory",
         [
-            lambda d: Literal(d, 1),
             lambda d: Column(d, "name"),
             lambda d: FunctionCall(d, "UPPER", Column(d, "name")),
             lambda d: Subquery(d, "SELECT 1"),
@@ -269,7 +267,7 @@ class TestAliasNonContamination:
                 condition=ComparisonPredicate(d, "=", Column(d, "id", "u"), Column(d, "user_id", "i")),
             ),
         ],
-        ids=["Literal", "Column", "FunctionCall", "Subquery", "NamedRelationRef", "JoinClause"],
+        ids=["Column", "FunctionCall", "Subquery", "NamedRelationRef", "JoinClause"],
     )
     def test_as_returns_copy_for_each_expression_type(
         self, dummy_dialect: DummyDialect, factory

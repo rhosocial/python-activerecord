@@ -174,6 +174,20 @@ sequenceDiagram
 门控行为。后端在连接后会通过 `introspect_and_adapt()` 重新适配方言，因此能力是「与服务器
 协商的」，而非静态声明。
 
+在适配**之前**询问能力，过去的行为不同：它会抛 `DialectNotAdaptedException`，于是每个只想
+知道「有没有这个特性」的调用者都得去捕获它。现在的版本词汇表会先给出答案：
+
+| 访问方式 | 回答的问题 |
+|---------|-----------|
+| `dialect._declared_version()` | dialect 无需询问服务器就能给出的版本（SQLite 用的是所链接引擎的版本），或 `None` |
+| `dialect.version_or_none` | 已适配的版本，否则是声明的版本，否则 `None` —— 从不抛异常 |
+| `dialect.version_at_least(v)` | 当前生效版本是否不低于 `v`；未知时返回 `False` |
+| `backend.get_cached_server_version()` | 后端已解析出的版本，无需再往返一次 —— 尚未解析时为 `None` |
+| `introspector.server_version` | 内省器从服务器读到的版本 |
+
+因此版本未知时 `supports_*()` 报告「不支持」，而严格的 `dialect.version` 仍然抛异常：
+渲染器要决定**发出哪种** SQL，就必须知道它所门控的版本；在这里猜测只会生成服务器会拒绝的 SQL。
+
 ## 参见
 
 - **[自定义后端](custom_backend.md)** —— 如何用同样这些 Mixin 与协议组装你自己的后端

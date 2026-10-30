@@ -79,19 +79,29 @@ Before Named Expression existed, the most common pattern for running database qu
 Named Expression encapsulates query logic in a **pure Python function**. The key innovation is that the `dialect` parameter is automatically injected by the framework at execution time, allowing the same query code to work across different database backends.
 
 ```python
+from rhosocial.activerecord.backend.expression import (
+    Column, NamedRelationRef, QueryStatement, StringColumn,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.query_parts import LimitOffsetClause
+
+
 # Define once, use anywhere with any dialect
 def active_users(dialect, limit: int = 100, status: str = "active"):
     """Get active users from the database."""
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "name")],
-        from_=TableExpression(dialect, "users"),
-        where=Column(dialect, "status") == status,
+        from_=NamedRelationRef(dialect, Table(dialect, "users")),
+        where=StringColumn(dialect, "status") == status,
         limit_offset=LimitOffsetClause(dialect, limit=limit),
     )
 
+
 # When executed with SQLite dialect, generates SQLite SQL
 # When executed with MySQL dialect, generates MySQL SQL
+sql, params = active_users(dialect).to_sql()
+print(sql, params)
 ```
 
 ### Invoking Named Queries
@@ -151,41 +161,54 @@ Executes `EXPLAIN` to show the query execution plan, useful for performance anal
 
 #### 2. Programmatic API (Python Code)
 
-The programmatic API provides more control and integrates well with applications:
+The programmatic API provides more control and integrates well with applications.
+The blocks below point at the shipped SQLite example module, so they run as
+written; substitute your own module path in practice.
 
 **One-shot method (quick):**
 ```python
 from rhosocial.activerecord.backend.named_expression import resolve_named_expression
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
-backend = SQLiteBackend(database="mydb.sqlite")
+# A dotted path into an importable module -- here, one of the shipped examples
+QUERY = (
+    "rhosocial.activerecord.backend.impl.sqlite.examples"
+    ".named_expressions.order_clauses.where_example"
+)
+
+backend = SQLiteBackend(database=":memory:")
 dialect = backend.dialect
 
-# Resolve, generate SQL, and execute in one call
-expr, sql, params = resolve_named_expression(
-    "myapp.queries.users.active_users",
-    dialect,
-    {"limit": 50, "status": "active"},
-)
+# Resolve the named expression: it returns the expression, not SQL
+expr = resolve_named_expression(QUERY, dialect, {"status": "active"})
+sql, params = expr.to_sql()
 print("Generated SQL:", sql)
+print("Params:", params)
 # Use with pandas, direct execute, etc.
 ```
 
 **Step-by-step method (flexible):**
 ```python
-from rhosocial.activerecord.backend.named_expression import NamedQueryResolver
+from rhosocial.activerecord.backend.named_expression import NamedExpressionResolver
+
+# Same dotted path as above
+QUERY = (
+    "rhosocial.activerecord.backend.impl.sqlite.examples"
+    ".named_expressions.order_clauses.where_example"
+)
 
 # Load the named query resolver
-resolver = NamedQueryResolver("myapp.queries.users.active_users").load()
+resolver = NamedExpressionResolver(QUERY).load()
 
 # Inspect without execution
 info = resolver.describe()
-print(f"Parameters: {info['parameters']}")
-print(f"Returns: {info['return_type']}")
+print(f"Parameters: {list(info['parameters'])}")
+print(f"Signature: {info['signature']}")
 
 # Generate the expression and SQL when needed
-expr = resolver.execute(dialect, {"limit": 50})
+expr = resolver.execute(dialect, {"status": "active"})
 sql, params = expr.to_sql()
+print(sql, params)
 ```
 
 #### 3. CI/CD Integration
@@ -298,7 +321,9 @@ The `ctx` object provides methods to interact with the execution environment:
 For independent sub-tasks that can run concurrently, use `ctx.parallel()`:
 
 ```python
-from rhosocial.activerecord.backend.named_expression import Procedure, ProcedureContext, ParallelStep
+from rhosocial.activerecord.backend.named_expression import (
+    Procedure, ProcedureContext, ParallelStep,
+)
 
 class OrderProcessingProcedure(Procedure):
     order_id: int
@@ -390,33 +415,67 @@ python -m rhosocial.activerecord.backend.impl.sqlite named-procedure \
 #### Programmatic API
 
 ```python
-from rhosocial.activerecord.backend.named_expression import (
-    ProcedureRunner, TransactionMode, ProcedureResult,
-)
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+import sys
+import types
 
-backend = SQLiteBackend(database="mydb.sqlite")
-dialect = backend.dialect
+from rhosocial.activerecord.backend.expression import (
+    Column, NamedRelationRef, QueryStatement,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.named_expression import (
+    Procedure, ProcedureContext, ProcedureRunner, TransactionMode,
+)
+
+# The runner resolves a dotted name, so the query and the procedure must live
+# in importable modules. Registering them in sys.modules keeps this snippet
+# self-contained; in a project they are ordinary modules under "myapp".
+backend.execute("CREATE TABLE IF NOT EXISTS demo_orders (id INTEGER PRIMARY KEY)")
+backend.execute("INSERT INTO demo_orders (id) VALUES (1)")
+
+queries = types.ModuleType("doc_demo.queries")
+
+
+def count_orders(dialect):
+    """Count the demo orders."""
+    return QueryStatement(
+        dialect,
+        select=[Column(dialect, "id")],
+        from_=NamedRelationRef(dialect, Table(dialect, "demo_orders")),
+    )
+
+
+queries.count_orders = count_orders
+sys.modules["doc_demo.queries"] = queries
+
+
+class ArchiveProcedure(Procedure):
+    month: str = "2026-03"
+
+    def run(self, ctx: ProcedureContext) -> None:
+        ctx.execute("doc_demo.queries.count_orders", bind="orders")
+        count = len(list(ctx.rows("orders")))
+        ctx.log(f"{count} order(s) for {self.month}", level="INFO")
+
+
+procedures = types.ModuleType("doc_demo.procedures")
+procedures.ArchiveProcedure = ArchiveProcedure
+sys.modules["doc_demo.procedures"] = procedures
 
 # Load the procedure class
-runner = ProcedureRunner(
-    "myapp.procedures.monthly_cleanup.MonthlyCleanupProcedure"
-).load()
+runner = ProcedureRunner("doc_demo.procedures.ArchiveProcedure").load()
 
 # Execute with parameters
-result: ProcedureResult = runner.run(
-    dialect,
+result = runner.run(
+    backend,
     user_params={"month": "2026-03"},
     transaction_mode=TransactionMode.AUTO,
-    backend=backend,
-    execute_query=backend.execute,
 )
 
 # Check result
 if result.aborted:
-    print(f"⚠️  Aborted: {result.abort_reason}")
+    print(f"Aborted: {result.abort_reason}")
 else:
-    print(f"✅  Done. Output steps: {len(result.outputs)}")
+    print(f"Done. Output steps: {len(result.outputs)}")
 
 # Access logs
 for entry in result.logs:
@@ -459,7 +518,7 @@ from rhosocial.activerecord.backend.named_expression import AsyncProcedureRunner
 from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
 
 app = FastAPI()
-async_backend = AsyncSQLiteBackend(database="mydb.sqlite")
+async_backend = AsyncSQLiteBackend(database=":memory:")
 
 @app.post("/admin/cleanup/{month}")
 async def run_cleanup(month: str):
@@ -467,22 +526,20 @@ async def run_cleanup(month: str):
         "myapp.procedures.monthly_cleanup_async.MonthlyCleanupAsyncProcedure"
     ).load()
     result = await runner.run(
-        async_backend.dialect,
+        async_backend,
         user_params={"month": month},
         transaction_mode=TransactionMode.AUTO,
-        backend=async_backend,
-        execute_query=async_backend.execute,
     )
     return {
         "aborted": result.aborted,
         "abort_reason": result.abort_reason,
-        "outputs": result.outputs,
+        "outputs": len(result.outputs),
     }
 ```
 
 > **Important**: 
 > - `AsyncProcedure` subclasses must be run by `AsyncProcedureRunner`; `Procedure` subclasses must be run by `ProcedureRunner`. Do not mix them.
-> - `ProcedureRunner` requires a **sync** backend (e.g., `SQLiteBackend`, `MySQLBackend`); `AsyncProcedureRunner` requires an **async** backend (e.g., `AsyncSQLiteBackend`, `AsyncMySQLBackend`). Passing the wrong backend type will raise `NamedQueryError` at runtime.
+> - `ProcedureRunner` requires a **sync** backend (e.g., `SQLiteBackend`, `MySQLBackend`); `AsyncProcedureRunner` requires an **async** backend (e.g., `AsyncSQLiteBackend`, `AsyncMySQLBackend`). Passing the wrong backend type will raise `NamedExpressionError` at runtime.
 
 ---
 
@@ -514,6 +571,16 @@ Generate a flowchart without executing the procedure — useful for documentatio
 ```python
 from rhosocial.activerecord.backend.named_expression import Procedure
 
+class MyProcedure(Procedure):
+    """A procedure whose diagram can be drawn without a database."""
+    month: str = "2026-03"
+
+    def run(self, ctx):
+        ctx.execute(
+            "myapp.queries.orders.count_monthly_orders",
+            params={"month": self.month},
+        )
+
 # Flowchart format
 print(MyProcedure.static_diagram("flowchart"))
 
@@ -526,16 +593,11 @@ print(MyProcedure.static_diagram("sequence"))
 After executing a procedure, generate a flowchart showing actual execution status and timing:
 
 ```python
-from rhosocial.activerecord.backend.named_expression import ProcedureRunner
-
-runner = ProcedureRunner("myapp.procedures.OrderProcessing").load()
-result = runner.run(backend)
-
-# Flowchart format with execution status
-print(result.diagram("flowchart", procedure_name="OrderProcessing"))
+# `runner` and `result` come from the Programmatic API example above
+print(result.diagram("flowchart", procedure_name="ArchiveProcedure"))
 
 # Sequence diagram format
-print(result.diagram("sequence", procedure_name="OrderProcessing"))
+print(result.diagram("sequence", procedure_name="ArchiveProcedure"))
 ```
 
 ### Feature Comparison
@@ -555,20 +617,21 @@ print(result.diagram("sequence", procedure_name="OrderProcessing"))
 
 ### Exceptions
 
-- `NamedQueryError` - Base exception for all named query/procedure errors
-- `NamedQueryNotFoundError` - Query function not found
-- `NamedQueryModuleNotFoundError` - Module containing query not found
-- `NamedQueryInvalidReturnTypeError` - Query doesn't return a valid expression
-- `NamedQueryInvalidParameterError` - Invalid parameter provided
-- `NamedQueryMissingParameterError` - Required parameter not provided
-- `NamedQueryNotCallableError` - Named object is not callable
-- `NamedQueryExplainNotAllowedError` - EXPLAIN not allowed for this query type
+- `NamedExpressionError` - Base exception for all named query/procedure errors
+- `NamedExpressionNotFoundError` - Query function not found
+- `NamedExpressionModuleNotFoundError` - Module containing query not found
+- `NamedExpressionModuleNotAllowedError` - Module outside the resolver's allowlist
+- `NamedExpressionInvalidReturnTypeError` - Query doesn't return a valid expression
+- `NamedExpressionInvalidParameterError` - Invalid parameter provided
+- `NamedExpressionMissingParameterError` - Required parameter not provided
+- `NamedExpressionNotCallableError` - Named object is not callable
+- `NamedExpressionExplainNotAllowedError` - EXPLAIN not allowed for this query type
 
 ### Named Expression API
 
-- `NamedQueryResolver` - Main resolver class for loading and executing named queries
-- `resolve_named_expression()` - Convenience function for one-shot resolve and execute
-- `list_named_queries_in_module()` - Discover all queries in a module
+- `NamedExpressionResolver` - Main resolver class for loading and executing named queries
+- `resolve_named_expression()` - One-shot resolve and build; returns the expression, SQL generation stays an explicit step
+- `list_named_expressions_in_module()` - Discover all queries in a module
 
 ### Named Procedure API
 
@@ -591,7 +654,7 @@ All examples use the **SQLite backend** as the demonstration database:
 
 | Example | Description |
 |---------|-------------|
-| `named_queries/order_queries.py` | Order-related named query definitions with full Setup/Business Logic/Execution/Teardown structure |
+| `named_expressions/order_expressions.py` | Order-related named query definitions with full Setup/Business Logic/Execution/Teardown structure |
 | `named_procedures/order_workflow.py` | Order processing workflow demonstrating parallel execution |
 | `named_procedures/diagram_demo.py` | Flowchart visualization demonstration |
 
@@ -599,7 +662,7 @@ All examples use the **SQLite backend** as the demonstration database:
 
 | Example | Description |
 |---------|-------------|
-| `cli/named_expression_demo.py` | Demonstrates all named query CLI operations (list, describe, dry-run, execute) |
+| `cli/named_query_demo.py` | Demonstrates all named query CLI operations (list, describe, dry-run, execute) |
 | `cli/named_procedure_demo.py` | Demonstrates all named procedure CLI operations (list, describe, dry-run, execute, transaction modes) |
 | `cli/named_connection_demo.py` | Demonstrates named connection CLI operations |
 
@@ -608,7 +671,7 @@ All examples use the **SQLite backend** as the demonstration database:
 ```bash
 # Python example: Run named query
 cd src/rhosocial/activerecord/backend/impl/sqlite/examples
-PYTHONPATH=../../../../..:. python3 named_queries/order_queries.py
+PYTHONPATH=../../../../..:. python3 named_expressions/order_expressions.py
 
 # Python example: Generate flowchart
 cd src/rhosocial/activerecord/backend/impl/sqlite/examples/named_procedures
@@ -616,7 +679,7 @@ PYTHONPATH=../../../../..:. python3 diagram_demo.py
 
 # CLI example: Named Expression CLI
 cd src/rhosocial/activerecord/backend/impl/sqlite/examples
-PYTHONPATH=../../../../..:. python3 cli/named_expression_demo.py
+PYTHONPATH=../../../../..:. python3 cli/named_query_demo.py
 
 # CLI example: Named Procedure CLI
 PYTHONPATH=../../../../..:. python3 cli/named_procedure_demo.py

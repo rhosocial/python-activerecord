@@ -1,22 +1,27 @@
 # src/rhosocial/activerecord/backend/expression/column_types.py
-"""Type-narrowed column expressions.
+"""Column references, narrowed to the value type they hold.
 
-A column reference is a value, and the operations a value supports depend on
-what it holds. A numeric column can be added to; a text column can be
-``LIKE``-matched; a JSON column can be navigated by path. Before this module
-every :class:`~...expression.core.Column` carried every one of those
-operations, so ``User.c.age.like('%x%')`` rendered happily against an integer
-column and only failed at the database.
+A column reference is a value, and what can be done to a value depends on what
+it holds: a numeric column can be added to, a text column can be ``LIKE``-matched,
+a JSON column can be navigated by path. An untyped
+:class:`~...expression.core.Column` promises none of that, which is what makes
+``User.c.age.like('%x%')`` fail at the point where the caller is told rather than
+at the database.
 
 The narrowing
 -------------
-Python cannot *remove* a mixin from a base class, so the families here are
-**siblings** of each other under :class:`ColumnBase`, not subclasses of one
-another. ``StringColumn(ColumnBase)`` and ``NumericColumn(ColumnBase)`` each
-compose only the mixins their value type supports; there is no permissive
-parent in between that they would inherit from. :class:`~...expression.core.Column`
-is a sibling too — it keeps the full mixin set as the escape hatch for
-columns whose type is not known (see its docstring).
+Fetching a column is an operation, so a column reference is one thing: a value
+type (:mod:`~...expression.value_types`) plus the name to read from. Each class
+here is exactly those two bases and nothing else::
+
+    class NumericColumn(NumericValue, ColumnBase):
+
+That is the whole mechanism. It used to be a hand-written mixin list per class,
+which stated the same fact a second time in a place that had to be kept in step
+-- and nothing checked that it was. The lists were identical, base for base, to
+the value type each column named, which is measurable: comparing the operation
+sets of ``NumericColumn`` and ``NumericValue`` gives an empty symmetric
+difference, for every column that has a value type.
 
 Nothing about the *storage* type appears here. A ``UUIDColumn`` is a
 ``UUIDColumn`` on every backend; how the value is stored is the DDL layer's
@@ -26,24 +31,20 @@ other. See ``expression/types/__init__.py`` for the DDL-side boundary.
 
 from typing import Optional, TYPE_CHECKING
 
-from .bases import SQLValueExpression
+from .bases import SQLValue
+from .value_types import (
+    ArrayValue,
+    BooleanValue,
+    JSONValue,
+    NumericValue,
+    OpaqueValue,
+    TemporalValue,
+    TextValue,
+    XMLValue,
+)
 from .mixins import (
     AliasableMixin,
-    ArithmeticMixin,
-    BooleanLogicMixin,
-    NumericValueMixin,
-    TranscendentalMixin,
-    TemporalArithmeticMixin,
-    ArrayMixin,
-    ComparisonMixin,
-    DateTimeMixin,
-    JSONAccessorMixin,
-    NotANumberMixin,
-    NotComparableMixin,
     NullTestMixin,
-    StringPatternPredicateMixin,
-    StringToIntegerMixin,
-    StringValueMixin,
     TypeCastingMixin,
 )
 
@@ -57,7 +58,7 @@ class ColumnBase(
     AliasableMixin,
     NullTestMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
     metaclass=ABCMeta,
 ):
     """Common base for every column expression.
@@ -100,10 +101,10 @@ class ColumnBase(
         table_need_quote: bool = True,
     ):
         super().__init__(dialect)
-        self.name_need_quote = name_need_quote
-        self.alias_need_quote = alias_need_quote
-        self.schema_need_quote = schema_need_quote
-        self.table_need_quote = table_need_quote
+        self.name_need_quote = self.quote_flag(name_need_quote, "name_need_quote")
+        self.alias_need_quote = self.quote_flag(alias_need_quote, "alias_need_quote")
+        self.schema_need_quote = self.quote_flag(schema_need_quote, "schema_need_quote")
+        self.table_need_quote = self.quote_flag(table_need_quote, "table_need_quote")
         self.name = name
         self.table = table
         self.alias = alias
@@ -125,7 +126,7 @@ class ColumnBase(
         return f"<{type(self).__name__} {''.join(parts)}>"
 
 
-class StringColumn(ComparisonMixin, StringValueMixin, StringPatternPredicateMixin, StringToIntegerMixin, ColumnBase):
+class StringColumn(TextValue, ColumnBase):
     """A column holding text: comparison, ``LIKE`` / ``ILIKE``, casting.
 
     Not available: arithmetic. ``LIKE`` against a numeric column is a
@@ -139,7 +140,7 @@ class StringColumn(ComparisonMixin, StringValueMixin, StringPatternPredicateMixi
 
 
 
-class NumericColumn(ComparisonMixin, ArithmeticMixin, NumericValueMixin, TranscendentalMixin, ColumnBase):
+class NumericColumn(NumericValue, ColumnBase):
     """A column holding a number: comparison and arithmetic.
 
     One class for every numeric width and precision: the operations are the
@@ -167,7 +168,7 @@ class IntegerColumn(NumericColumn):
     is the *result* — SQL keeps ``CEIL`` of a whole number a whole number, while
     ``SQRT`` of one generally is not — and the result type is settled by the
     operation's own declaration at run time (the math factories tag their
-    results through ``value_class_of``), not by a mixin arranged in the MRO.
+    results through ``annotation_for``), not by a mixin arranged in the MRO.
 
     ``TranscendentalMixin`` is inherited and not withheld: ``log(2)`` is a legal
     query the database will answer, and an integer behaving differently from the
@@ -182,7 +183,7 @@ class IntegerColumn(NumericColumn):
         return "format_column"
 
 
-class TimestampColumn(ComparisonMixin, TemporalArithmeticMixin, DateTimeMixin, ColumnBase):
+class TimestampColumn(TemporalValue, ColumnBase):
 
     """A column holding a date/time.
 
@@ -199,7 +200,7 @@ class TimestampColumn(ComparisonMixin, TemporalArithmeticMixin, DateTimeMixin, C
 
     Renamed from ``DateTimeColumn``: the column layer models *values*, and the
     value a ``DATETIME``/``TIMESTAMP`` column hands back is a point in time —
-    ``TimestampValueExpression``'s family. ``datetime`` is one vendor's spelling
+    ``TimestampValue``'s family. ``datetime`` is one vendor's spelling
     for it (and the name of the Python type); the four storage flavours the
     vendors really offer — civil date, civil time, instant, instant with zone —
     are the DDL layer's ``DataType`` distinction and never read from here.
@@ -211,7 +212,7 @@ class TimestampColumn(ComparisonMixin, TemporalArithmeticMixin, DateTimeMixin, C
         return "format_column"
 
 
-class BooleanColumn(BooleanLogicMixin, ComparisonMixin, ColumnBase):
+class BooleanColumn(BooleanValue, ColumnBase):
 
     """A column holding a truth value: boolean algebra, comparison, casting.
 
@@ -242,7 +243,7 @@ class BooleanColumn(BooleanLogicMixin, ComparisonMixin, ColumnBase):
         return "format_column"
 
 
-class BinaryColumn(ComparisonMixin, ColumnBase):
+class BinaryColumn(OpaqueValue, ColumnBase):
 
     """A column holding raw bytes: comparison, casting, collation."""
 
@@ -252,7 +253,7 @@ class BinaryColumn(ComparisonMixin, ColumnBase):
         return "format_column"
 
 
-class UUIDColumn(ComparisonMixin, ColumnBase):
+class UUIDColumn(OpaqueValue, ColumnBase):
 
     """A column holding a UUID.
 
@@ -269,7 +270,7 @@ class UUIDColumn(ComparisonMixin, ColumnBase):
         return "format_column"
 
 
-class JSONColumn(ComparisonMixin, JSONAccessorMixin, ColumnBase):
+class JSONColumn(JSONValue, ColumnBase):
 
     """A column holding JSON: comparison, casting, and path access.
 
@@ -286,7 +287,7 @@ class JSONColumn(ComparisonMixin, JSONAccessorMixin, ColumnBase):
         return "format_column"
 
 
-class ArrayColumn(ComparisonMixin, ArrayMixin, ColumnBase):
+class ArrayColumn(ArrayValue, ColumnBase):
 
     """A column holding an array: :meth:`~...mixins.ArrayMixin.array_length`
     and :meth:`~...mixins.ArrayMixin.unnest`."""
@@ -297,7 +298,7 @@ class ArrayColumn(ComparisonMixin, ArrayMixin, ColumnBase):
         return "format_column"
 
 
-class XMLColumn(NotComparableMixin, NotANumberMixin, ColumnBase):
+class XMLColumn(XMLValue, ColumnBase):
     """A column holding an XML document: alias, null tests, casting — no comparison.
 
     The XML value surface is *not* the general value surface with a few
@@ -340,78 +341,92 @@ class XMLColumn(NotComparableMixin, NotANumberMixin, ColumnBase):
 
 
 
-def value_class_of(expr: object):
-    """The value class an operation handing *expr* back should be typed as.
+def annotation_for(expr: object):
+    """The annotation typing an operation that hands *expr* back.
 
     ``MIN`` of an integer column is an integer; ``MIN`` of a string column is a
     string, and can still be compared and matched. ``LAG`` over a name is a
-    name. So when an operation answers with the thing it was given, this is
-    what it asks. It is read off the column *class* because that is where the
-    type already lives -- there is no tag to read and no attribute that
-    duplicates the class.
+    name. So when an operation answers with the thing it was given, this is what
+    it asks. It is read off the column *class* because that is where the type
+    already lives -- there is no tag to read and no attribute that duplicates the
+    class.
 
     Resolution walks the MRO, so a column class that narrows an existing one
     (``IntegerColumn`` under ``NumericColumn``) is found under its own name and
-    a backend's own column class resolves through whichever core class it
-    derives from.
+    a backend's own column class resolves through whichever core class it derives
+    from. That walk is why the map is keyed by class rather than by name: a
+    backend subclass gets the right answer without saying anything about itself.
 
-    ``None`` is a real answer rather than a failure. A ``Literal`` and an
+    ``None`` is a real answer rather than a failure. A bare ``Literal`` and an
     untyped ``Column`` say nothing about what a database would hand back, so an
-    operation over them stays untyped instead of guessing: the caller who needs
-    a specific type says so with ``cast()``.
+    operation over them stays untyped instead of guessing: the caller who needs a
+    specific type says so with ``cast()`` or by annotating the call.
 
     The table is built on first use and kept. This module is imported by
-    :mod:`..core`, so building it at import time would need the value classes
-    from the module that imports this one.
+    :mod:`..core`, so building it at import time would need the annotations from
+    the module that imports this one.
     """
-    global _COLUMN_VALUE_CLASSES
-    if _COLUMN_VALUE_CLASSES is None:
-        _COLUMN_VALUE_CLASSES = _value_classes()
+    global _COLUMN_ANNOTATIONS
+    if _COLUMN_ANNOTATIONS is None:
+        _COLUMN_ANNOTATIONS = _annotations()
 
     for klass in type(expr).__mro__:
-        value_class = _COLUMN_VALUE_CLASSES.get(klass)
-        if value_class is not None:
-            return value_class
+        annotation = _COLUMN_ANNOTATIONS.get(klass)
+        if annotation is not None:
+            return annotation
     return None
 
 
-#: Column class -> the value class an operation handing that column back is
-#: typed as. Resolution walks the MRO, so a column class that narrows an
-#: existing one is found under its own name: an ``IntegerColumn`` is a whole
-#: number even though it is also a ``NumericColumn``.
+#: Column class -> the annotation typing an operation that hands that column
+#: back. Resolution walks the MRO, so a column class that narrows an existing
+#: one is found under its own name: an ``IntegerColumn`` stays a whole number
+#: even though it is also a ``NumericColumn``.
 #:
 #: Every concrete column class this module declares is in here. The test that
 #: says so lives beside the map and is why a class added without an entry is a
 #: test failure rather than a silently untyped operation.
 #:
-#: ``TimestampColumn`` is the one judgement call: a column declared
-#: ``DATETIME`` or ``TIMESTAMP`` holds a date and a time together, which is
-#: what ``TimestampValueExpression`` is. A ``DATE`` or ``TIME`` column is a
-#: different storage type in DDL and this module has no column class for
-#: either -- the distinction between the four temporal types is made where
-#: the value is known (see :class:`~...expression.datetime.ExtractExpression`),
-#: not by guessing here.
-def _value_classes():
-    from . import core
+#: ``TimestampColumn`` is the one judgement call: a column declared ``DATETIME``
+#: or ``TIMESTAMP`` holds a date and a time together, which is what a timestamp
+#: is. A ``DATE`` or ``TIME`` column is a different storage type in DDL and this
+#: module has no column class for either -- the distinction between the temporal
+#: types is made where the value is known (see
+#: :class:`~...expression.datetime.ExtractExpression`), not by guessing here.
+def _annotations():
+    from .declared import (
+        ArrayAnnotation,
+        BinaryAnnotation,
+        BooleanAnnotation,
+        IntegerAnnotation,
+        JSONAnnotation,
+        NumberAnnotation,
+        TemporalAnnotation,
+        TextAnnotation,
+        UUIDAnnotation,
+        XMLAnnotation,
+    )
 
     return {
-        IntegerColumn: core.IntegerValueExpression,
-        NumericColumn: core.NumericValueExpression,
-        StringColumn: core.StringValueExpression,
-        JSONColumn: core.JSONValueExpression,
-        ArrayColumn: core.ArrayValueExpression,
-        BooleanColumn: core.BooleanValueExpression,
-        BinaryColumn: core.BinaryValueExpression,
-        UUIDColumn: core.UUIDValueExpression,
-        TimestampColumn: core.TimestampValueExpression,
+        IntegerColumn: IntegerAnnotation,
+        NumericColumn: NumberAnnotation,
+        StringColumn: TextAnnotation,
+        JSONColumn: JSONAnnotation,
+        ArrayColumn: ArrayAnnotation,
+        BooleanColumn: BooleanAnnotation,
+        # A DATETIME or TIMESTAMP column holds a date and a time together.
+        TimestampColumn: TemporalAnnotation,
         # XML is a value like the rest: the operations that hand one back (a
         # column, xmlagg, a cast to XmlType) are typed, they just offer the
-        # surface an XML value has -- see XMLColumn.
-        XMLColumn: core.XMLValueExpression,
+        # surface an XML document has -- see XMLColumn.
+        XMLColumn: XMLAnnotation,
+        # A BinaryColumn and a UUIDColumn answer with the operations they have
+        # in common and nothing else, so both land on the opaque annotation.
+        BinaryColumn: BinaryAnnotation,
+        UUIDColumn: UUIDAnnotation,
     }
 
 
-_COLUMN_VALUE_CLASSES = None
+_COLUMN_ANNOTATIONS = None
 
 
 __all__ = [
@@ -426,5 +441,5 @@ __all__ = [
     "JSONColumn",
     "ArrayColumn",
     "XMLColumn",
-    "value_class_of",
+    "annotation_for",
 ]

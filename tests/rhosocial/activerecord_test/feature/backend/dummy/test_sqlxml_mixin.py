@@ -6,17 +6,17 @@ import pytest
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.dialect.mixins import SQLXMLMixin
+from rhosocial.activerecord.backend.expression.value_types import TextValue, XMLValue
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
     OrderByClause,
-    StringValueExpression,
+    PassingClause,
     XMLParseDocumentType,
     XMLParseExpression,
     XMLPassingMechanism,
     XMLStandaloneOption,
     XMLTableColumn,
-    XMLValueExpression,
     xmlagg,
     xmlattributes,
     xmlcomment,
@@ -96,9 +96,9 @@ class TestSQLXMLMixin:
     def test_xml_document_factories_return_xml_values(self, dummy_dialect: DummyDialect):
         """The document constructors declare the value class they produce.
 
-        Each one builds an XML document, so the result is an
-        ``XMLValueExpression`` -- the class is the statement, not a tag, and
-        the SQL assertions elsewhere in this file are unchanged by it.
+        Each one builds an XML document, so the result carries the XML surface
+        -- the class is the statement, not a tag, and the SQL assertions
+        elsewhere in this file are unchanged by it.
         """
         expressions = [
             xmlparse(dummy_dialect, "<root/>"),
@@ -112,14 +112,14 @@ class TestSQLXMLMixin:
             xmlquery(dummy_dialect, "/root"),
         ]
         for expr in expressions:
-            assert isinstance(expr, XMLValueExpression), type(expr).__name__
+            assert isinstance(expr, XMLValue), type(expr).__name__
 
     def test_xmlserialize_factory_returns_the_text_value(self, dummy_dialect: DummyDialect):
         """Serialization yields the character value it names, not XML again."""
         expr = xmlserialize(dummy_dialect, "<root/>", "TEXT")
 
-        assert isinstance(expr, StringValueExpression)
-        assert not isinstance(expr, XMLValueExpression)
+        assert isinstance(expr, TextValue)
+        assert not isinstance(expr, XMLValue)
 
     def test_xmlserialize_generates_standard_sql(self, dummy_dialect: DummyDialect):
         expr = xmlserialize(dummy_dialect, Column(dummy_dialect, "payload"), "VARCHAR(100)")
@@ -239,6 +239,31 @@ class TestSQLXMLMixin:
             'XMLTABLE(? PASSING "payload" COLUMNS ("id" INTEGER PATH ?, "name" VARCHAR(100) PATH ? DEFAULT ?))'
         )
         assert params == ("/root/item", "@id", "name", "unknown")
+
+    def test_passing_clause_is_a_node_with_its_own_formatter(self, dummy_dialect: DummyDialect):
+        """The clause renders through the dialect's public formatter."""
+        clause = PassingClause(
+            dummy_dialect,
+            [Column(dummy_dialect, "payload")],
+            XMLPassingMechanism.BY_REF,
+        )
+
+        assert clause.format_method == "format_passing_clause"
+        assert clause.to_sql() == ('PASSING BY REF "payload"', ())
+
+    def test_empty_passing_clause_renders_nothing(self, dummy_dialect: DummyDialect):
+        assert PassingClause(dummy_dialect).to_sql() == ("", ())
+
+    def test_passing_clause_formatter_is_overridable(self, dummy_dialect: DummyDialect):
+        """A backend re-spells PASSING by overriding one formatter."""
+
+        class RefSpelling(DummyDialect):
+            def format_passing_clause(self, clause: PassingClause):
+                parts = [expression.to_sql()[0] for expression in clause.expressions]
+                return "PASSING BY REF " + " ".join(parts), ()
+
+        clause = PassingClause(RefSpelling(), [Column(RefSpelling(), "a"), Column(RefSpelling(), "b")])
+        assert clause.to_sql()[0] == 'PASSING BY REF "a" "b"'
 
     @pytest.mark.parametrize(
         ("support_method", "expr", "feature"),

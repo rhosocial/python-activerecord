@@ -12,11 +12,27 @@ Usage Rules:
 - For functions that operate on columns, wrap column names in Column objects
 """
 
-# Aggregate function factories
-from .aggregate import count, sum_, avg, min_, max_
+# Aggregate function nodes and factories
+from .aggregate import (
+    AggregateFunction,
+    CountFunction,
+    SumFunction,
+    AvgFunction,
+    MinFunction,
+    MaxFunction,
+    count,
+    sum_,
+    avg,
+    min_,
+    max_,
+)
 
 # String function factories
 from .string import (
+    # Function nodes
+    UpperFunction,
+    LowerFunction,
+    CharLengthFunction,
     concat,
     coalesce,
     length,
@@ -110,6 +126,7 @@ from .system import current_user, session_user, system_user
 
 # SQL/XML expression factories
 from .xml import (
+    passing_clause,
     xmlagg,
     xmlattributes,
     xmlcomment,
@@ -126,12 +143,23 @@ from .xml import (
 )
 
 __all__ = [
+    # Aggregate nodes
+    "AggregateFunction",
+    "CountFunction",
+    "SumFunction",
+    "AvgFunction",
+    "MinFunction",
+    "MaxFunction",
     # Aggregate
     "count",
     "sum_",
     "avg",
     "min_",
     "max_",
+    # String nodes
+    "UpperFunction",
+    "LowerFunction",
+    "CharLengthFunction",
     # String
     "concat",
     "coalesce",
@@ -231,6 +259,7 @@ __all__ = [
     "session_user",
     "system_user",
     # SQL/XML
+    "passing_clause",
     "xmlagg",
     "xmlattributes",
     "xmlcomment",

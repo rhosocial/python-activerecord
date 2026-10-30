@@ -12,9 +12,9 @@ from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from .....expression.statements import (
-        CreateFulltextIndexExpression,
-        DropFulltextIndexExpression,
-        FulltextMatchExpression,
+        CreateFulltextIndexStatement,
+        DropFulltextIndexStatement,
+        FulltextMatch,
     )
 
 
@@ -61,24 +61,24 @@ class FulltextIndexSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_create_fulltext_index_statement(self, expr: "CreateFulltextIndexExpression") -> Tuple[str, tuple]:
-        """Render a :class:`~....expression.statements.CreateFulltextIndexExpression`.
+    def format_create_fulltext_index_statement(self, expr: "CreateFulltextIndexStatement") -> Tuple[str, tuple]:
+        """Render a :class:`~....expression.statements.CreateFulltextIndexStatement`.
 
         Raises rather than emitting an unsupported form: a statement the
         engine cannot parse is not a statement worth producing.
         """
         ...  # pragma: no cover
 
-    def format_drop_fulltext_index_statement(self, expr: "DropFulltextIndexExpression") -> Tuple[str, tuple]:
-        """Render a :class:`~....expression.statements.DropFulltextIndexExpression`.
+    def format_drop_fulltext_index_statement(self, expr: "DropFulltextIndexStatement") -> Tuple[str, tuple]:
+        """Render a :class:`~....expression.statements.DropFulltextIndexStatement`.
 
         Raises rather than emitting an unsupported form: a statement the
         engine cannot parse is not a statement worth producing.
         """
         ...  # pragma: no cover
 
-    def format_fulltext_match(self, expr: "FulltextMatchExpression") -> Tuple[str, tuple]:
-        """Render a :class:`~....expression.statements.FulltextMatchExpression`.
+    def format_fulltext_match(self, expr: "FulltextMatch") -> Tuple[str, tuple]:
+        """Render a :class:`~....expression.statements.FulltextMatch`.
 
         Raises rather than emitting an unsupported form: a statement the
         engine cannot parse is not a statement worth producing.

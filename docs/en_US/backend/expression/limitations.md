@@ -15,34 +15,40 @@ According to SQL standards, when performing set operations like UNION, INTERSECT
 ```python
 # The following code is valid in the expression system but may fail during database execution
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, QueryExpression, TableExpression
+    Column, NamedRelationRef, QueryStatement
 )
-from rhosocial.activerecord.backend.expression.query_sources import SetOperationExpression
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.query_sources import (
+    SetOperation, SetOperationKind
+)
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 dialect = DummyDialect()
 
 # First query returns integer ID and text name
-query1 = QueryExpression(
+query1 = QueryStatement(
     dialect,
     select=[Column(dialect, "id"), Column(dialect, "name")],
-    from_=TableExpression(dialect, "users")
+    from_=NamedRelationRef(dialect, Table(dialect, "users"))
 )
 
 # Second query returns text email and integer age
-query2 = QueryExpression(
+query2 = QueryStatement(
     dialect,
     select=[Column(dialect, "email"), Column(dialect, "age")],
-    from_=TableExpression(dialect, "customers")
+    from_=NamedRelationRef(dialect, Table(dialect, "customers"))
 )
 
 # Expression system will successfully build this UNION, but database execution will fail
-union_query = SetOperationExpression(
+union_query = SetOperation(
     dialect,
+    op=SetOperationKind.UNION,
     left=query1,
-    right=query2,
-    operation="UNION"
+    right=query2
 )
+sql, params = union_query.to_sql()
+# sql: 'SELECT "id", "name" FROM "users" UNION SELECT "email", "age" FROM "customers"'
+# params: ()
 ```
 
 Although the above code is valid at the expression system level, it will fail during database execution due to column type mismatches.

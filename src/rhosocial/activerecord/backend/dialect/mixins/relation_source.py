@@ -27,6 +27,7 @@ from typing import Any, List, Tuple, Union, TYPE_CHECKING
 
 from ...expression.bases import BaseExpression
 from ...expression.objects import RelationObject
+from ...expression.query_sources import JSONTableColumn
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.sources import (
@@ -39,6 +40,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ValuesTableSource,
         XmlTableSource,
     )
+    from ...expression.xml import XMLTableColumn
 
 __all__ = ["RelationSourceMixin"]
 
@@ -59,8 +61,15 @@ class RelationSourceMixin:
 
         Not universal -- SQL Server has no ``VALUES`` table source -- so this
         defaults to False and a dialect opts in. Named for the SQL standard's
-        ``table value constructor``, which is the name MySQL and ClickHouse
-        already give this capability in their own probes.
+        ``table value constructor``, which is the name MySQL gives this
+        capability in its own probe.
+
+        ClickHouse has a probe of the same name and answers False, and that
+        is the measured answer: ClickHouse has a ``values`` *table function*,
+        so ``SELECT * FROM VALUES(1, 2)`` is accepted there, but the SQL
+        standard's spelling -- ``VALUES (1), (2)`` -- is a syntax error
+        (26.7.3), and the framework renders the standard one. A different
+        shape is a different capability.
         """
         return False
 
@@ -101,7 +110,7 @@ class RelationSourceMixin:
         if ref.temporal_options:
             from ...expression.datetime import TemporalOptionsExpression
 
-            temporal = self.format_temporal_options(
+            temporal = self.format_temporal_options_expression(
                 TemporalOptionsExpression(self, ref.temporal_options)
             )
             if temporal is not None:
@@ -302,7 +311,7 @@ class RelationSourceMixin:
         """
         self.check_feature_support("supports_json_table", "JSON_TABLE")
         document_sql, params = self.format_source_document(source.source)
-        path = self._escape_sql_string(source.path)
+        path = self.escape_sql_string(source.path)
         columns_sql, columns_params = self.format_source_columns(
             source.columns, self.format_json_table_column
         )
@@ -334,7 +343,7 @@ class RelationSourceMixin:
             all_params.extend(entry_params)
         return ", ".join(entries_sql), tuple(all_params)
 
-    def format_json_table_column(self, column: Any) -> Tuple[str, tuple]:
+    def format_json_table_column(self, column: "JSONTableColumn") -> Tuple[str, tuple]:
         """Render one entry of a JSON_TABLE ``COLUMNS`` list.
 
         Args:
@@ -348,25 +357,27 @@ class RelationSourceMixin:
         Raises:
             TypeError: *column* is not a usable column projection.
         """
-        name = getattr(column, "name", None)
-        path = getattr(column, "path", None)
-        if name is None or path is None:
+        if not isinstance(column, JSONTableColumn):
             raise TypeError(
-                f"A JSON_TABLE column must expose a name and a path, "
+                f"A JSON_TABLE column must be a JSONTableColumn, "
                 f"got {type(column).__name__}"
             )
+        name = column.name
+        path = column.path
         type_sql, params = self.format_source_column_type(column)
-        escaped_path = self._escape_sql_string(path)
+        escaped_path = self.escape_sql_string(path)
         sql = (
             f"{self.format_identifier(name)} {type_sql} PATH '{escaped_path}'"
         )
         return sql, params
 
-    def format_source_column_type(self, column: Any) -> Tuple[str, tuple]:
+    def format_source_column_type(self, column: "JSONTableColumn | XMLTableColumn") -> Tuple[str, tuple]:
         """Render the declared result type of a projection column.
 
         A column's type is a clause of its own, so an expression type is asked
-        to render and a plain one is taken as written.
+        to render.  A plain one is a name, and a name is claimed by the
+        framework's name node -- whose name the grammar validates, because a
+        type position cannot take a bound parameter.
 
         Args:
             column: A column projection exposing ``data_type``.
@@ -378,15 +389,18 @@ class RelationSourceMixin:
         Raises:
             TypeError: *column* declares no usable ``data_type``.
         """
-        data_type = getattr(column, "data_type", None)
+        data_type = column.data_type
         if data_type is None:
             raise TypeError(
-                f"A projection column must expose a data_type, "
+                f"A {type(column).__name__} must declare a data_type, "
                 f"got {type(column).__name__}"
             )
         if isinstance(data_type, BaseExpression):
             return data_type.to_sql()
-        return str(data_type), ()
+        from ...expression.types import DataType
+
+        type_sql, type_params = DataType.as_type(self, data_type).to_sql()
+        return type_sql, type_params
 
     def format_xml_table(self, source: "XmlTableSource") -> Tuple[str, tuple]:
         """Render a :class:`~...expression.sources.XmlTableSource`.
@@ -424,7 +438,7 @@ class RelationSourceMixin:
             binding_sql, binding_params = self.format_source_document(binding)
             parts.append(f"PASSING {binding_sql}")
             all_params.extend(binding_params)
-        row_path = self._escape_sql_string(source.row_path)
+        row_path = self.escape_sql_string(source.row_path)
         parts.append(f"PASSING '{row_path}'")
         columns_sql, columns_params = self.format_source_columns(
             source.columns, self.format_xml_table_column
@@ -434,7 +448,7 @@ class RelationSourceMixin:
         sql = f"XMLTABLE({' '.join(parts)})"
         return self.format_source_alias(sql, source), tuple(all_params)
 
-    def format_xml_table_column(self, column: Any) -> Tuple[str, tuple]:
+    def format_xml_table_column(self, column: "XMLTableColumn") -> Tuple[str, tuple]:
         """Render one entry of an XMLTABLE ``COLUMNS`` list.
 
         Args:
@@ -449,21 +463,18 @@ class RelationSourceMixin:
         Raises:
             TypeError: *column* exposes no usable ``name``.
         """
-        name = getattr(column, "name", None)
-        if name is None:
+        if not isinstance(column, XMLTableColumn):
             raise TypeError(
-                f"An XMLTABLE column must expose a name, "
+                f"An XMLTABLE column must be an XMLTableColumn, "
                 f"got {type(column).__name__}"
             )
+        name = column.name
         type_sql, all_params = self.format_source_column_type(column)
         fragment = f"{self.format_identifier(name)} {type_sql}"
-        for attribute in ("path", "default"):
-            value = getattr(column, attribute, None)
+        for spelling, value in (("PATH", column.path), ("DEFAULT", column.default)):
             if value is None:
                 continue
             value_sql, value_params = self.format_source_document(value)
-            fragment = f"{fragment} {attribute.upper()} {value_sql}"
+            fragment = f"{fragment} {spelling} {value_sql}"
             all_params += value_params
-        if getattr(column, "for_ordinality", False):
-            fragment = f"{fragment} FOR ORDINALITY"
         return fragment, all_params

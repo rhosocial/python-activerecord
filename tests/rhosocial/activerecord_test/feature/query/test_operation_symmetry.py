@@ -34,17 +34,17 @@ from rhosocial.activerecord.backend.expression import (
     UUIDColumn,
     XMLColumn,
 )
-from rhosocial.activerecord.backend.expression.core import (
-    ArrayValueExpression,
-    BinaryValueExpression,
-    BooleanValueExpression,
-    IntegerValueExpression,
-    JSONValueExpression,
-    NumericValueExpression,
-    StringValueExpression,
-    TimestampValueExpression,
-    UUIDValueExpression,
-    XMLValueExpression,
+from rhosocial.activerecord.backend.expression.declared import (
+    ArrayAnnotation,
+    BinaryAnnotation,
+    BooleanAnnotation,
+    IntegerAnnotation,
+    JSONAnnotation,
+    NumberAnnotation,
+    TextAnnotation,
+    TemporalAnnotation,
+    UUIDAnnotation,
+    XMLAnnotation,
 )
 from rhosocial.activerecord.backend.expression.mixins import NotANumberMixin
 
@@ -67,6 +67,15 @@ OPERATORS = {
 
 _REFUSALS = {name for name, value in vars(NotANumberMixin).items() if callable(value)}
 
+#: Not operations on a value, so not part of what "the same operations" means.
+#: ``collate`` and ``validate`` are a column's storage; ``get_params`` belongs to
+#: the artifact rather than to the type; ``surface`` is the declaration of
+#: which operations a node carries, which is the thing being compared here and so
+#: cannot also be one of the things compared; and ``kind`` is a node's identity
+#: on the wire (§4.9.2) -- defined once on the expression base, which an
+#: annotation is not.
+_NOT_OPERATIONS = {"collate", "validate", "get_params", "value_type_of", "kind"}
+
 
 def _operations(cls):
     """The operation names *cls* offers: public callables + operator dunders."""
@@ -76,20 +85,20 @@ def _operations(cls):
             continue
         if callable(getattr(cls, name, None)):
             names.add(name)
-    return names - _REFUSALS
+    return names - _REFUSALS - _NOT_OPERATIONS
 
 
 FAMILIES = [
-    (StringColumn, StringValueExpression),
-    (NumericColumn, NumericValueExpression),
-    (IntegerColumn, IntegerValueExpression),
-    (BooleanColumn, BooleanValueExpression),
-    (TimestampColumn, TimestampValueExpression),
-    (BinaryColumn, BinaryValueExpression),
-    (UUIDColumn, UUIDValueExpression),
-    (JSONColumn, JSONValueExpression),
-    (ArrayColumn, ArrayValueExpression),
-    (XMLColumn, XMLValueExpression),
+    (StringColumn, TextAnnotation),
+    (NumericColumn, NumberAnnotation),
+    (IntegerColumn, IntegerAnnotation),
+    (BooleanColumn, BooleanAnnotation),
+    (TimestampColumn, TemporalAnnotation),
+    (BinaryColumn, BinaryAnnotation),
+    (UUIDColumn, UUIDAnnotation),
+    (JSONColumn, JSONAnnotation),
+    (ArrayColumn, ArrayAnnotation),
+    (XMLColumn, XMLAnnotation),
 ]
 
 

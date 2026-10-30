@@ -16,7 +16,7 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 from rhosocial.activerecord.backend.expression.core import (
     Column,
     FunctionCall,
-    WildcardExpression,
+    AllColumnsWildcard,
 )
 from rhosocial.activerecord.backend.expression.statements import ReturningClause
 from rhosocial.activerecord.backend.impl.dummy.backend import DummyDialect
@@ -106,7 +106,7 @@ class TestReturningExpressionTypes:
 
     def test_wildcard_renders(self):
         dialect = DummyDialect()
-        clause = ReturningClause(dialect, expressions=[WildcardExpression(dialect)])
+        clause = ReturningClause(dialect, expressions=[AllColumnsWildcard(dialect)])
         sql, params = dialect.format_returning_clause(clause)
         assert sql == "RETURNING *"
 
@@ -161,7 +161,7 @@ class TestReturningUnsupportedFeatures:
 
     def test_wildcard_raises_when_unsupported(self):
         dialect = NoWildcardDialect()
-        clause = ReturningClause(dialect, expressions=[WildcardExpression(dialect)])
+        clause = ReturningClause(dialect, expressions=[AllColumnsWildcard(dialect)])
         with pytest.raises(UnsupportedFeatureError, match="wildcard in RETURNING"):
             dialect.format_returning_clause(clause)
 

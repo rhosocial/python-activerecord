@@ -1,4 +1,5 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_advanced_function_window.py
+from rhosocial.activerecord.backend.expression.functions import cast
 import pytest
 
 from rhosocial.activerecord.backend.expression.types import CustomType
@@ -6,12 +7,12 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
     FunctionCall,
-    QueryExpression,
+    QueryStatement,
     CaseExpression,
     ComparisonPredicate,
-    ExistsExpression,
-    AnyExpression,
-    AllExpression,
+    ExistsPredicate,
+    AnyPredicate,
+    AllPredicate,
     SelectModifier,
     ForUpdateClause,
     WindowFrameSpecification,
@@ -87,7 +88,7 @@ class TestAdvancedFunctionWindow:
         else:
             return
 
-        cast_expr = expr.cast(CustomType(dummy_dialect, raw=target_type))
+        cast_expr = cast(dummy_dialect, expr, CustomType(dummy_dialect, raw=target_type))
         sql, params = cast_expr.to_sql()
         assert sql == expected_sql
         assert params == expected_params
@@ -103,7 +104,7 @@ class TestAdvancedFunctionWindow:
     # --- EXISTS and related expressions ---
     def test_exists_expression(self, dummy_dialect: DummyDialect):
         """Tests EXISTS predicate."""
-        subquery = QueryExpression(
+        subquery = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "orders")),
@@ -114,14 +115,14 @@ class TestAdvancedFunctionWindow:
                 ),
             ),
         )
-        exists_expr = ExistsExpression(dummy_dialect, subquery)
+        exists_expr = ExistsPredicate(dummy_dialect, subquery)
         sql, params = exists_expr.to_sql()
         expected = 'EXISTS (SELECT "id" FROM "orders" WHERE "user_id" = "u"."id")'
         assert sql == expected
         assert params == ()
 
     def test_exists_expression_invalid_subquery_type_raises_error(self, dummy_dialect: DummyDialect):
-        """Tests that ExistsExpression raises TypeError for invalid subquery parameter type."""
+        """Tests that ExistsPredicate raises TypeError for invalid subquery parameter type."""
 
         # Create an object that is neither Subquery nor BaseExpression (doesn't have to_sql method)
         class InvalidObject:
@@ -133,12 +134,12 @@ class TestAdvancedFunctionWindow:
         with pytest.raises(
             TypeError, match=r"subquery must be Subquery or BaseExpression, got <class '.*InvalidObject'>"
         ):
-            ExistsExpression(dummy_dialect, invalid_obj)
+            ExistsPredicate(dummy_dialect, invalid_obj)
 
     def test_any_all_expressions(self, dummy_dialect: DummyDialect):
         """Tests ANY and ALL expressions."""
         # ANY expression
-        any_expr = AnyExpression(
+        any_expr = AnyPredicate(
             dummy_dialect, Column(dummy_dialect, "value"), ">", Literal(dummy_dialect, [10, 20, 30])
         )
         sql, params = any_expr.to_sql()
@@ -147,7 +148,7 @@ class TestAdvancedFunctionWindow:
         assert params == ((10, 20, 30),)
 
         # ALL expression
-        all_expr = AllExpression(
+        all_expr = AllPredicate(
             dummy_dialect, Column(dummy_dialect, "score"), ">=", Literal(dummy_dialect, [85, 90, 95])
         )
         sql, params = all_expr.to_sql()
@@ -155,7 +156,7 @@ class TestAdvancedFunctionWindow:
         assert sql == expected
         assert params == ((85, 90, 95),)
 
-    # --- QueryExpression with DISTINCT/ALL modifiers ---
+    # --- QueryStatement with DISTINCT/ALL modifiers ---
     @pytest.mark.parametrize(
         "modifier, expected_prefix",
         [
@@ -165,8 +166,8 @@ class TestAdvancedFunctionWindow:
         ],
     )
     def test_query_expression_select_modifier(self, dummy_dialect: DummyDialect, modifier, expected_prefix):
-        """Tests QueryExpression with DISTINCT/ALL modifiers."""
-        query = QueryExpression(
+        """Tests QueryStatement with DISTINCT/ALL modifiers."""
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "name"), Column(dummy_dialect, "category")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "products")),
@@ -179,11 +180,11 @@ class TestAdvancedFunctionWindow:
 
     # --- FOR UPDATE clause ---
     def test_query_expression_with_for_update_clause(self, dummy_dialect: DummyDialect):
-        """Tests QueryExpression with FOR UPDATE clause."""
+        """Tests QueryStatement with FOR UPDATE clause."""
         for_update_clause = ForUpdateClause(
             dummy_dialect, of_columns=[Column(dummy_dialect, "id"), "name"], nowait=False, skip_locked=True
         )
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
@@ -194,11 +195,11 @@ class TestAdvancedFunctionWindow:
         assert params == ()
 
     def test_query_expression_with_for_update_nowait(self, dummy_dialect: DummyDialect):
-        """Tests QueryExpression with FOR UPDATE NOWAIT."""
+        """Tests QueryStatement with FOR UPDATE NOWAIT."""
         for_update_clause = ForUpdateClause(
             dummy_dialect, of_columns=[Column(dummy_dialect, "id")], nowait=True, skip_locked=False
         )
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "locks")),
@@ -311,7 +312,7 @@ class TestAdvancedFunctionWindow:
         window_clause = WindowClause(dummy_dialect, definitions=[window_def1, window_def2])
 
         # Create a query that would reference these named windows
-        QueryExpression(
+        QueryStatement(
             dummy_dialect,
             select=[
                 Column(dummy_dialect, "employee_name"),
@@ -319,7 +320,7 @@ class TestAdvancedFunctionWindow:
                 FunctionCall(dummy_dialect, "ROW_NUMBER", window_spec="dept_ranking"),
             ],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "employees")),
-            # Note: The WindowClause would need to be integrated into QueryExpression to be fully functional
+            # Note: The WindowClause would need to be integrated into QueryStatement to be fully functional
         )
 
         # Since we are testing the window clause itself, let's test it independently

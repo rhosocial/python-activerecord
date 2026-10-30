@@ -61,6 +61,18 @@ except OperationalError as e:
 3. **后端特定配置类**：后端继承 `ConnectionConfig` 并混入所需 Mixin，再叠加数据库私有参数。
 
 ```python
+from typing import Optional
+
+from rhosocial.activerecord.backend.config import (
+    CharsetMixin,
+    ConnectionConfig,
+    ConnectionPoolMixin,
+    LoggingMixin,
+    SSLMixin,
+    TimezoneMixin,
+    VersionMixin,
+)
+
 class MySQLConnectionConfig(
     ConnectionConfig,
     ConnectionPoolMixin, SSLMixin, CharsetMixin,
@@ -120,7 +132,7 @@ from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionCo
 from rhosocial.activerecord.model import ActiveRecord
 
 # 构建配置并绑定到模型
-config = SQLiteConnectionConfig(database="app.db")
+config = SQLiteConnectionConfig(database=":memory:")
 ActiveRecord.configure(config, SQLiteBackend)
 
 # 后端特定子类
@@ -150,16 +162,27 @@ ActiveRecord.configure(SQLiteInMemoryConfig(), SQLiteBackend)
 注意它是如何简单地混入标准实现的：
 
 ```python
+from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+from rhosocial.activerecord.backend.dialect.mixins import CTEMixin, WindowFunctionMixin
+from rhosocial.activerecord.backend.dialect.protocols import (
+    AdvancedGroupingSupport,
+    CTESupport,
+    WindowFunctionSupport,
+)
+
 class DummyDialect(
     SQLDialectBase,
     # 通过 Mixins 引入标准实现
-    WindowFunctionMixin, CTEMixin, AdvancedGroupingMixin, ...
+    WindowFunctionMixin, CTEMixin,
     # 协议定义用于类型检查
-    WindowFunctionSupport, CTESupport, AdvancedGroupingSupport, ...
+    WindowFunctionSupport, CTESupport, AdvancedGroupingSupport,
 ):
     # 特性标志
-    def supports_window_functions(self) -> bool: return True
-    # ...
+    def supports_window_functions(self) -> bool:
+        return True
+
+    def supports_basic_cte(self) -> bool:
+        return True
 ```
 
 ### 实现策略
@@ -180,6 +203,8 @@ class DummyDialect(
 通用协议（如 `WindowFunctionSupport`、`TableSupport`、`IndexSupport`）定义在 `rhosocial.activerecord.backend.dialect.protocols` 中，**不应包含任何后端特定前缀**。
 
 ```python
+from typing import Protocol
+
 # ✅ 正确：通用协议
 class WindowFunctionSupport(Protocol):
     def supports_window_functions(self) -> bool: ...
@@ -193,6 +218,8 @@ class MySQLWindowFunctionSupport(Protocol): ...
 后端特定协议必须包含后端名称作为前缀（例如 `PostgresPartitionSupport`、`MySQLFullTextSearchSupport`）。
 
 ```python
+from typing import Protocol
+
 # ✅ 正确：后端特定协议有前缀
 class PostgresPartitionSupport(Protocol): ...
 
@@ -206,21 +233,26 @@ class PartitionSupport(Protocol): ...
 
 ```python
 # 示例：MySQL 全文搜索
-# 通用 IndexSupport 协议已经定义了 supports_fulltext_index
+# 通用 FulltextIndexSupport 协议已经定义了 supports_fulltext_index
+from typing import Protocol
+
+from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+from rhosocial.activerecord.backend.dialect.protocols import FulltextIndexSupport
+
 # ✅ 使用通用协议并设置版本检查
 class MySQLDialect(
-    IndexSupport,  # 已经包含 supports_fulltext_index
-    ...
+    SQLDialectBase,
+    FulltextIndexSupport,  # 已经包含 supports_fulltext_index
 ):
     def supports_fulltext_index(self) -> bool:
-        return self.version >= (5, 6, 0)
+        return self.version_at_least((5, 6, 0))
 
 # 仅在需要 MySQL 特定接口时创建 MySQLFullTextSearchSupport：
 # - format_match_against() - MySQL MATCH...AGAINST 语法
 # - format_fulltext_index_options() - WITH PARSER 等
 class MySQLFullTextSearchSupport(Protocol):
-    def format_match_against(...): ...  # MySQL 特定
-    def format_fulltext_index_options(...): ...  # MySQL 特定
+    def format_match_against(self, expr) -> tuple: ...  # MySQL 特定
+    def format_fulltext_index_options(self, expr) -> tuple: ...  # MySQL 特定
 ```
 
 这一原则确保：
@@ -233,6 +265,8 @@ class MySQLFullTextSearchSupport(Protocol):
 当通用协议的格式化接口有后端特定参数时，使用 `dialect_options` 参数：
 
 ```python
+from typing import Any, Dict, Optional, Protocol, Tuple
+
 # 通用协议定义带 dialect_options 的接口
 class JSONSupport(Protocol):
     def supports_json_table(
@@ -264,13 +298,19 @@ class JSONSupport(Protocol):
 **在表达式中的用法：**
 
 ```python
-# 创建表达式时传入 dialect_options
+# 后端特定选项属于能力探测接口，而不属于表达式本身：
+# JSONTableExpression 只接受通用参数
+from rhosocial.activerecord.backend.expression.query_sources import (
+    JSONTableColumn,
+    JSONTableExpression,
+)
+
 JSONTableExpression(
     dialect,
-    json_column=User.json_data,
+    json_column="json_data",
     path='$.addresses[*]',
-    columns=[...],
-    dialect_options={'on_error': 'IGNORE'}  # MySQL 特定
+    columns=[JSONTableColumn("id", "INTEGER", "$.id")],
+    alias="addresses",
 )
 ```
 
@@ -445,6 +485,9 @@ Dialect 格式化实现
 **步骤 1: 定义协议** (`mysql/protocols.py`，Protocol: 协议)
 
 ```python
+from typing import Protocol, Tuple, runtime_checkable
+
+
 @runtime_checkable
 class FullTextSearchSupport(Protocol):
     def supports_fulltext_index(self) -> bool:  # supports_* 方法
@@ -462,10 +505,17 @@ class FullTextSearchSupport(Protocol):
 **步骤 2: 定义表达式** (`mysql/expression/match_against.py`，Expression: 表达式)
 
 ```python
-class MatchAgainstExpression(AliasableMixin, ComparisonMixin, SQLValueExpression):
+from typing import List, Optional
+
+from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+from rhosocial.activerecord.backend.expression import AliasableMixin, SQLValue
+from rhosocial.activerecord.backend.expression.mixins import ComparisonMixin
+
+
+class MatchAgainstExpression(AliasableMixin, ComparisonMixin, SQLValue):
     def __init__(
         self,
-        dialect: MySQLDialect,
+        dialect: SQLDialectBase,
         columns: List[str],
         search_string: str,
         mode: Optional[str] = None,
@@ -480,21 +530,29 @@ class MatchAgainstExpression(AliasableMixin, ComparisonMixin, SQLValueExpression
         # 绝不复写 to_sql()：BaseExpression.to_sql() 会在绑定的方言上
         # 解析该名称并调用 dialect.format_match_against(expr)。
         return "format_match_against"
-
-    def as_(self, alias: str) -> AliasColumn:
-        return AliasColumn(self, alias)
 ```
 
 **步骤 3: 在方言中实现协议** (`mysql/dialect.py`，Dialect: 方言)
 
 ```python
+from typing import Protocol, Tuple, runtime_checkable
+
+from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+
+
+@runtime_checkable
+class FullTextSearchSupport(Protocol):
+    def supports_fulltext_index(self) -> bool: ...
+
+    def format_match_against(self, expr: "MatchAgainstExpression") -> Tuple[str, tuple]: ...
+
+
 class MySQLDialect(
-    MySQLBaseMixin,
+    SQLDialectBase,
     FullTextSearchSupport,  # 添加协议
-    ...
 ):
     def supports_fulltext_index(self) -> bool:
-        return self.version >= (5, 6, 0)
+        return self.version_at_least((5, 6, 0))
 
     def format_match_against(
         self,
@@ -502,7 +560,7 @@ class MySQLDialect(
     ) -> Tuple[str, tuple]:
         cols_sql = ", ".join(self.format_identifier(c) for c in expr.columns)
         placeholder = self.get_parameter_placeholder()
-        
+
         # 模式映射 (mode mapping)
         mode_map = {
             "NATURAL_LANGUAGE": "IN NATURAL LANGUAGE MODE",
@@ -510,7 +568,7 @@ class MySQLDialect(
             "QUERY_EXPANSION": "IN NATURAL LANGUAGE MODE WITH QUERY EXPANSION",
         }
         mode_str = mode_map.get(expr.mode, "IN NATURAL LANGUAGE MODE")
-        
+
         sql = f"MATCH({cols_sql}) AGAINST({placeholder} {mode_str})"
         return sql, (expr.search_string,)
 ```
@@ -519,7 +577,8 @@ class MySQLDialect(
 
 ```python
 def test_match_against_expression(self):
-    dialect = MySQLDialect(version=(8, 0, 0))
+    dialect = MySQLDialect()
+    dialect.version = (8, 0, 0)
     expr = MatchAgainstExpression(
         dialect,
         columns=['title', 'content'],
@@ -547,28 +606,34 @@ def test_match_against_expression(self):
 **`mysql/mixins.py`** (协议实现)
 
 ```python
+from typing import Tuple
+
+
 class MySQLFullTextMixin:
     def supports_fulltext_index(self) -> bool:
-        return self.version >= (5, 6, 0)
+        return self.version_at_least((5, 6, 0))
 
     def supports_fulltext_parser(self) -> bool:
-        return self.version >= (5, 1, 0)
+        return self.version_at_least((5, 1, 0))
 
     def format_match_against(
         self,
         expr: MatchAgainstExpression,
     ) -> Tuple[str, tuple]:
         # 实现...
+        return "", ()
 ```
 
 **`mysql/dialect.py`** (组合 Mixin)
 
 ```python
+from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+
+
 class MySQLDialect(
-    MySQLBaseMixin,
+    SQLDialectBase,
     MySQLFullTextMixin,  # 分离的 mixin 用于组织
     FullTextSearchSupport,
-    ...
 ):
     pass
 ```
@@ -603,16 +668,20 @@ class MySQLDialect(
 **示例**：为 MySQL 添加 `MODIFY COLUMN` 支持
 
 ```python
+from typing import Protocol, Tuple, runtime_checkable
+
+
 # 步骤 1: MySQL 专属 Protocol (mysql/protocols.py)
 @runtime_checkable
 class MySQLModifyColumnSupport(Protocol):
     def supports_modify_column(self) -> bool: ...
     def format_modify_column_action(self, action) -> Tuple[str, tuple]: ...
 
+
 # 步骤 2: MySQL 专属 Mixin (mysql/mixins.py)
 class MySQLModifyColumnMixin:
     def supports_modify_column(self) -> bool:
-        return self.version >= (5, 0, 0)  # 所有 MySQL 5.x+ 支持
+        return self.version_at_least((5, 0, 0))  # 所有 MySQL 5.x+ 支持
 
     def format_modify_column_action(self, action) -> Tuple[str, tuple]:
         col_sql, col_params = self.format_column_definition(action.column)
@@ -623,11 +692,15 @@ class MySQLModifyColumnMixin:
             sql += " FIRST"
         return sql, col_params
 
+
 # 步骤 3: MySQL 方言混入 Protocol + Mixin (mysql/dialect.py)
+from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+
+
 class MySQLDialect(
+    SQLDialectBase,
     MySQLModifyColumnMixin,
     MySQLModifyColumnSupport,
-    ...
 ):
     pass  # Mixin 中已有实现，无需额外覆写
 ```

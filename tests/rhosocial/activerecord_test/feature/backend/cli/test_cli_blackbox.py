@@ -56,6 +56,23 @@ def run_cli(argv):
 class TestCommandSurface:
     """C1: command surface."""
 
+    def test_console_script_is_declared(self):
+        """The documented command is really installed, not only documented.
+
+        `docs/{en_US,zh_CN}/backend/sqlite/cli/README.md` promises
+        `rhosocial-activerecord-sqlite`; without this entry point the promise
+        only held for `python -m ...`.
+        """
+        from pathlib import Path
+
+        pyproject = Path(__file__).resolve().parents[6] / "pyproject.toml"
+        text = pyproject.read_text(encoding="utf-8")
+        assert "[project.scripts]" in text
+        assert (
+            'rhosocial-activerecord-sqlite = "rhosocial.activerecord.backend.impl.sqlite.__main__:main"'
+            in text
+        )
+
     def test_help_lists_all_commands(self):
         out, _, _ = run_cli(["--help"])
         for cmd in COMMANDS:

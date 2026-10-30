@@ -2,7 +2,7 @@
 from ..core import BaseExpression
 
 
-class FilterClauseExpression(BaseExpression):
+class FilterClause(BaseExpression):
     """FILTER (WHERE ...) clause wrapping a condition expression."""
 
     def __init__(self, dialect, condition: BaseExpression):

@@ -52,11 +52,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     ColumnTypeSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
-    DatabaseNameMixin,
-    PropertyGraphNameMixin,
     RelationSourceMixin,
-    SchemaNameMixin,
-    # Named objects: each *NameMixin inherits NamespaceMixin, so they precede it.
     NamespaceMixin,
     TableNameMixin,
     ViewNameMixin,
@@ -127,16 +123,16 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression import bases
     from rhosocial.activerecord.backend.expression.advanced_functions import (
-        ArrayExpression,
-        JSONDocumentExpression,
+        ArrayValue,
+        JSONDocumentValue,
         OrderedSetAggregation,
         TrimExpression,
     )
     from rhosocial.activerecord.backend.expression.graph import MatchClause
     from rhosocial.activerecord.backend.expression.predicates import DistinctFromPredicate
     from rhosocial.activerecord.backend.expression.query_parts import QualifyClause
-    from rhosocial.activerecord.backend.expression.statements import ExplainExpression
-    from rhosocial.activerecord.backend.expression.statements.ddl_truncate import TruncateExpression
+    from rhosocial.activerecord.backend.expression.statements import ExplainStatement
+    from rhosocial.activerecord.backend.expression.statements.ddl_truncate import TruncateStatement
 
 from .protocols import (
     SQLiteExtensionSupport,
@@ -159,7 +155,6 @@ from .mixins import (
     SQLiteDateTimeMixin,
     SQLiteDDLColumnMixin,
     SQLiteDMLMixin,
-    SQLiteSetOperationMixin,
     SQLiteViewMixin,
     SQLiteTriggerMixin,
     SQLiteTransactionMixin,
@@ -167,7 +162,14 @@ from .mixins import (
     SQLiteFTS5Mixin,
     SQLiteRTreeMixin,
     SQLiteGeopolyMixin,
+    # Object naming: SQLite's schema is an attached-database name, which is not
+    # the SQL-standard construct, so naming is answered here rather than by the
+    # DDL probes. Placed ahead of the shared TableNameMixin in the class list.
+    SQLiteObjectNameMixin,
     SQLiteTypeSupportMixin,
+    # Value literals: SQLite's blob spelling, overriding the base's
+    # format_binary_value / format_uuid_value by MRO position.
+    LiteralValueMixin,
     # Column types. SQLite states its own full table: the four sequence entries
     # take JSONColumn (there is no array type here) and float/Decimal both take
     # NumericColumn. There is no generic table in core to compose.
@@ -186,9 +188,25 @@ _SUGGESTION_QUALIFY = "SQLite does not support QUALIFY clause. Use a subquery or
 
 
 class SQLiteDialect(
+    # The bases below come in bundles: a backend mixin, then the core bundle
+    # it stands in for. The backend's answer has to come first -- a mixin
+    # placed after the class it overrides never wins -- so a new mixin goes
+    # immediately before the core mixin it overrides, and the pairing is read
+    # off the list. Two positions sit outside that pairing and are called out
+    # where they occur: a mixin that overrides a method ``SQLDialectBase``
+    # defines has to precede the base, and a mixin that subclasses a core
+    # mixin has to precede it too (C3: a subclass precedes its base).
+    # Ahead of SQLDialectBase, unlike every other mixin here. Those add methods
+    # the base does not have, so their position is a readability choice; this
+    # one overrides ``format_literal``, and a mixin placed after the class it
+    # overrides never wins. It resolves SQLite's two tier-2 spellings -- blob
+    # and UUID -- and leaves the base's portable forms and the
+    # literal-construction protocol to it.
+    LiteralValueMixin,
     SQLDialectBase,
     RelationSourceMixin,
     # Named objects: each *NameMixin inherits NamespaceMixin, so they precede it.
+    SQLiteObjectNameMixin,
     TableNameMixin,
     ViewNameMixin,
     MaterializedViewNameMixin,
@@ -224,6 +242,12 @@ class SQLiteDialect(
     LateralJoinMixin,
     JoinMixin,
     # DDL Mixins (without SQLite overrides)
+    # SQLite's own view mixin answers ``supports_with_data_clause`` as well as
+    # the view statements, and it has to precede TableMixin -- the core mixin
+    # declares the same probe, and a mixin placed after the class it overrides
+    # never wins, so core's answer was the one in force and SQLite's was dead
+    # code.
+    SQLiteViewMixin,
     TableMixin,
     ConstraintMixin,
     CommentOnMixin,
@@ -263,8 +287,6 @@ class SQLiteDialect(
     SQLiteDateTimeMixin,
     SQLiteDDLColumnMixin,
     SQLiteDMLMixin,
-    SQLiteSetOperationMixin,
-    SQLiteViewMixin,
     SQLiteTriggerMixin,
     SQLitePragmaMixin,
     SQLiteIntrospectionCapabilityMixin,
@@ -386,14 +408,19 @@ class SQLiteDialect(
         """Return the SQLite version this dialect is configured for."""
         return self.version
 
-    def _effective_version(self) -> Tuple[int, int, int]:
-        """Resolve the version used for capability checks.
+    def _declared_version(self) -> Tuple[int, int, int]:
+        """The sqlite3 library's own version, which needs no adaptation.
 
-        Returns the explicitly configured or adapted version, falling back to
-        the sqlite3 library version, which is always known without adaptation.
+        SQLite has no server to ask: the engine is the library the driver
+        links against, so ``sqlite3.sqlite_version_info`` already *is* the
+        version in force. Capability checks can therefore answer before
+        ``introspect_and_adapt()`` runs, which is what keeps a predicate such
+        as ``supports_foreign_key_introspection()`` from raising.
+
+        The strict :attr:`version` still raises until adaptation, because an
+        unconfigured dialect has not been told which version the caller
+        targets.
         """
-        if self._version is not None:
-            return self._version
         import sqlite3
 
         return tuple(sqlite3.sqlite_version_info[:3])
@@ -443,39 +470,39 @@ class SQLiteDialect(
     # region Protocol Support Checks based on version
     def supports_basic_cte(self) -> bool:
         """Basic CTEs are supported since SQLite 3.8.3."""
-        return self._effective_version() >= (3, 8, 3)
+        return self.version_at_least((3, 8, 3))
 
     def supports_recursive_cte(self) -> bool:
         """Recursive CTEs are supported since SQLite 3.8.3."""
-        return self._effective_version() >= (3, 8, 3)
+        return self.version_at_least((3, 8, 3))
 
     def supports_materialized_cte(self) -> bool:
         """MATERIALIZED hint is supported since SQLite 3.35.0."""
-        return self._effective_version() >= (3, 35, 0)
+        return self.version_at_least((3, 35, 0))
 
     def supports_returning_insert(self) -> bool:
         """RETURNING clause is supported for INSERT since SQLite 3.35.0."""
-        return self.version >= (3, 35, 0)
+        return self.version_at_least((3, 35, 0))
 
     def supports_returning_update(self) -> bool:
         """RETURNING clause is supported for UPDATE since SQLite 3.35.0."""
-        return self.version >= (3, 35, 0)
+        return self.version_at_least((3, 35, 0))
 
     def supports_returning_delete(self) -> bool:
         """RETURNING clause is supported for DELETE since SQLite 3.35.0."""
-        return self.version >= (3, 35, 0)
+        return self.version_at_least((3, 35, 0))
 
     def supports_window_functions(self) -> bool:
         """Window functions are supported since SQLite 3.25.0."""
-        return self.version >= (3, 25, 0)
+        return self.version_at_least((3, 25, 0))
 
     def supports_window_frame_clause(self) -> bool:
         """Whether window frame clauses (ROWS/RANGE) are supported, since SQLite 3.25.0."""
-        return self.version >= (3, 25, 0)
+        return self.version_at_least((3, 25, 0))
 
     def supports_filter_clause(self) -> bool:
         """FILTER clause for aggregate functions is supported since SQLite 3.10.0."""
-        return self.version >= (3, 10, 0)
+        return self.version_at_least((3, 10, 0))
 
     def supports_json_type(self) -> bool:
         """JSON is supported with JSON1 extension.
@@ -484,16 +511,16 @@ class SQLiteDialect(
         - SQLite >= 3.38.0: JSON1 is built-in, always available
         - SQLite < 3.38.0: Check runtime detection result (json1_available)
         """
-        if self.version >= (3, 38, 0):
+        if self.version_at_least((3, 38, 0)):
             return True
         # For older versions, use runtime detection result
         return self.get_runtime_param("json1_available", False)
 
     def supports_json_arrow_operators(self) -> bool:
         """SQLite supports -> and ->> operators from version 3.38.0+."""
-        return self.version >= (3, 38, 0)
+        return self.version_at_least((3, 38, 0))
 
-    def format_json_function_expression(self, expr: "JSONDocumentExpression") -> Tuple[str, tuple]:
+    def format_json_function_expression(self, expr: "JSONDocumentValue") -> Tuple[str, tuple]:
         """Render a JSON path access with SQLite's own JSON1 functions.
 
         Without this, ``JSONPathMode.FUNCTION`` fell through to the core
@@ -502,7 +529,7 @@ class SQLiteDialect(
         FUNCTION mode produced SQL the server rejects.
 
         Args:
-            expr: The JSONDocumentExpression node.
+            expr: The JSONDocumentValue node.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
@@ -514,7 +541,7 @@ class SQLiteDialect(
         else:
             col_sql, col_params = self.format_identifier(str(expr.column)), ()
 
-        escaped_path = self._escape_sql_string(expr.path)
+        escaped_path = self.escape_sql_string(expr.path)
         # json_extract returns SQL NULL for a missing path and a
         # JSON-quoted string for text, so it stands in for ->> without a
         # separate unquote step — SQLite has no JSON_UNQUOTE to call.
@@ -572,7 +599,7 @@ class SQLiteDialect(
         # SQLite has limited support for different EXPLAIN formats
         return format_type.upper() in ["TEXT", "DOT"]
 
-    def format_explain_statement(self, expr: "ExplainExpression") -> Tuple[str, tuple]:
+    def format_explain_statement(self, expr: "ExplainStatement") -> Tuple[str, tuple]:
         """Format EXPLAIN / EXPLAIN QUERY PLAN for SQLite.
 
         SQLite supports two forms:
@@ -599,6 +626,14 @@ class SQLiteDialect(
         """Whether FOR UPDATE SKIP LOCKED is supported."""
         return False
 
+    def supports_for_update_nowait(self) -> bool:
+        """Whether FOR UPDATE NOWAIT is supported.
+
+        SQLite has no ``NOWAIT``: the locking clause is ``BEGIN IMMEDIATE`` /
+        ``BEGIN EXCLUSIVE``, and there is nothing to attach a wait modifier to.
+        """
+        return False
+
     def supports_for_update(self) -> bool:
         """Whether FOR UPDATE clause is supported in SELECT statements.
 
@@ -623,7 +658,7 @@ class SQLiteDialect(
     def supports_upsert(self) -> bool:
         """Whether UPSERT (ON CONFLICT) is supported."""
         # UPSERT (ON CONFLICT) is supported since SQLite 3.24.0
-        return self.version >= (3, 24, 0)
+        return self.version_at_least((3, 24, 0))
 
     def get_upsert_syntax_type(self) -> str:
         """
@@ -643,7 +678,7 @@ class SQLiteDialect(
 
         Multiple ON CONFLICT clauses are supported since SQLite 3.35.0.
         """
-        return self.version >= (3, 35, 0)
+        return self.version_at_least((3, 35, 0))
 
     # Probed once per process and shared across instances: the result depends only on the
     # linked SQLite library build, which is fixed for the lifetime of the process.
@@ -675,7 +710,7 @@ class SQLiteDialect(
 
     def supports_distinct_from(self) -> bool:
         """Whether SQLite accepts ``IS [NOT] DISTINCT FROM`` (3.39.0+)."""
-        return self.version >= (3, 39, 0)
+        return self.version_at_least((3, 39, 0))
 
     def format_distinct_from_predicate(self, expr: "DistinctFromPredicate") -> Tuple[str, tuple]:
         """Format a NULL-safe distinctness check, refusing below SQLite 3.39.0.
@@ -742,7 +777,7 @@ class SQLiteDialect(
         Column names must instead be assigned through an outer CTE or by
         referencing the implicit ``column1``/``column2`` names.
         """
-        values, alias, column_names = expr.values, expr.alias, expr.column_names
+        values, alias, _ = expr.values, expr.alias, expr.column_names
         all_params: List[Any] = []
         rows_sql: List[str] = []
         for row in values:
@@ -764,14 +799,14 @@ class SQLiteDialect(
         """SQLite does not support TRUNCATE TABLE (use DELETE FROM instead)."""
         return False
 
-    def format_truncate_statement(self, expr: "TruncateExpression") -> Tuple[str, tuple]:
+    def format_truncate_statement(self, expr: "TruncateStatement") -> Tuple[str, tuple]:
         """SQLite does not support TRUNCATE TABLE."""
         raise UnsupportedFeatureError(self.name, "TRUNCATE TABLE", "Use DELETE FROM instead.")
 
     def supports_generated_columns(self) -> bool:
         """Whether generated columns are supported."""
         # Generated columns (STORED/VIRTUAL) are supported since SQLite 3.31.0
-        return self.version >= (3, 31, 0)
+        return self.version_at_least((3, 31, 0))
 
     def supports_stored_generated_columns(self) -> bool:
         """Whether STORED generated columns are supported."""
@@ -826,12 +861,12 @@ class SQLiteDialect(
     def supports_rename_column(self) -> bool:
         """Whether RENAME COLUMN is supported."""
         # RENAME COLUMN is supported since SQLite 3.25.0
-        return self.version >= (3, 25, 0)
+        return self.version_at_least((3, 25, 0))
 
     def supports_drop_column(self) -> bool:
         """Whether DROP COLUMN is supported."""
         # DROP COLUMN is supported since SQLite 3.35.0
-        return self.version >= (3, 35, 0)
+        return self.version_at_least((3, 35, 0))
 
     def supports_table_partitioning(self) -> bool:
         """Whether table partitioning is supported."""
@@ -851,7 +886,7 @@ class SQLiteDialect(
         Returns:
             True if SQLite version >= 3.53.0, False otherwise.
         """
-        return self.version >= (3, 53, 0)
+        return self.version_at_least((3, 53, 0))
 
     def supports_drop_constraint(self) -> bool:
         """Whether ALTER TABLE DROP CONSTRAINT is supported.
@@ -861,19 +896,31 @@ class SQLiteDialect(
         Returns:
             True if SQLite version >= 3.53.0, False otherwise.
         """
-        return self.version >= (3, 53, 0)
+        return self.version_at_least((3, 53, 0))
 
     def supports_fk_match(self) -> bool:
         """SQLite does not support MATCH clause in FOREIGN KEY."""
         return False
 
     def supports_deferrable_constraint(self) -> bool:
-        """SQLite does not support DEFERRABLE table constraints."""
-        return False
+        """SQLite defers a foreign key to COMMIT when asked to.
 
-    def supports_constraint_enforced(self) -> bool:
-        """SQLite does not support ENFORCED/NOT ENFORCED constraint control."""
-        return False
+        Opt-in: the core default is ``False`` (a SQL:1999 modifier, not a
+        constructor), so this override is a measured claim about SQLite
+        specifically.
+
+        Measured on 3.50.4, ``foreign_keys = ON``: with
+        ``DEFERRABLE INITIALLY DEFERRED`` a child row that violates the
+        constraint **inserts successfully** inside the transaction and the
+        ``COMMIT`` fails; ``NOT DEFERRABLE`` and ``DEFERRABLE INITIALLY
+        IMMEDIATE`` both reject at the insert. So the deferral is enforced, not
+        merely parsed.
+
+        Foreign keys only. SQLite's grammar has no deferrable form on
+        ``PRIMARY KEY``, ``UNIQUE`` or ``CHECK``, so this switch must not be
+        read as a claim about those.
+        """
+        return True
 
     # CreateIndexSupport protocol implementation
     def supports_create_index(self) -> bool:
@@ -899,7 +946,7 @@ class SQLiteDialect(
     def supports_partial_index(self) -> bool:
         """Whether partial indexes (WHERE clause) are supported."""
         # Partial indexes are supported since SQLite 3.8.0
-        return self.version >= (3, 8, 0)
+        return self.version_at_least((3, 8, 0))
 
     def supports_functional_index(self) -> bool:
         """Whether functional/expression indexes are supported."""
@@ -985,25 +1032,12 @@ class SQLiteDialect(
     def supports_intersect(self) -> bool:
         """Whether INTERSECT operation is supported."""
         # INTERSECT is supported in SQLite since version 3.7.6 (2011-02-25)
-        return self.version >= (3, 7, 6)
+        return self.version_at_least((3, 7, 6))
 
     def supports_except(self) -> bool:
         """Whether EXCEPT operation is supported."""
         # EXCEPT is supported in SQLite since version 3.7.6 (2011-02-25)
-        return self.version >= (3, 7, 6)
-
-    def supports_set_operation_order_by(self) -> bool:
-        """Whether set operations support ORDER BY clauses."""
-        return True
-
-    def supports_set_operation_limit_offset(self) -> bool:
-        """Whether set operations support LIMIT and OFFSET clauses."""
-        return True
-
-    def supports_set_operation_for_update(self) -> bool:
-        """Whether set operations support FOR UPDATE clauses."""
-        # SQLite doesn't support FOR UPDATE in set operations
-        return False
+        return self.version_at_least((3, 7, 6))
 
     def supports_fetch_with_ties(self) -> bool:
         """SQLite does not support FETCH ... WITH TIES."""
@@ -1032,7 +1066,7 @@ class SQLiteDialect(
             self.name, f"{operation} grouping operation", f"{operation} is not supported by SQLite."
         )
 
-    def format_array_expression(self, expr: "ArrayExpression") -> Tuple[str, Tuple]:
+    def format_array_expression(self, expr: "ArrayValue") -> Tuple[str, Tuple]:
         """Format array expression."""
         # SQLite does not support native array types
         raise UnsupportedFeatureError(self.name, "Array operations", _SUGGESTION_ARRAY_TYPES)

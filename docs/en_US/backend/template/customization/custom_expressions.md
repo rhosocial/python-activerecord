@@ -29,7 +29,7 @@ When `to_sql()` is called, the expression delegates to its bound dialect's `form
 You never write this delegation yourself: `to_sql()` is implemented **once in `BaseExpression`** and resolves the `format_method` name your class declares:
 
 ```python
-class MyExpression(SQLValueExpression):
+class MyExpression(SQLValue):
     @property
     def format_method(self) -> str:
         # to_sql() resolves this name on the bound dialect and calls
@@ -60,20 +60,20 @@ All expressions inherit from one of these base classes in `rhosocial.activerecor
 
 | Base Class | Purpose | Use When |
 |-----------|---------|----------|
-| `SQLValueExpression` | Returns a non-boolean value (integer, string, date, etc.) | Creating a function call or computed value |
+| `SQLValue` | Returns a non-boolean value (integer, string, date, etc.) | Creating a function call or computed value |
 | `SQLPredicate` | Returns a boolean value | Creating a condition or filter |
 
 Both are rendered through the unified `to_sql()` — your subclass declares only its `format_method` name; the dialect's matching `format_*()` method returns `(sql_string, params_tuple)`.
 
 ## Creating a Custom Value Expression
 
-Subclass `SQLValueExpression` for expressions that produce a value:
+Subclass `SQLValue` for expressions that produce a value:
 
 ```python
-from rhosocial.activerecord.backend.expression.bases import SQLValueExpression, SQLQueryAndParams
+from rhosocial.activerecord.backend.expression.bases import SQLValue, SQLQueryAndParams
 
 
-class RegexMatchExpression(SQLValueExpression):
+class RegexMatchExpression(SQLValue):
     """Custom expression: column REGEXP pattern."""
 
     def __init__(self, dialect, column, pattern):
@@ -153,11 +153,11 @@ Expression classes gain operators by composing mixins from `rhosocial.activereco
 Example with operator support:
 
 ```python
-from rhosocial.activerecord.backend.expression.bases import SQLValueExpression
+from rhosocial.activerecord.backend.expression.bases import SQLValue
 from rhosocial.activerecord.backend.expression.mixins import ArithmeticMixin, ComparisonMixin
 
 
-class DistanceExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
+class DistanceExpression(ArithmeticMixin, ComparisonMixin, SQLValue):
     """Custom expression: ST_Distance(col1, col2)."""
 
     def __init__(self, dialect, col1, col2):
@@ -196,7 +196,7 @@ query = User.query().where(distance < 10000)
 Delegation is the **only** rendering mechanism: the expression class declares the formatting method name, and the dialect implements it. This allows different backends to produce different SQL:
 
 ```python
-class MyCustomExpression(SQLValueExpression):
+class MyCustomExpression(SQLValue):
     @property
     def format_method(self) -> str:
         # to_sql() resolves this on the bound dialect and calls

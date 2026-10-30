@@ -9,7 +9,7 @@ tests enforce.
 from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression import MergeExpression
+    from ....expression import MergeStatement
 
 
 @runtime_checkable
@@ -20,12 +20,12 @@ class MergeSupport(Protocol):
         """Whether MERGE statement is supported."""
         ...  # pragma: no cover
 
-    def format_merge_statement(self, expr: "MergeExpression") -> Tuple[str, tuple]:
+    def format_merge_statement(self, expr: "MergeStatement") -> Tuple[str, tuple]:
         """
-        Formats a complete MERGE statement from a MergeExpression object.
+        Formats a complete MERGE statement from a MergeStatement object.
 
         Args:
-            expr: MergeExpression object containing the merge specifications
+            expr: MergeStatement object containing the merge specifications
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted statement.

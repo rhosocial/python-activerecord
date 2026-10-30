@@ -1,27 +1,11 @@
-# tests/rhosocial/activerecord_test/feature/basic/ddl/test_ddl_declaration_interfaces.py
-"""Tests for the dialect-free ActiveRecord DDLSource declaration contract."""
-
-from typing import Optional
-
-try:
-    from typing import Annotated
-except ImportError:
-    from typing_extensions import Annotated
-
-import pytest
-
-from rhosocial.activerecord.backend.expression.core import Column
-from rhosocial.activerecord.backend.expression.statements.ddl_partition import (
-    PartitionClause,
-    PartitionStrategy,
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnNullableConstraint,
+    ColumnPrimaryKeyConstraint,
+    TablePrimaryKeyConstraint,
+    TableUniqueConstraint,
 )
-from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-    ColumnConstraintType,
-    IndexDefinition,
-    TableConstraint,
-    TableConstraintType,
-)
-from rhosocial.activerecord.backend.expression.types import DataType
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import (
     CharacterSetAttribute,
     CollationAttribute,
@@ -38,7 +22,28 @@ from rhosocial.activerecord.base import (
     UseIndex,
     UseSqlType,
 )
-from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.backend.expression.types import DataType
+from rhosocial.activerecord.backend.expression.statements.ddl_table import (
+    IndexDefinition,
+    TableConstraint,
+)
+from rhosocial.activerecord.backend.expression.statements.ddl_partition import (
+    PartitionClause,
+    PartitionStrategy,
+)
+from rhosocial.activerecord.backend.expression.core import Column
+from typing import Optional
+# tests/rhosocial/activerecord_test/feature/basic/ddl/test_ddl_declaration_interfaces.py
+"""Tests for the dialect-free ActiveRecord DDLSource declaration contract."""
+
+
+try:
+    from typing import Annotated
+except ImportError:
+    from typing_extensions import Annotated
+
+import pytest
+
 
 
 class Plain(ActiveRecord):
@@ -64,11 +69,7 @@ class CompositeWithDeclaredPrimaryKey(ActiveRecord):
     __table_name__ = "composite_with_declared_primary_key"
     __primary_key__ = ("order_id", "product_id")
     __table_constraints__ = [
-        TableConstraint(
-            None,
-            TableConstraintType.PRIMARY_KEY,
-            columns=["order_id", "product_id"],
-        ),
+        TableConstraint(None, branch=TablePrimaryKeyConstraint(None, ["order_id", "product_id"])),
     ]
 
     order_id: int
@@ -78,12 +79,7 @@ class CompositeWithDeclaredPrimaryKey(ActiveRecord):
 class WithTableConstraint(ActiveRecord):
     __table_name__ = "with_table_constraint"
     __table_constraints__ = [
-        TableConstraint(
-            None,
-            TableConstraintType.UNIQUE,
-            name="uq_code_status",
-            columns=["code", "status"],
-        ),
+        TableConstraint(None, branch=TableUniqueConstraint(None, ["code", "status"]), name="uq_code_status"),
     ]
 
     id: int
@@ -117,8 +113,8 @@ class WithNullable(ActiveRecord):
     __table_name__ = "with_nullable"
 
     id: int
-    nickname: Annotated[Optional[str], UseConstraint(ColumnConstraintType.NULL)] = None
-    note: Annotated[Optional[str], UseConstraint(ColumnConstraintType.NOT_NULL)] = None
+    nickname: Annotated[Optional[str], UseConstraint(ColumnNullableConstraint)] = None
+    note: Annotated[Optional[str], UseConstraint(ColumnNotNullConstraint)] = None
     required: str = "x"
 
 
@@ -182,7 +178,7 @@ def test_marker_type_contracts():
     with pytest.raises(TypeError):
         UseColumnAttributes()
     with pytest.raises(ValueError):
-        UseConstraint(ColumnConstraintType.PRIMARY_KEY)
+        UseConstraint(ColumnPrimaryKeyConstraint)
     with pytest.raises(ValueError):
         IdentityAttribute(generation="SOMETIMES")
     with pytest.raises(ValueError):
@@ -201,46 +197,46 @@ def test_column_options_base_contract():
 
 
 def test_single_primary_key_is_added_to_column_declaration():
-    constraint_types = {
-        constraint.constraint_type
+    declared = {
+        type(constraint.branch)
         for constraint in Plain.column_constraints("id")
     }
-    assert ColumnConstraintType.PRIMARY_KEY in constraint_types
-    assert ColumnConstraintType.NOT_NULL in constraint_types
+    assert ColumnPrimaryKeyConstraint in declared
+    assert ColumnNotNullConstraint in declared
 
 
 def test_composite_primary_key_is_added_as_table_constraint():
-    order_id_types = {
-        constraint.constraint_type
+    order_id_branches = {
+        type(constraint.branch)
         for constraint in Composite.column_constraints("order_id")
     }
-    assert ColumnConstraintType.PRIMARY_KEY not in order_id_types
-    assert ColumnConstraintType.NOT_NULL in order_id_types
+    assert ColumnPrimaryKeyConstraint not in order_id_branches
+    assert ColumnNotNullConstraint in order_id_branches
 
     primary_keys = [
         constraint
         for constraint in Composite.table_constraints()
-        if constraint.constraint_type == TableConstraintType.PRIMARY_KEY
+        if isinstance(constraint.branch, TablePrimaryKeyConstraint)
     ]
     assert len(primary_keys) == 1
-    assert primary_keys[0].columns == ["order_id", "product_id"]
+    assert primary_keys[0].branch.columns == ["order_id", "product_id"]
 
 
 def test_declared_composite_primary_key_is_not_duplicated():
     primary_keys = [
         constraint
         for constraint in CompositeWithDeclaredPrimaryKey.table_constraints()
-        if constraint.constraint_type == TableConstraintType.PRIMARY_KEY
+        if isinstance(constraint.branch, TablePrimaryKeyConstraint)
     ]
     assert len(primary_keys) == 1
-    assert primary_keys[0].columns == ["order_id", "product_id"]
+    assert primary_keys[0].branch.columns == ["order_id", "product_id"]
 
 
 def test_table_constraints_are_returned_unchanged():
     constraints = WithTableConstraint.table_constraints()
     assert len(constraints) == 1
     assert constraints[0].name == "uq_code_status"
-    assert constraints[0].columns == ["code", "status"]
+    assert constraints[0].branch.columns == ["code", "status"]
 
 
 def test_field_and_table_indexes_remain_separate_declarations():
@@ -263,21 +259,21 @@ def test_column_attributes_are_returned_without_dialect_selection():
 
 
 def test_nullable_declarations_follow_primary_key_rules():
-    nickname_types = {
-        constraint.constraint_type
+    nickname_branches = {
+        type(constraint.branch)
         for constraint in WithNullable.column_constraints("nickname")
     }
-    note_types = {
-        constraint.constraint_type
+    note_branches = {
+        type(constraint.branch)
         for constraint in WithNullable.column_constraints("note")
     }
-    required_types = {
-        constraint.constraint_type
+    required_branches = {
+        type(constraint.branch)
         for constraint in WithNullable.column_constraints("required")
     }
-    assert nickname_types == {ColumnConstraintType.NULL}
-    assert note_types == {ColumnConstraintType.NOT_NULL}
-    assert required_types == {ColumnConstraintType.NOT_NULL}
+    assert nickname_branches == {ColumnNullableConstraint}
+    assert note_branches == {ColumnNotNullConstraint}
+    assert required_branches == {ColumnNotNullConstraint}
 
 
 def test_comment_and_generated_declarations_are_exposed():

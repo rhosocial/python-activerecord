@@ -22,10 +22,11 @@ no way to generate a UUID returns ``False`` from
 back to generating one in Python, which is what ``UUIDMixin`` does today.
 """
 
+from enum import Enum
 from typing import Any, Optional, TYPE_CHECKING
 
 from ..dialect.exceptions import UnsupportedFeatureError
-from .bases import SQLValueExpression
+from .bases import SQLValue
 from .mixins import AliasableMixin, ComparisonMixin, TypeCastingMixin
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -58,11 +59,28 @@ def _require(dialect, probe: str, feature: str, alternative: str) -> None:
     )
 
 
+class UuidConstantKind(str, Enum):
+    """The two UUID constants that can be written as a literal.
+
+    Nothing else is accepted, so this is the whole legal set: a typo must not
+    silently render a constant that was not asked for.
+    """
+
+    NIL = "nil"
+    MAX = "max"
+
+    #: A member *is* the word it carries: str() and f-string interpolation must
+    #: yield the value, not ``ClassName.MEMBER``, or the rendered SQL and the
+    #: artifact would carry the Python spelling. ``(str, Enum)`` alone does not
+    #: give that -- ``Enum.__str__`` wins -- so it is stated here once.
+    __str__ = str.__str__
+
+
 class UUIDGenerationExpression(
     AliasableMixin,
     ComparisonMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """A fresh UUID, rendered as a native zero-argument function call.
 
@@ -96,14 +114,14 @@ class UUIDGenerationExpression(
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_uuid_generation"
+        return "format_uuid_generation_expression"
 
 
 class UUIDConstantExpression(
     AliasableMixin,
     ComparisonMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """The ``nil`` or ``max`` UUID constant.
 
@@ -112,12 +130,10 @@ class UUIDConstantExpression(
             is accepted — a typo must not silently render a literal.
     """
 
-    _KINDS = ("nil", "max")
-
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        which: str,
+        which: UuidConstantKind,
         *,
         alias: Optional[str] = None,
     ):
@@ -125,11 +141,17 @@ class UUIDConstantExpression(
         # Argument validation first: a typo is a bug in the calling code, and
         # reporting "this dialect cannot render constants" instead would hide
         # it behind an environment limit the caller cannot change.
-        normalised = str(which).lower()
-        if normalised not in self._KINDS:
-            raise ValueError(
-                f"which must be one of {self._KINDS}, got {which!r}"
+        try:
+            normalised = (
+                which
+                if isinstance(which, UuidConstantKind)
+                else UuidConstantKind(str(which).lower())
             )
+        except ValueError:
+            raise ValueError(
+                f"which must be one of "
+                f"{', '.join(k.value for k in UuidConstantKind)}, got {which!r}"
+            ) from None
         _require(
             dialect,
             "supports_uuid_constant",
@@ -143,14 +165,14 @@ class UUIDConstantExpression(
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_uuid_constant"
+        return "format_uuid_constant_expression"
 
 
-class UUIDCastExpression(
+class UUIDCastFunction(
     AliasableMixin,
     ComparisonMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """Convert a textual value to a UUID, rejecting malformed input.
 
@@ -186,5 +208,5 @@ class UUIDCastExpression(
 __all__ = [
     "UUIDGenerationExpression",
     "UUIDConstantExpression",
-    "UUIDCastExpression",
+    "UUIDCastFunction",
 ]

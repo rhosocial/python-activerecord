@@ -1,0 +1,307 @@
+# src/rhosocial/activerecord/backend/expression/registry.py
+"""The expression registry: registration, checking and dispatch — nothing else.
+
+This is the registry the architecture rules describe (§7 of the
+expression-dialect rules, §5.5 of the spec): a dialect exposes its formatting
+capability for an expression **kind** by registering a render function here,
+and callers dispatch through it. The registry does three things and nothing
+more:
+
+- **登记 (register)** — an entry is ``kind`` + ``render(node)`` + an optional
+  ``supports(node)`` predicate, registered for one dialect. The functions
+  belong to the dialect package; the registry only indexes them. It does not
+  own implementations, does not judge names, and does not construct nodes —
+  whoever defines a kind brings its constructor, and ``{kind, params}``
+  builds the tree recursively.
+- **检查 (check)** — a boolean answer to "would this dialect render this
+  kind?". Unregistered means *not supported*: there is no separate "unknown
+  kind" state.
+- **调用 (invoke)** — dispatch to the registered render function, failing with
+  one error class whose ``reason`` field is data:
+  ``kind_not_registered`` (the message always names the kind and the
+  dialect — it carries both "this dialect does not support it" and "this
+  assembly only loaded part of the functionality"), ``instance_unsupported``
+  (registered, but this instance — version / session state — declines), and
+  ``spec_invalid`` (the supports predicate said yes but the formatter refused:
+  the predicate is an optimisation, never a guarantee, so the formatter's
+  refusal wins as a fast, structured failure).
+
+Version differences never affect registration (the same dialect class
+registers the same kind set across all its versions; the difference lives in
+``supports`` and inside the formatters). Registering the same
+``(dialect, kind)`` twice is an assembly-time hard failure, not a silent
+overwrite: which render wins must never depend on assembly order.
+
+Serialization does **not** go through the registry — a node carries its kind
+and parameters and encodes directly. Deserialization resolves kinds through
+the registry (currently still via class FQNs; the kind whitelist arrives with
+the bare-node rewrite).
+"""
+
+from enum import Enum
+from typing import Dict, Optional, Set, Tuple, Type
+
+from .values import LiteralKind
+from .core import BaseExpression
+
+
+class RegistryReason(Enum):
+    """Structured failure reasons (§5.5.4 — the reason is data, not text)."""
+
+    KIND_NOT_REGISTERED = "kind_not_registered"
+    INSTANCE_UNSUPPORTED = "instance_unsupported"
+    SPEC_INVALID = "spec_invalid"
+
+
+class RegistryError(Exception):
+    """The one registry failure class; read ``reason``, don't parse messages.
+
+    Attributes:
+        reason: A :class:`RegistryReason` naming the failure class.
+        dialect: The dialect name the failure is about (may be ``None`` when
+            the failure is not dialect-specific).
+        kind: The expression kind the failure is about (may be ``None``).
+    """
+
+    def __init__(
+        self,
+        reason: RegistryReason,
+        message: str,
+        *,
+        dialect: Optional[str] = None,
+        kind: Optional[str] = None,
+    ):
+        super().__init__(message)
+        self.reason = reason
+        self.dialect = dialect
+        self.kind = kind
+
+
+def kind_of(expr_class: Type[BaseExpression]) -> str:
+    """The kind of an expression class, delegated to the class itself.
+
+    The registry does not own naming (§7: "it does not judge names"). How a
+    kind is derived belongs to the expression class — see
+    :meth:`BaseExpression.kind` — and a backend owns the reserved tokens its own
+    compound identifier needs. This function exists only as the registry's
+    access path to that derivation, so callers holding a class do not have to
+    remember which object owns it.
+    """
+    return expr_class.kind()
+
+
+class ExpressionRegistry:
+    """The kind whitelist: ``kind`` -> expression class, and nothing else.
+
+    The registry owns one mapping. It does not own naming (the class derives its
+    own kind, §4.11.1), it does not own rendering (an expression declares its
+    own ``format_method``, §3), and it does not construct nodes.
+
+    It also does not *discover*. Nothing here imports an expression package or
+    walks subclasses: a kind exists because someone registered it. That is what
+    leaves a backend's own expressions exactly as privileged as a third-party
+    plugin -- neither is found, both are registered -- and what makes selective
+    assembly possible: whatever a package did not register answers
+    ``kind_not_registered``.
+    """
+
+    def __init__(self) -> None:
+        # The deserialization whitelist. See the node-table section below for
+        # why resolution is a lookup over up-front registrations and never an
+        # import driven by a name read out of an artifact (§4.11.4).
+        self._nodes: Dict[str, Type[BaseExpression]] = {}
+        # Kinds that are registered but must not be read right now. Kept apart
+        # from ``_nodes`` because "not registered" and "registered but off" are
+        # different answers: the first is a deployment that lacks the kind, the
+        # second is a deployment that has it and has switched it off.
+        self._disabled: Set[str] = set()
+
+    def copy(self) -> "ExpressionRegistry":
+        """An independent twin carrying the same registrations.
+
+        Faithful means faithful. The value kinds are carried over under their own
+        wire names rather than re-derived from the class behind them, because
+        :meth:`register_node` keys on the *class* name and every value kind
+        resolves to the same class. A twin rebuilt by re-registering what it finds
+        silently loses all fourteen of them -- and loses them silently, which is
+        the part that costs: the table looks populated and refuses every artifact
+        that carries a value.
+        """
+        twin = ExpressionRegistry()
+        twin._nodes = dict(self._nodes)
+        twin._disabled = set(self._disabled)
+        return twin
+
+    # ------------------------------------------------------------------
+    # The node table: the kind whitelist deserialization resolves through.
+    #
+    # Serialization never consults it — a node carries its own identity.
+    # Deserialization consults it and nothing else: the three tables below are
+    # whitelists, not an import mechanism. Resolution is a dict lookup over
+    # classes registered up front, never an ``importlib`` call driven by a
+    # name read out of an artifact (§4.11.4 forbids the latter outright).
+    #
+    # Expression classes, enums and dataclasses are kept apart on purpose.
+    # They are three different shapes with three different contracts: only
+    # expression classes carry a kind and recurse into nested nodes; enums are
+    # finite value sets; dataclasses are structural records. Folding them into
+    # one table would let an artifact name any of the three where the other
+    # belongs, which is precisely what the whitelist is there to prevent.
+    # ------------------------------------------------------------------
+
+    def register_value_kinds(self, *only: str) -> "tuple":
+        """Let every value kind resolve to :class:`~.core.Literal`.
+
+        Every value kind is enumerated in
+        :class:`~.values.LiteralKind`, not derived from class names, because
+        one class carries every value while the wire still names them apart: a
+        date's spelling and a string's are the same bytes, and only the kind
+        tells them apart (§4.11.1). Every one of them resolves to the same
+        class -- the difference is in the payload, and the decoder restores it
+        through the kind before it constructs.
+
+        This is the single exception to "the kind is derived from the class
+        name", and it is narrow on purpose: no other kind has more than one
+        class behind it, so no other kind needs a second spelling.
+
+        Args:
+            *only: Wire kind names to admit. Empty admits all of them; naming
+                any admits only those, which is how a channel allow-list is
+                built without reaching into the registry's own state.
+        """
+        from .core import Literal
+
+        wanted = set(only) if only else None
+        registered = []
+        for member in LiteralKind:
+            if wanted is not None and member.wire not in wanted:
+                continue
+            self._nodes[member.wire] = Literal
+            registered.append(member.wire)
+        return tuple(registered)
+
+    def register_node(self, expr_class: Type[BaseExpression]) -> str:
+        """Add one expression class to the kind whitelist.
+
+        The kind is derived from the class name (§4.11.1) rather than stored,
+        so the class name is the only source of identity and the two can never
+        drift apart. Registering the same class twice is a no-op; two *different*
+        classes claiming the same kind is a hard error — which class an
+        artifact resolves to must not depend on registration order.
+        """
+        kind = kind_of(expr_class)
+        existing = self._nodes.get(kind)
+        if existing is expr_class:
+            return kind
+        if existing is not None:
+            raise RegistryError(
+                RegistryReason.SPEC_INVALID,
+                f"kind '{kind}' is claimed by both "
+                f"{existing.__module__}.{existing.__name__} and "
+                f"{expr_class.__module__}.{expr_class.__name__}; the kind "
+                f"whitelist must resolve each kind to exactly one class",
+                kind=kind,
+            )
+        self._nodes[kind] = expr_class
+        return kind
+
+    def resolve_node(self, kind: str) -> Type[BaseExpression]:
+        """Resolve a kind to its expression class — the whitelist lookup.
+
+        Raises:
+            RegistryError: ``kind_not_registered``, naming the kind. There is
+                no "unknown kind" state distinct from "not registered": a kind
+                that is not in the whitelist is a kind this build cannot read.
+        """
+        try:
+            expr_class = self._nodes[kind]
+        except KeyError:
+            raise RegistryError(
+                RegistryReason.KIND_NOT_REGISTERED,
+                f"kind '{kind}' is not in the kind whitelist "
+                f"({len(self._nodes)} kinds registered); artifacts may only "
+                f"name a registered kind",
+                kind=kind,
+            ) from None
+        if kind in self._disabled:
+            raise RegistryError(
+                RegistryReason.INSTANCE_UNSUPPORTED,
+                f"kind '{kind}' is registered but disabled in this registry; "
+                f"the build knows the kind and declines to read it",
+                kind=kind,
+            )
+        return expr_class
+
+    def unregister_node(self, kind: str) -> None:
+        """Drop a kind from the whitelist.
+
+        For selective assembly *after* the fact: a deployment that wants no DDL
+        can register everything and then remove the statement kinds it refuses
+        to accept. Dropping a kind nobody registered is a hard error -- it means
+        the caller believes something is there that is not.
+        """
+        if kind not in self._nodes:
+            raise RegistryError(
+                RegistryReason.KIND_NOT_REGISTERED,
+                f"kind '{kind}' is not registered, so it cannot be unregistered",
+                kind=kind,
+            )
+        del self._nodes[kind]
+        self._disabled.discard(kind)
+
+    def disable(self, kind: str) -> None:
+        """Refuse a registered kind without forgetting it.
+
+        Different from :meth:`unregister_node`: the kind stays in
+        :meth:`node_kinds` and can be re-enabled, which is what a per-request
+        capability switch needs. An unregistered kind is absent from the build;
+        a disabled one is present and declined.
+        """
+        if kind not in self._nodes:
+            raise RegistryError(
+                RegistryReason.KIND_NOT_REGISTERED,
+                f"kind '{kind}' is not registered, so it cannot be disabled",
+                kind=kind,
+            )
+        self._disabled.add(kind)
+
+    def enable(self, kind: str) -> None:
+        """Re-allow a kind that :meth:`disable` switched off."""
+        if kind not in self._nodes:
+            raise RegistryError(
+                RegistryReason.KIND_NOT_REGISTERED,
+                f"kind '{kind}' is not registered, so it cannot be enabled",
+                kind=kind,
+            )
+        self._disabled.discard(kind)
+
+    def node_kinds(self) -> Tuple[str, ...]:
+        """The whole kind whitelist, sorted — the enumerable contract list.
+
+        Includes disabled kinds: the whitelist is what this build *knows*, and
+        a disabled kind is known. Use :meth:`is_enabled` to ask whether it may
+        be read right now.
+        """
+        return tuple(sorted(self._nodes))
+
+    def is_enabled(self, kind: str) -> bool:
+        """Whether *kind* is registered and not switched off."""
+        return kind in self._nodes and kind not in self._disabled
+
+
+#: There is deliberately **no** module-level registry instance here.
+#:
+#: An earlier version declared one, named ``default_registry``, and it was
+#: empty for the life of the process: nothing ever assembled into it, because
+#: *which* expressions the framework ships is the framework's decision, not
+#: this module's (§7 -- the registry does not own implementations, so it must
+#: not import expression packages to learn what they contain).
+#:
+#: The name was the real damage. ``serialization.default_registry()`` is the
+#: function that builds and caches the instance the framework actually uses, and
+#: two things sharing one name means the import you want is not the import you
+#: get. Anyone who reached for the object here got a table that admits nothing
+#: and refused every artifact by name, with nothing to say why.
+#:
+#: Build your own -- :class:`ExpressionRegistry` starts empty, which is what makes
+#: a narrow table safe to hand a caller.

@@ -137,6 +137,7 @@
 ### SQLite Backend
 
 * [Overview](backend/sqlite/README.md)
+* [Command-Line Interface](backend/sqlite/cli/README.md)
 * [Pragma](backend/sqlite/backend_specific_features/pragma.md)
 * [FTS5](backend/sqlite/backend_specific_features/fts5.md)
 * [Extension](backend/sqlite/backend_specific_features/extension.md)

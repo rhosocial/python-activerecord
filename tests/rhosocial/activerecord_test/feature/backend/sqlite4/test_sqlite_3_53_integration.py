@@ -14,7 +14,7 @@ pytest.mark.skipif based on dialect capability detection.
 import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteReindexExpression
+from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteReindexStatement
 from rhosocial.activerecord.backend.impl.sqlite.functions import (
     json_array_insert,
     jsonb_array_insert,
@@ -110,7 +110,7 @@ class TestSQLite353ExpressionSQLGeneration:
         sqlite_backend.introspect_and_adapt()
 
         dialect = sqlite_backend._dialect
-        reindex_expr = SQLiteReindexExpression(dialect, expressions=True)
+        reindex_expr = SQLiteReindexStatement(dialect, expressions=True)
         sql, params = reindex_expr.to_sql()
 
         assert sql == "REINDEX EXPRESSIONS"
@@ -159,7 +159,7 @@ class TestSQLite353ReindexExecution:
         """)
 
         # Execute REINDEX EXPRESSIONS
-        reindex_expr = SQLiteReindexExpression(dialect, expressions=True)
+        reindex_expr = SQLiteReindexStatement(dialect, expressions=True)
         sql, params = reindex_expr.to_sql()
 
         # Should execute without error
@@ -180,7 +180,7 @@ class TestSQLite353ReindexExecution:
             );
         """)
 
-        reindex_expr = SQLiteReindexExpression(dialect, expressions=True)
+        reindex_expr = SQLiteReindexStatement(dialect, expressions=True)
         sql, params = reindex_expr.to_sql()
 
         # Should execute without error
@@ -246,10 +246,10 @@ class TestSQLite353JsonFunctionsExecution:
         col_data = Column(dialect, "data", table="test_json")
         json_expr = json_array_insert(dialect, col_data, Literal(dialect, 0), position=0)
 
-        from rhosocial.activerecord.backend.expression import QueryExpression
+        from rhosocial.activerecord.backend.expression import QueryStatement
         from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
-        query = QueryExpression(
+        query = QueryStatement(
             dialect=dialect,
             select=[
                 json_expr.as_("modified"),
@@ -287,10 +287,10 @@ class TestSQLite353JsonFunctionsExecution:
         col_data = Column(dialect, "data", table="test_jsonb")
         json_expr = jsonb_array_insert(dialect, col_data, Literal(dialect, "new_value"), position=1)
 
-        from rhosocial.activerecord.backend.expression import QueryExpression
+        from rhosocial.activerecord.backend.expression import QueryStatement
         from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
-        query = QueryExpression(
+        query = QueryStatement(
             dialect=dialect,
             select=[
                 json_expr.as_("modified"),

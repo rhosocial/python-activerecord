@@ -10,12 +10,12 @@ from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from ....expression import (
-        BeginTransactionExpression,
-        CommitTransactionExpression,
-        ReleaseSavepointExpression,
-        RollbackTransactionExpression,
-        SavepointExpression,
-        SetTransactionExpression,
+        BeginTransactionStatement,
+        CommitStatement,
+        ReleaseSavepointStatement,
+        RollbackStatement,
+        SavepointStatement,
+        SetTransactionStatement,
     )
 
 
@@ -84,8 +84,8 @@ class TransactionControlSupport(Protocol):
 
         Firebird-specific: ``SET TRANSACTION ... [WAIT | NO WAIT]``.  The probe
         answers the capability question; ``wait`` / ``no_wait`` on
-        :class:`~....expression.transaction.BeginTransactionExpression` and
-        :class:`~....expression.transaction.SetTransactionExpression` select
+        :class:`~....expression.transaction.BeginTransactionStatement` and
+        :class:`~....expression.transaction.SetTransactionStatement` select
         the spelling.  Defaults to False for dialects whose grammar has no
         such clause.
         """
@@ -100,12 +100,12 @@ class TransactionControlSupport(Protocol):
 
     # ========== SQL Formatting ==========
 
-    def format_begin_transaction(self, expr: "BeginTransactionExpression") -> Tuple[str, tuple]:
+    def format_begin_transaction_statement(self, expr: "BeginTransactionStatement") -> Tuple[str, tuple]:
         """
         Format BEGIN TRANSACTION statement.
 
         Args:
-            expr: BeginTransactionExpression with isolation level and mode.
+            expr: BeginTransactionStatement with isolation level and mode.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
@@ -126,62 +126,62 @@ class TransactionControlSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_commit_transaction(self, expr: "CommitTransactionExpression") -> Tuple[str, tuple]:
+    def format_commit_statement(self, expr: "CommitStatement") -> Tuple[str, tuple]:
         """
         Format COMMIT statement.
 
         Args:
-            expr: CommitTransactionExpression.
+            expr: CommitStatement.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
         ...  # pragma: no cover
 
-    def format_rollback_transaction(self, expr: "RollbackTransactionExpression") -> Tuple[str, tuple]:
+    def format_rollback_statement(self, expr: "RollbackStatement") -> Tuple[str, tuple]:
         """
         Format ROLLBACK statement.
 
         Args:
-            expr: RollbackTransactionExpression with optional savepoint.
+            expr: RollbackStatement with optional savepoint.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
         ...  # pragma: no cover
 
-    def format_savepoint(self, expr: "SavepointExpression") -> Tuple[str, tuple]:
+    def format_savepoint_statement(self, expr: "SavepointStatement") -> Tuple[str, tuple]:
         """
         Format SAVEPOINT statement.
 
         Args:
-            expr: SavepointExpression with savepoint name.
+            expr: SavepointStatement with savepoint name.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
         ...  # pragma: no cover
 
-    def format_release_savepoint(self, expr: "ReleaseSavepointExpression") -> Tuple[str, tuple]:
+    def format_release_savepoint_statement(self, expr: "ReleaseSavepointStatement") -> Tuple[str, tuple]:
         """
         Format RELEASE SAVEPOINT statement.
 
         Args:
-            expr: ReleaseSavepointExpression with savepoint name.
+            expr: ReleaseSavepointStatement with savepoint name.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
         ...  # pragma: no cover
 
-    def format_set_transaction(self, expr: "SetTransactionExpression") -> Tuple[str, tuple]:
+    def format_set_transaction_statement(self, expr: "SetTransactionStatement") -> Tuple[str, tuple]:
         """
         Format SET TRANSACTION statement.
 
         Used primarily by MySQL to set isolation level before START TRANSACTION.
 
         Args:
-            expr: SetTransactionExpression with isolation level and/or mode.
+            expr: SetTransactionStatement with isolation level and/or mode.
 
         Returns:
             Tuple of (SQL string, parameters tuple).

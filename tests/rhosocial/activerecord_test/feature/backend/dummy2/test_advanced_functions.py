@@ -3,14 +3,15 @@
 Tests for the advanced SQL function expression components in advanced_functions.py
 """
 
-from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression.functions import cast
+from rhosocial.activerecord.backend.expression import Column, Literal, NumericColumn, StringColumn
 from rhosocial.activerecord.backend.expression.advanced_functions import (
     CaseExpression,
-    ExistsExpression,
-    AnyExpression,
-    AllExpression,
-    JSONDocumentExpression,
-    ArrayExpression,
+    ExistsPredicate,
+    AnyPredicate,
+    AllPredicate,
+    JSONDocumentValue,
+    ArrayOperation,
     OrderedSetAggregation,
 )
 from rhosocial.activerecord.backend.expression.core import FunctionCall, Subquery
@@ -24,7 +25,7 @@ class TestCaseExpression:
     def test_case_expression_basic(self, dummy_dialect: DummyDialect):
         """Test basic CASE expression functionality."""
         # Create a basic CASE expression with one condition-result pair
-        condition = Column(dummy_dialect, "age") > Literal(dummy_dialect, 18)
+        condition = NumericColumn(dummy_dialect, "age") > Literal(dummy_dialect, 18)
         result = Literal(dummy_dialect, "adult")
         case_expr = CaseExpression(dummy_dialect, cases=[(condition, result)])
         sql, params = case_expr.to_sql()
@@ -36,7 +37,7 @@ class TestCaseExpression:
         """Test CASE expression with value."""
         value_expr = Column(dummy_dialect, "status")
         # Create a basic CASE expression with one condition-result pair
-        condition = Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+        condition = StringColumn(dummy_dialect, "status") == Literal(dummy_dialect, "active")
         result = Literal(dummy_dialect, "ACTIVE_USER")
         case_expr = CaseExpression(dummy_dialect, value=value_expr, cases=[(condition, result)])
         sql, params = case_expr.to_sql()
@@ -46,7 +47,7 @@ class TestCaseExpression:
 
     def test_case_expression_with_cases(self, dummy_dialect: DummyDialect):
         """Test CASE expression with cases."""
-        condition = Column(dummy_dialect, "age") > Literal(dummy_dialect, 18)
+        condition = NumericColumn(dummy_dialect, "age") > Literal(dummy_dialect, 18)
         result = Literal(dummy_dialect, "adult")
         case_expr = CaseExpression(dummy_dialect, cases=[(condition, result)])
         sql, params = case_expr.to_sql()
@@ -56,7 +57,7 @@ class TestCaseExpression:
 
     def test_case_expression_with_else_result(self, dummy_dialect: DummyDialect):
         """Test CASE expression with else result."""
-        condition = Column(dummy_dialect, "age") > Literal(dummy_dialect, 18)
+        condition = NumericColumn(dummy_dialect, "age") > Literal(dummy_dialect, 18)
         result = Literal(dummy_dialect, "adult")
         else_result = Literal(dummy_dialect, "minor")
         case_expr = CaseExpression(dummy_dialect, cases=[(condition, result)], else_result=else_result)
@@ -66,7 +67,7 @@ class TestCaseExpression:
 
     def test_case_expression_with_alias(self, dummy_dialect: DummyDialect):
         """Test CASE expression with alias."""
-        condition = Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+        condition = StringColumn(dummy_dialect, "status") == Literal(dummy_dialect, "active")
         result = Literal(dummy_dialect, 1)
         else_result = Literal(dummy_dialect, 0)
         case_expr = CaseExpression(
@@ -91,7 +92,7 @@ class TestCastExpression:
     def test_cast_expression_with_literal(self, dummy_dialect: DummyDialect):
         """Test CAST expression with literal value."""
         literal = Literal(dummy_dialect, "123")
-        expr = literal.cast(IntegerType(dummy_dialect))
+        expr = cast(dummy_dialect, literal, IntegerType(dummy_dialect))
         sql, params = expr.to_sql()
         assert "CAST(" in sql
         assert "AS INTEGER" in sql
@@ -99,12 +100,12 @@ class TestCastExpression:
 
 
 class TestExistsExpression:
-    """Tests for ExistsExpression class."""
+    """Tests for ExistsPredicate class."""
 
     def test_exists_expression_basic(self, dummy_dialect: DummyDialect):
         """Test basic EXISTS expression functionality."""
         subquery = Subquery(dummy_dialect, "SELECT 1 FROM users WHERE id = ?", (1,))
-        exists_expr = ExistsExpression(dummy_dialect, subquery)
+        exists_expr = ExistsPredicate(dummy_dialect, subquery)
         sql, params = exists_expr.to_sql()
         assert "EXISTS" in sql
         assert params == (1,)
@@ -112,20 +113,20 @@ class TestExistsExpression:
     def test_not_exists_expression(self, dummy_dialect: DummyDialect):
         """Test NOT EXISTS expression functionality."""
         subquery = Subquery(dummy_dialect, "SELECT 1 FROM users WHERE id = ?", (1,))
-        exists_expr = ExistsExpression(dummy_dialect, subquery, is_not=True)
+        exists_expr = ExistsPredicate(dummy_dialect, subquery, is_not=True)
         sql, params = exists_expr.to_sql()
         assert "NOT EXISTS" in sql
         assert params == (1,)
 
 
 class TestAnyExpression:
-    """Tests for AnyExpression class."""
+    """Tests for AnyPredicate class."""
 
     def test_any_expression_basic(self, dummy_dialect: DummyDialect):
         """Test basic ANY expression functionality."""
         expr = Column(dummy_dialect, "value")
         array_expr = Column(dummy_dialect, "array_col")
-        any_expr = AnyExpression(dummy_dialect, expr, "=", array_expr)
+        any_expr = AnyPredicate(dummy_dialect, expr, "=", array_expr)
         sql, params = any_expr.to_sql()
         assert "ANY" in sql
         assert "=" in sql
@@ -134,7 +135,7 @@ class TestAnyExpression:
         """Test ANY expression with literal list."""
         expr = Column(dummy_dialect, "value")
         array_expr = Literal(dummy_dialect, [1, 2, 3])
-        any_expr = AnyExpression(dummy_dialect, expr, ">", array_expr)
+        any_expr = AnyPredicate(dummy_dialect, expr, ">", array_expr)
         sql, params = any_expr.to_sql()
         assert "ANY" in sql
         assert ">" in sql
@@ -142,13 +143,13 @@ class TestAnyExpression:
 
 
 class TestAllExpression:
-    """Tests for AllExpression class."""
+    """Tests for AllPredicate class."""
 
     def test_all_expression_basic(self, dummy_dialect: DummyDialect):
         """Test basic ALL expression functionality."""
         expr = Column(dummy_dialect, "value")
         array_expr = Column(dummy_dialect, "array_col")
-        all_expr = AllExpression(dummy_dialect, expr, ">", array_expr)
+        all_expr = AllPredicate(dummy_dialect, expr, ">", array_expr)
         sql, params = all_expr.to_sql()
         assert "ALL" in sql
         assert ">" in sql
@@ -157,19 +158,19 @@ class TestAllExpression:
         """Test ALL expression with literal list."""
         expr = Column(dummy_dialect, "value")
         array_expr = Literal(dummy_dialect, [1, 2, 3])
-        all_expr = AllExpression(dummy_dialect, expr, "=", array_expr)
+        all_expr = AllPredicate(dummy_dialect, expr, "=", array_expr)
         sql, params = all_expr.to_sql()
         assert "ALL" in sql
         assert "=" in sql
 
 
 class TestJSONExpression:
-    """Tests for JSONDocumentExpression class."""
+    """Tests for JSONDocumentValue class."""
 
     def test_json_extract_expression(self, dummy_dialect: DummyDialect):
         """Test JSON extract falls back to function-based formatting (-> operation)."""
         col = Column(dummy_dialect, "json_col")
-        json_expr = JSONDocumentExpression(dummy_dialect, col, "$.name", operation="->")
+        json_expr = JSONDocumentValue(dummy_dialect, col, "$.name", operation="->")
         sql, params = json_expr.to_sql()
         assert "JSON_EXTRACT" in sql
         assert params == ()
@@ -177,7 +178,7 @@ class TestJSONExpression:
     def test_json_extract_text_expression(self, dummy_dialect: DummyDialect):
         """Test JSON extract text falls back to function-based formatting (->> operation)."""
         col = Column(dummy_dialect, "json_col")
-        json_expr = JSONDocumentExpression(dummy_dialect, col, "$.name", operation="->>")
+        json_expr = JSONDocumentValue(dummy_dialect, col, "$.name", operation="->>")
         sql, params = json_expr.to_sql()
         assert "JSON_UNQUOTE" in sql
         assert "JSON_EXTRACT" in sql
@@ -185,19 +186,19 @@ class TestJSONExpression:
 
     def test_json_extract_with_string_column(self, dummy_dialect: DummyDialect):
         """Test JSON extract with string column name."""
-        json_expr = JSONDocumentExpression(dummy_dialect, "json_col", "$.name", operation="->")
+        json_expr = JSONDocumentValue(dummy_dialect, "json_col", "$.name", operation="->")
         sql, params = json_expr.to_sql()
         assert "JSON_EXTRACT" in sql
         assert params == ()
 
 
-class TestArrayExpression:
-    """Tests for ArrayExpression class."""
+class TestArrayValue:
+    """Tests for ArrayValue class."""
 
     def test_array_constructor(self, dummy_dialect: DummyDialect):
         """Test ARRAY constructor operation."""
         elements = [Literal(dummy_dialect, 1), Literal(dummy_dialect, 2), Literal(dummy_dialect, 3)]
-        array_expr = ArrayExpression(dummy_dialect, "CONSTRUCTOR", elements=elements)
+        array_expr = ArrayOperation(dummy_dialect, "CONSTRUCTOR", elements=elements)
         sql, params = array_expr.to_sql()
         assert "ARRAY[" in sql
         assert params == (1, 2, 3)
@@ -206,14 +207,14 @@ class TestArrayExpression:
         """Test ARRAY access operation."""
         base_expr = Column(dummy_dialect, "array_col")
         index_expr = Literal(dummy_dialect, 1)
-        array_expr = ArrayExpression(dummy_dialect, "ACCESS", base_expr=base_expr, index_expr=index_expr)
+        array_expr = ArrayOperation(dummy_dialect, "ACCESS", base_expr=base_expr, index_expr=index_expr)
         sql, params = array_expr.to_sql()
         assert "[" in sql and "]" in sql
         assert params == (1,)
 
     def test_array_default_operation(self, dummy_dialect: DummyDialect):
         """Test ARRAY with default operation."""
-        array_expr = ArrayExpression(dummy_dialect, "OTHER")
+        array_expr = ArrayOperation(dummy_dialect, "OTHER")
         sql, params = array_expr.to_sql()
         assert sql == "ARRAY[]"
         assert params == ()

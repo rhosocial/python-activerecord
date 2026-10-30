@@ -4,9 +4,9 @@ Collation expression support for SQL value expressions.
 """
 
 from enum import Enum
-from typing import Any, Dict, Optional, Union, TYPE_CHECKING
+from typing import Optional, Union, TYPE_CHECKING
 
-from .bases import SQLValueExpression
+from .bases import SQLValue
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
@@ -19,13 +19,13 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
-class CollateExpression(
+class CollateFunction(
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
     StringPatternPredicateMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """Applies an explicit collation to a SQL value expression."""
 
@@ -37,17 +37,21 @@ class CollateExpression(
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        expression: SQLValueExpression,
+        expression: SQLValue,
         collation: Union[str, Enum],
         *,
         alias: Optional[str] = None,
-        **collation_options: Any,
+        schema: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.expression = expression
         self.collation = collation
         self.alias: Optional[str] = alias
-        self.collation_options: Dict[str, Any] = dict(collation_options)
+        # Schema-qualified COLLATE (`schema.collation`) is the only option
+        # any backend reads, so it is a named parameter rather than an open
+        # bag: a catch-all cannot be matched by name on read, cannot declare
+        # its serialized range, and lets a mistyped option through silently.
+        self.schema: Optional[str] = schema
 
     @property
     def collation_name(self) -> str:
@@ -57,10 +61,10 @@ class CollateExpression(
 
 
 def collate(
-    expression: SQLValueExpression,
+    expression: SQLValue,
     collation: Union[str, Enum],
-    **collation_options: Any,
-) -> CollateExpression:
+    schema: Optional[str] = None,
+) -> CollateFunction:
     # Inherit the expression's binding state (construction-time; may be None
     # to defer binding), matching the operator-overload convention.
-    return CollateExpression(expression._dialect, expression, collation, **collation_options)
+    return CollateFunction(expression._dialect, expression, collation, schema=schema)

@@ -35,18 +35,22 @@ def dialect():
 
 def test_values_are_required(dialect):
     """An enum with no values is a text field, and saying so is better than
-    emitting ``ENUM()``."""
-    with pytest.raises(ValueError, match="requires values"):
+    emitting ``ENUM()``.
+
+    Stated by the signature now: ``values`` is required and keyword-only, so
+    the call fails before a dialect is even consulted.
+    """
+    with pytest.raises(TypeError, match="values"):
         EnumType(dialect)
 
 
 def test_an_empty_value_list_is_rejected(dialect):
     with pytest.raises(ValueError, match="at least one value"):
-        EnumType(dialect, [])
+        EnumType(dialect, values=[])
 
 
 def test_values_survive_as_a_tuple(dialect):
-    assert EnumType(dialect, ["a", "b"]).values == ("a", "b")
+    assert EnumType(dialect, values=["a", "b"]).values == ("a", "b")
 
 
 # ---------------------------------------------------------------------------
@@ -55,7 +59,7 @@ def test_values_survive_as_a_tuple(dialect):
 
 
 def test_values_are_rendered_in_order(dialect):
-    assert dialect.format_data_type(EnumType(dialect, ["draft", "live"]))[0] == (
+    assert dialect.format_data_type(EnumType(dialect, values=["draft", "live"]))[0] == (
         "ENUM('draft','live')"
     )
 
@@ -65,7 +69,7 @@ def test_a_value_containing_a_quote_is_escaped(dialect):
 
     ``ENUM('o'brien')`` is not valid SQL; doubling the quote is.
     """
-    sql, _ = dialect.format_data_type(EnumType(dialect, ["o'brien"]))
+    sql, _ = dialect.format_data_type(EnumType(dialect, values=["o'brien"]))
     assert sql == "ENUM('o''brien')"
 
 
@@ -119,7 +123,7 @@ class Lossy(Suggester):
 
 def test_an_unrenderable_type_is_a_type_error(dialect):
     with pytest.raises(TypeError, match="does not support the generic type 'enum'"):
-        Narrow().format_data_type(EnumType(dialect, ["a"]))
+        Narrow().format_data_type(EnumType(dialect, values=["a"]))
 
 
 def test_the_refusal_names_the_substitute(dialect):
@@ -134,7 +138,7 @@ def test_the_refusal_names_the_substitute(dialect):
     ``substitute_advice``; the mechanism is exercised below.
     """
     with pytest.raises(TypeError) as excinfo:
-        Suggester().format_data_type(EnumType(dialect, ["a"]))
+        Suggester().format_data_type(EnumType(dialect, values=["a"]))
     message = str(excinfo.value)
     assert "VarCharType" in message, message
     assert "what this backend uses" in message, message
@@ -145,7 +149,7 @@ def test_the_refusal_names_the_substitute(dialect):
 def test_a_lossy_substitute_can_say_so(dialect):
     """The caveat a backend supplies lands in the error the caller reads."""
     with pytest.raises(TypeError) as excinfo:
-        Lossy().format_data_type(EnumType(dialect, ["a"]))
+        Lossy().format_data_type(EnumType(dialect, values=["a"]))
     message = str(excinfo.value)
     assert "VarCharType" in message, message
     assert "drops the zone" in message, message
@@ -154,7 +158,7 @@ def test_a_lossy_substitute_can_say_so(dialect):
 
 def test_no_substitute_means_no_advice(dialect):
     with pytest.raises(TypeError) as excinfo:
-        Narrow().format_data_type(EnumType(dialect, ["a"]))
+        Narrow().format_data_type(EnumType(dialect, values=["a"]))
     message = str(excinfo.value)
     assert "It suggests" not in message, message
     assert "Use a type this backend supports" in message, message

@@ -61,6 +61,18 @@ Connection configuration follows the same "generic / backend-specific" layering 
 3. **Backend-specific config class**: the backend inherits `ConnectionConfig`, mixes in the Mixins it needs, and adds database-private parameters on top.
 
 ```python
+from typing import Optional
+
+from rhosocial.activerecord.backend.config import (
+    CharsetMixin,
+    ConnectionConfig,
+    ConnectionPoolMixin,
+    LoggingMixin,
+    SSLMixin,
+    TimezoneMixin,
+    VersionMixin,
+)
+
 class MySQLConnectionConfig(
     ConnectionConfig,
     ConnectionPoolMixin, SSLMixin, CharsetMixin,
@@ -120,7 +132,7 @@ from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionCo
 from rhosocial.activerecord.model import ActiveRecord
 
 # Build a config and bind it to the model
-config = SQLiteConnectionConfig(database="app.db")
+config = SQLiteConnectionConfig(database=":memory:")
 ActiveRecord.configure(config, SQLiteBackend)
 
 # Backend-specific subclass
@@ -150,16 +162,27 @@ The `DummyDialect` (`src/rhosocial/activerecord/backend/impl/dummy/dialect.py`) 
 Notice how it simply mixes in standard implementations:
 
 ```python
+from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+from rhosocial.activerecord.backend.dialect.mixins import CTEMixin, WindowFunctionMixin
+from rhosocial.activerecord.backend.dialect.protocols import (
+    AdvancedGroupingSupport,
+    CTESupport,
+    WindowFunctionSupport,
+)
+
 class DummyDialect(
     SQLDialectBase,
     # Standard implementations via Mixins
-    WindowFunctionMixin, CTEMixin, AdvancedGroupingMixin, ...
+    WindowFunctionMixin, CTEMixin,
     # Protocol definitions for type checking
-    WindowFunctionSupport, CTESupport, AdvancedGroupingSupport, ...
+    WindowFunctionSupport, CTESupport, AdvancedGroupingSupport,
 ):
     # Feature flags
-    def supports_window_functions(self) -> bool: return True
-    # ...
+    def supports_window_functions(self) -> bool:
+        return True
+
+    def supports_basic_cte(self) -> bool:
+        return True
 ```
 
 ### Implementation Strategy
@@ -180,6 +203,8 @@ When implementing protocols for your custom backend, follow these principles:
 Generic protocols (e.g., `WindowFunctionSupport`, `TableSupport`, `IndexSupport`) are defined in `rhosocial.activerecord.backend.dialect.protocols` and **should not include any backend-specific prefix**.
 
 ```python
+from typing import Protocol
+
 # ✅ Correct: Generic protocol
 class WindowFunctionSupport(Protocol):
     def supports_window_functions(self) -> bool: ...
@@ -193,6 +218,8 @@ class MySQLWindowFunctionSupport(Protocol): ...
 Backend-specific protocols must include the backend name as a prefix (e.g., `PostgresPartitionSupport`, `MySQLFullTextSearchSupport`).
 
 ```python
+from typing import Protocol
+
 # ✅ Correct: Backend-specific protocol has prefix
 class PostgresPartitionSupport(Protocol): ...
 
@@ -206,21 +233,26 @@ class PartitionSupport(Protocol): ...
 
 ```python
 # Example: MySQL Full-text Search
-# The generic IndexSupport protocol already defines supports_fulltext_index
+# The generic FulltextIndexSupport protocol already defines supports_fulltext_index
+from typing import Protocol
+
+from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+from rhosocial.activerecord.backend.dialect.protocols import FulltextIndexSupport
+
 # ✅ Use generic protocol and just set the version check
 class MySQLDialect(
-    IndexSupport,  # Already has supports_fulltext_index
-    ...
+    SQLDialectBase,
+    FulltextIndexSupport,  # Already has supports_fulltext_index
 ):
     def supports_fulltext_index(self) -> bool:
-        return self.version >= (5, 6, 0)
+        return self.version_at_least((5, 6, 0))
 
 # Only create MySQLFullTextSearchSupport for MySQL-specific interfaces:
 # - format_match_against() - MySQL MATCH...AGAINST syntax
 # - format_fulltext_index_options() - WITH PARSER, etc.
 class MySQLFullTextSearchSupport(Protocol):
-    def format_match_against(...): ...  # MySQL-specific
-    def format_fulltext_index_options(...): ...  # MySQL-specific
+    def format_match_against(self, expr) -> tuple: ...  # MySQL-specific
+    def format_fulltext_index_options(self, expr) -> tuple: ...  # MySQL-specific
 ```
 
 This principle ensures:
@@ -233,6 +265,8 @@ This principle ensures:
 When a generic protocol's formatting interface has backend-specific parameters, use the `dialect_options` parameter:
 
 ```python
+from typing import Any, Dict, Optional, Protocol, Tuple
+
 # Generic protocol defines the interface with dialect_options
 class JSONSupport(Protocol):
     def supports_json_table(
@@ -264,13 +298,19 @@ class JSONSupport(Protocol):
 **Usage in expression:**
 
 ```python
-# Pass dialect_options when creating expressions
+# Backend-specific options belong to the capability probe, not to the
+# expression: JSONTableExpression takes the generic arguments only.
+from rhosocial.activerecord.backend.expression.query_sources import (
+    JSONTableColumn,
+    JSONTableExpression,
+)
+
 JSONTableExpression(
     dialect,
-    json_column=User.json_data,
+    json_column="json_data",
     path='$.addresses[*]',
-    columns=[...],
-    dialect_options={'on_error': 'IGNORE'}  # MySQL-specific
+    columns=[JSONTableColumn("id", "INTEGER", "$.id")],
+    alias="addresses",
 )
 ```
 
@@ -445,6 +485,9 @@ Dialect format implementation
 **Step 1: Define the Protocol** (`mysql/protocols.py`)
 
 ```python
+from typing import Protocol, Tuple, runtime_checkable
+
+
 @runtime_checkable
 class FullTextSearchSupport(Protocol):
     def supports_fulltext_index(self) -> bool:
@@ -462,10 +505,17 @@ class FullTextSearchSupport(Protocol):
 **Step 2: Define the Expression** (`mysql/expression/match_against.py`)
 
 ```python
-class MatchAgainstExpression(AliasableMixin, ComparisonMixin, SQLValueExpression):
+from typing import List, Optional
+
+from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+from rhosocial.activerecord.backend.expression import AliasableMixin, SQLValue
+from rhosocial.activerecord.backend.expression.mixins import ComparisonMixin
+
+
+class MatchAgainstExpression(AliasableMixin, ComparisonMixin, SQLValue):
     def __init__(
         self,
-        dialect: MySQLDialect,
+        dialect: SQLDialectBase,
         columns: List[str],
         search_string: str,
         mode: Optional[str] = None,
@@ -480,21 +530,29 @@ class MatchAgainstExpression(AliasableMixin, ComparisonMixin, SQLValueExpression
         # Never override to_sql(): BaseExpression.to_sql() resolves this
         # name on the bound dialect and calls dialect.format_match_against(expr).
         return "format_match_against"
-
-    def as_(self, alias: str) -> AliasColumn:
-        return AliasColumn(self, alias)
 ```
 
 **Step 3: Implement the Protocol in Dialect** (`mysql/dialect.py`)
 
 ```python
+from typing import Protocol, Tuple, runtime_checkable
+
+from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+
+
+@runtime_checkable
+class FullTextSearchSupport(Protocol):
+    def supports_fulltext_index(self) -> bool: ...
+
+    def format_match_against(self, expr: "MatchAgainstExpression") -> Tuple[str, tuple]: ...
+
+
 class MySQLDialect(
-    MySQLBaseMixin,
+    SQLDialectBase,
     FullTextSearchSupport,  # Add protocol
-    ...
 ):
     def supports_fulltext_index(self) -> bool:
-        return self.version >= (5, 6, 0)
+        return self.version_at_least((5, 6, 0))
 
     def format_match_against(
         self,
@@ -502,7 +560,7 @@ class MySQLDialect(
     ) -> Tuple[str, tuple]:
         cols_sql = ", ".join(self.format_identifier(c) for c in expr.columns)
         placeholder = self.get_parameter_placeholder()
-        
+
         # Mode handling
         mode_map = {
             "NATURAL_LANGUAGE": "IN NATURAL LANGUAGE MODE",
@@ -510,7 +568,7 @@ class MySQLDialect(
             "QUERY_EXPANSION": "IN NATURAL LANGUAGE MODE WITH QUERY EXPANSION",
         }
         mode_str = mode_map.get(expr.mode, "IN NATURAL LANGUAGE MODE")
-        
+
         sql = f"MATCH({cols_sql}) AGAINST({placeholder} {mode_str})"
         return sql, (expr.search_string,)
 ```
@@ -519,7 +577,8 @@ class MySQLDialect(
 
 ```python
 def test_match_against_expression(self):
-    dialect = MySQLDialect(version=(8, 0, 0))
+    dialect = MySQLDialect()
+    dialect.version = (8, 0, 0)
     expr = MatchAgainstExpression(
         dialect,
         columns=['title', 'content'],
@@ -547,28 +606,34 @@ For better organization, protocol implementations can be separated into individu
 **`mysql/mixins.py`** (Protocol Implementation)
 
 ```python
+from typing import Tuple
+
+
 class MySQLFullTextMixin:
     def supports_fulltext_index(self) -> bool:
-        return self.version >= (5, 6, 0)
+        return self.version_at_least((5, 6, 0))
 
     def supports_fulltext_parser(self) -> bool:
-        return self.version >= (5, 1, 0)
+        return self.version_at_least((5, 1, 0))
 
     def format_match_against(
         self,
         expr: MatchAgainstExpression,
     ) -> Tuple[str, tuple]:
         # Implementation...
+        return "", ()
 ```
 
 **`mysql/dialect.py`** (Compose the Mixin)
 
 ```python
+from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+
+
 class MySQLDialect(
-    MySQLBaseMixin,
+    SQLDialectBase,
     MySQLFullTextMixin,  # Separate mixin for organization
     FullTextSearchSupport,
-    ...
 ):
     pass
 ```
@@ -604,16 +669,20 @@ Benefits:
 **Example**: Adding `MODIFY COLUMN` support for MySQL
 
 ```python
+from typing import Protocol, Tuple, runtime_checkable
+
+
 # Step 1: MySQL-specific Protocol (mysql/protocols.py)
 @runtime_checkable
 class MySQLModifyColumnSupport(Protocol):
     def supports_modify_column(self) -> bool: ...
     def format_modify_column_action(self, action) -> Tuple[str, tuple]: ...
 
+
 # Step 2: MySQL-specific Mixin (mysql/mixins.py)
 class MySQLModifyColumnMixin:
     def supports_modify_column(self) -> bool:
-        return self.version >= (5, 0, 0)  # All MySQL 5.x+ support this
+        return self.version_at_least((5, 0, 0))  # All MySQL 5.x+ support this
 
     def format_modify_column_action(self, action) -> Tuple[str, tuple]:
         col_sql, col_params = self.format_column_definition(action.column)
@@ -624,11 +693,15 @@ class MySQLModifyColumnMixin:
             sql += " FIRST"
         return sql, col_params
 
+
 # Step 3: MySQL dialect mixes in Protocol + Mixin (mysql/dialect.py)
+from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+
+
 class MySQLDialect(
+    SQLDialectBase,
     MySQLModifyColumnMixin,
     MySQLModifyColumnSupport,
-    ...
 ):
     pass  # Mixin already provides implementation, no override needed
 ```

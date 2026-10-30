@@ -1,3 +1,14 @@
+from .ddl_table import (
+    ColumnDefinition,
+    IndexDefinition,
+    TableCheckConstraint,
+    TableConstraint,
+    TableForeignKeyConstraint,
+)
+from ..objects import Index, Table
+from ..bases import BaseExpression
+from typing import Any, List, Optional, Union, TYPE_CHECKING
+from enum import Enum
 # src/rhosocial/activerecord/backend/expression/statements/ddl_alter.py
 """ALTER TABLE DDL statement expressions.
 
@@ -27,7 +38,7 @@ Vendor-extension qualifiers (``IF EXISTS`` / ``IF NOT EXISTS``):
     DEFAULT/IDENTITY/UNIQUE/PRIMARY KEY/FOREIGN KEY on the same column.
 
 Carrying the qualifiers:
-    ``AddColumn``, ``DropColumn``, and ``DropTableConstraint`` expose
+    ``AddColumnAction``, ``DropColumnAction``, and ``DropTableConstraintAction`` expose
     ``if_not_exists`` / ``if_exists`` optional fields (default ``None``)
     so application code can request idempotent ALTER TABLE actions
     uniformly across backends. The fields are inert at the core layer:
@@ -45,29 +56,19 @@ Carrying the qualifiers:
     ``USER_TAB_COLUMNS``, ``RDB$RELATION_FIELDS``, etc.).
 """
 
-from enum import Enum
-from typing import Any, List, Optional, Union, TYPE_CHECKING
-
-from ..bases import BaseExpression
-from ..objects import Index, Table
-from .ddl_table import (
-    ColumnConstraintType,
-    ColumnDefinition,
-    IndexDefinition,
-    TableConstraint,
-    TableConstraintType,
-)
-
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-class AlterTableActionType(Enum):
+class AlterTableActionType(str, Enum):
     """Type of action for ALTER TABLE statement.
 
     Each value corresponds to exactly one concrete ``AlterTableAction``
     subclass; the mapping is maintained manually and verified by tests.
     """
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     ADD_COLUMN = "ADD COLUMN"
     DROP_COLUMN = "DROP COLUMN"
@@ -96,7 +97,7 @@ class AlterTableAction(BaseExpression):
     action_type: AlterTableActionType
 
 
-class AddColumn(AlterTableAction):
+class AddColumnAction(AlterTableAction):
     """Represents an 'ADD COLUMN' action per SQL standard.
 
     Note:
@@ -136,7 +137,7 @@ class AddColumn(AlterTableAction):
         self.if_not_exists: Optional[bool] = if_not_exists
 
 
-class DropColumn(AlterTableAction):
+class DropColumnAction(AlterTableAction):
     """Represents a 'DROP COLUMN' action per SQL standard.
 
     Note:
@@ -173,8 +174,11 @@ class DropColumn(AlterTableAction):
         self.if_exists: Optional[bool] = if_exists
 
 
-class ColumnAlterOperation(Enum):
+class ColumnAlterOperation(str, Enum):
     """SQL standard column operation types"""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     SET_DEFAULT = "SET DEFAULT"
     DROP_DEFAULT = "DROP DEFAULT"
@@ -183,7 +187,25 @@ class ColumnAlterOperation(Enum):
     SET_DATA_TYPE = "SET DATA TYPE"  # SQL standard: ALTER COLUMN ... SET DATA TYPE <type>
 
 
-class AlterColumn(AlterTableAction):
+def operation_spelling(operation: Union["ColumnAlterOperation", str]) -> str:
+    """The SQL spelling of an alter operation.
+
+    An operation may be given as the enum or as its raw spelling; which one
+    it is is a type question, so it is asked with isinstance rather than
+    probed for a ``value`` attribute.
+
+    Args:
+        operation: The operation, as the enum member or as its spelling.
+
+    Returns:
+        The spelling, e.g. ``"SET DATA TYPE"``.
+    """
+    from enum import Enum
+
+    return operation.value if isinstance(operation, Enum) else str(operation)
+
+
+class AlterColumnAction(AlterTableAction):
     """Represents an 'ALTER COLUMN' action per SQL standard."""
 
     @property
@@ -209,11 +231,15 @@ class AlterColumn(AlterTableAction):
         super().__init__(dialect)
         self.column_name: str = column_name
         self.operation: Union[ColumnAlterOperation, str] = operation
+        if operation_spelling(operation) == "SET DATA TYPE" and new_value is not None:
+            from ..types import DataType
+
+            new_value = DataType.as_type(dialect, new_value)
         self.new_value: Any = new_value
         self.cascade: bool = cascade
 
 
-class AddTableConstraint(AlterTableAction):
+class AddTableConstraintAction(AlterTableAction):
     """SQL standard ADD CONSTRAINT operation"""
 
     @property
@@ -233,7 +259,7 @@ class AddTableConstraint(AlterTableAction):
         self.constraint: TableConstraint = constraint
 
 
-class DropTableConstraint(AlterTableAction):
+class DropTableConstraintAction(AlterTableAction):
     """SQL standard DROP CONSTRAINT operation.
 
     Note:
@@ -274,19 +300,24 @@ class DropTableConstraint(AlterTableAction):
         self.cascade: bool = cascade
 
 
-class AlterConstraint(AlterTableAction):
+class AlterConstraintAction(AlterTableAction):
     """Typed ``ALTER CONSTRAINT`` enforcement action.
 
     The enforcement keyword is mandatory in the action's grammar, so exactly
     one of ``enforced`` / ``not_enforced`` must be set. Setting both, or
     neither, raises ``ValueError`` -- the action *is* the keyword.
+
+    ``constraint_kind`` names the branch the keyword rides on: only a CHECK or
+    a FOREIGN KEY can carry it, and the branch class is what says so.
     """
 
     action_type: AlterTableActionType = AlterTableActionType.ALTER_CONSTRAINT
     constraint_name: str
     enforced: bool
     not_enforced: bool
-    constraint_type: TableConstraintType
+
+    #: The kinds that may carry the enforcement trait in this grammar.
+    ALLOWED_BRANCHES = (TableCheckConstraint, TableForeignKeyConstraint)
 
     def __init__(
         self,
@@ -296,18 +327,14 @@ class AlterConstraint(AlterTableAction):
         not_enforced: bool = False,
         *,
         name: Optional[str] = None,
-        constraint_type: Union[
-            ColumnConstraintType,
-            TableConstraintType,
-            str,
-        ],
+        constraint_kind: Union[type, str],
     ) -> None:
         super().__init__(dialect)
         if enforced and not_enforced:
             raise ValueError("enforced and not_enforced are mutually exclusive options")
         if not (enforced or not_enforced):
             raise ValueError(
-                "AlterConstraint requires exactly one of enforced=True or "
+                "AlterConstraintAction requires exactly one of enforced=True or "
                 "not_enforced=True: the enforcement keyword is mandatory"
             )
         if constraint_name is None:
@@ -316,42 +343,38 @@ class AlterConstraint(AlterTableAction):
             raise ValueError("name and constraint_name must match")
         if not isinstance(constraint_name, str) or not constraint_name.strip():
             raise ValueError("constraint_name must be a non-empty string")
-        raw_value = getattr(constraint_type, "value", constraint_type)
-        raw_name = getattr(constraint_type, "name", raw_value)
-        normalized_type = None
-        for candidate in (raw_value, raw_name):
-            if not isinstance(candidate, str):
-                continue
-            normalized = " ".join(candidate.strip().upper().split())
-            for value in (normalized, normalized.replace(" ", "_")):
-                try:
-                    normalized_type = TableConstraintType(value)
-                    break
-                except ValueError:
-                    continue
-            if normalized_type is not None:
-                break
-        if normalized_type is None:
-            raise TypeError(
-                "constraint_type must be a CHECK or FOREIGN KEY constraint type"
-            )
-        if normalized_type not in {TableConstraintType.CHECK, TableConstraintType.FOREIGN_KEY}:
+        if isinstance(constraint_kind, str):
+            # The spelling a caller writes ("CHECK", "FOREIGN_KEY"), resolved
+            # to the branch class by name -- the tag enum the branches
+            # replaced is gone, and a spelling is still a kind.
+            normalized = " ".join(constraint_kind.strip().upper().split()).replace(" ", "_")
+            matched = [
+                branch
+                for branch in self.ALLOWED_BRANCHES
+                if branch.__name__.replace("Table", "").upper() == normalized
+            ]
+            if not matched:
+                raise ValueError(
+                    "constraint_kind must name a CHECK or FOREIGN KEY constraint"
+                )
+            constraint_kind = matched[0]
+        if constraint_kind not in self.ALLOWED_BRANCHES:
             raise ValueError(
-                "constraint_type must be TableConstraintType.CHECK or "
-                "TableConstraintType.FOREIGN_KEY"
+                "constraint_kind must be TableCheckConstraint or TableForeignKeyConstraint"
             )
         self.constraint_name = constraint_name
         self.name = constraint_name
         self.enforced = enforced
         self.not_enforced = not_enforced
-        self.constraint_type = normalized_type
+        #: The branch class whose kind this keyword is spelled on.
+        self.constraint_branch = constraint_kind
 
     @property
     def format_method(self) -> str:
         return "format_alter_constraint_action"
 
 
-class ValidateConstraint(AlterTableAction):
+class ValidateConstraintAction(AlterTableAction):
     """Typed ``VALIDATE CONSTRAINT`` action."""
 
     action_type: AlterTableActionType = AlterTableActionType.VALIDATE_CONSTRAINT
@@ -360,7 +383,7 @@ class ValidateConstraint(AlterTableAction):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        constraint_name: Optional[str] = None,
+        constraint_name: str,
         *,
         name: Optional[str] = None,
     ) -> None:
@@ -378,14 +401,7 @@ class ValidateConstraint(AlterTableAction):
     def format_method(self) -> str:
         return "format_validate_constraint_action"
 
-
-AlterConstraintAction = AlterConstraint
-ValidateConstraintAction = ValidateConstraint
-AlterTableConstraint = AlterConstraint
-ValidateTableConstraint = ValidateConstraint
-
-
-class RenameTable(AlterTableAction):
+class RenameTableAction(AlterTableAction):
     """SQL standard RENAME TABLE operation"""
 
     @property
@@ -408,8 +424,8 @@ class RenameTable(AlterTableAction):
         self.new_name: str = new_name
 
 
-class RenameObject(AlterTableAction):
-    """Represents a 'RENAME' action for columns or tables."""
+class RenameColumnAction(AlterTableAction):
+    """A ``RENAME COLUMN`` action. Renaming a table is :class:`RenameTableAction`."""
 
     @property
     def format_method(self) -> str:
@@ -419,23 +435,19 @@ class RenameObject(AlterTableAction):
     action_type: AlterTableActionType = AlterTableActionType.RENAME_COLUMN
     old_name: str
     new_name: str
-    object_type: str
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         old_name: str,
         new_name: str,
-        *,
-        object_type: str = "COLUMN",
     ) -> None:
         super().__init__(dialect)
         self.old_name: str = old_name
         self.new_name: str = new_name
-        self.object_type: str = object_type
 
 
-class AddIndex(AlterTableAction):
+class AddIndexAction(AlterTableAction):
     """Represents an 'ADD INDEX' action."""
 
     @property
@@ -455,7 +467,7 @@ class AddIndex(AlterTableAction):
         self.index: IndexDefinition = index
 
 
-class DropIndex(AlterTableAction):
+class DropIndexAction(AlterTableAction):
     """Represents a 'DROP INDEX' action."""
 
     @property
@@ -479,7 +491,7 @@ class DropIndex(AlterTableAction):
         self.if_exists: bool = if_exists
 
 
-class ModifyColumn(AlterTableAction):
+class ModifyColumnAction(AlterTableAction):
     """Represents a 'MODIFY COLUMN' action.
 
     Redefines a column with a complete new specification.
@@ -511,7 +523,7 @@ class ModifyColumn(AlterTableAction):
         self.after_column: Optional[str] = after_column
 
 
-class ChangeColumn(AlterTableAction):
+class ChangeColumnAction(AlterTableAction):
     """Represents a 'CHANGE COLUMN' action.
 
     Renames a column and redefines it with a complete new specification.
@@ -545,7 +557,7 @@ class ChangeColumn(AlterTableAction):
         self.after_column: Optional[str] = after_column
 
 
-class AlterTableExpression(BaseExpression):
+class AlterTableStatement(BaseExpression):
     """
     Represents a comprehensive ALTER TABLE statement supporting SQL standard functionality.
 
@@ -559,38 +571,33 @@ class AlterTableExpression(BaseExpression):
 
     Examples:
         # Add column
-        alter_expr = AlterTableExpression(
-            dialect,
+        alter_expr = AlterTableStatement(
             table=Table(dialect, "users"),
-            actions=[AddColumn(dialect, column=ColumnDefinition(dialect, "email", "VARCHAR(100)"))]
+            actions=[AddColumnAction(dialect, column=ColumnDefinition(dialect, "email", "VARCHAR(100)"))]
         )
 
         # Drop column
-        alter_expr = AlterTableExpression(
-            dialect,
+        alter_expr = AlterTableStatement(
             table=Table(dialect, "products"),
-            actions=[DropColumn(dialect, column_name="description")]
+            actions=[DropColumnAction(dialect, column_name="description")]
         )
 
         # Multiple actions in one statement
-        alter_expr = AlterTableExpression(
-            dialect,
+        alter_expr = AlterTableStatement(
             table=Table(dialect, "orders"),
             actions=[
-                AddColumn(dialect, column=ColumnDefinition(dialect, "status", "VARCHAR(20)")),
-                RenameObject(dialect, old_name="id", new_name="order_id")
+                AddColumnAction(dialect, column=ColumnDefinition(dialect, "status", "VARCHAR(20)")),
+                RenameColumnAction(dialect, old_name="id", new_name="order_id")
             ]
         )
 
         # Add constraint
-        alter_expr = AlterTableExpression(
-            dialect,
+        alter_expr = AlterTableStatement(
             table=Table(dialect, "users"),
             actions=[
-                AddTableConstraint(
-                    dialect,
+                AddTableConstraintAction(
                     constraint=TableConstraint(dialect, 
-                        constraint_type=TableConstraintType.CHECK,
+                        constraint_kind=TableCheckConstraint,
                         check_condition=Column(dialect, "age") > Literal(dialect, 0)
                     )
                 )
@@ -598,12 +605,10 @@ class AlterTableExpression(BaseExpression):
         )
 
         # Alter column properties
-        alter_expr = AlterTableExpression(
-            dialect,
+        alter_expr = AlterTableStatement(
             table=Table(dialect, "products"),
             actions=[
-                AlterColumn(
-                    dialect,
+                AlterColumnAction(
                     column_name="price",
                     operation=ColumnAlterOperation.SET_DEFAULT,
                     new_value="0.00"

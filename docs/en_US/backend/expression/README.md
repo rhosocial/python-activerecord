@@ -73,7 +73,7 @@ Expressions can be serialized into three forms and reconstructed from them into 
 Key points:
 
 - **The dialect is not serialized**: it must be supplied at deserialization time (the `dialect` parameter), because SQL generation depends on the dialect
-- Nested expressions, tuples, `cast()` chains, dataclass values, and non-JSON-native scalars round-trip fully through reserved keys (`__expr__`, `__tuple__`, `__cast__`, `__vdc__`, `__value__`)
+- Everything in an artifact is plain JSON: a node is `{kind, params}`, a parameter is a scalar, an array or an object. **There are no markers** — nothing for a reader to be told to dispatch on, which is what lets one artifact be byte-identical across languages. The only values JSON cannot spell — `bytes`, a `timedelta`, a `Decimal` — are bind values wrapped in a `Literal`, and travel as the text their kind names
 - Serialization lets expressions travel **across processes, machines, and languages**, laying the groundwork for query templating, caching, and distributed scenarios
 
 > For the full serialization spec (spec format, nested/tuple markers, security considerations and the registry mechanism) see [Expression Serialization](serialization.md); for wiring custom expressions into serialization see [Extending](extending.md).
@@ -94,15 +94,16 @@ The expression system allows you to compose queries programmatically:
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    QueryExpression, TableExpression, Column, Literal
+    QueryStatement, NamedRelationRef, Column, IntegerColumn
 )
+from rhosocial.activerecord.backend.expression.objects import Table
 
 # SELECT name, age FROM users WHERE age >= 18
-query = QueryExpression(
+query = QueryStatement(
     dialect,
     select=[Column(dialect, "name"), Column(dialect, "age")],
-    from_=TableExpression(dialect, "users"),
-    where=Column(dialect, "age") >= Literal(dialect, 18)
+    from_=NamedRelationRef(dialect, Table(dialect, "users")),
+    where=IntegerColumn(dialect, "age") >= 18
 )
 sql, params = query.to_sql()
 # sql: 'SELECT "name", "age" FROM "users" WHERE "age" >= ?'

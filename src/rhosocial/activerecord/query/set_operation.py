@@ -4,10 +4,35 @@
 from typing import Union, List, Dict, Any, Optional
 
 from ..backend.base import StorageBackend, AsyncStorageBackend
-from ..backend.expression import SetOperationExpression, bases
+from ..backend.expression import SetOperation, bases
 from ..interface import IQuery, IAsyncQuery, ISetOperationQuery, IAsyncSetOperationQuery
 from ..logging.defaults import _LOGGER_QUERY
 from ..logging.mixin import BackendLoggingMixin
+
+# The set operation the expression node carries is a **word form**
+# (``union`` / ``union_all`` / ``intersect`` / ``except``) — the wire enum.
+# This query layer has always spoken SQL symbols at its public surface, so
+# both spellings are accepted here and translated once, at the boundary.
+_OPERATION_TO_OP = {
+    "union": "union",
+    "union_all": "union_all",
+    "intersect": "intersect",
+    "except": "except",
+    "UNION": "union",
+    "UNION ALL": "union_all",
+    "INTERSECT": "intersect",
+    "EXCEPT": "except",
+}
+
+
+def _to_op_word(operation: str) -> str:
+    try:
+        return _OPERATION_TO_OP[operation]
+    except KeyError:
+        raise ValueError(
+            f"operation must be one of {sorted(set(_OPERATION_TO_OP.values()))} "
+            f"(or its SQL symbol spelling), got {operation!r}"
+        ) from None
 
 
 class SetOperationQuery(ISetOperationQuery):
@@ -79,12 +104,12 @@ class SetOperationQuery(ISetOperationQuery):
                 f"Different dialect types for left ({type(left_dialect)}) and right ({type(right_dialect)}) operands"
             )
 
-        # Use SetOperationExpression to represent the set operation
-        self._set_op_expr = SetOperationExpression(
+        # Use SetOperation to represent the set operation
+        self._set_op_expr = SetOperation(
             left_dialect,  # Use left's dialect as the main dialect
+            op=_to_op_word(operation),
             left=self._convert_to_base_expression(left),
             right=self._convert_to_base_expression(right),
-            operation=operation,
         )
 
         # Initialize explain-related attributes
@@ -97,20 +122,20 @@ class SetOperationQuery(ISetOperationQuery):
     def _convert_to_base_expression(self, query: IQuery) -> bases.BaseExpression:
         """Convert a query object to a BaseExpression suitable for expression system.
 
-        Since SetOperationExpression belongs to the expression system, it should only accept
+        Since SetOperation belongs to the expression system, it should only accept
         BaseExpression objects, not high-level IQuery objects.
         """
         # If the query is a SetOperationQuery (which inherits from IQuery), get its underlying expression
         if isinstance(query, SetOperationQuery):
             return query._set_op_expr
         # If the query implements IQuery (including ActiveQuery), convert it to a
-        # RawSQLExpression to avoid extra parentheses
+        # RawSQL to avoid extra parentheses
         elif isinstance(query, IQuery):
-            from ..backend.expression.operators import RawSQLExpression
+            from ..backend.expression.operators import RawSQL
 
-            # Convert the IQuery to SQL first, then create a RawSQLExpression
+            # Convert the IQuery to SQL first, then create a RawSQL
             sql, params = query.to_sql()
-            return RawSQLExpression(query.backend().dialect, sql, params)
+            return RawSQL(query.backend().dialect, sql, params)
         else:
             # Fallback: This case might indicate a design issue or missing functionality
             # in how different query types are handled
@@ -118,7 +143,7 @@ class SetOperationQuery(ISetOperationQuery):
 
     def to_sql(self) -> "bases.SQLQueryAndParams":
         """Convert the set operation query to SQL and parameters."""
-        # Use the SetOperationExpression's to_sql method
+        # Use the SetOperation's to_sql method
         return self._set_op_expr.to_sql()
 
     def union(self, other: "IQuery") -> "SetOperationQuery":
@@ -189,11 +214,11 @@ class SetOperationQuery(ISetOperationQuery):
             dialect = backend.dialect
 
             # Create the underlying set operation expression
-            from ..backend.expression.statements import ExplainExpression, ExplainOptions
+            from ..backend.expression.statements import ExplainStatement, ExplainOptions
 
-            # Create ExplainExpression with the set operation expression and options
+            # Create ExplainStatement with the set operation expression and options
             explain_options = ExplainOptions(**self._explain_options)
-            explain_expr = ExplainExpression(dialect, self._set_op_expr, explain_options)
+            explain_expr = ExplainStatement(dialect, self._set_op_expr, explain_options)
 
             # Generate SQL for the EXPLAIN statement
             explain_sql, explain_params = explain_expr.to_sql()
@@ -309,12 +334,12 @@ class AsyncSetOperationQuery(IAsyncSetOperationQuery):
                 f"Different dialect types for left ({type(left_dialect)}) and right ({type(right_dialect)}) operands"
             )
 
-        # Use SetOperationExpression to represent the set operation
-        self._set_op_expr = SetOperationExpression(
+        # Use SetOperation to represent the set operation
+        self._set_op_expr = SetOperation(
             left_dialect,  # Use left's dialect as the main dialect
+            op=_to_op_word(operation),
             left=self._convert_to_base_expression(left),
             right=self._convert_to_base_expression(right),
-            operation=operation,
         )
 
         # Initialize explain-related attributes
@@ -327,20 +352,20 @@ class AsyncSetOperationQuery(IAsyncSetOperationQuery):
     def _convert_to_base_expression(self, query: IAsyncQuery) -> bases.BaseExpression:
         """Convert an async query object to a BaseExpression suitable for expression system.
 
-        Since SetOperationExpression belongs to the expression system, it should only accept
+        Since SetOperation belongs to the expression system, it should only accept
         BaseExpression objects, not high-level IAsyncQuery objects.
         """
         # If the query is an AsyncSetOperationQuery (which inherits from IAsyncQuery), get its underlying expression
         if isinstance(query, AsyncSetOperationQuery):
             return query._set_op_expr
         # If the query implements IAsyncQuery (including AsyncActiveQuery), convert it to a
-        # RawSQLExpression to avoid extra parentheses
+        # RawSQL to avoid extra parentheses
         elif isinstance(query, IAsyncQuery):
-            from ..backend.expression.operators import RawSQLExpression
+            from ..backend.expression.operators import RawSQL
 
-            # Convert the IAsyncQuery to SQL first, then create a RawSQLExpression
+            # Convert the IAsyncQuery to SQL first, then create a RawSQL
             sql, params = query.to_sql()
-            return RawSQLExpression(query.backend().dialect, sql, params)
+            return RawSQL(query.backend().dialect, sql, params)
         else:
             # Fallback: This case might indicate a design issue or missing functionality
             # in how different query types are handled
@@ -348,7 +373,7 @@ class AsyncSetOperationQuery(IAsyncSetOperationQuery):
 
     def to_sql(self) -> "bases.SQLQueryAndParams":
         """Convert the async set operation query to SQL and parameters."""
-        # Use the SetOperationExpression's to_sql method
+        # Use the SetOperation's to_sql method
         return self._set_op_expr.to_sql()
 
     def union(self, other: "IAsyncQuery") -> "AsyncSetOperationQuery":
@@ -419,11 +444,11 @@ class AsyncSetOperationQuery(IAsyncSetOperationQuery):
             dialect = backend.dialect
 
             # Create the underlying set operation expression
-            from ..backend.expression.statements import ExplainExpression, ExplainOptions
+            from ..backend.expression.statements import ExplainStatement, ExplainOptions
 
-            # Create ExplainExpression with the set operation expression and options
+            # Create ExplainStatement with the set operation expression and options
             explain_options = ExplainOptions(**self._explain_options)
-            explain_expr = ExplainExpression(dialect, self._set_op_expr, explain_options)
+            explain_expr = ExplainStatement(dialect, self._set_op_expr, explain_options)
 
             # Generate SQL for the EXPLAIN statement
             explain_sql, explain_params = explain_expr.to_sql()

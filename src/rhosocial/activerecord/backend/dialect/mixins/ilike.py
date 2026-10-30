@@ -9,14 +9,14 @@ from typing import Tuple, TYPE_CHECKING
 from ...expression.bases import ToSQLProtocol
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.predicates import ILIKEExpression
+    from ...expression.predicates import ILikePredicate
 
 
 class ILIKEMixin:
     """Mixin for ILIKE (case-insensitive LIKE) support.
 
     Dialects with a native ILIKE operator override
-    :meth:`format_ilike_expression`; the default emits a LOWER()-based
+    :meth:`format_ilike_predicate`; the default emits a LOWER()-based
     comparison.
     """
 
@@ -24,7 +24,7 @@ class ILIKEMixin:
         """Whether ILIKE operator is supported. Defaults to False."""
         return False
 
-    def format_ilike_expression(self, expr: "ILIKEExpression") -> Tuple[str, Tuple]:
+    def format_ilike_predicate(self, expr: "ILikePredicate") -> Tuple[str, Tuple]:
         """Format an ILIKE expression (case-insensitive pattern matching).
 
         The default implementation uses LOWER() so it works on dialects without
@@ -32,7 +32,7 @@ class ILIKEMixin:
         native ILIKE support (e.g. PostgreSQL).
 
         Args:
-            expr: The :class:`ILIKEExpression` node to render. The node stores
+            expr: The :class:`ILikePredicate` node to render. The node stores
                 its own ``column``, ``pattern`` and ``negate`` data; the
                 formatter takes no extra arguments so it can be dispatched
                 uniformly as ``formatter(expr)``.

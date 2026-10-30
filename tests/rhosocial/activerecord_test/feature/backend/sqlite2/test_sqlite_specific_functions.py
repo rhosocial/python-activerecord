@@ -136,7 +136,7 @@ class TestSQLiteStringFunctions:
         assert params == ("68656C6C6F",)
 
 
-class TestSQLiteTrimFunctions:
+class TestSQLiteTrimExpressions:
     """Tests for SQLite-specific trim functions."""
 
     def test_trim_sqlite_basic(self, sqlite_dialect_3_35_0: SQLiteDialect):

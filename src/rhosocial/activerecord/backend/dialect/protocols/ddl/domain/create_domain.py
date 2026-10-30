@@ -12,7 +12,7 @@ from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from .....expression.statements import (
-        CreateDomainExpression,
+        CreateDomainStatement,
         DomainCheckConstraint,
         DomainValueExpression,
     )
@@ -82,8 +82,8 @@ class CreateDomainSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_create_domain_statement(self, expr: "CreateDomainExpression") -> Tuple[str, tuple]:
-        """Render a :class:`~....expression.statements.CreateDomainExpression`.
+    def format_create_domain_statement(self, expr: "CreateDomainStatement") -> Tuple[str, tuple]:
+        """Render a :class:`~....expression.statements.CreateDomainStatement`.
 
         Raises rather than emitting an unsupported form: a statement the
         engine cannot parse is not a statement worth producing.

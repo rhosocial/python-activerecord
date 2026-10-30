@@ -655,9 +655,9 @@ def transaction(backend: StorageBackend):
 - [ ] Expression-dialect separation maintained
 - [ ] Expression system module organization followed
 
-### RawSQLPredicate / RawSQLExpression
+### RawSQLPredicate / RawSQL
 
-`RawSQLExpression` and `RawSQLPredicate` (`backend/expression/operators.py`) embed a raw SQL
+`RawSQL` and `RawSQLPredicate` (`backend/expression/operators.py`) embed a raw SQL
 fragment directly into the query, bypassing the typed expression building mechanism. They are
 **used internally by the core query builder** and therefore are not categorically forbidden.
 
@@ -677,7 +677,7 @@ SQL fragment strings relies on `RawSQLPredicate` under the hood.
 
 #### Security analysis
 
-- **Values are still parameterized.** `RawSQLPredicate`/`RawSQLExpression` bind parameters via
+- **Values are still parameterized.** `RawSQLPredicate`/`RawSQL` bind parameters via
   a separate params tuple, so values are always sent through placeholders and never
   naively concatenated. The SQL string itself, however, is embedded verbatim.
 - **The SQL fragment string is trusted input.** The security boundary is: the SQL structure

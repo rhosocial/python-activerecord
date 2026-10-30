@@ -4,14 +4,14 @@ Tests for the advanced SQL function expression components in advanced_functions.
 """
 
 import pytest
-from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression import Column, Literal, NumericColumn
 from rhosocial.activerecord.backend.expression.advanced_functions import (
     CaseExpression,
-    ExistsExpression,
-    AnyExpression,
-    AllExpression,
-    JSONDocumentExpression,
-    ArrayExpression,
+    ExistsPredicate,
+    AnyPredicate,
+    AllPredicate,
+    JSONDocumentValue,
+    ArrayOperation,
     OrderedSetAggregation,
 )
 from rhosocial.activerecord.backend.expression.core import Subquery
@@ -25,7 +25,7 @@ class TestCaseExpression:
     def test_case_expression_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test basic CASE expression functionality."""
         # Create a basic CASE expression with one condition-result pair
-        condition = Column(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 18)
+        condition = NumericColumn(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 18)
         result = Literal(sqlite_dialect_3_8_0, "adult")
         case_expr = CaseExpression(sqlite_dialect_3_8_0, cases=[(condition, result)])
 
@@ -35,9 +35,9 @@ class TestCaseExpression:
 
     def test_case_expression_multiple_conditions(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test CASE expression with multiple conditions."""
-        condition1 = Column(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 65)
+        condition1 = NumericColumn(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 65)
         result1 = Literal(sqlite_dialect_3_8_0, "senior")
-        condition2 = Column(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 18)
+        condition2 = NumericColumn(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 18)
         result2 = Literal(sqlite_dialect_3_8_0, "adult")
 
         case_expr = CaseExpression(
@@ -82,12 +82,12 @@ class TestCastMethod:
 
 
 class TestExistsExpression:
-    """Tests for ExistsExpression class."""
+    """Tests for ExistsPredicate class."""
 
     def test_exists_expression_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test basic EXISTS expression functionality."""
         subquery = Subquery(sqlite_dialect_3_8_0, "SELECT 1 FROM orders WHERE user_id = users.id", ())
-        exists_expr = ExistsExpression(sqlite_dialect_3_8_0, subquery)
+        exists_expr = ExistsPredicate(sqlite_dialect_3_8_0, subquery)
         sql, params = exists_expr.to_sql()
         assert "EXISTS" in sql.upper()
         assert params == ()
@@ -95,19 +95,19 @@ class TestExistsExpression:
     def test_not_exists_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test NOT EXISTS expression functionality."""
         subquery = Subquery(sqlite_dialect_3_8_0, "SELECT 1 FROM orders WHERE user_id = users.id", ())
-        exists_expr = ExistsExpression(sqlite_dialect_3_8_0, subquery, is_not=True)
+        exists_expr = ExistsPredicate(sqlite_dialect_3_8_0, subquery, is_not=True)
         sql, params = exists_expr.to_sql()
         assert "NOT EXISTS" in sql.upper()
         assert params == ()
 
 
 class TestAnyAllExpression:
-    """Tests for AnyExpression and AllExpression classes."""
+    """Tests for AnyPredicate and AllPredicate classes."""
 
     def test_any_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test ANY expression functionality."""
         # ANY with a list might generate different SQL in SQLite
-        any_expr = AnyExpression(
+        any_expr = AnyPredicate(
             sqlite_dialect_3_8_0,
             Column(sqlite_dialect_3_8_0, "price"),
             ">",
@@ -120,7 +120,7 @@ class TestAnyAllExpression:
 
     def test_all_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test ALL expression functionality."""
-        all_expr = AllExpression(
+        all_expr = AllPredicate(
             sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "price"), ">", Literal(sqlite_dialect_3_8_0, [50, 75])
         )
         sql, params = all_expr.to_sql()
@@ -130,11 +130,11 @@ class TestAnyAllExpression:
 
 
 class TestJSONExpression:
-    """Tests for JSONDocumentExpression class."""
+    """Tests for JSONDocumentValue class."""
 
     def test_json_extract_path(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test JSON path extraction."""
-        json_expr = JSONDocumentExpression(sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "data"), "$.name")
+        json_expr = JSONDocumentValue(sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "data"), "$.name")
         sql, params = json_expr.to_sql()
         # In SQLite, this uses the -> operator with the path embedded as a literal
         assert sql == '"data"->\'$.name\''
@@ -142,7 +142,7 @@ class TestJSONExpression:
 
     def test_json_extract_as_text(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test JSON path extraction as text."""
-        json_expr = JSONDocumentExpression(
+        json_expr = JSONDocumentValue(
             sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "metadata"), "$.settings.theme", operation="->>"
         )
         sql, params = json_expr.to_sql()
@@ -151,14 +151,14 @@ class TestJSONExpression:
         assert params == ()
 
 
-class TestArrayExpression:
-    """Tests for ArrayExpression class."""
+class TestArrayValue:
+    """Tests for ArrayValue class."""
 
     def test_array_constructor_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test that array constructor is not supported in SQLite."""
         from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
-        array_expr = ArrayExpression(
+        array_expr = ArrayOperation(
             sqlite_dialect_3_8_0,
             "CONSTRUCTOR",
             elements=[
@@ -178,7 +178,7 @@ class TestArrayExpression:
         """Test that array access is not supported in SQLite."""
         from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
-        array_access = ArrayExpression(
+        array_access = ArrayOperation(
             sqlite_dialect_3_8_0,
             "ACCESS",
             base_expr=Column(sqlite_dialect_3_8_0, "tags"),

@@ -1,3 +1,28 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+    TableForeignKeyConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.core import Subquery, Literal
+from rhosocial.activerecord.backend.expression import functions
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression import (
+    QueryStatement,
+    Column,
+    WhereClause,
+)
+from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint, TableConstraint
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
+    CreateTableStatement,
+    InsertStatement,
+    ValuesSource,
+)
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 """
 Subquery in WHERE clause and FROM clause.
 """
@@ -5,30 +30,13 @@ Subquery in WHERE clause and FROM clause.
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableExpression,
-    InsertExpression,
-    ValuesSource,
-)
-from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
-from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
-    TableConstraint,
-    TableConstraintType,
-)
 
-departments_table = CreateTableExpression(
+departments_table = CreateTableStatement(
     dialect=dialect,
     table_name="departments",
     columns=[
@@ -36,15 +44,15 @@ departments_table = CreateTableExpression(
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, 
             "name",
             TextType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
     ],
@@ -53,7 +61,7 @@ departments_table = CreateTableExpression(
 sql, params = departments_table.to_sql()
 backend.execute(sql, params)
 
-employees_table = CreateTableExpression(
+employees_table = CreateTableStatement(
     dialect=dialect,
     table_name="employees",
     columns=[
@@ -61,27 +69,22 @@ employees_table = CreateTableExpression(
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, 
             "name",
             TextType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, "department_id", IntegerType()),
         ColumnDefinition(dialect, "salary", FloatType()),
     ],
     table_constraints=[
-        TableConstraint(dialect, 
-            constraint_type=TableConstraintType.FOREIGN_KEY,
-            columns=["department_id"],
-            foreign_key_table="departments",
-            foreign_key_columns=["id"],
-        ),
+        TableConstraint(dialect, branch=TableForeignKeyConstraint(dialect, ["department_id"], "departments", ["id"])),
     ],
     if_not_exists=True,
 )
@@ -90,7 +93,7 @@ backend.execute(sql, params)
 
 departments = [("Engineering",), ("Sales",)]
 for dept in departments:
-    insert_expr = InsertExpression(
+    insert_expr = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'departments'),
         columns=["name"],
@@ -105,7 +108,7 @@ employees = [
     ("Charlie", 2, 90000),
 ]
 for emp in employees:
-    insert_expr = InsertExpression(
+    insert_expr = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'employees'),
         columns=["name", "department_id", "salary"],
@@ -117,24 +120,15 @@ for emp in employees:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (
-    QueryExpression,
-    Column,
-    WhereClause,
-)
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.core import Subquery, Literal, FunctionCall  # noqa: E402
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate  # noqa: E402
-from .....expression.objects import Table
 
 # Subquery in WHERE clause: find employees with salary above average
-avg_salary_subquery = QueryExpression(
+avg_salary_subquery = QueryStatement(
     dialect=dialect,
-    select=[FunctionCall(dialect, "AVG", Column(dialect, "salary"))],
+    select=[functions.avg(dialect, Column(dialect, "salary"))],
     from_=NamedRelationRef(dialect, Table(dialect, "employees")),
 )
 
-query = QueryExpression(
+query = QueryStatement(
     dialect=dialect,
     select=[
         Column(dialect, "name"),
@@ -144,7 +138,6 @@ query = QueryExpression(
     where=WhereClause(
         dialect,
         condition=ComparisonPredicate(
-            dialect,
             ">",
             Column(dialect, "salary"),
             Subquery(dialect, avg_salary_subquery),

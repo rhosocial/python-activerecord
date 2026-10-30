@@ -10,8 +10,9 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
     FunctionCall,
-    QueryExpression,
-    InsertExpression,
+    NumericColumn,
+    QueryStatement,
+    InsertStatement,
     ValuesSource,
     OrderByClause,
 )
@@ -21,7 +22,7 @@ from rhosocial.activerecord.backend.expression.objects import Table
 
 def list_users(dialect):
     """List all users (id, name, email)."""
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "name"), Column(dialect, "email")],
         from_=NamedRelationRef(dialect, Table(dialect, "users")),
@@ -31,17 +32,17 @@ def list_users(dialect):
 
 def user_by_id(dialect, user_id: int):
     """Fetch a single user by id."""
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "name"), Column(dialect, "email")],
         from_=NamedRelationRef(dialect, Table(dialect, "users")),
-        where=Column(dialect, "id") == Literal(dialect, user_id),
+        where=NumericColumn(dialect, "id") == Literal(dialect, user_id),
     )
 
 
 def list_posts(dialect):
     """List all posts (id, title, user_id)."""
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "title"), Column(dialect, "user_id")],
         from_=NamedRelationRef(dialect, Table(dialect, "posts")),
@@ -51,17 +52,17 @@ def list_posts(dialect):
 
 def posts_by_user(dialect, user_id: int):
     """List posts for a specific user."""
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "title")],
         from_=NamedRelationRef(dialect, Table(dialect, "posts")),
-        where=Column(dialect, "user_id") == Literal(dialect, user_id),
+        where=NumericColumn(dialect, "user_id") == Literal(dialect, user_id),
     )
 
 
 def count_posts(dialect):
     """Count posts, aliased as total."""
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[FunctionCall(dialect, "COUNT", Column(dialect, "id")).as_("total")],
         from_=NamedRelationRef(dialect, Table(dialect, "posts")),
@@ -70,7 +71,7 @@ def count_posts(dialect):
 
 def insert_user(dialect, name: str, email: str):
     """Insert a user row; returns id/name for verification."""
-    return InsertExpression(
+    return InsertStatement(
         dialect,
         into=Table(dialect, 'users'),
         columns=["name", "email"],
@@ -80,7 +81,7 @@ def insert_user(dialect, name: str, email: str):
 
 def insert_post(dialect, title: str, user_id: int):
     """Insert a post row; returns id/title for verification."""
-    return InsertExpression(
+    return InsertStatement(
         dialect,
         into=Table(dialect, 'posts'),
         columns=["title", "user_id"],

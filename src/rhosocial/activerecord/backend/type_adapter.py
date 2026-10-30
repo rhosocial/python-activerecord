@@ -104,7 +104,7 @@ class BaseSQLTypeAdapter(ABC, BatchConversionMixin):
     def supported_types(self) -> Dict[Type, Set[Type]]:
         return self._supported_types
 
-    def _register_type(self, py_type: Type, db_type: Type) -> None:
+    def register_type(self, py_type: Type, db_type: Type) -> None:
         """Registers a supported (Python type, DB type) pair."""
         if py_type not in self._supported_types:
             self._supported_types[py_type] = set()
@@ -160,12 +160,12 @@ class DateTimeAdapter(BaseSQLTypeAdapter):
 
     def __init__(self):
         super().__init__()
-        self._register_type(datetime, str)
-        self._register_type(datetime, int)
-        self._register_type(datetime, float)
-        self._register_type(date, str)
-        self._register_type(date, int)
-        self._register_type(time, str)
+        self.register_type(datetime, str)
+        self.register_type(datetime, int)
+        self.register_type(datetime, float)
+        self.register_type(date, str)
+        self.register_type(date, int)
+        self.register_type(time, str)
 
     def _do_to_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
         if isinstance(value, datetime):
@@ -215,8 +215,8 @@ class JSONAdapter(BaseSQLTypeAdapter):
 
     def __init__(self):
         super().__init__()
-        self._register_type(dict, str)
-        self._register_type(list, str)
+        self.register_type(dict, str)
+        self.register_type(list, str)
 
     def _do_to_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
         if target_type is str:
@@ -243,7 +243,7 @@ class UUIDAdapter(BaseSQLTypeAdapter):
 
     def __init__(self):
         super().__init__()
-        self._register_type(UUID, str)
+        self.register_type(UUID, str)
 
     def _do_to_database(self, value: UUID, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
         if target_type is str:
@@ -302,8 +302,8 @@ class BooleanAdapter(BaseSQLTypeAdapter):
 
     def __init__(self):
         super().__init__()
-        self._register_type(bool, int)
-        self._register_type(bool, str)
+        self.register_type(bool, int)
+        self.register_type(bool, str)
 
     def _do_to_database(self, value: bool, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
         if target_type is int:
@@ -343,8 +343,8 @@ class DecimalAdapter(BaseSQLTypeAdapter):
 
     def __init__(self):
         super().__init__()
-        self._register_type(Decimal, str)
-        self._register_type(Decimal, float)
+        self.register_type(Decimal, str)
+        self.register_type(Decimal, float)
 
     def _do_to_database(self, value: Decimal, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
         if target_type is str:
@@ -385,7 +385,7 @@ class ArrayAdapter(BaseSQLTypeAdapter):
     def __init__(self):
         super().__init__()
         # Removed default registration to avoid conflict with JSONAdapter
-        # self._register_type(list, str)
+        # self.register_type(list, str)
 
     def _do_to_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
         if target_type is str:

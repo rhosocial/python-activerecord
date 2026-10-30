@@ -10,11 +10,11 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression.statements import (
-        CreateViewExpression,
-        DropViewExpression,
-        CreateMaterializedViewExpression,
-        DropMaterializedViewExpression,
-        RefreshMaterializedViewExpression,
+        CreateViewStatement,
+        DropViewStatement,
+        CreateMaterializedViewStatement,
+        DropMaterializedViewStatement,
+        RefreshMaterializedViewStatement,
     )
 
 _SUGGESTION_MATERIALIZED_VIEW = "SQLite does not support materialized views."
@@ -30,6 +30,15 @@ class SQLiteViewMixin:
     def supports_create_view(self) -> bool:
         """SQLite supports CREATE VIEW."""
         return True
+
+    def supports_create_view_bind_parameters(self) -> bool:
+        """SQLite stores a view's text, so a bind in it has no meaning later.
+
+        The placeholder would be stored in the view's SQL and left unbound
+        when the view is read, so the body is refused rather than stored
+        broken.
+        """
+        return False
 
     def supports_drop_view(self) -> bool:
         """SQLite supports DROP VIEW."""
@@ -84,7 +93,7 @@ class SQLiteViewMixin:
         ``CREATE TABLE ... AS`` is always populated)."""
         return False
 
-    def format_create_view_statement(self, expr: "CreateViewExpression") -> Tuple[str, tuple]:
+    def format_create_view_statement(self, expr: "CreateViewStatement") -> Tuple[str, tuple]:
         """Format CREATE VIEW statement for SQLite."""
         parts = ["CREATE"]
         if expr.temporary:
@@ -116,7 +125,7 @@ class SQLiteViewMixin:
 
         return " ".join(parts), query_params
 
-    def format_drop_view_statement(self, expr: "DropViewExpression") -> Tuple[str, tuple]:
+    def format_drop_view_statement(self, expr: "DropViewStatement") -> Tuple[str, tuple]:
         """Format DROP VIEW statement for SQLite.
 
         SQLite does not accept CASCADE or RESTRICT on DROP VIEW; asking for
@@ -138,16 +147,16 @@ class SQLiteViewMixin:
         parts.append(expr.view.to_sql()[0])
         return " ".join(parts), ()
 
-    def format_create_materialized_view_statement(self, expr: "CreateMaterializedViewExpression") -> Tuple[str, tuple]:
+    def format_create_materialized_view_statement(self, expr: "CreateMaterializedViewStatement") -> Tuple[str, tuple]:
         """Format CREATE MATERIALIZED VIEW statement - not supported by SQLite."""
         raise UnsupportedFeatureError(self.name, "CREATE MATERIALIZED VIEW", _SUGGESTION_MATERIALIZED_VIEW_ALT)
 
-    def format_drop_materialized_view_statement(self, expr: "DropMaterializedViewExpression") -> Tuple[str, tuple]:
+    def format_drop_materialized_view_statement(self, expr: "DropMaterializedViewStatement") -> Tuple[str, tuple]:
         """Format DROP MATERIALIZED VIEW statement - not supported by SQLite."""
         raise UnsupportedFeatureError(self.name, "DROP MATERIALIZED VIEW", _SUGGESTION_MATERIALIZED_VIEW)
 
     def format_refresh_materialized_view_statement(
-        self, expr: "RefreshMaterializedViewExpression"
+        self, expr: "RefreshMaterializedViewStatement"
     ) -> Tuple[str, tuple]:
         """Format REFRESH MATERIALIZED VIEW statement - not supported by SQLite."""
         raise UnsupportedFeatureError(self.name, "REFRESH MATERIALIZED VIEW", _SUGGESTION_MATERIALIZED_VIEW)

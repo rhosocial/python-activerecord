@@ -21,6 +21,7 @@ import uuid
 
 import pytest
 
+from rhosocial.activerecord.backend.expression import BooleanColumn, NumericColumn, StringColumn, TimestampColumn
 from rhosocial.activerecord.backend.expression.column_types import (
     ArrayColumn,
     BinaryColumn,

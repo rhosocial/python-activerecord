@@ -44,29 +44,81 @@ For concrete database dialects (PostgreSQL, MySQL, etc.), they would:
 """
 
 import re
-
-from typing import Dict, List, Tuple, Type, TYPE_CHECKING
-
-from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
-from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression import Literal
-from rhosocial.activerecord.backend.expression.types import (
-    ArrayType, BigIntType, BinaryType, BlobType, BooleanType, CharType, CustomType,
-    DataType, DateType, DateTimeType, DecimalType, DoubleType, EnumType, FloatType,
-    IntegerType, IntervalType, JsonBType, JsonType,
-    RealType, SmallIntType, TextType, TimeType, TimeTzType,
-    TimestampType, TimestampTzType, TinyIntType, UUIDType, VarBinaryType, VarCharType, XmlType,
+from rhosocial.activerecord.backend.dialect.mixins import (
+    RelationSourceMixin,
+    NamespaceMixin,
+    TableNameMixin,
+    ViewNameMixin,
+    MaterializedViewNameMixin,
+    ForeignTableNameMixin,
+    IndexNameMixin,
+    SequenceNameMixin,
+    TriggerNameMixin,
+    FunctionNameMixin,
+    ProcedureNameMixin,
+    TypeNameMixin,
+    DomainNameMixin,
+    SynonymNameMixin,
+    SchemaNameMixin,
+    DatabaseNameMixin,
+    PropertyGraphNameMixin,
+    SQLXMLMixin,
+    SQLXMLParsingMixin,
+    SQLXMLSerializationMixin,
+    SQLXMLConstructionMixin,
+    SQLXMLAggregationMixin,
+    SQLXMLQueryingMixin,
+    CollationMixin,
+    WindowFunctionMixin,
+    CTEMixin,
+    UpsertMixin,
+    LateralJoinMixin,
+    ArrayMixin,
+    JSONMixin,
+    UUIDMixin,
+    ExplainMixin,
+    MergeMixin,
+    TemporalTableMixin,
+    PivotMixin,
+    GraphMixin,
+    GraphTableMixin,
+    JoinMixin,
+    SetOperationMixin,
+    ILIKEMixin,
+    # DDL Mixins
+    TableMixin,
+    PartitionMixin,
+    ConstraintMixin,
+    CommentOnMixin,
+    ViewMixin,
+    TruncateMixin,
+    SchemaMixin,
+    IndexMixin,
+    SequenceMixin,
+    TriggerMixin,
+    FunctionMixin,
+    GeneratedColumnMixin,
+    AutoIncrementMixin,
+    IdentityColumnMixin,
+    DatabaseMixin,
+    # Introspection Mixin
+    IntrospectionMixin,
+    # New Mixins
+    PredicateMixin,
+    TrimMixin,
+    LpadMixin,
+    RepeatMixin,
+    RpadMixin,
+    ExpressionMixin,
+    DateTimeMixin,
+    DQLMixin,
+    DMLMixin,
+    DDLColumnMixin,
+    DataTypeMixin,
+    UserDefinedTypeMixin,
+    DomainMixin,
+    TransactionControlMixin,
 )
-from rhosocial.activerecord.backend.expression.statements.ddl_domain import (
-    DomainAlterAction,
-    DomainNullability,
-)
-from rhosocial.activerecord.backend.expression.statements.ddl_type import (
-    TypeAlterAction,
-    TypeDefinition,
-)
-from .expression import _DummyTypeAlterAction, _DummyTypeDefinition
-from .column_type import DummyColumnTypeMixin
 from rhosocial.activerecord.backend.dialect.protocols import (
     # Named-object protocols
     TableObjectSupport,
@@ -164,84 +216,28 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     DqlOrderSupport,
     PivotSupport,
 )
-from rhosocial.activerecord.backend.dialect.mixins import (
-    DatabaseNameMixin,
-    PropertyGraphNameMixin,
-    RelationSourceMixin,
-    SchemaNameMixin,
-    NamespaceMixin,
-    TableNameMixin,
-    ViewNameMixin,
-    MaterializedViewNameMixin,
-    ForeignTableNameMixin,
-    IndexNameMixin,
-    SequenceNameMixin,
-    TriggerNameMixin,
-    FunctionNameMixin,
-    ProcedureNameMixin,
-    TypeNameMixin,
-    DomainNameMixin,
-    SynonymNameMixin,
-    SchemaNameMixin,
-    DatabaseNameMixin,
-    PropertyGraphNameMixin,
-    SQLXMLMixin,
-    SQLXMLParsingMixin,
-    SQLXMLSerializationMixin,
-    SQLXMLConstructionMixin,
-    SQLXMLAggregationMixin,
-    SQLXMLQueryingMixin,
-    CollationMixin,
-    WindowFunctionMixin,
-    CTEMixin,
-    UpsertMixin,
-    LateralJoinMixin,
-    ArrayMixin,
-    JSONMixin,
-    UUIDMixin,
-    ExplainMixin,
-    MergeMixin,
-    TemporalTableMixin,
-    PivotMixin,
-    GraphMixin,
-    GraphTableMixin,
-    JoinMixin,
-    SetOperationMixin,
-    ILIKEMixin,
-    # DDL Mixins
-    TableMixin,
-    PartitionMixin,
-    ConstraintMixin,
-    CommentOnMixin,
-    ViewMixin,
-    TruncateMixin,
-    SchemaMixin,
-    IndexMixin,
-    SequenceMixin,
-    TriggerMixin,
-    FunctionMixin,
-    GeneratedColumnMixin,
-    AutoIncrementMixin,
-    IdentityColumnMixin,
-    DatabaseMixin,
-    # Introspection Mixin
-    IntrospectionMixin,
-    # New Mixins
-    PredicateMixin,
-    TrimMixin,
-    LpadMixin,
-    RepeatMixin,
-    RpadMixin,
-    ExpressionMixin,
-    DateTimeMixin,
-    DQLMixin,
-    DMLMixin,
-    DDLColumnMixin,
-    DataTypeMixin,
-    UserDefinedTypeMixin,
-    DomainMixin,
-    TransactionControlMixin,
+from .column_type import DummyColumnTypeMixin
+from .expression import _DummyTypeAlterAction, _DummyTypeDefinition
+from rhosocial.activerecord.backend.expression.statements.ddl_type import (
+    TypeAlterAction,
+    TypeDefinition,
 )
+from rhosocial.activerecord.backend.expression.statements.ddl_domain import (
+    DomainAlterAction,
+    DomainNullability,
+)
+from rhosocial.activerecord.backend.expression.types import (
+    ArrayType, BigIntType, BinaryType, BlobType, BooleanType, CharType, CustomType,
+    DataType, DateType, DateTimeType, DecimalType, DoubleType, EnumType, FloatType,
+    IntegerType, IntervalType, JsonBType, JsonType,
+    RealType, SmallIntType, TextType, TimeType, TimeTzType,
+    TimestampType, TimestampTzType, TinyIntType, UUIDType, VarBinaryType, VarCharType, XmlType,
+)
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+from typing import Dict, List, Tuple, Type, TYPE_CHECKING
+
+
 
 _COLLATION_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -267,11 +263,10 @@ _COLLATION_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 #: name — the part that says which values is not the part that says which type,
 #: and ``CustomType`` keeps it verbatim.
 _PARSE_CONCEPTS = (
-    BigIntType, BinaryType, BlobType, BooleanType, CharType, DateTimeType,
-    DateType, DecimalType, DoubleType, FloatType, IntegerType, JsonBType,
-    JsonType, RealType, SmallIntType, TextType, TimeType, TimeTzType,
-    TimestampType, TimestampTzType, TinyIntType, UUIDType, VarBinaryType,
-    VarCharType, XmlType,
+    BigIntType, BinaryType, BlobType, BooleanType, CharType, DateTimeType, DateType,
+    DecimalType, DoubleType, FloatType, IntegerType, JsonBType, JsonType, RealType,
+    SmallIntType, TextType, TimeType, TimeTzType, TimestampType, TimestampTzType,
+    TinyIntType, UUIDType, VarBinaryType, VarCharType, XmlType,
 )
 
 #: ``{UPPER-CASED type name: concept}``.  A concept with several spellings
@@ -340,19 +335,27 @@ def _split_precision(raw: str) -> Tuple[str, Tuple[int, ...]]:
 
 
 if TYPE_CHECKING:
-    from rhosocial.activerecord.backend.expression.collation import CollateExpression
+    from rhosocial.activerecord.backend.expression.collation import CollateFunction
     from rhosocial.activerecord.backend.expression.statements import ColumnDefinition
     from rhosocial.activerecord.backend.expression.transaction import (
-        BeginTransactionExpression,
-        CommitTransactionExpression,
-        ReleaseSavepointExpression,
-        RollbackTransactionExpression,
-        SavepointExpression,
-        SetTransactionExpression,
+        BeginTransactionStatement,
+        CommitStatement,
+        ReleaseSavepointStatement,
+        RollbackStatement,
+        SavepointStatement,
+        SetTransactionStatement,
     )
 
 
 class DummyDialect(
+    # The bases below come in bundles: a backend mixin, then the core bundle
+    # it stands in for. The backend's answer has to come first -- a mixin
+    # placed after the class it overrides never wins -- so a new mixin goes
+    # immediately before the core mixin it overrides, and the pairing is read
+    # off the list. Two positions sit outside that pairing and are called out
+    # where they occur: a mixin that overrides a method ``SQLDialectBase``
+    # defines has to precede the base, and a mixin that subclasses a core
+    # mixin has to precede it too (C3: a subclass precedes its base).
     SQLDialectBase,
     RelationSourceMixin,
     # The object tree: each *NameMixin renders one object kind and inherits
@@ -439,6 +442,8 @@ class DummyDialect(
     DateTimeMixin,
     DQLMixin,
     DMLMixin,
+    # Value literals: the typed value nodes render through this, and the Dummy
+    # dialect has no backend-specific spelling to add on top of it.
     DataTypeMixin,
     DummyColumnTypeMixin,
     UserDefinedTypeMixin,
@@ -568,13 +573,27 @@ class DummyDialect(
         success: the same silent loss as accepting the flag and discarding it,
         which is what this replaces.
 
+        The guard lives here, at the rendering end, rather than in the
+        expression's constructor: an expression collects ``unsigned`` without
+        judging it, because only the formatter knows which backend will have to
+        honour it. A non-boolean therefore reaches this point instead of being
+        rejected at construction, and is named here -- silently dropping it
+        would render a signed column for a caller who asked for an unsigned one,
+        which is the failure this whole refusal exists to prevent.
+
         ``word`` is the concept the caller asked for, so the message can say
         *which* type was refused.  ``UnsupportedFeatureError``, not
         ``ValueError``: the declaration is not a wrong value, it is a
         declaration this grammar cannot express at all, and the two exceptions
         do not share a base class.
         """
-        if not getattr(data_type, "unsigned", False):
+        unsigned = data_type.unsigned
+        if not isinstance(unsigned, bool):
+            raise TypeError(
+                f"unsigned must be a bool, got {type(unsigned).__name__}; it "
+                f"becomes a type modifier in the rendered DDL."
+            )
+        if not unsigned:
             return
         raise UnsupportedFeatureError(
             self.name,
@@ -731,7 +750,7 @@ class DummyDialect(
         """
         stripped = raw.strip()
         if not stripped:
-            return CustomType(self, stripped)
+            return CustomType(self, raw=stripped)
 
         # Array markers are not part of the element's name: ``VARCHAR(30)[]`` is
         # one-dimensional and ``VARCHAR(30)[][]`` two.
@@ -760,7 +779,7 @@ class DummyDialect(
                 # Either a name dummy does not render, or numbers the concept
                 # cannot carry (``INT(11)``). Both are reported verbatim rather
                 # than guessed at.
-                element = CustomType(self, stripped)
+                element = CustomType(self, raw=stripped)
             else:
                 kwargs = dict(zip(fields, numbers))
                 if concept.SPELLINGS:
@@ -920,7 +939,7 @@ class DummyDialect(
     def supports_collate_expression(self) -> bool:
         return True
 
-    def validate_collation_name(self, expr: "CollateExpression") -> str:
+    def validate_collation_name(self, expr: "CollateFunction") -> str:
         """Validate a collation name and return its SQL representation.
 
         Dummy is a generic SQL-generation test dialect, so it validates that
@@ -1023,6 +1042,9 @@ class DummyDialect(
     def supports_for_update_skip_locked(self) -> bool:
         return True
 
+    def supports_for_update_nowait(self) -> bool:
+        return True
+
     def supports_for_update(self) -> bool:
         return True
 
@@ -1099,15 +1121,6 @@ class DummyDialect(
     def supports_except(self) -> bool:
         return True
 
-    def supports_set_operation_order_by(self) -> bool:
-        return True
-
-    def supports_set_operation_limit_offset(self) -> bool:
-        return True
-
-    def supports_set_operation_for_update(self) -> bool:
-        return True
-
     def supports_ilike(self) -> bool:
         return True
 
@@ -1145,6 +1158,9 @@ class DummyDialect(
     # TABLE family (AS / LIKE / CLONE / USING TEMPLATE); Dummy advertises them
     # so the generic implementations are exercised end-to-end.
     def supports_create_table_as(self) -> bool:
+        return True
+
+    def supports_create_table_as_bind_parameters(self) -> bool:
         return True
 
     def supports_create_table_like(self) -> bool:
@@ -1232,6 +1248,22 @@ class DummyDialect(
         """Whether EXCLUDE constraints are supported (PG-proprietary)."""
         return True
 
+    def supports_deferrable_constraint(self) -> bool:
+        """Dummy renders every construct the core can express.
+
+        The core default is ``False`` (a SQL:1999 modifier); dummy opts in so
+        the deferral render paths stay exercised without a live server.
+        """
+        return True
+
+    def supports_constraint_enforced(self) -> bool:
+        """Dummy renders every construct the core can express.
+
+        The core default is ``False`` (a SQL:2016 modifier); dummy opts in so
+        the enforcement render paths stay exercised without a live server.
+        """
+        return True
+
     def supports_alter_constraint_enforced(self) -> bool:
         return True
 
@@ -1242,6 +1274,9 @@ class DummyDialect(
 
     # region View DDL Support
     def supports_create_view(self) -> bool:
+        return True
+
+    def supports_create_view_bind_parameters(self) -> bool:
         return True
 
     def supports_drop_view(self) -> bool:
@@ -1260,6 +1295,9 @@ class DummyDialect(
         return True
 
     def supports_materialized_view(self) -> bool:
+        return True
+
+    def supports_materialized_view_bind_parameters(self) -> bool:
         return True
 
     def supports_refresh_materialized_view(self) -> bool:
@@ -1680,7 +1718,7 @@ class DummyDialect(
         """Dummy backend supports savepoints."""
         return True
 
-    def format_begin_transaction(self, expr: "BeginTransactionExpression") -> Tuple[str, tuple]:
+    def format_begin_transaction_statement(self, expr: "BeginTransactionStatement") -> Tuple[str, tuple]:
         """Format BEGIN TRANSACTION statement for dummy dialect."""
         params = expr.get_params()
         parts = ["BEGIN"]
@@ -1718,11 +1756,11 @@ class DummyDialect(
 
         return " ".join(parts), ()
 
-    def format_commit_transaction(self, expr: "CommitTransactionExpression") -> Tuple[str, tuple]:
+    def format_commit_statement(self, expr: "CommitStatement") -> Tuple[str, tuple]:
         """Format COMMIT TRANSACTION statement for dummy dialect."""
         return "COMMIT", ()
 
-    def format_rollback_transaction(self, expr: "RollbackTransactionExpression") -> Tuple[str, tuple]:
+    def format_rollback_statement(self, expr: "RollbackStatement") -> Tuple[str, tuple]:
         """Format ROLLBACK TRANSACTION statement for dummy dialect."""
         params = expr.get_params()
         savepoint = params.get("savepoint")
@@ -1730,19 +1768,19 @@ class DummyDialect(
             return f"ROLLBACK TO SAVEPOINT {self.format_identifier(savepoint)}", ()
         return "ROLLBACK", ()
 
-    def format_savepoint(self, expr: "SavepointExpression") -> Tuple[str, tuple]:
+    def format_savepoint_statement(self, expr: "SavepointStatement") -> Tuple[str, tuple]:
         """Format SAVEPOINT statement for dummy dialect."""
         params = expr.get_params()
         name = params.get("name", "")
         return f"SAVEPOINT {self.format_identifier(name)}", ()
 
-    def format_release_savepoint(self, expr: "ReleaseSavepointExpression") -> Tuple[str, tuple]:
+    def format_release_savepoint_statement(self, expr: "ReleaseSavepointStatement") -> Tuple[str, tuple]:
         """Format RELEASE SAVEPOINT statement for dummy dialect."""
         params = expr.get_params()
         name = params.get("name", "")
         return f"RELEASE SAVEPOINT {self.format_identifier(name)}", ()
 
-    def format_set_transaction(self, expr: "SetTransactionExpression") -> Tuple[str, tuple]:
+    def format_set_transaction_statement(self, expr: "SetTransactionStatement") -> Tuple[str, tuple]:
         """Format SET TRANSACTION statement for dummy dialect."""
         params = expr.get_params()
         parts = []
@@ -1795,6 +1833,11 @@ class DummyDialect(
     def format_column_definition(self, col_def: "ColumnDefinition") -> Tuple[str, tuple]:
         """Format a column definition including generated columns.
 
+        Each constraint rides through :meth:`format_column_constraint` -- the
+        shared production-level formatter -- so the dummy dialect spells a
+        constraint the way every other dialect does and does not keep a second
+        implementation of the same grammar here.
+
         Args:
             col_def: Column definition object containing name, data type,
                      constraints, and optional generated column expression.
@@ -1802,61 +1845,21 @@ class DummyDialect(
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from rhosocial.activerecord.backend.expression.statements import (
-            ColumnConstraintType,
-        )
-        from rhosocial.activerecord.backend.expression import bases
-
-        all_params = []
+        all_params: list = []
 
         col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type.to_sql()[0]}"
 
         for constraint in col_def.constraints:
-            if constraint.constraint_type == ColumnConstraintType.PRIMARY_KEY:
-                col_sql += " PRIMARY KEY"
-            elif constraint.constraint_type == ColumnConstraintType.NOT_NULL:
-                col_sql += " NOT NULL"
-            elif constraint.constraint_type == ColumnConstraintType.NULL:
-                col_sql += " NULL"
-            elif constraint.constraint_type == ColumnConstraintType.UNIQUE:
-                col_sql += " UNIQUE"
-            elif constraint.constraint_type == ColumnConstraintType.DEFAULT:
-                if constraint.default_value is None:
-                    raise ValueError("DEFAULT constraint must have a default value specified.")
-                if isinstance(constraint.default_value, bases.BaseExpression):
-                    default_sql, default_params = constraint.default_value.to_sql()
-                    if default_params and isinstance(constraint.default_value, Literal):
-                        # DDL accepts no bind parameters: inline the literal.
-                        default_sql = self.inline_sql_literal(constraint.default_value.value)
-                        default_params = ()
-                    col_sql += f" DEFAULT {default_sql}"
-                    all_params.extend(default_params)
-                else:
-                    # DDL clauses accept no bind parameters: render inline.
-                    col_sql += f" DEFAULT {self.format_literal(constraint.default_value)}"
-            elif constraint.constraint_type == ColumnConstraintType.CHECK:
-                if constraint.check_condition is None:
-                    raise ValueError("CHECK constraint must have a check condition specified.")
-                check_sql, check_params = constraint.check_condition.to_sql()
-                enforcement = self._format_constraint_enforcement(constraint)
-                suffix = f" {enforcement}" if enforcement else ""
-                col_sql += f" CHECK ({check_sql}){suffix}"
-                all_params.extend(check_params)
-            elif constraint.constraint_type == ColumnConstraintType.FOREIGN_KEY:
-                if constraint.foreign_key_reference is None:
-                    raise ValueError("FOREIGN KEY constraint must have a foreign key reference specified.")
-                ref_table, ref_cols = constraint.foreign_key_reference
-                ref_cols_str = ", ".join(self.format_identifier(col) for col in ref_cols)
-                enforcement = self._format_constraint_enforcement(constraint)
-                suffix = f" {enforcement}" if enforcement else ""
-                col_sql += f" REFERENCES {ref_table.to_sql()[0]}({ref_cols_str}){suffix}"
+            constraint_sql, constraint_params = self.format_column_constraint(constraint)
+            col_sql += constraint_sql
+            all_params.extend(constraint_params)
 
         if col_def.generated_expression is not None:
             gen_sql, gen_params = col_def.generated_expression.to_sql()
             col_sql += gen_sql
             all_params.extend(gen_params)
 
-        for attr in getattr(col_def, "attributes", None) or ():
+        for attr in col_def.attributes or ():
             attr_sql, attr_params = self.format_column_attribute(attr)
             col_sql += attr_sql
             all_params.extend(attr_params)

@@ -17,10 +17,14 @@
 
 ```python
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.expression import InsertExpression, ValuesSource, Literal
+from rhosocial.activerecord.backend.expression import InsertStatement, ValuesSource, Literal
+from rhosocial.activerecord.backend.expression.objects import Table
 
 backend = SQLiteBackend(database=":memory:")
 backend.connect()
+backend.execute(
+    "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT)"
+)
 
 # 创建 INSERT 表达式列表
 expressions = []
@@ -29,9 +33,9 @@ for i in range(100):
         [Literal(backend.dialect, f"user{i}"),
          Literal(backend.dialect, f"user{i}@example.com")]
     ])
-    expr = InsertExpression(
+    expr = InsertStatement(
         backend.dialect,
-        into="users",
+        into=Table(backend.dialect, "users"),
         columns=["name", "email"],
         source=source
     )
@@ -40,8 +44,6 @@ for i in range(100):
 # 以每批 20 条执行
 for batch_result in backend.execute_batch_dml(expressions, batch_size=20):
     print(f"批次 {batch_result.batch_index}: 影响 {batch_result.total_affected_rows} 行")
-
-backend.disconnect()
 ```
 
 ### 提交模式
@@ -54,6 +56,11 @@ backend.disconnect()
 
 ```python
 from rhosocial.activerecord.backend.result import BatchCommitMode
+
+
+def process_batch(batch):
+    print(f"批次 {batch.batch_index}: 影响 {batch.total_affected_rows} 行")
+
 
 # 全有或全无：要么所有批次成功，要么全部回滚
 for batch in backend.execute_batch_dml(
@@ -114,6 +121,36 @@ for batch in backend.execute_batch_dml(
 
 ```python
 # 有效：所有 INSERT 表达式针对同一张表
+from rhosocial.activerecord.backend.expression import IntegerColumn, Literal
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.statements import (
+    InsertStatement,
+    UpdateStatement,
+    ValuesSource,
+)
+
+
+def make_insert(name, email):
+    return InsertStatement(
+        backend.dialect,
+        into=Table(backend.dialect, "users"),
+        columns=["name", "email"],
+        source=ValuesSource(
+            backend.dialect,
+            values_list=[[Literal(backend.dialect, name), Literal(backend.dialect, email)]],
+        ),
+    )
+
+
+def make_update(user_id, name):
+    return UpdateStatement(
+        backend.dialect,
+        Table(backend.dialect, "users"),
+        assignments={"name": Literal(backend.dialect, name)},
+        where=(IntegerColumn(backend.dialect, "id") == user_id),
+    )
+
+
 expressions = [
     make_insert("user1", "user1@example.com"),
     make_insert("user2", "user2@example.com"),
@@ -121,10 +158,15 @@ expressions = [
 ]
 
 # 无效：混合表达式类型
-expressions = [
-    make_insert("user1", "user1@example.com"),
-    make_update(1, "new_name"),  # TypeError: 异质表达式
-]
+try:
+    mixed = [
+        make_insert("user1", "user1@example.com"),
+        make_update(1, "new_name"),
+    ]
+    for _ in backend.execute_batch_dml(mixed):
+        pass
+except TypeError as exc:
+    print(f"TypeError: {exc}")
 ```
 
 ## 批量 DQL 操作
@@ -134,12 +176,22 @@ expressions = [
 `execute_batch_dql` 为大型结果集提供内存高效的分页：
 
 ```python
-from rhosocial.activerecord.backend.expression import QueryExpression, TableExpression, WildcardExpression
+from rhosocial.activerecord.backend.expression import (
+    AllColumnsWildcard,
+    NamedRelationRef,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.statements import QueryStatement
 
-query = QueryExpression(
+
+def process_row(row):
+    return row["id"]
+
+
+query = QueryStatement(
     backend.dialect,
-    select=[WildcardExpression(backend.dialect)],
-    from_=TableExpression(backend.dialect, "large_table"),
+    select=[AllColumnsWildcard(backend.dialect)],
+    from_=NamedRelationRef(backend.dialect, Table(backend.dialect, "users")),
 )
 
 # 逐页处理 1000 行
@@ -166,29 +218,47 @@ for page in backend.execute_batch_dql(query, page_size=100):
 
 `execute_batch_dql` 支持所有 DQL 表达式类型：
 
-- `QueryExpression`：基本 SELECT 查询
-- `WithQueryExpression`：公用表表达式（CTE）
-- `SetOperationExpression`：UNION、INTERSECT、EXCEPT 操作
+- `QueryStatement`：基本 SELECT 查询
+- `WithStatement`：公用表表达式（CTE）
+- `SetOperationStatement`：UNION、INTERSECT、EXCEPT 操作
 
 ```python
 # CTE 示例
-from rhosocial.activerecord.backend.expression.query_sources import WithQueryExpression, CTEExpression
-
-cte_query = QueryExpression(
-    backend.dialect,
-    select=[WildcardExpression(backend.dialect)],
-    from_=TableExpression(backend.dialect, "orders"),
-    where=WhereClause(backend.dialect, condition=...),
+from rhosocial.activerecord.backend.expression import (
+    AllColumnsWildcard,
+    NamedRelationRef,
+    StringColumn,
 )
-cte = CTEExpression(backend.dialect, name="recent_orders", query=cte_query)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+from rhosocial.activerecord.backend.expression.query_sources import CTEClause, WithStatement
+from rhosocial.activerecord.backend.expression.statements import QueryStatement
 
-main_query = QueryExpression(
+backend.execute("CREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INTEGER, status TEXT)")
+
+cte_query = QueryStatement(
     backend.dialect,
-    select=[WildcardExpression(backend.dialect)],
-    from_=TableExpression(backend.dialect, "recent_orders"),
+    select=[AllColumnsWildcard(backend.dialect)],
+    from_=NamedRelationRef(backend.dialect, Table(backend.dialect, "orders")),
+    where=WhereClause(
+        backend.dialect,
+        condition=(StringColumn(backend.dialect, "status") == "open"),
+    ),
+)
+cte = CTEClause(backend.dialect, name="recent_orders", query=cte_query)
+
+main_query = QueryStatement(
+    backend.dialect,
+    select=[AllColumnsWildcard(backend.dialect)],
+    from_=NamedRelationRef(backend.dialect, Table(backend.dialect, "recent_orders")),
 )
 
-with_query = WithQueryExpression(backend.dialect, ctes=[cte], main_query=main_query)
+with_query = WithStatement(backend.dialect, ctes=[cte], query=main_query)
+
+
+def process_orders(rows):
+    return len(rows)
+
 
 for page in backend.execute_batch_dql(with_query, page_size=50):
     process_orders(page.data)
@@ -200,12 +270,61 @@ for page in backend.execute_batch_dql(with_query, page_size=50):
 
 ```python
 # 异步批量 DML
-async for batch in async_backend.execute_batch_dml(expressions, batch_size=20):
-    await process_batch(batch)
+import asyncio
 
-# 异步批量 DQL
-async for page in async_backend.execute_batch_dql(query, page_size=1000):
-    await process_page(page)
+from rhosocial.activerecord.backend.expression import (
+    AllColumnsWildcard,
+    InsertStatement,
+    Literal,
+    NamedRelationRef,
+    ValuesSource,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.statements import QueryStatement
+from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import AsyncSQLiteBackend
+
+
+async def run_async_batches():
+    async_backend = AsyncSQLiteBackend(database=":memory:")
+    await async_backend.connect()
+    await async_backend.execute(
+        "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT)"
+    )
+
+    async_dialect = async_backend.dialect
+    async_expressions = [
+        InsertStatement(
+            async_dialect,
+            into=Table(async_dialect, "users"),
+            columns=["name", "email"],
+            source=ValuesSource(
+                async_dialect,
+                values_list=[[
+                    Literal(async_dialect, f"async{i}"),
+                    Literal(async_dialect, f"async{i}@example.com"),
+                ]],
+            ),
+        )
+        for i in range(10)
+    ]
+
+    # 异步批量 DML
+    async for batch in async_backend.execute_batch_dml(async_expressions, batch_size=4):
+        print(f"批次 {batch.batch_index}: 影响 {batch.total_affected_rows} 行")
+
+    # 异步批量 DQL
+    async_query = QueryStatement(
+        async_dialect,
+        select=[AllColumnsWildcard(async_dialect)],
+        from_=NamedRelationRef(async_dialect, Table(async_dialect, "users")),
+    )
+    async for page in async_backend.execute_batch_dql(async_query, page_size=4):
+        print(f"第 {page.page_index} 页: {page.page_size} 行")
+
+    await async_backend.disconnect()
+
+
+asyncio.run(run_async_batches())
 ```
 
 ## 事务交互
@@ -225,6 +344,8 @@ with backend.transaction():
 ### 错误处理
 
 ```python
+from rhosocial.activerecord.backend.errors import IntegrityError
+
 try:
     for batch in backend.execute_batch_dml(
         expressions,
@@ -232,10 +353,10 @@ try:
         commit_mode=BatchCommitMode.WHOLE
     ):
         process_batch(batch)
-except IntegrityError:
+except IntegrityError as exc:
     # WHOLE 模式：所有更改已回滚
     # PER_BATCH 模式：之前的批次可能已提交
-    handle_error()
+    print(f"完整性错误，批次已回滚: {exc}")
 ```
 
 ## 性能考量

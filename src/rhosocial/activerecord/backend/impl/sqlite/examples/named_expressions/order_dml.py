@@ -7,10 +7,10 @@ a BaseExpression that implements Executable.
 """
 
 from rhosocial.activerecord.backend.expression import (
-    InsertExpression,
+    InsertStatement,
     ValuesSource,
-    UpdateExpression,
-    DeleteExpression,
+    UpdateStatement,
+    DeleteStatement,
     Column,
     ComparisonPredicate,
     Literal,
@@ -29,9 +29,9 @@ def add_order(dialect, user_id: int, status: str = "pending"):
         status: Order status.
 
     Returns:
-        InsertExpression.
+        InsertStatement.
     """
-    return InsertExpression(
+    return InsertStatement(
         dialect,
         into=Table(dialect, 'orders'),
         columns=["user_id", "status"],
@@ -50,9 +50,9 @@ def add_order_bulk(dialect, user_id: int):
         user_id: User identifier.
 
     Returns:
-        InsertExpression with multiple value rows.
+        InsertStatement with multiple value rows.
     """
-    return InsertExpression(
+    return InsertStatement(
         dialect,
         into=Table(dialect, 'orders'),
         columns=["user_id", "status"],
@@ -75,9 +75,9 @@ def update_order_status(dialect, order_id: int, new_status: str):
         new_status: New status value.
 
     Returns:
-        UpdateExpression.
+        UpdateStatement.
     """
-    return UpdateExpression(
+    return UpdateStatement(
         dialect,
         table=Table(dialect, 'orders'),
         assignments={"status": Literal(dialect, new_status)},
@@ -96,9 +96,9 @@ def cancel_order(dialect, order_id: int):
         order_id: Order identifier.
 
     Returns:
-        DeleteExpression.
+        DeleteStatement.
     """
-    return DeleteExpression(
+    return DeleteStatement(
         dialect,
         tables=Table(dialect, 'orders'),
         where=WhereClause(
@@ -117,9 +117,9 @@ def add_payment(dialect, order_id: int, status: str = "pending"):
         status: Payment status.
 
     Returns:
-        InsertExpression with RETURNING clause.
+        InsertStatement with RETURNING clause.
     """
-    return InsertExpression(
+    return InsertStatement(
         dialect,
         into=Table(dialect, 'payments'),
         columns=["order_id", "status", "transaction_id"],
@@ -148,9 +148,9 @@ def archive_processed_orders(dialect, status: str = "completed"):
         status: Status to filter by.
 
     Returns:
-        DeleteExpression.
+        DeleteStatement.
     """
-    return DeleteExpression(
+    return DeleteStatement(
         dialect,
         tables=Table(dialect, 'orders'),
         where=WhereClause(

@@ -1,3 +1,25 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
+from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.core import Literal, Column
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression import (
+    CreateTableStatement,
+    InsertStatement,
+    ValuesSource,
+    UpdateStatement,
+    QueryStatement,
+    WhereClause,
+)
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 """
 Basic transaction control using transaction manager.
 """
@@ -5,35 +27,13 @@ Basic transaction control using transaction manager.
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression,
-    InsertExpression,
-    ValuesSource,
-    UpdateExpression,
-    QueryExpression,
-    WhereClause,
-)
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.core import Literal, Column  # noqa: E402
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate  # noqa: E402
-from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
-)
-from rhosocial.activerecord.backend.options import ExecutionOptions  # noqa: E402
-from rhosocial.activerecord.backend.schema import StatementType  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
-from .....expression.objects import Table
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table_name="accounts",
     columns=[
@@ -41,14 +41,14 @@ create_table = CreateTableExpression(
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, 
             "name",
             TextType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, "balance", FloatType()),
@@ -59,12 +59,11 @@ sql, params = create_table.to_sql()
 print(f"Create table SQL: {sql}")
 backend.execute(sql, params)
 
-insert = InsertExpression(
+insert = InsertStatement(
     dialect=dialect,
     into=Table(dialect, 'accounts'),
     columns=["name", "balance"],
     source=ValuesSource(
-        dialect,
         [
             [Literal(dialect, "Alice"), Literal(dialect, 100)],
         ],
@@ -85,14 +84,13 @@ dql_options = ExecutionOptions(stmt_type=StatementType.DQL)
 # SECTION: Execution (run the expression)
 # ============================================================
 with backend.transaction():
-    update_expr = UpdateExpression(
+    update_expr = UpdateStatement(
         dialect=dialect,
         table=Table(dialect, 'accounts'),
         assignments={"balance": Literal(dialect, 50)},
         where=WhereClause(
             dialect,
             condition=ComparisonPredicate(
-                dialect,
                 "=",
                 Column(dialect, "name"),
                 Literal(dialect, "Alice"),
@@ -103,14 +101,13 @@ with backend.transaction():
     backend.execute(sql, params)
 
 # Verify
-query = QueryExpression(
+query = QueryStatement(
     dialect=dialect,
     select=[Column(dialect, "balance")],
     from_=NamedRelationRef(dialect, Table(dialect, "accounts")),
     where=WhereClause(
         dialect,
         condition=ComparisonPredicate(
-            dialect,
             "=",
             Column(dialect, "name"),
             Literal(dialect, "Alice"),

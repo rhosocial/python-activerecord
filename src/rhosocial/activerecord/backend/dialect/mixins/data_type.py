@@ -13,7 +13,9 @@ if TYPE_CHECKING:
 
 
 SQLQueryAndParams = Tuple[str, tuple]
-_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+# Name validation lives in expression.types._base.DataType, which enforces it at
+# class-definition time; a second copy here would only be a rule that could drift
+# from the one that actually runs.
 
 
 class DataTypeMixin:
@@ -62,7 +64,7 @@ class DataTypeMixin:
     No registry
     -----------
     There is deliberately no table mapping a generic name to a class. The naming
-    family *is* the registry, and :meth:`_type_class_for` says where the class
+    family *is* the registry, and :meth:`type_class_for` says where the class
     comes from — the formatter's own annotation first, then the backend's type
     module, then the live subclass tree. That last step is why
     ``tests/.../dummy2/test_type_dispatch_registry.py`` asks in a **fresh
@@ -92,12 +94,12 @@ class DataTypeMixin:
                 f"{type(self).__name__}.format_data_type() expects a "
                 f"DataType instance, got {type(data_type).__name__}."
             )
-        name = getattr(data_type, "name", None)
-        if not name or not _NAME_RE.match(name):
-            raise TypeError(
-                f"{type(data_type).__name__} does not declare a valid generic "
-                f"type name (name={name!r}); cannot dispatch."
-            )
+        # `name` is declared on DataType and every concrete subclass has it
+        # validated at class-definition time (see DataType.__init_subclass__),
+        # so it is read directly: probing for a field the contract already
+        # guarantees is the reflection §11.2 forbids, and the None check it
+        # invites would only ever catch a class that never could have existed.
+        name = data_type.name
         formatter = getattr(self, f"format_data_type_{name}", None)
         if formatter is None:
             raise TypeError(
@@ -167,12 +169,12 @@ class DataTypeMixin:
             probe = getattr(self, f"supports_data_type_{name}", None)
             if probe is not None and not probe():
                 continue
-            data_type_class = self._type_class_for(name)
+            data_type_class = self.type_class_for(name)
             if data_type_class is not None:
                 result[name] = data_type_class
         return result
 
-    def _type_class_for(self, name: str) -> Optional[type]:
+    def type_class_for(self, name: str) -> Optional[type]:
         """Resolve the concrete ``DataType`` class for a generic name.
 
         Three answers are available and any two of them agree wherever more than
@@ -232,7 +234,7 @@ class DataTypeMixin:
                 continue
             seen.add(klass)
             stack.extend(klass.__subclasses__())
-            if isinstance(klass, type) and getattr(klass, "name", None) == name:
+            if isinstance(klass, type) and klass.name == name:
                 return klass
         return None
 
@@ -300,7 +302,7 @@ class DataTypeMixin:
         """
         return {}
 
-    def _check_spelling(self, data_type, accepted) -> None:
+    def check_spelling(self, data_type, accepted) -> None:
         """Raise unless *data_type* carries a spelling this dialect renders.
 
         A ``DataType`` with several spellings (one class, several ways to write

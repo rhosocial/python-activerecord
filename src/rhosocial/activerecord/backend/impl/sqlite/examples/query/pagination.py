@@ -1,3 +1,27 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.expression.core import Column, AllColumnsWildcard
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression import (
+    QueryStatement,
+    LimitOffsetClause,
+    OrderByClause,
+)
+from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
+from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
+    CreateTableStatement,
+    InsertStatement,
+    ValuesSource,
+    DropTableStatement,
+)
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 """
 Pagination using LIMIT/OFFSET - SQLite.
 
@@ -10,29 +34,13 @@ This example demonstrates:
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableExpression,
-    InsertExpression,
-    ValuesSource,
-    DropTableExpression,
-)
-from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
-from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
-)
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table=Table(dialect, 'articles'),
     columns=[
@@ -40,8 +48,8 @@ create_table = CreateTableExpression(
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, "title", TextType()),
@@ -65,7 +73,7 @@ articles = [
     ("Recursive CTEs", "Charlie"),
 ]
 for title, author in articles:
-    insert_expr = InsertExpression(
+    insert_expr = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'articles'),
         columns=["title", "author"],
@@ -77,19 +85,11 @@ for title, author in articles:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (
-    QueryExpression,
-    LimitOffsetClause,
-    OrderByClause,
-)
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.core import Column, WildcardExpression  # noqa: E402
-from .....expression.objects import Table
 
 # 1. Basic LIMIT - get first N rows
-query_limit = QueryExpression(
+query_limit = QueryStatement(
     dialect=dialect,
-    select=[WildcardExpression(dialect)],
+    select=[AllColumnsWildcard(dialect)],
     from_=NamedRelationRef(dialect, Table(dialect, "articles")),
     order_by=OrderByClause(dialect, expressions=[(Column(dialect, "id"), "ASC")]),
     limit_offset=LimitOffsetClause(dialect, limit=3),
@@ -107,9 +107,9 @@ page_size = 3
 page_number = 2
 offset = (page_number - 1) * page_size
 
-query_page = QueryExpression(
+query_page = QueryStatement(
     dialect=dialect,
-    select=[WildcardExpression(dialect)],
+    select=[AllColumnsWildcard(dialect)],
     from_=NamedRelationRef(dialect, Table(dialect, "articles")),
     order_by=OrderByClause(dialect, expressions=[(Column(dialect, "id"), "ASC")]),
     limit_offset=LimitOffsetClause(dialect, limit=page_size, offset=offset),
@@ -140,9 +140,9 @@ print("\nAll pages:")
 total_pages = -(-len(articles) // page_size)  # ceil division
 for page in range(1, total_pages + 1):
     offset = (page - 1) * page_size
-    query = QueryExpression(
+    query = QueryStatement(
         dialect=dialect,
-        select=[WildcardExpression(dialect)],
+        select=[AllColumnsWildcard(dialect)],
         from_=NamedRelationRef(dialect, Table(dialect, "articles")),
         order_by=OrderByClause(dialect, expressions=[(Column(dialect, "id"), "ASC")]),
         limit_offset=LimitOffsetClause(dialect, limit=page_size, offset=offset),
@@ -154,7 +154,7 @@ for page in range(1, total_pages + 1):
 # ============================================================
 # SECTION: Teardown (necessary for execution, reference only)
 # ============================================================
-drop_expr = DropTableExpression(dialect=dialect, table=Table(dialect, 'articles'), if_exists=True)
+drop_expr = DropTableStatement(dialect=dialect, table=Table(dialect, 'articles'), if_exists=True)
 sql, params = drop_expr.to_sql()
 backend.execute(sql, params)
 backend.disconnect()

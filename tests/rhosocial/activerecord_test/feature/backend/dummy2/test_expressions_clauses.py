@@ -4,14 +4,14 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    RawSQLExpression,
+    RawSQL,
     Subquery,
     ComparisonPredicate,
     JoinClause,
-    CTEExpression,
+    CTEClause,
     GroupingClause,
     ValuesExpression,
-    MergeExpression,
+    MergeStatement,
     MergeAction,
     OrderedSetAggregation,
     MergeActionType,
@@ -108,11 +108,11 @@ class TestClauseExpressions:
                 dummy_dialect, left_table, right_table, join_type="INNER", condition=condition, using=["user_id"]
             )
 
-    # --- CTEExpression ---
+    # --- CTEClause ---
     def test_basic_cte_expression(self, dummy_dialect: DummyDialect):
         """Tests a basic Common Table Expression (CTE)."""
         cte_query = Subquery(dummy_dialect, "SELECT id, name FROM employees WHERE salary > ?", (50000,))
-        cte_expr = CTEExpression(dummy_dialect, name="high_earners", query=cte_query, columns=["id", "name"])
+        cte_expr = CTEClause(dummy_dialect, name="high_earners", query=cte_query, columns=["id", "name"])
         sql, params = cte_expr.to_sql()
         assert sql == '"high_earners" ("id", "name") AS ((SELECT id, name FROM employees WHERE salary > ?))'
         assert params == (50000,)
@@ -120,8 +120,8 @@ class TestClauseExpressions:
     def test_recursive_cte_expression(self, dummy_dialect: DummyDialect):
         """Tests a recursive CTE."""
         cte_query_sql = """SELECT id, name, manager_id, 1 AS level FROM employees WHERE manager_id IS NULL UNION ALL SELECT e.id, e.name, e.manager_id, t.level + 1 FROM employees e INNER JOIN org_tree t ON e.manager_id = t.id"""  # noqa: E501
-        cte_query = RawSQLExpression(dummy_dialect, cte_query_sql)  # Or Subquery
-        cte_expr = CTEExpression(dummy_dialect, name="org_tree", query=cte_query)
+        cte_query = RawSQL(dummy_dialect, cte_query_sql)  # Or Subquery
+        cte_expr = CTEClause(dummy_dialect, name="org_tree", query=cte_query)
         sql, params = cte_expr.to_sql()
         # The recursive flag is now handled at the WITH clause level, not individual CTE level
         # So the CTE itself should not have RECURSIVE keyword
@@ -131,7 +131,7 @@ class TestClauseExpressions:
     def test_materialized_cte_expression(self, dummy_dialect: DummyDialect):
         """Tests a materialized CTE."""
         cte_query = Subquery(dummy_dialect, "SELECT * FROM large_data WHERE condition = ?", (True,))
-        cte_expr = CTEExpression(dummy_dialect, name="cached_data", query=cte_query, materialized=True)
+        cte_expr = CTEClause(dummy_dialect, name="cached_data", query=cte_query, materialized=True)
         sql, params = cte_expr.to_sql()
         assert sql == '"cached_data" AS MATERIALIZED ((SELECT * FROM large_data WHERE condition = ?))'
         assert params == (True,)
@@ -181,7 +181,7 @@ class TestClauseExpressions:
         assert sql == expected_sql
         assert params == expected_params
 
-    # --- MergeExpression ---
+    # --- MergeStatement ---
     def test_merge_expression_basic(self, dummy_dialect: DummyDialect):
         """Tests a basic MERGE statement with WHEN MATCHED UPDATE and WHEN NOT MATCHED INSERT."""
         target_table = Table(dummy_dialect, "products")
@@ -208,7 +208,7 @@ class TestClauseExpressions:
             },
         )
 
-        merge_expr = MergeExpression(
+        merge_expr = MergeStatement(
             dummy_dialect,
             target_table=target_table,
             source=source_values,

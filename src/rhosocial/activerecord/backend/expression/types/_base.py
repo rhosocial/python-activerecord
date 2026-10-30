@@ -6,7 +6,7 @@ from __future__ import annotations
 import inspect
 import re
 from abc import ABC
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import Any, TYPE_CHECKING, Optional, Tuple
 
 from ..bases import BaseExpression
 
@@ -232,12 +232,53 @@ class DataType(BaseExpression, ABC):
 
         Delegates to ``dialect.parse_type(raw)`` when the dialect implements
         ``DataTypeSupport``.  Falls back to ``CustomType(raw)``.
+
+        This is the **read** direction: the server reported a spelling, and
+        the framework needs the concept behind it.  Nothing in the write
+        direction comes through here -- see :meth:`as_type`.
         """
         from ...dialect.protocols import DataTypeSupport
         if isinstance(dialect, DataTypeSupport):
             return dialect.parse_type(raw)
         from .custom import CustomType
-        return CustomType(dialect, raw)
+        return CustomType(dialect, raw=raw)
+
+    @staticmethod
+    def as_type(dialect: "SQLDialectBase", value: Any) -> "DataType":
+        """The type node for *value*, which may be a node or a type name.
+
+        The write direction's counterpart to :meth:`parse_data_type_str`.  A
+        name is not parsed here -- it is *claimed*: the type is settled in
+        advance, and a name the framework does not model becomes a
+        :class:`CustomType`, whose name the grammar validates.  A type
+        position cannot take a bound parameter, so what lands there is code,
+        not data, and the grammar is what keeps it a name.
+
+        A node is used as it is, so a type the framework *does* model is
+        rendered by the dialect in its own spelling: ``TextType`` is ``TEXT``
+        on PostgreSQL and ``CLOB`` on Oracle.
+
+        Args:
+            dialect: The dialect the type belongs to.
+            value: A type node, or a type name.
+
+        Returns:
+            The type node.
+
+        Raises:
+            TypeError: If *value* is neither a node nor a name.
+            InvalidTypeNameError: If *value* is a name that is not one.
+        """
+        if isinstance(value, DataType):
+            return value
+        if isinstance(value, str):
+            from .custom import CustomType
+
+            return CustomType(dialect, raw=value)
+        raise TypeError(
+            "a type must be a type name or a DataType, got "
+            f"{type(value).__name__}"
+        )
 
     def __repr__(self) -> str:
         params = self.identity()

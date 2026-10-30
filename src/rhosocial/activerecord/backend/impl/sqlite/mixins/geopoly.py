@@ -36,7 +36,7 @@ class SQLiteGeopolyMixin(SQLiteExtensionMixin):
         compile_options = self.get_runtime_param("compile_options", {})
         if compile_options:
             return "ENABLE_GEOPOLY" in compile_options
-        return self.version >= (3, 26, 0)
+        return self.version_at_least((3, 26, 0))
 
     # ========== SQL Formatting ==========
 
@@ -55,19 +55,14 @@ class SQLiteGeopolyMixin(SQLiteExtensionMixin):
             )
 
         table = expr.table.to_sql()[0]
-        cols = ", ".join(self.format_identifier(c) for c in expr.extra_columns) if expr.extra_columns else ""
-        if expr.content_table is not None:
-            self._validate_safe_identifier(expr.content_table.name)
-            sql = f"CREATE VIRTUAL TABLE {table} USING geopoly({cols}, content='{self._escape_sql_string(expr.content_table.name)}')"
-            return sql, ()
-        elif not cols:
+        cols = ", ".join(self.format_identifier(c) for c in expr.extra_columns)
+        if not cols:
             sql = f"CREATE VIRTUAL TABLE {table} USING geopoly()"
-            return sql, ()
         else:
             sql = f"CREATE VIRTUAL TABLE {table} USING geopoly({cols})"
-            return sql, ()
+        return sql, ()
 
-    def format_geopoly_contains_query(self, expr: "SQLiteGeopolyContainsExpression") -> Tuple[str, tuple]:
+    def format_geopoly_contains_expression(self, expr: "SQLiteGeopolyContainsExpression") -> Tuple[str, tuple]:
         """Format point-in-polygon query.
 
         Args:

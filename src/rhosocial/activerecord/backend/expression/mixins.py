@@ -17,7 +17,7 @@ Example Usage:
     col1 > 5      # Creates ComparisonPredicate with col1's dialect
 
     # Arithmetic operations
-    col1 + col2   # Creates BinaryArithmeticExpression with col1's dialect
+    col1 + col2   # Creates ArithmeticOperation with col1's dialect
 
     # Logical operations
     (col1 == 1) & (col2 == 2)  # Creates LogicalPredicate with left predicate's dialect
@@ -29,163 +29,44 @@ ensuring consistent SQL generation across the expression tree.
 import copy
 import datetime
 import decimal
-import functools
 from typing import (
     Any,
     List,
     Optional,
-    Protocol,
     TYPE_CHECKING,
     TypeVar,
     Union,
 )
-
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
-    from .bases import BaseExpression, SQLValueExpression, SQLPredicate
+    from .bases import BaseExpression, SQLValue, SQLPredicate
     # Annotations only. The classes themselves are imported inside the methods
     # that need them, because core imports this module.
-    from .core import (
-        ArrayValueExpression,
-        BinaryValueExpression,
-        BooleanValueExpression,
-        TimestampValueExpression,
-        IntegerValueExpression,
-        JSONValueExpression,
-        NumericValueExpression,
-        StringValueExpression,
-        UUIDValueExpression,
-        XMLValueExpression,
-    )
-    from .core import CastExpression, FunctionCall
+    from .core import CastExpression, FunctionCall, Literal
     from .datetime import (
         DatePartExpression,
-        DateTimeAddExpression,
-        DateTimeDiffExpression,
-        DateTimeSubtractExpression,
+        DatetimeAddExpression,
+        DatetimeDiffExpression,
+        DatetimeSubtractExpression,
         DateTruncExpression,
         ExtractExpression,
     )
-    from .advanced_functions import JSONDocumentExpression, JSONTextExpression
+    from .advanced_functions import JSONDocumentValue, JSONTextValue
+    from .declared import (
+        ArrayAnnotation,
+        BinaryAnnotation,
+        BooleanAnnotation,
+        IntegerAnnotation,
+        JSONAnnotation,
+        NumberAnnotation,
+        TemporalAnnotation,
+        TextAnnotation,
+        UUIDAnnotation,
+        XMLAnnotation,
+    )
 
 T = TypeVar("T")
 _ResultT = TypeVar("_ResultT")
-
-
-class _ValueExpression(Protocol[_ResultT]):
-    """How a value expression class is built, as far as ``_retype`` cares.
-
-    Not ``type[BaseExpression]``: the value classes are built from a dialect
-    and the call they wrap, while ``BaseExpression`` takes only a dialect, so
-    bounding to it makes the two-argument construction an error. What every
-    ``as_*`` method needs is exactly this.
-
-    The wrapped node is typed loosely on purpose. A mixin cannot say what class
-    it is mixed into, so naming FunctionCall here would need ``self`` annotated
-    as one, which mypy only allows if this class subclasses it. The return type
-    is what the chain is checked against, and that is exact; the node being
-    passed is the one already in hand.
-    """
-
-    def __call__(self, dialect: "SQLDialectBase", call: Any) -> _ResultT: ...
-
-
-class WrappedCallMixin:
-    """Forwards what the node says that the wrapper's type does not.
-
-    A typed value wraps the call it was built from -- ``min(name)`` is a
-    ``StringValueExpression`` holding a ``FunctionCall`` -- so that
-    the result says what it is rather than what produced it. The wrapper offers
-    the operations its *type* supports, and those are the ones a caller reaches
-    for.
-
-    Some things are not operations at all. ``count(x).filter(pred)`` is a filter
-    on the aggregate, not an operation on an integer; ``window_spec`` belongs to
-    the call; ``alias`` is state both share. Those belong to the node, and the
-    only one that knows how to attach a filter is the aggregate. Rather than
-    restate every node-specific member on every value type, an attribute the
-    wrapper has no answer for is looked up on the node it holds.
-
-    **Where that lookup stops is the whole of this class.** The two
-    hierarchies meet: the node is built from the same base classes and the same
-    mixins, and a wrapper's bases say exactly what it kept. So the lookup walks
-    the node's MRO and stops at the first class the wrapper also carries.
-    Above that point is the node's own contribution -- its state and its own
-    grammar -- and it is forwarded. From that point down is either something
-    the wrapper already has, or a capability its type deliberately left off:
-    ``StringPatternPredicateMixin`` and ``ResultTypeMixin`` reach a
-    ``FunctionCall`` that a ``StringValueExpression`` or an
-    ``IntegerValueExpression`` never claimed, and handing those back would undo
-    the typing that made the class worth having: ``length().like("1%")`` would
-    be offered again, and the mistake would travel to the database.
-
-    The boundary is found by comparing the two MROs, so there is no set of
-    names to keep current: a method added to a capability mixin stops being
-    forwarded the moment it is declared, and a method added to a node class
-    becomes forwardable without anything being edited here. What the wrapper
-    withholds is what the wrapper's own bases withhold, which is the one
-    statement this class has to make.
-
-    The wrapper keeps the type either way: a forwarded call that returns the
-    node hands back a node, so ``count(x).filter(...)`` is an untyped
-    ``FunctionCall`` again -- which is honest, because that is what the
-    filter produces and nothing about adding one re-types the result.
-
-    Example:
-        >>> agg = count(dialect, "price")
-        >>> type(agg).__name__             # IntegerValueExpression
-        >>> type(agg.filter(pred)).__name__# FunctionCall
-        >>> hasattr(agg, "like")           # False: a count is not text
-    """
-
-    def __getattr__(self, name):
-        # Only reached for attributes this class does not define, so `call`
-        # itself is already set here. Going through the instance dict rather
-        # than `getattr` keeps a missing `call` from recursing into itself --
-        # and a class that mixes this in without holding a node (the CASE whose
-        # branches agree the answer) refuses everything, which is what a node
-        # it does not have can honestly say.
-        try:
-            node = object.__getattribute__(self, "call")
-        except AttributeError:
-            raise AttributeError(
-                f"{type(self).__name__} has no attribute {name!r}"
-            ) from None
-        if name in _ruled_on(type(self), type(node)):
-            raise AttributeError(
-                f"{type(self).__name__} has no attribute {name!r}. The "
-                f"{type(node).__name__} it wraps does, and a typed value offers "
-                f"the operations its own type supports rather than the "
-                f"operations of the node that happens to produce it."
-            ) from None
-        try:
-            return getattr(node, name)
-        except AttributeError:
-            raise AttributeError(
-                f"{type(self).__name__} has no attribute {name!r}"
-            ) from None
-
-
-@functools.lru_cache(maxsize=None)
-def _ruled_on(wrapper_cls: type, node_cls: type) -> frozenset:
-    """What *node_cls* offers that *wrapper_cls*'s own bases already answer for.
-
-    The two hierarchies meet at the first class of the node's MRO that the
-    wrapper also carries, and from there down the node is either repeating the
-    wrapper or offering a capability the wrapper's type declined. Both are
-    names the wrapper has already spoken for, so forwarding either would give
-    back what the typing withheld.
-
-    Cached on the two classes because it is asked on every attribute miss, and
-    it depends on nothing but the two MROs.
-    """
-    node_mro = node_cls.__mro__
-    wrapper_mro = frozenset(wrapper_cls.__mro__)
-    meet = next((i for i, k in enumerate(node_mro) if k in wrapper_mro), len(node_mro))
-    ruled_on = set()
-    for klass in node_mro[meet:]:
-        ruled_on.update(vars(klass))
-    return frozenset(ruled_on)
 
 
 class AliasableMixin:
@@ -194,10 +75,18 @@ class AliasableMixin:
     This mixin allows expressions to be given aliases for use in SQL queries,
     particularly useful in SELECT clauses and subqueries.
 
+    ``alias`` is declared here rather than created by :meth:`as_`: the field
+    is part of the contract of every aliased expression, so formatters read it
+    directly instead of probing for an attribute that only exists on the
+    aliased copies.
+
     Example:
         >>> Column(dialect, "name").as_("user_name")
         >>> # Results in: "name AS user_name" in SQL
     """
+
+    #: The alias this expression renders as, or ``None`` when unaliased.
+    alias: Optional[str] = None
 
     def as_(self: T, alias: str) -> T:
         """
@@ -243,7 +132,7 @@ class NullTestMixin:
         >>> predicate = col.is_null()  # Generates: "email IS NULL"
     """
 
-    def is_null(self: "SQLValueExpression") -> "SQLPredicate":
+    def is_null(self: "SQLValue") -> "SQLPredicate":
         """
         Generate an IS NULL predicate for this expression.
 
@@ -258,7 +147,7 @@ class NullTestMixin:
 
         return IsNullPredicate(self._dialect, self)
 
-    def is_not_null(self: "SQLValueExpression") -> "SQLPredicate":
+    def is_not_null(self: "SQLValue") -> "SQLPredicate":
         """
         Generate an IS NOT NULL predicate for this expression.
 
@@ -305,7 +194,7 @@ class ComparisonMixin(NullTestMixin):
         >>> col1.is_distinct_from(0)  # NULL-safe: "age IS DISTINCT FROM ?"
     """
 
-    def is_distinct_from(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
+    def is_distinct_from(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
         """NULL-safe inequality: true when the two differ, NULL included.
 
         ``a != b`` answers NULL when either side is NULL, so a query filtering
@@ -332,12 +221,12 @@ class ComparisonMixin(NullTestMixin):
         """
         from .core import Literal
         from .predicates import DistinctFromPredicate
-        from .bases import SQLValueExpression
+        from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
         return DistinctFromPredicate(self._dialect, self, other_expr, is_not=False)
 
-    def is_not_distinct_from(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
+    def is_not_distinct_from(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
         """NULL-safe equality: true when the two match, two NULLs included.
 
         The counterpart of :meth:`is_distinct_from` -- ``IS NOT DISTINCT FROM``
@@ -355,12 +244,12 @@ class ComparisonMixin(NullTestMixin):
         """
         from .core import Literal
         from .predicates import DistinctFromPredicate
-        from .bases import SQLValueExpression
+        from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
         return DistinctFromPredicate(self._dialect, self, other_expr, is_not=True)
 
-    def __eq__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
+    def __eq__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
         """
         Implement the equality operator (==) to generate SQL equality predicate.
 
@@ -379,12 +268,12 @@ class ComparisonMixin(NullTestMixin):
         """
         from .core import Literal
         from .predicates import ComparisonPredicate
-        from .bases import SQLValueExpression
+        from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
         return ComparisonPredicate(self._dialect, "=", self, other_expr)
 
-    def __ne__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
+    def __ne__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
         """
         Implement the inequality operator (!=) to generate SQL inequality predicate.
 
@@ -396,12 +285,12 @@ class ComparisonMixin(NullTestMixin):
         """
         from .core import Literal
         from .predicates import ComparisonPredicate
-        from .bases import SQLValueExpression
+        from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
         return ComparisonPredicate(self._dialect, "!=", self, other_expr)
 
-    def __gt__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
+    def __gt__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
         """
         Implement the greater-than operator (>) to generate SQL comparison predicate.
 
@@ -413,12 +302,12 @@ class ComparisonMixin(NullTestMixin):
         """
         from .core import Literal
         from .predicates import ComparisonPredicate
-        from .bases import SQLValueExpression
+        from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
         return ComparisonPredicate(self._dialect, ">", self, other_expr)
 
-    def __ge__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
+    def __ge__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
         """
         Implement the greater-or-equal operator (>=) to generate SQL comparison predicate.
 
@@ -430,12 +319,12 @@ class ComparisonMixin(NullTestMixin):
         """
         from .core import Literal
         from .predicates import ComparisonPredicate
-        from .bases import SQLValueExpression
+        from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
         return ComparisonPredicate(self._dialect, ">=", self, other_expr)
 
-    def __lt__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
+    def __lt__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
         """
         Implement the less-than operator (<) to generate SQL comparison predicate.
 
@@ -447,12 +336,12 @@ class ComparisonMixin(NullTestMixin):
         """
         from .core import Literal
         from .predicates import ComparisonPredicate
-        from .bases import SQLValueExpression
+        from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
         return ComparisonPredicate(self._dialect, "<", self, other_expr)
 
-    def __le__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
+    def __le__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
         """
         Implement the less-or-equal operator (<=) to generate SQL comparison predicate.
 
@@ -464,12 +353,12 @@ class ComparisonMixin(NullTestMixin):
         """
         from .core import Literal
         from .predicates import ComparisonPredicate
-        from .bases import SQLValueExpression
+        from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
         return ComparisonPredicate(self._dialect, "<=", self, other_expr)
 
-    def is_true(self: "SQLValueExpression") -> "SQLPredicate":
+    def is_true(self: "SQLValue") -> "SQLPredicate":
         """
         Generate an IS TRUE predicate for this expression.
 
@@ -488,7 +377,7 @@ class ComparisonMixin(NullTestMixin):
 
         return IsBooleanPredicate(self._dialect, self, value=True, is_not=False)
 
-    def is_not_true(self: "SQLValueExpression") -> "SQLPredicate":
+    def is_not_true(self: "SQLValue") -> "SQLPredicate":
         """
         Generate an IS NOT TRUE predicate for this expression.
 
@@ -507,7 +396,7 @@ class ComparisonMixin(NullTestMixin):
 
         return IsBooleanPredicate(self._dialect, self, value=True, is_not=True)
 
-    def is_false(self: "SQLValueExpression") -> "SQLPredicate":
+    def is_false(self: "SQLValue") -> "SQLPredicate":
         """
         Generate an IS FALSE predicate for this expression.
 
@@ -526,7 +415,7 @@ class ComparisonMixin(NullTestMixin):
 
         return IsBooleanPredicate(self._dialect, self, value=False, is_not=False)
 
-    def is_not_false(self: "SQLValueExpression") -> "SQLPredicate":
+    def is_not_false(self: "SQLValue") -> "SQLPredicate":
         """
         Generate an IS NOT FALSE predicate for this expression.
 
@@ -545,7 +434,7 @@ class ComparisonMixin(NullTestMixin):
 
         return IsBooleanPredicate(self._dialect, self, value=False, is_not=True)
 
-    def in_(self: "SQLValueExpression", values: List[Any]) -> "SQLPredicate":
+    def in_(self: "SQLValue", values: List[Any]) -> "SQLPredicate":
         """
         Generate an IN predicate for this expression with a list of values.
 
@@ -563,6 +452,10 @@ class ComparisonMixin(NullTestMixin):
         from .core import Literal
         from .predicates import InPredicate
 
+        # An ActiveQuery renders as an IN subquery. The capability is asked of
+        # the declared protocol rather than looked for by name: `values` is
+        # either an ActiveQuery, which has the method, or a plain sequence of
+        # values, which cannot have it.
         to_query_expression = getattr(values, "to_query_expression", None)
         if callable(to_query_expression):
             # An ActiveQuery-like object: render as an IN subquery. The
@@ -581,7 +474,7 @@ class ComparisonMixin(NullTestMixin):
 
         return InPredicate(self._dialect, self, Literal(self._dialect, tuple(values)))
 
-    def not_in(self: "SQLValueExpression", values: List[Any]) -> "SQLPredicate":
+    def not_in(self: "SQLValue", values: List[Any]) -> "SQLPredicate":
         """
         Generate a NOT IN predicate for this expression with a list of values.
 
@@ -598,7 +491,7 @@ class ComparisonMixin(NullTestMixin):
             self._dialect, "NOT", InPredicate(self._dialect, self, Literal(self._dialect, tuple(values)))
         )
 
-    def between(self: "SQLValueExpression", low: Any, high: Any) -> "SQLPredicate":
+    def between(self: "SQLValue", low: Any, high: Any) -> "SQLPredicate":
         """
         Generate a BETWEEN predicate for this expression with low and high bounds.
 
@@ -643,31 +536,31 @@ class ArithmeticMixin:
         >>> complex_expr = (col1 + col2) * 1.1  # Generates: "(price + discount) * ?"
     """
 
-    def __add__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLValueExpression":
+    def __add__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLValue":
         """
         Implement the addition operator (+) to generate SQL arithmetic expression.
 
         This method enables expressions like: `Column(...) + value` or `Column(...) + Column(...)`
-        The resulting BinaryArithmeticExpression uses the left operand's dialect for SQL generation.
+        The resulting ArithmeticOperation uses the left operand's dialect for SQL generation.
 
         Args:
             other: Right operand, can be another expression or a literal value
 
         Returns:
-            SQLValueExpression representing the addition operation
+            SQLValue representing the addition operation
 
         Example:
             >>> col = Column(dialect, "price")
             >>> expr = col + 10  # Generates: "price + ?" with params (10,)
         """
         from .core import Literal
-        from .operators import BinaryArithmeticExpression
-        from .bases import SQLValueExpression
+        from .operators import ArithmeticOperation
+        from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
-        return BinaryArithmeticExpression(self._dialect, "+", self, other_expr)
+        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+        return ArithmeticOperation(self._dialect, "add", self, other_expr)
 
-    def __sub__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLValueExpression":
+    def __sub__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLValue":
         """
         Implement the subtraction operator (-) to generate SQL arithmetic expression.
 
@@ -675,16 +568,16 @@ class ArithmeticMixin:
             other: Right operand, can be another expression or a literal value
 
         Returns:
-            SQLValueExpression representing the subtraction operation
+            SQLValue representing the subtraction operation
         """
         from .core import Literal
-        from .operators import BinaryArithmeticExpression
-        from .bases import SQLValueExpression
+        from .operators import ArithmeticOperation
+        from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
-        return BinaryArithmeticExpression(self._dialect, "-", self, other_expr)
+        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+        return ArithmeticOperation(self._dialect, "sub", self, other_expr)
 
-    def __mul__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLValueExpression":
+    def __mul__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLValue":
         """
         Implement the multiplication operator (*) to generate SQL arithmetic expression.
 
@@ -692,16 +585,16 @@ class ArithmeticMixin:
             other: Right operand, can be another expression or a literal value
 
         Returns:
-            SQLValueExpression representing the multiplication operation
+            SQLValue representing the multiplication operation
         """
         from .core import Literal
-        from .operators import BinaryArithmeticExpression
-        from .bases import SQLValueExpression
+        from .operators import ArithmeticOperation
+        from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
-        return BinaryArithmeticExpression(self._dialect, "*", self, other_expr)
+        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+        return ArithmeticOperation(self._dialect, "mul", self, other_expr)
 
-    def __truediv__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLValueExpression":
+    def __truediv__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLValue":
         """Division, rendered as the portable ``/`` — and what ``/`` means is
         **the backend's**, not this operator's.
 
@@ -732,13 +625,13 @@ class ArithmeticMixin:
         backends rather than a silent property of the model.
         """
         from .core import Literal
-        from .operators import BinaryArithmeticExpression
-        from .bases import SQLValueExpression
+        from .operators import ArithmeticOperation
+        from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
-        return BinaryArithmeticExpression(self._dialect, "/", self, other_expr)
+        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+        return ArithmeticOperation(self._dialect, "div", self, other_expr)
 
-    def __mod__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLValueExpression":
+    def __mod__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLValue":
         """
         Implement the modulo operator (%) to generate SQL arithmetic expression.
 
@@ -746,14 +639,14 @@ class ArithmeticMixin:
             other: Right operand, can be another expression or a literal value
 
         Returns:
-            SQLValueExpression representing the modulo operation
+            SQLValue representing the modulo operation
         """
         from .core import Literal
-        from .operators import BinaryArithmeticExpression
-        from .bases import SQLValueExpression
+        from .operators import ArithmeticOperation
+        from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
-        return BinaryArithmeticExpression(self._dialect, "%", self, other_expr)
+        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+        return ArithmeticOperation(self._dialect, "mod", self, other_expr)
 
 
 class NotANumberMixin:
@@ -878,40 +771,36 @@ class TemporalArithmeticMixin(NotANumberMixin):
     # -- classification ------------------------------------------------------
 
     def _is_interval_value(self) -> bool:
-        from .core import IntervalValueExpression
-
-        return isinstance(self, IntervalValueExpression)
+        return isinstance(self, IntervalMixin)
 
     def _is_interval_operand(self, other) -> bool:
-        from .bases import SQLValueExpression
-        from .core import IntervalValueExpression
+        from .bases import BaseExpression
 
-        if isinstance(other, IntervalValueExpression):
+        if isinstance(other, IntervalMixin):
             return True
-        if isinstance(other, SQLValueExpression):
+        if isinstance(other, BaseExpression):
             return False
         return isinstance(other, datetime.timedelta)
 
     def _is_temporal_operand(self, other) -> bool:
-        from .bases import SQLValueExpression
-        from .core import IntervalValueExpression
+        from .bases import BaseExpression
 
-        if isinstance(other, SQLValueExpression):
-            # Both a temporal *column* and a temporal *value* carry
+        if isinstance(other, BaseExpression):
+            # Both a temporal *column* and a temporal *node* carry
             # DateTimeMixin; an interval does too, and is excluded first.
             return isinstance(other, DateTimeMixin) and not isinstance(
-                other, IntervalValueExpression
+                other, IntervalMixin
             )
         return isinstance(other, (datetime.date, datetime.time, datetime.datetime))
 
     def _is_number_operand(self, other) -> bool:
-        from .bases import SQLValueExpression
+        from .bases import BaseExpression
 
         if isinstance(other, bool):
             return False
         if isinstance(other, (int, float, decimal.Decimal)):
             return True
-        if isinstance(other, SQLValueExpression):
+        if isinstance(other, BaseExpression):
             return not self._is_temporal_operand(other) and not self._is_interval_operand(other)
         return False
 
@@ -947,13 +836,26 @@ class TemporalArithmeticMixin(NotANumberMixin):
             symbol, other, "a temporal value combines with an interval, not with a number"
         )
 
-    def _build(self, symbol: str, other):
-        from .bases import SQLValueExpression
-        from .core import Literal
-        from .operators import BinaryArithmeticExpression
+    #: The Python operator symbols the temporal dunders hand down, mapped to
+    #: the operation words the node's contract uses. The symbols stay in the
+    #: refusal messages (they name the Python operator the caller wrote); the
+    #: node gets the word.
+    #:
+    #: The words are :class:`~...expression.operators.ArithmeticOperator`
+    #: values, written as strings because this table is a class attribute and
+    #: ``operators`` imports the mixins this one is mixed into -- importing the
+    #: enum back at module level would be circular. :class:`ArithmeticOperation`
+    #: normalises the string to the member at construction, so the wire value is
+    #: unchanged.
+    _OPERATOR_WORDS = {"+": "add", "-": "sub", "*": "mul"}
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
-        return BinaryArithmeticExpression(self._dialect, symbol, self, other_expr)
+    def _build(self, symbol: str, other):
+        from .bases import BaseExpression
+        from .core import Literal
+        from .operators import ArithmeticOperation
+
+        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+        return ArithmeticOperation(self._dialect, self._OPERATOR_WORDS[symbol], self, other_expr)
 
     def _temporal_refusal(self, symbol: str, other, reason: str) -> AttributeError:
         return AttributeError(
@@ -1033,7 +935,7 @@ class _LogicalOperators:
     The receiver decides the result class, and that is the whole difference: a
     predicate stays a predicate -- combining predicates is how ``WHERE``
     clauses are built -- while a truth *value* keeps its value type
-    (:class:`~...core.BooleanLogicExpression`), so the result can be aliased
+    (:class:`~...core.LogicalValue`), so the result can be aliased
     into a ``SELECT`` list, compared, cast, and combined further. Both render
     through the same dialect entry point (``format_logical_predicate``).
 
@@ -1052,22 +954,22 @@ class _LogicalOperators:
         return self._logical_operation("NOT")
 
     def _logical_operation(self, op: str, *others):
-        from .bases import SQLPredicate, SQLValueExpression
+        from .bases import BaseExpression, SQLPredicate
         from .core import Literal
         from .predicates import LogicalPredicate
 
         operands = [
             other
-            if isinstance(other, (SQLValueExpression, SQLPredicate))
+            if isinstance(other, BaseExpression)
             else Literal(self._dialect, other)
             for other in others
         ]
         if isinstance(self, SQLPredicate):
             return LogicalPredicate(self._dialect, op, self, *operands)
 
-        from .core import BooleanLogicExpression
+        from .core import LogicalValue
 
-        return BooleanLogicExpression(self._dialect, op, self, *operands)
+        return LogicalValue(self._dialect, op, self, *operands)
 
 
 class LogicalMixin(_LogicalOperators):
@@ -1113,7 +1015,7 @@ class BooleanLogicMixin(_LogicalOperators):
     ``AND`` it has no meaning for. Both share the private
     :class:`_LogicalOperators` implementation and differ only in the result
     class -- this one keeps the value type
-    (:class:`~...core.BooleanLogicExpression`), so ``(a & b)`` can be aliased
+    (:class:`~...core.LogicalValue`), so ``(a & b)`` can be aliased
     into a ``SELECT`` list, while :class:`LogicalMixin` keeps the predicate.
 
     ``is_true`` / ``is_false`` are **not** redeclared here. They already come
@@ -1170,113 +1072,92 @@ class ResultTypeMixin:
         #: rather than ``_dialect``: reading it validates that one is bound.
         dialect: "SQLDialectBase"
 
-    def _retype(self, cls: _ValueExpression[_ResultT]) -> _ResultT:
-        """Re-wrap this expression as a value expression of *cls*.
+    def _annotate(self, cls) -> _ResultT:
+        """This expression, declared to yield *cls*.
 
-        Only the Python class changes. The node, and therefore the SQL, is left
-        exactly as it was -- the statement was already correct; what was missing
-        was the knowledge of what it yields.
+        Only the declared type changes. The node underneath -- and therefore the
+        SQL -- is left exactly as it was, because the statement was already
+        correct and what was missing was the knowledge of what it yields.
 
-        Generic in the class rather than returning BaseExpression, so the
-        declared return type of each ``as_*`` method is the class it names.
-        Returning the base type would leave the checker unable to tell that
-        ``as_text()`` is text, which is the whole point of the method.
-
-        Returns the class it is given, not a base type, so each ``as_*`` method
-        declares what the chain continues as.
+        Generic in the class so the declared return type of each ``as_*`` method
+        is the class it names: returning a base type would leave a checker
+        unable to tell that ``as_text()`` is text, which is the whole point of
+        the method.
 
         Args:
-            cls: The expression class that carries those operations.
+            cls: One of the annotation classes in
+                :mod:`~...expression.declared`, each of which carries exactly one
+                surface.
 
         Returns:
-            A value expression of *cls*.
+            An expression of *cls*.
         """
         return cls(self.dialect, self)
 
-    def as_text(self) -> "StringValueExpression":
+    def as_text(self) -> "TextAnnotation":
         """This yields text, whatever the data turns out to be."""
-        from .core import StringValueExpression
+        from .declared import TextAnnotation
 
-        return self._retype(StringValueExpression)
+        return self._annotate(TextAnnotation)
 
-    def as_number(self) -> "NumericValueExpression":
+    def as_number(self) -> "NumberAnnotation":
         """This yields a fractional number."""
-        from .core import NumericValueExpression
+        from .declared import NumberAnnotation
 
-        return self._retype(NumericValueExpression)
+        return self._annotate(NumberAnnotation)
 
-    def as_integer(self) -> "IntegerValueExpression":
+    def as_integer(self) -> "IntegerAnnotation":
         """This yields a whole number."""
-        from .core import IntegerValueExpression
+        from .declared import IntegerAnnotation
 
-        return self._retype(IntegerValueExpression)
+        return self._annotate(IntegerAnnotation)
 
-    def as_datetime(self) -> "TimestampValueExpression":
-        """This yields a date or a time."""
-        from .core import TimestampValueExpression
+    def as_datetime(self) -> "TemporalAnnotation":
+        """This yields a date, a time or a date-time."""
+        from .declared import TemporalAnnotation
 
-        return self._retype(TimestampValueExpression)
+        return self._annotate(TemporalAnnotation)
 
-    def as_boolean(self) -> "BooleanValueExpression":
-        """This yields a truth value.
+    def as_boolean(self) -> "BooleanAnnotation":
+        """This yields a truth value."""
+        from .declared import BooleanAnnotation
 
-        This names the value, not a projection. SQL Server has no boolean scalar
-        type at all, so a predicate cannot appear in a select list there; where
-        one is needed, the dialect has to produce a zero-or-one column.
-        """
-        from .core import BooleanValueExpression
+        return self._annotate(BooleanAnnotation)
 
-        return self._retype(BooleanValueExpression)
-
-    def as_array(self) -> "ArrayValueExpression":
+    def as_array(self) -> "ArrayAnnotation":
         """This yields a sequence."""
-        from .core import ArrayValueExpression
+        from .declared import ArrayAnnotation
 
-        return self._retype(ArrayValueExpression)
+        return self._annotate(ArrayAnnotation)
 
-    def as_json(self) -> "JSONValueExpression":
+    def as_json(self) -> "JSONAnnotation":
         """This yields a JSON document."""
-        from .core import JSONValueExpression
+        from .declared import JSONAnnotation
 
-        return self._retype(JSONValueExpression)
+        return self._annotate(JSONAnnotation)
 
-    def as_uuid(self) -> "UUIDValueExpression":
+    def as_uuid(self) -> "UUIDAnnotation":
         """This yields a UUID."""
-        from .core import UUIDValueExpression
+        from .declared import UUIDAnnotation
 
-        return self._retype(UUIDValueExpression)
+        return self._annotate(UUIDAnnotation)
 
-    def as_binary(self) -> "BinaryValueExpression":
+    def as_binary(self) -> "BinaryAnnotation":
         """This yields bytes."""
-        from .core import BinaryValueExpression
+        from .declared import BinaryAnnotation
 
-        return self._retype(BinaryValueExpression)
+        return self._annotate(BinaryAnnotation)
 
-    def as_xml(self) -> "XMLValueExpression":
+    def as_xml(self) -> "XMLAnnotation":
         """This yields an XML document."""
-        from .core import XMLValueExpression
+        from .declared import XMLAnnotation
 
-        return self._retype(XMLValueExpression)
-
-
-def _literal(dialect, value):
-    """Wrap a bare number as the Literal the factories now require.
-
-    The factories take expressions, so a caller who writes ``col.power(3)`` has
-    to end up with an expression somewhere. Doing it here keeps the arithmetic
-    methods taking plain numbers, which is what a caller means by them, and puts
-    the construction in one place instead of at every call site.
-    """
-    from .bases import BaseExpression
-    from .core import Literal
-
-    return value if isinstance(value, BaseExpression) else Literal(dialect, value)
+        return self._annotate(XMLAnnotation)
 
 
 class NumericValueMixin:
     """Operations on a **fractional**-valued expression.
-
-    Distinct from the integer value family (:class:`IntegerValueExpression`)
+    Distinct from the integer value family (:class:`IntegerValue`)
     because ``ceil``/``floor``/``truncate`` of a whole number is a whole
     number, while ``sqrt``/``log``/``abs`` of one may not be. SQL makes the
     same distinction: a backend
@@ -1300,22 +1181,40 @@ class NumericValueMixin:
         >>> col.mod(3)                 # MOD("price", 3)
     """
 
-    def _numeric_op(self, factory_name: str, *args, **kwargs):
-        """Call a math factory, which tags its own result type.
+    @staticmethod
+    def _number_operand(dialect, value):
+        """A numeric operand as the value node its host type declares.
 
-        Args:
-            factory_name: Name of the function in ``functions.math``.
-            args: Positional arguments forwarded to the factory.
-            kwargs: Keyword arguments forwarded to the factory.
+        An ``int`` is an integer and a ``Decimal`` is exact, and the two are not
+        interchangeable: ``MOD(x, 3)`` with a floating-point divisor stops being
+        an integer modulus. So the host type picks the node rather than one type
+        standing in for both. An expression is returned untouched.
 
-        Returns:
-            A numeric- or integer-valued expression, depending on what the
-            operation returns.
+        One ``Literal`` carries every value, so the host type no longer picks
+        the node -- it picks the *kind*, which is what serialization writes and
+        what the dialect's literal construction dispatches on. An expression is
+        returned untouched: the caller said what it meant.
         """
-        from . import functions as _functions
+        from .bases import BaseExpression
+        from .core import Literal
 
-        factory = getattr(_functions, factory_name)
-        return factory(self._dialect, self, *args, **kwargs)
+        if isinstance(value, BaseExpression):
+            return value
+        if isinstance(value, int):
+            return Literal(dialect, value)
+        return Literal(dialect, decimal.Decimal(str(value)))
+
+    @staticmethod
+    def _math_functions():
+        """The math factory module, imported on first use.
+
+        Local because ``functions.math`` imports the mixins this one is mixed
+        into. Handed back as a module so there is one import site per class
+        rather than one per method.
+        """
+        from .functions import math as _module
+
+        return _module
 
     # --- sign-preserving ---
 
@@ -1325,7 +1224,7 @@ class NumericValueMixin:
         Keeps the operand's family: absolute value of an integer is an
         integer, and of a double is a double.
         """
-        return self._numeric_op("abs_")
+        return self._math_functions().abs_(self._dialect, self)
 
     def sign(self) -> "NumericValueMixin":
         """Sign of the value: -1, 0 or 1. ``SIGN(col)``
@@ -1337,7 +1236,7 @@ class NumericValueMixin:
         that carries the numeric surface stays usable for the arithmetic that
         follows it, which an integer-tagged result would forbid.
         """
-        return self._numeric_op("sign")
+        return self._math_functions().sign(self._dialect, self)
 
     # --- rounding ---
 
@@ -1381,15 +1280,15 @@ class NumericValueMixin:
         inherit whichever one the server, its version and the column type happen
         to give.
         """
-        return self._numeric_op("round_", decimals)
+        return self._math_functions().round_(self._dialect, self, decimals)
 
     def ceil(self) -> "NumericValueMixin":
         """Smallest integer not below the value. ``CEIL(col)``"""
-        return self._numeric_op("ceil")
+        return self._math_functions().ceil(self._dialect, self)
 
     def floor(self) -> "NumericValueMixin":
         """Largest integer not above the value. ``FLOOR(col)``"""
-        return self._numeric_op("floor")
+        return self._math_functions().floor(self._dialect, self)
 
     def truncate(self, precision: Optional[int] = None) -> "NumericValueMixin":
         """Truncate toward zero. ``TRUNCATE(col[, n])``
@@ -1405,13 +1304,13 @@ class NumericValueMixin:
         ``ROUND(x, n, 1)``. A dialect override therefore renames rather than
         re-implements.
         """
-        return self._numeric_op("truncate", precision)
+        return self._math_functions().truncate(self._dialect, self, precision)
 
     # --- roots, powers, logarithms ---
 
     def mod(self, divisor: Union[int, float, "BaseExpression"]) -> "NumericValueMixin":
         """Remainder of division by *divisor*. ``MOD(col, n)``"""
-        return self._numeric_op("mod", _literal(self._dialect, divisor))
+        return self._math_functions().mod(self._dialect, self, self._number_operand(self._dialect, divisor))
 
     def sqrt(self) -> "NumericValueMixin":
         """Square root. ``SQRT(col)``
@@ -1421,7 +1320,7 @@ class NumericValueMixin:
         (an interest factor), which is why this mixin is the part a money
         column can reuse.
         """
-        return self._numeric_op("sqrt")
+        return self._math_functions().sqrt(self._dialect, self)
 
     def power(self, exponent: Union[int, float, "BaseExpression"]) -> "NumericValueMixin":
         """Raise to *exponent*. ``POWER(col, n)``
@@ -1430,7 +1329,7 @@ class NumericValueMixin:
         belongs with the algebraic operations rather than the transcendental
         ones.
         """
-        return self._numeric_op("power", _literal(self._dialect, exponent))
+        return self._math_functions().power(self._dialect, self, self._number_operand(self._dialect, exponent))
 
 
 class TranscendentalMixin:
@@ -1462,22 +1361,40 @@ class TranscendentalMixin:
         >>> col.sin()                # SIN("x")
     """
 
-    def _transcendental_op(self, factory_name: str, *args, **kwargs):
-        """Call a math factory, which tags its own result type.
+    @staticmethod
+    def _math_functions():
+        """The math factory module, imported on first use.
 
-        Args:
-            factory_name: Name of the function in ``functions.math``.
-            args: Positional arguments forwarded to the factory.
-            kwargs: Keyword arguments forwarded to the factory.
-
-        Returns:
-            A real-valued expression; none of these preserves the operand's
-            family.
+        Local because ``functions.math`` imports the mixins this one is mixed
+        into. Handed back as a module so there is one import site per class
+        rather than one per method.
         """
-        from . import functions as _functions
+        from .functions import math as _module
 
-        factory = getattr(_functions, factory_name)
-        return factory(self._dialect, self, *args, **kwargs)
+        return _module
+
+    @staticmethod
+    def _number_operand(dialect, value):
+        """A numeric operand as the value node its host type declares.
+
+        An ``int`` is an integer and a ``Decimal`` is exact, and the two are not
+        interchangeable: ``MOD(x, 3)`` with a floating-point divisor stops being
+        an integer modulus. So the host type picks the node rather than one type
+        standing in for both. An expression is returned untouched.
+
+        One ``Literal`` carries every value, so the host type no longer picks
+        the node -- it picks the *kind*, which is what serialization writes and
+        what the dialect's literal construction dispatches on. An expression is
+        returned untouched: the caller said what it meant.
+        """
+        from .bases import BaseExpression
+        from .core import Literal
+
+        if isinstance(value, BaseExpression):
+            return value
+        if isinstance(value, int):
+            return Literal(dialect, value)
+        return Literal(dialect, decimal.Decimal(str(value)))
 
     # --- roots, powers, logarithms ---
     #
@@ -1485,7 +1402,7 @@ class TranscendentalMixin:
 
     def exp(self) -> "NumericValueMixin":
         """e raised to the power of the value. ``EXP(col)``"""
-        return self._transcendental_op("exp")
+        return self._math_functions().exp(self._dialect, self)
 
     def log(self, base: Optional[Union[int, float, "BaseExpression"]] = None) -> "NumericValueMixin":
         """Natural logarithm, or logarithm to *base*. ``LOG(col[, base])``
@@ -1499,32 +1416,31 @@ class TranscendentalMixin:
         and Snowflake's. The meaning is fixed here; a dialect override swaps the
         spelling or the argument order, never the semantics.
         """
-        base_expr = None if base is None else _literal(self._dialect, base)
-        return self._transcendental_op("log", base_expr)
+        base_expr = None if base is None else self._number_operand(self._dialect, base)
+        return self._math_functions().log(self._dialect, self, base_expr)
 
     # --- trigonometry ---
 
     def sin(self) -> "NumericValueMixin":
         """Sine. ``SIN(col)``"""
-        return self._transcendental_op("sin")
+        return self._math_functions().sin(self._dialect, self)
 
     def cos(self) -> "NumericValueMixin":
         """Cosine. ``COS(col)``"""
-        return self._transcendental_op("cos")
+        return self._math_functions().cos(self._dialect, self)
 
     def tan(self) -> "NumericValueMixin":
         """Tangent. ``TAN(col)``"""
-        return self._transcendental_op("tan")
+        return self._math_functions().tan(self._dialect, self)
 
 
 class StringToIntegerMixin:
     """Operations that read a **string** and produce an integer.
-
     Named for both ends of the direction: these accept a string and *return* a
     number. ``"name".length()`` is a legal string operation whose result is a
     number, and that number must not carry string operations —
     ``LENGTH(name).upper()`` is a type error in every backend; putting the
-    result in its own family (:class:`IntegerValueExpression`) is what makes
+    result in its own family (:class:`IntegerValue`) is what makes
     the rule checkable instead of a convention. Because the receiver is a
     string, the mixin is attached to the string classes only: an integer never
     grows these methods, so ``LENGTH(name).length()`` cannot be constructed.
@@ -1535,9 +1451,20 @@ class StringToIntegerMixin:
     """
 
     if TYPE_CHECKING:  # pragma: no cover
-        from .core import IntegerValueExpression
+        from .core import IntegerValue
 
-    def position(self, substring: str) -> "IntegerValueExpression":
+    @staticmethod
+    def _string_functions():
+        """The string factory module, imported on first use.
+
+        Local because ``functions.string`` imports the mixins this one is mixed
+        into.
+        """
+        from .functions import string as _module
+
+        return _module
+
+    def position(self, substring: str) -> "BaseExpression":
         """1-based position of *substring*. ``POSITION(substring IN expr)``
 
         The needle comes first here, matching the standard spelling, while
@@ -1548,28 +1475,11 @@ class StringToIntegerMixin:
         ClickHouse and BigQuery put the haystack first, MySQL and MariaDB
         ``LOCATE``, Oracle and Firebird ``INSTR``.
         """
-        from .functions import string as _string
-
-        return _string.position(self._dialect, substring, self)
+        return self._string_functions().position(self._dialect, substring, self)
 
     # --- operations that read a string and produce a number ---
 
-    def _integer_op(self, factory_name: str, *args):
-        """Call a string factory whose result is an integer.
-
-        Args:
-            factory_name: Name of the function in ``functions.string``.
-            args: Positional arguments forwarded to the factory.
-
-        Returns:
-            An :class:`IntegerValueExpression`.
-        """
-        from . import functions as _functions
-
-        factory = getattr(_functions, factory_name)
-        return factory(self._dialect, self, *args)
-
-    def length(self) -> "IntegerValueExpression":
+    def length(self) -> "BaseExpression":
         """Length of the string, in **whatever unit the backend's ``LENGTH`` uses**.
 
         ``LENGTH(expr)`` — and that unit is not characters everywhere, which is
@@ -1603,28 +1513,28 @@ class StringToIntegerMixin:
         literal, where the framework refuses the non-portable spelling instead
         of rendering it and hoping.
         """
-        return self._integer_op("length")
+        return self._string_functions().length(self._dialect, self)
 
-    def ascii(self) -> "IntegerValueExpression":
+    def ascii(self) -> "BaseExpression":
         """Code of the first character. ``ASCII(expr)``"""
-        return self._integer_op("ascii")
+        return self._string_functions().ascii(self._dialect, self)
 
-    def octet_length(self) -> "IntegerValueExpression":
+    def octet_length(self) -> "BaseExpression":
         """Length in bytes. ``OCTET_LENGTH(expr)``"""
-        return self._integer_op("octet_length")
+        return self._string_functions().octet_length(self._dialect, self)
 
-    def bit_length(self) -> "IntegerValueExpression":
+    def bit_length(self) -> "BaseExpression":
         """Length in bits. ``BIT_LENGTH(expr)``"""
-        return self._integer_op("bit_length")
+        return self._string_functions().bit_length(self._dialect, self)
 
-    def strpos(self, substring: str) -> "IntegerValueExpression":
+    def strpos(self, substring: str) -> "BaseExpression":
         """1-based position of *substring*, or 0. ``STRPOS(expr, substring)``
 
         The mirror spelling of :meth:`position`: haystack first, as every
         native ``STRPOS``/``LOCATE``/``INSTR``/``CHARINDEX`` takes it. On
         backends with no such function a dialect renders the other spelling.
         """
-        return self._integer_op("strpos", substring)
+        return self._string_functions().strpos(self._dialect, self, substring)
 
 
 class StringValueMixin:
@@ -1647,43 +1557,40 @@ class StringValueMixin:
         >>> col.length() > 5              # LENGTH("name") > ?
     """
 
-    def _string_op(self, factory_name: str, *args, **kwargs):
-        """Call a string factory and tag the result as a string value.
-
-        Args:
-            factory_name: Name of the function in ``functions.string``.
-            args: Positional arguments forwarded to the factory.
-            kwargs: Keyword arguments forwarded to the factory.
-
-        Returns:
-            A :class:`~...expression.core.StringValueExpression`.
-        """
-        from . import functions as _functions
-
-        factory = getattr(_functions, factory_name)
-        return factory(self._dialect, self, *args, **kwargs)
 
     # --- case ---
 
+    @staticmethod
+    def _string_functions():
+        """The string factory module, imported on first use.
+
+        A local import because ``functions.string`` imports the mixins this one
+        is mixed into. Handing back the module (rather than each factory) keeps
+        one import site instead of twelve.
+        """
+        from .functions import string as _module
+
+        return _module
+
     def upper(self) -> "StringValueMixin":
         """Upper-case the string. ``UPPER(col)``"""
-        return self._string_op("upper")
+        return self._string_functions().upper(self._dialect, self)
 
     def lower(self) -> "StringValueMixin":
         """Lower-case the string. ``LOWER(col)``"""
-        return self._string_op("lower")
+        return self._string_functions().lower(self._dialect, self)
 
     def initcap(self) -> "StringValueMixin":
         """Capitalise the first letter of each word. ``INITCAP(col)``"""
-        return self._string_op("initcap")
+        return self._string_functions().initcap(self._dialect, self)
 
     def reverse(self) -> "StringValueMixin":
         """Reverse the string. ``REVERSE(col)``"""
-        return self._string_op("reverse")
+        return self._string_functions().reverse(self._dialect, self)
 
     def translate(self, from_chars: str, to_chars: str) -> "StringValueMixin":
         """Replace characters pairwise. ``TRANSLATE(col, from, to)``"""
-        return self._string_op("translate", from_chars, to_chars)
+        return self._string_functions().translate(self._dialect, self, from_chars, to_chars)
 
     # --- slicing and padding ---
 
@@ -1695,7 +1602,7 @@ class StringValueMixin:
         yields an empty string on others and is read as 1 on Oracle (see
         :func:`~...functions.string.substring`).
         """
-        return self._string_op("substring", start, length)
+        return self._string_functions().substring(self._dialect, self, start, length)
 
     def left(self, n: int) -> "StringValueMixin":
         """First *n* characters. ``LEFT(col, n)``
@@ -1705,7 +1612,7 @@ class StringValueMixin:
         the backends answer four different ways to it (see
         :func:`~...functions.string.left`).
         """
-        return self._string_op("left", n)
+        return self._string_functions().left(self._dialect, self, n)
 
     def right(self, n: int) -> "StringValueMixin":
         """Last *n* characters. ``RIGHT(col, n)``
@@ -1713,7 +1620,7 @@ class StringValueMixin:
         ``n >= 0``, with 0 and over-length agreeing everywhere; a negative
         count is refused, same as :meth:`left`.
         """
-        return self._string_op("right", n)
+        return self._string_functions().right(self._dialect, self, n)
 
     def lpad(self, length: int, pad: Optional[str] = None) -> "StringValueMixin":
         """Left-pad to *length*. ``LPAD(col, length, pad)``
@@ -1723,7 +1630,7 @@ class StringValueMixin:
         MariaDB fills with spaces. An empty pad is refused -- the backends
         answer it as untouched string, empty string or NULL.
         """
-        return self._string_op("lpad", length, pad)
+        return self._string_functions().lpad(self._dialect, self, length, pad)
 
     def rpad(self, length: int, pad: Optional[str] = None) -> "StringValueMixin":
         """Right-pad to *length*. ``RPAD(col, length, pad)``
@@ -1731,7 +1638,7 @@ class StringValueMixin:
         The mirror of :meth:`lpad`: ``length >= 0``, a non-empty *pad*, an
         omitted pad spelled as one space, an empty pad refused.
         """
-        return self._string_op("rpad", length, pad)
+        return self._string_functions().rpad(self._dialect, self, length, pad)
 
     def repeat(self, count: int) -> "StringValueMixin":
         """Repeat the string *count* times. ``REPEAT(col, count)``
@@ -1739,17 +1646,17 @@ class StringValueMixin:
         A negative *count* is the empty string rather than a refusal -- the
         native answer on PostgreSQL, MySQL, MariaDB and ClickHouse alike.
         """
-        return self._string_op("repeat", count)
+        return self._string_functions().repeat(self._dialect, self, count)
 
     def overlay(self, replacement: str, start: int, length: Optional[int] = None) -> "StringValueMixin":
         """Overwrite a span. ``OVERLAY(col PLACING replacement FROM start [FOR length])``"""
-        return self._string_op("overlay", replacement, start, length)
+        return self._string_functions().overlay(self._dialect, self, replacement, start, length)
 
     # --- search and replace ---
 
     def replace(self, pattern: str, replacement: str) -> "StringValueMixin":
         """Replace every occurrence. ``REPLACE(col, pattern, replacement)``"""
-        return self._string_op("replace", pattern, replacement)
+        return self._string_functions().replace(self._dialect, self, pattern, replacement)
 
     # --- whitespace ---
 
@@ -1765,7 +1672,7 @@ class StringValueMixin:
                 and ``ORA-30001`` on Oracle.
             direction: One of ``BOTH`` (default), ``LEADING``, ``TRAILING``.
         """
-        return self._string_op("trim", chars=chars, direction=direction)
+        return self._string_functions().trim(self._dialect, self, chars=chars, direction=direction)
 
     # --- combination ---
 
@@ -1777,11 +1684,14 @@ class StringValueMixin:
         spelling offered here.
         """
         from .functions import string as _string
+        from .bases import BaseExpression
         from .core import Literal
 
         operands = [self]
         for other in others:
-            operands.append(other if hasattr(other, "to_sql") else Literal(self._dialect, other))
+            operands.append(
+                other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+            )
         return _string.concat(self._dialect, *operands)
 
     def concat_using_operator(self, *others) -> "StringValueMixin":
@@ -1796,23 +1706,27 @@ class StringValueMixin:
         it renders the same thing but reads more clearly at the call site.
         """
         from .functions import string as _string
+        from .bases import BaseExpression
         from .core import Literal
 
         operands = [self]
         for other in others:
             operands.append(
-                other if hasattr(other, "to_sql") else Literal(self._dialect, other)
+                other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
             )
         return _string.concat_op(self._dialect, *operands)
 
     def coalesce(self, *others) -> "StringValueMixin":
         """First non-null value. ``COALESCE(col, ...)``"""
         from .functions import string as _string
+        from .bases import BaseExpression
         from .core import Literal
 
         operands = [self]
         for other in others:
-            operands.append(other if hasattr(other, "to_sql") else Literal(self._dialect, other))
+            operands.append(
+                other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+            )
         return _string.coalesce(self._dialect, *operands)
 
 
@@ -1842,7 +1756,7 @@ class StringPatternPredicateMixin:
         >>> both = col.like("A%") & (col.ilike("%x%") | col.like("B%"))
     """
 
-    def like(self: "SQLValueExpression", pattern: str) -> "SQLPredicate":
+    def like(self: "SQLValue", pattern: str) -> "SQLPredicate":
         """
         Generate a LIKE predicate for pattern matching.
 
@@ -1870,11 +1784,13 @@ class StringPatternPredicateMixin:
             >>> # Generates: "name LIKE ?" with params ("John%",)
         """
         from .core import Literal
-        from .predicates import LikePredicate
+        from .predicates import LikeOperator, LikePredicate
 
-        return LikePredicate(self._dialect, "LIKE", self, Literal(self._dialect, pattern))
+        return LikePredicate(
+            self._dialect, LikeOperator.LIKE, self, Literal(self._dialect, pattern)
+        )
 
-    def ilike(self: "SQLValueExpression", pattern: str) -> "SQLPredicate":
+    def ilike(self: "SQLValue", pattern: str) -> "SQLPredicate":
         """
         Generate a case-insensitive pattern-matching predicate.
 
@@ -1899,9 +1815,11 @@ class StringPatternPredicateMixin:
             >>> # Generates: "email ILIKE ?" with params ("%@gmail.com",)
         """
         from .core import Literal
-        from .predicates import LikePredicate
+        from .predicates import LikeOperator, LikePredicate
 
-        return LikePredicate(self._dialect, "ILIKE", self, Literal(self._dialect, pattern))
+        return LikePredicate(
+            self._dialect, LikeOperator.ILIKE, self, Literal(self._dialect, pattern)
+        )
 
 
 class TypeCastingMixin:
@@ -1927,7 +1845,7 @@ class TypeCastingMixin:
     >>> # PostgreSQL generates: "price"::money::numeric::float8
     """
 
-    def cast(self: "SQLValueExpression", target_type: str) -> "CastExpression":
+    def cast(self: "SQLValue", target_type: str) -> "CastExpression":
         """Wrap this expression in a CAST node targeting *target_type*.
 
         Args:
@@ -1952,11 +1870,33 @@ class TypeCastingMixin:
         # both render `CAST(col AS INTEGER) AS v`. The original expression
         # is only mutated when it is itself a temporary copy (the as_()
         # convention returns copies), so shared nodes stay untouched.
-        alias = getattr(self, "alias", None)
+        alias = self.alias if isinstance(self, AliasableMixin) else None
         node = CastExpression(self._dialect, self, target_type, alias=alias)
-        if alias is not None and hasattr(self, "alias"):
+        if alias is not None:
             self.alias = None
         return node
+
+
+class IntervalMixin:
+    """Marks a value as a **span** of time rather than a **point** in it.
+
+    A date, a time and a date-time are points: they sit somewhere on the
+    timeline. An interval is the distance between two of them, and arithmetic
+    on the two is not the same -- a point moves by an interval, a point minus a
+    point is an interval, but two points have no sum and an interval scales by a
+    number rather than being added to.
+
+    So the distinction has to be stated somewhere the arithmetic can read, and
+    this is that statement. It carries no operations of its own: an interval
+    does everything a temporal value does, plus this one fact about which it
+    is.
+
+    It exists because ``timestamp + interval`` and ``interval + interval`` are
+    different operations and the gate that refuses the invalid ones has to know
+    which it is holding. While an interval was wrapped in a value class the gate
+    could ask about the wrapper; now that an interval *is* a node, the node says
+    so by being one of these.
+    """
 
 
 class DateTimeMixin:
@@ -2035,9 +1975,9 @@ class DateTimeMixin:
         receiver is only mutated when it is itself a temporary copy (the
         ``as_()`` convention returns copies).
         """
-        alias = getattr(self, "alias", None)
+        alias = self.alias if isinstance(self, AliasableMixin) else None
         node = node_class(self._dialect, *args, alias=alias, **kwargs)
-        if alias is not None and hasattr(self, "alias"):
+        if alias is not None:
             self.alias = None
         return node
 
@@ -2059,27 +1999,27 @@ class DateTimeMixin:
 
         return self._temporal_node(DateTruncExpression, field, self)
 
-    def date_add(self, value, unit: Optional[str] = None) -> "DateTimeAddExpression":
+    def date_add(self, value, unit: Optional[str] = None) -> "DatetimeAddExpression":
         """Add an interval, e.g. ``col.date_add(7, "day")``."""
-        from .datetime import DateTimeAddExpression
+        from .datetime import DatetimeAddExpression
 
         return self._temporal_node(
-            DateTimeAddExpression, self, _as_interval(self._dialect, value, unit)
+            DatetimeAddExpression, self, _as_interval(self._dialect, value, unit)
         )
 
-    def date_sub(self, value, unit: Optional[str] = None) -> "DateTimeSubtractExpression":
+    def date_sub(self, value, unit: Optional[str] = None) -> "DatetimeSubtractExpression":
         """Subtract an interval, e.g. ``col.date_sub(1, "month")``."""
-        from .datetime import DateTimeSubtractExpression
+        from .datetime import DatetimeSubtractExpression
 
         return self._temporal_node(
-            DateTimeSubtractExpression, self, _as_interval(self._dialect, value, unit)
+            DatetimeSubtractExpression, self, _as_interval(self._dialect, value, unit)
         )
 
-    def date_diff(self, unit: str, end) -> "DateTimeDiffExpression":
+    def date_diff(self, unit: str, end) -> "DatetimeDiffExpression":
         """Difference between this value and *end*, expressed in *unit*."""
-        from .datetime import DateTimeDiffExpression
+        from .datetime import DatetimeDiffExpression
 
-        return self._temporal_node(DateTimeDiffExpression, unit, self, end)
+        return self._temporal_node(DatetimeDiffExpression, unit, self, end)
 
 
 def _as_interval(dialect, value, unit: Optional[str]):
@@ -2124,7 +2064,7 @@ class JSONAccessorMixin:
     """Path access for a value known to hold JSON.
 
     Mixed into **both** :class:`~...expression.column_types.JSONColumn` and
-    :class:`~...expression.advanced_functions.JSONDocumentExpression` — the latter is
+    :class:`~...expression.advanced_functions.JSONDocumentValue` — the latter is
     what :meth:`json_path` returns, so without it on both, chaining
     ``col.json_value("a").json_value("b")`` would break at the second call.
 
@@ -2145,17 +2085,17 @@ class JSONAccessorMixin:
         >>> col.json_value("a").json_value("b")   # -> "settings"->'$.a'->'$.b'
     """
 
-    def _json_path(self, keys, as_text: bool, mode) -> "SQLValueExpression":
+    def _json_path(self, keys, as_text: bool, mode) -> "SQLValue":
         from .advanced_functions import (
-            JSONDocumentExpression,
-            JSONTextExpression,
+            JSONDocumentValue,
+            JSONTextValue,
         )
 
-        alias = getattr(self, "alias", None)
+        alias = self.alias if isinstance(self, AliasableMixin) else None
         # The two operations yield different types, so they build different
         # nodes: `->>` is text and offers the text operations, `->` is a
         # document and offers the path accessors again.
-        node_class = JSONTextExpression if as_text else JSONDocumentExpression
+        node_class = JSONTextValue if as_text else JSONDocumentValue
         node = node_class(
             self._dialect,
             self,
@@ -2164,11 +2104,11 @@ class JSONAccessorMixin:
             alias=alias,
             mode=mode,
         )
-        if alias is not None and hasattr(self, "alias"):
+        if alias is not None:
             self.alias = None
         return node
 
-    def json_path(self, *keys, mode=None) -> "JSONTextExpression":
+    def json_path(self, *keys, mode=None) -> "JSONTextValue":
         """Extract a scalar at *keys* (renders ``->>``).
 
         Args:
@@ -2183,7 +2123,7 @@ class JSONAccessorMixin:
         """
         return self._json_path(keys, as_text=True, mode=mode)
 
-    def json_value(self, *keys, mode=None) -> "JSONDocumentExpression":
+    def json_value(self, *keys, mode=None) -> "JSONDocumentValue":
         """Extract JSON at *keys* (renders ``->``), preserving the JSON type.
 
         Chainable: the result is itself a JSON expression, so further

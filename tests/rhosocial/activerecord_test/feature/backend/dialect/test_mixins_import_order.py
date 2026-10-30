@@ -47,11 +47,11 @@ def test_module_imports_without_cycle(target: str):
 
 
 def test_format_function_call_filter_path_in_fresh_interpreter():
-    """Exercise the lazy ``FilterClauseExpression`` import path in isolation.
+    """Exercise the lazy ``FilterClause`` import path in isolation.
 
     Importing the ``function`` mixin module first, then formatting a filtered
     function call on a fully composed dialect, must succeed. A top-level import
-    of ``FilterClauseExpression`` would make this fail with an ImportError or
+    of ``FilterClause`` would make this fail with an ImportError or
     AttributeError.
     """
     body = (

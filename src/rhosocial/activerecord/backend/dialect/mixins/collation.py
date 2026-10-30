@@ -5,7 +5,7 @@ from typing import Tuple, TYPE_CHECKING
 from ..exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.collation import CollateExpression
+    from ...expression.collation import CollateFunction
 
 
 class CollationMixin:
@@ -22,11 +22,11 @@ class CollationMixin:
         """
         return False
 
-    def validate_collation_name(self, expr: "CollateExpression") -> str:
+    def validate_collation_name(self, expr: "CollateFunction") -> str:
         """Validate a collation expression and return its SQL representation.
 
         Args:
-            expr: CollateExpression whose collation name should be validated.
+            expr: CollateFunction whose collation name should be validated.
 
         Returns:
             SQL string for the validated collation name.
@@ -37,11 +37,11 @@ class CollationMixin:
         """
         raise UnsupportedFeatureError(self.name, "COLLATE collation validation")
 
-    def format_collate_expression(self, expr: "CollateExpression") -> Tuple[str, tuple]:
+    def format_collate_expression(self, expr: "CollateFunction") -> Tuple[str, tuple]:
         """Format expression-level COLLATE (plus outer alias).
 
         Args:
-            expr: CollateExpression object to format.
+            expr: CollateFunction object to format.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.

@@ -13,12 +13,12 @@ from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression import (
     Column,
     FunctionCall,
-    QueryExpression,
-    CreateMaterializedViewExpression,
-    DropMaterializedViewExpression,
-    RefreshMaterializedViewExpression,
-    CreateViewExpression,
-    DropViewExpression,
+    QueryStatement,
+    CreateMaterializedViewStatement,
+    DropMaterializedViewStatement,
+    RefreshMaterializedViewStatement,
+    CreateViewStatement,
+    DropViewStatement,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_parts import GroupByHavingClause
@@ -52,12 +52,12 @@ class TestSQLiteMaterializedViewErrors:
 
     def test_create_materialized_view_raises_error(self, sqlite_dialect: SQLiteDialect):
         """Test that CREATE MATERIALIZED VIEW raises UnsupportedFeatureError."""
-        query = QueryExpression(
+        query = QueryStatement(
             sqlite_dialect,
             select=[Column(sqlite_dialect, "id"), Column(sqlite_dialect, "name")],
             from_=NamedRelationRef(sqlite_dialect, Table(sqlite_dialect, "users")),
         )
-        create_mv = CreateMaterializedViewExpression(sqlite_dialect, view=MaterializedView(sqlite_dialect, "user_summary"), query=query)
+        create_mv = CreateMaterializedViewStatement(sqlite_dialect, view=MaterializedView(sqlite_dialect, "user_summary"), query=query)
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             create_mv.to_sql()
@@ -68,7 +68,7 @@ class TestSQLiteMaterializedViewErrors:
 
     def test_create_materialized_view_with_aggregates_raises_error(self, sqlite_dialect: SQLiteDialect):
         """Test that CREATE MATERIALIZED VIEW with aggregates raises error."""
-        query = QueryExpression(
+        query = QueryStatement(
             sqlite_dialect,
             select=[
                 Column(sqlite_dialect, "user_id"),
@@ -77,7 +77,7 @@ class TestSQLiteMaterializedViewErrors:
             from_=NamedRelationRef(sqlite_dialect, Table(sqlite_dialect, "orders")),
             group_by_having=GroupByHavingClause(sqlite_dialect, group_by=[Column(sqlite_dialect, "user_id")]),
         )
-        create_mv = CreateMaterializedViewExpression(sqlite_dialect, view=MaterializedView(sqlite_dialect, "order_counts"), query=query)
+        create_mv = CreateMaterializedViewStatement(sqlite_dialect, view=MaterializedView(sqlite_dialect, "order_counts"), query=query)
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             create_mv.to_sql()
@@ -86,7 +86,7 @@ class TestSQLiteMaterializedViewErrors:
 
     def test_drop_materialized_view_raises_error(self, sqlite_dialect: SQLiteDialect):
         """Test that DROP MATERIALIZED VIEW raises UnsupportedFeatureError."""
-        drop_mv = DropMaterializedViewExpression(sqlite_dialect, view=MaterializedView(sqlite_dialect, "old_summary"))
+        drop_mv = DropMaterializedViewStatement(sqlite_dialect, view=MaterializedView(sqlite_dialect, "old_summary"))
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             drop_mv.to_sql()
@@ -96,7 +96,7 @@ class TestSQLiteMaterializedViewErrors:
 
     def test_drop_materialized_view_if_exists_raises_error(self, sqlite_dialect: SQLiteDialect):
         """Test that DROP MATERIALIZED VIEW IF EXISTS raises error."""
-        drop_mv = DropMaterializedViewExpression(sqlite_dialect, view=MaterializedView(sqlite_dialect, "possibly_missing"), if_exists=True)
+        drop_mv = DropMaterializedViewStatement(sqlite_dialect, view=MaterializedView(sqlite_dialect, "possibly_missing"), if_exists=True)
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             drop_mv.to_sql()
@@ -105,7 +105,7 @@ class TestSQLiteMaterializedViewErrors:
 
     def test_refresh_materialized_view_raises_error(self, sqlite_dialect: SQLiteDialect):
         """Test that REFRESH MATERIALIZED VIEW raises UnsupportedFeatureError."""
-        refresh_mv = RefreshMaterializedViewExpression(sqlite_dialect, view=MaterializedView(sqlite_dialect, "user_summary"))
+        refresh_mv = RefreshMaterializedViewStatement(sqlite_dialect, view=MaterializedView(sqlite_dialect, "user_summary"))
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             refresh_mv.to_sql()
@@ -115,7 +115,7 @@ class TestSQLiteMaterializedViewErrors:
 
     def test_refresh_materialized_view_concurrent_raises_error(self, sqlite_dialect: SQLiteDialect):
         """Test that REFRESH MATERIALIZED VIEW CONCURRENTLY raises error."""
-        refresh_mv = RefreshMaterializedViewExpression(sqlite_dialect, view=MaterializedView(sqlite_dialect, "stats"), concurrent=True)
+        refresh_mv = RefreshMaterializedViewStatement(sqlite_dialect, view=MaterializedView(sqlite_dialect, "stats"), concurrent=True)
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             refresh_mv.to_sql()
@@ -156,12 +156,12 @@ class TestSQLiteRegularViewSupport:
 
     def test_basic_create_view(self, sqlite_dialect: SQLiteDialect):
         """Test basic CREATE VIEW works."""
-        query = QueryExpression(
+        query = QueryStatement(
             sqlite_dialect,
             select=[Column(sqlite_dialect, "id"), Column(sqlite_dialect, "name")],
             from_=NamedRelationRef(sqlite_dialect, Table(sqlite_dialect, "users")),
         )
-        create_view = CreateViewExpression(sqlite_dialect, view=View(sqlite_dialect, "user_view"), query=query)
+        create_view = CreateViewStatement(sqlite_dialect, view=View(sqlite_dialect, "user_view"), query=query)
         sql, params = create_view.to_sql()
 
         assert 'CREATE VIEW "user_view"' in sql
@@ -169,46 +169,46 @@ class TestSQLiteRegularViewSupport:
 
     def test_create_temporary_view(self, sqlite_dialect: SQLiteDialect):
         """Test CREATE TEMPORARY VIEW works."""
-        query = QueryExpression(
+        query = QueryStatement(
             sqlite_dialect, select=[Column(sqlite_dialect, "id")], from_=NamedRelationRef(sqlite_dialect, Table(sqlite_dialect, "sessions"))
         )
-        create_view = CreateViewExpression(sqlite_dialect, view=View(sqlite_dialect, "temp_session_view"), query=query, temporary=True)
+        create_view = CreateViewStatement(sqlite_dialect, view=View(sqlite_dialect, "temp_session_view"), query=query, temporary=True)
         sql, params = create_view.to_sql()
 
         assert 'CREATE TEMPORARY VIEW "temp_session_view"' in sql
 
     def test_create_view_if_not_exists(self, sqlite_dialect: SQLiteDialect):
         """Test CREATE VIEW IF NOT EXISTS works (SQLite style)."""
-        query = QueryExpression(
+        query = QueryStatement(
             sqlite_dialect, select=[Column(sqlite_dialect, "id")], from_=NamedRelationRef(sqlite_dialect, Table(sqlite_dialect, "products"))
         )
-        create_view = CreateViewExpression(sqlite_dialect, view=View(sqlite_dialect, "product_view"), query=query, replace=True)
+        create_view = CreateViewStatement(sqlite_dialect, view=View(sqlite_dialect, "product_view"), query=query, replace=True)
         sql, params = create_view.to_sql()
 
         assert 'CREATE VIEW IF NOT EXISTS "product_view"' in sql
 
     def test_drop_view(self, sqlite_dialect: SQLiteDialect):
         """Test DROP VIEW works."""
-        drop_view = DropViewExpression(sqlite_dialect, view=View(sqlite_dialect, "old_view"))
+        drop_view = DropViewStatement(sqlite_dialect, view=View(sqlite_dialect, "old_view"))
         sql, params = drop_view.to_sql()
 
         assert sql == 'DROP VIEW "old_view"'
 
     def test_drop_view_if_exists(self, sqlite_dialect: SQLiteDialect):
         """Test DROP VIEW IF EXISTS works."""
-        drop_view = DropViewExpression(sqlite_dialect, view=View(sqlite_dialect, "possibly_missing"), if_exists=True)
+        drop_view = DropViewStatement(sqlite_dialect, view=View(sqlite_dialect, "possibly_missing"), if_exists=True)
         sql, params = drop_view.to_sql()
 
         assert sql == 'DROP VIEW IF EXISTS "possibly_missing"'
 
     def test_create_view_with_column_aliases(self, sqlite_dialect: SQLiteDialect):
         """Test CREATE VIEW with column aliases."""
-        query = QueryExpression(
+        query = QueryStatement(
             sqlite_dialect,
             select=[Column(sqlite_dialect, "id"), Column(sqlite_dialect, "name")],
             from_=NamedRelationRef(sqlite_dialect, Table(sqlite_dialect, "users")),
         )
-        create_view = CreateViewExpression(
+        create_view = CreateViewStatement(
             sqlite_dialect, view=View(sqlite_dialect, "aliased_view"), query=query, column_aliases=["user_id", "user_name"]
         )
         sql, params = create_view.to_sql()
@@ -221,10 +221,10 @@ class TestSQLiteMaterializedViewAlternatives:
 
     def test_error_message_suggests_alternatives(self, sqlite_dialect: SQLiteDialect):
         """Test that error message suggests alternatives."""
-        query = QueryExpression(
+        query = QueryStatement(
             sqlite_dialect, select=[Column(sqlite_dialect, "id")], from_=NamedRelationRef(sqlite_dialect, Table(sqlite_dialect, "users"))
         )
-        create_mv = CreateMaterializedViewExpression(sqlite_dialect, view=MaterializedView(sqlite_dialect, "test_mv"), query=query)
+        create_mv = CreateMaterializedViewStatement(sqlite_dialect, view=MaterializedView(sqlite_dialect, "test_mv"), query=query)
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             create_mv.to_sql()

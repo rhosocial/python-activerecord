@@ -1,3 +1,21 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnPrimaryKeyConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Literal, QueryStatement
+from rhosocial.activerecord.backend.expression.types import (  # noqa: E402
+    IntegerType,
+    TextType,
+)
+from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
+    ColumnDefinition,
+)
+from rhosocial.activerecord.backend.expression import CreateTableStatement, InsertStatement, ValuesSource, ColumnConstraint
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 # src/rhosocial/activerecord/backend/impl/sqlite/examples/named_expressions/order_expressions.py
 """
 Order-related named query examples.
@@ -10,28 +28,11 @@ ActiveRecord models.
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableExpression,
-    InsertExpression,
-    ValuesSource,
-    ColumnConstraint,
-    ColumnConstraintType,
-)
-from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
-from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
-    ColumnDefinition,
-)
-from rhosocial.activerecord.backend.expression.types import (  # noqa: E402
-    IntegerType,
-    TextType,
-)
 
 
 def _column(name: str, type_name: str):
@@ -39,7 +40,7 @@ def _column(name: str, type_name: str):
     data_type = IntegerType() if type_name == "INTEGER" else TextType()
     constraints = []
     if "PRIMARY KEY" in type_name:
-        constraints.append(ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY))
+        constraints.append(ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect)))
     return ColumnDefinition(dialect, name=name, data_type=data_type, constraints=constraints)
 
 
@@ -55,7 +56,7 @@ tables = [
 ]
 
 for table_name, columns in tables:
-    create = CreateTableExpression(
+    create = CreateTableStatement(
         dialect=dialect,
         table=Table(dialect, table_name),
         columns=[_column(name, type_name) for name, type_name in columns],
@@ -70,7 +71,7 @@ for table, data in [
     ("inventory", [(1, 1, 10)]),
 ]:
     for row in data:
-        insert = InsertExpression(
+        insert = InsertStatement(
             dialect=dialect,
             into=Table(dialect, table),
             columns=[name for name, _ in tables[[t for t, _ in tables].index(table)][1]],
@@ -82,13 +83,11 @@ for table, data in [
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Literal, QueryExpression
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
 
 def get_order(dialect, order_id: int):
     """Get order details by ID."""
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "status"), Column(dialect, "user_id")],
         from_=NamedRelationRef(dialect, Table(dialect, "orders")),
@@ -98,7 +97,7 @@ def get_order(dialect, order_id: int):
 
 def check_inventory(dialect, order_id: int):
     """Check available inventory for an order."""
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Column(dialect, "available")],
         from_=NamedRelationRef(dialect, Table(dialect, "inventory")),
@@ -108,7 +107,7 @@ def check_inventory(dialect, order_id: int):
 
 def reserve_inventory(dialect, order_id: int):
     """Reserve inventory for an order."""
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "reserved")],
         from_=NamedRelationRef(dialect, Table(dialect, "inventory")),
@@ -118,7 +117,7 @@ def reserve_inventory(dialect, order_id: int):
 
 def send_notification(dialect, user_id: int, type: str):
     """Send notification to a user."""
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Column(dialect, "id")],
         from_=NamedRelationRef(dialect, Table(dialect, "notifications")),
@@ -128,7 +127,7 @@ def send_notification(dialect, user_id: int, type: str):
 
 def process_payment(dialect, order_id: int, amount: float):
     """Process payment for an order."""
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Column(dialect, "status"), Column(dialect, "transaction_id")],
         from_=NamedRelationRef(dialect, Table(dialect, "payments")),
@@ -138,7 +137,7 @@ def process_payment(dialect, order_id: int, amount: float):
 
 def release_inventory(dialect, order_id: int):
     """Release reserved inventory."""
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Column(dialect, "id")],
         from_=NamedRelationRef(dialect, Table(dialect, "inventory")),
@@ -148,7 +147,7 @@ def release_inventory(dialect, order_id: int):
 
 def create_order_record(dialect, order_id: int, user_id: int, amount: float):
     """Create an order record."""
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "created_at")],
         from_=NamedRelationRef(dialect, Table(dialect, "order_records")),
@@ -158,7 +157,7 @@ def create_order_record(dialect, order_id: int, user_id: int, amount: float):
 
 def confirm_inventory(dialect, order_id: int):
     """Confirm inventory (final confirmation)."""
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Column(dialect, "id")],
         from_=NamedRelationRef(dialect, Table(dialect, "inventory")),
@@ -188,9 +187,6 @@ if __name__ == "__main__":
 # ============================================================
 # SECTION: Execution (run the expression)
 # ============================================================
-from rhosocial.activerecord.backend.options import ExecutionOptions  # noqa: E402
-from rhosocial.activerecord.backend.schema import StatementType  # noqa: E402
-from .....expression.objects import Table
 
 if __name__ == "__main__":
     query = get_order(dialect, order_id=1)

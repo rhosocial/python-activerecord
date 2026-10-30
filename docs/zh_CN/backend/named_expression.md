@@ -77,19 +77,29 @@ flowchart TB
 命名查询将查询逻辑封装为**纯 Python 函数**。关键创新在于 `dialect` 参数由框架在执行时自动注入，允许同一查询代码在不同数据库后端上工作。
 
 ```python
+from rhosocial.activerecord.backend.expression import (
+    Column, NamedRelationRef, QueryStatement, StringColumn,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.query_parts import LimitOffsetClause
+
+
 # 定义一次，可在任何方言下使用
 def active_users(dialect, limit: int = 100, status: str = "active"):
     """从数据库获取活跃用户。"""
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "name")],
-        from_=TableExpression(dialect, "users"),
-        where=Column(dialect, "status") == status,
+        from_=NamedRelationRef(dialect, Table(dialect, "users")),
+        where=StringColumn(dialect, "status") == status,
         limit_offset=LimitOffsetClause(dialect, limit=limit),
     )
 
+
 # 使用 SQLite 方言执行时，生成 SQLite SQL
 # 使用 MySQL 方言执行时，生成 MySQL SQL
+sql, params = active_users(dialect).to_sql()
+print(sql, params)
 ```
 
 ### 命名查询的调用方式
@@ -149,41 +159,53 @@ python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
 
 #### 2. 程序化 API（Python 代码）
 
-程序化 API 提供更多控制，与应用程序集成良好：
+程序化 API 提供更多控制，与应用程序集成良好。下面的代码块指向库自带的
+SQLite 示例模块，因此可以直接运行；实际使用时请替换成你自己的模块路径。
 
 **一步式方法（快速）：**
 ```python
 from rhosocial.activerecord.backend.named_expression import resolve_named_expression
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
-backend = SQLiteBackend(database="mydb.sqlite")
+# 指向可导入模块的点分路径 —— 这里用库自带的示例模块
+QUERY = (
+    "rhosocial.activerecord.backend.impl.sqlite.examples"
+    ".named_expressions.order_clauses.where_example"
+)
+
+backend = SQLiteBackend(database=":memory:")
 dialect = backend.dialect
 
-# 一步完成解析、生成 SQL 和执行
-expr, sql, params = resolve_named_expression(
-    "myapp.queries.users.active_users",
-    dialect,
-    {"limit": 50, "status": "active"},
-)
+# 解析命名查询：返回的是表达式，不是 SQL
+expr = resolve_named_expression(QUERY, dialect, {"status": "active"})
+sql, params = expr.to_sql()
 print("生成的 SQL:", sql)
+print("参数:", params)
 # 可与 pandas、直接执行等配合使用
 ```
 
 **分步方法（灵活）：**
 ```python
-from rhosocial.activerecord.backend.named_expression import NamedQueryResolver
+from rhosocial.activerecord.backend.named_expression import NamedExpressionResolver
+
+# 与上例相同的点分路径
+QUERY = (
+    "rhosocial.activerecord.backend.impl.sqlite.examples"
+    ".named_expressions.order_clauses.where_example"
+)
 
 # 加载命名查询解析器
-resolver = NamedQueryResolver("myapp.queries.users.active_users").load()
+resolver = NamedExpressionResolver(QUERY).load()
 
 # 检查而不执行
 info = resolver.describe()
-print(f"参数: {info['parameters']}")
-print(f"返回类型: {info['return_type']}")
+print(f"参数: {list(info['parameters'])}")
+print(f"签名: {info['signature']}")
 
 # 在需要时生成表达式和 SQL
-expr = resolver.execute(dialect, {"limit": 50})
+expr = resolver.execute(dialect, {"status": "active"})
 sql, params = expr.to_sql()
+print(sql, params)
 ```
 
 #### 3. CI/CD 集成
@@ -296,7 +318,9 @@ class MonthlyCleanupProcedure(Procedure):
 对于可以并发运行的独立子任务，使用 `ctx.parallel()`：
 
 ```python
-from rhosocial.activerecord.backend.named_expression import Procedure, ProcedureContext, ParallelStep
+from rhosocial.activerecord.backend.named_expression import (
+    Procedure, ProcedureContext, ParallelStep,
+)
 
 class OrderProcessingProcedure(Procedure):
     order_id: int
@@ -388,33 +412,67 @@ python -m rhosocial.activerecord.backend.impl.sqlite named-procedure \
 #### 程序化 API
 
 ```python
-from rhosocial.activerecord.backend.named_expression import (
-    ProcedureRunner, TransactionMode, ProcedureResult,
-)
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+import sys
+import types
 
-backend = SQLiteBackend(database="mydb.sqlite")
-dialect = backend.dialect
+from rhosocial.activerecord.backend.expression import (
+    Column, NamedRelationRef, QueryStatement,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.named_expression import (
+    Procedure, ProcedureContext, ProcedureRunner, TransactionMode,
+)
+
+# 运行器按点分名解析，因此查询和过程必须位于可导入的模块中。
+# 这里把它们注册到 sys.modules 里，使示例自包含；真实项目中
+# 它们是 "myapp" 下的普通模块。
+backend.execute("CREATE TABLE IF NOT EXISTS demo_orders (id INTEGER PRIMARY KEY)")
+backend.execute("INSERT INTO demo_orders (id) VALUES (1)")
+
+queries = types.ModuleType("doc_demo.queries")
+
+
+def count_orders(dialect):
+    """统计示例订单数。"""
+    return QueryStatement(
+        dialect,
+        select=[Column(dialect, "id")],
+        from_=NamedRelationRef(dialect, Table(dialect, "demo_orders")),
+    )
+
+
+queries.count_orders = count_orders
+sys.modules["doc_demo.queries"] = queries
+
+
+class ArchiveProcedure(Procedure):
+    month: str = "2026-03"
+
+    def run(self, ctx: ProcedureContext) -> None:
+        ctx.execute("doc_demo.queries.count_orders", bind="orders")
+        count = len(list(ctx.rows("orders")))
+        ctx.log(f"{count} order(s) for {self.month}", level="INFO")
+
+
+procedures = types.ModuleType("doc_demo.procedures")
+procedures.ArchiveProcedure = ArchiveProcedure
+sys.modules["doc_demo.procedures"] = procedures
 
 # 加载过程类
-runner = ProcedureRunner(
-    "myapp.procedures.monthly_cleanup.MonthlyCleanupProcedure"
-).load()
+runner = ProcedureRunner("doc_demo.procedures.ArchiveProcedure").load()
 
 # 使用参数执行
-result: ProcedureResult = runner.run(
-    dialect,
+result = runner.run(
+    backend,
     user_params={"month": "2026-03"},
     transaction_mode=TransactionMode.AUTO,
-    backend=backend,
-    execute_query=backend.execute,
 )
 
 # 检查结果
 if result.aborted:
-    print(f"⚠️  已终止: {result.abort_reason}")
+    print(f"已终止: {result.abort_reason}")
 else:
-    print(f"✅ 完成，输出步骤数: {len(result.outputs)}")
+    print(f"完成，输出步骤数: {len(result.outputs)}")
 
 # 访问日志
 for entry in result.logs:
@@ -457,7 +515,7 @@ from rhosocial.activerecord.backend.named_expression import AsyncProcedureRunner
 from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
 
 app = FastAPI()
-async_backend = AsyncSQLiteBackend(database="mydb.sqlite")
+async_backend = AsyncSQLiteBackend(database=":memory:")
 
 @app.post("/admin/cleanup/{month}")
 async def run_cleanup(month: str):
@@ -465,22 +523,20 @@ async def run_cleanup(month: str):
         "myapp.procedures.monthly_cleanup_async.MonthlyCleanupAsyncProcedure"
     ).load()
     result = await runner.run(
-        async_backend.dialect,
+        async_backend,
         user_params={"month": month},
         transaction_mode=TransactionMode.AUTO,
-        backend=async_backend,
-        execute_query=async_backend.execute,
     )
     return {
         "aborted": result.aborted,
         "abort_reason": result.abort_reason,
-        "outputs": result.outputs,
+        "outputs": len(result.outputs),
     }
 ```
 
 > **注意**：
 > - `AsyncProcedure` 子类只能交给 `AsyncProcedureRunner`；`Procedure` 子类只能交给 `ProcedureRunner`。两者不可混用。
-> - `ProcedureRunner` 需要**同步**后端（如 `SQLiteBackend`、`MySQLBackend`）；`AsyncProcedureRunner` 需要**异步**后端（如 `AsyncSQLiteBackend`、`AsyncMySQLBackend`）。传入错误类型的后端将在运行时抛出 `NamedQueryError`。
+> - `ProcedureRunner` 需要**同步**后端（如 `SQLiteBackend`、`MySQLBackend`）；`AsyncProcedureRunner` 需要**异步**后端（如 `AsyncSQLiteBackend`、`AsyncMySQLBackend`）。传入错误类型的后端将在运行时抛出 `NamedExpressionError`。
 
 ---
 
@@ -512,6 +568,16 @@ async def run_cleanup(month: str):
 ```python
 from rhosocial.activerecord.backend.named_expression import Procedure
 
+class MyProcedure(Procedure):
+    """一个无需数据库即可绘制流程图的过程。"""
+    month: str = "2026-03"
+
+    def run(self, ctx):
+        ctx.execute(
+            "myapp.queries.orders.count_monthly_orders",
+            params={"month": self.month},
+        )
+
 # 流程图格式
 print(MyProcedure.static_diagram("flowchart"))
 
@@ -524,16 +590,11 @@ print(MyProcedure.static_diagram("sequence"))
 执行过程后，生成显示实际执行状态和时间的流程图：
 
 ```python
-from rhosocial.activerecord.backend.named_expression import ProcedureRunner
-
-runner = ProcedureRunner("myapp.procedures.OrderProcessing").load()
-result = runner.run(backend)
-
-# 带执行状态的流程图格式
-print(result.diagram("flowchart", procedure_name="OrderProcessing"))
+# runner 与 result 来自上面的程序化 API 示例
+print(result.diagram("flowchart", procedure_name="ArchiveProcedure"))
 
 # 时序图格式
-print(result.diagram("sequence", procedure_name="OrderProcessing"))
+print(result.diagram("sequence", procedure_name="ArchiveProcedure"))
 ```
 
 ### 特性对比
@@ -553,20 +614,21 @@ print(result.diagram("sequence", procedure_name="OrderProcessing"))
 
 ### 异常
 
-- `NamedQueryError` - 所有命名查询/过程错误的基础异常
-- `NamedQueryNotFoundError` - 找不到查询函数
-- `NamedQueryModuleNotFoundError` - 找不到包含查询的模块
-- `NamedQueryInvalidReturnTypeError` - 查询未返回有效表达式
-- `NamedQueryInvalidParameterError` - 提供了无效参数
-- `NamedQueryMissingParameterError` - 未提供必需参数
-- `NamedQueryNotCallableError` - 命名对象不可调用
-- `NamedQueryExplainNotAllowedError` - 不允许对此查询类型执行 EXPLAIN
+- `NamedExpressionError` - 所有命名查询/过程错误的基础异常
+- `NamedExpressionNotFoundError` - 找不到查询函数
+- `NamedExpressionModuleNotFoundError` - 找不到包含查询的模块
+- `NamedExpressionModuleNotAllowedError` - 模块不在解析器的允许列表中
+- `NamedExpressionInvalidReturnTypeError` - 查询未返回有效表达式
+- `NamedExpressionInvalidParameterError` - 提供了无效参数
+- `NamedExpressionMissingParameterError` - 未提供必需参数
+- `NamedExpressionNotCallableError` - 命名对象不可调用
+- `NamedExpressionExplainNotAllowedError` - 不允许对此查询类型执行 EXPLAIN
 
 ### 命名查询 API
 
-- `NamedQueryResolver` - 用于加载和执行命名查询的主解析器类
-- `resolve_named_expression()` - 一步式解析和执行的便捷函数
-- `list_named_queries_in_module()` - 发现模块中的所有查询
+- `NamedExpressionResolver` - 用于加载和执行命名查询的主解析器类
+- `resolve_named_expression()` - 一步式解析并构建表达式；返回表达式，SQL 生成仍是显式步骤
+- `list_named_expressions_in_module()` - 发现模块中的所有查询
 
 ### 命名过程 API
 
@@ -589,7 +651,7 @@ print(result.diagram("sequence", procedure_name="OrderProcessing"))
 
 | 示例 | 说明 |
 |------|------|
-| `named_queries/order_queries.py` | 订单相关的命名查询定义，包含完整的 Setup/Business Logic/Execution/Teardown 结构 |
+| `named_expressions/order_expressions.py` | 订单相关的命名查询定义，包含完整的 Setup/Business Logic/Execution/Teardown 结构 |
 | `named_procedures/order_workflow.py` | 订单处理工作流，演示并行执行 |
 | `named_procedures/diagram_demo.py` | 流程图可视化演示 |
 
@@ -597,7 +659,7 @@ print(result.diagram("sequence", procedure_name="OrderProcessing"))
 
 | 示例 | 说明 |
 |------|------|
-| `cli/named_expression_demo.py` | 演示所有命名查询 CLI 操作（列出、描述、dry-run、执行） |
+| `cli/named_query_demo.py` | 演示所有命名查询 CLI 操作（列出、描述、dry-run、执行） |
 | `cli/named_procedure_demo.py` | 演示所有命名过程 CLI 操作（列出、描述、dry-run、执行、事务模式） |
 | `cli/named_connection_demo.py` | 演示命名连接 CLI 操作 |
 
@@ -606,7 +668,7 @@ print(result.diagram("sequence", procedure_name="OrderProcessing"))
 ```bash
 # Python 示例：运行命名查询
 cd src/rhosocial/activerecord/backend/impl/sqlite/examples
-PYTHONPATH=../../../../..:. python3 named_queries/order_queries.py
+PYTHONPATH=../../../../..:. python3 named_expressions/order_expressions.py
 
 # Python 示例：生成流程图
 cd src/rhosocial/activerecord/backend/impl/sqlite/examples/named_procedures
@@ -614,7 +676,7 @@ PYTHONPATH=../../../../..:. python3 diagram_demo.py
 
 # CLI 示例：命名查询 CLI
 cd src/rhosocial/activerecord/backend/impl/sqlite/examples
-PYTHONPATH=../../../../..:. python3 cli/named_expression_demo.py
+PYTHONPATH=../../../../..:. python3 cli/named_query_demo.py
 
 # CLI 示例：命名过程 CLI
 PYTHONPATH=../../../../..:. python3 cli/named_procedure_demo.py

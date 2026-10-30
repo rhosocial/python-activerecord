@@ -1,192 +1,215 @@
 # Expression Serialization
 
-This document describes the serialization and deserialization mechanism for SQL expression objects, which is essential for implementing expression caching, distributed queries, and task scheduling.
+> **Runnable example**: `docs/examples/expression_artifact.py`. Everything below is
+> exercised there end to end.
 
 ## Design Motivation
 
-Why not serialize `dialect` directly? Here's why:
+An expression is a **value object**: the same query built twice must be equal,
+and it must survive being written down and read back somewhere else — a cache,
+a queue, another process.
 
-1. **Runtime Injection**: Dialect is tightly coupled with specific database backends; serialization should decouple expressions from dialects
-2. **Multi-Dialect Support**: The same expression may generate different SQL under different dialects; serialization should not lock in a dialect
-3. **Security Isolation**: Some dialect implementations depend on database connection state, which is not suitable for cross-process transmission
+The artifact is the whole of that. It is deliberately small, and everything
+about its shape follows from one decision: **the artifact carries no import
+path**. A dotted path in a payload is what would force a reader to import
+whatever module the string pointed at, and an artifact is untrusted input. So a
+node is named by a **kind** — a snake_case form of its class name — and that
+kind is the node's identity, whether in memory or on the wire.
 
-Therefore, the serialized `ExpressionSpec` does not contain dialect information. At deserialization time, the caller provides the target dialect.
+Two consequences worth stating up front:
 
-> **Serialization vs. rendering are separate paths**: `_reconstruct()` is used **only** by the deserialization round-trip (spec → object). Rendering never reconstructs anything — `to_sql()` is stateless and allocation-free, reading each node's own bound dialect and rendering the existing tree in place.
+- **Writing needs no registry.** A node reports its own kind, derived from its
+  class name. A caller that only serializes never builds a lookup table.
+- **Reading takes one.** Turning a kind back into a class is a question only a
+  table can answer, and the caller decides which table.
 
 ## Core API
 
-### serialize()
-
-Serializes an expression object to a dictionary:
+### serialize(expr)
 
 ```python
 from rhosocial.activerecord.backend.expression.serialization import serialize
 
-spec = serialize(expression)
-# Returns {"type": "Column", "module": "...", "params": {...}}
+artifact = serialize(query)
 ```
 
-### deserialize()
+The artifact is JSON-native, so it goes through a plain `json.dumps` with no
+custom encoder:
 
-Restores an expression object from a dictionary:
+```python
+text = json.dumps(artifact)
+```
+
+### deserialize(artifact, dialect, registry=None)
 
 ```python
 from rhosocial.activerecord.backend.expression.serialization import deserialize
 
-expr = deserialize(spec, dialect)
+expr = deserialize(json.loads(text), dialect)
 ```
 
-### ExpressionFactory
+`json.loads` needs **no `object_hook`** — and there is nothing for a hook to do.
+The artifact is plain JSON throughout: a node is `{kind, params}`, a parameter
+is a scalar, an array or an object. There are no markers, so nothing has to be
+recognised in order to be decoded. The one thing JSON cannot spell — a value
+sent to the database, such as `bytes` or a `timedelta` — is carried as the text
+its kind names.
 
-Provides factory methods to create expressions:
+`registry=None` means the framework's default instance — every node the
+distribution ships. Pass your own to control exactly which kinds a read may
+produce.
 
-```python
-from rhosocial.activerecord.backend.expression.serialization import ExpressionFactory
+### deserialize_json(text, dialect, registry=None) / deserialize_xml(bytes, ...)
 
-factory = ExpressionFactory(dialect)
-expr = factory.create("Column", name="id", table="users")
-```
+The same artifact in three renderings: a dict, a JSON text, an XML document.
+All three round-trip to the same instance; the parameters and the rendered SQL
+must both come back unchanged.
 
-## ExpressionSpec Format
+## Artifact Format
 
-The serialized dictionary contains three required fields:
+A **bare node. No envelope.**
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `type` | str | Expression class name (e.g., `Column`, `ComparisonPredicate`) |
-| `module` | str | Full module path to the expression class |
-| `params` | dict | Constructor parameters, keys must match `__init__` parameter names |
+| `kind` | str | The node's kind (e.g. `column`, `comparison_predicate`) |
+| `params` | dict | Constructor parameters, keyed by the `__init__` parameter names |
 
-### Example
+That is the whole thing — no version, no producer, no captured dialect, no
+connection fingerprint.
 
 ```python
 # Column("users", "id")
 {
-    "type": "Column",
-    "module": "rhosocial.activerecord.backend.expression.core",
-    "params": {"name": "id", "table": "users", "alias": null, "schema_name": null}
-}
-```
-
-## Nested Expressions
-
-Expression parameters may contain other expression objects (e.g., predicates in WHERE clauses). Use the `__expr__` marker during serialization:
-
-```python
-# Serialization of WHERE status = 'active'
-{
-    "type": "WhereClause",
-    "module": "rhosocial.activerecord.backend.expression.query_parts",
+    "kind": "column",
     "params": {
-        "condition": {
-            "__expr__": {
-                "type": "ComparisonPredicate",
-                "module": "rhosocial.activerecord.backend.expression.predicates",
-                "params": {...}
-            }
-        }
+        "name": "id",
+        "table": {"kind": "table", "params": {"name": "users"}},
+        "alias": None,
     }
 }
 ```
 
-During deserialization, sub-dictionaries marked with `__expr__` are automatically restored as expression objects.
+A parameter is either a **language-independent scalar** or an **expression**.
+The second form — a nested `{kind, params}` node — is the same thing at a
+different layer: a live instance in memory, an encoded node on the wire. There
+is no third form, which is what makes the artifact readable at all.
 
-## Tuple Marker
+Note there is **no wrapper** around a nested expression. The shape is the whole
+signal, so there is nothing to unwrap and no second, weaker way of saying the
+same thing. An `__expr__` envelope would have given one fact two spellings and
+left the reader guessing which a payload used.
 
-Python `tuple` cannot be directly JSON serialized; use the `__tuple__` marker:
+Note what is *not* there. The artifact carries no dialect, so the same payload
+re-renders under any dialect object you hand it:
 
 ```python
-# ORDER BY id DESC, name ASC
-{
-    "type": "OrderByClause",
-    "params": {
-        "order_by_items": [
-            {"__tuple__": [Column(...), "DESC"]},
-            {"__tuple__": [Column(...), "ASC"]}
-        ]
-    }
-}
+deserialize(artifact, SQLiteDialect(version=(3, 53, 0))).to_sql()
 ```
+
+## Bind Parameters
+
+`to_sql()` returns a pair — the statement and the values to bind:
+
+```python
+sql, params = expr.to_sql()
+# ("SELECT ... WHERE age > ?", (18,))
+```
+
+That `18` was never stored anywhere. It was read off the `literal` node inside
+the payload, so nothing else carries it and nothing else can disagree with it.
+Expressions never inline a value into the SQL text; the database never sees a
+quoted string built by concatenation.
+
+## Selective Registration
+
+A registry is a **read-side boundary**: it filters what an artifact *contains*,
+not what a class *declares*. A parameter left at its default produces no node,
+and so needs no entry.
+
+```python
+from rhosocial.activerecord.backend.expression.registry import ExpressionRegistry
+
+read_only = ExpressionRegistry()
+for kind in ("query_statement", "where_clause", "comparison_predicate",
+             "column", "literal", "table"):
+    read_only.register_node(default_registry().resolve_node(kind))
+
+deserialize(artifact, dialect, registry=read_only)
+```
+
+A query without a grouping reads fine under that table; one with a `GROUP BY`
+is refused, by name. That is the permission shape: **whatever this channel does
+not accept, it cannot be made to accept by sending it something.**
+
+Be clear about what a registry does *not* do. `serialize` consults no registry,
+so a narrow table does not stop a tree being written, and it does not decide
+what may be executed. It governs what a reader accepts from an artifact it did
+not author. A boundary that had to hold on the write side would need a
+different mechanism, because the writer is the same process that would enforce
+it.
 
 ## Error Handling
 
-During deserialization, the following exceptions may be raised:
+Every rejection names what it rejected, because an artifact you did not write
+cannot be debugged by guessing.
 
-- `ExpressionDeserializationError`: Type not registered, missing parameters, construction failed
-- `TypeError`: Parameter type mismatch (wrapped as `ExpressionDeserializationError`)
-
-Dialect compatibility errors (e.g., PostgreSQL-specific syntax not supported by MySQL) only surface at `to_sql()` time.
+| Situation | Error |
+|-----------|-------|
+| A kind nobody registered | `kind 'x' is not in the kind whitelist` |
+| A leftover envelope field | `a bare node carries exactly 'kind' and 'params'` |
+| An unrecognised parameter | `kind 'x' does not accept parameter 'y'` |
+| A missing kind | `the kind is the node's identity and is mandatory` |
+| Nesting past the depth limit | `artifact nesting depth exceeds N` |
 
 ## Use Cases
 
 ### Cache Query Plans
 
 ```python
-# Serialize
-query = query.select(...).where(...)
-spec = serialize(query)
-
-# Deserialize
-restored = deserialize(spec, new_dialect)
-sql = restored.to_sql()
+stored = json.dumps(serialize(query))
+# ... later, in another process
+query = deserialize(json.loads(stored), dialect)
 ```
+
+The cache holds JSON text, so it goes into any cache that stores strings, and
+the dialect is chosen at read time — one cache serves every backend.
 
 ### Distributed Task Scheduling
 
-Pass expressions as task parameters; at deserialization, inject the target environment's dialect.
+A worker receives text and rebuilds the tree under its own dialect. Nothing
+about the payload is tied to the machine that produced it.
 
 ## Security Considerations
 
-### Why Must We Verify BaseExpression Type?
+### No name in an artifact reaches an import
 
-During deserialization, the framework verifies that the class pointed to by `spec["type"]` must be a subclass of `BaseExpression`. This security check prevents:
+Resolution is by whitelist, never by import path. A payload naming
+`os.system` gets "not in the kind whitelist" — it is looked up, found absent,
+and the read fails. There is no code path that could have imported it.
 
-1. **Arbitrary Class Instantiation**: Attackers could craft malicious specs to deserialize dangerous classes like `subprocess.Popen`
-2. **Code Execution**: Without type checking, `_reconstruct()` might call dangerous class constructors
+The registry module does not import expression packages at all, and the
+mechanism that assembles the default instance lives with the framework, not in
+the registry. A registry cannot discover anything.
 
-By enforcing this check, only expression classes inheriting from `BaseExpression` can be deserialized, ensuring security boundaries.
+### The artifact is untrusted input
 
-### Why Is Dynamic Module Import Not Allowed?
+- Unknown kinds, leftover fields and unrecognised parameters each fail by name.
+- Nesting depth and length are bounded.
+- No dialect-level validation happens here — that is left to `to_sql()`, where
+  support questions belong.
 
-`ExpressionRegistry.lookup()` does not support dynamic module import via the `module` parameter. This is a security design decision:
-
-1. **Arbitrary Module Loading**: Attackers could load any installed Python module via the `module` field in spec
-2. **Global Registry Pollution**: Dynamically imported classes were written to the global registry, affecting subsequent requests
-
-Therefore, all expression classes must be pre-registered via `ExpressionRegistry.register()` or `_auto_register_builtins()` before use.
-
-### Secure Usage Recommendations
-
-**Recommended: Complete Round-Trip**
+### Do not hand-edit artifacts
 
 ```python
-# Correct: Use serialize/deserialize round-trip, do not manually modify spec
-expr = query.where(...)
-spec = serialize(expr)
+# Correct: build the tree, let the codec write it
+text = json.dumps(serialize(query))
 
-# Store, transmit, deserialize
-restored = deserialize(spec, dialect)
+# Wrong: assembling a payload by hand couples you to a format the library
+# does not promise to keep, and an artifact you did not write is exactly the
+# input the reader is built to distrust.
 ```
-
-**Not Recommended: Manually Construct Spec**
-
-```python
-# Incorrect: Manually constructing spec may cause security issues
-spec = {
-    "type": "Column",
-    "module": "some.module",  # Could be abused
-    "params": {...}
-}
-```
-
-Unless you fully understand the following risks, avoid manually modifying specs:
-- Incorrect `type` or `module` will cause deserialization failure
-- Nested expressions must use `__expr__` marker
-- Using reserved key names (`__expr__`, `__tuple__`) will cause data corruption
 
 ## Related Documents
 
-- [Extending Guide](./extending.md): How to implement serialization for custom expressions
-- [Format Reference](./format-reference.md): Complete ExpressionSpec specification
-- [Migration Guide](./migration.md): Version compatibility notes
+- `docs/examples/expression_artifact.py` — a runnable end-to-end example
+- `.claude/plan/2026-10-12/表达式-方言架构规则.md` §7, §10 — registry and artifact rules

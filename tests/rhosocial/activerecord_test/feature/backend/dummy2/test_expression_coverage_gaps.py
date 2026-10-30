@@ -4,9 +4,10 @@ Tests to cover missing lines in expression core/bases/executable/operators modul
 Targets: core.py:69,177 / bases.py:16 / executable.py:35 / operators.py:153
 """
 
+from rhosocial.activerecord.backend.expression.functions import cast
 from rhosocial.activerecord.backend.expression import Column, Literal, Subquery
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.operators import BinaryArithmeticExpression
+from rhosocial.activerecord.backend.expression.operators import ArithmeticOperation
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.types import (
     CustomType,
@@ -37,13 +38,14 @@ class TestLiteralCastTypes:
 
     def test_literal_with_single_cast(self, dummy_dialect):
         lit = Literal(dummy_dialect, 42)
-        expr = lit.cast(IntegerType(dummy_dialect))
+        expr = cast(dummy_dialect, lit, IntegerType(dummy_dialect))
         sql, params = expr.to_sql()
         assert "CAST" in sql or "INTEGER" in sql
 
     def test_literal_with_chained_casts(self, dummy_dialect):
         lit = Literal(dummy_dialect, "100")
-        expr = lit.cast(CustomType(dummy_dialect, raw='money')).cast(DecimalType(dummy_dialect))
+        expr = cast(dummy_dialect, cast(dummy_dialect, lit, CustomType(dummy_dialect, raw='money')),
+                   DecimalType(dummy_dialect))
         sql, params = expr.to_sql()
         assert sql  # Verify it doesn't crash
 
@@ -58,13 +60,13 @@ class TestSubqueryCastTypes:
         assert "CAST" in sql or "TEXT" in sql
 
 
-class TestBinaryArithmeticCastTypes:
+class TestArithmeticOperationCastTypes:
     """Arithmetic cast goes through the CastExpression AST node."""
 
     def test_arithmetic_with_cast(self, dummy_dialect):
         left = Column(dummy_dialect, "price")
         right = Literal(dummy_dialect, 10)
-        expr = BinaryArithmeticExpression(dummy_dialect, "+", left, right)
+        expr = ArithmeticOperation(dummy_dialect, "add", left, right)
         casted = expr.cast(DecimalType(dummy_dialect))
         sql, params = casted.to_sql()
         assert "CAST" in sql or "DECIMAL" in sql
@@ -75,11 +77,11 @@ class TestExecutableProtocol:
 
     def test_executable_protocol_isinstance_check(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.executable import Executable
-        from rhosocial.activerecord.backend.expression.statements.dql import QueryExpression
+        from rhosocial.activerecord.backend.expression.statements.dql import QueryStatement
         from rhosocial.activerecord.backend.expression.core import Column
 
-        # QueryExpression implements Executable via statement_type
-        query = QueryExpression(
+        # QueryStatement implements Executable via statement_type
+        query = QueryStatement(
             dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
         )
         assert isinstance(query, Executable)

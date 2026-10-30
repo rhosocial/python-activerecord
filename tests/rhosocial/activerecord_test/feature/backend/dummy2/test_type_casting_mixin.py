@@ -7,6 +7,7 @@ wrapped expression. cast() wraps and returns the new node; chained calls
 nest like any other expression.
 """
 
+from rhosocial.activerecord.backend.expression.functions import cast
 from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall
 from rhosocial.activerecord.backend.expression.core import CastExpression
 from rhosocial.activerecord.backend.expression.types import CustomType
@@ -43,7 +44,7 @@ class TestTypeCastingMixin:
     def test_literal_cast(self, dummy_dialect: DummyDialect):
         """Test Literal with type cast."""
         lit = Literal(dummy_dialect, "123")
-        expr = lit.cast(CustomType(lit.dialect, raw="INTEGER"))
+        expr = cast(dummy_dialect, lit, CustomType(lit.dialect, raw="INTEGER"))
         sql, params = expr.to_sql()
         assert sql == "CAST(? AS INTEGER)"
         assert params == ("123",)

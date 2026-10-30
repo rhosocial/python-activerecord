@@ -7,7 +7,7 @@ Every {backend} backend includes a command-line interface (CLI) for database ope
 The CLI commands fall into two categories:
 
 1. **Backend-specific commands** — `{database}`-unique operations (query, introspect, info, status)
-2. **Core inherited commands** — shared across all backends (named-expression, named-procedure, named-migration, named-connection)
+2. **Core inherited commands** — shared across all backends (named-expression, named-procedure, named-procedure-graph, named-migration, named-connection)
 
 ## Invocation
 
@@ -130,10 +130,6 @@ Inspect database metadata:
 rhosocial-activerecord-{backend} introspect tables \
     --host localhost --port {port} --database mydb
 
-# Describe a specific table
-rhosocial-activerecord-{backend} introspect table users \
-    --host localhost --port {port} --database mydb
-
 # List columns
 rhosocial-activerecord-{backend} introspect columns users \
     --host localhost --port {port} --database mydb
@@ -143,23 +139,21 @@ rhosocial-activerecord-{backend} introspect columns users \
 
 Each backend supports different introspection types:
 
-| Type | Description |
-|------|-------------|
-| `tables` | List all tables |
-| `views` | List all views |
-| `table` | Describe a specific table |
-| `columns` | List columns for a table |
-| `indexes` | List indexes for a table |
-| `foreign-keys` | List foreign keys for a table |
-| `triggers` | List triggers |
-| `database` | Database information |
+| Type | Description | Name |
+|------|-------------|------|
+| `tables` | List all tables | not accepted |
+| `views` | List all views, or describe one | optional (view) |
+| `columns` | List columns for a table | required (table) |
+| `indexes` | List indexes for a table | required (table) |
+| `foreign-keys` | List foreign keys for a table | required (table) |
+| `triggers` | List triggers, optionally for one table | optional (table) |
+| `database` | Database information | not accepted |
 
-Backend-specific types:
+Each type reports exactly one kind of catalogue item; there is no combined per-table report, so describe a table by asking for its `columns`, `indexes` and `foreign-keys` separately.
 
-| Backend | Extra Types |
-|---------|------------|
-| PostgreSQL | `extensions` |
-| Oracle | `sequences` |
+A name a type cannot use is an error (exit 2), never a silently ignored argument.
+
+Backend-specific types live in each backend's own CLI documentation — `src/rhosocial/activerecord/backend/impl/{backend}/cli/README.md` — rather than in a list here, because a second hand-maintained list is a second thing to fall behind.
 
 ### status
 
@@ -272,6 +266,16 @@ Execute named procedures:
 ```bash
 rhosocial-activerecord-{backend} named-procedure <procedure_name> \
     --host localhost --port {port} --database mydb
+```
+
+### named-procedure-graph
+
+Execute procedure graphs (DAG workflows):
+
+```bash
+rhosocial-activerecord-{backend} named-procedure-graph run <graph_name> \
+    --host localhost --port {port} --database mydb \
+    --params '{"month": "2026-04"}'
 ```
 
 ### named-migration

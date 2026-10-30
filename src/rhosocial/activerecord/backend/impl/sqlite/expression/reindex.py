@@ -2,19 +2,30 @@
 """
 SQLite-specific REINDEX expression.
 
-This module provides SQLiteReindexExpression for rebuilding indexes.
+This module provides SQLiteReindexStatement for rebuilding indexes.
 """
 
 from typing import Optional, TYPE_CHECKING
 
-from ....expression.bases import BaseExpression, SQLQueryAndParams
+from ....expression.bases import BaseExpression
 from ....expression.objects import Index, Table
 
 if TYPE_CHECKING:
     from ....dialect import SQLDialectBase
 
 
-class SQLiteReindexExpression(BaseExpression):
+class SQLiteReindexStatement(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect method that renders this expression.
+
+        Declared rather than reached through a ``to_sql`` override: the node
+        names its formatter and the dialect supplies it. A node that calls the
+        dialect itself keeps the lookup inside the node, which is the direction
+        this architecture removes.
+        """
+        return "format_reindex_statement"
     """SQLite REINDEX statement expression.
 
     REINDEX is a SQLite-specific statement for rebuilding indexes.
@@ -25,16 +36,16 @@ class SQLiteReindexExpression(BaseExpression):
 
     Examples:
         # Rebuild all indexes on a table
-        reindex = SQLiteReindexExpression(dialect, table=Table(dialect, "users"))
+        reindex = SQLiteReindexStatement(dialect, table=Table(dialect, "users"))
 
         # Rebuild a specific index
-        reindex = SQLiteReindexExpression(dialect, index=Index(dialect, "idx_users_email"))
+        reindex = SQLiteReindexStatement(dialect, index=Index(dialect, "idx_users_email"))
 
         # Rebuild all expression indexes (SQLite 3.53.0+)
-        reindex = SQLiteReindexExpression(dialect, expressions=True)
+        reindex = SQLiteReindexStatement(dialect, expressions=True)
 
         # Rebuild all indexes in the database
-        reindex = SQLiteReindexExpression(dialect)
+        reindex = SQLiteReindexStatement(dialect)
     """
 
     def __init__(
@@ -76,11 +87,3 @@ class SQLiteReindexExpression(BaseExpression):
             )
         self.table = table
         self.expressions = expressions
-
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL for REINDEX statement.
-
-        Returns:
-            Tuple of (SQL string, empty parameters tuple).
-        """
-        return self._dialect.format_reindex_statement(self)

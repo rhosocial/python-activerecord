@@ -32,10 +32,25 @@ class IntrospectionScope(Enum):
 
 
 class TableType(Enum):
-    """Table type enumeration."""
+    """Table type enumeration.
+
+    One member per kind a catalog reports, including kinds that behave like an
+    ordinary table. A materialized view is refreshed rather than written to,
+    and a partitioned table's rows live in its partitions; collapsing either
+    into ``BASE_TABLE`` loses the distinction at the only layer that saw it,
+    because nothing downstream can recover it.
+
+    Catalog spellings that are vendor-specific rather than standard --
+    BigQuery's ``CLONE`` / ``SNAPSHOT``, ClickHouse's engines, Snowflake's
+    ``MANAGED`` / ``EVENT`` tables -- stay in ``extra`` beside the member they
+    map to, not in this enum.
+    """
 
     BASE_TABLE = "BASE_TABLE"
     VIEW = "VIEW"
+    MATERIALIZED_VIEW = "MATERIALIZED_VIEW"
+    FOREIGN_TABLE = "FOREIGN_TABLE"
+    PARTITIONED_TABLE = "PARTITIONED_TABLE"
     SYSTEM_TABLE = "SYSTEM_TABLE"
     TEMPORARY = "TEMPORARY"
     EXTERNAL = "EXTERNAL"
@@ -72,7 +87,7 @@ class ReferentialAction(Enum):
 
 
 @dataclass
-class DatabaseInfo:
+class IntrospectionDatabaseInfo:
     """Database information."""
 
     name: str
@@ -98,7 +113,7 @@ class IndexColumnInfo:
 
 
 @dataclass
-class ColumnInfo:
+class IntrospectionColumnInfo:
     """Column information.
 
     ``parsed_data_type`` is the column's type as a
@@ -137,6 +152,11 @@ class ColumnInfo:
     is_unique: bool = False
     is_auto_increment: bool = False
     is_generated: bool = False
+    #: The expression a generated column is computed from, when the backend's
+    #: catalogue carries it. None means "not read", never "not generated" --
+    #: ``is_generated`` answers that. No backend fills this yet: SQLite's
+    #: ``PRAGMA table_xinfo`` reports only *that* a column is generated, and the
+    #: expression lives in the table's DDL.
     generated_expression: Optional[str] = None
     comment: Optional[str] = None
     character_maximum_length: Optional[int] = None
@@ -166,7 +186,7 @@ class IndexInfo:
 
 
 @dataclass
-class ForeignKeyInfo:
+class IntrospectionForeignKeyInfo:
     """Foreign key information."""
 
     name: str
@@ -184,7 +204,7 @@ class ForeignKeyInfo:
 
 
 @dataclass
-class ViewInfo:
+class IntrospectionViewInfo:
     """View information."""
 
     name: str
@@ -194,12 +214,12 @@ class ViewInfo:
     is_insertable: Optional[bool] = None
     check_option: Optional[str] = None
     comment: Optional[str] = None
-    columns: List[ColumnInfo] = field(default_factory=list)
+    columns: List[IntrospectionColumnInfo] = field(default_factory=list)
     extra: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
-class TriggerInfo:
+class IntrospectionTriggerInfo:
     """Trigger information."""
 
     name: str
@@ -215,7 +235,7 @@ class TriggerInfo:
 
 
 @dataclass
-class TableInfo:
+class IntrospectionTableInfo:
     """Table information."""
 
     name: str
@@ -227,7 +247,7 @@ class TableInfo:
     auto_increment: Optional[int] = None
     create_time: Optional[str] = None
     update_time: Optional[str] = None
-    columns: List[ColumnInfo] = field(default_factory=list)
+    columns: List[IntrospectionColumnInfo] = field(default_factory=list)
     indexes: List[IndexInfo] = field(default_factory=list)
-    foreign_keys: List[ForeignKeyInfo] = field(default_factory=list)
+    foreign_keys: List[IntrospectionForeignKeyInfo] = field(default_factory=list)
     extra: Dict[str, Any] = field(default_factory=dict)

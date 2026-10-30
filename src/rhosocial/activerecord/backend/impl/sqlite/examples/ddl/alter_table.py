@@ -1,3 +1,26 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.statements.ddl_alter import (  # noqa: E402
+    AddColumnAction,
+    RenameColumnAction,
+)
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
+    AlterTableStatement,
+    ColumnDefinition,
+)
+from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
+    CreateTableStatement,
+    InsertStatement,
+    ValuesSource,
+)
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
+from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
 """
 Alter table: add column, rename column, drop column.
 
@@ -7,28 +30,14 @@ Each action must be executed separately.
 
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableExpression,
-    InsertExpression,
-    ValuesSource,
-)
-from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
-from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
-)
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table_name="users",
     columns=[
@@ -36,15 +45,15 @@ create_table = CreateTableExpression(
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, 
             "name",
             TextType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
     ],
@@ -53,7 +62,7 @@ create_table = CreateTableExpression(
 sql, params = create_table.to_sql()
 backend.execute(sql, params)
 
-insert_expr = InsertExpression(
+insert_expr = InsertStatement(
     dialect=dialect,
     into=Table(dialect, 'users'),
     columns=["name"],
@@ -65,18 +74,9 @@ backend.execute(sql, params)
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    AlterTableExpression,
-    ColumnDefinition,
-)
-from rhosocial.activerecord.backend.expression.statements.ddl_alter import (  # noqa: E402
-    AddColumn,
-    RenameObject,
-)
-from rhosocial.activerecord.backend.expression.objects import Table
 
 # Add a new column (separate statement for SQLite)
-add_col_action = AddColumn(
+add_col_action = AddColumnAction(
     dialect=dialect,
     column=ColumnDefinition(dialect, 
         name="email",
@@ -84,7 +84,7 @@ add_col_action = AddColumn(
     ),
 )
 
-add_col_expr = AlterTableExpression(
+add_col_expr = AlterTableStatement(
     dialect=dialect,
     table_name="users",
     actions=[add_col_action],
@@ -97,13 +97,13 @@ backend.execute(sql, params)
 print("Column added successfully")
 
 # Rename a column (separate statement for SQLite)
-rename_action = RenameObject(
+rename_action = RenameColumnAction(
     dialect=dialect,
     old_name="name",
     new_name="full_name",
 )
 
-rename_expr = AlterTableExpression(
+rename_expr = AlterTableStatement(
     dialect=dialect,
     table_name="users",
     actions=[rename_action],

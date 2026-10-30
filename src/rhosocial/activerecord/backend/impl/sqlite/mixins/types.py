@@ -83,7 +83,13 @@ class SQLiteTypeSupportMixin(DataTypeMixin, DataTypeSupport):
         stays: it is SQLite's documented storage model, and it says nothing
         about range. Signedness is not a width, so it cannot collapse that way.
         """
-        if not getattr(data_type, "unsigned", False):
+        if not isinstance(data_type.unsigned, bool):
+            raise TypeError(
+                f"unsigned must be a bool, got "
+                f"{type(data_type.unsigned).__name__}; it "
+                f"becomes a type modifier in the rendered DDL."
+            )
+        if not data_type.unsigned:
             return
         raise UnsupportedFeatureError(
             self.name,
@@ -141,7 +147,13 @@ class SQLiteTypeSupportMixin(DataTypeMixin, DataTypeSupport):
         the grammar cannot express at all rather than a wrong value, and the two
         exceptions do not share a base class.
         """
-        if not getattr(data_type, "unsigned", False):
+        if not isinstance(data_type.unsigned, bool):
+            raise TypeError(
+                f"unsigned must be a bool, got "
+                f"{type(data_type.unsigned).__name__}; it "
+                f"becomes a type modifier in the rendered DDL."
+            )
+        if not data_type.unsigned:
             return
         raise UnsupportedFeatureError(
             self.name,
@@ -169,7 +181,7 @@ class SQLiteTypeSupportMixin(DataTypeMixin, DataTypeSupport):
         return "INTEGER", ()
 
     def format_data_type_sqlite_text(self, data_type: SQLiteTextType) -> Tuple[str, tuple]:
-        length = getattr(data_type, "length", None)
+        length = data_type.length
         return (f"TEXT({length})" if length is not None else "TEXT"), ()
 
     def format_data_type_sqlite_real(self, data_type: SQLiteRealType) -> Tuple[str, tuple]:
@@ -447,4 +459,4 @@ class SQLiteTypeSupportMixin(DataTypeMixin, DataTypeSupport):
         if self._BLOB_TYPES.match(upper):
             return SQLiteBlobType(self)
 
-        return CustomType(self, stripped)
+        return CustomType(self, raw=stripped)

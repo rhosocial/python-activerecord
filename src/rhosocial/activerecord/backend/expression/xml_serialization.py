@@ -1,34 +1,36 @@
 # src/rhosocial/activerecord/backend/expression/xml_serialization.py
 """
-Expression spec <-> XML serialization.
+XML rendering of an expression artifact.
 
-The expression instance is first converted to a spec dict (the ``{type, params}``
-structure produced by ``ExpressionSerializer.serialize``, with the reserved keys
-``__expr__`` / ``__tuple__`` / ``__value__`` / ``__vdc__``). This module encodes
-that spec dict into an XML document and decodes an XML document back into the
-identical spec dict, so ``deserialize()`` and the value codecs are reused
-unchanged.
+The artifact is produced by the JSON codec first and rendered here, then parsed
+back into the identical dict, so ``deserialize()`` is reused unchanged and the
+two renderings cannot disagree about what a node is.
 
-Mapping (symmetric, unambiguous wrapping):
     <expression>
-      <type>module.Class</type>
+      <kind>query_statement</kind>
       <params>
-        <field name="arg">…</field>
+        <field name="select">…</field>
       </params>
     </expression>
 
-…value… within a <field> is one of:
+…a value within a ``<field>`` is one of:
     scalar                  -> text + optional type attribute (int/float/bool)
-    null                    -> <null/>
-    list                    -> <list><item>…</item>…</list>
-    tuple                   -> <tuple><item>…</item>…</tuple>
-    plain dict              -> <map><field name=…>…</field>…</map>
-    {"__expr__": spec}      -> <expr><type>…</type><params>…</params></expr>
-    {"__value__": [tag, payload]} -> <value tag=…>…</value>
+    null                    -> ``<null/>``
+    list                    -> ``<list>`` with one child per element
+    tuple                   -> ``<tuple>`` with one child per element
+    plain dict              -> ``<map><field name=…>…</field>…</map>``
+    a nested node           -> also a ``<map>``: it *is* ``{kind, params}``, and
+                               the reader recognises it by that shape
 
-Every distinct Python container/type maps to a distinct element tag, so
-decode is lossless and symmetric with encode. All encoding/parsing is handled
-by the standard library ``xml.etree.ElementTree``.
+There are no reserved keys and no wrapper elements for values. A value JSON
+cannot spell -- bytes, a timedelta, a Decimal -- travels as the text its kind
+names, and the same ``<s>`` element carries it with the kind recorded in the
+node around it. A per-language dispatch would have to be reimplemented here to
+survive the round-trip, which is exactly what the format refuses to ask of any
+reader.
+
+Decoding is lossless and symmetric with encoding. All encoding/parsing is
+handled by the standard library ``xml.etree.ElementTree``.
 """
 
 from typing import Any, Dict, Optional
@@ -39,11 +41,12 @@ FIELD = "field"
 MAP = "map"
 LIST = "list"
 TUPLE_NODE = "tuple"
-TYPE_EL = "type"
+# The node's *kind*, not its class's FQN. Read by kind is why no import path
+# ever crosses the wire (§7.2). Distinct from the ``type="int"`` attribute
+# that tags a scalar's textual form -- that one is a lexical marker, not an
+# identity, and keeps its name.
+KIND_EL = "kind"
 PARAMS_EL = "params"
-EXPR_NODE = "expr"
-VALUE_NODE = "value"
-VDC_NODE = "vdc"
 NULL = "null"
 
 
@@ -71,29 +74,12 @@ def _fill_value(parent: ET.Element, value: Any) -> None:
         ET.SubElement(parent, NULL)
         return
     if isinstance(value, dict):
-        if "__expr__" in value:
-            spec = value["__expr__"]
-            node = ET.SubElement(parent, EXPR_NODE)
-            t = ET.SubElement(node, TYPE_EL)
-            t.text = spec.get("type", "")
-            _fill_dict(ET.SubElement(node, PARAMS_EL), spec.get("params", {}))
-        elif "__tuple__" in value:
-            node = ET.SubElement(parent, TUPLE_NODE)
-            for item in value["__tuple__"]:
-                _fill_value(node, item)
-        elif "__value__" in value:
-            payload = value["__value__"]
-            node = ET.SubElement(parent, VALUE_NODE)
-            node.set("tag", payload[0])
-            _fill_payload(node, payload[1])
-        elif "__vdc__" in value:
-            payload = value["__vdc__"]
-            node = ET.SubElement(parent, VDC_NODE)
-            node.set("class", payload[0])
-            _fill_dict(ET.SubElement(node, PARAMS_EL), payload[1])
-        else:
-            node = ET.SubElement(parent, MAP)
-            _fill_dict(node, value)
+        # A nested node is a plain map here too -- it *is* ``{kind, params}``,
+        # and the reader recognises it by that shape, so wrapping it would say
+        # the same thing a second and weaker way. Any other object is a mapping
+        # parameter.
+        node = ET.SubElement(parent, MAP)
+        _fill_dict(node, value)
     elif isinstance(value, (list, tuple)):
         node = ET.SubElement(parent, TUPLE_NODE if isinstance(value, tuple) else LIST)
         for item in value:
@@ -107,7 +93,7 @@ def _fill_value(parent: ET.Element, value: Any) -> None:
 
 
 def _fill_payload(node: ET.Element, payload: Any) -> None:
-    """Encode a __value__ payload directly into the value node (scalar leaf or container)."""
+    """Encode a reserved wrapper's payload into the value node (scalar or container)."""
     if isinstance(payload, (list, tuple)):
         for item in payload:
             _fill_value(node, item)
@@ -130,8 +116,8 @@ def _fill_dict(parent: ET.Element, d: Dict[str, Any]) -> None:
 def serialize_xml(spec: Dict[str, Any]) -> bytes:
     """Encode an expression spec dict into an XML document (bytes)."""
     root = ET.Element(ROOT)
-    t = ET.SubElement(root, TYPE_EL)
-    t.text = spec.get("type", "")
+    t = ET.SubElement(root, KIND_EL)
+    t.text = spec.get("kind", "")
     _fill_dict(ET.SubElement(root, PARAMS_EL), spec.get("params", {}))
     return ET.tostring(root, encoding="utf-8")
 
@@ -160,7 +146,7 @@ def _decode_value(el: ET.Element) -> Any:
     tag = el.tag
     if tag == NULL:
         return None
-    if tag not in (LIST, TUPLE_NODE, MAP, EXPR_NODE, VALUE_NODE, VDC_NODE, "s"):
+    if tag not in (LIST, TUPLE_NODE, MAP, "s"):
         # unknown tag fallback
         return None
     if tag == "s":
@@ -169,41 +155,7 @@ def _decode_value(el: ET.Element) -> Any:
         return [_decode_value(c) for c in el]
     if tag == TUPLE_NODE:
         return tuple(_decode_value(c) for c in el)
-    if tag == MAP:
-        return _decode_dict(el)
-    if tag == EXPR_NODE:
-        return {"__expr__": _decode_expr_spec(el)}
-    if tag == VALUE_NODE:
-        return {"__value__": [el.get("tag") or "", _decode_payload(el)]}
-    if tag == VDC_NODE:
-        params_el = _find_params(el)
-        return {"__vdc__": [el.get("class") or "", _decode_dict(params_el)]}
-    return None
-
-
-def _find_params(el: ET.Element) -> ET.Element:
-    for c in el:
-        if c.tag == PARAMS_EL:
-            return c
-    return el
-
-
-def _decode_payload(el: ET.Element) -> Any:
-    """Decode the payload of a <value> node (scalar or container)."""
-    children = list(el)
-    if not children:
-        return _scalar_from(_text(el), el.get("type") or "str")
-    return [_decode_value(c) for c in children]
-
-
-def _decode_expr_spec(el: ET.Element) -> Dict[str, Any]:
-    spec: Dict[str, Any] = {"type": "", "params": {}}
-    for c in el:
-        if c.tag == TYPE_EL:
-            spec["type"] = _text(c)
-        elif c.tag == PARAMS_EL:
-            spec["params"] = _decode_dict(c)
-    return spec
+    return _decode_dict(el)
 
 
 def _decode_dict(el: ET.Element) -> Dict[str, Any]:
@@ -223,10 +175,10 @@ def _decode_dict(el: ET.Element) -> Dict[str, Any]:
 def deserialize_xml(payload: bytes) -> Dict[str, Any]:
     """Decode an XML document into an expression spec dict."""
     root = ET.fromstring(payload)
-    spec: Dict[str, Any] = {"type": "", "params": {}}
+    spec: Dict[str, Any] = {"kind": "", "params": {}}
     for c in root:
-        if c.tag == TYPE_EL:
-            spec["type"] = _text(c)
+        if c.tag == KIND_EL:
+            spec["kind"] = _text(c)
         elif c.tag == PARAMS_EL:
             spec["params"] = _decode_dict(c)
     return spec

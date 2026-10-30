@@ -12,10 +12,10 @@ from .set_operation import SetOperationQuery
 from .utils import convert_qmark_placeholder
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.dialect.exceptions import UnsupportedFeatureError
-from ..backend.expression import statements, WildcardExpression, query_sources, bases
+from ..backend.expression import statements, AllColumnsWildcard, query_sources, bases
 from ..backend.expression.objects import Table
 from ..backend.expression.sources import NamedRelationRef
-from ..backend.expression.query_sources import CTEExpression
+from ..backend.expression.query_sources import CTEClause
 from ..interface import ICTEQuery, IAsyncCTEQuery, ISetOperationQuery, IAsyncSetOperationQuery, IQuery, IAsyncQuery
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -48,12 +48,12 @@ class CTEQuery(
     - Results are always dictionaries, no model instantiation occurs
 
     When constructing queries that include wildcards (SELECT *), the system
-    automatically uses WildcardExpression instead of Literal("*") to avoid
+    automatically uses AllColumnsWildcard instead of Literal("*") to avoid
     treating the wildcard as a parameter value. This ensures correct SQL generation.
     """
 
     # region Instance Attributes
-    _ctes: List[CTEExpression]
+    _ctes: List[CTEClause]
     _main_cte_name: Optional[str]
     _recursive: bool
     # endregion
@@ -88,7 +88,7 @@ class CTEQuery(
         self.where_clause = None
         self.order_by_clause = None
         self.join_clauses = []
-        self.select_columns = [WildcardExpression(self.backend().dialect)]
+        self.select_columns = [AllColumnsWildcard(self.backend().dialect)]
         self.limit_offset_clause = None
         self.group_by_having_clause = None
         self._adapt_params = True
@@ -116,7 +116,7 @@ class CTEQuery(
     def with_cte(
         self,
         name: str,
-        query: Union[str, "bases.SQLQueryAndParams", "IQuery", "statements.QueryExpression"],
+        query: Union[str, "bases.SQLQueryAndParams", "IQuery", "statements.QueryStatement"],
         columns: Optional[List[str]] = None,
         materialized: Optional[bool] = None,
     ):
@@ -125,7 +125,7 @@ class CTEQuery(
         Args:
             name: Name of the CTE
             query: The query that defines the CTE. Best practice is to use IQuery instances
-                   (such as ActiveQuery) or QueryExpression objects. Also supports raw SQL
+                   (such as ActiveQuery) or QueryStatement objects. Also supports raw SQL
                    string or SQLQueryAndParams (sql_string, params_tuple) for direct SQL input.
             columns: Optional list of column names for the CTE
             materialized: Whether the CTE should be materialized (for databases that support it)
@@ -138,8 +138,8 @@ class CTEQuery(
             active_query = MyModel.query().select('col1', 'col2').where('col1 > ?', (10,))
             cte_query.with_cte('my_cte', active_query)
 
-            # Recommended: Using QueryExpression
-            query_expr = statements.QueryExpression(dialect, ...)
+            # Recommended: Using QueryStatement
+            query_expr = statements.QueryStatement(dialect, ...)
             cte_query.with_cte('my_cte', query_expr)
 
             # Supported but for demonstration: raw SQL with parameters
@@ -151,18 +151,18 @@ class CTEQuery(
         # Convert the query to an appropriate expression
         if isinstance(query, str):
             # If query is a string, we'll need to handle it differently
-            # For now, we'll create a RawSQLExpression
-            from ..backend.expression.operators import RawSQLExpression
+            # For now, we'll create a RawSQL
+            from ..backend.expression.operators import RawSQL
 
-            query_expr = RawSQLExpression(dialect, convert_qmark_placeholder(dialect, query))
-        elif bases.is_sql_query_and_params(query):
-            # If query is a SQLQueryAndParams (str, tuple), create a RawSQLExpression with parameters
-            from ..backend.expression.operators import RawSQLExpression
+            query_expr = RawSQL(dialect, convert_qmark_placeholder(dialect, query))
+        elif bases.QueryWithParams.holds(query):
+            # If query is a SQLQueryAndParams (str, tuple), create a RawSQL with parameters
+            from ..backend.expression.operators import RawSQL
 
             sql_string, params = query
             # If params is None, use an empty tuple
             params = params if params is not None else ()
-            query_expr = RawSQLExpression(dialect, convert_qmark_placeholder(dialect, sql_string), params)
+            query_expr = RawSQL(dialect, convert_qmark_placeholder(dialect, sql_string), params)
         elif isinstance(query, IAsyncQuery):
             # Reject async queries to prevent sync/async mixing.
             # Although to_sql() is itself a sync/async-agnostic pure computation
@@ -176,27 +176,27 @@ class CTEQuery(
         elif isinstance(query, IQuery):
             # Accept sync IQuery. to_sql() is a sync, sync/async-agnostic pure
             # computation that returns SQL and params, so it is safe to inline.
-            from ..backend.expression.operators import RawSQLExpression
+            from ..backend.expression.operators import RawSQL
 
             sql, params = query.to_sql()
-            query_expr = RawSQLExpression(dialect, sql, params)
-        elif isinstance(query, statements.QueryExpression):
-            # If query is a QueryExpression, convert it to a RawSQLExpression to avoid extra parentheses
-            from ..backend.expression.operators import RawSQLExpression
+            query_expr = RawSQL(dialect, sql, params)
+        elif isinstance(query, statements.QueryStatement):
+            # If query is a QueryStatement, convert it to a RawSQL to avoid extra parentheses
+            from ..backend.expression.operators import RawSQL
 
             sql, params = query.to_sql()
-            query_expr = RawSQLExpression(dialect, sql, params)
+            query_expr = RawSQL(dialect, sql, params)
         else:
             # For other types, raise an error as they are not supported
             raise TypeError(
                 f"Query type {type(query)} is not supported in CTE. "
-                "Only str, SQLQueryAndParams, IQuery, and QueryExpression are supported."
+                "Only str, SQLQueryAndParams, IQuery, and QueryStatement are supported."
             )
 
-        # Create a CTEExpression. The query-layer ``materialized`` tri-state is
+        # Create a CTEClause. The query-layer ``materialized`` tri-state is
         # translated to the expression layer's two parameters; the AR-layer
         # exposure of the split is decided later.
-        cte_expr = query_sources.CTEExpression(
+        cte_expr = query_sources.CTEClause(
             dialect, name=name, query=query_expr, columns=columns,
             materialized=materialized is True,
             not_materialized=materialized is False,
@@ -232,7 +232,7 @@ class CTEQuery(
         return self
 
     def to_sql(self) -> "bases.SQLQueryAndParams":
-        """Generate SQL for this CTE query using WithQueryExpression.
+        """Generate SQL for this CTE query using WithStatement.
 
         Note: Unlike BaseQueryMixin.to_sql(), this method constructs a complete WITH query
         using CTE expressions. The SQL generation follows the pattern:
@@ -261,7 +261,7 @@ class CTEQuery(
             raise ValueError(f"CTE '{main_cte_name}' not found in defined CTEs: {cte_names}")
 
         # Build the main query using collected conditions from mixins
-        main_query_expr = statements.QueryExpression(
+        main_query_expr = statements.QueryStatement(
             dialect,
             select=self.select_columns,
             from_=NamedRelationRef(
@@ -274,9 +274,9 @@ class CTEQuery(
             limit_offset=self.limit_offset_clause,
         )
 
-        # Create WithQueryExpression with the CTEs and main query
-        with_query_expr = query_sources.WithQueryExpression(
-            dialect, ctes=self._ctes, main_query=main_query_expr, recursive=self._recursive
+        # Create WithStatement with the CTEs and main query
+        with_query_expr = query_sources.WithStatement(
+            dialect, ctes=self._ctes, query=main_query_expr, recursive=self._recursive
         )
         return with_query_expr.to_sql()
 
@@ -288,12 +288,12 @@ class CTEQuery(
         """
         if self._explain_enabled:
             dialect = self.backend().dialect
-            from ..backend.expression.operators import RawSQLExpression
+            from ..backend.expression.operators import RawSQL
 
-            query_expr = RawSQLExpression(dialect, *self.to_sql())
+            query_expr = RawSQL(dialect, *self.to_sql())
 
             explain_options = statements.ExplainOptions(**self._explain_options)
-            explain_expr = statements.ExplainExpression(dialect, query_expr, explain_options)
+            explain_expr = statements.ExplainStatement(dialect, query_expr, explain_options)
 
             explain_sql, explain_params = explain_expr.to_sql()
             self._log(
@@ -369,12 +369,12 @@ class AsyncCTEQuery(
     - Results are always dictionaries, no model instantiation occurs
 
     When constructing queries that include wildcards (SELECT *), the system
-    automatically uses WildcardExpression instead of Literal("*") to avoid
+    automatically uses AllColumnsWildcard instead of Literal("*") to avoid
     treating the wildcard as a parameter value. This ensures correct SQL generation.
     """
 
     # region Instance Attributes
-    _ctes: List[CTEExpression]
+    _ctes: List[CTEClause]
     _main_cte_name: Optional[str]
     _recursive: bool
     # endregion
@@ -409,7 +409,7 @@ class AsyncCTEQuery(
         self.where_clause = None
         self.order_by_clause = None
         self.join_clauses = []
-        self.select_columns = [WildcardExpression(self.backend().dialect)]
+        self.select_columns = [AllColumnsWildcard(self.backend().dialect)]
         self.limit_offset_clause = None
         self.group_by_having_clause = None
         self._adapt_params = True
@@ -437,7 +437,7 @@ class AsyncCTEQuery(
     def with_cte(
         self,
         name: str,
-        query: Union[str, "bases.SQLQueryAndParams", "IQuery", "statements.QueryExpression"],
+        query: Union[str, "bases.SQLQueryAndParams", "IQuery", "statements.QueryStatement"],
         columns: Optional[List[str]] = None,
         materialized: Optional[bool] = None,
     ):
@@ -446,7 +446,7 @@ class AsyncCTEQuery(
         Args:
             name: Name of the CTE
             query: The query that defines the CTE. Best practice is to use IQuery instances
-                   (such as ActiveQuery) or QueryExpression objects. Also supports raw SQL
+                   (such as ActiveQuery) or QueryStatement objects. Also supports raw SQL
                    string or SQLQueryAndParams (sql_string, params_tuple) for direct SQL input.
             columns: Optional list of column names for the CTE
             materialized: Whether the CTE should be materialized (for databases that support it)
@@ -459,8 +459,8 @@ class AsyncCTEQuery(
             active_query = MyModel.query().select('col1', 'col2').where('col1 > ?', (10,))
             cte_query.with_cte('my_cte', active_query)
 
-            # Recommended: Using QueryExpression
-            query_expr = statements.QueryExpression(dialect, ...)
+            # Recommended: Using QueryStatement
+            query_expr = statements.QueryStatement(dialect, ...)
             cte_query.with_cte('my_cte', query_expr)
 
             # Supported but for demonstration: raw SQL with parameters
@@ -472,27 +472,27 @@ class AsyncCTEQuery(
         # Convert the query to an appropriate expression
         if isinstance(query, str):
             # If query is a string, we'll need to handle it differently
-            # For now, we'll create a RawSQLExpression
-            from ..backend.expression.operators import RawSQLExpression
+            # For now, we'll create a RawSQL
+            from ..backend.expression.operators import RawSQL
 
-            query_expr = RawSQLExpression(dialect, convert_qmark_placeholder(dialect, query))
-        elif bases.is_sql_query_and_params(query):
-            # If query is a SQLQueryAndParams (str, tuple), create a RawSQLExpression with parameters
-            from ..backend.expression.operators import RawSQLExpression
+            query_expr = RawSQL(dialect, convert_qmark_placeholder(dialect, query))
+        elif bases.QueryWithParams.holds(query):
+            # If query is a SQLQueryAndParams (str, tuple), create a RawSQL with parameters
+            from ..backend.expression.operators import RawSQL
 
             sql_string, params = query
             # If params is None, use an empty tuple
             params = params if params is not None else ()
-            query_expr = RawSQLExpression(dialect, convert_qmark_placeholder(dialect, sql_string), params)
+            query_expr = RawSQL(dialect, convert_qmark_placeholder(dialect, sql_string), params)
         elif isinstance(query, IAsyncQuery):
             # Accept async IAsyncQuery (including AsyncActiveQuery and
             # AsyncSetOperationQuery). to_sql() is a sync, sync/async-agnostic
             # pure computation that returns SQL and params, so it is safe to
             # inline here regardless of the query's async execution surface.
-            from ..backend.expression.operators import RawSQLExpression
+            from ..backend.expression.operators import RawSQL
 
             sql, params = query.to_sql()
-            query_expr = RawSQLExpression(dialect, sql, params)
+            query_expr = RawSQL(dialect, sql, params)
         elif isinstance(query, IQuery):
             # Reject sync queries to prevent sync/async mixing. The async query
             # types are dispatched above via IAsyncQuery; anything reaching here
@@ -501,23 +501,23 @@ class AsyncCTEQuery(
                 f"AsyncCTEQuery (async) cannot accept sync query of type {type(query).__name__}. "
                 "Use CTEQuery for sync queries."
             )
-        elif isinstance(query, statements.QueryExpression):
-            # If query is a QueryExpression, convert it to a RawSQLExpression to avoid extra parentheses
-            from ..backend.expression.operators import RawSQLExpression
+        elif isinstance(query, statements.QueryStatement):
+            # If query is a QueryStatement, convert it to a RawSQL to avoid extra parentheses
+            from ..backend.expression.operators import RawSQL
 
             sql, params = query.to_sql()
-            query_expr = RawSQLExpression(dialect, sql, params)
+            query_expr = RawSQL(dialect, sql, params)
         else:
             # For other types, raise an error as they are not supported
             raise TypeError(
                 f"Query type {type(query)} is not supported in CTE. "
-                "Only str, SQLQueryAndParams, IQuery, and QueryExpression are supported."
+                "Only str, SQLQueryAndParams, IQuery, and QueryStatement are supported."
             )
 
-        # Create a CTEExpression. The query-layer ``materialized`` tri-state is
+        # Create a CTEClause. The query-layer ``materialized`` tri-state is
         # translated to the expression layer's two parameters; the AR-layer
         # exposure of the split is decided later.
-        cte_expr = query_sources.CTEExpression(
+        cte_expr = query_sources.CTEClause(
             dialect, name=name, query=query_expr, columns=columns,
             materialized=materialized is True,
             not_materialized=materialized is False,
@@ -553,7 +553,7 @@ class AsyncCTEQuery(
         return self
 
     def to_sql(self) -> "bases.SQLQueryAndParams":
-        """Generate SQL for this CTE query using WithQueryExpression.
+        """Generate SQL for this CTE query using WithStatement.
 
         Note: Unlike BaseQueryMixin.to_sql(), this method constructs a complete WITH query
         using CTE expressions. The SQL generation follows the pattern:
@@ -582,7 +582,7 @@ class AsyncCTEQuery(
             raise ValueError(f"CTE '{main_cte_name}' not found in defined CTEs: {cte_names}")
 
         # Build the main query using collected conditions from mixins
-        main_query_expr = statements.QueryExpression(
+        main_query_expr = statements.QueryStatement(
             dialect,
             select=self.select_columns,
             from_=NamedRelationRef(
@@ -595,9 +595,9 @@ class AsyncCTEQuery(
             limit_offset=self.limit_offset_clause,
         )
 
-        # Create WithQueryExpression with the CTEs and main query
-        with_query_expr = query_sources.WithQueryExpression(
-            dialect, ctes=self._ctes, main_query=main_query_expr, recursive=self._recursive
+        # Create WithStatement with the CTEs and main query
+        with_query_expr = query_sources.WithStatement(
+            dialect, ctes=self._ctes, query=main_query_expr, recursive=self._recursive
         )
         return with_query_expr.to_sql()
 
@@ -609,12 +609,12 @@ class AsyncCTEQuery(
         """
         if self._explain_enabled:
             dialect = self.backend().dialect
-            from ..backend.expression.operators import RawSQLExpression
+            from ..backend.expression.operators import RawSQL
 
-            query_expr = RawSQLExpression(dialect, *self.to_sql())
+            query_expr = RawSQL(dialect, *self.to_sql())
 
             explain_options = statements.ExplainOptions(**self._explain_options)
-            explain_expr = statements.ExplainExpression(dialect, query_expr, explain_options)
+            explain_expr = statements.ExplainStatement(dialect, query_expr, explain_options)
 
             explain_sql, explain_params = explain_expr.to_sql()
             self._log(

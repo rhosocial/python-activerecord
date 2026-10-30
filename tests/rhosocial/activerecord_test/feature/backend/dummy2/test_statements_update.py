@@ -4,9 +4,9 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    RawSQLExpression,
-    QueryExpression,
-    UpdateExpression,
+    RawSQL,
+    QueryStatement,
+    UpdateStatement,
     JoinClause,
     LogicalPredicate,
     ReturningClause,
@@ -25,9 +25,9 @@ class TestUpdateStatements:
     """Tests for the refactored UPDATE statement expressions."""
 
     def test_update_empty_assignments_raises_error(self, dummy_dialect: DummyDialect):
-        """Tests that UpdateExpression raises ValueError for empty assignments."""
+        """Tests that UpdateStatement raises ValueError for empty assignments."""
         with pytest.raises(ValueError, match="Assignments cannot be empty for an UPDATE statement."):
-            UpdateExpression(dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={})
+            UpdateStatement(dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={})
 
     @pytest.mark.parametrize(
         "table_param, assignments_param, where_param, returning_param, expected_sql, expected_params, test_id",
@@ -54,7 +54,7 @@ class TestUpdateStatements:
             ),
             pytest.param(
                 Table(None, "orders"),
-                {"status": Literal(None, "shipped"), "updated_at": RawSQLExpression(None, "CURRENT_TIMESTAMP")},
+                {"status": Literal(None, "shipped"), "updated_at": RawSQL(None, "CURRENT_TIMESTAMP")},
                 ComparisonPredicate(None, "=", Column(None, "id"), Literal(None, 1)),
                 None,
                 'UPDATE "orders" SET "status" = ?, "updated_at" = CURRENT_TIMESTAMP WHERE "id" = ?',
@@ -72,10 +72,10 @@ class TestUpdateStatements:
                 "update_with_returning",
                 id="update_with_returning",
             ),
-            # pytest.param(  # Commented out because it uses old-style parameters in QueryExpression
+            # pytest.param(  # Commented out because it uses old-style parameters in QueryStatement
             #     "accounts",
             #     {"balance": Column(None, "balance") + Literal(None, 100)},
-            #     Column(None, "user_id") == QueryExpression(None, select=[Column(None, "id")], from_="users", where=Column(None, "name") == Literal(None, "Alice")),  # noqa: E501
+            #     Column(None, "user_id") == QueryStatement(None, select=[Column(None, "id")], from_="users", where=Column(None, "name") == Literal(None, "Alice")),  # noqa: E501
             #     None,
             #     'UPDATE "accounts" SET "balance" = "balance" + ? WHERE "user_id" = (SELECT "id" FROM "users" WHERE "name" = ?)',  # noqa: E501
             #     (100, "Alice"),
@@ -126,13 +126,13 @@ class TestUpdateStatements:
                 expr.value, bases.BaseExpression
             ):  # For Literal, if value is an expression
                 set_dialect_recursive(expr.value, dialect)
-            if hasattr(expr, "subquery"):  # For QueryExpression in from_ or assignments
+            if hasattr(expr, "subquery"):  # For QueryStatement in from_ or assignments
                 set_dialect_recursive(expr.subquery, dialect)
             if isinstance(expr, NamedRelationRef):
                 # A row source renders through the object it points at,
                 # and that object needs the dialect as much as the source.
                 set_dialect_recursive(expr.relation, dialect)
-            if isinstance(expr, QueryExpression):  # For QueryExpression itself
+            if isinstance(expr, QueryStatement):  # For QueryStatement itself
                 for s_elem in expr.select:
                     set_dialect_recursive(s_elem, dialect)
                 if expr.from_:
@@ -175,7 +175,7 @@ class TestUpdateStatements:
                 set_dialect_recursive(item, dummy_dialect)
             dialect_returning_param = ReturningClause(dummy_dialect, expressions=returning_param)
 
-        update_expr = UpdateExpression(
+        update_expr = UpdateStatement(
             dummy_dialect,
             table=dialect_table_param,
             assignments=dialect_assignments,
@@ -201,7 +201,7 @@ class TestUpdateStatements:
                 id="from_table_expr",
             ),
             pytest.param(
-                QueryExpression(
+                QueryStatement(
                     None,
                     select=[Column(None, "id", "s"), Column(None, "status_val", "s")],
                     from_=NamedRelationRef(None, Table(None, "sub_users"), alias="s"),
@@ -304,13 +304,13 @@ class TestUpdateStatements:
                 expr.value, bases.BaseExpression
             ):  # For Literal, if value is an expression
                 set_dialect_recursive(expr.value, dialect)
-            if hasattr(expr, "subquery"):  # For QueryExpression in from_ or assignments
+            if hasattr(expr, "subquery"):  # For QueryStatement in from_ or assignments
                 set_dialect_recursive(expr.subquery, dialect)
             if isinstance(expr, NamedRelationRef):
                 # A row source renders through the object it points at,
                 # and that object needs the dialect as much as the source.
                 set_dialect_recursive(expr.relation, dialect)
-            if isinstance(expr, QueryExpression):  # For QueryExpression itself
+            if isinstance(expr, QueryStatement):  # For QueryStatement itself
                 for s_elem in expr.select:
                     set_dialect_recursive(s_elem, dialect)
                 if expr.from_:
@@ -327,8 +327,8 @@ class TestUpdateStatements:
                 set_dialect_recursive(expr.right_table, dialect)
                 set_dialect_recursive(expr.condition, dialect)
 
-            if isinstance(expr, LogicalPredicate):  # LogicalPredicate has 'predicates'
-                for pred in expr.predicates:
+            if isinstance(expr, LogicalPredicate):  # LogicalPredicate has 'operands'
+                for pred in expr.operands:
                     set_dialect_recursive(pred, dialect)
 
         # Apply dialect recursively to from_param
@@ -352,7 +352,7 @@ class TestUpdateStatements:
 
             where_clause_param = WhereClause(dummy_dialect, condition=dialect_where_to_use)
 
-        update_expr = UpdateExpression(
+        update_expr = UpdateStatement(
             dummy_dialect,
             # The UPDATE names the relation it writes to, so the target is an object.
             table=(
@@ -374,23 +374,23 @@ class TestUpdateStatements:
     # endregion FROM Clause Tests
 
     def test_update_from_unsupported_source_type_raises_type_error(self, dummy_dialect: DummyDialect):
-        """Tests that UpdateExpression raises TypeError for unsupported FROM source types."""
+        """Tests that UpdateStatement raises TypeError for unsupported FROM source types."""
         unsupported_source = 123  # An integer, not a string or BaseExpression
 
         assignments = {"name": Literal(dummy_dialect, "New Name")}
         where = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 1))
 
         with pytest.raises(TypeError, match=r"Unsupported FROM source type: <class 'int'>"):
-            update_expr = UpdateExpression(
+            update_expr = UpdateStatement(
                 dummy_dialect, table=Table(dummy_dialect, 'users'), assignments=assignments, from_=unsupported_source, where=where
             )
             update_expr.to_sql()
 
     def test_update_expression_without_where_clause(self, dummy_dialect: DummyDialect):
-        """Test UpdateExpression with no WHERE clause to cover the else branch where where=None."""
+        """Test UpdateStatement with no WHERE clause to cover the else branch where where=None."""
 
-        # Create an UpdateExpression without a WHERE clause
-        update_expr = UpdateExpression(
+        # Create an UpdateStatement without a WHERE clause
+        update_expr = UpdateStatement(
             dummy_dialect,
             table=Table(dummy_dialect, 'users'),
             assignments={"status": Literal(dummy_dialect, "updated")},  # No where clause provided
@@ -402,7 +402,7 @@ class TestUpdateStatements:
         assert params == ("updated",)
 
     def test_update_expression_with_where_clause_object(self, dummy_dialect: DummyDialect):
-        """Test UpdateExpression with a WhereClause object to cover the isinstance(where, WhereClause) branch."""
+        """Test UpdateStatement with a WhereClause object to cover the isinstance(where, WhereClause) branch."""
         from rhosocial.activerecord.backend.expression.query_parts import WhereClause
 
         # Create a WhereClause object using comparison operator
@@ -413,8 +413,8 @@ class TestUpdateStatements:
             ),
         )
 
-        # Create an UpdateExpression with the WhereClause object
-        update_expr = UpdateExpression(
+        # Create an UpdateStatement with the WhereClause object
+        update_expr = UpdateStatement(
             dummy_dialect,
             table=Table(dummy_dialect, 'users'),
             assignments={"last_updated": Literal(dummy_dialect, "2023-01-01")},
@@ -444,7 +444,7 @@ class TestUpdateStatements:
         else:
             raise ValueError(f"Unsupported LIKE operation: {op}")
 
-        update_expr = UpdateExpression(
+        update_expr = UpdateStatement(
             dummy_dialect,
             table=Table(dummy_dialect, 'users'),
             assignments={"status": Literal(dummy_dialect, "active")},
@@ -466,7 +466,7 @@ class TestUpdateStatements:
         age_condition = age_col > Literal(dummy_dialect, 18)
         combined_condition = like_condition & age_condition
 
-        update_expr = UpdateExpression(
+        update_expr = UpdateStatement(
             dummy_dialect,
             table=Table(dummy_dialect, 'users'),
             assignments={"last_updated": Literal(dummy_dialect, "2023-01-01")},
@@ -484,8 +484,8 @@ class TestUpdateStatements:
     # so we don't validate its type in the expression validation.
 
     def test_update_expression_invalid_assignments_type(self, dummy_dialect: DummyDialect):
-        """Tests that UpdateExpression raises TypeError for invalid assignments parameter type."""
-        update_expr = UpdateExpression(
+        """Tests that UpdateStatement raises TypeError for invalid assignments parameter type."""
+        update_expr = UpdateStatement(
             dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Literal(dummy_dialect, "test")}
         )
         # Manually assign invalid type to trigger validation error
@@ -495,8 +495,8 @@ class TestUpdateStatements:
             update_expr.validate(strict=True)
 
     def test_update_expression_invalid_from_type(self, dummy_dialect: DummyDialect):
-        """Tests that UpdateExpression raises TypeError for invalid from_ parameter type."""
-        update_expr = UpdateExpression(
+        """Tests that UpdateStatement raises TypeError for invalid from_ parameter type."""
+        update_expr = UpdateStatement(
             dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Literal(dummy_dialect, "test")}
         )
         # Manually assign invalid type to trigger validation error
@@ -504,13 +504,13 @@ class TestUpdateStatements:
 
         with pytest.raises(
             TypeError,
-            match=r"from_ must be one of: str, NamedRelationRef, Subquery, SetOperationExpression, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class 'int'>",  # noqa: E501
+            match=r"from_ must be one of: str, NamedRelationRef, Subquery, SetOperation, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class 'int'>",  # noqa: E501
         ):
             update_expr.validate(strict=True)
 
     def test_update_expression_invalid_where_type(self, dummy_dialect: DummyDialect):
-        """Tests that UpdateExpression raises TypeError for invalid where parameter type."""
-        update_expr = UpdateExpression(
+        """Tests that UpdateStatement raises TypeError for invalid where parameter type."""
+        update_expr = UpdateStatement(
             dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Literal(dummy_dialect, "test")}
         )
         # Manually assign invalid type to trigger validation error
@@ -520,8 +520,8 @@ class TestUpdateStatements:
             update_expr.validate(strict=True)
 
     def test_update_expression_invalid_returning_type(self, dummy_dialect: DummyDialect):
-        """Tests that UpdateExpression raises TypeError for invalid returning parameter type."""
-        update_expr = UpdateExpression(
+        """Tests that UpdateStatement raises TypeError for invalid returning parameter type."""
+        update_expr = UpdateStatement(
             dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Literal(dummy_dialect, "test")}
         )
         # Manually assign invalid type to trigger validation error
@@ -531,8 +531,8 @@ class TestUpdateStatements:
             update_expr.validate(strict=True)
 
     def test_update_expression_validate_with_strict_false(self, dummy_dialect: DummyDialect):
-        """Tests that UpdateExpression.validate with strict=False skips validation."""
-        update_expr = UpdateExpression(
+        """Tests that UpdateStatement.validate with strict=False skips validation."""
+        update_expr = UpdateStatement(
             dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Literal(dummy_dialect, "test")}
         )
         # Manually assign invalid type that would normally cause an error
@@ -542,24 +542,24 @@ class TestUpdateStatements:
         update_expr.validate(strict=False)  # Should not raise any exception
 
         # Also test with valid parameters and strict=False
-        update_expr_valid = UpdateExpression(
+        update_expr_valid = UpdateStatement(
             dummy_dialect,
             table=Table(dummy_dialect, 'products'),
             assignments={"price": Literal(dummy_dialect, 19.99)},
-            where=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active"),
+            where=StringColumn(dummy_dialect, "status") == Literal(dummy_dialect, "active"),
         )
         update_expr_valid.validate(strict=False)  # Should not raise any exception
         assert True  # Just to ensure the test passes
 
     def test_update_expression_from_complex_type_validation_branches(self, dummy_dialect: DummyDialect):
-        """Tests UpdateExpression.from_ parameter validation to cover all branches in the validate method.
+        """Tests UpdateStatement.from_ parameter validation to cover all branches in the validate method.
 
-        This test covers the complex validation logic in UpdateExpression.validate() where:
+        This test covers the complex validation logic in UpdateStatement.validate() where:
         1. self.from_ is not None
         2. not isinstance(self.from_, valid_types) and not isinstance(self.from_, list) is True
         3. The type name check 'from_type_name not in valid_type_names' occurs
         """
-        update_expr = UpdateExpression(
+        update_expr = UpdateStatement(
             dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Literal(dummy_dialect, "test")}
         )
 
@@ -576,12 +576,12 @@ class TestUpdateStatements:
 
         with pytest.raises(
             TypeError,
-            match=r"from_ must be one of: str, NamedRelationRef, Subquery, SetOperationExpression, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class '.*MockInvalidType'>",  # noqa: E501
+            match=r"from_ must be one of: str, NamedRelationRef, Subquery, SetOperation, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class '.*MockInvalidType'>",  # noqa: E501
         ):
             update_expr.validate(strict=True)
 
     def test_update_expression_from_valid_complex_type_validation(self, dummy_dialect: DummyDialect):
-        """Tests UpdateExpression.from_ parameter validation for valid complex types.
+        """Tests UpdateStatement.from_ parameter validation for valid complex types.
 
         This test covers the case where:
         1. self.from_ is not None
@@ -589,27 +589,27 @@ class TestUpdateStatements:
         3. The type name check 'from_type_name not in valid_type_names' is False (type name IS in the list)
         """
         # Create an update expression with valid parameters
-        update_expr = UpdateExpression(
+        update_expr = UpdateStatement(
             dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Literal(dummy_dialect, "test")}
         )
 
-        # Create a mock SetOperationExpression-like class that has a name in valid_type_names
-        class SetOperationExpression:
+        # Create a mock SetOperation-like class that has a name in valid_type_names
+        class SetOperation:
             pass
 
-        # This should not raise an error because the type name "SetOperationExpression" is in valid_type_names
-        update_expr.from_ = SetOperationExpression()
+        # This should not raise an error because the type name "SetOperation" is in valid_type_names
+        update_expr.from_ = SetOperation()
 
         # This should pass validation since the type name is in the valid list
         update_expr.validate(strict=True)  # Should not raise any exception
 
     def test_update_expression_from_none_validation(self, dummy_dialect: DummyDialect):
-        """Tests UpdateExpression.from_ parameter validation when from_ is None.
+        """Tests UpdateStatement.from_ parameter validation when from_ is None.
 
         This covers the case where:
         1. self.from_ is None (outer condition is False, so inner validation is skipped)
         """
-        update_expr = UpdateExpression(
+        update_expr = UpdateStatement(
             dummy_dialect,
             table=Table(dummy_dialect, 'users'),
             assignments={"name": Literal(dummy_dialect, "test")},
@@ -620,13 +620,13 @@ class TestUpdateStatements:
         update_expr.validate(strict=True)  # Should not raise any exception
 
     def test_update_expression_from_valid_type_validation(self, dummy_dialect: DummyDialect):
-        """Tests UpdateExpression.from_ parameter validation with valid types.
+        """Tests UpdateStatement.from_ parameter validation with valid types.
 
         This covers the case where:
         1. self.from_ is not None
         2. isinstance(self.from_, valid_types) is True (so AND expression short-circuits)
         """
-        update_expr = UpdateExpression(
+        update_expr = UpdateStatement(
             dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Literal(dummy_dialect, "test")}
         )
 
@@ -637,13 +637,13 @@ class TestUpdateStatements:
         update_expr.validate(strict=True)  # Should not raise any exception
 
     def test_update_expression_from_list_validation(self, dummy_dialect: DummyDialect):
-        """Tests UpdateExpression.from_ parameter validation with list type.
+        """Tests UpdateStatement.from_ parameter validation with list type.
 
         This covers the case where:
         1. self.from_ is not None
         2. isinstance(self.from_, valid_types) is False AND isinstance(self.from_, list) is True
         """
-        update_expr = UpdateExpression(
+        update_expr = UpdateStatement(
             dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Literal(dummy_dialect, "test")}
         )
 

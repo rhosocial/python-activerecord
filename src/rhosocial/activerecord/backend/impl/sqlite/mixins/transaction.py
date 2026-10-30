@@ -8,7 +8,7 @@ This module provides the SQLiteTransactionMixin class.
 from typing import Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from rhosocial.activerecord.backend.expression.transaction import BeginTransactionExpression
+    from rhosocial.activerecord.backend.expression.transaction import BeginTransactionStatement
 
 class SQLiteTransactionMixin:
     """SQLite transaction control formatting."""
@@ -37,7 +37,7 @@ class SQLiteTransactionMixin:
         """SQLite supports savepoints."""
         return True
 
-    def format_begin_transaction(self, expr: "BeginTransactionExpression") -> Tuple[str, tuple]:
+    def format_begin_transaction_statement(self, expr: "BeginTransactionStatement") -> Tuple[str, tuple]:
         """Format BEGIN TRANSACTION statement for SQLite.
 
         SQLite has no DEFERRABLE transaction mode; a requested spelling is

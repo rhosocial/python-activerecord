@@ -7,6 +7,7 @@ from ..bases import BaseExpression
 from ..core import Literal
 from ..query_parts import OrderByClause
 from ..xml import (
+    PassingClause,
     XMLAggExpression,
     XMLAttribute,
     XMLAttributesExpression,
@@ -14,7 +15,7 @@ from ..xml import (
     XMLConcatExpression,
     XMLElementExpression,
     XMLEmptyHandlingOption,
-    XMLExistsExpression,
+    XMLExistsPredicate,
     XMLForestExpression,
     XMLForestItem,
     XMLParseDocumentType,
@@ -33,6 +34,7 @@ from ..xml import (
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.dialect import SQLDialectBase
+    from rhosocial.activerecord.backend.expression.types import DataType
 
 XMLValue = Union[str, BaseExpression]
 XMLNamedValue = Tuple[XMLValue, Optional[str]]
@@ -62,11 +64,25 @@ def xmlparse(
 def xmlserialize(
     dialect: "SQLDialectBase",
     content: XMLValue,
-    target_type: str,
+    target_type: "DataType",
     document: bool = False,
     preserve_whitespace: bool = False,
 ) -> XMLSerializeExpression:
-    """Create a SQL/XML XMLSERIALIZE expression."""
+    """Create a SQL/XML XMLSERIALIZE expression.
+
+    Args:
+        dialect: The dialect the expression belongs to.
+        content: The XML value to serialize.
+        target_type: The character type the result is cast to. A type
+            position holds a type: ``TextType(dialect)`` for a built-in, or
+            ``CustomType(dialect, "name")`` for a name this package does not
+            model.
+        document: Whether the result is a document rather than content.
+        preserve_whitespace: Whether whitespace is preserved.
+
+    Returns:
+        The XMLSERIALIZE expression.
+    """
     document_type = XMLSerializeDocumentType.DOCUMENT if document else XMLSerializeDocumentType.CONTENT
     whitespace_option = XMLWhitespaceOption.PRESERVE if preserve_whitespace else None
     return XMLSerializeExpression(
@@ -170,6 +186,37 @@ def xmlagg(
     return XMLAggExpression(dialect, _as_expression(dialect, expression), order_by)
 
 
+def passing_clause(
+    dialect: "SQLDialectBase",
+    passing: Optional[Sequence[XMLValue]] = None,
+    mechanism: Optional[XMLPassingMechanism] = None,
+) -> Optional[PassingClause]:
+    """Create the SQL/XML ``PASSING`` clause, or ``None`` when there is none.
+
+    The querying XML expressions take a ready-made clause rather than the
+    unpacked pieces, so callers that build one of those nodes directly can
+    use this factory too. The unpacking lives here instead of at each call
+    site because the three querying factories share it.
+
+    Args:
+        dialect: The SQL dialect the clause renders against.
+        passing: Values to pass into the XML function.
+        mechanism: Optional mechanism (``BY VALUE`` / ``BY REF``).
+
+    Returns:
+        A :class:`PassingClause`, or ``None`` when neither value is given —
+        an absent clause rather than an empty one, so the composing
+        formatters need no empty-clause special case.
+    """
+    if not passing and mechanism is None:
+        return None
+    return PassingClause(
+        dialect,
+        [_as_expression(dialect, item) for item in passing or []],
+        mechanism,
+    )
+
+
 def xmlquery(
     dialect: "SQLDialectBase",
     query: XMLValue,
@@ -182,8 +229,7 @@ def xmlquery(
     return XMLQueryExpression(
         dialect,
         _as_expression(dialect, query),
-        [_as_expression(dialect, item) for item in passing or []],
-        passing_mechanism,
+        passing_clause(dialect, passing, passing_mechanism),
         returning_content,
         empty_handling,
     )
@@ -194,13 +240,12 @@ def xmlexists(
     query: XMLValue,
     passing: Optional[Sequence[XMLValue]] = None,
     passing_mechanism: Optional[XMLPassingMechanism] = None,
-) -> XMLExistsExpression:
+) -> XMLExistsPredicate:
     """Create a SQL/XML XMLEXISTS predicate."""
-    return XMLExistsExpression(
+    return XMLExistsPredicate(
         dialect,
         _as_expression(dialect, query),
-        [_as_expression(dialect, item) for item in passing or []],
-        passing_mechanism,
+        passing_clause(dialect, passing, passing_mechanism),
     )
 
 
@@ -216,6 +261,5 @@ def xmltable(
         dialect,
         _as_expression(dialect, row_pattern),
         columns,
-        [_as_expression(dialect, item) for item in passing or []],
-        passing_mechanism,
+        passing_clause(dialect, passing, passing_mechanism),
     )

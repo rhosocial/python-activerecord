@@ -8,67 +8,96 @@ lateral expressions, and common table expressions.
 """
 
 from dataclasses import dataclass
-from typing import Tuple, Any, List, Optional, Union, TYPE_CHECKING
+from enum import Enum
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
 
-from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression
+from .bases import BaseExpression, SQLQueryAndParams, SQLValue
 from .core import Subquery
 from .mixins import ArithmeticMixin, ComparisonMixin
+from .query_parts import normalize_join_type
 from .sources import TableSource
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
-    from .query_parts import OrderByClause, LimitOffsetClause, ForUpdateClause
+    from .types import DataType
 
 
-class SetOperationExpression(TableSource, BaseExpression):
-    """Represents a set operation (UNION, INTERSECT, EXCEPT) between two queries.
+class SetOperationKind(str, Enum):
+    """The compound-SELECT word forms. The whole legal set, closed.
 
-    This class is commonly used for:
-    1. Combining results from multiple queries
-    2. Creating recursive CTEs (with UNION ALL)
-    3. Removing duplicates (UNION) or keeping all rows (UNION ALL)
-    4. Finding common rows (INTERSECT) or differences (EXCEPT)
+    ``str`` as the base so a member *is* its word: the word form is the wire
+    contract for ``SetOperation.op``, and a member compares and serialises as
+    the plain string it is, so nothing downstream has to unwrap it.
+
+    The SQL keyword is **not** here. A keyword is a dialect-layer product and
+    the node never carries one; the dialect maps these members onto whatever it
+    spells them with.
+    """
+
+    UNION = "union"
+    UNION_ALL = "union_all"
+    INTERSECT = "intersect"
+    EXCEPT = "except"
+
+    #: A member *is* the word it carries: str() and f-string interpolation must
+    #: yield the value, not ``ClassName.MEMBER``, or the rendered SQL and the
+    #: artifact would carry the Python spelling. ``(str, Enum)`` alone does not
+    #: give that -- ``Enum.__str__`` wins -- so it is stated here once.
+    __str__ = str.__str__
+
+    @classmethod
+    def parse(cls, word: str) -> "SetOperationKind":
+        """The member for *word*, raising ``ValueError`` if it is not one.
+
+        Case and surrounding space are accepted because a caller writing SQL-ish
+        text should not have to know the canonical spelling to get it right; the
+        stored form is always the member.
+        """
+        try:
+            return cls(word.strip().lower())
+        except ValueError:
+            raise ValueError(
+                f"op must be one of {', '.join(m.value for m in cls)} (word forms), "
+                f"got {word!r}"
+            ) from None
+
+
+class SetOperation(TableSource, BaseExpression):
+    """A set operation (UNION, INTERSECT, EXCEPT) between two query sides.
+
+    The node is exactly the wire contract: ``op`` + ``left`` + ``right``.
+    ``op`` carries the **word form** of the operation (``union`` / ``union_all``
+    / ``intersect`` / ``except``) — SQL symbols are dialect-layer products and
+    never enter the node; the ``all_``/``distinct`` flag pair of the former
+    ``SetOperationStatement`` is folded into the ``union_all`` word form. The
+    dialect formatter maps the word back to the spelling it gates behind the
+    ``supports_union`` / ``supports_union_all`` / ``supports_intersect`` /
+    ``supports_except`` probes.
+
+    Ordering, row limiting and locking of a compound query belong to the
+    statement-level clauses around the set operation, not to this node — the
+    former trailing-clause parameters are gone.
 
     Example Usage:
         # Basic UNION operation
-        union_expr = SetOperationExpression(
+        union_expr = SetOperation(
             dialect,
-            left=QueryExpression(
+            op=SetOperationKind.UNION,
+            left=QueryStatement(
                 dialect,
                 select=[Column(dialect, "id"), Column(dialect, "name")],
                 from_=NamedRelationRef(dialect, Table(dialect, "users"))
             ),
-            right=QueryExpression(
+            right=QueryStatement(
                 dialect,
                 select=[Column(dialect, "id"), Column(dialect, "name")],
                 from_=NamedRelationRef(dialect, Table(dialect, "customers"))
             ),
-            operation="UNION",
-            alias="combined_users"
-        )
-
-        # UNION operation with additional clauses
-        union_expr_with_order = SetOperationExpression(
-            dialect,
-            left=QueryExpression(
-                dialect,
-                select=[Column(dialect, "id"), Column(dialect, "name")],
-                from_=NamedRelationRef(dialect, Table(dialect, "users"))
-            ),
-            right=QueryExpression(
-                dialect,
-                select=[Column(dialect, "id"), Column(dialect, "name")],
-                from_=NamedRelationRef(dialect, Table(dialect, "customers"))
-            ),
-            operation="UNION",
-            alias="combined_users",
-            order_by_clause=OrderByClause(dialect, [Column(dialect, "id")]),
-            limit_offset_clause=LimitOffsetClause(dialect, limit=10)
         )
 
         # Recursive CTE example using UNION ALL (essential for iterative algorithms like Sudoku solver)
         # Initial query part - base case for recursion
-        initial_query = QueryExpression(
+        initial_query = QueryStatement(
             dialect,
             select=[
                 Column(dialect, "id"),
@@ -84,7 +113,7 @@ class SetOperationExpression(TableSource, BaseExpression):
         )
 
         # Recursive query part - self-referencing query
-        recursive_query = QueryExpression(
+        recursive_query = QueryStatement(
             dialect,
             select=[
                 Column(dialect, "n.id"),
@@ -107,66 +136,49 @@ class SetOperationExpression(TableSource, BaseExpression):
         )
 
         # Combine initial and recursive parts with UNION ALL for recursive CTE
-        recursive_union = SetOperationExpression(
+        recursive_union = SetOperation(
             dialect,
+            op=SetOperationKind.UNION_ALL,
             left=initial_query,
             right=recursive_query,
-            operation="UNION ALL",
-            alias="recursive_result"
         )
     """
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
+        op: SetOperationKind,
         left: "BaseExpression",
         right: "BaseExpression",
-        operation: str,
-        alias: Optional[str] = None,
-        all_: bool = False,
-        distinct: bool = False,
-        order_by_clause: Optional["OrderByClause"] = None,
-        limit_offset_clause: Optional["LimitOffsetClause"] = None,
-        for_update_clause: Optional["ForUpdateClause"] = None,
     ):
         """
-        Initialize a SetOperationExpression.
+        Initialize a SetOperation.
 
         Args:
             dialect: The SQL dialect to use for formatting
+            op: The compound operation, as a :class:`SetOperationKind` member.
+                A bare word is accepted and parsed; ``all_``/``distinct``
+                variants are expressed by ``UNION_ALL``.
             left: The left-hand query expression
             right: The right-hand query expression
-            operation: The set operation (e.g., "UNION", "INTERSECT", "EXCEPT")
-            alias: Optional alias for the set operation result
-            all_: Whether to spell the ALL variant (e.g., UNION ALL)
-            distinct: Whether to spell the DISTINCT variant (e.g., UNION DISTINCT)
-            order_by_clause: Optional ORDER BY clause to apply to the result set
-            limit_offset_clause: Optional LIMIT/OFFSET clause to apply to the result set
-            for_update_clause: Optional FOR UPDATE clause to apply to the result set
 
         Raises:
-            ValueError: If both ``all_`` and ``distinct`` are set.
+            ValueError: If ``op`` is not one of the four word forms.
         """
         super().__init__(dialect)
-        if all_ and distinct:
-            raise ValueError("all_ and distinct are mutually exclusive options")
+        self.op = (
+            SetOperationKind(op) if isinstance(op, SetOperationKind) else SetOperationKind.parse(op)
+        )
         self.left = left
         self.right = right
-        self.operation = operation
-        self.alias = alias
-        self.all_ = all_
-        self.distinct = distinct
-        self.order_by_clause = order_by_clause
-        self.limit_offset_clause = limit_offset_clause
-        self.for_update_clause = for_update_clause
 
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_set_operation_expression"
+        return "format_set_operation"
 
 
-class CTEExpression(BaseExpression):
+class CTEClause(BaseExpression):
     """Represents a Common Table Expression (CTE) expression (WITH ... AS ...).
 
     Common Table Expressions (CTEs) allow defining temporary result sets that can be referenced
@@ -175,10 +187,10 @@ class CTEExpression(BaseExpression):
 
     Example Usage:
         # Basic CTE
-        cte = CTEExpression(
+        cte = CTEClause(
             dialect,
             name="monthly_sales",
-            query=QueryExpression(
+            query=QueryStatement(
                 dialect,
                 select=[Column(dialect, "month"), FunctionCall(dialect, "SUM", Column(dialect, "amount"))],
                 from_=NamedRelationRef(dialect, Table(dialect, "sales")),
@@ -195,7 +207,7 @@ class CTEExpression(BaseExpression):
             column_names=["value", "level"]
         )
 
-        recursive_query = QueryExpression(
+        recursive_query = QueryStatement(
             dialect,
             select=[
                 FunctionCall(dialect, "CAST", Column(dialect, "value") + Literal(dialect, 1), "TEXT"),
@@ -205,32 +217,31 @@ class CTEExpression(BaseExpression):
             where=(Column(dialect, "level") < Literal(dialect, 10))
         )
 
-        # Combine using SetOperationExpression for recursive CTE
-        combined_query = SetOperationExpression(
+        # Combine using SetOperation for recursive CTE
+        combined_query = SetOperation(
             dialect,
+            op=SetOperationKind.UNION_ALL,
             left=initial_values,
             right=recursive_query,
-            operation="UNION ALL",
-            alias="recursive_union"
         )
 
-        # To create a recursive CTE, use WithQueryExpression with recursive=True
-        cte = CTEExpression(
+        # To create a recursive CTE, use WithStatement with recursive=True
+        cte = CTEClause(
             dialect,
             name="counter",
             query=combined_query,
             columns=["next_value", "next_level"]
         )
 
-        # Use WithQueryExpression to create the recursive query
-        recursive_query = WithQueryExpression(
+        # Use WithStatement to create the recursive query
+        recursive_query = WithStatement(
             dialect,
-            ctes=[cte],
-            main_query=QueryExpression(
+            query=QueryStatement(
                 dialect,
                 select=[Column(dialect, "next_value"), Column(dialect, "next_level")],
                 from_=NamedRelationRef(dialect, Table(dialect, "counter"))
             ),
+            ctes=[cte],
             recursive=True
         )
     """
@@ -245,13 +256,13 @@ class CTEExpression(BaseExpression):
         not_materialized: bool = False,
     ):
         """
-        Initialize a CTEExpression.
+        Initialize a CTEClause.
 
         Args:
             dialect: The SQL dialect to use for formatting
             name: The name of the CTE
             query: The query that defines the CTE. Can be:
-                   - A BaseExpression instance (e.g., QueryExpression, Subquery)
+                   - A BaseExpression instance (e.g., QueryStatement, Subquery)
                    - A tuple of (sql_string, params) where params can be a list or tuple,
                      though using a tuple is preferred (params will be converted to tuple if list)
             columns: Optional list of column names for the CTE
@@ -273,23 +284,42 @@ class CTEExpression(BaseExpression):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_cte_expression"
+        return "format_cte_clause"
 
 
-class WithQueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
-    """Represents a query with Common Table Expressions (WITH clause).
+class WithStatement(ArithmeticMixin, ComparisonMixin, SQLValue):
+    """A query with a ``WITH`` clause: ``WITH [RECURSIVE] cte [, ...] query``.
 
-    This class allows combining multiple CTEs with a main query. It's commonly used for:
-    1. Organizing complex queries with multiple temporary result sets
-    2. Creating recursive queries (with RECURSIVE keyword)
-    3. Improving query readability and maintainability
+    The executable unit of the production -- what ``to_sql()`` yields can
+    be sent to the database as is. The ``WITH`` keyword itself is grammar
+    structure the formatter emits, not a node; the grammar's other half,
+    the query the clause precedes, is :attr:`query`, a sibling expression
+    rendered by its own formatter.
+
+    The ``WITH`` side is held here rather than in a separate clause node:
+    apart from ``ctes`` and ``recursive`` it has no state, lifecycle, or
+    probe family of its own, so a clause node would only add an indirection
+    over the same data. A single :class:`CTEClause` does earn a node -- it
+    holds independent data (name, columns, materialization hints, its own
+    query), consults its own probes, and renders on its own.
+
+    Rendered by the dialect's public ``format_with_statement``, which
+    gates on the ``supports_basic_cte`` / ``supports_recursive_cte`` probes
+    where the construct is spelled instead of leaving them decorative. With
+    no CTE definitions the statement renders the bare query, so a plain
+    query needs no wrapper at all. The former ``WithQueryExpression`` --
+    whose only difference was the class name -- is retired.
+
+    The value protocols (``SQLValue`` and the arithmetic /
+    comparison mixins) stay because a WITH query is still a query: it can
+    be a set-operation operand or the body of another CTE.
 
     Example Usage:
         # Create multiple CTEs
-        cte1 = CTEExpression(
+        cte1 = CTEClause(
             dialect,
             name="users_with_orders",
-            query=QueryExpression(
+            query=QueryStatement(
                 dialect,
                 select=[
                     Column(dialect, "u.id"),
@@ -304,10 +334,10 @@ class WithQueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
             columns=["user_id", "user_name", "order_count"]
         )
 
-        cte2 = CTEExpression(
+        cte2 = CTEClause(
             dialect,
             name="top_users",
-            query=QueryExpression(
+            query=QueryStatement(
                 dialect,
                 select=[Column(dialect, "user_id"), Column(dialect, "user_name")],
                 from_=[NamedRelationRef(dialect, Table(dialect, "users_with_orders"))],
@@ -317,37 +347,37 @@ class WithQueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         )
 
         # Main query that uses the CTEs
-        main_query = QueryExpression(
+        main_query = QueryStatement(
             dialect,
             select=[Column(dialect, "tu.name"), Column(dialect, "uwo.order_count")],
             from_=[NamedRelationRef(dialect, Table(dialect, "top_users"), alias="tu")],
             where=ComparisonPredicate(dialect, '=', Column(dialect, "tu.user_id"), Column(dialect, "uwo.user_id"))
         )
 
-        # Combine everything with WithQueryExpression
-        with_query = WithQueryExpression(
+        # Compose the CTE definitions with the query into one statement
+        with_query = WithStatement(
             dialect,
+            query=main_query,
             ctes=[cte1, cte2],
-            main_query=main_query
         )
     """
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        ctes: List[CTEExpression],
-        main_query: "BaseExpression",
+        query: "BaseExpression",
+        ctes: List[CTEClause] = (),
         recursive: bool = False,
     ):
         super().__init__(dialect)
-        self.ctes = ctes
-        self.main_query = main_query
+        self.query = query
+        self.ctes = list(ctes)
         self.recursive = recursive
 
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_with_query_expression"
+        return "format_with_statement"
 
 
 class ValuesExpression(TableSource, BaseExpression):
@@ -420,7 +450,7 @@ class TableFunctionExpression(TableSource, BaseExpression):
         table_func = TableFunctionExpression(
             dialect,
             "UNNEST",
-            ArrayExpression(dialect, [1, 2, 3]),
+            ArrayOperation(dialect, [1, 2, 3]),
             alias="numbers",
             column_names=["num"]
         )
@@ -429,7 +459,7 @@ class TableFunctionExpression(TableSource, BaseExpression):
         table_func = TableFunctionExpression(
             dialect,
             "UNNEST",
-            ArrayExpression(dialect, [1, 2, 3]),
+            ArrayOperation(dialect, [1, 2, 3]),
             column_names=["num"]
         )
     """
@@ -443,7 +473,12 @@ class TableFunctionExpression(TableSource, BaseExpression):
         column_names: Optional[List[str]] = None,
     ):
         super().__init__(dialect)
-        self.func_name, self.args, self.alias, self.column_names = func_name, list(args), alias, column_names
+        self.func_name, self.args, self.alias, self.column_names = (
+            func_name,
+            list(args),
+            alias,
+            column_names,
+        )
 
     @property
     def format_method(self) -> str:
@@ -474,10 +509,14 @@ class LateralExpression(TableSource, BaseExpression):
         dialect: "SQLDialectBase",
         expression: Union["Subquery", "TableFunctionExpression"],
         alias: Optional[str] = None,
-        join_type: str = "CROSS",
+        join_type: Any = "CROSS",
     ):
         super().__init__(dialect)
-        self.expression, self.alias, self.join_type = expression, alias, join_type
+        # Same vocabulary as JoinClause: a member, so the artifact carries the
+        # word and the formatter writes the phrase. Callers pass the bare
+        # keyword ("CROSS", "INNER"), which is what the members are named.
+        self.expression, self.alias = expression, alias
+        self.join_type = normalize_join_type(join_type)
 
     @property
     def format_method(self) -> str:
@@ -489,13 +528,14 @@ class LateralExpression(TableSource, BaseExpression):
 class JSONTableColumn:
     """A single column of a JSON_TABLE COLUMNS clause (option value object).
 
-    ``data_type`` is a ``DataType`` expression (a SQL clause of its own); the
-    option object itself does not render, but declares the expressions it
-    holds so dialect propagation reaches them.
+    ``data_type`` is the column's type: a type node, or a type name, which
+    the framework's name node claims and the grammar validates.  The option
+    object itself does not render, but declares the expressions it holds so
+    dialect propagation reaches them.
     """
 
     name: str
-    data_type: "DataType"
+    data_type: "Union[str, DataType]"
     path: str
 
     def expression_children(self):

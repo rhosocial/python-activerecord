@@ -18,12 +18,12 @@ from rhosocial.activerecord.backend.expression.types import (
     DecimalType,
 )
 from rhosocial.activerecord.backend.introspection.types import (
-    DatabaseInfo,
-    TableInfo,
-    ColumnInfo,
+    IntrospectionDatabaseInfo,
+    IntrospectionTableInfo,
+    IntrospectionColumnInfo,
     IndexInfo,
     IndexColumnInfo,
-    ForeignKeyInfo,
+    IntrospectionForeignKeyInfo,
     ColumnNullable,
     TableType,
     IndexType,
@@ -64,7 +64,7 @@ class TestDataTypeSerialization:
             _data_type_to_dict,
             _data_type_from_dict,
         )
-        dt = ArrayType(None, IntegerType(), dimensions=2)
+        dt = ArrayType(None, element_type=IntegerType(), dimensions=2)
         restored = _data_type_from_dict(_data_type_to_dict(dt))
         assert isinstance(restored.element_type, IntegerType)
         assert restored.dimensions == 2
@@ -88,13 +88,13 @@ class TestDataTypeSerialization:
 class TestSnapshotSerialization:
     @pytest.fixture
     def snapshot(self):
-        db_info = DatabaseInfo(
+        db_info = IntrospectionDatabaseInfo(
             name="testdb",
             version="16.0",
             version_tuple=(16, 0, 0),
             vendor="postgresql",
         )
-        col = ColumnInfo(
+        col = IntrospectionColumnInfo(
             name="id",
             table_name="users",
             schema="public",
@@ -104,7 +104,7 @@ class TestSnapshotSerialization:
             nullable=ColumnNullable.NOT_NULL,
             is_primary_key=True,
         )
-        col2 = ColumnInfo(
+        col2 = IntrospectionColumnInfo(
             name="name",
             table_name="users",
             schema="public",
@@ -113,7 +113,7 @@ class TestSnapshotSerialization:
             parsed_data_type=VarCharType(None, 255),
             nullable=ColumnNullable.NULLABLE,
         )
-        tbl = TableInfo(
+        tbl = IntrospectionTableInfo(
             name="users",
             schema="public",
             columns=[col, col2],
@@ -247,7 +247,7 @@ class TestIndexEquivalence:
 class TestFKEquivalence:
     def test_same_fk(self):
         differ = SchemaDiffer()
-        old_fk = ForeignKeyInfo(
+        old_fk = IntrospectionForeignKeyInfo(
             name="fk_user",
             table_name="orders",
             columns=["user_id"],
@@ -255,7 +255,7 @@ class TestFKEquivalence:
             referenced_columns=["id"],
             on_delete=ReferentialAction.CASCADE,
         )
-        new_fk = ForeignKeyInfo(
+        new_fk = IntrospectionForeignKeyInfo(
             name="fk_user",
             table_name="orders",
             columns=["user_id"],
@@ -267,12 +267,12 @@ class TestFKEquivalence:
 
     def test_referenced_table_change(self):
         differ = SchemaDiffer()
-        old_fk = ForeignKeyInfo(
+        old_fk = IntrospectionForeignKeyInfo(
             name="fk_ref", table_name="t",
             columns=["x"], referenced_table="a",
             referenced_columns=["id"],
         )
-        new_fk = ForeignKeyInfo(
+        new_fk = IntrospectionForeignKeyInfo(
             name="fk_ref", table_name="t",
             columns=["x"], referenced_table="b",
             referenced_columns=["id"],
@@ -281,12 +281,12 @@ class TestFKEquivalence:
 
     def test_on_delete_change(self):
         differ = SchemaDiffer()
-        old_fk = ForeignKeyInfo(
+        old_fk = IntrospectionForeignKeyInfo(
             name="fk", table_name="t", columns=["x"],
             referenced_table="a", referenced_columns=["id"],
             on_delete=ReferentialAction.CASCADE,
         )
-        new_fk = ForeignKeyInfo(
+        new_fk = IntrospectionForeignKeyInfo(
             name="fk", table_name="t", columns=["x"],
             referenced_table="a", referenced_columns=["id"],
             on_delete=ReferentialAction.SET_NULL,
@@ -302,7 +302,7 @@ class TestFKEquivalence:
 class TestDiffTableIntegration:
     def test_index_modification_detected(self):
         differ = SchemaDiffer()
-        old_tbl = TableInfo(
+        old_tbl = IntrospectionTableInfo(
             name="t",
             indexes=[
                 IndexInfo(
@@ -311,7 +311,7 @@ class TestDiffTableIntegration:
                 ),
             ],
         )
-        new_tbl = TableInfo(
+        new_tbl = IntrospectionTableInfo(
             name="t",
             indexes=[
                 IndexInfo(
@@ -326,20 +326,20 @@ class TestDiffTableIntegration:
 
     def test_fk_modification_detected(self):
         differ = SchemaDiffer()
-        old_tbl = TableInfo(
+        old_tbl = IntrospectionTableInfo(
             name="t",
             foreign_keys=[
-                ForeignKeyInfo(
+                IntrospectionForeignKeyInfo(
                     name="fk", table_name="t",
                     columns=["x"], referenced_table="a",
                     referenced_columns=["id"],
                 ),
             ],
         )
-        new_tbl = TableInfo(
+        new_tbl = IntrospectionTableInfo(
             name="t",
             foreign_keys=[
-                ForeignKeyInfo(
+                IntrospectionForeignKeyInfo(
                     name="fk", table_name="t",
                     columns=["x"], referenced_table="b",
                     referenced_columns=["id"],
@@ -352,7 +352,7 @@ class TestDiffTableIntegration:
 
     def test_unchanged_index_not_reported(self):
         differ = SchemaDiffer()
-        old_tbl = TableInfo(
+        old_tbl = IntrospectionTableInfo(
             name="t",
             indexes=[
                 IndexInfo(
@@ -361,7 +361,7 @@ class TestDiffTableIntegration:
                 ),
             ],
         )
-        new_tbl = TableInfo(
+        new_tbl = IntrospectionTableInfo(
             name="t",
             indexes=[
                 IndexInfo(
@@ -385,26 +385,26 @@ class TestSnapshotDiffRoundtrip:
 
     @pytest.fixture
     def base_snapshot(self):
-        db_info = DatabaseInfo(
+        db_info = IntrospectionDatabaseInfo(
             name="testdb", version="16.0", version_tuple=(16, 0, 0),
             vendor="postgresql",
         )
         cols = [
-            ColumnInfo(
+            IntrospectionColumnInfo(
                 name="id", table_name="users", schema="public",
                 ordinal_position=1, data_type="INTEGER",
                 parsed_data_type=IntegerType(),
                 nullable=ColumnNullable.NOT_NULL,
                 is_primary_key=True,
             ),
-            ColumnInfo(
+            IntrospectionColumnInfo(
                 name="name", table_name="users", schema="public",
                 ordinal_position=2, data_type="VARCHAR(255)",
                 parsed_data_type=VarCharType(None, 255),
                 nullable=ColumnNullable.NULLABLE,
             ),
         ]
-        tbl = TableInfo(
+        tbl = IntrospectionTableInfo(
             name="users", schema="public", columns=cols,
             table_type=TableType.BASE_TABLE,
         )
@@ -425,10 +425,10 @@ class TestSnapshotDiffRoundtrip:
 
     def test_added_table(self, base_snapshot):
         db_info = base_snapshot.database_info
-        new_tbl = TableInfo(
+        new_tbl = IntrospectionTableInfo(
             name="posts", schema="public",
             columns=[
-                ColumnInfo(
+                IntrospectionColumnInfo(
                     name="id", table_name="posts", schema="public",
                     ordinal_position=1, data_type="INTEGER",
                     parsed_data_type=IntegerType(),
@@ -465,13 +465,13 @@ class TestSnapshotDiffRoundtrip:
     def test_added_column(self, base_snapshot):
         db_info = base_snapshot.database_info
         old_cols = base_snapshot.tables["users"].columns
-        new_col = ColumnInfo(
+        new_col = IntrospectionColumnInfo(
             name="email", table_name="users", schema="public",
             ordinal_position=3, data_type="VARCHAR(255)",
             parsed_data_type=VarCharType(None, 255),
             nullable=ColumnNullable.NULLABLE,
         )
-        new_tbl = TableInfo(
+        new_tbl = IntrospectionTableInfo(
             name="users", schema="public",
             columns=list(old_cols) + [new_col],
             table_type=TableType.BASE_TABLE,
@@ -498,7 +498,7 @@ class TestSnapshotDiffRoundtrip:
             name="idx_name", table_name="users", is_unique=False,
             columns=[IndexColumnInfo("name")],
         )
-        new_tbl = TableInfo(
+        new_tbl = IntrospectionTableInfo(
             name="users", schema="public",
             columns=old_tbl.columns,
             indexes=[idx],

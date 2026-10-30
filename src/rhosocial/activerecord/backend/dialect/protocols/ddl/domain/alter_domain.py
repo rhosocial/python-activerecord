@@ -12,7 +12,7 @@ from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from .....expression.statements import (
-        AlterDomainExpression,
+        AlterDomainStatement,
         DomainAlterAction,
     )
 
@@ -53,8 +53,8 @@ class AlterDomainSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_alter_domain_statement(self, expr: "AlterDomainExpression") -> Tuple[str, tuple]:
-        """Render a :class:`~....expression.statements.AlterDomainExpression`.
+    def format_alter_domain_statement(self, expr: "AlterDomainStatement") -> Tuple[str, tuple]:
+        """Render a :class:`~....expression.statements.AlterDomainStatement`.
 
         Raises rather than emitting an unsupported form: a statement the
         engine cannot parse is not a statement worth producing.

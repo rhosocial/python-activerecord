@@ -31,10 +31,10 @@ class MockQueryBase(IQuery):
         self.join_clauses = []
         self.limit_count = None
         self.offset_count = None
-        from rhosocial.activerecord.backend.expression import WildcardExpression
+        from rhosocial.activerecord.backend.expression import AllColumnsWildcard
         from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
-        self.select_columns = [WildcardExpression(SQLiteDialect())]
+        self.select_columns = [AllColumnsWildcard(SQLiteDialect())]
         self._explain_enabled = False
         self._explain_options = None
 

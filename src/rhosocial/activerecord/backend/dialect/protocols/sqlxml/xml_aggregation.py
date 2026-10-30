@@ -20,6 +20,6 @@ class SQLXMLAggregationSupport(Protocol):
         """Whether SQL/XML XMLAGG is supported."""
         ...  # pragma: no cover
 
-    def format_xmlagg_expression(self, expr: "XMLAggExpression") -> Tuple[str, tuple]:
+    def format_xml_agg_expression(self, expr: "XMLAggExpression") -> Tuple[str, tuple]:
         """Format a SQL/XML XMLAGG expression."""
         ...  # pragma: no cover

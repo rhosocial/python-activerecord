@@ -322,59 +322,75 @@ class TestSyncPragmaIntrospectorSchemaParameter:
         assert len(result) == 2
 
 
-class TestPragmaIntrospectorSQLGeneration:
-    """Tests for PRAGMA SQL generation helpers."""
+class TestPragmaSQLGeneration:
+    """The PRAGMA statements are where PRAGMA SQL is produced."""
 
-    def test_pragma_sql_without_argument(self):
-        """Test _pragma_sql generates correct SQL without argument."""
-        from rhosocial.activerecord.backend.impl.sqlite.introspection.pragma_introspector import PragmaMixin
+    @pytest.fixture
+    def dialect(self):
+        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
-        sql, params = PragmaMixin._pragma_sql("journal_mode")
+        return SQLiteDialect(version=(3, 35, 0))
+
+    def test_query_without_argument(self, dialect):
+        sql, params = dialect.pragma_query_statement("journal_mode").to_sql()
 
         assert sql == "PRAGMA journal_mode"
         assert params == ()
 
-    def test_pragma_sql_with_argument(self):
-        """Test _pragma_sql generates correct SQL with argument."""
-        from rhosocial.activerecord.backend.impl.sqlite.introspection.pragma_introspector import PragmaMixin
-
-        sql, params = PragmaMixin._pragma_sql("table_info", "'users'")
+    def test_query_with_argument(self, dialect):
+        sql, params = dialect.pragma_query_statement("table_info", "'users'").to_sql()
 
         assert sql == "PRAGMA table_info('users')"
         assert params == ()
 
-    def test_pragma_sql_with_schema(self):
-        """Test _pragma_sql generates correct SQL with schema."""
-        from rhosocial.activerecord.backend.impl.sqlite.introspection.pragma_introspector import PragmaMixin
-
-        sql, params = PragmaMixin._pragma_sql("journal_mode", schema="main")
+    def test_query_with_schema(self, dialect):
+        sql, params = dialect.pragma_query_statement("journal_mode", schema="main").to_sql()
 
         assert sql == "PRAGMA main.journal_mode"
         assert params == ()
 
-    def test_pragma_sql_with_argument_and_schema(self):
-        """Test _pragma_sql generates correct SQL with argument and schema."""
-        from rhosocial.activerecord.backend.impl.sqlite.introspection.pragma_introspector import PragmaMixin
-
-        sql, params = PragmaMixin._pragma_sql("table_info", "'users'", schema="temp")
+    def test_query_with_argument_and_schema(self, dialect):
+        sql, params = dialect.pragma_query_statement(
+            "table_info", "'users'", schema="temp"
+        ).to_sql()
 
         assert sql == "PRAGMA temp.table_info('users')"
         assert params == ()
 
-    def test_set_pragma_sql(self):
-        """Test _set_pragma_sql generates correct SQL."""
-        from rhosocial.activerecord.backend.impl.sqlite.introspection.pragma_introspector import PragmaMixin
-
-        sql, params = PragmaMixin._set_pragma_sql("cache_size", 5000)
+    def test_set(self, dialect):
+        sql, params = dialect.pragma_set_statement("cache_size", 5000).to_sql()
 
         assert sql == "PRAGMA cache_size = 5000"
         assert params == ()
 
-    def test_set_pragma_sql_with_schema(self):
-        """Test _set_pragma_sql generates correct SQL with schema."""
-        from rhosocial.activerecord.backend.impl.sqlite.introspection.pragma_introspector import PragmaMixin
-
-        sql, params = PragmaMixin._set_pragma_sql("cache_size", 5000, schema="main")
+    def test_set_with_schema(self, dialect):
+        sql, params = dialect.pragma_set_statement("cache_size", 5000, schema="main").to_sql()
 
         assert sql == "PRAGMA main.cache_size = 5000"
         assert params == ()
+
+    def test_set_keeps_keyword_spelling(self, dialect):
+        sql, _ = dialect.pragma_set_statement("journal_mode", "WAL").to_sql()
+
+        assert sql == "PRAGMA journal_mode = WAL"
+
+    def test_set_quotes_a_value_that_is_not_a_token(self, dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
+            SQLitePragmaSetStatement,
+        )
+
+        sql, _ = SQLitePragmaSetStatement(dialect, "journal_mode", "WAL; DROP TABLE users").to_sql()
+
+        assert sql == "PRAGMA journal_mode = 'WAL; DROP TABLE users'"
+
+    def test_query_rejects_an_unknown_pragma(self, dialect):
+        with pytest.raises(ValueError):
+            dialect.pragma_query_statement("no_such_pragma")
+
+    def test_set_rejects_a_read_only_pragma(self, dialect):
+        with pytest.raises(ValueError):
+            dialect.pragma_set_statement("integrity_check", "x")
+
+    def test_set_rejects_a_value_the_pragma_does_not_accept(self, dialect):
+        with pytest.raises(ValueError):
+            dialect.pragma_set_statement("journal_mode", "NOT_A_MODE")

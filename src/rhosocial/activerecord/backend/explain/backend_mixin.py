@@ -6,7 +6,7 @@ Architecture
 ------------
 _ExplainMixinBase
     Shared non-I/O logic:
-    - _build_explain_sql(): wraps the given expression in ExplainExpression
+    - _build_explain_sql(): wraps the given expression in ExplainStatement
       and calls to_sql() via the dialect.
     - _parse_explain_result(): hook for concrete backends to return a
       specialised ExplainResult subclass (default: BaseExplainResult).
@@ -61,7 +61,7 @@ class _ExplainMixinBase:
         expression: "BaseExpression",
         options: Optional["ExplainOptions"] = None,
     ) -> Tuple[str, tuple]:
-        """Wrap *expression* in an ExplainExpression and return (sql, params).
+        """Wrap *expression* in an ExplainStatement and return (sql, params).
 
         Args:
             expression: The statement to be explained.
@@ -70,9 +70,9 @@ class _ExplainMixinBase:
         Returns:
             A (sql_string, params_tuple) pair ready to pass to execute().
         """
-        from ..expression.statements import ExplainExpression
+        from ..expression.statements import ExplainStatement
 
-        explain_expr = ExplainExpression(self.dialect, expression, options)  # type: ignore[attr-defined]
+        explain_expr = ExplainStatement(self.dialect, expression, options)  # type: ignore[attr-defined]
         return explain_expr.to_sql()
 
     # ------------------------------------------------------------------
@@ -125,7 +125,7 @@ class SyncExplainBackendMixin(_ExplainMixinBase):
         """Execute EXPLAIN *expression* synchronously.
 
         Args:
-            expression: Any BaseExpression except ExplainExpression itself.
+            expression: Any BaseExpression except ExplainStatement itself.
             options:    Optional ExplainOptions.
 
         Returns:
@@ -161,7 +161,7 @@ class AsyncExplainBackendMixin(_ExplainMixinBase):
         """Execute EXPLAIN *expression* asynchronously.
 
         Args:
-            expression: Any BaseExpression except ExplainExpression itself.
+            expression: Any BaseExpression except ExplainStatement itself.
             options:    Optional ExplainOptions.
 
         Returns:

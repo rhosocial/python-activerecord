@@ -10,16 +10,18 @@ Covers:
   introspection to_sql() and ``date_diff`` must raise.
 """
 
-import warnings
 
+from rhosocial.activerecord.backend.expression.functions import cast
 import pytest
 
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    RawSQLExpression,
-    QualifiedIdentifierExpression,
-    WildcardExpression,
+    RawSQL,
+    QualifiedIdentifier,
+    AllColumnsWildcard,
 )
 from rhosocial.activerecord.backend.expression.types import (
     ArrayType,
@@ -37,18 +39,18 @@ from rhosocial.activerecord.backend.expression.types import (
     VarCharType,
 )
 from rhosocial.activerecord.backend.expression.introspection import (
-    ColumnInfoExpression,
-    DatabaseInfoExpression,
-    ForeignKeyExpression,
-    IndexInfoExpression,
-    TableInfoExpression,
-    TableListExpression,
-    TriggerInfoExpression,
-    TriggerListExpression,
-    ViewInfoExpression,
-    ViewListExpression,
+    ColumnInfoQueryStatement,
+    DatabaseInfoQueryStatement,
+    ForeignKeyQueryStatement,
+    IndexInfoQueryStatement,
+    TableInfoQueryStatement,
+    TableListQueryStatement,
+    TriggerInfoQueryStatement,
+    TriggerListQueryStatement,
+    ViewInfoQueryStatement,
+    ViewListQueryStatement,
 )
-from rhosocial.activerecord.backend.expression.operators import BinaryArithmeticExpression
+from rhosocial.activerecord.backend.expression.operators import ArithmeticOperation
 from rhosocial.activerecord.backend.expression.statements import (
     OnConflictClause,
     PartitionClause,
@@ -56,7 +58,6 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from rhosocial.activerecord.backend.expression.functions.string import trim
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-from rhosocial.activerecord.backend.expression.objects import Table
 
 
 @pytest.fixture
@@ -68,38 +69,38 @@ class TestCoreExpressionBranches:
     """Branch coverage for core/operator expressions."""
 
     def test_literal_cast_and_alias(self, dialect):
-        expr = Literal(dialect, 42).cast(DecimalType(dialect)).as_("n")
+        expr = cast(dialect, Literal(dialect, 42), DecimalType(dialect)).as_("n")
         sql, params = expr.to_sql()
         assert "CAST" in sql or "DECIMAL" in sql
         assert "AS" in sql
         assert params == (42,)
 
     def test_qualified_identifier_with_schema(self, dialect):
-        expr = QualifiedIdentifierExpression(dialect, schema="app", name="users")
+        expr = QualifiedIdentifier(dialect, schema="app", name="users")
         sql, params = expr.to_sql()
         assert sql == '"app"."users"'
         assert params == ()
 
     def test_qualified_identifier_without_schema(self, dialect):
-        expr = QualifiedIdentifierExpression(dialect, name="users")
+        expr = QualifiedIdentifier(dialect, name="users")
         sql, params = expr.to_sql()
         assert sql == '"users"'
         assert params == ()
 
     def test_wildcard_expression_basic(self, dialect):
-        expr = WildcardExpression(dialect)
+        expr = AllColumnsWildcard(dialect)
         sql, params = expr.to_sql()
         assert sql == "*"
         assert params == ()
 
     def test_wildcard_expression_qualified(self, dialect):
-        expr = WildcardExpression(dialect, table="users", schema_name="app")
+        expr = AllColumnsWildcard(dialect, relation=NamedRelationRef(dialect, Table(dialect, "users")))
         sql, params = expr.to_sql()
         assert "*" in sql
         assert params == ()
 
-    def test_binary_arithmetic_with_cast(self, dialect):
-        expr = BinaryArithmeticExpression(dialect, "+", Column(dialect, "price"), Literal(dialect, 10))
+    def test_arithmetic_operation_with_cast(self, dialect):
+        expr = ArithmeticOperation(dialect, "add", Column(dialect, "price"), Literal(dialect, 10))
         casted = expr.cast(DecimalType(dialect))
         aliased = casted.as_("total")
         sql, params = aliased.to_sql()
@@ -107,7 +108,7 @@ class TestCoreExpressionBranches:
         assert "total" in sql
 
     def test_raw_sql_expression(self, dialect):
-        expr = RawSQLExpression(dialect, "NOW()")
+        expr = RawSQL(dialect, "NOW()")
         sql, params = expr.to_sql()
         assert sql == "NOW()"
         assert params == ()
@@ -119,12 +120,12 @@ class TestGetParamsFallback:
     def test_var_positional_params(self, dialect):
         # An expression subclass whose __init__ uses *args: get_params collects
         # them as a list.
-        from rhosocial.activerecord.backend.expression.bases import SQLValueExpression
+        from rhosocial.activerecord.backend.expression.bases import SQLValue
 
-        class ArgsExpr(SQLValueExpression):
+        class ArgsExpr(SQLValue):
             def __init__(self, dialect, *values, **kwargs):
                 super().__init__(dialect)
-                self._values = list(values)
+                self.values = list(values)
                 self.kwargs = dict(kwargs)
                 self.extra = kwargs.get("extra")
 
@@ -137,12 +138,17 @@ class TestGetParamsFallback:
         assert params["values"] == [1, 2, 3]
         assert params["extra"] == "x"
 
-    def test_get_params_missing_attribute_warns(self, dialect):
-        # A subclass whose declared __init__ parameter has no matching
-        # _name/name attribute triggers a warning.
-        from rhosocial.activerecord.backend.expression.bases import SQLValueExpression
+    def test_get_params_missing_attribute_raises(self, dialect):
+        """A parameter the class did not store is a defect, and it says so.
 
-        class MissingAttrExpr(SQLValueExpression):
+        This used to warn and carry on, which put the omission in the artifact
+        with nothing to show for it: a serialized node that reconstructs into a
+        different tree. Reading the parameter's own name has no fallback to
+        reach for, so the AttributeError names the class and the parameter.
+        """
+        from rhosocial.activerecord.backend.expression.bases import SQLValue
+
+        class MissingAttrExpr(SQLValue):
             def __init__(self, dialect, some_param):
                 super().__init__(dialect)
                 self._x = 1
@@ -151,11 +157,8 @@ class TestGetParamsFallback:
                 return "x", ()
 
         expr = MissingAttrExpr(dialect, 123)
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            params = expr.get_params()
-        assert any("get_params" in str(w.message) for w in caught)
-        assert "some_param" not in params
+        with pytest.raises(AttributeError, match="some_param"):
+            expr.get_params()
 
 
 class TestTrimDirectionValidation:
@@ -241,56 +244,56 @@ class TestOnConflictValidation:
 
     def test_non_list_on_conflict(self, dialect):
         from rhosocial.activerecord.backend.expression.statements import (
-            InsertExpression,
+            InsertStatement,
             ValuesSource,
         )
 
         source = ValuesSource(dialect, [[Literal(dialect, 1)]])
         with pytest.raises(TypeError):
-            InsertExpression(dialect, into=Table(dialect, 'users'), source=source, on_conflict="bad")
+            InsertStatement(dialect, into=Table(dialect, 'users'), source=source, on_conflict="bad")
 
     def test_non_onconflict_clause_item(self, dialect):
         from rhosocial.activerecord.backend.expression.statements import (
-            InsertExpression,
+            InsertStatement,
             ValuesSource,
         )
 
         source = ValuesSource(dialect, [[Literal(dialect, 1)]])
         with pytest.raises(TypeError):
-            InsertExpression(dialect, into=Table(dialect, 'users'), source=source, on_conflict=["bad", "worse"])
+            InsertStatement(dialect, into=Table(dialect, 'users'), source=source, on_conflict=["bad", "worse"])
 
     def test_valid_on_conflict(self, dialect):
         from rhosocial.activerecord.backend.expression.statements import (
-            InsertExpression,
+            InsertStatement,
             ValuesSource,
         )
 
         source = ValuesSource(dialect, [[Literal(dialect, 1)]])
         conflict = OnConflictClause(dialect, ["id"], do_nothing=True)
-        expr = InsertExpression(dialect, into=Table(dialect, 'users'), source=source, on_conflict=[conflict])
+        expr = InsertStatement(dialect, into=Table(dialect, 'users'), source=source, on_conflict=[conflict])
         assert expr is not None
         assert expr.on_conflict == [conflict]
 
     def test_validate_with_on_conflict(self, dialect):
         from rhosocial.activerecord.backend.expression.statements import (
-            InsertExpression,
+            InsertStatement,
             ValuesSource,
         )
 
         source = ValuesSource(dialect, [[Literal(dialect, 1)]])
         conflict = OnConflictClause(dialect, ["id"], do_nothing=True)
-        expr = InsertExpression(dialect, into=Table(dialect, 'users'), source=source, on_conflict=[conflict])
+        expr = InsertStatement(dialect, into=Table(dialect, 'users'), source=source, on_conflict=[conflict])
         expr.validate()
 
     def test_validate_on_conflict_bad_item(self, dialect):
         from rhosocial.activerecord.backend.expression.statements import (
-            InsertExpression,
+            InsertStatement,
             ValuesSource,
         )
 
         source = ValuesSource(dialect, [[Literal(dialect, 1)]])
         conflict = OnConflictClause(dialect, ["id"], do_nothing=True)
-        expr = InsertExpression(dialect, into=Table(dialect, 'users'), source=source, on_conflict=[conflict])
+        expr = InsertStatement(dialect, into=Table(dialect, 'users'), source=source, on_conflict=[conflict])
         expr.on_conflict = [conflict, "bad"]
         with pytest.raises(TypeError):
             expr.validate()
@@ -300,72 +303,52 @@ class TestIntrospectionExpressionStructure:
     """Generic introspection expression construction (dialect-independent)."""
 
     def test_table_list_include_system(self, dialect):
-        expr = TableListExpression(dialect).include_system(True)
+        expr = TableListQueryStatement(dialect, include_system=True)
         assert expr.get_params()["include_system"] is True
 
     def test_table_list_table_type(self, dialect):
-        expr = TableListExpression(dialect).table_type("VIEW")
+        expr = TableListQueryStatement(dialect, table_type="VIEW")
         assert expr.get_params()["table_type"] == "VIEW"
 
     def test_table_info_include_indexes(self, dialect):
-        expr = TableInfoExpression(dialect, "users").include_indexes(True)
+        expr = TableInfoQueryStatement(dialect, "users", include_indexes=True)
         assert expr.get_params()["include_indexes"] is True
 
     def test_table_info_include_foreign_keys(self, dialect):
-        expr = TableInfoExpression(dialect, "users").include_foreign_keys(True)
+        expr = TableInfoQueryStatement(dialect, "users", include_foreign_keys=True)
         assert expr.get_params()["include_foreign_keys"] is True
 
     def test_column_info_include_hidden(self, dialect):
-        expr = ColumnInfoExpression(dialect, "users").include_hidden(True)
+        expr = ColumnInfoQueryStatement(dialect, "users", include_hidden=True)
         assert expr.get_params()["include_hidden"] is True
 
     def test_index_info_table_name(self, dialect):
-        expr = IndexInfoExpression(dialect, "users")
+        expr = IndexInfoQueryStatement(dialect, "users")
         assert expr.get_params()["table_name"] == "users"
 
     def test_foreign_key_table_name(self, dialect):
-        expr = ForeignKeyExpression(dialect, "users")
+        expr = ForeignKeyQueryStatement(dialect, "users")
         assert expr.get_params()["table_name"] == "users"
 
     def test_view_list(self, dialect):
-        expr = ViewListExpression(dialect)
+        expr = ViewListQueryStatement(dialect)
         assert "include_system" in expr.get_params()
 
     def test_view_info(self, dialect):
-        expr = ViewInfoExpression(dialect, "my_view").include_columns(True)
+        expr = ViewInfoQueryStatement(dialect, "my_view", include_columns=True)
         params = expr.get_params()
         assert params["view_name"] == "my_view"
         assert params["include_columns"] is True
 
     def test_trigger_info(self, dialect):
-        expr = TriggerInfoExpression(dialect, "my_trigger").for_table("users")
+        expr = TriggerInfoQueryStatement(dialect, "my_trigger", table_name="users")
         params = expr.get_params()
         assert params["trigger_name"] == "my_trigger"
         assert params["table_name"] == "users"
 
     def test_trigger_list(self, dialect):
-        expr = TriggerInfoExpression(dialect, "t").for_table("users")
+        expr = TriggerInfoQueryStatement(dialect, "t", table_name="users")
         assert "table_name" in expr.get_params()
-
-    def test_table_info_table_name_setter(self, dialect):
-        expr = TableInfoExpression(dialect, "old").table_name("new")
-        assert expr.get_params()["table_name"] == "new"
-
-    def test_column_info_table_name_setter(self, dialect):
-        expr = ColumnInfoExpression(dialect, "old").table_name("new")
-        assert expr.get_params()["table_name"] == "new"
-
-    def test_index_info_table_name_setter(self, dialect):
-        expr = IndexInfoExpression(dialect, "old").table_name("new")
-        assert expr.get_params()["table_name"] == "new"
-
-    def test_foreign_key_table_name_setter(self, dialect):
-        expr = ForeignKeyExpression(dialect, "old").table_name("new")
-        assert expr.get_params()["table_name"] == "new"
-
-    def test_view_info_view_name_setter(self, dialect):
-        expr = ViewInfoExpression(dialect, "old").view_name("new")
-        assert expr.get_params()["view_name"] == "new"
 
 
 class TestCrossTypeDataTypes:
@@ -382,7 +365,7 @@ class TestCrossTypeDataTypes:
     def test_string_types_inequality(self):
         assert CharType(None, 10) != VarCharType(None, 10)
         assert VarCharType(None, 10) != CharType(None, 10)
-        assert CharType(None, 10) != CustomType(None, "CHAR(10)")
+        assert CharType(None, 10) != CustomType(None, raw="CHAR(10)")
 
     def test_numeric_types_inequality(self):
         assert FloatType(None, 24) != DecimalType(None, 10, 2)
@@ -390,10 +373,10 @@ class TestCrossTypeDataTypes:
         assert FloatType(None, 24) != IntegerType()
 
     def test_array_and_custom_inequality(self):
-        assert ArrayType(None, IntegerType()) != ArrayType(None, CharType(None, 10))
-        assert ArrayType(None, IntegerType()) != CharType(None, 10)
-        assert ArrayType(None, IntegerType()) != CharType(None, 10)
-        assert CustomType(None, "geometry") != IntegerType()
+        assert ArrayType(None, element_type=IntegerType()) != ArrayType(None, element_type=CharType(None, 10))
+        assert ArrayType(None, element_type=IntegerType()) != CharType(None, 10)
+        assert ArrayType(None, element_type=IntegerType()) != CharType(None, 10)
+        assert CustomType(None, raw="geometry") != IntegerType()
 
     def test_hash_branches(self):
         assert hash(CharType(None, 10)) == hash(CharType(None, 10))
@@ -404,12 +387,6 @@ class TestCrossTypeDataTypes:
         assert TimeTzType(None, 2) != TimeTzType(None, 3)
         assert TimestampTzType(None, 0) == TimestampTzType(None, 0)
         assert TimestampTzType(None, 0) != TimestampTzType(None, 1)
-
-    def test_trigger_info_trigger_name_setter(self, dialect):
-        from rhosocial.activerecord.backend.expression.introspection import TriggerInfoExpression
-
-        expr = TriggerInfoExpression(dialect, "old").trigger_name("new")
-        assert expr.get_params()["trigger_name"] == "new"
 
 
 class TestXmlFunctionsTupleArgs:
@@ -470,16 +447,16 @@ class TestIntrospectionToSqlUnsupported:
     @pytest.mark.parametrize(
         "factory",
         [
-            lambda d: DatabaseInfoExpression(d),
-            lambda d: TableListExpression(d),
-            lambda d: TableInfoExpression(d, "users"),
-            lambda d: ColumnInfoExpression(d, "users"),
-            lambda d: IndexInfoExpression(d, "users"),
-            lambda d: ForeignKeyExpression(d, "users"),
-            lambda d: ViewListExpression(d),
-            lambda d: ViewInfoExpression(d, "v"),
-            lambda d: TriggerListExpression(d),
-            lambda d: TriggerInfoExpression(d, "t"),
+            lambda d: DatabaseInfoQueryStatement(d),
+            lambda d: TableListQueryStatement(d),
+            lambda d: TableInfoQueryStatement(d, "users"),
+            lambda d: ColumnInfoQueryStatement(d, "users"),
+            lambda d: IndexInfoQueryStatement(d, "users"),
+            lambda d: ForeignKeyQueryStatement(d, "users"),
+            lambda d: ViewListQueryStatement(d),
+            lambda d: ViewInfoQueryStatement(d, "v"),
+            lambda d: TriggerListQueryStatement(d),
+            lambda d: TriggerInfoQueryStatement(d, "t"),
         ],
     )
     def test_to_sql_raises(self, dialect, factory):

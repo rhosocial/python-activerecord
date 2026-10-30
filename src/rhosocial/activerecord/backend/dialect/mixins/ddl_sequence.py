@@ -6,9 +6,9 @@ from ...expression.objects import Sequence
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements import (
-        CreateSequenceExpression,
-        DropSequenceExpression,
-        AlterSequenceExpression,
+        CreateSequenceStatement,
+        DropSequenceStatement,
+        AlterSequenceStatement,
     )
 
 
@@ -135,7 +135,7 @@ class SequenceMixin:
         """
         return False
 
-    def format_create_sequence_statement(self, expr: "CreateSequenceExpression") -> Tuple[str, tuple]:
+    def format_create_sequence_statement(self, expr: "CreateSequenceStatement") -> Tuple[str, tuple]:
         """Format CREATE SEQUENCE statement per SQL standard.
 
         :meth:`supports_sequence` is consulted first and unconditionally, so a
@@ -163,7 +163,7 @@ class SequenceMixin:
         explicit spelling whose probe is False raises.
 
         Args:
-            expr: CreateSequenceExpression carrying the sequence name and
+            expr: CreateSequenceStatement carrying the sequence name and
                 optional start, increment, min/max value, cycle, cache, order,
                 and owned-by options.
 
@@ -171,7 +171,7 @@ class SequenceMixin:
             Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            TypeError: ``CreateSequenceExpression.sequence`` is not a Sequence. A
+            TypeError: ``CreateSequenceStatement.sequence`` is not a Sequence. A
             table would render as a well-formed CREATE SEQUENCE over that table's
             name.
             UnsupportedFeatureError: If the dialect has no sequence object, or
@@ -179,7 +179,7 @@ class SequenceMixin:
         """
         if not isinstance(expr.sequence, Sequence):
             raise TypeError(
-                f"CreateSequenceExpression.sequence must be a Sequence, "
+                f"CreateSequenceStatement.sequence must be a Sequence, "
                 f"got {type(expr.sequence).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError
@@ -264,7 +264,7 @@ class SequenceMixin:
 
         return " ".join(parts), ()
 
-    def format_drop_sequence_statement(self, expr: "DropSequenceExpression") -> Tuple[str, tuple]:
+    def format_drop_sequence_statement(self, expr: "DropSequenceStatement") -> Tuple[str, tuple]:
         """Format DROP SEQUENCE statement per SQL standard.
 
         :meth:`supports_sequence` is consulted first and unconditionally, so a
@@ -275,14 +275,14 @@ class SequenceMixin:
         instead of dropping the clause.
 
         Args:
-            expr: DropSequenceExpression carrying the sequence name and
+            expr: DropSequenceStatement carrying the sequence name and
                 optional ``if_exists`` flag.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            TypeError: ``DropSequenceExpression.sequence`` is not a Sequence. A
+            TypeError: ``DropSequenceStatement.sequence`` is not a Sequence. A
             table would render as a well-formed DROP SEQUENCE over that table's
             name.
             UnsupportedFeatureError: If the dialect has no sequence object, or
@@ -290,7 +290,7 @@ class SequenceMixin:
         """
         if not isinstance(expr.sequence, Sequence):
             raise TypeError(
-                f"DropSequenceExpression.sequence must be a Sequence, "
+                f"DropSequenceStatement.sequence must be a Sequence, "
                 f"got {type(expr.sequence).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError
@@ -310,7 +310,7 @@ class SequenceMixin:
         parts.append(expr.sequence.to_sql()[0])
         return " ".join(parts), ()
 
-    def format_alter_sequence_statement(self, expr: "AlterSequenceExpression") -> Tuple[str, tuple]:
+    def format_alter_sequence_statement(self, expr: "AlterSequenceStatement") -> Tuple[str, tuple]:
         """Format ALTER SEQUENCE statement per SQL standard.
 
         :meth:`supports_sequence` is consulted first and unconditionally, so a
@@ -340,7 +340,7 @@ class SequenceMixin:
         and an explicit spelling whose probe is False raises.
 
         Args:
-            expr: AlterSequenceExpression carrying the sequence name and the
+            expr: AlterSequenceStatement carrying the sequence name and the
                 options to change (restart, start, increment, min/max value,
                 cycle, cache, order, and owned-by).
 
@@ -348,7 +348,7 @@ class SequenceMixin:
             Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            TypeError: ``AlterSequenceExpression.sequence`` is not a Sequence. A
+            TypeError: ``AlterSequenceStatement.sequence`` is not a Sequence. A
             table would render as a well-formed ALTER SEQUENCE over that table's
             name.
             UnsupportedFeatureError: If the dialect has no sequence object, or
@@ -356,7 +356,7 @@ class SequenceMixin:
         """
         if not isinstance(expr.sequence, Sequence):
             raise TypeError(
-                f"AlterSequenceExpression.sequence must be a Sequence, "
+                f"AlterSequenceStatement.sequence must be a Sequence, "
                 f"got {type(expr.sequence).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError

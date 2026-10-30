@@ -7,6 +7,46 @@ efficiently -- whether you're running ETL pipelines, data migrations, or analyti
 > 💡 **AI Prompt:** "I need to process all rows in a 10-million-row table without running
 > out of memory.  What is the recommended approach with rhosocial-activerecord?"
 
+Every example on this page shares the setup below: a small model over an in-memory
+SQLite database, filled with a few rows, plus the helpers the snippets call.
+
+```python
+from typing import ClassVar, Optional
+
+from rhosocial.activerecord.base import FieldProxy
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.model import ActiveRecord
+
+
+class User(ActiveRecord):
+    __table_name__ = "users"
+    c: ClassVar[FieldProxy] = FieldProxy()
+    id: Optional[int] = None
+    name: str
+    email: str
+
+
+def process(row):
+    """Stand-in for the work the job does with one row."""
+    return row["id"] if isinstance(row, dict) else row.id
+
+
+def chunked(items, size):
+    for start in range(0, len(items), size):
+        yield items[start:start + size]
+
+
+User.configure(SQLiteConnectionConfig(database=":memory:"), SQLiteBackend)
+User.backend().execute(
+    "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT)"
+)
+for i in range(1, 12):
+    User(name=f"user{i}", email=f"user{i}@example.com").save()
+
+source_data = [{"name": f"new{i}", "email": f"new{i}@example.com"} for i in range(1, 6)]
+```
+
 ---
 
 ## 1. The Core Problem: Memory
@@ -88,17 +128,21 @@ For large reads, the framework provides `execute_batch_dql` as a method on the b
 instance.  It handles pagination internally and yields one `BatchDQLResult` page at a time:
 
 ```python
-from rhosocial.activerecord.backend.expression.statements import QueryExpression
-from rhosocial.activerecord.backend.expression import WildcardExpression, TableExpression
+from rhosocial.activerecord.backend.expression import (
+    AllColumnsWildcard,
+    Column,
+    NamedRelationRef,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
-from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.statements import QueryStatement
 
 # Build a SELECT * FROM users ORDER BY id expression
 dialect = User.backend().dialect
-query_expr = QueryExpression(
+query_expr = QueryStatement(
     dialect,
-    select=[WildcardExpression(dialect)],
-    from_=TableExpression(dialect, "users"),
+    select=[AllColumnsWildcard(dialect)],
+    from_=NamedRelationRef(dialect, Table(dialect, "users")),
     order_by=OrderByClause(dialect, expressions=[(Column(dialect, "id"), "ASC")]),
 )
 
@@ -132,15 +176,15 @@ trip, that is 10 seconds -- for a dataset that a bulk insert could handle in und
 ```python
 # ✅ Bulk insert via the backend's execute_batch_dml method
 from rhosocial.activerecord.backend.expression import (
-    InsertExpression, ValuesSource, Literal,
+    InsertStatement, ValuesSource, Literal,
 )
-from rhosocial.activerecord.backend.result import BatchCommitMode
+from rhosocial.activerecord.backend.expression.objects import Table
 
 dialect = User.backend().dialect
 exprs = [
-    InsertExpression(
+    InsertStatement(
         dialect,
-        into="users",
+        into=Table(dialect, "users"),
         columns=["name", "email"],
         source=ValuesSource(
             dialect,
@@ -163,16 +207,16 @@ for batch_result in User.backend().execute_batch_dml(exprs, batch_size=500):
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    InsertExpression, ValuesSource, Literal,
+    InsertStatement, ValuesSource, Literal,
 )
-from rhosocial.activerecord.backend.result import BatchCommitMode
+from rhosocial.activerecord.backend.expression.objects import Table
 
 dialect = User.backend().dialect
 with User.transaction():
     for chunk in chunked(source_data, size=500):
         exprs = [
-            InsertExpression(
-                dialect, into="users", columns=["name", "email"],
+            InsertStatement(
+                dialect, into=Table(dialect, "users"), columns=["name", "email"],
                 source=ValuesSource(dialect, values_list=[
                     [Literal(dialect, row["name"]), Literal(dialect, row["email"])]
                 ]),
@@ -218,7 +262,7 @@ users = User.query().all()
 emails = [u.email for u in users]
 
 # ✅ Fetches only id and email
-rows = User.query().select("id", "email").all()
+rows = User.backend().fetch_all("SELECT id, email FROM users")
 emails = [r["email"] for r in rows]
 ```
 
@@ -230,7 +274,7 @@ emails = [r["email"] for r in rows]
 - [ ] Use cursor-based chunking for live tables; offset pagination for static snapshots
 - [ ] Use `execute_batch_dml` (or `insert_many`) instead of per-row `save()` for bulk writes
 - [ ] Choose `WHOLE` transaction for integrity-critical jobs; `PER_BATCH` for resumable jobs
-- [ ] Select only the columns you actually need (`query().select(...)`)
+- [ ] Select only the columns you actually need (`backend.fetch_all(...)`)
 - [ ] Monitor memory usage during development with representative data volumes
 
 ---

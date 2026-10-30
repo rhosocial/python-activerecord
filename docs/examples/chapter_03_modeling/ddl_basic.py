@@ -1,6 +1,6 @@
-"""
-Chapter 3: Modeling Data - DDL Examples
-Demonstrates DDL operations using expression-based API:
+"""Chapter 3: Modeling Data - DDL Examples
+
+Demonstrates DDL operations using the expression-based API:
 1. Create table with various column types and constraints
 2. Create table with IF NOT EXISTS
 3. Create temporary table
@@ -10,38 +10,46 @@ Demonstrates DDL operations using expression-based API:
 """
 
 from typing import ClassVar
-from pydantic import Field
-from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.base import FieldProxy
+
+from rhosocial.activerecord.backend.expression import (
+    AddColumnAction,
+    AlterTableStatement,
+    ColumnConstraint,
+    ColumnDefinition,
+    CreateTableStatement,
+    DropColumnAction,
+    DropTableStatement,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+    ColumnUniqueConstraint,
+)
+from rhosocial.activerecord.backend.expression.types import (
+    BooleanType,
+    FloatType,
+    IntegerType,
+    TextType,
+    TimestampType,
+    VarCharType,
+)
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.expression import (
-    ColumnDefinition,
-    CreateTableExpression,
-    DropTableExpression,
-    AlterTableExpression,
-    AddColumn,
-    DropColumn,
-)
-from rhosocial.activerecord.backend.expression.types import BooleanType, FloatType, IntegerType, TextType, TimestampType, VarCharType
-from rhosocial.activerecord.backend.expression.statements import (
-    ColumnConstraint,
-    ColumnConstraintType,
-)
+from rhosocial.activerecord.base import FieldProxy
+from rhosocial.activerecord.model import ActiveRecord
 
 
 class User(ActiveRecord):
     """User Model for DDL demo"""
 
-    username: str = Field(..., max_length=50)
+    __table_name__ = "users"
+
+    username: str
     email: str
     is_active: bool = True
 
     c: ClassVar[FieldProxy] = FieldProxy()
-
-    @classmethod
-    def table_name(cls) -> str:
-        return "users"
 
 
 def print_table_list(introspector, label: str):
@@ -59,7 +67,10 @@ def print_table_info(introspector, table_name: str, label: str):
     table_info = introspector.get_table_info(table_name)
     if table_info and table_info.columns:
         for col in table_info.columns:
-            print(f"  Column: {col.name}, Type: {col.data_type}, Nullable: {col.nullable}, PK: {col.is_primary_key}")
+            print(
+                f"  Column: {col.name}, Type: {col.data_type}, "
+                f"Nullable: {col.nullable}, PK: {col.is_primary_key}"
+            )
     else:
         print(f"  Table '{table_name}' not found or has no columns")
     print()
@@ -81,21 +92,32 @@ def main():
     # Example 1: Create basic table
     # ============================================================
     user_columns = [
-        ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-        ColumnDefinition("username", VarCharType(50), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
         ColumnDefinition(
+            dialect,
+            "id",
+            IntegerType(dialect),
+            constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))],
+        ),
+        ColumnDefinition(
+            dialect,
+            "username",
+            VarCharType(dialect, length=50),
+            constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))],
+        ),
+        ColumnDefinition(
+            dialect,
             "email",
-            VarCharType(100),
+            VarCharType(dialect, length=100),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.NOT_NULL),
-                ColumnConstraint(ColumnConstraintType.UNIQUE),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
+                ColumnConstraint(dialect, branch=ColumnUniqueConstraint(dialect)),
             ],
         ),
-        ColumnDefinition("is_active", BooleanType()),
-        ColumnDefinition("created_at", TimestampType()),
+        ColumnDefinition(dialect, "is_active", BooleanType(dialect)),
+        ColumnDefinition(dialect, "created_at", TimestampType(dialect)),
     ]
 
-    create_users = CreateTableExpression(dialect=dialect, table_name="users", columns=user_columns)
+    create_users = CreateTableStatement(dialect, Table(dialect, "users"), columns=user_columns)
 
     sql, params = create_users.to_sql()
     print("=== Create Users Table ===")
@@ -103,9 +125,8 @@ def main():
     print(f"Params: {params}")
     print()
 
-    # Execute DDL - convert to SQL string first
-    sql_str, params_str = create_users.to_sql()
-    backend.execute(sql_str, params_str)
+    # Execute DDL
+    backend.execute(sql, params)
 
     # Introspection: Verify table was created
     print_table_list(introspector, "After creating users table")
@@ -114,13 +135,23 @@ def main():
     # ============================================================
     # Example 2: Create table with IF NOT EXISTS
     # ============================================================
-    create_products = CreateTableExpression(
-        dialect=dialect,
-        table_name="products",
+    create_products = CreateTableStatement(
+        dialect,
+        Table(dialect, "products"),
         columns=[
-            ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-            ColumnDefinition("name", VarCharType(100)),
-            ColumnDefinition("price", FloatType(), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(
+                dialect,
+                "id",
+                IntegerType(dialect),
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))],
+            ),
+            ColumnDefinition(dialect, "name", VarCharType(dialect, length=100)),
+            ColumnDefinition(
+                dialect,
+                "price",
+                FloatType(dialect),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))],
+            ),
         ],
         if_not_exists=True,
     )
@@ -131,8 +162,7 @@ def main():
     print()
 
     # Execute DDL
-    sql_str, params_str = create_products.to_sql()
-    backend.execute(sql_str, params_str)
+    backend.execute(sql, params)
 
     # Introspection: Verify products table was created
     print_table_list(introspector, "After creating products table")
@@ -141,13 +171,13 @@ def main():
     # ============================================================
     # Example 3: Create temporary table
     # ============================================================
-    create_temp = CreateTableExpression(
-        dialect=dialect,
-        table_name="temp_sessions",
+    create_temp = CreateTableStatement(
+        dialect,
+        Table(dialect, "temp_sessions"),
         columns=[
-            ColumnDefinition("session_id", VarCharType(50)),
-            ColumnDefinition("data", TextType()),
-            ColumnDefinition("expires_at", TimestampType()),
+            ColumnDefinition(dialect, "session_id", VarCharType(dialect, length=50)),
+            ColumnDefinition(dialect, "data", TextType(dialect)),
+            ColumnDefinition(dialect, "expires_at", TimestampType(dialect)),
         ],
         temporary=True,
     )
@@ -158,8 +188,7 @@ def main():
     print()
 
     # Execute DDL
-    sql_str, params_str = create_temp.to_sql()
-    backend.execute(sql_str, params_str)
+    backend.execute(sql, params)
 
     # Introspection: Temporary tables are also visible in table_list
     print_table_list(introspector, "After creating temp table")
@@ -168,17 +197,19 @@ def main():
     # Example 4: Drop table
     # ============================================================
     # First create a table to drop
-    create_to_drop = CreateTableExpression(
-        dialect=dialect, table_name="old_table", columns=[ColumnDefinition("id", IntegerType())]
+    create_to_drop = CreateTableStatement(
+        dialect,
+        Table(dialect, "old_table"),
+        columns=[ColumnDefinition(dialect, "id", IntegerType(dialect))],
     )
-    sql_str, params_str = create_to_drop.to_sql()
-    backend.execute(sql_str, params_str)
+    sql, params = create_to_drop.to_sql()
+    backend.execute(sql, params)
 
     print("--- Before drop ---")
     tables = introspector.list_tables()
     print(f"Tables: {[t.name for t in tables]}")
 
-    drop_old = DropTableExpression(dialect, table_name="old_table", if_exists=True)
+    drop_old = DropTableStatement(dialect, Table(dialect, "old_table"), if_exists=True)
 
     sql, params = drop_old.to_sql()
     print("\n=== Drop Table ===")
@@ -186,8 +217,7 @@ def main():
     print()
 
     # Execute DDL
-    sql_str, params_str = drop_old.to_sql()
-    backend.execute(sql_str, params_str)
+    backend.execute(sql, params)
 
     # Introspection: Verify table was dropped
     print("--- After drop ---")
@@ -198,8 +228,15 @@ def main():
     # ============================================================
     # Example 5: Alter table - Add column
     # ============================================================
-    alter_add = AlterTableExpression(
-        dialect, table_name="users", actions=[AddColumn(dialect, column=ColumnDefinition("phone", VarCharType(20)))]
+    alter_add = AlterTableStatement(
+        dialect,
+        Table(dialect, "users"),
+        actions=[
+            AddColumnAction(
+                dialect,
+                ColumnDefinition(dialect, "phone", VarCharType(dialect, length=20)),
+            )
+        ],
     )
 
     sql, params = alter_add.to_sql()
@@ -208,8 +245,7 @@ def main():
     print()
 
     # Execute DDL
-    sql_str, params_str = alter_add.to_sql()
-    backend.execute(sql_str, params_str)
+    backend.execute(sql, params)
 
     # Introspection: Verify column was added
     print_table_info(introspector, "users", "users table after adding phone column")
@@ -218,17 +254,26 @@ def main():
     # Example 6: Alter table - Drop column
     # ============================================================
     # First add a column to drop
-    alter_add_field = AlterTableExpression(
-        dialect, table_name="users", actions=[AddColumn(dialect, column=ColumnDefinition("temp_field", TextType()))]
+    alter_add_field = AlterTableStatement(
+        dialect,
+        Table(dialect, "users"),
+        actions=[
+            AddColumnAction(
+                dialect,
+                ColumnDefinition(dialect, "temp_field", TextType(dialect)),
+            )
+        ],
     )
-    sql_str, params_str = alter_add_field.to_sql()
-    backend.execute(sql_str, params_str)
+    sql, params = alter_add_field.to_sql()
+    backend.execute(sql, params)
 
     print("--- Before dropping temp_field ---")
     print_table_info(introspector, "users", "users table before dropping temp_field")
 
-    alter_drop = AlterTableExpression(
-        dialect, table_name="users", actions=[DropColumn(dialect, column_name="temp_field")]
+    alter_drop = AlterTableStatement(
+        dialect,
+        Table(dialect, "users"),
+        actions=[DropColumnAction(dialect, "temp_field")],
     )
 
     sql, params = alter_drop.to_sql()
@@ -237,8 +282,7 @@ def main():
     print()
 
     # Execute DDL
-    sql_str, params_str = alter_drop.to_sql()
-    backend.execute(sql_str, params_str)
+    backend.execute(sql, params)
 
     # Introspection: Verify column was dropped
     print_table_info(introspector, "users", "users table after dropping temp_field")

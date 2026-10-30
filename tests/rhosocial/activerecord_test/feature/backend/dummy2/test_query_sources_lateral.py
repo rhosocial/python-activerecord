@@ -4,7 +4,7 @@ from rhosocial.activerecord.backend.expression import (
     Literal,
     Subquery,
     FunctionCall,
-    QueryExpression,
+    QueryStatement,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_sources import (
@@ -87,7 +87,7 @@ class TestLateralExpression:
         lateral_expr = LateralExpression(dummy_dialect, expression=lateral_query, alias="user_stats")
 
         # Create query using just the lateral expression as FROM
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "order_count", table="user_stats")],
             from_=lateral_expr,  # Use lateral expression directly
@@ -116,7 +116,7 @@ class TestLateralExpression:
     def test_lateral_expression_complex_subquery(self, dummy_dialect: DummyDialect):
         """Test LATERAL with complex subquery involving functions."""
         # Complex subquery that might reference outer query
-        complex_query = QueryExpression(
+        complex_query = QueryStatement(
             dummy_dialect,
             select=[
                 FunctionCall(dummy_dialect, "SUM", Column(dummy_dialect, "amount")),

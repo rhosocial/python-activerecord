@@ -29,11 +29,6 @@ class TinyIntType(DataType):
     def __init__(self, dialect=None, *, unsigned: bool = False,
                  spelling: str = "tinyint"):
         super().__init__(dialect)
-        if not isinstance(unsigned, bool):
-            raise TypeError(
-                f"unsigned must be a bool, got {type(unsigned).__name__}; it "
-                f"becomes a type modifier in the rendered DDL."
-            )
         self.unsigned = unsigned
         self.spelling = spelling
 
@@ -51,11 +46,6 @@ class SmallIntType(DataType):
     def __init__(self, dialect=None, *, unsigned: bool = False,
                  spelling: str = "smallint"):
         super().__init__(dialect)
-        if not isinstance(unsigned, bool):
-            raise TypeError(
-                f"unsigned must be a bool, got {type(unsigned).__name__}; it "
-                f"becomes a type modifier in the rendered DDL."
-            )
         self.unsigned = unsigned
         self.spelling = spelling
 
@@ -86,11 +76,6 @@ class IntegerType(DataType):
     def __init__(self, dialect=None, *, unsigned: bool = False,
                  spelling: str = "integer"):
         super().__init__(dialect)
-        if not isinstance(unsigned, bool):
-            raise TypeError(
-                f"unsigned must be a bool, got {type(unsigned).__name__}; it "
-                f"becomes a type modifier in the rendered DDL."
-            )
         self.unsigned = unsigned
         self.spelling = spelling
 
@@ -108,11 +93,6 @@ class BigIntType(DataType):
     def __init__(self, dialect=None, *, unsigned: bool = False,
                  spelling: str = "bigint"):
         super().__init__(dialect)
-        if not isinstance(unsigned, bool):
-            raise TypeError(
-                f"unsigned must be a bool, got {type(unsigned).__name__}; it "
-                f"becomes a type modifier in the rendered DDL."
-            )
         self.unsigned = unsigned
         self.spelling = spelling
 

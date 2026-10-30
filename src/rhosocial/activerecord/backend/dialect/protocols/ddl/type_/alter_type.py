@@ -12,7 +12,7 @@ from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from .....expression.statements import (
-        AlterTypeExpression,
+        AlterTypeStatement,
         TypeAlterAction,
     )
 
@@ -53,8 +53,8 @@ class AlterTypeSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_alter_type_statement(self, expr: "AlterTypeExpression") -> Tuple[str, tuple]:
-        """Render a :class:`~....expression.statements.AlterTypeExpression`.
+    def format_alter_type_statement(self, expr: "AlterTypeStatement") -> Tuple[str, tuple]:
+        """Render a :class:`~....expression.statements.AlterTypeStatement`.
 
         Raises rather than emitting an unsupported form: a statement the
         engine cannot parse is not a statement worth producing.

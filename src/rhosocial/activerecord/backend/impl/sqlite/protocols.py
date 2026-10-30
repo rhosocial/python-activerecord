@@ -9,11 +9,11 @@ that are not part of the standard SQL dialect protocols.
 from typing import Any, Dict, List, Optional, Protocol, Tuple, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .expression.attach import SQLiteAttachExpression, SQLiteDetachExpression
+    from .expression.attach import SQLiteAttachStatement, SQLiteDetachStatement
     from .expression.fts5 import (
         SQLiteFTS5CreateVirtualTable,
         SQLiteFTS5HighlightExpression,
-        SQLiteFTS5MatchExpression,
+        SQLiteFTS5MatchPredicate,
         SQLiteFTS5RankExpression,
         SQLiteFTS5SnippetExpression,
     )
@@ -22,10 +22,10 @@ if TYPE_CHECKING:
         SQLiteGeopolyContainsExpression,
         SQLiteGeopolyCreateVirtualTable,
     )
-    from .expression.reindex import SQLiteReindexExpression
+    from .expression.reindex import SQLiteReindexStatement
     from .expression.rtree import SQLiteRTreeCreateVirtualTable, SQLiteRTreeRangeQuery
-    from .expression.vacuum import SQLiteAnalyzeExpression, SQLiteVacuumExpression
-    from .expression.virtual_table import CreateVirtualTableExpression, DropVirtualTableExpression
+    from .expression.vacuum import SQLiteAnalyzeStatement, SQLiteVacuumStatement
+    from .expression.virtual_table import CreateVirtualTableStatement, DropVirtualTableStatement
 
 
 @runtime_checkable
@@ -222,28 +222,28 @@ class SQLiteVirtualTableSupport(Protocol):
 
     # ========== Virtual Table SQL Formatting ==========
 
-    def format_create_virtual_table(
+    def format_create_virtual_table_statement(
         self,
-        expr: "CreateVirtualTableExpression",
+        expr: "CreateVirtualTableStatement",
     ) -> Tuple[str, tuple]:
         """Format CREATE VIRTUAL TABLE statement.
 
         Args:
-            expr: CreateVirtualTableExpression instance
+            expr: CreateVirtualTableStatement instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
         ...
 
-    def format_drop_virtual_table(
+    def format_drop_virtual_table_statement(
         self,
-        expr: "DropVirtualTableExpression",
+        expr: "DropVirtualTableStatement",
     ) -> Tuple[str, tuple]:
         """Format DROP TABLE statement for virtual table.
 
         Args:
-            expr: DropVirtualTableExpression instance
+            expr: DropVirtualTableStatement instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
@@ -254,7 +254,7 @@ class SQLiteVirtualTableSupport(Protocol):
 
     def format_match_predicate(
         self,
-        expr: "SQLiteFTS5MatchExpression",
+        expr: "SQLiteFTS5MatchPredicate",
     ) -> Tuple[str, tuple]:
         """Format full-text search MATCH predicate.
 
@@ -298,11 +298,11 @@ class SQLiteReindexSupport(Protocol):
         """Whether REINDEX EXPRESSIONS is supported (SQLite 3.53.0+)."""
         ...
 
-    def format_reindex_statement(self, expr: "SQLiteReindexExpression") -> Tuple[str, tuple]:
+    def format_reindex_statement(self, expr: "SQLiteReindexStatement") -> Tuple[str, tuple]:
         """Format REINDEX statement.
 
         Args:
-            expr: SQLiteReindexExpression instance
+            expr: SQLiteReindexStatement instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
@@ -341,44 +341,44 @@ class SQLiteMaintenanceSupport(Protocol):
         """Whether DETACH DATABASE is supported."""
         ...
 
-    def format_vacuum_statement(self, expr: "SQLiteVacuumExpression") -> Tuple[str, tuple]:
+    def format_vacuum_statement(self, expr: "SQLiteVacuumStatement") -> Tuple[str, tuple]:
         """Format a VACUUM statement.
 
         Args:
-            expr: SQLiteVacuumExpression instance.
+            expr: SQLiteVacuumStatement instance.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
         ...
 
-    def format_analyze_statement(self, expr: "SQLiteAnalyzeExpression") -> Tuple[str, tuple]:
+    def format_analyze_statement(self, expr: "SQLiteAnalyzeStatement") -> Tuple[str, tuple]:
         """Format an ANALYZE statement.
 
         Args:
-            expr: SQLiteAnalyzeExpression instance.
+            expr: SQLiteAnalyzeStatement instance.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
         ...
 
-    def format_attach_statement(self, expr: "SQLiteAttachExpression") -> Tuple[str, tuple]:
+    def format_attach_statement(self, expr: "SQLiteAttachStatement") -> Tuple[str, tuple]:
         """Format an ATTACH DATABASE statement.
 
         Args:
-            expr: SQLiteAttachExpression instance.
+            expr: SQLiteAttachStatement instance.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
         ...
 
-    def format_detach_statement(self, expr: "SQLiteDetachExpression") -> Tuple[str, tuple]:
+    def format_detach_statement(self, expr: "SQLiteDetachStatement") -> Tuple[str, tuple]:
         """Format a DETACH DATABASE statement.
 
         Args:
-            expr: SQLiteDetachExpression instance.
+            expr: SQLiteDetachStatement instance.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
@@ -411,7 +411,7 @@ class SQLiteFTS5Support(Protocol):
         ...
 
     def format_fts5_match_expression(
-        self, expr: "SQLiteFTS5MatchExpression"
+        self, expr: "SQLiteFTS5MatchPredicate"
     ) -> Tuple[str, tuple]:
         """Format FTS5 MATCH expression."""
         ...
@@ -462,7 +462,7 @@ class SQLiteGeopolySupport(Protocol):
         """Format CREATE VIRTUAL TABLE for Geopoly."""
         ...
 
-    def format_geopoly_contains_query(self, expr: "SQLiteGeopolyContainsExpression") -> Tuple[str, tuple]:
+    def format_geopoly_contains_expression(self, expr: "SQLiteGeopolyContainsExpression") -> Tuple[str, tuple]:
         """Format Geopoly point-in-polygon query."""
         ...
 

@@ -16,12 +16,12 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import CreateTableExpression  # noqa: E402
+from rhosocial.activerecord.backend.expression import CreateTableStatement  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
 )
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table_name="users",
     columns=[
@@ -34,11 +34,11 @@ print(f"Create table SQL: {sql}")
 backend.execute(sql, params)
 
 # ============================================================
-# SECTION: DROP TABLE (using DropTableExpression)
+# SECTION: DROP TABLE (using DropTableStatement)
 # ============================================================
-from rhosocial.activerecord.backend.expression import DropTableExpression  # noqa: E402
+from rhosocial.activerecord.backend.expression import DropTableStatement  # noqa: E402
 
-drop_expr = DropTableExpression(
+drop_expr = DropTableStatement(
     dialect=dialect,
     table_name="users",
 )
@@ -48,7 +48,7 @@ print(f"Params: {params}")
 backend.execute(sql, params)
 
 # Already deleted, use IF EXISTS
-drop_expr_exists = DropTableExpression(
+drop_expr_exists = DropTableStatement(
     dialect=dialect,
     table_name="users",
     if_exists=True,
@@ -63,5 +63,5 @@ backend.execute(sql, params)
 backend.disconnect()
 
 # Key points:
-# 1. Use DropTableExpression to drop tables
+# 1. Use DropTableStatement to drop tables
 # 2. if_exists=True prevents error if missing

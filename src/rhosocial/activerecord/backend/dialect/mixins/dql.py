@@ -5,22 +5,24 @@ Builds the clause sequence of a query expression - SELECT, FROM, WHERE,
 GROUP BY/HAVING, ORDER BY, QUALIFY, LIMIT/OFFSET and FOR UPDATE - plus the
 individual clause formatters reused elsewhere.
 """
-from typing import Any, List, Tuple, TYPE_CHECKING
+
+from typing import TYPE_CHECKING, Any, List, Tuple
 
 from ...expression.bases import ToSQLProtocol
+from ...expression.query_parts import SortDirection
 
 if TYPE_CHECKING:
     from ...expression import bases
-    from ...expression.statements.dql import QueryExpression
     from ...expression.query_parts import (
         ForUpdateClause,
         GroupByHavingClause,
         LimitOffsetClause,
         OrderByClause,
-        OrderByExpression,
+        OrderByItem,
         QualifyClause,
         WhereClause,
     )
+    from ...expression.statements.dql import QueryStatement
 
 
 class DQLMixin:
@@ -53,7 +55,7 @@ class DQLMixin:
         The default mirrors PostgreSQL's version gate (13+). Every other
         backend overrides this with its own real capability.
         """
-        return self.version >= (13, 0, 0)
+        return self.version_at_least((13, 0, 0))
 
     def format_limit_offset(self, limit=None, offset=None) -> Tuple[str, List]:
         """Format a LIMIT/OFFSET fragment.
@@ -97,7 +99,7 @@ class DQLMixin:
 
         all_params: List[Any] = []
         parts = []
-        if getattr(clause, "with_ties", False):
+        if clause.with_ties:
             if not self.supports_fetch_with_ties():
                 raise UnsupportedFeatureError(
                     self.name,
@@ -157,8 +159,6 @@ class DQLMixin:
         condition_sql, condition_params = clause.condition.to_sql()
         return f"WHERE {condition_sql}", condition_params
 
-    _VALID_ORDER_DIRECTIONS = frozenset({"ASC", "DESC"})
-
     def format_order_by_clause(self, clause: "OrderByClause") -> Tuple[str, tuple]:
         """Format an ORDER BY clause.
 
@@ -178,10 +178,16 @@ class DQLMixin:
             if isinstance(item, tuple):
                 expr, direction = item
                 expr_sql, expr_params = expr.to_sql()
-                direction = direction.upper()
-                if direction not in self._VALID_ORDER_DIRECTIONS:
-                    raise ValueError(f"Invalid ORDER BY direction: {direction!r}. Must be 'ASC' or 'DESC'.")
-                expr_parts.append(f"{expr_sql} {direction}")
+                # The word travels; the keyword is written here.
+                direction = SortDirection.parse(direction)
+                # No direction is ordinary, not an error. The wire says null and
+                # the SQL says nothing: leaving the row order to the engine is
+                # what the artifact asked for -- and it is the shape Go writes,
+                # so a reader that rejected it would reject its counterpart.
+                if direction is None:
+                    expr_parts.append(expr_sql)
+                else:
+                    expr_parts.append(f"{expr_sql} {direction.keyword}")
                 all_params.extend(expr_params)
             else:
                 expr_sql, expr_params = item.to_sql()
@@ -189,11 +195,11 @@ class DQLMixin:
                 all_params.extend(expr_params)
         return f"ORDER BY {', '.join(expr_parts)}", tuple(all_params)
 
-    def format_order_by_expression(self, expr: "OrderByExpression") -> Tuple[str, tuple]:
+    def format_order_by_item(self, expr: "OrderByItem") -> Tuple[str, tuple]:
         """Format a single sort element of an ORDER BY clause.
 
         Args:
-            expr: An :class:`OrderByExpression` carrying the sort expression,
+            expr: An :class:`OrderByItem` carrying the sort operand,
                 optional direction and optional null ordering.
 
         Returns:
@@ -205,11 +211,13 @@ class DQLMixin:
         """
         from ..exceptions import UnsupportedFeatureError
 
-        expr_sql, expr_params = expr.expression.to_sql()
-        parts = [expr_sql]
+        operand_sql, expr_params = expr.operand.to_sql()
+        parts = [operand_sql]
         if expr.direction is not None:
-            parts.append(expr.direction)
-        if expr.nulls_first or expr.nulls_last:
+            # The node carries the word; the keyword is written here, so the
+            # artifact stays language-neutral.
+            parts.append(expr.direction.keyword)
+        if expr.nulls is not None:
             if not self.supports_nulls_first_last():
                 raise UnsupportedFeatureError(
                     self.name,
@@ -217,7 +225,7 @@ class DQLMixin:
                     "This dialect does not support explicit NULLS FIRST/LAST "
                     "ordering in an ORDER BY clause.",
                 )
-            parts.append("NULLS FIRST" if expr.nulls_first else "NULLS LAST")
+            parts.append("NULLS FIRST" if expr.nulls == "first" else "NULLS LAST")
         return " ".join(parts), tuple(expr_params)
 
     def format_group_by_having_clause(self, clause: "GroupByHavingClause") -> Tuple[str, tuple]:
@@ -246,11 +254,11 @@ class DQLMixin:
             all_params.extend(having_params)
         return " ".join(sql_parts), tuple(all_params)
 
-    def format_query_statement(self, expr: "QueryExpression") -> Tuple[str, tuple]:
+    def format_query_statement(self, expr: "QueryStatement") -> Tuple[str, tuple]:
         """Format a complete SELECT query.
 
         Args:
-            expr: The QueryExpression to render.
+            expr: The QueryStatement to render.
 
         Returns:
             A ``(sql, params)`` tuple of the statement text and its bind
@@ -261,6 +269,7 @@ class DQLMixin:
                 dialect does not support it.
         """
         from ..exceptions import UnsupportedFeatureError
+
         if self.strict_validation:
             expr.validate(strict=True)
         all_params: List[Any] = []
@@ -271,7 +280,9 @@ class DQLMixin:
             all_params.extend(expr_params)
         modifier_str = ""
         if expr.select_modifier:
-            modifier_str = f" {expr.select_modifier.value}"
+            # The keyword comes from the enum, so the wire value stays the
+            # language-neutral word.
+            modifier_str = f" {expr.select_modifier.keyword}"
         select_sql = f"SELECT{modifier_str} " + ", ".join(select_parts)
         from_sql = ""
         if expr.from_:
@@ -289,7 +300,7 @@ class DQLMixin:
                         part_sql, part_params = source.to_sql()
                         if source.__class__.__name__ == "ValuesExpression" and source.alias is None:
                             part_sql = f"({part_sql})"
-                        if source.__class__.__name__ == "SetOperationExpression" and source.alias is None:
+                        if source.__class__.__name__ == "SetOperation":
                             part_sql = f"({part_sql})"
                     from_parts.append(part_sql)
                     from_expr_params.extend(part_params)
@@ -298,7 +309,7 @@ class DQLMixin:
                 from_expr_sql, from_expr_params = expr.from_.to_sql()
                 if expr.from_.__class__.__name__ == "ValuesExpression" and expr.from_.alias is None:
                     from_expr_sql = f"({from_expr_sql})"
-                if expr.from_.__class__.__name__ == "SetOperationExpression" and expr.from_.alias is None:
+                if expr.from_.__class__.__name__ == "SetOperation":
                     from_expr_sql = f"({from_expr_sql})"
             from_sql = f" FROM {from_expr_sql}"
             all_params.extend(from_expr_params)
@@ -350,6 +361,19 @@ class DQLMixin:
         """Whether FOR UPDATE SKIP LOCKED is supported. Defaults to False."""
         return False
 
+    def supports_for_update_nowait(self) -> bool:
+        """Whether FOR UPDATE NOWAIT is supported. Defaults to False.
+
+        A separate probe from ``supports_for_update_skip_locked`` because the
+        two do not travel together: Oracle spells the pair ``NOWAIT`` /
+        ``SKIP LOCKED``, PostgreSQL since 9.5 accepts both but older versions
+        only ``SKIP LOCKED``, and SQLite accepts neither. A dialect that has one
+        has no reason to have the other, so a shared probe would have to be
+        answered ``True`` for a dialect that would only reject half the requests
+        it admitted.
+        """
+        return False
+
     def supports_for_share(self) -> bool:
         """Whether the FOR SHARE lock strength is supported. Defaults to False."""
         return False
@@ -380,8 +404,8 @@ class DQLMixin:
             UnsupportedFeatureError: If the requested lock strength or option
                 is not supported by the dialect.
         """
-        from ..exceptions import UnsupportedFeatureError
         from ...expression.query_parts import LockStrength
+        from ..exceptions import UnsupportedFeatureError
 
         all_params = []
         strength = clause.strength
@@ -395,7 +419,9 @@ class DQLMixin:
         if strength == LockStrength.LOCK_IN_SHARE_MODE and not self.supports_lock_in_share_mode():
             raise UnsupportedFeatureError(self.name, "LOCK IN SHARE MODE")
 
-        sql_parts = [strength.value]
+        # The clause text comes from the enum's phrase, so the wire value stays the
+        # language-neutral strength word.
+        sql_parts = [strength.phrase]
 
         # Handle OF columns if specified
         if clause.of_columns:
@@ -410,8 +436,13 @@ class DQLMixin:
             if of_parts:
                 sql_parts.append(f"OF {', '.join(of_parts)}")
 
-        # Handle NOWAIT/SKIP LOCKED options
+        # Both wait modifiers are gated. Rendering either one for a dialect that
+        # does not have it produces a statement the database rejects at
+        # execution time, which is a worse answer than refusing here: the
+        # failure arrives with the caller's data already in flight (§6).
         if clause.nowait:
+            if not self.supports_for_update_nowait():
+                raise UnsupportedFeatureError(self.name, "NOWAIT")
             sql_parts.append("NOWAIT")
         elif clause.skip_locked:
             if not self.supports_for_update_skip_locked():

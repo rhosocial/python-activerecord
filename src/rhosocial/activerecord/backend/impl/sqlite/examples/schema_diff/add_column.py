@@ -1,3 +1,26 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.impl.sqlite.schema.differ import (  # noqa: E402
+    SQLiteSchemaDiffer,
+)
+from rhosocial.activerecord.backend.schema import (  # noqa: E402
+    SyncSchemaSnapshotBuilder,
+)
+from rhosocial.activerecord.backend.expression.types import (
+    IntegerType, TextType,
+)
+from rhosocial.activerecord.backend.expression import (
+    CreateTableStatement,
+    ColumnDefinition,
+    ColumnConstraint,
+    AlterTableStatement,
+    AddColumnAction,
+)
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 """
 Schema diff: detect a column added to an existing table.
 """
@@ -5,28 +28,18 @@ Schema diff: detect a column added to an existing table.
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression, ColumnDefinition,
-    ColumnConstraint, ColumnConstraintType,
-    AlterTableExpression, AddColumn,
-)
-from rhosocial.activerecord.backend.expression.types import (
-    IntegerType, TextType,
-)
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 backend.introspect_and_adapt()
 dialect = backend.dialect
 
-expr = CreateTableExpression(
+expr = CreateTableStatement(
     dialect=dialect, table=Table(dialect, 'users'), columns=[
         ColumnDefinition(dialect, "id", IntegerType(),
-            constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY)]),
+            constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))]),
         ColumnDefinition(dialect, "name", TextType(),
-            constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.NOT_NULL)]),
+            constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
     ]
 )
 sql, params = expr.to_sql()
@@ -35,20 +48,13 @@ backend.execute(sql, params)
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.schema import (  # noqa: E402
-    SyncSchemaSnapshotBuilder,
-)
-from rhosocial.activerecord.backend.impl.sqlite.schema.differ import (  # noqa: E402
-    SQLiteSchemaDiffer,
-)
-from rhosocial.activerecord.backend.expression.objects import Table
 
 builder = SyncSchemaSnapshotBuilder(backend.introspector, dialect)
 snapshot_before = builder.build(schema="main")
 
 # Add a new column
-expr = AlterTableExpression(dialect, "users", [
-    AddColumn(dialect, ColumnDefinition(dialect, "email", TextType()))
+expr = AlterTableStatement(dialect, "users", [
+    AddColumnAction(dialect, ColumnDefinition(dialect, "email", TextType()))
 ])
 sql, params = expr.to_sql()
 backend.execute(sql, params)

@@ -7,7 +7,7 @@
 内省系统位于 `backend.introspector` 属性中，提供：
 
 - **数据库信息**：名称、版本、编码、大小等
-- **表信息**：表列表、表详情、表类型（基表、视图、系统表）
+- **表信息**：表列表、表详情、表类型（`BASE_TABLE`、`VIEW`、`MATERIALIZED_VIEW`、`FOREIGN_TABLE`、`PARTITIONED_TABLE`、`SYSTEM_TABLE`、`TEMPORARY`、`EXTERNAL`）
 - **列信息**：列名、数据类型、是否可空、默认值、主键信息
 - **索引信息**：索引名、列、唯一性、索引类型
 - **外键信息**：引用表、列映射、更新/删除行为
@@ -21,12 +21,21 @@
 ```
 backend/introspection/
 ├── __init__.py          # 模块导出
-├── base.py              # 抽象基类
-├── types.py             # 数据结构定义
+├── base.py              # 抽象内省器基类（同步 / 异步）
+├── types.py             # 数据结构定义（TableType 等）
 ├── errors.py            # 内省专用异常
 ├── executor.py          # 执行器抽象
-└── backend_mixin.py     # Backend 混入类
+├── cache.py             # IntrospectionCache —— 可注入的结果缓存
+├── backend_mixin.py     # Backend 混入类
+└── status/              # 服务器状态概览（配置、性能、存储）
 ```
+
+### 一个目录问题就是一个语句
+
+内省不会就地拼接 SQL 文本。每个问题都是一个语句类（名为 `*Statement`，例如 `TableListQueryStatement`），由 dialect 的 `format_*_query_statement` 格式化；内省器持有使用它们的公开方法对（`list_tables()` / `parse_tables()` 等）。这带来两点对后端作者重要的后果：
+
+- 表达式层不持有状态 —— 语句只包含渲染它所需要的全部信息；
+- 后端回答一个目录问题的方式，是声明一个语句加一个格式化方法，而不是覆盖某个拼字符串的方法。
 
 ### 同步与异步分离
 
@@ -34,17 +43,17 @@ backend/introspection/
 
 - `SyncAbstractIntrospector` — 同步内省器
 - `AsyncAbstractIntrospector` — 异步内省器
-- `IntrospectorMixin` — 共享的非 I/O 逻辑（缓存、SQL 生成、解析）
+- `IntrospectorMixin` — 共享的非 I/O 逻辑（缓存、SQL 生成、解析），包括 `server_version`：内省器从服务器读到的版本，使能力判断不必再次询问服务器
 
 ## 数据结构
 
-### DatabaseInfo
+### IntrospectionDatabaseInfo
 
 数据库基本信息：
 
 ```python
 @dataclass
-class DatabaseInfo:
+class IntrospectionDatabaseInfo:
     name: str                      # 数据库名称
     version: str                   # 版本字符串
     version_tuple: Tuple[int, ...] # 版本元组
@@ -57,29 +66,33 @@ class DatabaseInfo:
     extra: Dict[str, Any]          # 额外信息
 ```
 
-### TableInfo
+### IntrospectionTableInfo
 
 表信息：
 
 ```python
 @dataclass
-class TableInfo:
+class IntrospectionTableInfo:
     name: str                    # 表名
     schema: str                  # Schema 名称
-    table_type: TableType        # 表类型
+    table_type: TableType        # 表类型（BASE_TABLE、VIEW、MATERIALIZED_VIEW、
+                                 #  FOREIGN_TABLE、PARTITIONED_TABLE、SYSTEM_TABLE、
+                                 #  TEMPORARY、EXTERNAL）
     comment: Optional[str]       # 表注释
     row_count: Optional[int]     # 行数估计
     size_bytes: Optional[int]    # 表大小
     extra: Dict[str, Any]        # 额外信息
 ```
 
-### ColumnInfo
+`table_type` 保留目录实际做出的区分，而不是把所有关系都折叠成"表"。例如在 SQLite 上，FTS 或 R-Tree 虚拟表背后的存储表是 `SYSTEM_TABLE`，而虚拟表本身是 `EXTERNAL`。
+
+### IntrospectionColumnInfo
 
 列信息：
 
 ```python
 @dataclass
-class ColumnInfo:
+class IntrospectionColumnInfo:
     name: str                         # 列名
     table_name: str                   # 所属表名
     data_type: str                    # 数据类型
@@ -110,13 +123,13 @@ class IndexInfo:
     extra: Dict[str, Any]          # 额外信息
 ```
 
-### ForeignKeyInfo
+### IntrospectionForeignKeyInfo
 
 外键信息：
 
 ```python
 @dataclass
-class ForeignKeyInfo:
+class IntrospectionForeignKeyInfo:
     name: str                           # 外键名
     table_name: str                     # 所属表名
     columns: List[str]                  # 外键列
@@ -128,13 +141,13 @@ class ForeignKeyInfo:
     extra: Dict[str, Any]               # 额外信息
 ```
 
-### ViewInfo
+### IntrospectionViewInfo
 
 视图信息：
 
 ```python
 @dataclass
-class ViewInfo:
+class IntrospectionViewInfo:
     name: str                    # 视图名
     schema: str                  # Schema 名称
     definition: str              # 视图定义 SQL
@@ -143,13 +156,13 @@ class ViewInfo:
     extra: Dict[str, Any]        # 额外信息
 ```
 
-### TriggerInfo
+### IntrospectionTriggerInfo
 
 触发器信息：
 
 ```python
 @dataclass
-class TriggerInfo:
+class IntrospectionTriggerInfo:
     name: str                    # 触发器名
     table_name: str              # 关联表名
     event: TriggerEvent          # 触发事件
@@ -317,13 +330,46 @@ triggers = await backend.introspector.list_triggers()
 
 ## 缓存机制
 
-内省结果默认会被缓存以提高性能。
+内省结果默认会被缓存以提高性能。缓存是管理器的**组件**——管理器拥有它，调用者可以替换它——而不是隐藏属性：`backend.introspector.cache`。
 
-### 缓存配置
+### 缓存契约
+
+`IntrospectionCache`（`rhosocial.activerecord.backend.introspection.cache`）是一个协议，因此后端可以把自有实现放进管理器后面，而不必继承本包的过期策略：
+
+| 方法 | 用途 |
+|------|------|
+| `key(scope, name=None, schema=None, extra=None)` | 生成"问同一个问题"的两次调用共享的键 |
+| `get(key)` | 返回缓存结果，或 `None` |
+| `set(key, value)` | 存入结果 |
+| `invalidate(scope=None, name=None)` | 从全体失效到单个对象失效 |
+| `clear()` | 丢弃全部缓存结果 |
+
+`InMemoryIntrospectionCache` 是默认实现：进程内、按 TTL 过期（默认 300 秒），过期项在有人查看时才被丢弃，而不是由后台清扫器处理。
 
 ```python
-# 默认 TTL 为 300 秒（5 分钟）
-# 内省器初始化时自动设置
+from rhosocial.activerecord.backend.introspection.cache import InMemoryIntrospectionCache
+
+# 默认：进程内、300 秒 TTL
+backend.introspector.cache = InMemoryIntrospectionCache(ttl=60)
+
+# 或使用自己的缓存：只要满足该协议
+class NoCache:
+    def key(self, scope, name=None, schema=None, extra=None):
+        return (scope, name, schema, extra)
+
+    def get(self, key):
+        return None
+
+    def set(self, key, value):
+        pass
+
+    def invalidate(self, scope=None, name=None):
+        pass
+
+    def clear(self):
+        pass
+
+backend.introspector.cache = NoCache()
 ```
 
 ### 缓存管理
@@ -338,38 +384,31 @@ from rhosocial.activerecord.backend.introspection.types import IntrospectionScop
 # 使所有表相关缓存失效
 backend.introspector.invalidate_cache(scope=IntrospectionScope.TABLE)
 
-# 使特定表的缓存失效
+# 使特定表、索引、列集合……的缓存失效
 backend.introspector.invalidate_cache(
     scope=IntrospectionScope.TABLE,
     name="users"
 )
-
-# 使列相关缓存失效
-backend.introspector.invalidate_cache(
-    scope=IntrospectionScope.COLUMN,
-    table_name="users"
-)
-
-# 使索引相关缓存失效
 backend.introspector.invalidate_cache(
     scope=IntrospectionScope.INDEX,
-    table_name="users",
     name="idx_users_email"
 )
 ```
 
 ### 缓存作用域
 
-| 作用域 | 说明 | 失效参数 |
-|--------|------|----------|
-| `DATABASE` | 数据库信息 | 无 |
-| `SCHEMA` | Schema 信息 | `name` |
-| `TABLE` | 表信息 | `name` |
-| `COLUMN` | 列信息 | `table_name`, `name` |
-| `INDEX` | 索引信息 | `table_name`, `name` |
-| `FOREIGN_KEY` | 外键信息 | `table_name`, `name` |
-| `VIEW` | 视图信息 | `name` |
-| `TRIGGER` | 触发器信息 | `table_name`, `name` |
+作用域说明一次失效波及哪些已缓存的答案，所以问题涉及的表由 `name` 携带（在 `key()` 中则由 `schema` / `extra` 携带）：
+
+| 作用域 | 说明 |
+|--------|------|
+| `DATABASE` | 数据库信息 |
+| `SCHEMA` | Schema 信息 |
+| `TABLE` | 表信息 |
+| `COLUMN` | 列信息 |
+| `INDEX` | 索引信息 |
+| `FOREIGN_KEY` | 外键信息 |
+| `VIEW` | 视图信息 |
+| `TRIGGER` | 触发器信息 |
 
 ## 后端特定实现
 

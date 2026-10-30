@@ -33,26 +33,42 @@ SQLQueryAndParams: TypeAlias = Tuple[str, tuple]
 SQLQueryAndParams.__module__ = __name__
 
 
-def is_sql_query_and_params(obj):
-    """Check if an object is of type SQLQueryAndParams (Tuple[str, tuple]).
+class QueryWithParams:
+    """The shape of a SQL string together with its parameters.
 
-    Args:
-        obj: The object to check
+    ``SQLQueryAndParams`` stays a type alias: it appears in annotations and in
+    pydantic models, where a class would change the field's schema rather than
+    describe it. This class owns the *check* instead, so the shape is stated
+    once, beside the alias that names it, and callers reach it as a member
+    rather than as a free function.
 
-    Returns:
-        bool: True if the object is a SQLQueryAndParams tuple, False otherwise
+    The five places that ask the question are in three unrelated families --
+    the model bases, the expression tree, and the query protocols -- and they
+    share no ancestor, so there is no base class to hang this on.
     """
-    return (
-        isinstance(obj, tuple)
-        and len(obj) == 2
-        and isinstance(obj[0], str)
-        and (isinstance(obj[1], tuple) or obj[1] is None)
-    )
+
+    @classmethod
+    def holds(cls, obj: Any) -> bool:
+        """Whether *obj* has the shape of a query with its parameters.
+
+        Args:
+            obj: The object to check
+
+        Returns:
+            bool: True if the object is a SQLQueryAndParams tuple, False
+            otherwise
+        """
+        return (
+            isinstance(obj, tuple)
+            and len(obj) == 2
+            and isinstance(obj[0], str)
+            and (isinstance(obj[1], tuple) or obj[1] is None)
+        )
 
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
-    from .collation import CollateExpression
+    from .collation import CollateFunction
 
 
 @runtime_checkable
@@ -79,28 +95,37 @@ class ToSQLProtocol(Protocol):
         """
         ...
 
-    @property
-    def inline_literals(self) -> bool:  # pragma: no cover
-        """
-        Whether this expression renders its literal values **inline** (as SQL
-        text) instead of as bind parameters.
 
-        **Defaults to ``False``** (bind parameters) — inline SQL text is a
-        severe SQL-injection hazard whenever the content can be influenced by
-        end users. Only content that is fully developer-declared and never
-        exposed to end users (e.g. schema DDL derived by ActiveRecord) should
-        enable it, and developers must think carefully before doing so.
-        """
-        ...
 
-    @inline_literals.setter
-    def inline_literals(self, value: bool) -> bool:  # pragma: no cover
-        """
-        Enable/disable inline literal rendering for this expression.
+@runtime_checkable
+class SQLLiteral(Protocol):
+    """The literal-construction protocol (the third level of inline literal
+    construction).
 
-        Disabled by default; enabling is a deliberate, security-relevant
-        choice (see the getter's documentation).
-        """
+    A **value type definer** implements this protocol so instances of the
+    type can render themselves as a complete inline SQL literal. It exists
+    for user-defined and backend-specific value types that no dialect
+    build-in whitelist knows (``Point``, ``inet``, an Interval wrapper, ...):
+    whoever defines the type owns its literal spelling.
+
+    The contract:
+
+    - ``__sql_literal__(dialect)`` returns the **complete** inline literal
+      text, quotes included — the dialect embeds it verbatim;
+    - every string component inside that text must be escaped through the
+      dialect's **public** escape helpers (:meth:`SQLDialectBase.escape_sql_string`
+      or :meth:`SQLDialectBase.format_literal`); hand-concatenated quoting is
+      a violation;
+    - the dialect embeds the returned text as an atom, so the implementation
+      must keep placeholder-looking characters inside quoted string data.
+
+    This protocol is a **rendering** duty. It is not :class:`DataType` and
+    has no relationship to DDL column-type declaration: a type may implement
+    one, the other, or both, and implementing one never implies the other.
+    """
+
+    def __sql_literal__(self, dialect: "SQLDialectBase") -> str:  # pragma: no cover
+        """Return the complete inline SQL literal text for this value."""
         ...
 
 
@@ -114,8 +139,78 @@ class BaseExpression:
 
     - :attr:`dialect` property — validated binding (constructor-optional,
       late binding via the setter; **per-node only, no propagation**);
-    - :attr:`inline_literals` property — inline-literal switch (defaults to
-      ``False`` for injection safety).
+
+    Rendering is **centralised** and **stateless**: :meth:`to_sql` is
+    implemented once, here, and is the only rendering entry point. A concrete
+    expression class participates by declaring exactly one thing — its
+    dialect formatting method name, through the read-only :attr:`format_method`
+    property. ``to_sql()`` resolves that name on the node's own bound dialect
+    (raising if unbound or if the dialect does not provide it) and hands
+    **this** expression to the formatting function. The rendered tree is
+    responsible for its own per-node dialect binding; no reconstruction or
+    propagation happens at render time.
+    """
+
+    @classmethod
+    def quote_flag(cls, value: Any, name: str) -> bool:
+        """A quoting flag, or a failure naming where it came from.
+
+        These flags are ``bool`` with no third state. There is no "unspecified" to
+        represent, because the formatter never meets an absent one -- the value is
+        settled at construction and carried on the artifact (§10.1). So the only way
+        a flag goes wrong is a caller passing something that is not a bool, and
+        ``None`` is the one that arrives by accident: it reads as "I did not think
+        about it" and lands on the branch that writes the identifier out with
+        nothing escaped.
+
+        The annotation already says ``bool``. Python does not enforce annotations,
+        so this is where the type is actually checked.
+        """
+        if not isinstance(value, bool):
+            raise TypeError(
+                f"{cls.__name__}.{name} must be a bool, got {type(value).__name__}. "
+                "Quoting is decided per position and has no 'unspecified' state: "
+                "pass True to quote, False to write the identifier as it stands."
+            )
+        return value
+
+    @staticmethod
+    def require_exclusive_options(flag_a: bool, flag_b: bool, name_a: str, name_b: str) -> None:
+        """Refuse a clause whose two spellings were both requested.
+
+        A two-spelling clause (``CASCADE`` / ``RESTRICT``, ``DEFERRABLE`` /
+        ``NOT DEFERRABLE``) is two parameters, not one option with three values.
+        Asking for both is API misuse, and the refusal is worded once here so
+        every clause reports it the same way instead of each restating the
+        sentence.
+
+        This is an internal-consistency question, not a dialect-capability one:
+        no backend can render ``CASCADE RESTRICT``, so the answer does not
+        depend on which formatter will later render the expression. It
+        therefore stays at construction time rather than moving into the
+        formatter.
+
+        Args:
+            flag_a: whether the first spelling was requested
+            flag_b: whether the second spelling was requested
+            name_a: parameter name of the first spelling
+            name_b: parameter name of the second spelling
+
+        Raises:
+            ValueError: if both spellings were requested
+        """
+        if flag_a and flag_b:
+            raise ValueError(f"{name_a} and {name_b} are mutually exclusive options")
+
+    """
+    Shared protocol-attribute implementation for every SQL expression.
+
+    Satisfies the :class:`ToSQLProtocol` contract **structurally** — explicit
+    inheritance is neither required nor used (a protocol is structural; this
+    base is the shared implementation of its members):
+
+    - :attr:`dialect` property — validated binding (constructor-optional,
+      late binding via the setter; **per-node only, no propagation**);
 
     Rendering is **centralised** and **stateless**: :meth:`to_sql` is
     implemented once, here, and is the only rendering entry point. A concrete
@@ -136,7 +231,6 @@ class BaseExpression:
         be supplied later through the :attr:`dialect` property (e.g. model
         declaration time has no dialect; DDL generation binds one).
         """
-        self._inline_literals = False
         self.dialect = dialect
 
     @property
@@ -230,7 +324,7 @@ class BaseExpression:
         protocol is satisfied by its own ``...`` bodies, so a probe-only
         protocol sitting in a dialect's base list answers ``getattr`` and
         passes the callable test while returning ``None``. Three backends hit
-        that independently -- ``CreateFunctionExpression(...).to_sql()``
+        that independently -- ``CreateFunctionStatement(...).to_sql()``
         answering ``None``, ``Domain.to_sql()`` answering ``None``, a
         formatter returning a bare string instead of a pair -- and each was
         invisible because nothing inspected the result. A formatting method
@@ -309,24 +403,81 @@ class BaseExpression:
         """
         pass  # pragma: no cover
 
-    inline_literals: bool = False
-    """Default implementation of the :class:`ToSQLProtocol` contract (see
-    its documentation for the security rationale): **False** — bind
-    parameters are the safe default. Subclasses may override the class-level
-    default; instances toggle it through the protocol setter."""
+
+    #: Tokens at the head of a class name that are a single word and must not
+    #: be split when the kind is derived (§4.9.4). Empty on the core.
+    #:
+    #: The general rule — a run of capitals is one word — disagrees with the
+    #: backend identifier table for several backends: applied naively it
+    #: yields ``sq_lite_json_extract_function`` for ``SQLiteJsonExtractFunction``
+    #: and ``my_sql_upsert_clause`` for ``MySQLUpsertClause``. Since the kind is
+    #: part of the wire contract (§4.11.1), a backend whose identifier is a
+    #: compound word declares it here and its own expressions keep it whole.
+    #:
+    #: A backend owns this list: it is the backend's naming, not the core's, and
+    #: adding a backend must not require editing the core. What a subclass may
+    #: override is this list, never :meth:`kind` — the kind is always computed
+    #: from the class name, never stored, so the two cannot drift apart (§4.11.1:
+    #: an independent identifier table "would drift from the class names, and
+    #: that drift directly breaks existing artifacts").
+    KIND_RESERVED: Tuple[str, ...] = ()
+
+    #: Whether the framework's default registry admits this node (§7).
+    #:
+    #: Set it ``False`` for a node whose rendered SQL is text the caller vouched
+    #: for. The artifact is untrusted input (§10), so admitting such a kind into
+    #: the table a reader resolves against would let the artifact choose raw SQL:
+    #: the reader would rebuild a node whose ``to_sql()`` emits whatever the
+    #: payload said. Excluding it keeps that out of reach by default.
+    #:
+    #: This is a *default*, not a prohibition. Nothing stops a caller who trusts
+    #: its artifacts from registering the class itself — the registry is
+    #: assembled from the expressions a distribution ships, and which ones those
+    #: are is the distribution's call. Deciding it per class, next to the class,
+    #: is what keeps the framework from carrying a list of names it would then
+    #: have to keep in step.
+    REGISTER_BY_DEFAULT: bool = True
+
+    @classmethod
+    def kind(cls) -> str:
+        """Derive this expression's kind from its class name (§4.11.1).
+
+        The kind is the class name's snake_case form, with a run of consecutive
+        capitals counted as one word (``JSONValue`` → ``json_value``,
+        ``SQLDialect`` → ``sql_dialect``), except that any token named in
+        :attr:`KIND_RESERVED` that starts the name is kept whole
+        (``SQLiteTopClause`` → ``sqlite_top_clause``).
+
+        Computed, never stored: a class carries no kind field, so a kind can
+        never disagree with the class that produced it.
+        """
+        import re
+
+        name = cls.__name__
+        for token in cls.KIND_RESERVED:
+            if name.startswith(token) and len(name) > len(token):
+                rest = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1 \2", name[len(token):])
+                rest = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", rest)
+                return token.lower() + "_" + "_".join(rest.lower().split())
+        name = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1 \2", name)
+        name = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", name)
+        return "_".join(name.lower().split())
 
     def get_params(self) -> Dict[str, Any]:
         """Introspection-based default implementation.
 
         Iterates the class __init__ signature (excluding `self` and `dialect`),
-        and resolves each parameter to its stored attribute value using the
-        convention:  param `foo`  →  self._foo  (fallback: self.foo)
+        and reads each parameter off the attribute of the same name: param `foo`
+        is read from `self.foo`. One spelling, no probing -- a parameter the
+        class did not store raises `AttributeError` naming the class and the
+        parameter, which is the defect this method exists to surface.
 
         VAR_POSITIONAL (*args) parameters are returned as a list.
-        VAR_KEYWORD (**kwargs) parameters are resolved through the same
-        convention — a class that accepts **kwargs MUST store the collected
-        extras under an attribute named after the parameter (e.g. `self.kwargs`
-        or `self.collation_options`) so the round-trip can reconstruct them.
+        VAR_KEYWORD (**kwargs) parameters are read from a dict stored under the
+        parameter's own name and merged into the top level, so that
+        reconstruction `cls(..., **value)` re-expands them. Expressions should
+        not declare **kwargs at all: an artifact names its parameters, and a
+        catch-all accepts names no artifact can ever carry.
         """
         sig = inspect.signature(self.__class__.__init__)
         params: Dict[str, Any] = {}
@@ -335,34 +486,24 @@ class BaseExpression:
             if name in ("self", "dialect"):
                 continue
 
-            private = f"_{name}"
-            if hasattr(self, private) and hasattr(self, name):
-                # Both spellings exist. A fluent-API method named like the
-                # parameter (e.g. `schema` on introspection expressions) is
-                # a *callable* — then the private attribute is the state.
-                # Otherwise the public attribute is the constructor's
-                # authoritative write (the private one is only the
-                # base-class default the protocol setter keeps).
-                public = getattr(self, name)
-                value = public if not callable(public) else getattr(self, private)
-            elif hasattr(self, private):
-                value = getattr(self, private)
-            elif hasattr(self, name):
-                value = getattr(self, name)
-            else:
-                warnings.warn(
-                    f"{self.__class__.__name__}.get_params(): cannot find attribute "
-                    f"'_{name}' or '{name}' for parameter '{name}'. "
-                    "Store it under the parameter's name in __init__ - "
-                    "get_params() is the single serialization path and is not "
-                    "meant to be overridden.",
-                    stacklevel=2,
-                )
-                continue
+            # One spelling, and it is the parameter's own name. This used to
+            # probe `_{name}` then `name` and pick between them by testing
+            # whether the public one was callable, because eighteen fluent
+            # setters were named exactly like their constructor parameters
+            # (`schema`, `table_name`, `include_columns`, `begin_type`, …) and
+            # the value could not then be written as `self.schema = ...` without
+            # shadowing the method. The setters are `with_*` now, so the
+            # parameter owns the name and there is nothing to decide.
+            #
+            # Nothing is skipped when the attribute is absent: a parameter the
+            # class did not store is a defect, and the AttributeError says which
+            # class and which parameter. The old branch warned and carried on,
+            # which put the omission in the artifact with nothing to show for it.
+            value = getattr(self, name)
 
             if param.kind == inspect.Parameter.VAR_KEYWORD:
                 # **kwargs extras must be stored as a dict on an attribute named
-                # after the parameter (e.g. self.kwargs, self.collation_options).
+                # after the parameter (e.g. self.kwargs).
                 # They are merged into the top-level params so that
                 # reconstruction `cls(..., **value)` re-expands them correctly.
                 if not isinstance(value, dict):
@@ -397,7 +538,7 @@ class SQLPredicate(LogicalMixin, AliasableMixin, BaseExpression):
     pass
 
 
-class SQLValueExpression(BaseExpression):
+class SQLValue(BaseExpression):
     """
     Abstract base class for SQL expressions that return a non-boolean value
     (e.g., integer, string, date).
@@ -415,8 +556,8 @@ class SQLValueExpression(BaseExpression):
     def collate(
         self,
         collation: Union[str, Enum],
-        **collation_options: Any,
-    ) -> "CollateExpression":
+        schema: Optional[str] = None,
+    ) -> "CollateFunction":
         """
         Apply an explicit SQL COLLATE clause to this value expression.
 
@@ -425,6 +566,6 @@ class SQLValueExpression(BaseExpression):
         type supports collation. Callers must apply it only to expressions that
         are valid for the target backend, typically text/string expressions.
         """
-        from .collation import CollateExpression
+        from .collation import CollateFunction
 
-        return CollateExpression(self.dialect, self, collation, **collation_options)
+        return CollateFunction(self.dialect, self, collation, schema=schema)

@@ -27,6 +27,14 @@ class LockingSupport(Protocol):
         """Whether FOR UPDATE SKIP LOCKED is supported."""
         ...  # pragma: no cover
 
+    def supports_for_update_nowait(self) -> bool:
+        """Whether FOR UPDATE NOWAIT is supported.
+
+        Distinct from SKIP LOCKED on purpose: a dialect may accept one and
+        reject the other, so one probe cannot answer for both.
+        """
+        ...  # pragma: no cover
+
     def supports_for_share(self) -> bool:
         """Whether the FOR SHARE lock strength is supported."""
         ...  # pragma: no cover

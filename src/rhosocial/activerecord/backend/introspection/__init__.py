@@ -10,8 +10,8 @@ Quick start::
         IntrospectorBackendMixin,
         SyncIntrospectorExecutor,
         AsyncIntrospectorExecutor,
-        DatabaseInfo, TableInfo, ColumnInfo, IndexInfo,
-        ForeignKeyInfo, ViewInfo, TriggerInfo,
+        IntrospectionDatabaseInfo, IntrospectionTableInfo, IntrospectionColumnInfo, IndexInfo,
+        IntrospectionForeignKeyInfo, IntrospectionViewInfo, IntrospectionTriggerInfo,
     )
 """
 
@@ -21,14 +21,14 @@ from .types import (
     ColumnNullable,
     IndexType,
     ReferentialAction,
-    DatabaseInfo,
-    TableInfo,
-    ColumnInfo,
+    IntrospectionDatabaseInfo,
+    IntrospectionTableInfo,
+    IntrospectionColumnInfo,
     IndexInfo,
     IndexColumnInfo,
-    ForeignKeyInfo,
-    ViewInfo,
-    TriggerInfo,
+    IntrospectionForeignKeyInfo,
+    IntrospectionViewInfo,
+    IntrospectionTriggerInfo,
 )
 from .errors import (
     IntrospectionError,
@@ -41,8 +41,10 @@ from .executor import (
     SyncIntrospectorExecutor,
     AsyncIntrospectorExecutor,
 )
+from .cache import InMemoryIntrospectionCache, IntrospectionCache
 from .base import (
     IntrospectorMixin,
+    IntrospectorBase,
     SyncAbstractIntrospector,
     AsyncAbstractIntrospector,
 )
@@ -56,14 +58,14 @@ __all__ = [
     "IndexType",
     "ReferentialAction",
     # Data structures
-    "DatabaseInfo",
-    "TableInfo",
-    "ColumnInfo",
+    "IntrospectionDatabaseInfo",
+    "IntrospectionTableInfo",
+    "IntrospectionColumnInfo",
     "IndexInfo",
     "IndexColumnInfo",
-    "ForeignKeyInfo",
-    "ViewInfo",
-    "TriggerInfo",
+    "IntrospectionForeignKeyInfo",
+    "IntrospectionViewInfo",
+    "IntrospectionTriggerInfo",
     # Exceptions
     "IntrospectionError",
     "IntrospectionNotSupportedError",
@@ -73,8 +75,12 @@ __all__ = [
     # Executor
     "SyncIntrospectorExecutor",
     "AsyncIntrospectorExecutor",
+    # Cache
+    "IntrospectionCache",
+    "InMemoryIntrospectionCache",
     # Core
     "IntrospectorMixin",
+    "IntrospectorBase",
     "SyncAbstractIntrospector",
     "AsyncAbstractIntrospector",
     "IntrospectorBackendMixin",

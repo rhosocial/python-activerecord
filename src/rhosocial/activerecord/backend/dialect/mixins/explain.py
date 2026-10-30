@@ -7,7 +7,7 @@ with hooks for dialect-specific options such as ANALYZE and FORMAT.
 from typing import Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.statements import ExplainExpression
+    from ...expression.statements import ExplainStatement
 
 
 class ExplainMixin:
@@ -32,11 +32,11 @@ class ExplainMixin:
         """
         return False
 
-    def format_explain_statement(self, expr: "ExplainExpression") -> Tuple[str, tuple]:
+    def format_explain_statement(self, expr: "ExplainStatement") -> Tuple[str, tuple]:
         """Format an EXPLAIN statement.
 
         Args:
-            expr: The ExplainExpression to render, including the wrapped
+            expr: The ExplainStatement to render, including the wrapped
                 statement and optional options.
 
         Returns:
@@ -54,7 +54,7 @@ class ExplainMixin:
 
         # Determine if ANALYZE should be included based on the type field
         # If type is ANALYZE, or if the boolean analyze field is True
-        if (hasattr(options, "type") and options.type == ExplainType.ANALYZE) or options.analyze:
+        if options.type == ExplainType.ANALYZE or options.analyze:
             parts.append("ANALYZE")
         if options.format:
             parts.append(f"FORMAT {options.format.value.upper()}")

@@ -12,7 +12,7 @@ from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from .....expression.statements import (
-        CreateIndexExpression,
+        CreateIndexStatement,
     )
 
 
@@ -87,8 +87,8 @@ class CreateIndexSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_create_index_statement(self, expr: "CreateIndexExpression") -> Tuple[str, tuple]:
-        """Render a :class:`~....expression.statements.CreateIndexExpression`.
+    def format_create_index_statement(self, expr: "CreateIndexStatement") -> Tuple[str, tuple]:
+        """Render a :class:`~....expression.statements.CreateIndexStatement`.
 
         Raises rather than emitting an unsupported form: a statement the
         engine cannot parse is not a statement worth producing.

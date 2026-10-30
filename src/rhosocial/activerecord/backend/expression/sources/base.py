@@ -64,4 +64,4 @@ class TableSource(BaseExpression):
         """
         super().__init__(dialect)
         self.alias = alias
-        self.alias_need_quote = alias_need_quote
+        self.alias_need_quote = self.quote_flag(alias_need_quote, "alias_need_quote")

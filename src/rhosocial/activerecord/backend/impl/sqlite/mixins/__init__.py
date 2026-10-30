@@ -15,7 +15,6 @@ from .introspection import SQLiteIntrospectionCapabilityMixin
 from .datetime import SQLiteDateTimeMixin
 from .ddl_column import SQLiteDDLColumnMixin
 from .dml import SQLiteDMLMixin
-from .set_operation import SQLiteSetOperationMixin
 from .ddl_view import SQLiteViewMixin
 from .trigger import SQLiteTriggerMixin
 from .transaction import SQLiteTransactionMixin
@@ -24,7 +23,9 @@ from .fts5 import SQLiteFTS5Mixin
 from .rtree import SQLiteRTreeMixin
 from .geopoly import SQLiteGeopolyMixin
 from .types import SQLiteTypeSupportMixin
+from .literal import LiteralValueMixin
 from .column_type import SQLiteColumnTypeMixin
+from .object_name import SQLiteObjectNameMixin
 
 __all__ = [
     'SQLiteExtensionMixin',
@@ -36,7 +37,6 @@ __all__ = [
     'SQLiteDateTimeMixin',
     'SQLiteDDLColumnMixin',
     'SQLiteDMLMixin',
-    'SQLiteSetOperationMixin',
     'SQLiteViewMixin',
     'SQLiteTriggerMixin',
     'SQLiteTransactionMixin',
@@ -45,5 +45,7 @@ __all__ = [
     'SQLiteRTreeMixin',
     'SQLiteGeopolyMixin',
     'SQLiteTypeSupportMixin',
+    'SQLiteObjectNameMixin',
+    'LiteralValueMixin',
     'SQLiteColumnTypeMixin',
 ]

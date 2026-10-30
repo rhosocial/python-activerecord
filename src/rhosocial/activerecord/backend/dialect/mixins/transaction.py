@@ -8,41 +8,41 @@ from typing import Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...expression.transaction import (
-        BeginTransactionExpression,
-        CommitTransactionExpression,
-        ReleaseSavepointExpression,
-        RollbackTransactionExpression,
-        SavepointExpression,
-        SetTransactionExpression,
+        BeginTransactionStatement,
+        CommitStatement,
+        ReleaseSavepointStatement,
+        RollbackStatement,
+        SavepointStatement,
+        SetTransactionStatement,
     )
 
 
 class TransactionControlMixin:
     """Mixin providing transaction control statement formatting."""
 
-    def format_begin_transaction(self, expr: "BeginTransactionExpression") -> Tuple[str, tuple]:
+    def format_begin_transaction_statement(self, expr: "BeginTransactionStatement") -> Tuple[str, tuple]:
         """Format a BEGIN transaction statement.
 
         Args:
-            expr: Begin transaction expression.
+            expr: The BEGIN TRANSACTION statement.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
         return "BEGIN", ()
 
-    def format_commit_transaction(self, expr: "CommitTransactionExpression") -> Tuple[str, tuple]:
+    def format_commit_statement(self, expr: "CommitStatement") -> Tuple[str, tuple]:
         """Format a COMMIT transaction statement.
 
         Args:
-            expr: Commit transaction expression.
+            expr: The COMMIT statement.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
         return "COMMIT", ()
 
-    def format_rollback_transaction(self, expr: "RollbackTransactionExpression") -> Tuple[str, tuple]:
+    def format_rollback_statement(self, expr: "RollbackStatement") -> Tuple[str, tuple]:
         """Format a ROLLBACK statement, optionally to a savepoint.
 
         Args:
@@ -58,7 +58,7 @@ class TransactionControlMixin:
             return f"ROLLBACK TO SAVEPOINT {self.format_identifier(savepoint)}", ()
         return "ROLLBACK", ()
 
-    def format_savepoint(self, expr: "SavepointExpression") -> Tuple[str, tuple]:
+    def format_savepoint_statement(self, expr: "SavepointStatement") -> Tuple[str, tuple]:
         """Format a SAVEPOINT statement.
 
         Args:
@@ -69,7 +69,7 @@ class TransactionControlMixin:
         """
         return f"SAVEPOINT {self.format_identifier(expr.name)}", ()
 
-    def format_release_savepoint(self, expr: "ReleaseSavepointExpression") -> Tuple[str, tuple]:
+    def format_release_savepoint_statement(self, expr: "ReleaseSavepointStatement") -> Tuple[str, tuple]:
         """Format a RELEASE SAVEPOINT statement.
 
         Args:
@@ -80,11 +80,11 @@ class TransactionControlMixin:
         """
         return f"RELEASE SAVEPOINT {self.format_identifier(expr.name)}", ()
 
-    def format_set_transaction(self, expr: "SetTransactionExpression") -> Tuple[str, tuple]:
+    def format_set_transaction_statement(self, expr: "SetTransactionStatement") -> Tuple[str, tuple]:
         """Format a SET TRANSACTION statement.
 
         Args:
-            expr: Set transaction expression.
+            expr: The SET TRANSACTION statement.
 
         Returns:
             Tuple of (SQL string, parameters tuple).

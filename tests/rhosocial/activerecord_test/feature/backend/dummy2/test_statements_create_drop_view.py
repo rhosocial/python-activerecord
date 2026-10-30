@@ -5,9 +5,9 @@ from rhosocial.activerecord.backend.expression import (
     Literal,
     ComparisonPredicate,
     FunctionCall,
-    QueryExpression,
-    CreateViewExpression,
-    DropViewExpression,
+    QueryStatement,
+    CreateViewStatement,
+    DropViewStatement,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.statements import ViewOptions, ViewCheckOption
@@ -27,13 +27,13 @@ class TestCreateDropViewStatements:
 
     def test_basic_create_view(self, dummy_dialect: DummyDialect):
         """Tests basic CREATE VIEW statement."""
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
         )
 
-        create_view = CreateViewExpression(dummy_dialect, view=View(dummy_dialect, "user_view"), query=query)
+        create_view = CreateViewStatement(dummy_dialect, view=View(dummy_dialect, "user_view"), query=query)
         sql, params = create_view.to_sql()
 
         assert 'CREATE VIEW "user_view"' in sql
@@ -42,14 +42,14 @@ class TestCreateDropViewStatements:
 
     def test_create_or_replace_view(self, dummy_dialect: DummyDialect):
         """Tests CREATE OR REPLACE VIEW statement."""
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id"))],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "orders")),
             group_by_having=GroupByHavingClause(dummy_dialect, group_by=[Column(dummy_dialect, "user_id")]),
         )
 
-        create_view = CreateViewExpression(
+        create_view = CreateViewStatement(
             dummy_dialect,
             view=View(dummy_dialect, "order_counts"),
             query=query,
@@ -63,7 +63,7 @@ class TestCreateDropViewStatements:
 
     def test_create_view_with_column_aliases(self, dummy_dialect: DummyDialect):
         """Tests CREATE VIEW with column aliases."""
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[
                 Column(dummy_dialect, "user_id"),
@@ -73,7 +73,7 @@ class TestCreateDropViewStatements:
             group_by_having=GroupByHavingClause(dummy_dialect, group_by=[Column(dummy_dialect, "user_id")]),
         )
 
-        create_view = CreateViewExpression(
+        create_view = CreateViewStatement(
             dummy_dialect,
             view=View(dummy_dialect, "user_order_summary"),
             query=query,
@@ -91,13 +91,13 @@ class TestCreateDropViewStatements:
 
     def test_create_temporary_view(self, dummy_dialect: DummyDialect):
         """Tests CREATE TEMPORARY VIEW statement."""
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "session_id"), Column(dummy_dialect, "data")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "temp_sessions")),
         )
 
-        create_view = CreateViewExpression(
+        create_view = CreateViewStatement(
             dummy_dialect,
             view=View(dummy_dialect, "temp_user_session"),
             query=query,
@@ -118,7 +118,7 @@ class TestCreateDropViewStatements:
     )
     def test_create_view_with_check_options(self, dummy_dialect: DummyDialect, check_option, expected_part):
         """Tests CREATE VIEW with different check options."""
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "status")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "entities")),
@@ -133,7 +133,7 @@ class TestCreateDropViewStatements:
         )
 
         options = ViewOptions(check_option=check_option)
-        create_view = CreateViewExpression(dummy_dialect, view=View(dummy_dialect, "active_entities"), query=query, options=options)
+        create_view = CreateViewStatement(dummy_dialect, view=View(dummy_dialect, "active_entities"), query=query, options=options)
         sql, params = create_view.to_sql()
 
         assert 'CREATE VIEW "active_entities"' in sql
@@ -142,7 +142,7 @@ class TestCreateDropViewStatements:
 
     def test_drop_view_basic(self, dummy_dialect: DummyDialect):
         """Tests basic DROP VIEW statement."""
-        drop_view = DropViewExpression(dummy_dialect, view=View(dummy_dialect, "old_view"))
+        drop_view = DropViewStatement(dummy_dialect, view=View(dummy_dialect, "old_view"))
         sql, params = drop_view.to_sql()
 
         assert sql == 'DROP VIEW "old_view"'
@@ -150,7 +150,7 @@ class TestCreateDropViewStatements:
 
     def test_drop_view_with_if_exists(self, dummy_dialect: DummyDialect):
         """Tests DROP VIEW IF EXISTS statement."""
-        drop_view = DropViewExpression(
+        drop_view = DropViewStatement(
             dummy_dialect,
             view=View(dummy_dialect, "possibly_missing_view"),
             if_exists=True,  # IF EXISTS option
@@ -162,7 +162,7 @@ class TestCreateDropViewStatements:
 
     def test_drop_view_with_cascade(self, dummy_dialect: DummyDialect):
         """Tests DROP VIEW ... CASCADE statement."""
-        drop_view = DropViewExpression(
+        drop_view = DropViewStatement(
             dummy_dialect,
             view=View(dummy_dialect, "master_view"),
             cascade=True,  # CASCADE option to drop dependent objects
@@ -174,7 +174,7 @@ class TestCreateDropViewStatements:
 
     def test_drop_view_if_exists_cascade(self, dummy_dialect: DummyDialect):
         """Tests DROP VIEW IF EXISTS ... CASCADE statement."""
-        drop_view = DropViewExpression(
+        drop_view = DropViewStatement(
             dummy_dialect,
             view=View(dummy_dialect, "dependent_view"),
             if_exists=True,  # IF EXISTS
@@ -187,7 +187,7 @@ class TestCreateDropViewStatements:
 
     def test_create_view_complex_aggregate(self, dummy_dialect: DummyDialect):
         """Tests CREATE VIEW with complex aggregate query."""
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[
                 Column(dummy_dialect, "department"),
@@ -202,7 +202,7 @@ class TestCreateDropViewStatements:
             ),
         )
 
-        create_view = CreateViewExpression(dummy_dialect, view=View(dummy_dialect, "dept_stats"), query=query)
+        create_view = CreateViewStatement(dummy_dialect, view=View(dummy_dialect, "dept_stats"), query=query)
         sql, params = create_view.to_sql()
 
         assert 'CREATE VIEW "dept_stats"' in sql
@@ -224,13 +224,13 @@ class TestCreateDropViewStatements:
     )
     def test_create_view_various_names(self, dummy_dialect: DummyDialect, view_name, expected_identifier):
         """Tests CREATE VIEW with various view name formats."""
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Literal(dummy_dialect, 1)],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "dual")),  # Using dual table for scalar SELECT
         )
 
-        create_view = CreateViewExpression(
+        create_view = CreateViewStatement(
             dummy_dialect, view=View(dummy_dialect, view_name), query=query
         )
         sql, params = create_view.to_sql()
@@ -241,9 +241,9 @@ class TestCreateDropViewStatements:
     def test_create_view_scalar_query(self, dummy_dialect: DummyDialect):
         """Tests CREATE VIEW with a scalar query (no FROM clause)."""
         # Create a scalar query - just selecting a constant
-        query = QueryExpression(dummy_dialect, select=[Literal(dummy_dialect, 42)])
+        query = QueryStatement(dummy_dialect, select=[Literal(dummy_dialect, 42)])
 
-        create_view = CreateViewExpression(dummy_dialect, view=View(dummy_dialect, "scalar_value_view"), query=query)
+        create_view = CreateViewStatement(dummy_dialect, view=View(dummy_dialect, "scalar_value_view"), query=query)
         sql, params = create_view.to_sql()
 
         assert 'CREATE VIEW "scalar_value_view"' in sql
@@ -263,7 +263,7 @@ class TestCreateDropViewStatements:
             )
         )
         # The where clause would be part of the query object, not as a separate parameter
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
@@ -277,7 +277,7 @@ class TestCreateDropViewStatements:
             ),  # Using overloaded operator
         )
 
-        create_view = CreateViewExpression(dummy_dialect, view=View(dummy_dialect, "active_users"), query=query)
+        create_view = CreateViewStatement(dummy_dialect, view=View(dummy_dialect, "active_users"), query=query)
         sql, params = create_view.to_sql()
 
         assert 'CREATE VIEW "active_users"' in sql
@@ -287,7 +287,7 @@ class TestCreateDropViewStatements:
 
     def test_create_view_with_order_by_limit(self, dummy_dialect: DummyDialect):
         """Tests CREATE VIEW with ORDER BY and LIMIT clauses."""
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "created_at")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "recent_items")),
@@ -295,7 +295,7 @@ class TestCreateDropViewStatements:
             limit_offset=LimitOffsetClause(dummy_dialect, limit=10),
         )
 
-        create_view = CreateViewExpression(dummy_dialect, view=View(dummy_dialect, "top_recent_items"), query=query)
+        create_view = CreateViewStatement(dummy_dialect, view=View(dummy_dialect, "top_recent_items"), query=query)
         sql, params = create_view.to_sql()
 
         assert 'CREATE VIEW "top_recent_items"' in sql
@@ -313,11 +313,11 @@ class TestCreateDropViewStatements:
     )
     def test_create_view_replace_option(self, dummy_dialect: DummyDialect, replace_flag):
         """Tests CREATE VIEW with different replace options."""
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "test_table"))
         )
 
-        create_view = CreateViewExpression(dummy_dialect, view=View(dummy_dialect, "test_view"), query=query, replace=replace_flag)
+        create_view = CreateViewStatement(dummy_dialect, view=View(dummy_dialect, "test_view"), query=query, replace=replace_flag)
         sql, params = create_view.to_sql()
 
         if replace_flag:
@@ -330,7 +330,7 @@ class TestCreateDropViewStatements:
     def test_drop_view_complex_name(self, dummy_dialect: DummyDialect):
         """Tests DROP VIEW with complex view name."""
         complex_name = "schema.special-view.with.dots"
-        drop_view = DropViewExpression(dummy_dialect, view=View(dummy_dialect, complex_name))
+        drop_view = DropViewStatement(dummy_dialect, view=View(dummy_dialect, complex_name))
         sql, params = drop_view.to_sql()
 
         # The name should be properly quoted/identified
@@ -358,7 +358,7 @@ class TestCreateDropViewStatements:
             join_type="INNER JOIN",
         )
 
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[
                 Column(dummy_dialect, "id", "u"),
@@ -368,7 +368,7 @@ class TestCreateDropViewStatements:
             from_=join_expr,
         )
 
-        create_view = CreateViewExpression(dummy_dialect, view=View(dummy_dialect, "user_profile_view"), query=query)
+        create_view = CreateViewStatement(dummy_dialect, view=View(dummy_dialect, "user_profile_view"), query=query)
         sql, params = create_view.to_sql()
 
         assert 'CREATE VIEW "user_profile_view"' in sql
@@ -380,16 +380,16 @@ class TestCreateDropViewStatements:
     def test_view_roundtrip_creation_and_deletion(self, dummy_dialect: DummyDialect):
         """Tests creating a view and then dropping it."""
         # First create a view
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "source_table")),
         )
-        create_view = CreateViewExpression(dummy_dialect, view=View(dummy_dialect, "roundtrip_test_view"), query=query)
+        create_view = CreateViewStatement(dummy_dialect, view=View(dummy_dialect, "roundtrip_test_view"), query=query)
         create_sql, create_params = create_view.to_sql()
 
         # Then drop the same view
-        drop_view = DropViewExpression(dummy_dialect, view=View(dummy_dialect, "roundtrip_test_view"))
+        drop_view = DropViewStatement(dummy_dialect, view=View(dummy_dialect, "roundtrip_test_view"))
         drop_sql, drop_params = drop_view.to_sql()
 
         # Verify both statements are correctly formed
@@ -402,7 +402,7 @@ class TestCreateDropViewStatements:
     def test_create_view_with_nested_query(self, dummy_dialect: DummyDialect):
         """Tests CREATE VIEW with a nested query (subquery in FROM clause)."""
         # Inner query
-        QueryExpression(
+        QueryStatement(
             dummy_dialect,
             select=[
                 Column(dummy_dialect, "user_id"),
@@ -413,7 +413,7 @@ class TestCreateDropViewStatements:
         )
 
         # For now, using a simple table expression to simulate subquery
-        simple_query = QueryExpression(
+        simple_query = QueryStatement(
             dummy_dialect,
             select=[
                 Column(dummy_dialect, "user_id"),
@@ -423,7 +423,7 @@ class TestCreateDropViewStatements:
             group_by_having=GroupByHavingClause(dummy_dialect, group_by=[Column(dummy_dialect, "user_id")]),
         )
 
-        create_view = CreateViewExpression(dummy_dialect, view=View(dummy_dialect, "user_latest_order"), query=simple_query)
+        create_view = CreateViewStatement(dummy_dialect, view=View(dummy_dialect, "user_latest_order"), query=simple_query)
         sql, params = create_view.to_sql()
 
         assert 'CREATE VIEW "user_latest_order"' in sql
@@ -446,7 +446,7 @@ class TestCreateDropViewStatements:
             dummy_dialect, "ROW_NUMBER", window_spec=window_spec, alias="rank_in_dept"
         )
 
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[
                 Column(dummy_dialect, "employee_name"),
@@ -457,7 +457,7 @@ class TestCreateDropViewStatements:
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "employees")),
         )
 
-        create_view = CreateViewExpression(dummy_dialect, view=View(dummy_dialect, "ranked_employees"), query=query)
+        create_view = CreateViewStatement(dummy_dialect, view=View(dummy_dialect, "ranked_employees"), query=query)
         sql, params = create_view.to_sql()
 
         assert 'CREATE VIEW "ranked_employees"' in sql
@@ -473,9 +473,9 @@ class TestCreateDropViewStatements:
     )
     def test_create_view_temporary_option(self, dummy_dialect: DummyDialect, temporary_flag):
         """Tests CREATE VIEW with different temporary options."""
-        query = QueryExpression(dummy_dialect, select=[Literal(dummy_dialect, 1)])
+        query = QueryStatement(dummy_dialect, select=[Literal(dummy_dialect, 1)])
 
-        create_view = CreateViewExpression(
+        create_view = CreateViewStatement(
             dummy_dialect, view=View(dummy_dialect, "temp_test_view"), query=query, temporary=temporary_flag
         )
         sql, params = create_view.to_sql()
@@ -489,7 +489,7 @@ class TestCreateDropViewStatements:
 
     def test_drop_view_nonexistent_no_error(self, dummy_dialect: DummyDialect):
         """Tests that DROP VIEW IF EXISTS doesn't error on nonexistent views."""
-        drop_view = DropViewExpression(
+        drop_view = DropViewStatement(
             dummy_dialect,
             view=View(dummy_dialect, "nonexistent_view"),
             if_exists=True,  # Should not raise error if view doesn't exist

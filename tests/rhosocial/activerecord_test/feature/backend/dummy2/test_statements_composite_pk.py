@@ -1,61 +1,59 @@
-# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_composite_pk.py
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    TablePrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
+from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression import Column
 from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression,
+    CreateTableStatement,
     ColumnDefinition,
     ColumnConstraint,
-    ColumnConstraintType,
     TableConstraint,
-    TableConstraintType,
     ComparisonPredicate,
     Literal,
 )
-from rhosocial.activerecord.backend.expression import Column
-from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
-from rhosocial.activerecord.backend.expression.objects import Table
+# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_composite_pk.py
 
 dialect = DummyDialect()
 
 
 class TestCompositePKDDL:
     def test_create_table_dual_pk(self):
-        expr = CreateTableExpression(
+        expr = CreateTableStatement(
             dialect=dialect,
             table=Table(dialect, 'order_items'),
             columns=[
                 ColumnDefinition(dialect, "order_id", IntegerType(dialect),
-                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                    constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
                 ColumnDefinition(dialect, "product_id", IntegerType(dialect),
-                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                    constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ],
             table_constraints=[
-                TableConstraint(dialect, 
-                    constraint_type=TableConstraintType.PRIMARY_KEY,
-                    columns=["order_id", "product_id"],
-                ),
+                TableConstraint(dialect, branch=TablePrimaryKeyConstraint(dialect, ["order_id", "product_id"])),
             ],
         )
         sql, params = expr.to_sql()
         assert "PRIMARY KEY (\"order_id\", \"product_id\")" in sql
 
     def test_create_table_triple_pk(self):
-        expr = CreateTableExpression(
+        expr = CreateTableStatement(
             dialect=dialect,
             table=Table(dialect, 'store_inventory'),
             columns=[
                 ColumnDefinition(dialect, "store_id", IntegerType(dialect),
-                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                    constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
                 ColumnDefinition(dialect, "product_id", IntegerType(dialect),
-                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                    constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
                 ColumnDefinition(dialect, "batch_id", VarCharType(dialect, 64),
-                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                    constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ],
             table_constraints=[
-                TableConstraint(dialect, 
-                    constraint_type=TableConstraintType.PRIMARY_KEY,
-                    columns=["store_id", "product_id", "batch_id"],
-                ),
-            ],
+TableConstraint(
+                    dialect,
+                    branch=TablePrimaryKeyConstraint(dialect, ["store_id", "product_id", "batch_id"]),
+                )            ],
         )
         sql, params = expr.to_sql()
         assert "PRIMARY KEY" in sql
@@ -64,20 +62,17 @@ class TestCompositePKDDL:
         assert "batch_id" in sql
 
     def test_pk_columns_not_null(self):
-        expr = CreateTableExpression(
+        expr = CreateTableStatement(
             dialect=dialect,
             table=Table(dialect, 't'),
             columns=[
                 ColumnDefinition(dialect, "a", IntegerType(dialect),
-                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                    constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
                 ColumnDefinition(dialect, "b", IntegerType(dialect),
-                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                    constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ],
             table_constraints=[
-                TableConstraint(dialect, 
-                    constraint_type=TableConstraintType.PRIMARY_KEY,
-                    columns=["a", "b"],
-                ),
+                TableConstraint(dialect, branch=TablePrimaryKeyConstraint(dialect, ["a", "b"])),
             ],
         )
         sql, params = expr.to_sql()

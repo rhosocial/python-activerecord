@@ -20,7 +20,7 @@ class Executable(Protocol):
 
     Usage:
         from rhosocial.activerecord.backend.expression.executable import Executable
-        from rhosocial.activerecord.backend.expression.statements.dql import QueryExpression
+        from rhosocial.activerecord.backend.expression.statements.dql import QueryStatement
 
         if isinstance(my_expression, Executable):
             stmt_type = my_expression.statement_type

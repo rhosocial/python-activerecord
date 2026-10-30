@@ -3,19 +3,27 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Sequence, TYPE_CHECKING
+from typing import Optional, Sequence, TYPE_CHECKING, Union
 
 from .advanced_functions import DeclaredValueType
-from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValueExpression
-from .core import StringValueExpression, XMLValueExpression
+from .bases import BaseExpression, SQLPredicate, SQLValue
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
     from .query_parts import OrderByClause
+    from .types import DataType
 
+
+from .value_types import (
+    TextValue,
+    XMLValue,
+)
 
 class XMLParseDocumentType(str, Enum):
     """SQL/XML XMLPARSE document type keywords."""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     DOCUMENT = "DOCUMENT"
     CONTENT = "CONTENT"
@@ -24,6 +32,9 @@ class XMLParseDocumentType(str, Enum):
 class XMLWhitespaceOption(str, Enum):
     """SQL/XML whitespace handling keywords."""
 
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
+
     PRESERVE = "PRESERVE WHITESPACE"
     STRIP = "STRIP WHITESPACE"
 
@@ -31,12 +42,18 @@ class XMLWhitespaceOption(str, Enum):
 class XMLSerializeDocumentType(str, Enum):
     """SQL/XML XMLSERIALIZE document type keywords."""
 
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
+
     DOCUMENT = "DOCUMENT"
     CONTENT = "CONTENT"
 
 
 class XMLStandaloneOption(str, Enum):
     """SQL/XML XMLROOT standalone option keywords."""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     YES = "YES"
     NO = "NO"
@@ -46,12 +63,18 @@ class XMLStandaloneOption(str, Enum):
 class XMLPassingMechanism(str, Enum):
     """SQL/XML XMLQUERY/XMLEXISTS passing mechanism keywords."""
 
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
+
     BY_REF = "BY REF"
     BY_VALUE = "BY VALUE"
 
 
 class XMLEmptyHandlingOption(str, Enum):
     """SQL/XML XMLQUERY empty sequence handling keywords."""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     NULL_ON_EMPTY = "NULL ON EMPTY"
     EMPTY_ON_EMPTY = "EMPTY ON EMPTY"
@@ -60,15 +83,22 @@ class XMLEmptyHandlingOption(str, Enum):
 class XMLTableColumnOption(str, Enum):
     """SQL/XML XMLTABLE column option keywords."""
 
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
+
     PATH = "PATH"
     DEFAULT = "DEFAULT"
 
 
-class XMLParseExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression):
+class XMLParseExpression(
+    DeclaredValueType,
+    XMLValue,
+    SQLValue,
+):
     """Represents a SQL/XML XMLPARSE expression constructor.
 
     The parse of a document *is* an XML value, so it declares
-    :class:`~...expression.core.XMLValueExpression` (see
+    :class:`~...expression.value_types.XMLValue` (see
     :class:`~...expression.advanced_functions.DeclaredValueType` for why these
     nodes inherit the value class rather than being wrapped by one).
     """
@@ -88,15 +118,19 @@ class XMLParseExpression(DeclaredValueType, XMLValueExpression, SQLValueExpressi
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlparse_expression"
+        return "format_xml_parse_expression"
 
 
-class XMLSerializeExpression(DeclaredValueType, StringValueExpression, SQLValueExpression):
+class XMLSerializeExpression(
+    DeclaredValueType,
+    TextValue,
+    SQLValue,
+):
     """Represents a SQL/XML XMLSERIALIZE expression constructor.
 
     Serialization leaves the XML family: what comes back is the character
     value named in ``target_type``, so the node declares
-    :class:`~...expression.core.StringValueExpression` and carries the string
+    :class:`~...expression.value_types.TextValue` and carries the string
     operations rather than the XML surface.
     """
 
@@ -104,20 +138,22 @@ class XMLSerializeExpression(DeclaredValueType, StringValueExpression, SQLValueE
         self,
         dialect: "SQLDialectBase",
         content: BaseExpression,
-        target_type: str,
+        target_type: "Union[str, DataType]",
         document_type: XMLSerializeDocumentType = XMLSerializeDocumentType.CONTENT,
         whitespace_option: Optional[XMLWhitespaceOption] = None,
     ):
+        from .types import DataType
+
         BaseExpression.__init__(self, dialect)
         self.content = content
-        self.target_type = target_type
+        self.target_type = DataType.as_type(dialect, target_type)
         self.document_type = document_type
         self.whitespace_option = whitespace_option
 
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlserialize_expression"
+        return "format_xml_serialize_expression"
 
 
 @dataclass
@@ -134,7 +170,7 @@ class XMLAttribute:
     name: Optional[str] = None
 
 
-class XMLAttributesExpression(SQLValueExpression):
+class XMLAttributesExpression(SQLValue):
     """Represents a SQL/XML XMLATTRIBUTES clause."""
 
     def __init__(
@@ -148,10 +184,14 @@ class XMLAttributesExpression(SQLValueExpression):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlattributes_expression"
+        return "format_xml_attributes_expression"
 
 
-class XMLElementExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression):
+class XMLElementExpression(
+    DeclaredValueType,
+    XMLValue,
+    SQLValue,
+):
     """Represents a SQL/XML XMLELEMENT expression constructor."""
 
     def __init__(
@@ -169,7 +209,7 @@ class XMLElementExpression(DeclaredValueType, XMLValueExpression, SQLValueExpres
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlelement_expression"
+        return "format_xml_element_expression"
 
 
 @dataclass
@@ -183,7 +223,11 @@ class XMLForestItem:
     name: Optional[str] = None
 
 
-class XMLForestExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression):
+class XMLForestExpression(
+    DeclaredValueType,
+    XMLValue,
+    SQLValue,
+):
     """Represents a SQL/XML XMLFOREST expression constructor."""
 
     def __init__(
@@ -197,10 +241,14 @@ class XMLForestExpression(DeclaredValueType, XMLValueExpression, SQLValueExpress
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlforest_expression"
+        return "format_xml_forest_expression"
 
 
-class XMLConcatExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression):
+class XMLConcatExpression(
+    DeclaredValueType,
+    XMLValue,
+    SQLValue,
+):
     """Represents a SQL/XML XMLCONCAT expression constructor."""
 
     def __init__(self, dialect: "SQLDialectBase", parts: Sequence[BaseExpression]):
@@ -210,10 +258,14 @@ class XMLConcatExpression(DeclaredValueType, XMLValueExpression, SQLValueExpress
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlconcat_expression"
+        return "format_xml_concat_expression"
 
 
-class XMLCommentExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression):
+class XMLCommentExpression(
+    DeclaredValueType,
+    XMLValue,
+    SQLValue,
+):
     """Represents a SQL/XML XMLCOMMENT expression constructor."""
 
     def __init__(self, dialect: "SQLDialectBase", content: BaseExpression):
@@ -223,10 +275,14 @@ class XMLCommentExpression(DeclaredValueType, XMLValueExpression, SQLValueExpres
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlcomment_expression"
+        return "format_xml_comment_expression"
 
 
-class XMLPIExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression):
+class XMLPIExpression(
+    DeclaredValueType,
+    XMLValue,
+    SQLValue,
+):
     """Represents a SQL/XML XMLPI expression constructor."""
 
     def __init__(
@@ -245,7 +301,11 @@ class XMLPIExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression)
         return "format_xmlpi_expression"
 
 
-class XMLRootExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression):
+class XMLRootExpression(
+    DeclaredValueType,
+    XMLValue,
+    SQLValue,
+):
     """Represents a SQL/XML XMLROOT expression constructor."""
 
     def __init__(
@@ -263,10 +323,14 @@ class XMLRootExpression(DeclaredValueType, XMLValueExpression, SQLValueExpressio
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlroot_expression"
+        return "format_xml_root_expression"
 
 
-class XMLAggExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression):
+class XMLAggExpression(
+    DeclaredValueType,
+    XMLValue,
+    SQLValue,
+):
     """Represents a SQL/XML XMLAGG aggregate expression."""
 
     def __init__(
@@ -282,53 +346,83 @@ class XMLAggExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlagg_expression"
+        return "format_xml_agg_expression"
 
 
-class XMLQueryExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression):
+class PassingClause(BaseExpression):
+    """The SQL/XML ``PASSING`` clause: the values passed into an XML function.
+
+    ``PASSING [BY {VALUE | REF}]expr [, expr]...`` is a named production
+    the three querying XML expressions (XMLQUERY, XMLEXISTS, XMLTABLE)
+    all carry, so it is a clause node of its own with the dialect's
+    public ``format_passing_clause`` as its formatter — instead of the
+    unpacked pieces every XML formatter used to pass to a private helper,
+    which gave the shared state no home and gave backends nothing to
+    override. Carrying no expressions renders as ``("", ())``.
+
+    Renders as, for example: ``PASSING BY VALUE 'x', y``.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_passing_clause"
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        expressions: Sequence["BaseExpression"] = (),
+        mechanism: Optional[XMLPassingMechanism] = None,
+    ):
+        super().__init__(dialect)
+        self.expressions = list(expressions)
+        self.mechanism = mechanism
+
+
+class XMLQueryExpression(
+    DeclaredValueType,
+    XMLValue,
+    SQLValue,
+):
     """Represents a SQL/XML XMLQUERY expression."""
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         query: BaseExpression,
-        passing: Optional[Sequence[BaseExpression]] = None,
-        passing_mechanism: Optional[XMLPassingMechanism] = None,
+        passing_clause: Optional[PassingClause] = None,
         returning_content: bool = True,
         empty_handling: Optional[XMLEmptyHandlingOption] = None,
     ):
         BaseExpression.__init__(self, dialect)
         self.query = query
-        self.passing = list(passing or [])
-        self.passing_mechanism = passing_mechanism
+        self.passing_clause = passing_clause
         self.returning_content = returning_content
         self.empty_handling = empty_handling
 
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlquery_expression"
+        return "format_xml_query_expression"
 
 
-class XMLExistsExpression(SQLPredicate):
+class XMLExistsPredicate(SQLPredicate):
     """Represents a SQL/XML XMLEXISTS predicate."""
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         query: BaseExpression,
-        passing: Optional[Sequence[BaseExpression]] = None,
-        passing_mechanism: Optional[XMLPassingMechanism] = None,
+        passing_clause: Optional[PassingClause] = None,
     ):
         super().__init__(dialect)
         self.query = query
-        self.passing = list(passing or [])
-        self.passing_mechanism = passing_mechanism
+        self.passing_clause = passing_clause
 
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlexists_expression"
+        return "format_xmlexists_predicate"
 
 
 @dataclass
@@ -342,7 +436,7 @@ class XMLTableColumn:
     """
 
     name: str
-    data_type: str
+    data_type: "Union[str, DataType]"
     path: Optional[BaseExpression] = None
     default: Optional[BaseExpression] = None
 
@@ -355,16 +449,14 @@ class XMLTableExpression(BaseExpression):
         dialect: "SQLDialectBase",
         row_pattern: BaseExpression,
         columns: Sequence[XMLTableColumn],
-        passing: Optional[Sequence[BaseExpression]] = None,
-        passing_mechanism: Optional[XMLPassingMechanism] = None,
+        passing_clause: Optional[PassingClause] = None,
     ):
         super().__init__(dialect)
         self.row_pattern = row_pattern
         self.columns = list(columns)
-        self.passing = list(passing or [])
-        self.passing_mechanism = passing_mechanism
+        self.passing_clause = passing_clause
 
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmltable_expression"
+        return "format_xml_table_expression"

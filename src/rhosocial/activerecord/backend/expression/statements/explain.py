@@ -13,8 +13,11 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 # region Explain Statement
-class ExplainType(Enum):
+class ExplainType(str, Enum):
     """EXPLAIN statement type, representing different analysis modes."""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     BASIC = "BASIC"  # Basic plan
     ANALYZE = "ANALYZE"  # Execute and analyze
@@ -24,8 +27,11 @@ class ExplainType(Enum):
     PROFILE = "PROFILE"  # Performance profile
 
 
-class ExplainFormat(Enum):
+class ExplainFormat(str, Enum):
     """EXPLAIN output formats."""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     TEXT = "TEXT"  # Text format
     JSON = "JSON"  # JSON format
@@ -65,7 +71,7 @@ class ExplainOptions:
     wal: bool = False  # Show WAL statistics
 
 
-class ExplainExpression(BaseExpression):
+class ExplainStatement(BaseExpression):
     """
     Unified EXPLAIN expression class that supports differences across database dialects.
 
@@ -74,13 +80,13 @@ class ExplainExpression(BaseExpression):
 
     Usage Examples:
         # Basic EXPLAIN
-        basic_explain = ExplainExpression(
+        basic_explain = ExplainStatement(
             dialect,
             statement=query_stmt
         )
 
         # EXPLAIN with options
-        detailed_explain = ExplainExpression(
+        detailed_explain = ExplainStatement(
             dialect,
             statement=query_stmt,
             options=ExplainOptions(
@@ -93,7 +99,7 @@ class ExplainExpression(BaseExpression):
         )
 
         # EXPLAIN with specific format
-        formatted_explain = ExplainExpression(
+        formatted_explain = ExplainStatement(
             dialect,
             statement=query_stmt,
             options=ExplainOptions(

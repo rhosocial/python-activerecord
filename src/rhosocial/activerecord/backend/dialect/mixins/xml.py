@@ -5,28 +5,27 @@ Provides capability probes and SQL rendering for the SQL/XML standard,
 covering parsing, serialization, construction, aggregation, and querying.
 """
 import re
-from typing import List, Optional, Tuple, TYPE_CHECKING
+from typing import Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.xml import (
+        PassingClause,
         XMLAggExpression,
         XMLAttributesExpression,
         XMLCommentExpression,
         XMLConcatExpression,
         XMLElementExpression,
-        XMLExistsExpression,
+        XMLExistsPredicate,
         XMLForestExpression,
         XMLParseExpression,
-        XMLPassingMechanism,
         XMLPIExpression,
         XMLQueryExpression,
         XMLRootExpression,
         XMLSerializeExpression,
         XMLTableExpression,
     )
-    from ...expression.bases import BaseExpression
 
 
 class SQLXMLParsingMixin:
@@ -39,7 +38,7 @@ class SQLXMLParsingMixin:
         """
         return False
 
-    def format_xmlparse_expression(
+    def format_xml_parse_expression(
         self,
         expr: "XMLParseExpression",
     ) -> Tuple[str, tuple]:
@@ -74,7 +73,7 @@ class SQLXMLSerializationMixin:
         """
         return False
 
-    def format_xmlserialize_expression(
+    def format_xml_serialize_expression(
         self,
         expr: "XMLSerializeExpression",
     ) -> Tuple[str, tuple]:
@@ -90,14 +89,12 @@ class SQLXMLSerializationMixin:
 
         Raises:
             UnsupportedFeatureError: If XMLSERIALIZE is unsupported.
-            ValueError: If ``target_type`` is not a valid data type.
         """
         if not self.supports_xmlserialize():
             raise UnsupportedFeatureError(self.name, "SQL/XML XMLSERIALIZE")
-        if not self._validate_data_type(expr.target_type):
-            raise ValueError(f"Invalid XMLSERIALIZE target type: {expr.target_type}")
+        target_sql, _ = expr.target_type.to_sql()
         content_sql, params = expr.content.to_sql()
-        parts = [expr.document_type.value, content_sql, "AS", expr.target_type]
+        parts = [expr.document_type.value, content_sql, "AS", target_sql]
         if expr.whitespace_option is not None:
             parts.append(expr.whitespace_option.value)
         return f"XMLSERIALIZE({' '.join(parts)})", params
@@ -177,7 +174,7 @@ class SQLXMLConstructionMixin:
             raise ValueError(f"Invalid SQL/XML name: {name}")
         return name
 
-    def format_xmlattributes_expression(
+    def format_xml_attributes_expression(
         self,
         expr: "XMLAttributesExpression",
     ) -> Tuple[str, tuple]:
@@ -205,7 +202,7 @@ class SQLXMLConstructionMixin:
             all_params.extend(value_params)
         return f"XMLATTRIBUTES({', '.join(parts)})", tuple(all_params)
 
-    def format_xmlelement_expression(
+    def format_xml_element_expression(
         self,
         expr: "XMLElementExpression",
     ) -> Tuple[str, tuple]:
@@ -235,7 +232,7 @@ class SQLXMLConstructionMixin:
             all_params.extend(item_params)
         return f"XMLELEMENT({', '.join(parts)})", tuple(all_params)
 
-    def format_xmlforest_expression(
+    def format_xml_forest_expression(
         self,
         expr: "XMLForestExpression",
     ) -> Tuple[str, tuple]:
@@ -263,7 +260,7 @@ class SQLXMLConstructionMixin:
             all_params.extend(value_params)
         return f"XMLFOREST({', '.join(parts)})", tuple(all_params)
 
-    def format_xmlconcat_expression(
+    def format_xml_concat_expression(
         self,
         expr: "XMLConcatExpression",
     ) -> Tuple[str, tuple]:
@@ -288,7 +285,7 @@ class SQLXMLConstructionMixin:
             all_params.extend(part_params)
         return f"XMLCONCAT({', '.join(parts)})", tuple(all_params)
 
-    def format_xmlcomment_expression(
+    def format_xml_comment_expression(
         self,
         expr: "XMLCommentExpression",
     ) -> Tuple[str, tuple]:
@@ -328,7 +325,7 @@ class SQLXMLConstructionMixin:
         content_sql, params = expr.content.to_sql()
         return f"{sql}, {content_sql})", params
 
-    def format_xmlroot_expression(
+    def format_xml_root_expression(
         self,
         expr: "XMLRootExpression",
     ) -> Tuple[str, tuple]:
@@ -368,7 +365,7 @@ class SQLXMLAggregationMixin:
         """
         return False
 
-    def format_xmlagg_expression(self, expr: "XMLAggExpression") -> Tuple[str, tuple]:
+    def format_xml_agg_expression(self, expr: "XMLAggExpression") -> Tuple[str, tuple]:
         """Format a SQL/XML XMLAGG expression.
 
         Args:
@@ -419,44 +416,44 @@ class SQLXMLQueryingMixin:
         """
         return False
 
-    def _format_xml_passing_clause(
-        self,
-        expressions: List["BaseExpression"],
-        mechanism: Optional["XMLPassingMechanism"] = None,
-    ) -> Tuple[str, tuple]:
-        """Format a SQL/XML PASSING clause.
+    def format_passing_clause(self, clause: "PassingClause") -> Tuple[str, tuple]:
+        """Format a SQL/XML ``PASSING`` clause.
+
+        Public and overridable: the clause is a node all three querying XML
+        expressions carry, so a backend that spells ``PASSING`` differently
+        overrides this one formatter instead of the three that compose
+        around it.
 
         Args:
-            expressions: Expressions to pass to the XML function.
-            mechanism: Optional passing mechanism value.
+            clause: The ``PassingClause`` carrying the expressions to pass
+                and the optional mechanism (``BY VALUE`` / ``BY REF``).
 
         Returns:
-            Tuple of (SQL string, parameters tuple); empty when no
-            expressions are supplied.
+            Tuple of (SQL string, parameters tuple); empty when the clause
+            carries no expressions.
         """
-        if not expressions:
+        if not clause.expressions:
             return "", ()
         all_params = []
         parts = []
-        for expression in expressions:
+        for expression in clause.expressions:
             expr_sql, expr_params = expression.to_sql()
             parts.append(expr_sql)
             all_params.extend(expr_params)
         prefix = "PASSING"
-        if mechanism is not None:
-            prefix += f" {mechanism.value}"
+        if clause.mechanism is not None:
+            prefix += f" {clause.mechanism.value}"
         return f"{prefix} {', '.join(parts)}", tuple(all_params)
 
-    def format_xmlquery_expression(
+    def format_xml_query_expression(
         self,
         expr: "XMLQueryExpression",
     ) -> Tuple[str, tuple]:
         """Format a SQL/XML XMLQUERY expression.
 
         Args:
-            expr: XMLQueryExpression exposing ``query``, ``passing``,
-                ``passing_mechanism``, ``returning_content``, and
-                ``empty_handling``.
+            expr: XMLQueryExpression exposing ``query``, ``passing_clause``,
+                ``returning_content``, and ``empty_handling``.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
@@ -469,28 +466,25 @@ class SQLXMLQueryingMixin:
         query_sql, query_params = expr.query.to_sql()
         parts = [query_sql]
         all_params = list(query_params)
-        passing_sql, passing_params = self._format_xml_passing_clause(
-            expr.passing,
-            expr.passing_mechanism,
-        )
-        if passing_sql:
-            parts.append(passing_sql)
-            all_params.extend(passing_params)
+        if expr.passing_clause is not None:
+            passing_sql, passing_params = expr.passing_clause.to_sql()
+            if passing_sql:
+                parts.append(passing_sql)
+                all_params.extend(passing_params)
         if expr.returning_content:
             parts.append("RETURNING CONTENT")
         if expr.empty_handling is not None:
             parts.append(expr.empty_handling.value)
         return f"XMLQUERY({' '.join(parts)})", tuple(all_params)
 
-    def format_xmlexists_expression(
+    def format_xmlexists_predicate(
         self,
-        expr: "XMLExistsExpression",
+        expr: "XMLExistsPredicate",
     ) -> Tuple[str, tuple]:
         """Format a SQL/XML XMLEXISTS predicate.
 
         Args:
-            expr: XMLExistsExpression exposing ``query``, ``passing``, and
-                ``passing_mechanism``.
+            expr: XMLExistsPredicate exposing ``query`` and ``passing_clause``.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
@@ -503,24 +497,22 @@ class SQLXMLQueryingMixin:
         query_sql, query_params = expr.query.to_sql()
         parts = [query_sql]
         all_params = list(query_params)
-        passing_sql, passing_params = self._format_xml_passing_clause(
-            expr.passing,
-            expr.passing_mechanism,
-        )
-        if passing_sql:
-            parts.append(passing_sql)
-            all_params.extend(passing_params)
+        if expr.passing_clause is not None:
+            passing_sql, passing_params = expr.passing_clause.to_sql()
+            if passing_sql:
+                parts.append(passing_sql)
+                all_params.extend(passing_params)
         return f"XMLEXISTS({' '.join(parts)})", tuple(all_params)
 
-    def format_xmltable_expression(
+    def format_xml_table_expression(
         self,
         expr: "XMLTableExpression",
     ) -> Tuple[str, tuple]:
         """Format a SQL/XML XMLTABLE expression.
 
         Args:
-            expr: XMLTableExpression exposing ``row_pattern``, ``passing``,
-                ``passing_mechanism``, and ``columns``.
+            expr: XMLTableExpression exposing ``row_pattern``,
+                ``passing_clause``, and ``columns``.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
@@ -534,18 +526,17 @@ class SQLXMLQueryingMixin:
         row_sql, row_params = expr.row_pattern.to_sql()
         parts = [row_sql]
         all_params = list(row_params)
-        passing_sql, passing_params = self._format_xml_passing_clause(
-            expr.passing,
-            expr.passing_mechanism,
-        )
-        if passing_sql:
-            parts.append(passing_sql)
-            all_params.extend(passing_params)
+        if expr.passing_clause is not None:
+            passing_sql, passing_params = expr.passing_clause.to_sql()
+            if passing_sql:
+                parts.append(passing_sql)
+                all_params.extend(passing_params)
         column_parts = []
         for column in expr.columns:
-            if not self._validate_data_type(column.data_type):
-                raise ValueError(f"Invalid XMLTABLE column type: {column.data_type}")
-            column_sql = f"{self.format_identifier(column.name)} {column.data_type}"
+            from ...expression.types import DataType
+
+            column_type_sql, _ = DataType.as_type(self, column.data_type).to_sql()
+            column_sql = f"{self.format_identifier(column.name)} {column_type_sql}"
             if column.path is not None:
                 path_sql, path_params = column.path.to_sql()
                 column_sql += f" PATH {path_sql}"

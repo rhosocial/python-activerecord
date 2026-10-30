@@ -35,7 +35,7 @@
 | `Column(Integer)` | `int` 配合类型提示 | 原生 Python 类型 |
 | `session.add()` | `.save()` | 持久化对象 |
 | `session.commit()` | 自动提交或显式 | 事务处理 |
-| `select()` | `QueryExpression` | SQL 表达式构建 |
+| `select()` | `QueryStatement` | SQL 表达式构建 |
 | `text()` 原始 SQL | 谨慎使用 | 我们更倾向于表达式 |
 
 **关键差异：**

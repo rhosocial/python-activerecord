@@ -6,8 +6,8 @@ SQLite 后端包含用于数据库操作的命令行界面。CLI 提供了查询
 
 CLI 命令分为两类：
 
-1. **SQLite 特定命令** —— SQLite 独有的操作（query、introspect、info）
-2. **核心继承命令** —— 所有后端共享（named-expression、named-procedure、named-migration、named-connection）
+1. **SQLite 特定命令** —— SQLite 独有的操作（query、introspect、status、info）
+2. **核心继承命令** —— 所有后端共享（named-expression、named-procedure、named-procedure-graph、named-migration、named-connection）
 
 ## 调用
 
@@ -136,8 +136,9 @@ rhosocial-activerecord-sqlite query -o json "SELECT * FROM users;"
 # 列出所有表
 rhosocial-activerecord-sqlite introspect tables --db-file my.db
 
-# 列出所有视图
+# 列出所有视图，或描述单个视图
 rhosocial-activerecord-sqlite introspect views --db-file my.db
+rhosocial-activerecord-sqlite introspect views active_users --db-file my.db
 
 # 获取数据库信息
 rhosocial-activerecord-sqlite introspect database --db-file my.db
@@ -145,27 +146,71 @@ rhosocial-activerecord-sqlite introspect database --db-file my.db
 # 包括系统表
 rhosocial-activerecord-sqlite introspect tables --db-file my.db --include-system
 
-# 获取完整表信息（列、索引、外键）
-rhosocial-activerecord-sqlite introspect table users --db-file my.db
-
 # 查询特定详细信息
 rhosocial-activerecord-sqlite introspect columns users --db-file my.db
 rhosocial-activerecord-sqlite introspect indexes users --db-file my.db
 rhosocial-activerecord-sqlite introspect foreign-keys posts --db-file my.db
+
+# 某张表的触发器
+rhosocial-activerecord-sqlite introspect triggers posts --db-file my.db
 ```
 
 #### 自省类型
 
-| 类型 | 描述 | 需要表名 |
+| 类型 | 描述 | 名称参数 |
 |------|------|---------|
-| `tables` | 列出所有表 | 否 |
-| `views` | 列出所有视图 | 否 |
-| `database` | 数据库信息 | 否 |
-| `table` | 完整表详情（列、索引、外键） | 是 |
-| `columns` | 列信息 | 是 |
-| `indexes` | 索引信息 | 是 |
-| `foreign-keys` | 外键信息 | 是 |
-| `triggers` | 触发器信息 | 可选 |
+| `tables` | 列出所有表 | 不接受 |
+| `views` | 列出所有视图，或描述单个视图 | 可选（视图名） |
+| `database` | 数据库信息 | 不接受 |
+| `columns` | 列信息，含生成列 | 必填（表名） |
+| `indexes` | 索引信息 | 必填（表名） |
+| `foreign-keys` | 外键信息 | 必填（表名） |
+| `triggers` | 触发器信息 | 可选（表名） |
+
+每种自省类型只报告一类目录项；如需按表查看完整信息，请分别查询 `columns`、`indexes` 和 `foreign-keys`，不要期望一次得到合并报表。
+
+类型不接受名称参数时会报错（退出码 2），而不是静默忽略：`introspect tables users` 曾经会把整张表列出来，却读起来像是已经按名过滤。
+
+原始 `PRAGMA` 子内省器（`backend.introspector.pragma`）只在库内可达。它的十四个方法不是目录问题：`integrity_check`、`foreign_key_check`、`wal_checkpoint` 是动作，`journal_mode` 与 `set` 改的是状态，`table_info`/`index_list` 则是上面七个类型已经封装过的底层读数。`introspect` 回答的是"这个库有什么"；再开一扇通往同一批事实的门，或者通往动作的门，这句话就不成立了。
+
+### status
+
+显示服务器状态概览：
+
+```bash
+# 完整概览
+rhosocial-activerecord-sqlite status --db-file my.db
+
+# 仅配置参数
+rhosocial-activerecord-sqlite status config --db-file my.db
+
+# 仅性能计数器
+rhosocial-activerecord-sqlite status performance --db-file my.db
+
+# 仅存储占用
+rhosocial-activerecord-sqlite status storage --db-file my.db
+
+# 仅已附加数据库
+rhosocial-activerecord-sqlite status databases --db-file my.db
+
+# 增加描述列
+rhosocial-activerecord-sqlite status config -v --db-file my.db
+
+# JSON 输出
+rhosocial-activerecord-sqlite status -o json --db-file my.db
+```
+
+状态类型：
+
+| 类型 | 描述 |
+|------|------|
+| `all` | 完整概览（默认） |
+| `config` | 配置参数 |
+| `performance` | 性能计数器 |
+| `storage` | 存储占用 |
+| `databases` | 已附加数据库 |
+
+`all` 类型输出的是嵌套结构，因此对它的 `csv`、`tsv` 请求会回退为 `json`。
 
 ## 核心继承命令
 
@@ -256,6 +301,24 @@ rhosocial-activerecord-sqlite named-procedure \
     --db-file mydb.sqlite
 ```
 
+### named-procedure-graph
+
+执行 Python 模块中描述的过程图（DAG 工作流）：
+
+```bash
+# 运行过程图
+rhosocial-activerecord-sqlite named-procedure-graph run \
+    myapp.npg.monthly_report \
+    --db-file mydb.sqlite \
+    --params '{"month": "2026-04"}'
+
+# 列出模块中定义的过程图
+rhosocial-activerecord-sqlite named-procedure-graph list myapp.npg
+
+# 仅校验而不运行
+rhosocial-activerecord-sqlite named-procedure-graph validate myapp.npg.monthly_report
+```
+
 ### named-migration
 
 执行命名迁移：
@@ -315,10 +378,12 @@ backend/impl/sqlite/
     ├── info.py          # 'info' 命令处理程序
     ├── query.py         # 'query' 命令处理程序
     ├── introspect.py    # 'introspect' 命令处理程序
+    ├── status.py        # 'status' 命令处理程序
     │
     │   # 核心继承命令（薄适配器）
     ├── named_expression.py      # 委托到核心 named_expression.cli
     ├── named_procedure.py       # 委托到核心 named_expression.procedure.cli
+    ├── named_procedure_graph.py # 委托到核心 named_expression.procedure.cli
     ├── named_migration.py       # 委托到核心 migration.cli
     └── named_connection.py      # 委托到核心 named_connection.cli
 ```

@@ -3,20 +3,127 @@
 
 from typing import Optional, TYPE_CHECKING
 
+from ..advanced_functions import DeclaredValueType
 from ..bases import BaseExpression
-from ..core import (
-    Column,
-    JSONValueExpression,
-    FunctionCall,
-    Literal,
-)
-from ..advanced_functions import JSONDocumentExpression, JSONTextExpression
+from .aggregate import AggregateFunction
+from ..core import Column, Literal
+from ..advanced_functions import JSONDocumentValue, JSONTextValue
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
+from ..value_types import JSONValue
 
-def json_extract(dialect: "SQLDialectBase", column: "BaseExpression", path: str) -> "JSONDocumentExpression":
+class JSONBuildObjectFunction(
+    DeclaredValueType,
+    JSONValue,
+):
+    """``JSON_BUILD_OBJECT(key, value, ...)`` -- a document built from pairs.
+
+    :attr:`pairs` is a flat list of alternating key and value, which is the
+    order the function reads them in, so it is stored flat rather than zipped:
+    a backend whose spelling reorders them has to see the order the caller gave.
+    """
+
+
+    def __init__(self, dialect: "SQLDialectBase", *pairs):
+
+        # BaseExpression directly, not super(): the value class is a *wrapper*
+        # whose __init__ takes the call it delegates to, and this node has no
+        # call -- it renders itself. DeclaredValueType keeps that from mattering.
+        BaseExpression.__init__(self, dialect)
+        self.pairs = [p if isinstance(p, BaseExpression) else Literal(dialect, p) for p in pairs]
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_json_build_object_function"
+
+
+class JSONArrayElementsFunction(
+    DeclaredValueType,
+    JSONValue,
+):
+    """``JSON_ARRAY_ELEMENTS(json)`` -- the array's elements, one per row.
+
+    A table function rather than a scalar: it multiplies rows rather than
+    combining them, which is why a FROM source is where it belongs.
+    """
+
+
+    def __init__(self, dialect: "SQLDialectBase", target):
+        from ..core import Literal
+
+        # BaseExpression directly, not super(): the value class is a *wrapper*
+        # whose __init__ takes the call it delegates to, and this node has no
+        # call -- it renders itself. DeclaredValueType keeps that from mattering.
+        BaseExpression.__init__(self, dialect)
+        # A JSON document is not text and not a number, so a bare host value
+        # becomes the untyped literal until the JSON value type lands.
+        self.target = target if isinstance(target, BaseExpression) else Literal(dialect, target)
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_json_array_elements_function"
+
+
+class JSONObjectAggregateFunction(
+    AggregateFunction,
+    DeclaredValueType,
+    JSONValue,
+):
+    """``JSON_OBJECTAGG(key, value)`` -- rows gathered into one document.
+
+    Two operands where :class:`~...expression.functions.aggregate.AggregateFunction`
+    declares one, so the **key** is the aggregate's operand -- it is what
+    identifies the row -- and the value rides alongside as
+    :attr:`entry_value`. ``FILTER`` and the window clause therefore apply to the
+    key, which is the only reading that has one.
+    """
+
+
+    def __init__(self, dialect: "SQLDialectBase", operand, entry_value):
+        from ..core import Literal
+
+        # ``operand`` and not ``key``: that is the name AggregateFunction
+        # declares, and the deserializer reads the declared names, so a
+        # different spelling here would reconstruct a node missing its key.
+        #
+        # Both operands are arbitrary JSON, so neither is text or a number and a
+        # bare host value becomes the untyped literal.
+        operand = operand if isinstance(operand, BaseExpression) else Literal(dialect, operand)
+        entry_value = (
+            entry_value if isinstance(entry_value, BaseExpression) else Literal(dialect, entry_value)
+        )
+        AggregateFunction.__init__(self, dialect, operand)
+        self.entry_value = entry_value
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_json_objectagg_function"
+
+
+class JSONArrayAggregateFunction(
+    AggregateFunction,
+    DeclaredValueType,
+    JSONValue,
+):
+    """``JSON_ARRAYAGG(value)`` -- rows gathered into one array.
+
+    An array whatever the gathered values were, so the node says so rather than
+    reading a type off the operand.
+    """
+
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_json_arrayagg_function"
+
+
+def json_extract(dialect: "SQLDialectBase", column: "BaseExpression", path: str) -> "JSONDocumentValue":
     """
     Creates a JSON extract operation (e.g., column->path).
 
@@ -30,13 +137,13 @@ def json_extract(dialect: "SQLDialectBase", column: "BaseExpression", path: str)
         path: The JSON path to extract.
 
     Returns:
-        A JSONDocumentExpression instance representing the JSON extract operation
+        A JSONDocumentValue instance representing the JSON extract operation
     """
     target_column = column if isinstance(column, BaseExpression) else Column(dialect, column)
-    return JSONDocumentExpression(dialect, target_column, path, operation="->")
+    return JSONDocumentValue(dialect, target_column, path, operation="->")
 
 
-def json_extract_text(dialect: "SQLDialectBase", column: "BaseExpression", path: str) -> "JSONTextExpression":
+def json_extract_text(dialect: "SQLDialectBase", column: "BaseExpression", path: str) -> "JSONTextValue":
     """
     Creates a JSON extract text operation (e.g., column->>path).
 
@@ -51,18 +158,18 @@ def json_extract_text(dialect: "SQLDialectBase", column: "BaseExpression", path:
         path: The JSON path to extract as text.
 
     Returns:
-        A JSONTextExpression instance representing the JSON extract text operation
+        A JSONTextValue instance representing the JSON extract text operation
     """
     target_column = column if isinstance(column, BaseExpression) else Column(dialect, column)
-    # `->>` yields text, so it arrives as JSONTextExpression and carries the
-    # string operations. It used to be built as a JSONDocumentExpression and described
+    # `->>` yields text, so it arrives as JSONTextValue and carries the
+    # string operations. It used to be built as a JSONDocumentValue and described
     # as a string by a tag, which meant the JSON accessors it was meant to end
     # the chain with stayed reachable -- the node class served both arrow
     # directions and could not drop them per instance.
-    return JSONTextExpression(dialect, target_column, path, operation="->>")
+    return JSONTextValue(dialect, target_column, path, operation="->>")
 
 
-def json_build_object(dialect: "SQLDialectBase", *key_value_pairs: "BaseExpression") -> "JSONValueExpression":
+def json_build_object(dialect: "SQLDialectBase", *key_value_pairs: "BaseExpression") -> "BaseExpression":
     """
     Creates a JSON_BUILD_OBJECT function call.
 
@@ -77,16 +184,13 @@ def json_build_object(dialect: "SQLDialectBase", *key_value_pairs: "BaseExpressi
             contract; it is still bound as a literal at runtime.
 
     Returns:
-        A JSONValueExpression wrapping JSON_BUILD_OBJECT
+        A JSONValue wrapping JSON_BUILD_OBJECT
     """
     # Expect alternating sequence of key-value expressions
-    processed_args = []
-    for arg in key_value_pairs:
-        processed_args.append(arg if isinstance(arg, BaseExpression) else Literal(dialect, arg))
-    return JSONValueExpression(dialect, FunctionCall(dialect, 'JSON_BUILD_OBJECT', *processed_args))
+    return JSONBuildObjectFunction(dialect, *key_value_pairs)
 
 
-def json_array_elements(dialect: "SQLDialectBase", expr: "BaseExpression") -> "JSONValueExpression":
+def json_array_elements(dialect: "SQLDialectBase", expr: "BaseExpression") -> "BaseExpression":
     """
     Creates a JSON_ARRAY_ELEMENTS function call.
 
@@ -100,24 +204,21 @@ def json_array_elements(dialect: "SQLDialectBase", expr: "BaseExpression") -> "J
               of the contract; it is still coerced to a column at runtime.
 
     Returns:
-        A JSONValueExpression wrapping JSON_ARRAY_ELEMENTS
+        A JSONValue wrapping JSON_ARRAY_ELEMENTS
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return JSONValueExpression(dialect, FunctionCall(dialect, 'JSON_ARRAY_ELEMENTS', target_expr))
+    return JSONArrayElementsFunction(dialect, target_expr)
 
 
 def json_objectagg(
     dialect: "SQLDialectBase",
     key_expr: "BaseExpression",
     value_expr: "BaseExpression",
-) -> "FunctionCall":
+) -> "JSONObjectAggregateFunction":
     """Creates a JSON_OBJECTAGG aggregate function call."""
     key_target = key_expr if isinstance(key_expr, BaseExpression) else Column(dialect, key_expr)
     value_target = value_expr if isinstance(value_expr, BaseExpression) else Column(dialect, value_expr)
-    return JSONValueExpression(
-        dialect,
-        FunctionCall(dialect, "JSON_OBJECTAGG", key_target, value_target, is_aggregate=True),
-    )
+    return JSONObjectAggregateFunction(dialect, key_target, value_target)
 
 
 def json_arrayagg(
@@ -125,17 +226,8 @@ def json_arrayagg(
     expr: "BaseExpression",
     is_distinct: bool = False,
     alias: Optional[str] = None,
-) -> "FunctionCall":
+) -> "JSONArrayAggregateFunction":
     """Creates a JSON_ARRAYAGG aggregate function call."""
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return JSONValueExpression(
-        dialect,
-        FunctionCall(
-            dialect,
-            "JSON_ARRAYAGG",
-            target_expr,
-            is_distinct=is_distinct,
-            alias=alias,
-            is_aggregate=True,
-        ),
-    )
+    node = JSONArrayAggregateFunction(dialect, target_expr, distinct=is_distinct)
+    return node.as_(alias) if alias else node

@@ -99,7 +99,7 @@ sequenceDiagram
     
     rect rgb(240, 248, 255)
         Note over Query, Expr: 1. SQL 生成 (委托给表达式系统)
-        Query->>Expr: 构建 WithQueryExpression
+        Query->>Expr: 构建 WithStatement
         Note right of Query: 组装所有 CTE 定义 + 主查询
         Expr->>Expr: to_sql()
         Expr-->>Query: 返回 (sql, params)

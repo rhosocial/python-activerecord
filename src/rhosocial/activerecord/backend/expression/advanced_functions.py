@@ -18,11 +18,9 @@ from .mixins import (
     TypeCastingMixin,
 )
 
-from .bases import BaseExpression, SQLPredicate, SQLValueExpression
+from .bases import BaseExpression, SQLPredicate, SQLValue
 from .core import (
     Column,
-    JSONValueExpression,
-    StringValueExpression,
     Subquery,
 )
 
@@ -31,6 +29,11 @@ from .query_parts import OrderByClause
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
+
+from .value_types import (
+    JSONValue,
+    TextValue,
+)
 
 class DeclaredValueType:
     """Render this node itself rather than the call a value class would wrap.
@@ -44,7 +47,7 @@ class DeclaredValueType:
     wrapper's delegation to a node it does not hold.
 
     Inheriting the value class is what makes the result readable off the
-    object: ``isinstance(expr, TimestampValueExpression)`` holds because the
+    object: ``isinstance(expr, TimestampValue)`` holds because the
     class says so, not because a tag was attached after construction.
     """
 
@@ -57,7 +60,9 @@ class DeclaredValueType:
         return BaseExpression.to_sql(self)
 
 
-class JSONPathMode(Enum):
+class JSONPathMode(str, Enum):
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
     """How a JSON path expression should be rendered by the dialect.
 
     - ``AUTO``: Use arrow operators if supported, else function-based.
@@ -80,24 +85,32 @@ class JSONPathMode(Enum):
         raise TypeError(f"mode must be None, str, or JSONPathMode; got {type(value).__name__}")
 
 
-#: Value class -> the class standing for both a CASE and that value class.
+#: Annotation class -> the class standing for both a CASE and that annotation.
 #: Populated on first use by :meth:`CaseExpression._class_for`; see there for
 #: why it is built at all and why it is kept.
-_CASE_VALUE_CLASSES = {}
+_CASE_ANNOTATION_CLASSES = {}
 
 
 class CaseExpression(
     DeclaredValueType,
     ArithmeticMixin,
     ComparisonMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """Represents a CASE expression (e.g., CASE WHEN condition THEN result ELSE result END).
+
+    The ``Expression`` suffix is not a fallback spelling: it transcribes the
+    standard production this node stands for -- ISO/IEC 9075-2
+    ``<case expression>``. Per spec §4.9 (the "scalar expression special forms"
+    row) a CASE is a scalar-expression production rather than a routine
+    invocation, so it is neither a ``*Function`` nor a ``*Clause``; the name is
+    kept verbatim from the standard, which is the ``*Expression`` suffix's only
+    exemption class now that the suffix is retired.
 
     A CASE answers with whatever its branches answer with, so the branches
     decide it -- not the factory, which is handed the whole list rather than the
     individual results. What each branch is is read off its own class, so
-    :func:`~...expression.column_types.value_class_of` is the question asked of
+    :func:`~...expression.column_types.annotation_for` is the question asked of
     each one.
 
     **Agreement is over the branches, and a branch that says nothing is not a
@@ -109,7 +122,7 @@ class CaseExpression(
     so the answer is readable off the object. When they disagree -- integer here
     and float there -- the CASE is legal SQL that answers with neither kind, so
     no typed wrapper is offered and the bare class stands for it. Guessing the
-    first branch or the widest would promise a surface the database does not
+    first branch or the widest would promise a value_type the database does not
     have, and "unknown" is a result the caller can handle.
 
     That is why this class declares no single value type of its own: the answer
@@ -135,10 +148,10 @@ class CaseExpression(
         if cases is None and else_result is None and value is None:
             return super().__new__(cls)
 
-        from .column_types import value_class_of
+        from .column_types import annotation_for
 
         branches = [result for _condition, result in cases] + [else_result]
-        declared = {value_class_of(branch) for branch in branches} - {None}
+        declared = {annotation_for(branch) for branch in branches} - {None}
         if len(declared) != 1:
             return super().__new__(cls)
         agreed = declared.pop()
@@ -148,33 +161,40 @@ class CaseExpression(
         return object.__new__(combined)
 
     @classmethod
-    def _class_for(cls, value_class):
-        """The class standing for both this CASE and *value_class*.
+    def _class_for(cls, annotation):
+        """The class standing for both this CASE and *annotation*.
 
-        Built once per value class and kept, because building it per expression
+        Built once per annotation and kept, because building it per expression
         would make ``type(x)`` differ between two CASE expressions that answer
         with the same thing -- which is the thing being fixed.
 
-        The bases are ordered so that ``CaseExpression`` supplies the CASE
-        state and ``format_method``, :class:`DeclaredValueType` supplies the
-        rendering, and *value_class* supplies the operations and the value type.
-        The value class's own ``to_sql`` is deliberately *not* reached: it is a
-        wrapper delegating to a node this does not hold.
+        The bases are ordered so that ``CaseExpression`` supplies the CASE state,
+        :class:`DeclaredValueType` supplies the rendering, and the annotation's
+        **value_type** supplies the operations. The value_type rather than the
+        annotation itself, because this class already derives from
+        ``DeclaredValueType`` and the annotation derives from it too: asking for
+        both leaves two orders to satisfy and no linearization. A value_type adds
+        only mixins, so it settles cleanly.
+
+        What this gives up is the annotation's own ``format_method`` -- the one
+        that renders the node the annotation holds. That is the point: a CASE
+        holds branches, not a node, so it must render as itself.
         """
+        value_type = annotation.value_type_of()
         try:
-            return _CASE_VALUE_CLASSES[value_class]
+            return _CASE_ANNOTATION_CLASSES[annotation]
         except KeyError:
             combined = type(
-                f"Case{value_class.__name__}",
-                (cls, DeclaredValueType, value_class),
+                f"Case{value_type.__name__}",
+                (cls, DeclaredValueType, value_type),
                 {
                     "__doc__": (
                         f"A CASE whose branches agree the answer is a "
-                        f"{value_class.__name__}, so it is one."
+                        f"{annotation.__name__}, so it is one."
                     )
                 },
             )
-            _CASE_VALUE_CLASSES[value_class] = combined
+            _CASE_ANNOTATION_CLASSES[annotation] = combined
             return combined
 
     def __init__(
@@ -199,13 +219,13 @@ class CaseExpression(
         return "format_case_expression"
 
 
-class ExistsExpression(SQLPredicate):
+class ExistsPredicate(SQLPredicate):
     """Represents an EXISTS predicate (e.g., EXISTS(subquery))."""
 
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_exists_expression"
+        return "format_exists_predicate"
 
     def __init__(self, dialect: "SQLDialectBase", subquery: Union["Subquery", "BaseExpression"], is_not: bool = False):
         super().__init__(dialect)
@@ -220,13 +240,13 @@ class ExistsExpression(SQLPredicate):
         self.is_not = is_not
 
 
-class AnyExpression(SQLPredicate):
+class AnyPredicate(SQLPredicate):
     """Represents an ANY predicate (e.g., expr = ANY(array_expr) or expr > ANY(subquery))."""
 
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_any_expression"
+        return "format_any_predicate"
 
     def __init__(self, dialect: "SQLDialectBase", expr: "BaseExpression", op: str, array_expr: "BaseExpression"):
         super().__init__(dialect)
@@ -235,13 +255,13 @@ class AnyExpression(SQLPredicate):
         self.array_expr = array_expr
 
 
-class AllExpression(SQLPredicate):
+class AllPredicate(SQLPredicate):
     """Represents an ALL predicate (e.g., expr > ALL(array_expr) or expr = ALL(subquery))."""
 
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_all_expression"
+        return "format_all_predicate"
 
     def __init__(self, dialect: "SQLDialectBase", expr: "BaseExpression", op: str, array_expr: "BaseExpression"):
         super().__init__(dialect)
@@ -339,12 +359,12 @@ class WindowClause(BaseExpression):
         return "format_window_clause"
 
 
-class JSONDocumentExpression(
+class JSONDocumentValue(
     DeclaredValueType,
-    JSONValueExpression,
+    JSONValue,
     ArithmeticMixin,
     JSONAccessorMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """A JSON document reached by path -- ``->``.
 
@@ -355,13 +375,13 @@ class JSONDocumentExpression(
     Not available: ``like`` / ``ilike``. Those apply to the text a scalar path
     access returns, not to the document it navigated. Use
     :meth:`~...expression.mixins.JSONAccessorMixin.json_path` for the text
-    form, which arrives as :class:`JSONTextExpression`.
+    form, which arrives as :class:`JSONTextValue`.
 
     Split from that sibling rather than sharing one class: the two operations
     yield different types, and a single class could only offer the union of
     their operations to both.
 
-    It is a :class:`~...expression.core.JSONValueExpression` because that is what
+    It is a :class:`~...expression.value_types.JSONValue` because that is what
     a document is. It is not a *wrapper* holding one -- it has its own formatter
     and its own fields -- so it says so with
     :class:`DeclaredValueType` rather than inheriting the delegation.
@@ -391,13 +411,13 @@ class JSONDocumentExpression(
         return "format_json_expression"
 
 
-class JSONTextExpression(
-    JSONDocumentExpression,
-    StringValueExpression,
+class JSONTextValue(
+    JSONDocumentValue,
+    TextValue,
 ):
     """A JSON path access that yielded **text** -- ``->>``.
 
-    The sibling of :class:`JSONDocumentExpression`, and the reason that one is
+    The sibling of :class:`JSONDocumentValue`, and the reason that one is
     split from this: ``->`` hands back a document and ``->>`` hands back a
     scalar, and they are different types with different operations. It used to
     be one class whose ``operation`` decided the answer at construction, which
@@ -407,7 +427,7 @@ class JSONTextExpression(
     Text is the narrower of the two, so chaining continues: ``->>`` yields a
     scalar and a scalar cannot be navigated further. ``->`` yields a document
     and can be, which is why this is the class that gains
-    :class:`~...expression.core.StringValueExpression` and its operations.
+    :class:`~...expression.value_types.TextValue` and its operations.
 
     One consequence of inheriting the document class is that the JSON accessors
     stay reachable here too: ``DeclaredValueType`` renders the node and this
@@ -417,14 +437,19 @@ class JSONTextExpression(
     """
 
 
-class ArrayExpression(
+class ArrayOperation(
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
-    """Represents array operations like ANY, ALL, and array access."""
+    """Represents array operations like ANY, ALL, and array access.
+
+    Distinct from the array value type in ``core``: that one *is* a
+    sequence (the result of ``unnest`` or a collecting aggregate); this one
+    performs an operation over one and yields a value.
+    """
 
     def __init__(
         self,
@@ -456,9 +481,16 @@ class TrimExpression(
     StringValueMixin,
     TypeCastingMixin,
     NotANumberMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """Represents a ``TRIM`` expression as a node, not as assembled SQL.
+
+    Like :class:`CaseExpression` and :class:`CastExpression`, the ``Expression``
+    suffix transcribes the standard production: ISO/IEC 9075-2 writes TRIM as
+    the scalar-expression special form ``<trim function>`` / ``<trim
+    specification>`` rather than as a ``<routine invocation>``. Per spec §4.9
+    TRIM belongs to the same exemption class, which is why it is not a
+    ``*Function`` node.
 
     The node exists for one reason: the standard form is a syntax error on
     SQLite, so the spelling has to be a dialect decision. When the factory
@@ -498,7 +530,7 @@ class TrimExpression(
         return "format_trim_expression"
 
 
-class RepeatExpression(
+class RepeatFunction(
     AliasableMixin,
     ComparisonMixin,
     StringToIntegerMixin,
@@ -506,7 +538,7 @@ class RepeatExpression(
     StringValueMixin,
     TypeCastingMixin,
     NotANumberMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """``REPEAT(expr, count)`` as a node, so the backends without the function
     can emulate it structurally.
@@ -541,7 +573,7 @@ class RepeatExpression(
         return "format_repeat_expression"
 
 
-class LpadExpression(
+class LpadFunction(
     AliasableMixin,
     ComparisonMixin,
     StringToIntegerMixin,
@@ -549,7 +581,7 @@ class LpadExpression(
     StringValueMixin,
     TypeCastingMixin,
     NotANumberMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """``LPAD(expr, length, pad)`` as a node, for the backends that lack it.
 
@@ -588,7 +620,7 @@ class LpadExpression(
         return "format_lpad_expression"
 
 
-class RpadExpression(
+class RpadFunction(
     AliasableMixin,
     ComparisonMixin,
     StringToIntegerMixin,
@@ -596,11 +628,11 @@ class RpadExpression(
     StringValueMixin,
     TypeCastingMixin,
     NotANumberMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """``RPAD(expr, length, pad)`` as a node, for the backends that lack it.
 
-    The mirror of :class:`LpadExpression`, and the cheaper one to emulate: a
+    The mirror of :class:`LpadFunction`, and the cheaper one to emulate: a
     single ``SUBSTR(expr || pad, 1, length)`` covers both padding and
     truncation, because the pad repeats ``length`` times and the substring
     takes at most that many characters. See :meth:`format_rpad_expression`.
@@ -631,7 +663,7 @@ class OrderedSetAggregation(
     ArithmeticMixin,
     ComparisonMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """Represents an ordered-set aggregate function call with WITHIN GROUP (ORDER BY ...)."""
 

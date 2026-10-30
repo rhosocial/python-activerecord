@@ -6,6 +6,46 @@
 > 💡 **AI 提示词：** "我需要处理一张有一千万行数据的表，但不能撑爆内存。
 > rhosocial-activerecord 推荐什么方案？"
 
+本页所有示例共用下面的初始化代码：一个基于内存 SQLite 的小模型，写入若干行数据，
+以及示例中调用的辅助函数。
+
+```python
+from typing import ClassVar, Optional
+
+from rhosocial.activerecord.base import FieldProxy
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.model import ActiveRecord
+
+
+class User(ActiveRecord):
+    __table_name__ = "users"
+    c: ClassVar[FieldProxy] = FieldProxy()
+    id: Optional[int] = None
+    name: str
+    email: str
+
+
+def process(row):
+    """代替实际任务对单行所做的处理。"""
+    return row["id"] if isinstance(row, dict) else row.id
+
+
+def chunked(items, size):
+    for start in range(0, len(items), size):
+        yield items[start:start + size]
+
+
+User.configure(SQLiteConnectionConfig(database=":memory:"), SQLiteBackend)
+User.backend().execute(
+    "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT)"
+)
+for i in range(1, 12):
+    User(name=f"user{i}", email=f"user{i}@example.com").save()
+
+source_data = [{"name": f"new{i}", "email": f"new{i}@example.com"} for i in range(1, 6)]
+```
+
 ---
 
 ## 1. 核心问题：内存
@@ -84,17 +124,21 @@ for user in iter_users_by_cursor():
 框架提供了 `execute_batch_dql` 作为后端实例的方法，在内部自动处理分页，以同步生成器的形式逐页产出 `BatchDQLResult`：
 
 ```python
-from rhosocial.activerecord.backend.expression.statements import QueryExpression
-from rhosocial.activerecord.backend.expression import WildcardExpression, TableExpression
+from rhosocial.activerecord.backend.expression import (
+    AllColumnsWildcard,
+    Column,
+    NamedRelationRef,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
-from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.statements import QueryStatement
 
 # 构建 SELECT * FROM users ORDER BY id 表达式
 dialect = User.backend().dialect
-query_expr = QueryExpression(
+query_expr = QueryStatement(
     dialect,
-    select=[WildcardExpression(dialect)],
-    from_=TableExpression(dialect, "users"),
+    select=[AllColumnsWildcard(dialect)],
+    from_=NamedRelationRef(dialect, Table(dialect, "users")),
     order_by=OrderByClause(dialect, expressions=[(Column(dialect, "id"), "ASC")]),
 )
 
@@ -128,15 +172,15 @@ for row in source_data:
 ```python
 # ✅ 通过后端实例的 execute_batch_dml 方法批量插入
 from rhosocial.activerecord.backend.expression import (
-    InsertExpression, ValuesSource, Literal,
+    InsertStatement, ValuesSource, Literal,
 )
-from rhosocial.activerecord.backend.result import BatchCommitMode
+from rhosocial.activerecord.backend.expression.objects import Table
 
 dialect = User.backend().dialect
 exprs = [
-    InsertExpression(
+    InsertStatement(
         dialect,
-        into="users",
+        into=Table(dialect, "users"),
         columns=["name", "email"],
         source=ValuesSource(
             dialect,
@@ -159,16 +203,16 @@ for batch_result in User.backend().execute_batch_dml(exprs, batch_size=500):
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    InsertExpression, ValuesSource, Literal,
+    InsertStatement, ValuesSource, Literal,
 )
-from rhosocial.activerecord.backend.result import BatchCommitMode
+from rhosocial.activerecord.backend.expression.objects import Table
 
 dialect = User.backend().dialect
 with User.transaction():
     for chunk in chunked(source_data, size=500):
         exprs = [
-            InsertExpression(
-                dialect, into="users", columns=["name", "email"],
+            InsertStatement(
+                dialect, into=Table(dialect, "users"), columns=["name", "email"],
                 source=ValuesSource(dialect, values_list=[
                     [Literal(dialect, row["name"]), Literal(dialect, row["email"])]
                 ]),
@@ -212,7 +256,7 @@ users = User.query().all()
 emails = [u.email for u in users]
 
 # ✅ 只获取 id 和 email
-rows = User.query().select("id", "email").all()
+rows = User.backend().fetch_all("SELECT id, email FROM users")
 emails = [r["email"] for r in rows]
 ```
 
@@ -224,7 +268,7 @@ emails = [r["email"] for r in rows]
 - [ ] 活跃表使用游标分块；静态快照可使用偏移量分页
 - [ ] 批量写入使用 `execute_batch_dml`（或 `insert_many`），而非逐行 `save()`
 - [ ] 完整性要求严格的任务使用全局事务；可续传的任务使用逐批提交
-- [ ] 通过 `query().select(...)` 只查询实际需要的列
+- [ ] 通过 `backend.fetch_all(...)` 只查询实际需要的列
 - [ ] 在开发阶段使用接近生产量级的数据验证内存占用
 
 ---

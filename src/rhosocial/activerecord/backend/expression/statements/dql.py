@@ -2,44 +2,60 @@
 """DQL (Data Query Language) statement expressions."""
 
 from enum import Enum
-from typing import List, Optional, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional, Union
 
-from ..bases import BaseExpression, SQLPredicate, SQLValueExpression
+from ...expression.objects import Table
+from ...schema import StatementType
+from ..bases import BaseExpression, SQLPredicate, SQLValue
 from ..core import Subquery
-from ..objects import Table
-from ..sources import TableSource
 from ..mixins import ArithmeticMixin, ComparisonMixin
+from ..objects import Table
 from ..query_parts import (
-    WhereClause,
+    ForUpdateClause,
     GroupByHavingClause,
+    LimitOffsetClause,
     OrderByClause,
     QualifyClause,
-    LimitOffsetClause,
-    ForUpdateClause,
+    WhereClause,
 )
+from ..sources import TableSource
 from ._types import FromSourceType
-from ...schema import StatementType
-from ...expression.objects import Table
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
 # region Query Statement
-class SelectModifier(Enum):
+class SelectModifier(str, Enum):
     """
     Specifies the SELECT clause modifier to apply to the result set.
 
     This enumeration allows controlling duplicate row inclusion in query results.
     Note that ALL is often the default behavior in SQL and may be omitted in
     the generated SQL depending on the dialect's requirements.
+
+    ``str`` so a member *is* the word it carries and the SQL keyword is written
+    by the formatter. Being a plain ``Enum`` used to make this value unwritable:
+    a ``QueryStatement`` carrying ``select_modifier`` raised from the artifact
+    encoder, so ``SELECT DISTINCT`` -- one of the most ordinary queries there is
+    -- could not be captured at all. The values are lowercase words for the same
+    reason :class:`~..query_parts.JoinType` has them: the artifact is
+    language-neutral and the keyword belongs to the dialect.
     """
 
-    DISTINCT = "DISTINCT"
-    ALL = "ALL"
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
+
+    DISTINCT = "distinct"
+    ALL = "all"
+
+    @property
+    def keyword(self) -> str:
+        """The SQL keyword this modifier writes. Never in the artifact."""
+        return self.value.upper()
 
 
-class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
+class QueryStatement(ArithmeticMixin, ComparisonMixin, SQLValue):
     """
     Represents a complete SELECT query expression with all clauses supported by the framework.
 
@@ -52,7 +68,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
 
     Example Usage:
         # Basic SELECT query
-        query = QueryExpression(
+        query = QueryStatement(
             dialect,
             select=[Column(dialect, "id"), Column(dialect, "name")],
             from_=NamedRelationRef(dialect, Table(dialect, "users")),
@@ -60,18 +76,18 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         )
 
         # Scalar SELECT query - selecting constants or function results without FROM
-        scalar_query = QueryExpression(
+        scalar_query = QueryStatement(
             dialect,
             select=[Literal(dialect, 1)]  # Equivalent to SELECT 1;
         )
 
-        now_query = QueryExpression(
+        now_query = QueryStatement(
             dialect,
             select=[FunctionCall(dialect, "NOW")]  # Equivalent to SELECT NOW();
         )
 
         # SELECT with DISTINCT and complex clauses
-        query = QueryExpression(
+        query = QueryStatement(
             dialect,
             select=[Column(dialect, "category"), FunctionCall(dialect, "COUNT", Column(dialect, "id"))],
             from_=NamedRelationRef(dialect, Table(dialect, "products")),
@@ -86,13 +102,13 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         )
 
         # Simple aggregate functions
-        count_query = QueryExpression(
+        count_query = QueryStatement(
             dialect,
             select=[FunctionCall(dialect, "COUNT", Column(dialect, "id"))],  # COUNT(id)
             from_=NamedRelationRef(dialect, Table(dialect, "users"))
         )
 
-        max_price_query = QueryExpression(
+        max_price_query = QueryStatement(
             dialect,
             select=[FunctionCall(dialect, "MAX", Column(dialect, "price"))],  # MAX(price)
             from_=NamedRelationRef(dialect, Table(dialect, "products"))
@@ -107,7 +123,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         )
         window_func = FunctionCall(dialect, "ROW_NUMBER", window_spec=window_spec, alias="row_num")
 
-        window_query = QueryExpression(
+        window_query = QueryStatement(
             dialect,
             select=[
                 Column(dialect, "employee_name"),
@@ -122,7 +138,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         )
 
         # Query with FOR UPDATE clause
-        lock_query = QueryExpression(
+        lock_query = QueryStatement(
             dialect,
             select=[Column(dialect, "id"), Column(dialect, "status")],
             from_=NamedRelationRef(dialect, Table(dialect, "orders")),
@@ -146,16 +162,22 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
                 List[FromSourceType],
             ]
         ] = None,
-        where: Optional[Union["SQLPredicate", "WhereClause"]] = None,  # WHERE condition or clause object
-        group_by_having: Optional["GroupByHavingClause"] = None,  # Combined GROUP BY/HAVING clause object
+        where: Optional[
+            Union["SQLPredicate", "WhereClause"]
+        ] = None,  # WHERE condition or clause object
+        group_by_having: Optional[
+            "GroupByHavingClause"
+        ] = None,  # Combined GROUP BY/HAVING clause object
         order_by: Optional["OrderByClause"] = None,  # ORDER BY clause object
         qualify: Optional["QualifyClause"] = None,  # QUALIFY clause object
         limit_offset: Optional["LimitOffsetClause"] = None,  # Combined LIMIT/OFFSET clause object
         for_update: Optional["ForUpdateClause"] = None,  # FOR UPDATE clause object
-        select_modifier: Optional[SelectModifier] = None,  # SELECT modifier - DISTINCT|ALL, None means no modifier
+        select_modifier: Optional[
+            SelectModifier
+        ] = None,  # SELECT modifier - DISTINCT|ALL, None means no modifier
     ):
         """
-        Initialize a QueryExpression instance with the specified query components.
+        Initialize a QueryStatement instance with the specified query components.
 
         This class provides a comprehensive implementation of SQL SELECT statements with support for
         all major SQL clauses through dedicated clause objects. This approach allows for better
@@ -183,7 +205,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         Raises:
             ValueError: If HAVING is provided without GROUP BY (validated within GroupByHavingClause)
                       If OFFSET is provided without LIMIT (validated by dialect supports_offset_without_limit)
-                      If assignments are empty (though not applicable to QueryExpression)
+                      If assignments are empty (though not applicable to QueryStatement)
             TypeError: If from_ parameter is not one of the supported types
 
         Note:
@@ -216,7 +238,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         self.select_modifier = select_modifier  # SELECT modifier (DISTINCT/ALL), optional
 
     def validate(self, strict: bool = True) -> None:
-        """Validate QueryExpression parameters according to SQL standard.
+        """Validate QueryStatement parameters according to SQL standard.
 
         Args:
             strict: If True, perform strict validation that may impact performance.
@@ -253,7 +275,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
                     if not _is_valid_from_source(item):
                         raise TypeError(
                             f"from_ list item at index {i} must be one of: str, NamedRelationRef, "
-                            f"Subquery, SetOperationExpression, JoinClause, ValuesExpression, "
+                            f"Subquery, SetOperation, JoinClause, ValuesExpression, "
                             f"TableFunctionExpression, LateralExpression, GraphTableExpression, "
                             f"got {type(item)}"
                         )
@@ -261,7 +283,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
                 # For single values, validate using the same helper
                 if not _is_valid_from_source(self.from_):
                     raise TypeError(
-                        f"from_ must be one of: str, NamedRelationRef, Subquery, SetOperationExpression, "
+                        f"from_ must be one of: str, NamedRelationRef, Subquery, SetOperation, "
                         f"JoinClause, list, ValuesExpression, TableFunctionExpression, "
                         f"LateralExpression, GraphTableExpression, got {type(self.from_)}"
                     )
@@ -271,8 +293,12 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
             raise TypeError(f"where must be WhereClause or SQLPredicate, got {type(self.where)}")
 
         # Validate group_by_having parameter
-        if self.group_by_having is not None and not isinstance(self.group_by_having, GroupByHavingClause):
-            raise TypeError(f"group_by_having must be GroupByHavingClause, got {type(self.group_by_having)}")
+        if self.group_by_having is not None and not isinstance(
+            self.group_by_having, GroupByHavingClause
+        ):
+            raise TypeError(
+                f"group_by_having must be GroupByHavingClause, got {type(self.group_by_having)}"
+            )
 
         # Validate order_by parameter
         if self.order_by is not None and not isinstance(self.order_by, OrderByClause):
@@ -284,15 +310,21 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
 
         # Validate limit_offset parameter
         if self.limit_offset is not None and not isinstance(self.limit_offset, LimitOffsetClause):
-            raise TypeError(f"limit_offset must be LimitOffsetClause, got {type(self.limit_offset)}")
+            raise TypeError(
+                f"limit_offset must be LimitOffsetClause, got {type(self.limit_offset)}"
+            )
 
         # Validate for_update parameter
         if self.for_update is not None and not isinstance(self.for_update, ForUpdateClause):
             raise TypeError(f"for_update must be ForUpdateClause, got {type(self.for_update)}")
 
         # Validate select_modifier parameter
-        if self.select_modifier is not None and not isinstance(self.select_modifier, SelectModifier):
-            raise TypeError(f"select_modifier must be SelectModifier, got {type(self.select_modifier)}")
+        if self.select_modifier is not None and not isinstance(
+            self.select_modifier, SelectModifier
+        ):
+            raise TypeError(
+                f"select_modifier must be SelectModifier, got {type(self.select_modifier)}"
+            )
 
     @property
     def statement_type(self) -> StatementType:

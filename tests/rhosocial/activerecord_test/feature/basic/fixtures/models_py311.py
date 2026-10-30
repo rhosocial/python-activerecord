@@ -515,7 +515,7 @@ class IntToStringAdapter(BaseSQLTypeAdapter):
 
     def __init__(self):
         super().__init__()
-        self._register_type(str, int)
+        self.register_type(str, int)
 
     def _do_to_database(self, value: Any, target_type: Type, options: Dict[str, Any] | None = None) -> Any:
         return int(value)
@@ -556,7 +556,7 @@ class ListToStringAdapter(BaseSQLTypeAdapter):
 
     def __init__(self):
         super().__init__()
-        self._register_type(list, str)
+        self.register_type(list, str)
 
     def _do_to_database(self, value: List[str], target_type: Type, options: Dict[str, Any] | None = None) -> str | None:
         if value is None:
@@ -602,7 +602,7 @@ class JsonToStringAdapter(BaseSQLTypeAdapter):
 
     def __init__(self):
         super().__init__()
-        self._register_type(dict, str)
+        self.register_type(dict, str)
 
     def _do_to_database(self, value: Dict, target_type: Type, options: Dict[str, Any] | None = None) -> str | None:
         if value is None:

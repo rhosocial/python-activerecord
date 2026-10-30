@@ -16,7 +16,8 @@ from .xml_aggregation import SQLXMLAggregationSupport
 
 if TYPE_CHECKING:  # pragma: no cover
     from ....expression.xml import (
-        XMLExistsExpression,
+        PassingClause,
+        XMLExistsPredicate,
         XMLQueryExpression,
         XMLTableExpression,
     )
@@ -38,15 +39,24 @@ class SQLXMLQueryingSupport(Protocol):
         """Whether SQL/XML XMLTABLE is supported."""
         ...  # pragma: no cover
 
-    def format_xmlquery_expression(self, expr: "XMLQueryExpression") -> Tuple[str, tuple]:
+    def format_passing_clause(self, clause: "PassingClause") -> Tuple[str, tuple]:
+        """Format a SQL/XML ``PASSING`` clause.
+
+        Public because all three querying expressions compose it: a backend
+        that spells ``PASSING`` differently overrides this one formatter
+        instead of the three that render around it.
+        """
+        ...  # pragma: no cover
+
+    def format_xml_query_expression(self, expr: "XMLQueryExpression") -> Tuple[str, tuple]:
         """Format a SQL/XML XMLQUERY expression."""
         ...  # pragma: no cover
 
-    def format_xmlexists_expression(self, expr: "XMLExistsExpression") -> Tuple[str, tuple]:
+    def format_xmlexists_predicate(self, expr: "XMLExistsPredicate") -> Tuple[str, tuple]:
         """Format a SQL/XML XMLEXISTS predicate."""
         ...  # pragma: no cover
 
-    def format_xmltable_expression(self, expr: "XMLTableExpression") -> Tuple[str, tuple]:
+    def format_xml_table_expression(self, expr: "XMLTableExpression") -> Tuple[str, tuple]:
         """Format a SQL/XML XMLTABLE expression."""
         ...  # pragma: no cover
 

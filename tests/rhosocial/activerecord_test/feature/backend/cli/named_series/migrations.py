@@ -1,3 +1,23 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnPrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.migration import (
+    NamedMigration,
+    MigrationContext,
+    AsyncNamedMigration,
+    AsyncMigrationContext,
+)
+from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+    SQLiteIntegerType,
+    SQLiteTextType,
+)
+from rhosocial.activerecord.backend.expression.statements.ddl_table import (
+    CreateTableStatement,
+    ColumnDefinition,
+    ColumnConstraint,
+    DropTableStatement,
+)
 # tests/rhosocial/activerecord_test/feature/backend/cli/named_series/migrations.py
 """Named migration fixtures (named-migration layer).
 
@@ -6,24 +26,6 @@ subclasses.  Running these via the CLI creates the ``users``/``posts``
 tables that the queries/procedures/graphs depend on.
 """
 
-from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-    CreateTableExpression,
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
-    DropTableExpression,
-)
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
-    SQLiteIntegerType,
-    SQLiteTextType,
-)
-from rhosocial.activerecord.backend.migration import (
-    NamedMigration,
-    MigrationContext,
-    AsyncNamedMigration,
-    AsyncMigrationContext,
-)
-from rhosocial.activerecord.backend.expression.objects import Table
 
 
 # --- DDL named expressions ------------------------------------------------
@@ -31,13 +33,13 @@ from rhosocial.activerecord.backend.expression.objects import Table
 
 def create_users_table(dialect):
     """CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT)."""
-    return CreateTableExpression(
+    return CreateTableStatement(
         dialect,
         table=Table(dialect, 'users'),
         columns=[
             ColumnDefinition(dialect, 
                 "id", SQLiteIntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))],
             ),
             ColumnDefinition(dialect, "name", SQLiteTextType(dialect=dialect)),
             ColumnDefinition(dialect, "email", SQLiteTextType(dialect=dialect)),
@@ -47,18 +49,18 @@ def create_users_table(dialect):
 
 def drop_users_table(dialect):
     """DROP TABLE IF EXISTS users."""
-    return DropTableExpression(dialect, table=Table(dialect, 'users'), if_exists=True)
+    return DropTableStatement(dialect, table=Table(dialect, 'users'), if_exists=True)
 
 
 def create_posts_table(dialect):
     """CREATE TABLE posts (id INTEGER PRIMARY KEY, title TEXT, user_id INTEGER)."""
-    return CreateTableExpression(
+    return CreateTableStatement(
         dialect,
         table=Table(dialect, 'posts'),
         columns=[
             ColumnDefinition(dialect, 
                 "id", SQLiteIntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))],
             ),
             ColumnDefinition(dialect, "title", SQLiteTextType(dialect=dialect)),
             ColumnDefinition(dialect, "user_id", SQLiteIntegerType(dialect)),
@@ -68,7 +70,7 @@ def create_posts_table(dialect):
 
 def drop_posts_table(dialect):
     """DROP TABLE IF EXISTS posts."""
-    return DropTableExpression(dialect, table=Table(dialect, 'posts'), if_exists=True)
+    return DropTableStatement(dialect, table=Table(dialect, 'posts'), if_exists=True)
 
 
 # --- NamedMigration classes -------------------------------------------------

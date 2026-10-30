@@ -6,8 +6,8 @@ The SQLite backend includes a command-line interface for database operations. Th
 
 The CLI commands fall into two categories:
 
-1. **SQLite-specific commands** — SQLite-unique operations (query, introspect, info)
-2. **Core inherited commands** — shared across all backends (named-expression, named-procedure, named-migration, named-connection)
+1. **SQLite-specific commands** — SQLite-unique operations (query, introspect, status, info)
+2. **Core inherited commands** — shared across all backends (named-expression, named-procedure, named-procedure-graph, named-migration, named-connection)
 
 ## Invocation
 
@@ -136,8 +136,9 @@ Inspect database metadata:
 # List all tables
 rhosocial-activerecord-sqlite introspect tables --db-file my.db
 
-# List all views
+# List all views, or describe one of them
 rhosocial-activerecord-sqlite introspect views --db-file my.db
+rhosocial-activerecord-sqlite introspect views active_users --db-file my.db
 
 # Get database information
 rhosocial-activerecord-sqlite introspect database --db-file my.db
@@ -145,27 +146,71 @@ rhosocial-activerecord-sqlite introspect database --db-file my.db
 # Include system tables
 rhosocial-activerecord-sqlite introspect tables --db-file my.db --include-system
 
-# Get complete table info (columns, indexes, foreign keys)
-rhosocial-activerecord-sqlite introspect table users --db-file my.db
-
 # Query specific details
 rhosocial-activerecord-sqlite introspect columns users --db-file my.db
 rhosocial-activerecord-sqlite introspect indexes users --db-file my.db
 rhosocial-activerecord-sqlite introspect foreign-keys posts --db-file my.db
+
+# The triggers of one table
+rhosocial-activerecord-sqlite introspect triggers posts --db-file my.db
 ```
 
 #### Introspection Types
 
-| Type | Description | Table Name Required |
-|------|-------------|---------------------|
-| `tables` | List all tables | No |
-| `views` | List all views | No |
-| `database` | Database information | No |
-| `table` | Complete table details (columns, indexes, foreign keys) | Yes |
-| `columns` | Column information | Yes |
-| `indexes` | Index information | Yes |
-| `foreign-keys` | Foreign key information | Yes |
-| `triggers` | Trigger information | Optional |
+| Type | Description | Name |
+|------|-------------|------|
+| `tables` | List all tables | not accepted |
+| `views` | List all views, or describe one | optional (view) |
+| `database` | Database information | not accepted |
+| `columns` | Column information, generated columns included | required (table) |
+| `indexes` | Index information | required (table) |
+| `foreign-keys` | Foreign key information | required (table) |
+| `triggers` | Trigger information | optional (table) |
+
+Each introspection type reports exactly one kind of catalogue item; ask for `columns`, `indexes` and `foreign-keys` separately instead of expecting a combined per-table report.
+
+A name the type cannot use is refused (exit 2) rather than ignored: `introspect tables users` used to print the whole catalogue while reading as though it had been narrowed.
+
+The raw `PRAGMA` sub-introspector (`backend.introspector.pragma`) is reachable from the library only. Its fourteen methods are not catalogue questions: `integrity_check`, `foreign_key_check` and `wal_checkpoint` are actions, `journal_mode` and `set` change state, and `table_info`/`index_list` are the raw reads the seven types above already wrap. `introspect` answers "what does this database hold"; a second door onto the same facts, or a door onto actions, would make that sentence untrue.
+
+### status
+
+Display a status overview of the server:
+
+```bash
+# Complete overview
+rhosocial-activerecord-sqlite status --db-file my.db
+
+# Configuration parameters only
+rhosocial-activerecord-sqlite status config --db-file my.db
+
+# Performance counters only
+rhosocial-activerecord-sqlite status performance --db-file my.db
+
+# Storage usage only
+rhosocial-activerecord-sqlite status storage --db-file my.db
+
+# Attached databases only
+rhosocial-activerecord-sqlite status databases --db-file my.db
+
+# Add descriptive columns
+rhosocial-activerecord-sqlite status config -v --db-file my.db
+
+# JSON output
+rhosocial-activerecord-sqlite status -o json --db-file my.db
+```
+
+Status types:
+
+| Type | Description |
+|------|-------------|
+| `all` | Complete overview (default) |
+| `config` | Configuration parameters |
+| `performance` | Performance counters |
+| `storage` | Storage usage |
+| `databases` | Attached databases |
+
+The `all` type renders a nested structure, so `csv` and `tsv` requests fall back to `json` for it.
 
 ## Core Inherited Commands
 
@@ -256,6 +301,24 @@ rhosocial-activerecord-sqlite named-procedure \
     --db-file mydb.sqlite
 ```
 
+### named-procedure-graph
+
+Execute procedure graphs (DAG workflows) described in a Python module:
+
+```bash
+# Run a graph
+rhosocial-activerecord-sqlite named-procedure-graph run \
+    myapp.npg.monthly_report \
+    --db-file mydb.sqlite \
+    --params '{"month": "2026-04"}'
+
+# List the graphs a module defines
+rhosocial-activerecord-sqlite named-procedure-graph list myapp.npg
+
+# Validate a graph without running it
+rhosocial-activerecord-sqlite named-procedure-graph validate myapp.npg.monthly_report
+```
+
 ### named-migration
 
 Execute named migrations:
@@ -315,10 +378,12 @@ backend/impl/sqlite/
     ├── info.py          # 'info' command handler
     ├── query.py         # 'query' command handler
     ├── introspect.py    # 'introspect' command handler
+    ├── status.py        # 'status' command handler
     │
     │   # Core inherited commands (thin adapters)
     ├── named_expression.py      # Delegates to core named_expression.cli
     ├── named_procedure.py       # Delegates to core named_expression.procedure.cli
+    ├── named_procedure_graph.py # Delegates to core named_expression.procedure.cli
     ├── named_migration.py       # Delegates to core migration.cli
     └── named_connection.py      # Delegates to core named_connection.cli
 ```

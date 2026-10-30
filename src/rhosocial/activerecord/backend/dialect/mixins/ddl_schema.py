@@ -7,8 +7,8 @@ from ...expression.objects import Schema
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements import (
-        CreateSchemaExpression,
-        DropSchemaExpression,
+        CreateSchemaStatement,
+        DropSchemaStatement,
     )
 
 
@@ -81,25 +81,25 @@ class SchemaMixin:
         """
         return False
 
-    def format_create_schema_statement(self, expr: "CreateSchemaExpression") -> Tuple[str, tuple]:
+    def format_create_schema_statement(self, expr: "CreateSchemaStatement") -> Tuple[str, tuple]:
         """Format CREATE SCHEMA statement per SQL standard.
 
         Args:
-            expr: CreateSchemaExpression carrying the schema name, optional
+            expr: CreateSchemaStatement carrying the schema name, optional
                 ``if_not_exists`` flag, and optional ``authorization`` owner.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            TypeError: ``CreateSchemaExpression.schema`` is not a Schema. Another
+            TypeError: ``CreateSchemaStatement.schema`` is not a Schema. Another
             object kind would have had its own name rendered as the schema's.
             UnsupportedFeatureError: If the dialect does not support
                 CREATE SCHEMA or specific clauses.
         """
         if not isinstance(expr.schema, Schema):
             raise TypeError(
-                f"CreateSchemaExpression.schema must be a Schema, "
+                f"CreateSchemaStatement.schema must be a Schema, "
                 f"got {type(expr.schema).__name__}"
             )
         if not self.supports_create_schema():
@@ -125,25 +125,25 @@ class SchemaMixin:
             parts.append(f"AUTHORIZATION {self.format_identifier(expr.authorization)}")
         return " ".join(parts), ()
 
-    def format_drop_schema_statement(self, expr: "DropSchemaExpression") -> Tuple[str, tuple]:
+    def format_drop_schema_statement(self, expr: "DropSchemaStatement") -> Tuple[str, tuple]:
         """Format DROP SCHEMA statement per SQL standard.
 
         Args:
-            expr: DropSchemaExpression carrying the schema name, optional
+            expr: DropSchemaStatement carrying the schema name, optional
                 ``if_exists`` flag, and optional ``cascade`` flag.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            TypeError: ``DropSchemaExpression.schema`` is not a Schema. Another
+            TypeError: ``DropSchemaStatement.schema`` is not a Schema. Another
             object kind would have had its own name rendered as the schema's.
             UnsupportedFeatureError: If the dialect does not support
                 DROP SCHEMA or specific clauses.
         """
         if not isinstance(expr.schema, Schema):
             raise TypeError(
-                f"DropSchemaExpression.schema must be a Schema, "
+                f"DropSchemaStatement.schema must be a Schema, "
                 f"got {type(expr.schema).__name__}"
             )
         if not self.supports_drop_schema():

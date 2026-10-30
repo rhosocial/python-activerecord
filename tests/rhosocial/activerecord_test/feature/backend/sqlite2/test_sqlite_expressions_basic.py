@@ -1,6 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite2/test_sqlite_expressions_basic.py
 import pytest
-from rhosocial.activerecord.backend.expression import Literal, Column, Identifier, RawSQLExpression
+from rhosocial.activerecord.backend.expression import Literal, Column, Identifier, RawSQL
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 
@@ -38,7 +38,7 @@ class TestBasicExpressions:
     def test_literal_repr(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test Literal repr method."""
         literal = Literal(sqlite_dialect_3_8_0, "test_value")
-        assert repr(literal) == "Literal('test_value', inline_literals=False)"
+        assert repr(literal) == "Literal('test_value')"
 
     def test_column_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test basic Column functionality."""
@@ -90,15 +90,15 @@ class TestBasicExpressions:
         assert params == ()
 
     def test_raw_sql_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test RawSQLExpression functionality."""
-        raw_sql = RawSQLExpression(sqlite_dialect_3_8_0, "CURRENT_TIMESTAMP")
+        """Test RawSQL functionality."""
+        raw_sql = RawSQL(sqlite_dialect_3_8_0, "CURRENT_TIMESTAMP")
         sql, params = raw_sql.to_sql()
         assert sql == "CURRENT_TIMESTAMP"
         assert params == ()
 
     def test_raw_sql_with_params(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test RawSQLExpression with parameters."""
-        raw_sql = RawSQLExpression(sqlite_dialect_3_8_0, "datetime('now', ?)", ("localtime",))
+        """Test RawSQL with parameters."""
+        raw_sql = RawSQL(sqlite_dialect_3_8_0, "datetime('now', ?)", ("localtime",))
         sql, params = raw_sql.to_sql()
         assert sql == "datetime('now', ?)"
         assert params == ("localtime",)

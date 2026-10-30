@@ -14,19 +14,20 @@ This section details the fundamental building blocks of the Expression System, i
   - [StringMixin](#stringmixin)
   - [TypeCastingMixin](#typecastingmixin)
 - [Core Expressions](#core-expressions)
-  - [TableExpression](#tableexpression)
+  - [Table Sources and Relation Objects](#table-sources-and-relation-objects)
   - [Column](#column)
   - [Literal](#literal)
-  - [WildcardExpression](#wildcardexpression)
+  - [AllColumnsWildcard](#allcolumnswildcard)
   - [Subquery](#subquery)
 - [Operators](#operators)
   - [Identifier](#identifier)
   - [SQLOperation](#sqloperation)
   - [BinaryExpression](#binaryexpression)
-  - [BinaryArithmeticExpression](#binaryarithmeticexpression)
+  - [ArithmeticOperation](#arithmeticoperation)
   - [UnaryExpression](#unaryexpression)
-  - [RawSQLExpression](#rawsqlexpression)
+  - [RawSQL](#rawsqlexpression)
   - [RawSQLPredicate](#rawsqlpredicate)
+- [COLLATE Expressions](#collate-expressions)
 
 ## Base Classes
 
@@ -37,6 +38,8 @@ The expression system is built on a hierarchy of abstract base classes defined i
 The `ToSQLProtocol` defines the contract for any object that can be converted to SQL.
 
 ```python
+from typing import Protocol, Tuple
+
 class ToSQLProtocol(Protocol):
     def to_sql(self) -> Tuple[str, tuple]:
         """
@@ -53,12 +56,13 @@ class ToSQLProtocol(Protocol):
 `BaseExpression` is the root base class for all expression components. It satisfies `ToSQLProtocol` structurally, holds a **per-node** dialect reference, and implements `to_sql()` **once, centrally** — subclasses never override it; they declare only their dialect formatting method name via the read-only `format_method` property.
 
 ```python
+from typing import Optional, Tuple
+
 class BaseExpression:
     def __init__(self, dialect: Optional["SQLDialectBase"] = None):
         # The dialect is the conventional first argument but optional —
         # binding may be deferred (e.g. model declaration time has no
         # dialect; ActiveRecord's DDL derivation binds one per node).
-        self._inline_literals = False
         self.dialect = dialect
 
     @property
@@ -95,16 +99,18 @@ class BaseExpression:
 `SQLPredicate` represents an expression that evaluates to a boolean value (e.g., `WHERE` conditions). It mixes in `LogicalMixin` to support `&` (AND), `|` (OR), and `~` (NOT) operators.
 
 ```python
+from rhosocial.activerecord.backend.expression import bases, mixins
+
 class SQLPredicate(mixins.LogicalMixin, BaseExpression):
     pass
 ```
 
-### SQLValueExpression
+### SQLValue
 
-`SQLValueExpression` represents an expression that evaluates to a scalar value (e.g., columns, literals, function results).
+`SQLValue` represents an expression that evaluates to a scalar value (e.g., columns, literals, function results).
 
 ```python
-class SQLValueExpression(BaseExpression):
+class SQLValue(BaseExpression):
     pass
 ```
 
@@ -117,90 +123,161 @@ The `rhosocial.activerecord.backend.expression.core` module defines the fundamen
 Represents a literal value in a SQL query. It handles parameter binding automatically.
 
 ```python
-class Literal(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
-    def __init__(self, dialect: "SQLDialectBase", value: Any, *, inline_literals: bool = False): ...
-    
-    # Default: bind-parameter mode
-    # Literal(dialect, "active")
-    # -> ('?', ('active',))
+import inspect
+from rhosocial.activerecord.backend.expression import Literal
 
-    # Inline mode: value embedded directly in SQL (for DDL clauses)
-    # Literal(dialect, "active", inline_literals=True)
-    # -> ("'active'", ())
+# The constructor as the library declares it
+print(inspect.signature(Literal.__init__))
+
+# Default: bind-parameter mode
+# Literal(dialect, "active")
+# -> ('?', ('active',))
+
+# Inline mode: value embedded directly in SQL (for DDL clauses)
+# Literal(dialect, "active", inline=True)
+# -> ("'active'", ())
 ```
 
 #### Inline Literals
 
 By default, `Literal` renders as a **bind parameter** (`?` or `%s` depending on the dialect), following DB-API 2.0 (PEP 249) conventions. This is the safe, preferred mode for DML statements (`INSERT`, `SELECT`, `UPDATE`, `DELETE`).
 
-However, **DDL clauses** (`DEFAULT`, `CHECK`, partition boundaries, partial-index `WHERE`) do **not** accept bind parameters — the database engine expects literal SQL text. For these cases, set `inline_literals=True` on the `Literal` node:
+However, **DDL clauses** (`DEFAULT`, `CHECK`, partition boundaries, partial-index `WHERE`) do **not** accept bind parameters — the database engine expects literal SQL text. For these cases, set `inline=True` on the `Literal` node:
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    Literal, Column, ComparisonPredicate,
-    ColumnDefinition, ColumnConstraint, ColumnConstraintType,
+    Column,
+    ColumnCheckConstraint,
+    ColumnConstraint,
+    ColumnDefaultConstraint,
+    ColumnDefinition,
+    ComparisonOperator,
+    ComparisonPredicate,
+    Literal,
 )
 from rhosocial.activerecord.backend.expression.types import IntegerType
 
 # DDL: DEFAULT value must be inlined
-ColumnDefinition(dialect,
+ColumnDefinition(
+    dialect,
     name="age",
     data_type=IntegerType(dialect),
     constraints=[
-        ColumnConstraint(dialect,
-            constraint_type=ColumnConstraintType.DEFAULT,
-            default_value=Literal(dialect, 0, inline_literals=True),  # -> DEFAULT 0
+        ColumnConstraint(
+            dialect,
+            branch=ColumnDefaultConstraint(
+                dialect,
+                value=Literal(dialect, 0, inline=True),  # -> DEFAULT 0
+            ),
         ),
     ],
 )
 
 # DDL: CHECK condition — the comparison value must be inlined
-ColumnConstraint(dialect,
-    constraint_type=ColumnConstraintType.CHECK,
-    check_condition=ComparisonPredicate(
-        dialect, ">=",
-        Column(dialect, "score"),
-        Literal(dialect, 0, inline_literals=True),  # -> CHECK ("score" >= 0)
+ColumnConstraint(
+    dialect,
+    branch=ColumnCheckConstraint(
+        dialect,
+        condition=ComparisonPredicate(
+            dialect,
+            ComparisonOperator.GTE,
+            Column(dialect, "score"),
+            Literal(dialect, 0, inline=True),  # -> CHECK ("score" >= 0)
+        ),
     ),
 )
 ```
 
-The `inline_literals` switch is **per-node** — each `Literal` decides independently. A single predicate can mix inline and bind-parameter values:
+The `inline` switch is **per-node** — each `Literal` decides independently. A single predicate can mix inline and bind-parameter values:
 
 ```python
+from rhosocial.activerecord.backend.expression import ComparisonPredicate, Literal
+
 pred = ComparisonPredicate(
     dialect, "=",
-    Literal(dialect, "a", inline_literals=True),  # inline
-    Literal(dialect, "b"),                          # bind param
+    Literal(dialect, "a", inline=True),  # inline
+    Literal(dialect, "b"),               # bind param
 )
 pred.to_sql()  # -> ("'a' = ?", ("b",))
 ```
 
-> **Security note**: Inline literals are a SQL-injection hazard when the value can be influenced by end users. Only use `inline_literals=True` for developer-declared constants (DDL defaults, schema-derived values).
+> **Security note**: Inline literals are a SQL-injection hazard when the value can be influenced by end users. Only use `inline=True` for developer-declared constants (DDL defaults, schema-derived values).
 
 ### Column
 
 Represents a column reference, optionally with a table qualifier and an alias.
 
 ```python
-class Column(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
-    def __init__(self, dialect: "SQLDialectBase", name: str, table: Optional[str] = None, alias: Optional[str] = None): ...
+import inspect
+from rhosocial.activerecord.backend.expression import Column
 
-    # Example: users.name
-    # Column(dialect, "name", table="users")
+print(inspect.signature(Column.__init__))
+
+# Example: users.name
+# Column(dialect, "name", table="users")
 ```
 
-### TableExpression
+The bare `Column` is a *reference* only. Comparison, arithmetic and string operators were deliberately removed from it: `Column(...) == Literal(...)` is a plain Python `bool`, not a predicate. Use a typed column instead — `StringColumn`, `IntegerColumn`, `NumericColumn`, `TimestampColumn` or `BooleanColumn` — which wraps a plain Python value in a `Literal` and therefore builds a real predicate. `ComparisonPredicate(dialect, ComparisonOperator.EQ, left, right)` is the explicit node when the operands are already expressions.
 
-Represents a table or view, optionally with an alias and temporal options (e.g., FOR SYSTEM_TIME).
+### Table Sources and Relation Objects
+
+Everything a `FROM` clause can name is a **table source**, but not every source is a persisted object. The two questions are answered by two separate trees:
+
+- **Persisted relations** — `Table`, `View`, `MaterializedView`, `ForeignTable`, and the graph tables `NodeTable` / `EdgeTable` — live in `rhosocial.activerecord.backend.expression.objects`. They carry catalog identity (a name plus optional catalog and schema) and nothing else.
+- **Query-only sources** — `NamedRelationRef`, `DerivedTableSource`, `ValuesTableSource`, `TableFunctionSource`, `JsonTableSource`, `XmlTableSource` and `GraphTableSource` — live in `rhosocial.activerecord.backend.expression.sources`. Their rows exist for the duration of one statement; `FROM json_table(...)` has no catalog identity at all.
+
+The trees are connected by **composition**, not inheritance: `NamedRelationRef` holds a relation object. Aliases and temporal options belong to the source, because `FROM users AS u` renames a row for the duration of a query and renames nothing in the catalogue.
 
 ```python
-class TableExpression(mixins.AliasableMixin, bases.BaseExpression):
-    def __init__(self, dialect: "SQLDialectBase", name: str, alias: Optional[str] = None, temporal_options: Optional[Dict[str, Any]] = None): ...
+import inspect
+from rhosocial.activerecord.backend.expression.objects import (
+    EdgeTable,
+    ForeignTable,
+    MaterializedView,
+    NodeTable,
+    Table,
+    View,
+)
 
-    # Example: FROM users AS u
-    # TableExpression(dialect, "users", alias="u")
-    # -> ('"users" AS "u"', ())
+for relation in (Table, View, MaterializedView, ForeignTable, NodeTable, EdgeTable):
+    print(relation.__name__, inspect.signature(relation.__init__))
+```
+
+```python
+import inspect
+from rhosocial.activerecord.backend.expression.sources import (
+    DerivedTableSource,
+    GraphTableSource,
+    JsonTableSource,
+    NamedRelationRef,
+    TableFunctionSource,
+    ValuesTableSource,
+    XmlTableSource,
+)
+
+for source in (
+    NamedRelationRef,
+    DerivedTableSource,
+    ValuesTableSource,
+    TableFunctionSource,
+    JsonTableSource,
+    XmlTableSource,
+    GraphTableSource,
+):
+    print(source.__name__, inspect.signature(source.__init__))
+```
+
+```python
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+
+# FROM "users"
+NamedRelationRef(dialect, Table(dialect, "users"))
+# -> ('"users"', ())
+
+# FROM "users" AS "u" -- the alias lives on the source
+NamedRelationRef(dialect, Table(dialect, "users"), alias="u")
+# -> ('"users" AS "u"', ())
 ```
 
 ### FunctionCall
@@ -210,8 +287,10 @@ Represents a generic scalar function call.
 When `niladic=True` and no arguments are provided, the function call generates SQL without parentheses (e.g., `CURRENT_TIMESTAMP` instead of `CURRENT_TIMESTAMP()`). Per SQL:2003, certain value functions are niladic and must not use parentheses when invoked without arguments. When a niladic function has arguments (e.g., `CURRENT_TIMESTAMP(6)`), parentheses are included as normal.
 
 ```python
-class FunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
-    def __init__(self, dialect: "SQLDialectBase", func_name: str, *args: "bases.BaseExpression", is_distinct: bool = False, alias: Optional[str] = None, niladic: bool = False): ...
+import inspect
+from rhosocial.activerecord.backend.expression import FunctionCall
+
+print(inspect.signature(FunctionCall.__init__))
 ```
 
 **Niladic usage:**
@@ -230,26 +309,36 @@ FunctionCall(dialect, 'NOW')
 # -> ('NOW()', ())
 ```
 
-### WildcardExpression
+### AllColumnsWildcard
 
-Represents a wildcard (`*`) or table wildcard (`table.*`). PREFER this over `Literal("*")`.
+Represents the select-list wildcard (`*`), optionally qualified through a
+relation reference (`rel.*`). PREFER this over `Literal("*")`.
 
 ```python
-class WildcardExpression(bases.SQLValueExpression):
-    def __init__(self, dialect: "SQLDialectBase", table: Optional[str] = None): ...
+import inspect
+from rhosocial.activerecord.backend.expression import AllColumnsWildcard
+
+print(inspect.signature(AllColumnsWildcard.__init__))
 ```
+
+A bare `*` lets the surrounding clause decide what the expansion spans (the
+select list's FROM sources, or a RETURNING clause's DML target). The row
+count is a different contract: `COUNT(*)`'s parameter is `RowCountWildcard`,
+which carries no relation and renders only the bare asterisk.
 
 ### Subquery
 
 Represents a subquery expression. It can wrap a SQL string, a `(sql, params)` tuple, or another expression.
 
 ```python
-class Subquery(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
-    def __init__(self, dialect: "SQLDialectBase", query_input: Union[str, tuple, "BaseExpression"], query_params: Optional[tuple] = None, alias: Optional[str] = None): ...
+import inspect
+from rhosocial.activerecord.backend.expression import Subquery
 
-    # Example: (SELECT id FROM users WHERE age > ?)
-    # Subquery(dialect, "SELECT id FROM users WHERE age > ?", (25,))
-    # -> ('(SELECT id FROM users WHERE age > ?)', (25,))
+print(inspect.signature(Subquery.__init__))
+
+# Example: (SELECT id FROM users WHERE age > ?)
+# Subquery(dialect, "SELECT id FROM users WHERE age > ?", (25,))
+# -> ('(SELECT id FROM users WHERE age > ?)', (25,))
 ```
 
 ## Mixins
@@ -267,37 +356,43 @@ Column(dialect, "name").as_("user_name")
 
 ### ComparisonMixin
 
-Enables standard Python comparison operators (`==`, `!=`, `>`, `<`, `>=`, `<=`) to generate SQL predicates.
+Enables standard Python comparison operators (`==`, `!=`, `>`, `<`, `>=`, `<=`) to generate SQL predicates. The mixin is carried by typed columns and expression wrappers; a bare `Column` deliberately does not carry it.
 
 ```python
-# age >= 18
-Column(dialect, "age") >= 18
+from rhosocial.activerecord.backend.expression import (
+    Column, IntegerColumn, StringColumn,
+)
+
+# age >= 18 -- a typed column wraps 18 in a Literal
+IntegerColumn(dialect, "age") >= 18
 
 # status == 'active'
-Column(dialect, "status") == "active"
+StringColumn(dialect, "status") == "active"
 
 # IS NULL / IS NOT NULL
 Column(dialect, "email").is_null()
 Column(dialect, "email").is_not_null()
 
 # IN / NOT IN
-Column(dialect, "status").in_(["active", "pending"])
-Column(dialect, "status").not_in(["banned", "deleted"])
+StringColumn(dialect, "status").in_(["active", "pending"])
+StringColumn(dialect, "status").not_in(["banned", "deleted"])
 
 # BETWEEN
-Column(dialect, "age").between(18, 65)
+IntegerColumn(dialect, "age").between(18, 65)
 ```
 
 ### ArithmeticMixin
 
-Enables standard Python arithmetic operators (`+`, `-`, `*`, `/`, `%`) to generate SQL arithmetic expressions.
+Enables standard Python arithmetic operators (`+`, `-`, `*`, `/`, `%`) to generate SQL arithmetic expressions. Arithmetic needs a numeric typed column, which also supplies the literal for the other operand.
 
 ```python
+from rhosocial.activerecord.backend.expression import IntegerColumn, NumericColumn
+
 # price * 0.9
-Column(dialect, "price") * 0.9
+NumericColumn(dialect, "price") * 0.9
 
 # (count + 1)
-Column(dialect, "count") + 1
+IntegerColumn(dialect, "count") + 1
 ```
 
 ### LogicalMixin
@@ -305,11 +400,15 @@ Column(dialect, "count") + 1
 Enables standard Python bitwise operators (`&`, `|`, `~`) to generate SQL logical predicates (`AND`, `OR`, `NOT`).
 
 ```python
+from rhosocial.activerecord.backend.expression import (
+    BooleanColumn, IntegerColumn, StringColumn,
+)
+
 # (age >= 18) AND (active = true)
-(Column(dialect, "age") >= 18) & (Column(dialect, "active") == True)
+(IntegerColumn(dialect, "age") >= 18) & (BooleanColumn(dialect, "active") == True)
 
 # NOT (status = 'banned')
-~(Column(dialect, "status") == "banned")
+~(StringColumn(dialect, "status") == "banned")
 ```
 
 ### StringMixin
@@ -317,11 +416,13 @@ Enables standard Python bitwise operators (`&`, `|`, `~`) to generate SQL logica
 Provides string-specific methods like `like` and `ilike`.
 
 ```python
+from rhosocial.activerecord.backend.expression import StringColumn
+
 # name LIKE 'John%'
-Column(dialect, "name").like("John%")
+StringColumn(dialect, "name").like("John%")
 
 # email ILIKE '%@gmail.com'
-Column(dialect, "email").ilike("%@gmail.com")
+StringColumn(dialect, "email").ilike("%@gmail.com")
 ```
 
 ### TypeCastingMixin
@@ -329,42 +430,52 @@ Column(dialect, "email").ilike("%@gmail.com")
 Provides type casting capability, allowing expressions to be converted to different SQL types. It follows the Expression-Dialect separation architecture where the actual SQL syntax is generated by each backend's `format_cast_expression` method.
 
 ```python
-# Basic type casting
-Column(dialect, "price").cast("integer")
-# PostgreSQL generates: "price"::integer
-# Other backends generate: CAST("price" AS integer)
+from rhosocial.activerecord.backend.expression import NumericColumn, StringColumn
+from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
 
-# Type casting with modifiers
-Column(dialect, "name").cast("VARCHAR(100)")
+# Basic type casting -- the target is a DataType object, never a type-name string
+NumericColumn(dialect, "price").cast(IntegerType(dialect))
+# PostgreSQL generates: "price"::INTEGER
+# Other backends generate: CAST("price" AS INTEGER)
+
+# Type modifiers belong to the DataType object
+StringColumn(dialect, "name").cast(VarCharType(dialect, length=100))
 # PostgreSQL generates: "name"::VARCHAR(100)
 
 # Chained type conversions
-Column(dialect, "amount").cast("money").cast("numeric").cast("float8")
-# PostgreSQL generates: "amount"::money::numeric::float8
+StringColumn(dialect, "amount").cast(VarCharType(dialect, length=20)).cast(IntegerType(dialect))
+# -> CAST(CAST("amount" AS VARCHAR(20)) AS INTEGER)
 
 # Type casting supports method chaining
-expr = Column(dialect, "value").cast("numeric")
-result = expr * 1.1  # Arithmetic operation
-predicate = expr > 100  # Comparison operation
+expr = NumericColumn(dialect, "value").cast(IntegerType(dialect))
+result = expr * 1.1       # Arithmetic operation
+predicate = expr > 100    # Comparison operation
 ```
 
 **Important Notes**:
 - `TypeCastingMixin` does not directly concatenate SQL strings
-- Type modifiers (e.g., `VARCHAR(100)`) should be included directly in the type string
+- The target type is always a `DataType` instance (`IntegerType(dialect)`, `VarCharType(dialect, length=100)`, ...); a type-name string is refused at construction
+- Type modifiers (e.g., `VARCHAR(100)`) are expressed as `DataType` arguments such as `VarCharType(dialect, length=100)`
 - The actual SQL syntax is determined by the dialect's `format_cast_expression` method
 - PostgreSQL uses `::` syntax, other databases use `CAST()` function
 
 ## Core Expressions
 
-### TableExpression
+### Table Sources in FROM
 
-Represents a table or view in a SQL query.
+A relation object carries only catalog identity; the source wraps it and carries the alias (and any temporal options).
 
 ```python
-from rhosocial.activerecord.backend.expression import TableExpression
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
-# FROM users AS u
-table = TableExpression(dialect, "users", alias="u")
+# The persisted relation: catalog identity only, no alias
+relation = Table(dialect, "users")
+relation.to_sql()  # -> ('"users"', ())
+
+# The query source: wraps the relation and carries the alias
+source = NamedRelationRef(dialect, relation, alias="u")
+source.to_sql()  # -> ('"users" AS "u"', ())
 ```
 
 ### Column
@@ -389,18 +500,22 @@ from rhosocial.activerecord.backend.expression import Literal
 lit = Literal(dialect, 100)
 ```
 
-### WildcardExpression
+### AllColumnsWildcard
 
 Represents `*` or `table.*`.
 
 ```python
-from rhosocial.activerecord.backend.expression import WildcardExpression
+from rhosocial.activerecord.backend.expression import AllColumnsWildcard
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
 # SELECT *
-wildcard = WildcardExpression(dialect)
+wildcard = AllColumnsWildcard(dialect)
 
 # SELECT users.*
-wildcard = WildcardExpression(dialect, table="users")
+wildcard = AllColumnsWildcard(
+    dialect, relation=NamedRelationRef(dialect, Table(dialect, "users"))
+)
 ```
 
 ### Subquery
@@ -408,10 +523,15 @@ wildcard = WildcardExpression(dialect, table="users")
 Represents a subquery expression.
 
 ```python
-from rhosocial.activerecord.backend.expression import Subquery, QueryExpression
+from rhosocial.activerecord.backend.expression import Column, QueryStatement, Subquery
+from rhosocial.activerecord.backend.expression.objects import Table
+
+query = QueryStatement(
+    dialect, select=[Column(dialect, "id")], from_=Table(dialect, "users")
+)
 
 # (SELECT ...) AS sub
-sub = Subquery(dialect, query_expr, alias="sub")
+sub = Subquery(dialect, query, alias="sub")
 ```
 
 ## Operators and Expressions
@@ -423,8 +543,10 @@ The `rhosocial.activerecord.backend.expression.operators` module provides classe
 Represents a generic SQL identifier (e.g., table name, column name).
 
 ```python
-class Identifier(mixins.ComparisonMixin, bases.SQLValueExpression):
-    def __init__(self, dialect: "SQLDialectBase", name: str): ...
+import inspect
+from rhosocial.activerecord.backend.expression import Identifier
+
+print(inspect.signature(Identifier.__init__))
 ```
 
 ### SQLOperation
@@ -432,10 +554,10 @@ class Identifier(mixins.ComparisonMixin, bases.SQLValueExpression):
 Represents a generic function-call style operation.
 
 ```python
-from rhosocial.activerecord.backend.expression import SQLOperation
+from rhosocial.activerecord.backend.expression import Literal, SQLOperation
 
-# Example: custom_op(arg1, arg2)
-op = SQLOperation(dialect, "custom_op", arg1, arg2)
+# Example: custom_op(?, ?)
+op = SQLOperation(dialect, "custom_op", Literal(dialect, 1), Literal(dialect, 2))
 ```
 
 ### BinaryExpression
@@ -443,8 +565,10 @@ op = SQLOperation(dialect, "custom_op", arg1, arg2)
 Represents a standard binary operator (e.g., `=`, `!=`, `LIKE`).
 
 ```python
-class BinaryExpression(bases.BaseExpression):
-    def __init__(self, dialect: "SQLDialectBase", op: str, left: "bases.BaseExpression", right: "bases.BaseExpression"): ...
+import inspect
+from rhosocial.activerecord.backend.expression import BinaryExpression
+
+print(inspect.signature(BinaryExpression.__init__))
 ```
 
 ### UnaryExpression
@@ -452,30 +576,42 @@ class BinaryExpression(bases.BaseExpression):
 Represents a unary operator (e.g., `NOT`, `-`).
 
 ```python
-class UnaryExpression(bases.BaseExpression):
-    def __init__(self, dialect: "SQLDialectBase", op: str, operand: "bases.BaseExpression", pos: str = 'before'): ...
+import inspect
+from rhosocial.activerecord.backend.expression import UnaryExpression
+
+print(inspect.signature(UnaryExpression.__init__))
 ```
 
-### BinaryArithmeticExpression
+### ArithmeticOperation
 
 Represents binary arithmetic operations with operator precedence handling.
 
+`op` is an `ArithmeticOperator` member whose stored value is the **operation as
+a word** — `add` / `sub` / `mul` / `div` / `mod` — and the dialect formatter maps
+each word to the character its SQL writes (see `OPERATOR_SYMBOLS`). The artifact
+therefore carries a language-neutral word, not one language's spelling of the
+operator. The word set is closed: an unknown word is refused at construction.
+
 ```python
-class BinaryArithmeticExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
-    def __init__(self, dialect: "SQLDialectBase", op: str, left: "bases.SQLValueExpression", right: "bases.SQLValueExpression"): ...
+import inspect
+from rhosocial.activerecord.backend.expression import ArithmeticOperation
+
+print(inspect.signature(ArithmeticOperation.__init__))
 ```
 
 ### Raw Expressions
 
 **Warning**: These classes should be used with caution as they allow raw SQL injection. Ensure all inputs are trusted or properly sanitized.
 
-#### RawSQLExpression
+#### RawSQL
 
 Represents a raw SQL string as a value expression.
 
 ```python
-class RawSQLExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
-    def __init__(self, dialect: "SQLDialectBase", expression: str, params: tuple = ()): ...
+import inspect
+from rhosocial.activerecord.backend.expression import RawSQL
+
+print(inspect.signature(RawSQL.__init__))
 ```
 
 #### RawSQLPredicate
@@ -488,3 +624,30 @@ from rhosocial.activerecord.backend.expression.operators import RawSQLPredicate
 # Example: Raw SQL condition
 pred = RawSQLPredicate(dialect, "EXISTS (SELECT 1 FROM log WHERE log.user_id = users.id)")
 ```
+
+## COLLATE Expressions
+
+`CollateFunction` (defined in `rhosocial.activerecord.backend.expression.collation`) applies an explicit collation to a SQL value expression.
+
+```python
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.collation import collate
+
+# Basic usage: give a column a collation
+expr = collate(Column(dialect, "name"), "Chinese_PRC_CI_AS")
+sql, params = expr.to_sql()
+# sql: '"name" COLLATE Chinese_PRC_CI_AS'
+# params: ()
+
+# Chaining: a collated expression still supports every mixin operation
+expr = collate(Column(dialect, "name"), "NOCASE") == "alice"
+sql, params = expr.to_sql()
+# sql: '"name" COLLATE NOCASE = ?'
+# params: ("alice",)
+```
+
+`CollateFunction` mixes in `AliasableMixin`, `ArithmeticMixin`, `ComparisonMixin`, `StringPatternPredicateMixin` and `TypeCastingMixin`, so it takes part in arithmetic, comparison, pattern matching and aliasing like any other SQL value expression.
+
+### Dialect Integration
+
+Each backend dialect must implement `supports_collation()` and `format_collation()` to support the COLLATE clause. The SQLite backend provides built-in COLLATE formatting support.

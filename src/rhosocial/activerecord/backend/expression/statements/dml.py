@@ -14,13 +14,15 @@ from ..sources import NamedRelationRef
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
-    from .dql import QueryExpression
-    from ..query_sources import ValuesExpression, TableFunctionExpression, LateralExpression, SetOperationExpression
+    from .dql import QueryStatement
+    from ..query_sources import ValuesExpression, TableFunctionExpression, LateralExpression, SetOperation
     from ..query_parts import JoinClause
 
 
 # region Merge Statement
-class MergeActionType(Enum):
+class MergeActionType(str, Enum):
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
     """Represents the type of action to perform in a MERGE statement."""
 
     UPDATE = "UPDATE"
@@ -55,7 +57,7 @@ class MergeAction(BaseExpression):
         self.matched = matched
 
 
-class MergeExpression(BaseExpression):
+class MergeStatement(BaseExpression):
     """
     Represents a SQL MERGE statement conforming to SQL standard syntax.
 
@@ -72,7 +74,7 @@ class MergeExpression(BaseExpression):
 
     Example:
         # Simple merge: update if exists, insert if not
-        merge = MergeExpression(
+        merge = MergeStatement(
             dialect,
             target_table="products",
             source=ValuesSource(dialect, [[1, "Product A", 19.99]], "new_products", ["id", "name", "price"]),
@@ -166,7 +168,7 @@ class ReturningClause(BaseExpression):
         # RETURNING * to return all columns
         returning_clause = ReturningClause(
             dialect,
-            expressions=[RawSQLExpression(dialect, "*")]  # Use RawSQL for asterisk
+            expressions=[RawSQL(dialect, "*")]  # Use RawSQL for asterisk
         )
     """
 
@@ -189,7 +191,7 @@ class ReturningClause(BaseExpression):
 
 
 # region Delete Statement
-class DeleteExpression(BaseExpression):
+class DeleteStatement(BaseExpression):
     """
     Represents an SQL DELETE statement, allowing removal of rows from a table.
     It supports specifying a target table, an optional FROM clause for joining
@@ -207,13 +209,13 @@ class DeleteExpression(BaseExpression):
             Union[
                 "NamedRelationRef",
                 "Subquery",
-                "SetOperationExpression",
+                "SetOperation",
                 "JoinClause",
                 List[
                     Union[
                         "NamedRelationRef",
                         "Subquery",
-                        "SetOperationExpression",
+                        "SetOperation",
                         "JoinClause",
                         "ValuesExpression",
                         "TableFunctionExpression",
@@ -253,7 +255,7 @@ class DeleteExpression(BaseExpression):
         self.returning = returning  # RETURNING clause object
 
     def validate(self, strict: bool = True) -> None:
-        """Validate DeleteExpression parameters according to SQL standard.
+        """Validate DeleteStatement parameters according to SQL standard.
 
         Args:
             strict: If True, perform strict validation that may impact performance.
@@ -278,18 +280,18 @@ class DeleteExpression(BaseExpression):
                 # For complex types, check their type names
                 using_type_name = type(self.using).__name__
                 valid_type_names = [
-                    "SetOperationExpression",
+                    "SetOperation",
                     "JoinClause",
                     "ValuesExpression",
                     "TableFunctionExpression",
                     "LateralExpression",
-                    "QueryExpression",
+                    "QueryStatement",
                 ]
                 if using_type_name not in valid_type_names:
                     raise TypeError(
-                        f"using must be one of: str, NamedRelationRef, Subquery, SetOperationExpression, "
+                        f"using must be one of: str, NamedRelationRef, Subquery, SetOperation, "
                         f"JoinClause, list, ValuesExpression, TableFunctionExpression, "
-                        f"LateralExpression, QueryExpression, got {type(self.using)}"
+                        f"LateralExpression, QueryStatement, got {type(self.using)}"
                     )
 
         # Validate where parameter
@@ -315,7 +317,7 @@ class DeleteExpression(BaseExpression):
 
 
 # region Update Statement
-class UpdateExpression(BaseExpression):
+class UpdateStatement(BaseExpression):
     """
     Represents an SQL UPDATE statement, allowing modification of existing rows
     in a table. It supports a target table, assignment of new values to columns,
@@ -338,13 +340,13 @@ class UpdateExpression(BaseExpression):
                 # More advanced SQL dialects (e.g., PostgreSQL) allow richer FROM sources.
                 "NamedRelationRef",
                 "Subquery",
-                "SetOperationExpression",
+                "SetOperation",
                 "JoinClause",
                 List[
                     Union[
                         "NamedRelationRef",
                         "Subquery",
-                        "SetOperationExpression",
+                        "SetOperation",
                         "JoinClause",
                         "ValuesExpression",
                         "TableFunctionExpression",
@@ -381,7 +383,7 @@ class UpdateExpression(BaseExpression):
         self.returning = returning  # RETURNING clause object
 
     def validate(self, strict: bool = True) -> None:
-        """Validate UpdateExpression parameters according to SQL standard.
+        """Validate UpdateStatement parameters according to SQL standard.
 
         Args:
             strict: If True, perform strict validation that may impact performance.
@@ -408,7 +410,7 @@ class UpdateExpression(BaseExpression):
                 # For complex types, check their type names
                 from_type_name = type(self.from_).__name__
                 valid_type_names = [
-                    "SetOperationExpression",
+                    "SetOperation",
                     "JoinClause",
                     "ValuesExpression",
                     "TableFunctionExpression",
@@ -416,7 +418,7 @@ class UpdateExpression(BaseExpression):
                 ]
                 if from_type_name not in valid_type_names:
                     raise TypeError(
-                        f"from_ must be one of: str, NamedRelationRef, Subquery, SetOperationExpression, "
+                        f"from_ must be one of: str, NamedRelationRef, Subquery, SetOperation, "
                         f"JoinClause, list, ValuesExpression, TableFunctionExpression, "
                         f"LateralExpression, got {type(self.from_)}"
                     )
@@ -456,7 +458,7 @@ class InsertDataSource(BaseExpression, abc.ABC):
     gives it a serialization contract: ``get_params()`` reads the constructor
     signature and the serializer encodes any ``BaseExpression`` it finds, so a
     source survives ``serialize()`` / ``serialize_json()`` / ``serialize_xml()``
-    and comes back as the same class. An ``InsertExpression`` holding a source
+    and comes back as the same class. An ``InsertStatement`` holding a source
     is therefore portable, which is the whole point of an expression tree: the
     statement can be built once and sent to any dialect.
 
@@ -484,11 +486,11 @@ class ValuesSource(InsertDataSource):
 
     Currently, the type hint for these expressions is `BaseExpression`.
     This generic type allows for various expression types (e.g., `Literal`, `Column`,
-    `RawSQLExpression`, scalar `QueryExpression` as subqueries) to be used as values.
+    `RawSQL`, scalar `QueryStatement` as subqueries) to be used as values.
     It is a pragmatic choice given the current stage of framework development.
 
     However, it's important to note that statement-level expressions (such as
-    `InsertExpression`, `UpdateExpression`, `DeleteExpression`, or non-scalar `QueryExpression`)
+    `InsertStatement`, `UpdateStatement`, `DeleteStatement`, or non-scalar `QueryStatement`)
     are *not* valid elements within `values_list`. These are complete SQL statements
     and do not represent a single value or expression suitable for a `VALUES` clause.
 
@@ -515,7 +517,7 @@ class ValuesSource(InsertDataSource):
 class SelectSource(InsertDataSource):
     """Represents a data source from a SELECT subquery."""
 
-    def __init__(self, dialect: "SQLDialectBase", select_query: "QueryExpression"):
+    def __init__(self, dialect: "SQLDialectBase", select_query: "QueryStatement"):
         super().__init__(dialect)
         self.select_query = select_query
 
@@ -566,10 +568,17 @@ class OnConflictClause(BaseExpression):
         return "format_on_conflict_clause"
 
 
-class InsertExpression(BaseExpression):
+class InsertStatement(BaseExpression):
     """
     Represents a structured INSERT statement, supporting various data sources,
     upsert logic (single or multiple ON CONFLICT clauses), and RETURNING clauses.
+
+    ``or_replace`` and ``or_ignore`` are SQLite's INSERT spellings (``INSERT OR
+    REPLACE`` / ``INSERT OR IGNORE``). They are declared here, defaulting to
+    ``False``, so the dialects that spell them read a declared field instead of
+    probing for an attribute that only a caller who assigned it by hand would
+    have provided -- which made the feature unreachable. A dialect that spells
+    neither ignores both fields.
     """
 
     def __init__(
@@ -581,6 +590,8 @@ class InsertExpression(BaseExpression):
         *,
         on_conflict: Optional[Union[OnConflictClause, List[OnConflictClause]]] = None,
         returning: Optional["ReturningClause"] = None,  # Using ReturningClause instead of list of expressions
+        or_replace: bool = False,
+        or_ignore: bool = False,
     ):
         super().__init__(dialect)
 
@@ -589,6 +600,17 @@ class InsertExpression(BaseExpression):
         self.columns = columns
         self.on_conflict = self._normalize_on_conflict(on_conflict)
         self.returning = returning  # ReturningClause object or None
+        self.or_replace = or_replace
+        self.or_ignore = or_ignore
+
+        if self.or_replace and self.or_ignore:
+            raise ValueError("Cannot specify both 'or_replace' and 'or_ignore'.")
+        if (self.or_replace or self.or_ignore) and self.on_conflict:
+            raise ValueError(
+                "Cannot use 'or_replace'/'or_ignore' together with 'on_conflict'. "
+                "Use either the SQLite-specific OR REPLACE/IGNORE syntax or the "
+                "standard ON CONFLICT clause, but not both."
+            )
 
         # Perform validation
         # 1. First, check if on_conflict is used with a valid source
@@ -621,7 +643,7 @@ class InsertExpression(BaseExpression):
         return on_conflict
 
     def validate(self, strict: bool = True) -> None:
-        """Validate InsertExpression parameters according to SQL standard.
+        """Validate InsertStatement parameters according to SQL standard.
 
         Args:
             strict: If True, perform strict validation that may impact performance.

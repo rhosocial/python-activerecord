@@ -3,7 +3,7 @@
 
 from typing import Any, Union, Optional, TYPE_CHECKING, overload
 
-from ..bases import BaseExpression, SQLValueExpression
+from ..bases import BaseExpression, SQLValue
 from ..column_types import (
     ArrayColumn,
     BooleanColumn,
@@ -13,16 +13,15 @@ from ..column_types import (
     NumericColumn,
     StringColumn,
 )
-from ..core import (
-    ArrayValueExpression,
-    BooleanValueExpression,
-    TimestampValueExpression,
-    FunctionCall,
-    IntegerValueExpression,
-    JSONValueExpression,
-    Literal,
-    NumericValueExpression,
-    StringValueExpression,
+from ..core import FunctionCall, Literal
+from ..declared import (
+    ArrayAnnotation,
+    BooleanAnnotation,
+    IntegerAnnotation,
+    JSONAnnotation,
+    NumberAnnotation,
+    TemporalAnnotation,
+    TextAnnotation,
 )
 from ..advanced_functions import CaseExpression
 
@@ -30,7 +29,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-def _result_class_for(expr: object):
+def _result_annotation_for(expr: object):
     """The value class an operation over *expr* hands back, or ``None``.
 
     This is the answer to one question asked inside this module: *GREATEST* and
@@ -48,19 +47,19 @@ def _result_class_for(expr: object):
     numeric branch sees it.
     """
     if isinstance(expr, IntegerColumn):
-        return IntegerValueExpression
+        return IntegerAnnotation
     if isinstance(expr, StringColumn):
-        return StringValueExpression
+        return TextAnnotation
     if isinstance(expr, TimestampColumn):
-        return TimestampValueExpression
+        return TemporalAnnotation
     if isinstance(expr, JSONColumn):
-        return JSONValueExpression
+        return JSONAnnotation
     if isinstance(expr, ArrayColumn):
-        return ArrayValueExpression
+        return ArrayAnnotation
     if isinstance(expr, BooleanColumn):
-        return BooleanValueExpression
+        return BooleanAnnotation
     if isinstance(expr, NumericColumn):
-        return NumericValueExpression
+        return NumberAnnotation
     return None
 
 
@@ -81,7 +80,7 @@ def case(
     return CaseExpression(dialect, value=value, alias=alias)
 
 
-def _widest(dialect: "SQLDialectBase", call: "FunctionCall", exprs: list) -> "SQLValueExpression":
+def _widest(dialect: "SQLDialectBase", call: "FunctionCall", exprs: list) -> "SQLValue":
     """Give GREATEST/LEAST the type of its arguments when they agree on one.
 
     Every argument is a candidate for the result, so when they all answer with
@@ -91,7 +90,7 @@ def _widest(dialect: "SQLDialectBase", call: "FunctionCall", exprs: list) -> "SQ
     argument or the widest, either of which would promise a surface the
     database does not.
     """
-    classes = {_result_class_for(e) for e in exprs}
+    classes = {_result_annotation_for(e) for e in exprs}
     if len(classes) == 1 and None not in classes:
         return classes.pop()(dialect, call)
     return call
@@ -103,24 +102,24 @@ def _widest(dialect: "SQLDialectBase", call: "FunctionCall", exprs: list) -> "SQ
 @overload
 def nullif(
     dialect: "SQLDialectBase", value: IntegerColumn, null_value: Any
-) -> "IntegerValueExpression": ...
+) -> "IntegerAnnotation": ...
 
 
 @overload
 def nullif(
     dialect: "SQLDialectBase", value: NumericColumn, null_value: Any
-) -> "NumericValueExpression": ...
+) -> "NumberAnnotation": ...
 
 
 @overload
 def nullif(
     dialect: "SQLDialectBase", value: Any, null_value: Any
-) -> "SQLValueExpression": ...
+) -> "SQLValue": ...
 
 
 def nullif(
     dialect: "SQLDialectBase", value: Any, null_value: Any
-) -> "SQLValueExpression":
+) -> "SQLValue":
     """
     Creates a NULLIF scalar function call.
 
@@ -144,7 +143,7 @@ def nullif(
     value_expr = value if isinstance(value, BaseExpression) else Literal(dialect, value)
     null_expr = null_value if isinstance(null_value, BaseExpression) else Literal(dialect, null_value)
     call = FunctionCall(dialect, "NULLIF", value_expr, null_expr)
-    result = _result_class_for(value_expr)
+    result = _result_annotation_for(value_expr)
     if result is not None:
         return result(dialect, call)
     return call
@@ -152,7 +151,7 @@ def nullif(
 
 def greatest(
     dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]
-) -> "SQLValueExpression":
+) -> "SQLValue":
     """
     Creates a GREATEST scalar function call.
 
@@ -176,7 +175,7 @@ def greatest(
 
 def least(
     dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]
-) -> "SQLValueExpression":
+) -> "SQLValue":
     """
     Creates a LEAST scalar function call.
 

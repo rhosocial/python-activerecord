@@ -142,7 +142,7 @@ class StepNode:
 
     Example:
         >>> StepNode.query("fetch_users", "myapp.q.active_users", params={"limit": 100})
-        >>> StepNode.expr("create_tbl", CreateTableExpression(...))
+        >>> StepNode.expr("create_tbl", CreateTableStatement(...))
     """
 
     __slots__ = (
@@ -302,7 +302,7 @@ class ProcedureGraph:
 
     Attributes:
         transaction_mode: Transaction mode for execution.
-        strict: Whether to reject RawSQLExpression.
+        strict: Whether to reject RawSQL.
         description: Human-readable description.
 
     Example:
@@ -392,11 +392,11 @@ class ProcedureGraph:
 
             if self.strict and node.kind == StepKind.EXPRESSION:
                 from rhosocial.activerecord.backend.expression.operators import (
-                    RawSQLExpression,
+                    RawSQL,
                 )
 
-                if isinstance(node.expression, RawSQLExpression):
-                    errors.append(f"Step {node.name!r} uses RawSQLExpression (strict=True)")
+                if isinstance(node.expression, RawSQL):
+                    errors.append(f"Step {node.name!r} uses RawSQL (strict=True)")
 
         return errors
 

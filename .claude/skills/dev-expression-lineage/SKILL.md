@@ -213,7 +213,7 @@ from expression_lineage import build_graph, discover_projects
 
 graph = build_graph()
 graph.stats()                                  # counts for the report
-graph.consumers("core::CreateDomainExpression") # {'postgres', 'firebird'}
+graph.consumers("core::CreateDomainStatement") # {'postgres', 'firebird'}
 graph.violations()                             # iron-rule breaches
 [node.name for node in graph.misplaced()]
 graph.node("postgres::PostgresCreateDomainExpression").bases

@@ -1,7 +1,20 @@
 # requirements-dev.txt
 # Testing framework for unit and integration tests
 # Core framework for running test suites and fixtures
-pytest
+#
+# pytest 9.x does not install on 3.8/3.9, so the floor there is 8.4. From 3.10
+# the floor is 9.2, and it floats upward: 9.2 broke two plugins by moving a
+# node's identifier into a structured NodeId (changelog #14758) -- pytest-
+# benchmark read the private ``node._nodeid`` pytest had stopped setting, and
+# pytest-xdist wrote the ``--dist=loadgroup`` suffix into the same slot nobody
+# read any more, so grouped tests spread across workers instead of staying put.
+# Both are shimmed in ``rhosocial.activerecord.testsuite.pytest_compat``, which
+# loads as a pytest11 plugin wherever the test suite is installed, so this
+# requirement no longer has to hold the toolchain still. A version that arrives
+# new every morning is now evidence rather than a coin toss: if a later release
+# breaks something, the matrix says so with a name.
+pytest~=8.4.2; python_version < "3.10"
+pytest>=9.2; python_version >= "3.10"
 pytest-asyncio
 
 # Pytest plugin for performance benchmarking

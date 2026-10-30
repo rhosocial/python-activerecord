@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..introspection.types import TableInfo, ColumnInfo, IndexInfo, ForeignKeyInfo
+    from ..introspection.types import IntrospectionTableInfo, IntrospectionColumnInfo, IndexInfo, IntrospectionForeignKeyInfo
 
 
 # ---------------------------------------------------------------------------
@@ -20,8 +20,8 @@ if TYPE_CHECKING:
 class ColumnDiff:
     """Difference for a single column."""
     column_name: str
-    old: Optional["ColumnInfo"]   # None = column added
-    new: Optional["ColumnInfo"]   # None = column removed
+    old: Optional["IntrospectionColumnInfo"]   # None = column added
+    new: Optional["IntrospectionColumnInfo"]   # None = column removed
 
     @property
     def is_added(self) -> bool:
@@ -40,13 +40,13 @@ class ColumnDiff:
 class TableDiff:
     """Difference for a single table."""
     table_name: str
-    old: Optional["TableInfo"]     # None = table added
-    new: Optional["TableInfo"]     # None = table removed
+    old: Optional["IntrospectionTableInfo"]     # None = table added
+    new: Optional["IntrospectionTableInfo"]     # None = table removed
     column_diffs: List[ColumnDiff] = field(default_factory=list)
     added_indexes: List["IndexInfo"] = field(default_factory=list)
     removed_indexes: List["IndexInfo"] = field(default_factory=list)
-    added_foreign_keys: List["ForeignKeyInfo"] = field(default_factory=list)
-    removed_foreign_keys: List["ForeignKeyInfo"] = field(default_factory=list)
+    added_foreign_keys: List["IntrospectionForeignKeyInfo"] = field(default_factory=list)
+    removed_foreign_keys: List["IntrospectionForeignKeyInfo"] = field(default_factory=list)
 
     @property
     def is_added(self) -> bool:

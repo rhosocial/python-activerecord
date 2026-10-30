@@ -27,15 +27,15 @@ class MyExpression(BaseExpression):
     # No need to manually implement get_params(), default implementation auto-extracts
 ```
 
-`CollateExpression` is the `**kwargs` case in core: it collects `**collation_options` into `self.collation_options: dict`, so `get_params()` returns `binary`, `pad` and the rest as top-level parameters and reconstruction passes them back as keywords.
+`CollateFunction` is the `**kwargs` case in core: it collects `**collation_options` into `self.collation_options: dict`, so `get_params()` returns `binary`, `pad` and the rest as top-level parameters and reconstruction passes them back as keywords.
 
 A parameter the convention cannot resolve is skipped with a warning. That warning is the diagnostic — it means `__init__` stores state under a name `get_params()` cannot see — and the repair is always in `__init__`.
 
 ### Why There Is No Custom get_params()
 
-`get_params()` is not an extension point: an override is a defect, not a customization. Core enforces this with no exceptions in `tests/.../dummy2/test_expression_contract.py::test_no_get_params_override` — every registered expression class must leave the generic implementation alone. (The single exemption the test allows, a `VAR_POSITIONAL` class doing genuine raw-vs-normalized round-trip rewriting, has no instance in the core registry.)
+`get_params()` is not an extension point: an override is a defect, not a customization. Core enforces this with no exceptions in `tests/.../dummy2/test_expression_artifact_contract.py::test_no_get_params_override` — every registered expression class must leave the generic implementation alone. (The single exemption the test allows, a `VAR_POSITIONAL` class doing genuine raw-vs-normalized round-trip rewriting, has no instance in the core registry.)
 
-The reason is structural rather than stylistic. A round-trip is rebuilt by calling the constructor with whatever `get_params()` returned, so those two halves have to agree. An override is exactly where they drift: the class emits a key the constructor renames, merges or refuses, `_reconstruct()` wraps the resulting `TypeError` as `ExpressionDeserializationError`, and the state is silently gone. The backend packages accumulated their own overrides, every one of them written because `__init__` renamed or merged what the caller passed — and every one of them became unnecessary once the state was stored under the name it was given.
+The reason is structural rather than stylistic. A round-trip is rebuilt by calling the constructor with whatever `get_params()` returned, so those two halves have to agree. An override is exactly where they drift: the class emits a key the constructor renames, merges or refuses, and the state is silently gone — the decoder hands values over by name and does not second-guess the result. The backend packages accumulated their own overrides, every one of them written because `__init__` renamed or merged what the caller passed — and every one of them became unnecessary once the state was stored under the name it was given.
 
 When the generic result is not what you wanted, the repair is always in `__init__`, and it is one of three shapes:
 
@@ -49,17 +49,41 @@ When the generic result is not what you wanted, the repair is always in `__init_
 
 ### Auto-Registration
 
-Built-in expressions are auto-registered to `ExpressionRegistry` via `_auto_register_builtins()`.
+Built-in expressions need nothing from you. The framework assembles its default
+registry once, by walking the expression packages, and every node it finds is
+registered by its kind. There is no function for a caller to invoke and no
+list to maintain.
 
-### Manual Registration
+### Registering Your Own
 
-Custom expressions need manual registration:
+`ExpressionRegistry` starts empty — that is what makes it safe to hand a caller
+a table that admits only what you chose. `register_node` is an instance method
+and the kind is derived from the class:
 
 ```python
-from rhosocial.activerecord.backend.expression.serialization import ExpressionRegistry
+from rhosocial.activerecord.backend.expression.registry import ExpressionRegistry
 
-ExpressionRegistry.register(MyExpression)
+allowed = ExpressionRegistry()
+allowed.register_node(MyExpression)          # kind "my_expression"
 ```
+
+An enum needs no registration at all. A `(str, Enum)` member is a JSON string,
+so there is nothing to resolve — the closed set is declared in the class, where
+every language declares its own.
+
+Two kinds ship without being in the default table: `RawSQL` and `RawSQLPredicate`,
+because `to_sql()` emits caller-vouched text and an artifact should not be able
+to choose it. They set `REGISTER_BY_DEFAULT = False`; registering either one is
+the same call as any other, for a caller that trusts its artifacts.
+
+Then pass it to the read:
+
+```python
+deserialize(artifact, dialect, registry=allowed)
+```
+
+A registry only governs what a *reader* may produce. Writing consults none, so
+nothing here affects `serialize`.
 
 ## Four Special Cases
 
@@ -129,62 +153,101 @@ class TreeNodeExpression(BaseExpression):
         self._parent = None
 ```
 
-When the parent genuinely has to travel with the node, make it an ordinary nested-expression parameter: that is what `{"__expr__": ...}` exists for. The tree is then simply finite.
+When the parent genuinely has to travel with the node, make it an ordinary nested-expression parameter — a plain `parent` holding another expression, which serializes as a nested `{kind, params}` node. The tree is then simply finite.
 
 ## IntrospectionExpression Convention
 
-`IntrospectionExpression` subclasses (like `TableListExpression`) combine a constructor with fluent setters that share the parameter names. Both halves of the generic path already account for this:
+An introspection node combines a constructor with fluent setters, and the two used
+to want the same names. They no longer do, because a parameter has to be
+readable by its own name for an artifact to be rebuildable at all:
 
 ```python
-class TableListExpression(IntrospectionExpression):
+class TableListQueryStatement(IntrospectionExpression):
     def __init__(self, dialect, schema=None, include_views=True, include_system=False, table_type=None):
         super().__init__(dialect, schema)
-        self._include_views = include_views
-        self._include_system = include_system
-        self._table_type = table_type
+        self.include_views = include_views   # the parameter's own name
+        self.include_system = include_system
+        self.table_type = table_type
 
-    def include_views(self, value: bool = True):
-        self._include_views = value  # the same attribute the parameter is read from
+    def with_include_views(self, value: bool = True):   # never plain `include_views`
+        self.include_views = value
         return self
 ```
 
-- **When both spellings exist, the callable one is not the state.** If a parameter has both `self.foo` and `self._foo` and the public attribute is a fluent method, the private attribute is taken as the value.
-- **An optional parameter left unset is emitted as `null`, not omitted.** That is safe: the deserializer passes it back and the constructor's default applies. What is *not* safe is dropping a parameter whose value differs from its default — that is state the round-trip loses.
+- **One spelling, and it is the parameter's own name.** `get_params()` reads
+  `getattr(self, name)`. There is no `_{name}` probe, and no "the callable one is
+  not the state" rule to apply. A parameter the class did not store raises
+  `AttributeError` naming the class and the parameter — which is the defect
+  worth hearing about, rather than a warning nobody reads.
+- **A fluent setter is `with_*`.** A setter called `include_views` would occupy
+  the name the value itself needs, and the class would have to choose between
+  `self.include_views = value` (which shadows the method) and hiding the value
+  where `get_params()` has to go looking for it.
+- **An optional parameter left unset is emitted as `null`, not omitted.** That is
+  safe: the deserializer passes it back and the constructor's default applies.
+  What is *not* safe is dropping a parameter whose value differs from its
+  default — that is state the round-trip loses.
 
 ## Error Contract
 
-All paths through `_reconstruct()`, `TypeError` is wrapped as `ExpressionDeserializationError`. This ensures callers only need to catch one exception type.
+Everything a read can reject surfaces as `ExpressionDeserializationError`, so a
+caller catches that one type and nothing else:
 
-## Serialization Format Convention (Reserved Key Names)
+```
+ExpressionDeserializationError
+├── ArtifactError                    — the artifact itself is malformed
+└── a registry refusal, restated     — the kind is not admitted here
+```
 
-The **values** `get_params()` returns must not contain the following reserved keys at any depth, otherwise deserialization behavior is undefined — the deserializer reads them as framework markers:
+`ArtifactError` is the *subclass*, so `except ExpressionDeserializationError`
+covers both. `RegistryError` never reaches a caller: the decode layer restates it
+in its own vocabulary, because the registry is a lower layer and must not know
+what a reader catches.
 
-- `__expr__`: Used to mark nested expressions
-- `__tuple__`: Used to mark tuples
-- `__value__` / `__vdc__`: Used to mark codec-encoded scalars and dataclass values
+A `TypeError` from your own constructor is **not** caught for you. An artifact
+carrying `{"name": 123}` for a `name` parameter rebuilds without complaint when
+the constructor does not check. Validate there if it matters — the deserializer's
+job is to hand values over by name, not to decide whether they are acceptable.
 
-Your own top-level keys come from your `__init__` parameter names (plus whatever `**kwargs` extras were merged in), so never name a parameter after a reserved key. For an opaque payload whose keys you do not control, the hazard is inside the payload: those keys are copied into the spec verbatim, and renaming the parameter does nothing about them. Validate at construction time, or store the payload as text.
+## Parameter Convention (JSON scalars)
+
+**There are no reserved keys any more.** An artifact is plain JSON, so a
+parameter's value must already be something JSON can say: null, a boolean, a
+number, a string, an array, or an object.
+
+That gives a custom expression two obligations and one option.
+
+- **A closed value set takes a string enum.** Declare it `(str, Enum)` and set
+  `__str__ = str.__str__` so the member *is* the word it renders — `(str, Enum)`
+  alone does not do that, `Enum.__str__` wins. The wire form is then the member's
+  value, which is a JSON string, and the closed set is declared in code where
+  every language can declare it too. An enum that does not subclass `str` cannot
+  be written at all.
+- **A value sent to the database goes in a `Literal`.** That is the one place a
+  type JSON cannot spell may appear; the `LiteralKind` member names the text.
+- **An opaque payload is the hazard.** A `dict` of keys you do not control is
+  copied verbatim into the artifact, and renaming your parameter does nothing
+  about its *contents*. A key that happens to read as a node (`kind` plus
+  `params`) will be read back as one. Validate at construction time, or store the
+  payload as text.
 
 ```python
-_RESERVED = ("__expr__", "__tuple__", "__value__", "__vdc__")
-
-# Incorrect - a payload containing "__expr__" is read back as a nested expression
+# Incorrect - a dict parameter whose contents you do not control
 class RawJsonStorageExpr(BaseExpression):
     def __init__(self, dialect, data: dict):
         super().__init__(dialect)
-        self._data = data
+        self.data = data  # {"kind": ..., "params": ...} in it is read back as a node
 
-# Correct - the payload is rejected before it can reach a spec
+# Correct - reject the shape before it can reach an artifact
 class SafeJsonStorageExpr(BaseExpression):
     def __init__(self, dialect, json_data: dict):
         super().__init__(dialect)
-        for key in json_data:
-            if key in _RESERVED:
-                raise ValueError(f"{key!r} is a reserved serialization key")
-        self._json_data = json_data
+        if set(json_data) & {"kind", "params"}:
+            raise ValueError("payload must not carry node-shaped keys")
+        self.json_data = json_data
 ```
 
 ## Related Documents
 
 - [Core Documentation](./serialization.md): Serialization mechanism
-- [Format Reference](./format-reference.md): Complete ExpressionSpec specification
+- [Format Reference](./format-reference.md): Complete artifact specification

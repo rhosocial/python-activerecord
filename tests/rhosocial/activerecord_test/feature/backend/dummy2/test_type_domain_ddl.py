@@ -11,7 +11,10 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     DomainMixin,
     UserDefinedTypeMixin,
 )
-from rhosocial.activerecord.backend.expression import FunctionCall, Literal
+from rhosocial.activerecord.backend.expression import (
+    ComparisonPredicate,
+    Literal,
+)
 from rhosocial.activerecord.backend.expression.serialization import (
     deserialize,
     deserialize_json,
@@ -22,18 +25,18 @@ from rhosocial.activerecord.backend.expression.serialization import (
 )
 from rhosocial.activerecord.backend.expression.statements import (
     AddDomainCheckAction,
-    AlterDomainExpression,
-    AlterTypeExpression,
-    CreateDomainExpression,
-    CreateTypeExpression,
+    AlterDomainStatement,
+    AlterTypeStatement,
+    CreateDomainStatement,
+    CreateTypeStatement,
     DomainCheckConstraint,
     DomainNullability,
     DomainValueExpression,
     DropDomainCheckAction,
     DropDomainDefaultAction,
-    DropDomainExpression,
+    DropDomainStatement,
     DropDomainNotNullAction,
-    DropTypeExpression,
+    DropTypeStatement,
     RenameDomainAction,
     SetDomainDefaultAction,
     SetDomainNotNullAction,
@@ -68,7 +71,7 @@ def schema_dialect():
 
 
 def _condition(dialect):
-    return DomainValueExpression(dialect) > Literal(dialect, 0, inline_literals=True)
+    return DomainValueExpression(dialect) > Literal(dialect, 0, inline=True)
 
 
 def test_legacy_names_are_same_objects():
@@ -87,7 +90,7 @@ def test_dummy_protocols_and_mixins_are_concrete(dummy_dialect):
 def test_type_lifecycle(schema_dialect):
     dummy_dialect = schema_dialect
     definition = _DummyTypeDefinition(dummy_dialect, IntegerType(dummy_dialect))
-    create = CreateTypeExpression(
+    create = CreateTypeStatement(
         dummy_dialect,
         Type(dummy_dialect, "status", schema_name="app"),
         definition,
@@ -100,7 +103,7 @@ def test_type_lifecycle(schema_dialect):
     assert create_params == ()
 
     action = _DummyTypeAlterAction(dummy_dialect, "status_v2")
-    alter = AlterTypeExpression(
+    alter = AlterTypeStatement(
         dummy_dialect,
         Type(dummy_dialect, "status", schema_name="app"),
         [action],
@@ -111,7 +114,7 @@ def test_type_lifecycle(schema_dialect):
     assert "RENAME TO" in alter_sql
     assert alter_params == ()
 
-    drop = DropTypeExpression(
+    drop = DropTypeStatement(
         dummy_dialect,
         Type(dummy_dialect, "status", schema_name="app"),
         if_exists=True,
@@ -125,11 +128,11 @@ def test_type_lifecycle(schema_dialect):
 def test_domain_lifecycle(dummy_dialect):
     condition = _condition(dummy_dialect)
     check = DomainCheckConstraint(dummy_dialect, condition, name="positive")
-    create = CreateDomainExpression(
+    create = CreateDomainStatement(
         dummy_dialect,
         Domain(dummy_dialect, "positive"),
         IntegerType(dummy_dialect),
-        default=Literal(dummy_dialect, 1, inline_literals=True),
+        default=Literal(dummy_dialect, 1, inline=True),
         nullability=DomainNullability.NOT_NULL,
         checks=[check],
         collation="pg_catalog.default",
@@ -144,7 +147,7 @@ def test_domain_lifecycle(dummy_dialect):
     assert "NOT NULL" in create_sql
     assert create_params == ()
 
-    nullable = CreateDomainExpression(
+    nullable = CreateDomainStatement(
         dummy_dialect,
         Domain(dummy_dialect, "nullable"),
         IntegerType(dummy_dialect),
@@ -164,12 +167,12 @@ def test_domain_lifecycle(dummy_dialect):
         (RenameDomainAction(dummy_dialect, "positive_v2"), "RENAME TO"),
     )
     for action, fragment in actions:
-        alter = AlterDomainExpression(dummy_dialect, Domain(dummy_dialect, "positive"), [action])
+        alter = AlterDomainStatement(dummy_dialect, Domain(dummy_dialect, "positive"), [action])
         alter_sql, alter_params = alter.to_sql()
         assert f'ALTER DOMAIN "positive" {fragment}' in alter_sql
         assert alter_params == ()
 
-    drop = DropDomainExpression(dummy_dialect, Domain(dummy_dialect, "positive"))
+    drop = DropDomainStatement(dummy_dialect, Domain(dummy_dialect, "positive"))
     drop_sql, drop_params = drop.to_sql()
     assert drop_sql == 'DROP DOMAIN "positive"'
     assert drop_params == ()
@@ -178,11 +181,11 @@ def test_domain_lifecycle(dummy_dialect):
 def test_dummy_rejects_multiple_ddl_actions(dummy_dialect):
     action = _DummyTypeAlterAction(dummy_dialect)
     with pytest.raises(UnsupportedFeatureError):
-        AlterTypeExpression(dummy_dialect, Type(dummy_dialect, "status"), [action, action]).to_sql()
+        AlterTypeStatement(dummy_dialect, Type(dummy_dialect, "status"), [action, action]).to_sql()
 
     domain_action = DropDomainDefaultAction(dummy_dialect)
     with pytest.raises(UnsupportedFeatureError):
-        AlterDomainExpression(
+        AlterDomainStatement(
             dummy_dialect,
             Domain(dummy_dialect, "domain"),
             [domain_action, domain_action],
@@ -229,13 +232,13 @@ def test_type_constructor_validation(dummy_dialect):
     """
     definition = _DummyTypeDefinition(dummy_dialect, IntegerType(dummy_dialect))
     with pytest.raises(ValueError):
-        CreateTypeExpression(dummy_dialect, Type(dummy_dialect, ""), definition)
+        CreateTypeStatement(dummy_dialect, Type(dummy_dialect, ""), definition)
     # The definition slot is checked by the formatter that renders the type body.
-    bad_definition = CreateTypeExpression(dummy_dialect, Type(dummy_dialect, "status"), object())
+    bad_definition = CreateTypeStatement(dummy_dialect, Type(dummy_dialect, "status"), object())
     with pytest.raises(TypeError):
         bad_definition.to_sql()
     with pytest.raises(ValueError):
-        CreateTypeExpression(
+        CreateTypeStatement(
             dummy_dialect,
             Type(dummy_dialect, "status"),
             definition,
@@ -243,25 +246,25 @@ def test_type_constructor_validation(dummy_dialect):
             or_replace=True,
         )
     with pytest.raises(ValueError):
-        AlterTypeExpression(dummy_dialect, Type(dummy_dialect, "status"), [])
-    bad_action = AlterTypeExpression(dummy_dialect, Type(dummy_dialect, "status"), [object()])
+        AlterTypeStatement(dummy_dialect, Type(dummy_dialect, "status"), [])
+    bad_action = AlterTypeStatement(dummy_dialect, Type(dummy_dialect, "status"), [object()])
     with pytest.raises(TypeError):
         bad_action.to_sql()
     with pytest.raises(ValueError):
-        DropTypeExpression(dummy_dialect, Type(dummy_dialect, " "))
+        DropTypeStatement(dummy_dialect, Type(dummy_dialect, " "))
 
 
 def test_domain_constructor_validation(dummy_dialect):
     with pytest.raises(TypeError):
-        CreateDomainExpression(dummy_dialect, Domain(dummy_dialect, "domain"), object())
+        CreateDomainStatement(dummy_dialect, Domain(dummy_dialect, "domain"), object())
     with pytest.raises(TypeError):
-        CreateDomainExpression(
+        CreateDomainStatement(
             dummy_dialect,
             Domain(dummy_dialect, "domain"),
             IntegerType(dummy_dialect),
             nullability=None,
         )
-    normalized = CreateDomainExpression(
+    normalized = CreateDomainStatement(
         dummy_dialect,
         Domain(dummy_dialect, "domain"),
         IntegerType(dummy_dialect),
@@ -271,13 +274,13 @@ def test_domain_constructor_validation(dummy_dialect):
     with pytest.raises(TypeError):
         DomainCheckConstraint(dummy_dialect, object())
     with pytest.raises(ValueError):
-        AlterDomainExpression(dummy_dialect, Domain(dummy_dialect, "domain"), [])
+        AlterDomainStatement(dummy_dialect, Domain(dummy_dialect, "domain"), [])
     with pytest.raises(ValueError):
         RenameDomainAction(dummy_dialect, "")
 
 
 def test_domain_capability_gating(dummy_dialect, monkeypatch):
-    named = CreateDomainExpression(
+    named = CreateDomainStatement(
         dummy_dialect,
         Domain(dummy_dialect, "domain"),
         IntegerType(dummy_dialect),
@@ -295,7 +298,7 @@ def test_domain_capability_gating(dummy_dialect, monkeypatch):
 
     monkeypatch.setattr(type(dummy_dialect), "supports_named_domain_checks", lambda self: True)
     monkeypatch.setattr(type(dummy_dialect), "supports_multiple_domain_checks", lambda self: False)
-    multiple = CreateDomainExpression(
+    multiple = CreateDomainStatement(
         dummy_dialect,
         Domain(dummy_dialect, "domain"),
         IntegerType(dummy_dialect),
@@ -316,25 +319,29 @@ def test_domain_capability_gating(dummy_dialect, monkeypatch):
         DropDomainCheckAction(dummy_dialect).to_sql()
 
 
-def test_domain_ddl_rejects_bind_parameters(dummy_dialect):
-    default = FunctionCall(dummy_dialect, "COALESCE", Literal(dummy_dialect, 1))
-    expression = CreateDomainExpression(
-        dummy_dialect,
-        Domain(dummy_dialect, "domain"),
-        IntegerType(dummy_dialect),
-        default=default,
-    )
-    with pytest.raises(ValueError, match="bind parameters"):
-        expression.to_sql()
+def test_domain_ddl_carries_bind_parameters_the_caller_left(dummy_dialect):
+    """Whether to inline is the caller's decision, not the framework's.
 
-    condition = DomainValueExpression(dummy_dialect) == Literal(dummy_dialect, 1)
+    A value the caller left as a bind value stays one: the statement renders
+    with a placeholder and carries the value in ``params``.  A value the
+    caller marked inline renders as escaped text and binds nothing.
+    """
+    from rhosocial.activerecord.backend.expression.operators import RawSQLPredicate
+
+    condition = ComparisonPredicate(
+        dummy_dialect, "=", DomainValueExpression(dummy_dialect), RawSQLPredicate(dummy_dialect, "1", (1,))
+    )
     check = DomainCheckConstraint(dummy_dialect, condition)
-    with pytest.raises(ValueError, match="bind parameters"):
-        check.to_sql()
+    sql, params = check.to_sql()
+    assert params == (1,)
+
+    lifted = DomainValueExpression(dummy_dialect) == Literal(dummy_dialect, 1, inline=True)
+    lifted_check = DomainCheckConstraint(dummy_dialect, lifted)
+    assert lifted_check.to_sql() == ("CHECK (VALUE = 1)", ())
 
 
 def test_domain_string_default_is_escaped(dummy_dialect):
-    expression = CreateDomainExpression(
+    expression = CreateDomainStatement(
         dummy_dialect,
         Domain(dummy_dialect, "domain"),
         IntegerType(dummy_dialect),
@@ -349,13 +356,13 @@ def test_sqlite_type_and_domain_fail_fast():
     dialect = SQLiteDialect(version=(3, 45, 0))
     definition = _DummyTypeDefinition(dialect, IntegerType(dialect))
     with pytest.raises(UnsupportedFeatureError):
-        CreateTypeExpression(dialect, Type(dialect, "status"), definition).to_sql()
+        CreateTypeStatement(dialect, Type(dialect, "status"), definition).to_sql()
     with pytest.raises(UnsupportedFeatureError):
-        DropTypeExpression(dialect, Type(dialect, "status")).to_sql()
+        DropTypeStatement(dialect, Type(dialect, "status")).to_sql()
     with pytest.raises(UnsupportedFeatureError):
-        CreateDomainExpression(dialect, Domain(dialect, "domain"), IntegerType(dialect)).to_sql()
+        CreateDomainStatement(dialect, Domain(dialect, "domain"), IntegerType(dialect)).to_sql()
     with pytest.raises(UnsupportedFeatureError):
-        DropDomainExpression(dialect, Domain(dialect, "domain")).to_sql()
+        DropDomainStatement(dialect, Domain(dialect, "domain")).to_sql()
     with pytest.raises(UnsupportedFeatureError):
         DomainValueExpression(dialect).to_sql()
     with pytest.raises(UnsupportedFeatureError):
@@ -402,16 +409,16 @@ def test_core_type_and_domain_roundtrips(dummy_dialect):
     expressions = (
         definition,
         action,
-        CreateTypeExpression(dummy_dialect, Type(dummy_dialect, "status"), definition),
-        AlterTypeExpression(dummy_dialect, Type(dummy_dialect, "status"), [action]),
-        DropTypeExpression(dummy_dialect, Type(dummy_dialect, "status")),
-        CreateDomainExpression(dummy_dialect, Domain(dummy_dialect, "domain"), IntegerType(dummy_dialect)),
-        AlterDomainExpression(
+        CreateTypeStatement(dummy_dialect, Type(dummy_dialect, "status"), definition),
+        AlterTypeStatement(dummy_dialect, Type(dummy_dialect, "status"), [action]),
+        DropTypeStatement(dummy_dialect, Type(dummy_dialect, "status")),
+        CreateDomainStatement(dummy_dialect, Domain(dummy_dialect, "domain"), IntegerType(dummy_dialect)),
+        AlterDomainStatement(
             dummy_dialect,
             Domain(dummy_dialect, "domain"),
             [DropDomainDefaultAction(dummy_dialect)],
         ),
-        DropDomainExpression(dummy_dialect, Domain(dummy_dialect, "domain")),
+        DropDomainStatement(dummy_dialect, Domain(dummy_dialect, "domain")),
     )
     codecs = (
         (serialize, deserialize),

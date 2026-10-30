@@ -8,7 +8,7 @@ for retrieving trigger metadata.
 
 
 from rhosocial.activerecord.backend.introspection.types import (
-    TriggerInfo,
+    IntrospectionTriggerInfo,
 )
 
 
@@ -30,11 +30,11 @@ class TestListTriggers:
         assert "update_user_timestamp" in trigger_names
 
     def test_list_triggers_returns_trigger_info(self, backend_with_trigger):
-        """Test that list_triggers returns TriggerInfo objects."""
+        """Test that list_triggers returns IntrospectionTriggerInfo objects."""
         triggers = backend_with_trigger.introspector.list_triggers()
 
         for trigger in triggers:
-            assert isinstance(trigger, TriggerInfo)
+            assert isinstance(trigger, IntrospectionTriggerInfo)
 
     def test_list_triggers_schema(self, backend_with_trigger):
         """Test that schema is correctly set."""
@@ -74,7 +74,7 @@ class TestGetTriggerInfo:
         trigger = backend_with_trigger.introspector.get_trigger_info("update_user_timestamp")
 
         assert trigger is not None
-        assert isinstance(trigger, TriggerInfo)
+        assert isinstance(trigger, IntrospectionTriggerInfo)
         assert trigger.name == "update_user_timestamp"
 
     def test_get_trigger_info_nonexistent(self, sqlite_backend):

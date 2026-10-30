@@ -112,7 +112,7 @@ class Report(ActiveRecord):
 | `column_attributes(field)` | `Sequence[ColumnAttribute]` | 按标记顺序展开属性；不做方言筛选。 |
 | `column_indexes(field)` | `Sequence[IndexDefinition]` | 为每个 `UseIndex` 建立定义，并使用物理列名。 |
 | `column_comment(field)` | `Optional[str]` | 返回第一个 `UseComment` 的文本。 |
-| `generated_column(field)` | `Optional[GeneratedColumnExpression or factory]` | 返回第一个 `UseGeneratedColumn` 的值；不调用工厂。 |
+| `generated_column(field)` | `Optional[ColumnGeneratedConstraint or factory]` | 返回第一个 `UseGeneratedColumn` 的值；不调用工厂。 |
 | `column_options(field)` | `None`、`ColumnOptions` 或其序列 | 返回处理器写入 `DDLFieldMetadata.column_options` 的值；一个选项返回对象，多个选项返回 list。 |
 | `table_options()` | `None`、表达式或其序列 | 默认 `None`；覆盖方法的结果原样返回。 |
 | `table_storage_options()` | `None`、表达式或其序列 | 默认 `None`；覆盖方法的结果原样返回。 |
@@ -207,7 +207,7 @@ option.apply_to(column)
 | Snowflake | `Snowflake*Type`、`SnowflakeCreateTableOptions`、Snowflake 分区/克隆相关表达式 | VARIANT、OBJECT、ARRAY 等类型只是候选声明；source 不做 Snowflake 专属选择。 |
 | ClickHouse | `ClickHouse*Type`、`ClickHouseColumnOptions`、`ClickHouseIndexDefinition`、ClickHouse 分区表达式 | UNIQUE、外键等不受支持的能力由 ClickHouse dialect fail-fast；source 仍可呈现用户声明。 |
 | BigQuery | 当前主要使用通用 `DataType`、约束和 `CreateTableOptions` | 当前包没有与 `DDLSource` 自动绑定的 BigQuery 专属 `ColumnOptions`；通用声明仍可被收集。 |
-| Firebird | `Firebird*Type`、`FirebirdColumnOptions`、`FirebirdCreateTableExpression`、Firebird 分区/计算列表达式 | 计算列、表空间和专属建表类由 Firebird 消费者处理。 |
+| Firebird | `Firebird*Type`、`FirebirdColumnOptions`、`FirebirdCreateTableStatement`、Firebird 分区/计算列表达式 | 计算列、表空间和专属建表类由 Firebird 消费者处理。 |
 
 后端测试应至少验证三件事：DDLSource 返回的对象和顺序、后端专属类型/选项没有被提前改写、收集结果可以交给该后端已有的表达式构造路径。收集测试不需要连接真实数据库；SQL 渲染应使用方言和最小表达式单独验证。
 
@@ -225,7 +225,7 @@ from rhosocial.activerecord.base import (
     UseIndex,
     UseSqlType,
 )
-from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType
+
 from rhosocial.activerecord.backend.expression.types import VarCharType
 from rhosocial.activerecord.model import ActiveRecord
 
@@ -245,7 +245,7 @@ class Account(ActiveRecord):
     ]
     status: Annotated[
         str,
-        UseConstraint(ColumnConstraintType.NOT_NULL),
+        UseConstraint(ColumnNotNullConstraint),
     ] = "active"
     note: Optional[str] = None
 

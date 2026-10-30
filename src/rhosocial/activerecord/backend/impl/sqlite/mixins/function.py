@@ -10,9 +10,9 @@ from typing import Dict, Tuple, TYPE_CHECKING
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.expression import bases
     from rhosocial.activerecord.backend.expression.advanced_functions import (
-        LpadExpression,
-        RepeatExpression,
-        RpadExpression,
+        LpadFunction,
+        RepeatFunction,
+        RpadFunction,
     )
 
 
@@ -174,7 +174,7 @@ class SQLiteFunctionMixin:
             pad,
         )
 
-    def format_repeat_expression(self, expr: "RepeatExpression") -> Tuple[str, tuple]:
+    def format_repeat_expression(self, expr: "RepeatFunction") -> Tuple[str, tuple]:
         """Emulate ``REPEAT``, which SQLite does not have.
 
         Each ``00`` pair in ``HEX(ZEROBLOB(count))`` is one copy slot, so
@@ -195,7 +195,7 @@ class SQLiteFunctionMixin:
         )
         return call.to_sql()
 
-    def format_lpad_expression(self, expr: "LpadExpression") -> Tuple[str, tuple]:
+    def format_lpad_expression(self, expr: "LpadFunction") -> Tuple[str, tuple]:
         """Emulate ``LPAD``, which SQLite does not have.
 
         Two branches, because SQLite alone answers "already long enough" and
@@ -233,7 +233,7 @@ class SQLiteFunctionMixin:
         )
         return case.to_sql()
 
-    def format_rpad_expression(self, expr: "RpadExpression") -> Tuple[str, tuple]:
+    def format_rpad_expression(self, expr: "RpadFunction") -> Tuple[str, tuple]:
         """Emulate ``RPAD``, which SQLite does not have.
 
         One branch is enough: the padding is appended on the right and the
@@ -328,4 +328,165 @@ class SQLiteFunctionMixin:
         if translated is not None:
             return FunctionCallMixin.format_function_call(self, translated)
         return FunctionCallMixin.format_function_call(self, expr)
+
+    # The spellings above used to be applied by rewriting ``func_name`` inside
+    # ``format_function_call``. The nodes that carry them now have their own
+    # formatter, so the differences are stated here per node instead -- which is
+    # both shorter and narrower: each override names the one spelling it
+    # changes, and a node SQLite agrees with needs nothing at all.
+
+    def format_truncate_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """SQLite's ``TRUNC`` takes one argument, so a precision is arithmetic.
+
+        The value is scaled by a power of ten, truncated toward zero and scaled
+        back, which is exact for negatives too -- truncation is symmetric there,
+        unlike rounding.
+        """
+        from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal
+        from rhosocial.activerecord.backend.expression.operators import BinaryExpression
+
+        if len(expr.arguments) < 2:
+            parts_sql, parts_params = [], []
+            for operand in expr.arguments:
+                operand_sql, operand_params = operand.to_sql()
+                parts_sql.append(operand_sql)
+                parts_params.extend(operand_params)
+            joined_sql = ", ".join(parts_sql)
+            sql = f"TRUNC({joined_sql})"
+            if expr.alias:
+                sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+            return sql, tuple(parts_params)
+
+        precision = expr.arguments[1]
+        scale = FunctionCall(self, "POW", Literal(self, 10), precision)
+        scaled = BinaryExpression(self, "*", expr.arguments[0], scale)
+        return BinaryExpression(
+            self, "/", FunctionCall(self, "TRUNC", scaled), scale
+        ).to_sql()
+
+    def format_logarithm_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """SQLite takes the **base first**: ``LOG(base, x)``.
+
+        The node holds the value first, as the standard writes it, so the two
+        are swapped here. That is a spelling difference and not a semantic one --
+        the meaning is fixed by the node.
+        """
+        if len(expr.arguments) < 2:
+            parts_sql, parts_params = [], []
+            for operand in expr.arguments:
+                operand_sql, operand_params = operand.to_sql()
+                parts_sql.append(operand_sql)
+                parts_params.extend(operand_params)
+            joined_sql = ", ".join(parts_sql)
+            sql = f"LOG({joined_sql})"
+            if expr.alias:
+                sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+            return sql, tuple(parts_params)
+
+        parts_sql, parts_params = [], []
+        for operand in [expr.arguments[1], expr.arguments[0]]:
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"LOG({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_ascii_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """SQLite spells ``ASCII`` as ``UNICODE``."""
+        parts_sql, parts_params = [], []
+        for operand in (expr.target,):
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"UNICODE({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_position_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """SQLite's native spelling is ``INSTR(haystack, needle)``.
+
+        ``INSTR`` takes the haystack first, which is the order this node already
+        holds, so the standard's reversed ``POSITION(needle IN haystack)`` needs
+        no rearranging here -- :attr:`spelling` only matters to a backend that
+        has to write the standard's form.
+        """
+        parts_sql, parts_params = [], []
+        for operand in (expr.haystack, expr.needle):
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"INSTR({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_left_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """SQLite has no ``LEFT``; ``SUBSTR(x, 1, n)`` is the same thing."""
+        from rhosocial.activerecord.backend.expression.core import Literal
+
+        parts_sql, parts_params = [], []
+        for operand in (expr.target, Literal(self, 1), expr.count):
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"SUBSTR({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_right_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """SQLite has no ``RIGHT``; read from a computed start instead.
+
+        ``SUBSTR(x, LENGTH(x) - n + 1, n)`` reads from the end when *n* exceeds
+        the length -- it returns the tail instead of the whole string -- so the
+        start is clamped with ``MAX(..., 1)``. Verified against MySQL, MariaDB,
+        ClickHouse and BigQuery for n = 0, 1, len-1, len, len+1.
+        """
+        from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal
+        from rhosocial.activerecord.backend.expression.operators import BinaryExpression
+
+        length_call = FunctionCall(self, "LENGTH", expr.target)
+        start = BinaryExpression(
+            self,
+            "+",
+            BinaryExpression(self, "-", length_call, expr.count),
+            Literal(self, 1),
+        )
+        parts_sql, parts_params = [], []
+        for operand in (expr.target, FunctionCall(self, "MAX", start, Literal(self, 1)), expr.count):
+            operand_sql, operand_params = operand.to_sql()
+            parts_sql.append(operand_sql)
+            parts_params.extend(operand_params)
+        joined_sql = ", ".join(parts_sql)
+        sql = f"SUBSTR({joined_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(parts_params)
+
+
+    def format_sqlite_json_extract_function(self, expr) -> Tuple[str, tuple]:
+        """Render ``json_extract(expression, path)``.
+
+        SQLite specific: the same concept is ``->`` / ``->>`` on PostgreSQL and
+        ``JSON_EXTRACT`` with its own path grammar on MySQL, which is why this
+        node lives in the SQLite package. The path is an expression, so it
+        binds as a parameter rather than being spliced into the SQL text.
+        """
+        expr_sql, expr_params = expr.expression.to_sql()
+        path_sql, path_params = expr.path.to_sql()
+        sql = f"JSON_EXTRACT({expr_sql}, {path_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(expr_params) + tuple(path_params)
 

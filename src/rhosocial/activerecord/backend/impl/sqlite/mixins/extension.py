@@ -180,10 +180,12 @@ class SQLiteExtensionMixin:
         """
         result = {}
         for name, meta in _EXTENSION_METADATA.items():
-            available = self._is_extension_enabled_in_build(name) and self.version >= meta["min_version"]
+            available = self._is_extension_enabled_in_build(name) and self.version_at_least(
+                meta["min_version"]
+            )
             features = [
                 fname for fname, fver in meta.get("features", {}).items()
-                if self.version >= fver
+                if self.version_at_least(fver)
             ]
             result[name] = SQLiteExtensionInfo(
                 name=name,
@@ -211,7 +213,7 @@ class SQLiteExtensionMixin:
             return False
         if not self._is_extension_enabled_in_build(name):
             return False
-        return self.version >= meta["min_version"]
+        return self.version_at_least(meta["min_version"])
 
     def get_extension_info(self, name: str) -> Optional[SQLiteExtensionInfo]:
         """Get information about a specific extension.
@@ -225,10 +227,12 @@ class SQLiteExtensionMixin:
         meta = _EXTENSION_METADATA.get(name)
         if not meta:
             return None
-        available = self._is_extension_enabled_in_build(name) and self.version >= meta["min_version"]
+        available = self._is_extension_enabled_in_build(name) and self.version_at_least(
+            meta["min_version"]
+        )
         features = [
             fname for fname, fver in meta.get("features", {}).items()
-            if self.version >= fver
+            if self.version_at_least(fver)
         ]
         return SQLiteExtensionInfo(
             name=name,
@@ -259,7 +263,7 @@ class SQLiteExtensionMixin:
         feat_version = meta.get("features", {}).get(feature_name)
         if feat_version is None:
             return False
-        return self.version >= feat_version
+        return self.version_at_least(feat_version)
 
     def get_supported_extension_features(self, ext_name: str) -> List[str]:
         """Get list of supported features for an extension.
@@ -275,5 +279,5 @@ class SQLiteExtensionMixin:
             return []
         return [
             fname for fname, fver in meta.get("features", {}).items()
-            if self._is_extension_enabled_in_build(ext_name) and self.version >= fver
+            if self._is_extension_enabled_in_build(ext_name) and self.version_at_least(fver)
         ]

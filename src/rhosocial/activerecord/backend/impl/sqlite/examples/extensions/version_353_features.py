@@ -99,15 +99,15 @@ print("=" * 60)
 print("Feature Usage Demonstration")
 print("=" * 60)
 
-from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteReindexExpression  # noqa: E402
+from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteReindexStatement  # noqa: E402
 from rhosocial.activerecord.backend.impl.sqlite.functions import json_array_insert, jsonb_array_insert  # noqa: E402
-from rhosocial.activerecord.backend.expression import Column, Literal, QueryExpression
+from rhosocial.activerecord.backend.expression import Column, Literal, QueryStatement
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from .....expression.objects import Table
 
 if dialect.supports_reindex_expressions():
     print("\n--- REINDEX EXPRESSIONS Example ---")
-    reindex_expr = SQLiteReindexExpression(dialect, expressions=True)
+    reindex_expr = SQLiteReindexStatement(dialect, expressions=True)
     sql, params = reindex_expr.to_sql()
     print(f"  SQL: {sql}")
 else:
@@ -160,7 +160,7 @@ if dialect.version >= (3, 53, 0) and funcs.get("json_array_insert"):
     col_data = Column(dialect, "data", table="test_json")
     json_expr = json_array_insert(dialect, col_data, Literal(dialect, 0), position=0)
 
-    query = QueryExpression(
+    query = QueryStatement(
         dialect=dialect,
         select=[json_expr.as_("modified")],
         from_=NamedRelationRef(dialect, Table(dialect, "test_json")),
@@ -182,7 +182,7 @@ if dialect.version >= (3, 53, 0) and funcs.get("json_array_insert"):
     col_data = Column(dialect, "data", table="test_jsonb")
     json_expr = jsonb_array_insert(dialect, col_data, Literal(dialect, "new_value"), position=1)
 
-    query = QueryExpression(
+    query = QueryStatement(
         dialect=dialect,
         select=[json_expr.as_("modified")],
         from_=NamedRelationRef(dialect, Table(dialect, "test_jsonb")),

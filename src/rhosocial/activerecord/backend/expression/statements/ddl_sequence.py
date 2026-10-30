@@ -10,7 +10,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-class CreateSequenceExpression(BaseExpression):
+class CreateSequenceStatement(BaseExpression):
     """
     Represents a CREATE SEQUENCE statement.
 
@@ -30,13 +30,13 @@ class CreateSequenceExpression(BaseExpression):
 
     Examples:
         # Basic sequence
-        create_seq = CreateSequenceExpression(
+        create_seq = CreateSequenceStatement(
             dialect,
             sequence=Sequence(dialect, "user_id_seq")
         )
 
         # Sequence with options
-        create_seq = CreateSequenceExpression(
+        create_seq = CreateSequenceStatement(
             dialect,
             sequence=Sequence(dialect, "order_id_seq"),
             start=1000,
@@ -47,7 +47,7 @@ class CreateSequenceExpression(BaseExpression):
         )
 
         # Sequence with cache
-        create_seq = CreateSequenceExpression(
+        create_seq = CreateSequenceStatement(
             dialect,
             sequence=Sequence(dialect, "high_throughput_seq"),
             start=1,
@@ -103,19 +103,19 @@ class CreateSequenceExpression(BaseExpression):
         return "format_create_sequence_statement"
 
 
-class DropSequenceExpression(BaseExpression):
+class DropSequenceStatement(BaseExpression):
     """
     Represents a DROP SEQUENCE statement.
 
     Examples:
         # Basic drop
-        drop_seq = DropSequenceExpression(
+        drop_seq = DropSequenceStatement(
             dialect,
             sequence=Sequence(dialect, "old_seq")
         )
 
         # Safe drop
-        drop_seq = DropSequenceExpression(
+        drop_seq = DropSequenceStatement(
             dialect,
             sequence=Sequence(dialect, "deprecated_seq"),
             if_exists=True
@@ -138,27 +138,27 @@ class DropSequenceExpression(BaseExpression):
         return "format_drop_sequence_statement"
 
 
-class AlterSequenceExpression(BaseExpression):
+class AlterSequenceStatement(BaseExpression):
     """
     Represents an ALTER SEQUENCE statement.
 
     Examples:
         # Restart sequence
-        alter_seq = AlterSequenceExpression(
+        alter_seq = AlterSequenceStatement(
             dialect,
             sequence=Sequence(dialect, "user_id_seq"),
             restart=1000
         )
 
         # Change increment
-        alter_seq = AlterSequenceExpression(
+        alter_seq = AlterSequenceStatement(
             dialect,
             sequence=Sequence(dialect, "order_num_seq"),
             increment=2
         )
 
         # Set options
-        alter_seq = AlterSequenceExpression(
+        alter_seq = AlterSequenceStatement(
             dialect,
             sequence=Sequence(dialect, "my_seq"),
             minvalue=1,
@@ -166,7 +166,7 @@ class AlterSequenceExpression(BaseExpression):
             cycle=True
         )
 
-    Like :class:`CreateSequenceExpression`, each alternative of a two-spelling
+    Like :class:`CreateSequenceStatement`, each alternative of a two-spelling
     clause has its own parameter: ``cycle`` / ``no_cycle``, ``cache`` /
     ``no_cache``, ``order`` / ``no_order``. Setting both of a pair raises
     ``ValueError``; ``cache`` must be a positive count (``no_cache=True``

@@ -8,9 +8,9 @@ from ...expression.objects import Database
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements.ddl_database import (
-        AlterDatabaseExpression,
-        CreateDatabaseExpression,
-        DropDatabaseExpression,
+        AlterDatabaseStatement,
+        CreateDatabaseStatement,
+        DropDatabaseStatement,
     )
 
 
@@ -90,12 +90,12 @@ class DatabaseMixin:
         return False
 
     def format_create_database_statement(
-        self, expr: "CreateDatabaseExpression"
+        self, expr: "CreateDatabaseStatement"
     ) -> Tuple[str, tuple]:
         """Format a CREATE DATABASE statement.
 
         Raises:
-            TypeError: ``CreateDatabaseExpression.database`` is not a Database.
+            TypeError: ``CreateDatabaseStatement.database`` is not a Database.
             Another object kind would have had its own name rendered as the
             database's.
             UnsupportedFeatureError: If the dialect does not support
@@ -103,7 +103,7 @@ class DatabaseMixin:
         """
         if not isinstance(expr.database, Database):
             raise TypeError(
-                f"CreateDatabaseExpression.database must be a Database, "
+                f"CreateDatabaseStatement.database must be a Database, "
                 f"got {type(expr.database).__name__}"
             )
         if not self.supports_create_database():
@@ -184,12 +184,12 @@ class DatabaseMixin:
         return " ".join(parts), ()
 
     def format_drop_database_statement(
-        self, expr: "DropDatabaseExpression"
+        self, expr: "DropDatabaseStatement"
     ) -> Tuple[str, tuple]:
         """Format a DROP DATABASE statement.
 
         Raises:
-            TypeError: ``DropDatabaseExpression.database`` is not a Database.
+            TypeError: ``DropDatabaseStatement.database`` is not a Database.
             Another object kind would have had its own name rendered as the
             database's.
             UnsupportedFeatureError: If the dialect does not support
@@ -197,7 +197,7 @@ class DatabaseMixin:
         """
         if not isinstance(expr.database, Database):
             raise TypeError(
-                f"DropDatabaseExpression.database must be a Database, "
+                f"DropDatabaseStatement.database must be a Database, "
                 f"got {type(expr.database).__name__}"
             )
         if not self.supports_drop_database():
@@ -226,19 +226,19 @@ class DatabaseMixin:
         return " ".join(parts), ()
 
     def format_alter_database_statement(
-        self, expr: "AlterDatabaseExpression"
+        self, expr: "AlterDatabaseStatement"
     ) -> Tuple[str, tuple]:
         """Format an ALTER DATABASE statement.
 
         Raises:
-            TypeError: ``AlterDatabaseExpression.database`` is not a Database. A
+            TypeError: ``AlterDatabaseStatement.database`` is not a Database. A
             table or a view would be named here and the statement would alter it.
             UnsupportedFeatureError: If the dialect does not support
                 ALTER DATABASE.
         """
         if not isinstance(expr.database, Database):
             raise TypeError(
-                f"AlterDatabaseExpression.database must be a Database, "
+                f"AlterDatabaseStatement.database must be a Database, "
                 f"got {type(expr.database).__name__}"
             )
         if not self.supports_alter_database():

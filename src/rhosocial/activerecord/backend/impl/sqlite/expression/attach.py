@@ -1,22 +1,33 @@
 # src/rhosocial/activerecord/backend/impl/sqlite/expression/attach.py
 """
-SQLite-specific ATTACH DATABASE and DETACH DATABASE expressions.
+SQLite-specific ATTACH DATABASE and DETACH DATABASE statements.
 
-This module provides SQLiteAttachExpression and SQLiteDetachExpression.
+This module provides SQLiteAttachStatement and SQLiteDetachStatement.
 """
 
 from typing import TYPE_CHECKING
 
-from ....expression.bases import BaseExpression, SQLQueryAndParams
+from ....expression.bases import BaseExpression
 
 if TYPE_CHECKING:
     from ....dialect import SQLDialectBase
 
-__all__ = ["SQLiteAttachExpression", "SQLiteDetachExpression"]
+__all__ = ["SQLiteAttachStatement", "SQLiteDetachStatement"]
 
 
-class SQLiteAttachExpression(BaseExpression):
-    """SQLite ATTACH DATABASE statement expression.
+class SQLiteAttachStatement(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect method that renders this expression.
+
+        Declared rather than reached through a ``to_sql`` override: the node
+        names its formatter and the dialect supplies it. A node that calls the
+        dialect itself keeps the lookup inside the node, which is the direction
+        this architecture removes.
+        """
+        return "format_attach_statement"
+    """SQLite ATTACH DATABASE statement.
 
     ATTACH DATABASE attaches another database file to the current
     connection under the given schema name, enabling cross-database
@@ -27,7 +38,7 @@ class SQLiteAttachExpression(BaseExpression):
 
     Examples:
         # Attach a database file as the 'aux' schema
-        attach = SQLiteAttachExpression(dialect, database="aux.db", schema="aux")
+        attach = SQLiteAttachStatement(dialect, database="aux.db", schema="aux")
     """
 
     def __init__(
@@ -36,7 +47,7 @@ class SQLiteAttachExpression(BaseExpression):
         database: str,
         schema: str,
     ):
-        """Initialize an ATTACH DATABASE expression.
+        """Initialize an ATTACH DATABASE statement.
 
         Args:
             dialect: The SQL dialect instance.
@@ -53,18 +64,19 @@ class SQLiteAttachExpression(BaseExpression):
         super().__init__(dialect)
         self.database = database
         self.schema = schema
+class SQLiteDetachStatement(BaseExpression):
 
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL for the ATTACH DATABASE statement.
+    @property
+    def format_method(self) -> str:
+        """The dialect method that renders this expression.
 
-        Returns:
-            Tuple of (SQL string, empty parameters tuple).
+        Declared rather than reached through a ``to_sql`` override: the node
+        names its formatter and the dialect supplies it. A node that calls the
+        dialect itself keeps the lookup inside the node, which is the direction
+        this architecture removes.
         """
-        return self._dialect.format_attach_statement(self)
-
-
-class SQLiteDetachExpression(BaseExpression):
-    """SQLite DETACH DATABASE statement expression.
+        return "format_detach_statement"
+    """SQLite DETACH DATABASE statement.
 
     DETACH DATABASE detaches a previously attached database schema from
     the current connection. It is a SQLite-specific statement.
@@ -74,7 +86,7 @@ class SQLiteDetachExpression(BaseExpression):
 
     Examples:
         # Detach the 'aux' schema
-        detach = SQLiteDetachExpression(dialect, schema="aux")
+        detach = SQLiteDetachStatement(dialect, schema="aux")
     """
 
     def __init__(
@@ -82,7 +94,7 @@ class SQLiteDetachExpression(BaseExpression):
         dialect: "SQLDialectBase",
         schema: str,
     ):
-        """Initialize a DETACH DATABASE expression.
+        """Initialize a DETACH DATABASE statement.
 
         Args:
             dialect: The SQL dialect instance.
@@ -95,11 +107,3 @@ class SQLiteDetachExpression(BaseExpression):
             raise ValueError("DETACH DATABASE requires a schema name")
         super().__init__(dialect)
         self.schema = schema
-
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL for the DETACH DATABASE statement.
-
-        Returns:
-            Tuple of (SQL string, empty parameters tuple).
-        """
-        return self._dialect.format_detach_statement(self)

@@ -1,6 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite2/test_sqlite_expressions_functions.py
 import pytest
-from rhosocial.activerecord.backend.expression import FunctionCall, Column, Literal, count, sum_, avg, RawSQLExpression
+from rhosocial.activerecord.backend.expression import FunctionCall, Column, Literal, count, sum_, avg, RawSQL
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 
@@ -69,7 +69,7 @@ class TestFunctionExpressions:
 
     def test_count_wildcard(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Tests the count function with wildcard."""
-        from rhosocial.activerecord.backend.expression import WildcardExpression
+        from rhosocial.activerecord.backend.expression import RowCountWildcard
 
         # Test with string "*"
         func_call = count(sqlite_dialect_3_8_0, "*")
@@ -77,8 +77,8 @@ class TestFunctionExpressions:
         assert sql == "COUNT(*)"
         assert params == ()
 
-        # Test with WildcardExpression
-        wildcard = WildcardExpression(sqlite_dialect_3_8_0)
+        # Test with the row-count wildcard
+        wildcard = RowCountWildcard(sqlite_dialect_3_8_0)
         func_call = count(sqlite_dialect_3_8_0, wildcard)
         sql, params = func_call.to_sql()
         assert sql == "COUNT(*)"
@@ -115,8 +115,8 @@ class TestFunctionExpressions:
         assert params == ()
 
     def test_function_with_raw_sql_arg(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Tests a function call with RawSQLExpression as argument."""
-        raw_sql = RawSQLExpression(sqlite_dialect_3_8_0, "CURRENT_TIMESTAMP")
+        """Tests a function call with RawSQL as argument."""
+        raw_sql = RawSQL(sqlite_dialect_3_8_0, "CURRENT_TIMESTAMP")
         func_call = FunctionCall(sqlite_dialect_3_8_0, "DATE", raw_sql)
         sql, params = func_call.to_sql()
         assert sql == "DATE(CURRENT_TIMESTAMP)"

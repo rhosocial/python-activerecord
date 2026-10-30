@@ -4,9 +4,11 @@
 Renders comparison, logical, membership, null/boolean, existence, quantified,
 and pattern predicates into ``(sql, params)`` tuples.
 """
-from typing import Any, List, Tuple, TYPE_CHECKING
 
-from ...expression.advanced_functions import AllExpression, AnyExpression, ExistsExpression
+from typing import TYPE_CHECKING, Any, List, Tuple
+
+from ...expression.advanced_functions import AllPredicate, AnyPredicate, ExistsPredicate
+from ...expression.mixins import AliasableMixin
 from ...expression.predicates import (
     BetweenPredicate,
     ComparisonPredicate,
@@ -20,6 +22,33 @@ from ...expression.predicates import (
 
 if TYPE_CHECKING:  # pragma: no cover
     pass
+
+
+#: How tightly each connective binds, in SQL's own order: ``NOT`` > ``AND`` > ``OR``.
+#: A bigger number binds tighter. Used only to decide whether an operand needs
+#: brackets; an operand that is not a logical connective binds tightest of all.
+_CONNECTIVE_PRECEDENCE = {"OR": 1, "AND": 2, "NOT": 3}
+
+#: What a non-connective predicate binds like -- tighter than any connective, so
+#: it is never bracketed. Named rather than inlined so the comparison reads.
+_BINDS_TIGHTEST = 4
+
+
+def _connective_precedence(predicate: Any) -> int:
+    """Return how loosely *predicate* binds, for bracket decisions.
+
+    Args:
+        predicate: An operand of a logical predicate.
+
+    Returns:
+        The operand's connective precedence, or :data:`_BINDS_TIGHTEST` for
+        anything that is not a logical connective. An unknown connective is
+        treated as binding tightest, which keeps the previous rendering for
+        operators this layer does not model.
+    """
+    if isinstance(predicate, LogicalPredicate):
+        return _CONNECTIVE_PRECEDENCE.get(str(predicate.op).upper(), _BINDS_TIGHTEST)
+    return _BINDS_TIGHTEST
 
 
 class PredicateMixin:
@@ -47,7 +76,7 @@ class PredicateMixin:
         Returns:
             The SQL, with the alias appended when present.
         """
-        alias = getattr(expr, "alias", None)
+        alias = expr.alias if isinstance(expr, AliasableMixin) else None
         if not alias:
             return sql
         return f"{sql} AS {self.format_identifier(alias)}"
@@ -62,30 +91,57 @@ class PredicateMixin:
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from ...expression.statements import QueryExpression
+        from ...expression.statements import QueryStatement
 
         left_sql, left_params = expr.left.to_sql()
         right_sql, right_params = expr.right.to_sql()
-        if isinstance(expr.right, QueryExpression):
+        if isinstance(expr.right, QueryStatement):
             right_sql = f"({right_sql})"
-        return self._with_alias(f"{left_sql} {expr.op} {right_sql}", expr), left_params + right_params
+        # The artifact carries the operation *word*; the character is written
+        # here, so a dialect that spells it differently overrides this method
+        # rather than the wire format.
+        symbol = expr.op.symbol
+        return (
+            self._with_alias(f"{left_sql} {symbol} {right_sql}", expr),
+            left_params + right_params,
+        )
 
     def format_logical_predicate(self, expr: LogicalPredicate) -> Tuple[str, tuple]:
-        """Format a logical predicate (AND/OR/NOT).
+        """Format a logical predicate (AND/OR/NOT), bracketing where it matters.
+
+        SQL binds ``NOT`` tighter than ``AND`` and ``AND`` tighter than ``OR``,
+        so a flat rendering of the operands keeps the tree's meaning only while
+        the nesting follows that order. ``a AND (b OR c)`` written flat becomes
+        ``a AND b OR c``, which is ``(a AND b) OR c`` -- a different predicate,
+        with no error to show for it. An operand whose connective binds looser
+        than its parent's is therefore bracketed; one that binds tighter (or
+        equally tight) is left alone, because brackets there would be noise and
+        would suggest the rule is "bracket every nesting".
+
+        ``NOT`` already brackets its single operand, so it never needs another
+        pair and never needs to add one for a child.
 
         Args:
-            expr: Logical expression exposing ``op`` and ``predicates``.
+            expr: Logical expression exposing ``op`` and ``operands``.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        if expr.op.upper() == "NOT" and len(expr.predicates) == 1:
-            sql, params = expr.predicates[0].to_sql()
+        op = expr.op.upper()
+        if op == "NOT" and len(expr.operands) == 1:
+            sql, params = expr.operands[0].to_sql()
             return self._with_alias(f"NOT ({sql})", expr), params
+
+        parent_precedence = _CONNECTIVE_PRECEDENCE.get(op)
         parts = []
         all_params: List[Any] = []
-        for predicate in expr.predicates:
+        for predicate in expr.operands:
             sql, params = predicate.to_sql()
+            if (
+                parent_precedence is not None
+                and _connective_precedence(predicate) < parent_precedence
+            ):
+                sql = f"({sql})"
             parts.append(sql)
             all_params.extend(params)
         return self._with_alias(f" {expr.op} ".join(parts), expr), tuple(all_params)
@@ -93,72 +149,70 @@ class PredicateMixin:
     def format_in_predicate(self, expr: InPredicate) -> Tuple[str, tuple]:
         """Format an ``IN`` predicate.
 
+        A ``Literal`` wrapping a collection renders as a value list; anything
+        else (e.g. a subquery) renders through its own ``to_sql()``.
+
+        The whole ``Literal`` is honoured rather than just its ``value``: its
+        ``inline`` decision selects between inline rendering and bind
+        parameters. DDL positions (``CHECK``, partial-index ``WHERE``) set that
+        decision on the literals they hold, which is how ``IN`` becomes usable
+        inside a CHECK constraint. Inline rendering goes through
+        ``format_literal`` so escaping and quoting match every other inline
+        literal.
+
         Args:
-            expr: Membership expression exposing ``expr`` and ``values``.
+            expr: Membership expression exposing ``operand`` and ``values``.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
         from ...expression.core import Literal
 
-        expr_sql, expr_params = expr.expr.to_sql()
-        # A Literal wrapping a collection renders as a value list; anything
-        # else (e.g. a subquery) renders through its own to_sql().
+        operand_sql, expr_params = expr.operand.to_sql()
         if isinstance(expr.values, Literal) and isinstance(expr.values.value, (list, tuple, set)):
-            return self._format_in_value_list(expr, expr_sql, expr_params, expr.values)
+            values = expr.values.value
+            if not values:
+                return self._with_alias(f"{operand_sql} IN ()", expr), expr_params
+            if expr.values.inline:
+                rendered = ", ".join(self.format_literal(value) for value in values)
+                return self._with_alias(f"{operand_sql} IN ({rendered})", expr), expr_params
+            placeholders = ", ".join([self.get_parameter_placeholder()] * len(values))
+            return (
+                self._with_alias(f"{operand_sql} IN ({placeholders})", expr),
+                expr_params + tuple(values),
+            )
         values_sql, values_params = expr.values.to_sql()
-        return self._with_alias(f"{expr_sql} IN {values_sql}", expr), expr_params + values_params
-
-    def _format_in_value_list(
-        self, expr: InPredicate, expr_sql: str, expr_params: tuple, literal
-    ) -> Tuple[str, Tuple]:
-        """Render ``IN (…)`` for a :class:`Literal` wrapping a collection.
-
-        The whole ``Literal`` is passed in rather than just its ``value``
-        because its ``inline_literals`` switch has to be honoured: DDL
-        preparation sets that flag on every literal it finds (PostgreSQL rejects
-        bind parameters in DDL), and dropping it here is the only reason ``IN``
-        could not previously be used inside a CHECK constraint. Rendering goes
-        through ``format_literal`` so escaping and quoting match every other
-        inline literal.
-        """
-        values = literal.value
-        if not values:
-            return self._with_alias(f"{expr_sql} IN ()", expr), expr_params
-        if literal.inline_literals:
-            rendered = ", ".join(self.format_literal(value) for value in values)
-            return self._with_alias(f"{expr_sql} IN ({rendered})", expr), expr_params
-        placeholders = ", ".join([self.get_parameter_placeholder()] * len(values))
-        return self._with_alias(f"{expr_sql} IN ({placeholders})", expr), expr_params + tuple(values)
+        return self._with_alias(f"{operand_sql} IN {values_sql}", expr), expr_params + values_params
 
     def format_between_predicate(self, expr: BetweenPredicate) -> Tuple[str, tuple]:
         """Format a ``BETWEEN`` predicate.
 
         Args:
-            expr: Range expression exposing ``expr``, ``low``, and ``high``.
+            expr: Range expression exposing ``operand``, ``low``, and ``high``.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        expr_sql, expr_params = expr.expr.to_sql()
+        operand_sql, expr_params = expr.operand.to_sql()
         low_sql, low_params = expr.low.to_sql()
         high_sql, high_params = expr.high.to_sql()
-        return self._with_alias(
-            f"{expr_sql} BETWEEN {low_sql} AND {high_sql}", expr
-        ), expr_params + low_params + high_params
+        return (
+            self._with_alias(f"{operand_sql} BETWEEN {low_sql} AND {high_sql}", expr),
+            expr_params + low_params + high_params,
+        )
 
     def format_is_null_predicate(self, expr: IsNullPredicate) -> Tuple[str, tuple]:
         """Format an ``IS [NOT] NULL`` predicate.
 
         Args:
-            expr: Null check expression exposing ``expr`` and ``is_not``.
+            expr: Null check expression exposing ``operand`` and ``is_not``.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        expr_sql, expr_params = expr.expr.to_sql()
+        operand_sql, expr_params = expr.operand.to_sql()
         not_str = " NOT" if expr.is_not else ""
-        return self._with_alias(f"{expr_sql} IS{not_str} NULL", expr), expr_params
+        return self._with_alias(f"{operand_sql} IS{not_str} NULL", expr), expr_params
 
     def format_distinct_from_predicate(self, expr: DistinctFromPredicate) -> Tuple[str, tuple]:
         """Format a NULL-safe ``IS [NOT] DISTINCT FROM`` predicate.
@@ -179,7 +233,10 @@ class PredicateMixin:
         left_sql, left_params = expr.left.to_sql()
         right_sql, right_params = expr.right.to_sql()
         not_str = " NOT" if expr.is_not else ""
-        return self._with_alias(f"{left_sql} IS{not_str} DISTINCT FROM {right_sql}", expr), left_params + right_params
+        return (
+            self._with_alias(f"{left_sql} IS{not_str} DISTINCT FROM {right_sql}", expr),
+            left_params + right_params,
+        )
 
     def format_is_boolean_predicate(self, expr: IsBooleanPredicate) -> Tuple[str, tuple]:
         """Format an ``IS [NOT] TRUE/FALSE`` predicate.
@@ -196,7 +253,7 @@ class PredicateMixin:
         bool_str = "TRUE" if expr.value else "FALSE"
         return self._with_alias(f"{expr_sql} IS{not_str} {bool_str}", expr), expr_params
 
-    def format_exists_expression(self, expr: ExistsExpression) -> Tuple[str, tuple]:
+    def format_exists_predicate(self, expr: ExistsPredicate) -> Tuple[str, tuple]:
         """Format an ``[NOT] EXISTS`` expression.
 
         Args:
@@ -209,7 +266,7 @@ class PredicateMixin:
         exists_clause = "NOT EXISTS" if expr.is_not else "EXISTS"
         return self._with_alias(f"{exists_clause} {subquery_sql}", expr), subquery_params
 
-    def format_any_expression(self, expr: AnyExpression) -> Tuple[str, tuple]:
+    def format_any_predicate(self, expr: AnyPredicate) -> Tuple[str, tuple]:
         """Format a quantified ``ANY`` comparison expression.
 
         Args:
@@ -219,18 +276,22 @@ class PredicateMixin:
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
+        from ...expression.core import Literal
+
         expr_sql, expr_params = expr.expr.to_sql()
         array_expr = expr.array_expr
-        if hasattr(array_expr, "value") and isinstance(array_expr.value, (list, tuple)):
+        # ``Literal`` is the node that carries a Python value; a list or tuple
+        # in it becomes one bind parameter rather than a rendered list.
+        if isinstance(array_expr, Literal) and isinstance(array_expr.value, (list, tuple)):
             array_sql = self.get_parameter_placeholder()
             array_params = (tuple(array_expr.value),)
         else:
             array_sql, array_params = array_expr.to_sql()
-        return self._with_alias(
-            f"({expr_sql} {expr.op} ANY{array_sql})", expr
-        ), tuple(list(expr_params) + list(array_params))
+        return self._with_alias(f"({expr_sql} {expr.op} ANY{array_sql})", expr), tuple(
+            list(expr_params) + list(array_params)
+        )
 
-    def format_all_expression(self, expr: AllExpression) -> Tuple[str, tuple]:
+    def format_all_predicate(self, expr: AllPredicate) -> Tuple[str, tuple]:
         """Format a quantified ``ALL`` comparison expression.
 
         Args:
@@ -240,29 +301,41 @@ class PredicateMixin:
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
+        from ...expression.core import Literal
+
         expr_sql, expr_params = expr.expr.to_sql()
         array_expr = expr.array_expr
-        if hasattr(array_expr, "value") and isinstance(array_expr.value, (list, tuple)):
+        # ``Literal`` is the node that carries a Python value; a list or tuple
+        # in it becomes one bind parameter rather than a rendered list.
+        if isinstance(array_expr, Literal) and isinstance(array_expr.value, (list, tuple)):
             array_sql = self.get_parameter_placeholder()
             array_params = (tuple(array_expr.value),)
         else:
             array_sql, array_params = array_expr.to_sql()
-        return self._with_alias(
-            f"({expr_sql} {expr.op} ALL{array_sql})", expr
-        ), tuple(list(expr_params) + list(array_params))
+        return self._with_alias(f"({expr_sql} {expr.op} ALL{array_sql})", expr), tuple(
+            list(expr_params) + list(array_params)
+        )
 
     def format_like_predicate(self, expr: LikePredicate) -> Tuple[str, tuple]:
         """Format a ``LIKE`` predicate.
 
         Args:
-            expr: Pattern expression exposing ``expr``, ``op``, and
+            expr: Pattern expression exposing ``left``, ``op``, and
                 ``pattern``.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        expr_sql, expr_params = expr.expr.to_sql()
+        left_sql, expr_params = expr.left.to_sql()
         pattern_sql, pattern_params = expr.pattern.to_sql()
-        return self._with_alias(
-            f"{expr_sql} {expr.op} {pattern_sql}", expr
-        ), expr_params + pattern_params
+        # The keyword comes from the operator, exactly as the comparison symbol
+        # does: the node carries the word, the SQL spelling is written here. A
+        # dialect that spells NOT LIKE differently overrides this method rather
+        # than the wire format.
+        return (
+            self._with_alias(
+                f"{left_sql} {expr.op.keyword} {pattern_sql}",
+                expr,
+            ),
+            expr_params + pattern_params,
+        )

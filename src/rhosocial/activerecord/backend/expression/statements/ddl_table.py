@@ -1,95 +1,41 @@
+from .dql import QueryStatement
+from .ddl_partition import PartitionClause
+from ..types import DataType
+from ..objects import Table
+from ..bases import (
+    BaseExpression,
+    SQLPredicate,
+    SQLQueryAndParams,
+)
+from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+from abc import ABC
+from enum import Enum
 # src/rhosocial/activerecord/backend/expression/statements/ddl_table.py
 """Table DDL statement expressions and related types."""
 
-from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLPredicate, SQLQueryAndParams
-from ..objects import Table
-from ..types import DataType
+
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
-    from .dql import QueryExpression
-
-
-class ColumnConstraintType(Enum):
-    """Types of column constraints."""
-
-    PRIMARY_KEY = "PRIMARY KEY"
-    NOT_NULL = "NOT NULL"
-    NULL = "NULL"  # Explicitly allow NULL (usually redundant but sometimes needed for clarity)
-    UNIQUE = "UNIQUE"
-    CHECK = "CHECK"
-    FOREIGN_KEY = "FOREIGN KEY"
-    DEFAULT = "DEFAULT"
-
-
-class ColumnConstraint(BaseExpression):
-    """Represents a column constraint clause (PRIMARY KEY, NOT NULL, UNIQUE, …).
-
-    A DDL clause node: it participates in rendering through the dialect's
-    ``format_column_constraint`` and holds the expressions its grammar
-    contains (CHECK condition, DEFAULT value).
-    """
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_column_constraint"
-
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        constraint_type: ColumnConstraintType,
-        name: Optional[str] = None,
-        check_condition: Optional["SQLPredicate"] = None,
-        foreign_key_reference: Optional[Tuple["Table", List[str]]] = None,
-        default_value: Any = None,
-        is_auto_increment: bool = False,
-        on_delete: Optional["ReferentialAction"] = None,
-        on_update: Optional["ReferentialAction"] = None,
-        deferrable: bool = False,
-        not_deferrable: bool = False,
-        initially_deferred: bool = False,
-        initially_immediate: bool = False,
-        enforced: bool = False,
-        not_enforced: bool = False,
-    ):
-        super().__init__(dialect)
-        if deferrable and not_deferrable:
-            raise ValueError("deferrable and not_deferrable are mutually exclusive options")
-        if initially_deferred and initially_immediate:
-            raise ValueError(
-                "initially_deferred and initially_immediate are mutually exclusive options"
-            )
-        if enforced and not_enforced:
-            raise ValueError("enforced and not_enforced are mutually exclusive options")
-        self.constraint_type = constraint_type
-        self.name = name
-        self.check_condition = check_condition
-        self.foreign_key_reference = foreign_key_reference
-        self.default_value = default_value
-        self.is_auto_increment = is_auto_increment
-        self.on_delete = on_delete
-        self.on_update = on_update
-        self.deferrable = deferrable
-        self.not_deferrable = not_deferrable
-        self.initially_deferred = initially_deferred
-        self.initially_immediate = initially_immediate
-        self.enforced = enforced
-        self.not_enforced = not_enforced
 
 
 class DefaultValueClause(BaseExpression):
     """The value clause of a ``DEFAULT`` constraint.
 
-    A DDL clause node rendered through the dialect's
-    ``format_default_value_clause``. It carries the default **value** — either
-    a plain Python scalar (rendered inline with dialect-controlled escaping) or
-    a ``BaseExpression`` (e.g. a function call or literal) — keeping the
-    value/inline logic in one place. It is a self-contained expression so the
-    value's escaping/inlining can be overridden per backend.
+    A ``DEFAULT`` position accepts no bind parameters -- the statement that
+    carries it is DDL, and DDL has no place to put a driver's parameters. So
+    the clause states that once, here, at construction: a bare value arrives
+    wrapped in a :class:`~...expression.core.Literal` with ``inline=True``,
+    and a caller who already built a ``Literal`` gets it marked rather than
+    refused, because the position has no other answer to give.
+
+    This is the one place the decision is not the caller's to make. A caller
+    who composes a ``CHECK`` condition or a partial-index ``WHERE`` writes the
+    literals in that tree themselves and says ``inline=True`` on each; a model
+    field's ``default=0`` reaches here as a Python scalar, and the clause
+    normalises it. Both end at the same place, and neither ends with a bind
+    parameter in DDL.
     """
 
     @property
@@ -99,7 +45,88 @@ class DefaultValueClause(BaseExpression):
 
     def __init__(self, dialect: "SQLDialectBase", value: Any):
         super().__init__(dialect)
+        from ..core import Literal
+
+        if isinstance(value, Literal):
+            # A caller who built the literal themselves still said nothing
+            # about binding, and this position cannot bind.
+            value.inline = True
+        elif not isinstance(value, BaseExpression):
+            value = Literal(dialect, value, inline=True)
         self.value = value
+
+
+class ColumnClause(BaseExpression):
+    """Base for a clause that rides inside a column definition.
+
+    A column definition is a type followed by a sequence of clauses, and these
+    are the ones that are neither a constraint nor the type itself: collation,
+    character set, identity, auto-increment, the inline comment, a generated
+    column. They share one property -- each is a self-contained node with its
+    own grammar, so each owns its ``format_method`` and a dialect decides
+    whether it can spell it.
+
+    Naming: this is a **DDL column clause**. It is unrelated to the
+    ``ColumnBase`` family in ``expression.column_types``, which are
+    value-typed column *expressions* (``StringColumn`` and its siblings) and
+    live on the query side.
+
+    Subclassing this is what lets ``ColumnDefinition.attributes`` carry a
+    typed sequence instead of ``List[Any]``.
+
+    ``format_method`` is deliberately **not** overridden here: the base
+    ``BaseExpression`` getter already raises ``NotImplementedError`` for a class
+    that names no formatter, which is exactly what this base is. A subclass
+    declares its own.
+    """
+
+
+class CollationClause(ColumnClause):
+    """The ``COLLATE <name>`` clause of a column definition.
+
+    A DDL clause node rendered through the dialect's ``format_collation_clause``.
+    ``COLLATE`` is part of the SQL-standard column-constraint grammar, so the
+    capability defaults to True and a dialect overrides
+    :meth:`supports_column_collation` only for a version boundary.
+
+    The name is **not** validated here. Which collation names exist is a
+    catalogue question a dialect answers in its own validator (Snowflake and
+    BigQuery both require a quoted specification rather than a bare
+    identifier), so the node carries the name the caller asked for and the
+    dialect decides how to spell and whether to accept it.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_collation_clause"
+
+    def __init__(self, dialect: "SQLDialectBase", name: str):
+        super().__init__(dialect)
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("COLLATE requires a collation name")
+        self.name = name
+
+
+class CharacterSetClause(ColumnClause):
+    """The ``CHARACTER SET <name>`` clause of a column definition.
+
+    A DDL clause node rendered through the dialect's
+    ``format_character_set_clause``. This is a MySQL/MariaDB family construct,
+    so :meth:`supports_column_character_set` defaults to False and those
+    backends (plus Firebird) opt in.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_character_set_clause"
+
+    def __init__(self, dialect: "SQLDialectBase", name: str):
+        super().__init__(dialect)
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("CHARACTER SET requires a character set name")
+        self.name = name
 
 
 class IdentityClause(BaseExpression):
@@ -151,8 +178,7 @@ class IdentityClause(BaseExpression):
         no_cache: bool = False,
     ):
         super().__init__(dialect)
-        if cycle and no_cycle:
-            raise ValueError("cycle and no_cycle are mutually exclusive options")
+        self.require_exclusive_options(cycle, no_cycle, "cycle", "no_cycle")
         if cache is not None and no_cache:
             raise ValueError("cache and no_cache are mutually exclusive options")
         if order and no_order:
@@ -226,19 +252,20 @@ class ReferencesClause(BaseExpression):
         *,
         on_delete: Optional["ReferentialAction"] = None,
         on_update: Optional["ReferentialAction"] = None,
-        match_type: Optional[str] = None,
+        match_type: Optional["ForeignKeyMatchType"] = None,
         deferrable: bool = False,
         not_deferrable: bool = False,
         initially_deferred: bool = False,
         initially_immediate: bool = False,
     ):
         super().__init__(dialect)
-        if deferrable and not_deferrable:
-            raise ValueError("deferrable and not_deferrable are mutually exclusive options")
-        if initially_deferred and initially_immediate:
-            raise ValueError(
-                "initially_deferred and initially_immediate are mutually exclusive options"
-            )
+        self.require_exclusive_options(deferrable, not_deferrable, "deferrable", "not_deferrable")
+        self.require_exclusive_options(
+            initially_deferred,
+            initially_immediate,
+            "initially_deferred",
+            "initially_immediate",
+        )
         self.referenced_table = referenced_table
         self.referenced_columns = list(referenced_columns or [])
         self.on_delete = on_delete
@@ -250,53 +277,12 @@ class ReferencesClause(BaseExpression):
         self.initially_immediate = initially_immediate
 
 
-class GeneratedColumnType(Enum):
-    """Types of generated columns (computed columns)."""
-
-    STORED = "STORED"  # Stored on disk, can be indexed
-    VIRTUAL = "VIRTUAL"  # Computed on read, not stored
-
-
-class GeneratedColumnExpression(BaseExpression):
-    """Represents the GENERATED ALWAYS AS (<expr>) [STORED|VIRTUAL] clause.
-
-    A DDL clause node rendered through the dialect's
-    ``format_generated_column_expression``.  Holds the inner expression
-    (any ``BaseExpression``) and the storage type.
-
-    Usage::
-
-        gen = GeneratedColumnExpression(
-            dialect,
-            expression=Column(dialect, "price") * Column(dialect, "qty"),
-            storage_type=GeneratedColumnType.STORED,
-        )
-        sql, params = gen.to_sql()
-        # -> ('GENERATED ALWAYS AS ("price" * "qty") STORED', ())
-    """
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_generated_column_expression"
-
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        expression: "BaseExpression",
-        storage_type: Optional[GeneratedColumnType] = None,
-    ):
-        super().__init__(dialect)
-        self.expression = expression
-        self.storage_type = storage_type or GeneratedColumnType.VIRTUAL
-
-
 class ColumnCommentClause(BaseExpression):
     """The inline comment clause of a column definition.
 
     A CREATE TABLE / ALTER TABLE **clause** node rendered through the
     dialect's ``format_column_comment_clause``.  It is deliberately distinct
-    from the standalone ``COMMENT ON`` statement (:class:`CommentOnExpression`):
+    from the standalone ``COMMENT ON`` statement (:class:`CommentOnStatement`):
     the inline clause is part of the *column-definition grammar* and only
     exists on dialects that advertise :meth:`supports_column_comment`.
 
@@ -326,7 +312,7 @@ class TableCommentClause(BaseExpression):
     MySQL/MariaDB/ClickHouse-family convenience (Snowflake renders
     ``COMMENT = '<text>'``, BigQuery ``OPTIONS(description='<text>')``), while
     the standalone ``COMMENT ON`` statement is a separate de-facto vendor
-    mechanism (:class:`CommentOnExpression`), not this clause.
+    mechanism (:class:`CommentOnStatement`), not this clause.
 
     Rendering is capability-gated: the statement renderer emits this clause
     only on dialects whose :meth:`supports_table_comment` is True, and raises
@@ -367,10 +353,10 @@ class ColumnDefinition(BaseExpression):
         dialect: "SQLDialectBase",
         name: str,
         data_type: "DataType",
-        constraints: Optional[List[ColumnConstraint]] = None,
+        constraints: Optional[List["ColumnConstraint"]] = None,
         comment: Optional["ColumnCommentClause"] = None,
-        generated_expression: Optional[GeneratedColumnExpression] = None,
-        attributes: Optional[List[Any]] = None,
+        generated_expression: Optional["ColumnGeneratedConstraint"] = None,
+        attributes: Optional[List["ColumnClause"]] = None,
     ):
         super().__init__(dialect)
         if not isinstance(data_type, DataType):
@@ -386,22 +372,27 @@ class ColumnDefinition(BaseExpression):
         self.constraints = list(constraints or [])
         self.comment = comment
         self.generated_expression = generated_expression
-        # Dialect-free attributes are rendered by the owning backend.
+        # Column clauses, in the order they should be spelled. An AR-layer
+        # ``ColumnAttribute`` is still tolerated here because no deriver
+        # translates a model's declarations into clauses yet; the dialect
+        # adapts it at render time. See ``DDLColumnMixin.translate_ar_attribute``.
         self.attributes = list(attributes or [])
 
+class GeneratedColumnType(str, Enum):
+    """Types of generated columns (computed columns)."""
 
-class TableConstraintType(Enum):
-    """Types of table constraints supported by SQL."""
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
-    PRIMARY_KEY = "PRIMARY KEY"
-    UNIQUE = "UNIQUE"
-    FOREIGN_KEY = "FOREIGN KEY"
-    CHECK = "CHECK"
-    EXCLUDE = "EXCLUDE"
+    STORED = "STORED"  # Stored on disk, can be indexed
+    VIRTUAL = "VIRTUAL"  # Computed on read, not stored
 
 
-class ReferentialAction(Enum):
+class ReferentialAction(str, Enum):
     """Actions for referential integrity constraints."""
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
 
     CASCADE = "CASCADE"
     RESTRICT = "RESTRICT"
@@ -410,26 +401,523 @@ class ReferentialAction(Enum):
     NO_ACTION = "NO ACTION"
 
 
-# Re-export partition clause from ddl_partition
-from .ddl_partition import PartitionClause, PartitionStrategy  # noqa: E402, F401
-
-
-class ConstraintValidation(Enum):
+class ConstraintValidation(str, Enum):
     """Constraint validation status (PostgreSQL specific).
 
-    Used as the typed ``validation`` field of ``TableConstraint`` to control
-    whether PostgreSQL validates existing data against the constraint.
+    Used as the typed ``validation`` field of :class:`TableConstraint` to
+    control whether PostgreSQL validates existing data against the constraint.
 
     - VALIDATE: Validate all existing data (default behavior)
     - NOVALIDATE: Add constraint without validating existing data (NOT VALID)
     """
 
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
+
     VALIDATE = "VALIDATE"
     NOVALIDATE = "NOT VALID"
 
 
+class ForeignKeyMatchType(str, Enum):
+    """The MATCH type of a foreign key (SQL:1999).
+
+    A multi-column foreign key matches when *some* column pair matches; MATCH
+    narrows that:
+
+    - ``SIMPLE`` — the match condition holds if **any one** column matches.
+      This is the SQL default, and ``None`` on a constraint means it.
+    - ``PARTIAL`` — the match condition holds only if **all** columns match.
+    - ``FULL`` — no partial match is permitted.
+
+    ``__str__`` returns the SQL spelling rather than ``ForeignKeyMatchType.FULL``
+    because a dialect formatter may interpolate the member directly, and a
+    member that renders as its Python name would put invalid SQL on the wire.
+    """
+
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
+
+    SIMPLE = "SIMPLE"
+    PARTIAL = "PARTIAL"
+    FULL = "FULL"
+
+
+class ColumnConstraintBranch(BaseExpression, ABC):
+    """Base class for the branches of a column-level constraint.
+
+    A column constraint is a grammar production with one alternative per
+    kind, so each alternative is a branch node holding only what is specific
+    to it. :class:`ColumnConstraint` holds the production-level parts -- the
+    ``CONSTRAINT <name>`` prefix and the trailing traits -- and refers to a
+    branch rather than being one, because the two live at different levels of
+    the grammar (规则文档 E1/E2, Layout).
+
+    A branch never renders itself: :meth:`format_column_constraint` renders
+    the production and dispatches to the branch's own formatter.
+    """
+
+
+class ColumnPrimaryKeyConstraint(ColumnConstraintBranch):
+    """``PRIMARY KEY``, optionally SQLite's ``AUTOINCREMENT``."""
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        is_auto_increment: bool = False,
+    ):
+        super().__init__(dialect)
+        self.is_auto_increment = is_auto_increment
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column_primary_key_constraint"
+
+
+class ColumnUniqueConstraint(ColumnConstraintBranch):
+    """``UNIQUE``."""
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column_unique_constraint"
+
+
+class ColumnNotNullConstraint(ColumnConstraintBranch):
+    """``NOT NULL``."""
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column_not_null_constraint"
+
+
+class ColumnNullableConstraint(ColumnConstraintBranch):
+    """``NULL`` -- the column is allowed to hold no value.
+
+    The name is the adjective rather than the keyword on purpose: what the
+    constraint states about a column is that it is *nullable*, which is also
+    how a reader tells this branch apart from the ``NULL`` value a literal
+    holds.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column_nullable_constraint"
+
+
+class ColumnCheckConstraint(ColumnConstraintBranch):
+    """``CHECK (<condition>)``.
+
+    A CHECK position accepts no bind parameters, so the class declares
+    the literals are marked inline; the dialect renders the condition inline-only
+    and refuses any residual bind value.
+    """
+
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        condition: "SQLPredicate",
+    ):
+        if condition is None:
+            raise ValueError(
+                "ColumnCheckConstraint needs a condition: CHECK without one "
+                "states nothing."
+            )
+        super().__init__(dialect)
+        self.condition = condition
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column_check_constraint"
+
+
+class ColumnDefaultConstraint(ColumnConstraintBranch):
+    """``DEFAULT <value>``.
+
+    Not an ENFORCABLE kind: SQL:2016 gives the enforcement trait to PRIMARY
+    KEY, UNIQUE, FOREIGN KEY and CHECK only, so this branch carries no way to
+    ask for it.
+
+    A DEFAULT position accepts no bind parameters, so the class declares
+    the literals are marked inline; the value renders inline only.
+    """
+
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        value: Any,
+    ):
+        if value is None:
+            raise ValueError(
+                "ColumnDefaultConstraint needs a value: DEFAULT without one "
+                "states nothing. The refusal is here rather than at render "
+                "time because a clause with no value cannot be rendered at all."
+            )
+        super().__init__(dialect)
+        self.value = value
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column_default_constraint"
+
+
+class ColumnForeignKeyConstraint(ColumnConstraintBranch):
+    """A column-level ``FOREIGN KEY``: the column, and where it points."""
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        references: Tuple["Table", List[str]],
+        on_delete: Optional["ReferentialAction"] = None,
+        on_update: Optional["ReferentialAction"] = None,
+        match_type: Optional["ForeignKeyMatchType"] = None,
+    ):
+        super().__init__(dialect)
+        if references is None or references[0] is None:
+            raise ValueError(
+                "ColumnForeignKeyConstraint needs references: the (Table, "
+                "[columns]) it points at. A foreign key without one points "
+                "nowhere."
+            )
+        if not isinstance(references[0], Table):
+            raise TypeError(
+                f"ColumnForeignKeyConstraint.references must pair a Table "
+                f"with its columns, got {type(references[0]).__name__}"
+            )
+        self.references = references
+        self.on_delete = on_delete
+        self.on_update = on_update
+        self.match_type = match_type
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column_fk_constraint"
+
+
+class ColumnGeneratedConstraint(ColumnConstraintBranch):
+    """``GENERATED ALWAYS AS (<expression>) [STORED|VIRTUAL]``.
+
+    The column-level counterpart of the generated-column production. It is a
+    constraint branch rather than a free-standing node, so it rides wherever a
+    column constraint rides and answers to the same level's prefix.
+
+    A generated-column expression is a DDL position, so the class declares
+    the literals are marked inline; the expression renders inline-only.
+    """
+
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        expression: "BaseExpression",
+        storage_type: Optional[GeneratedColumnType] = None,
+    ):
+        super().__init__(dialect)
+        self.expression = expression
+        # The default is the node's, not the formatter's: what "generated
+        # column" means without a storage clause is settled once, here.
+        self.storage_type = storage_type or GeneratedColumnType.VIRTUAL
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column_generated_constraint"
+
+
+class ColumnConstraint(BaseExpression):
+    """One column-level constraint clause: ``[CONSTRAINT <name>] <branch> [traits]``.
+
+    The production, not one of its alternatives. What the grammar hangs on
+    the production -- the ``CONSTRAINT <name>`` prefix and the trailing
+    ``DEFERRABLE`` / ``INITIALLY`` / ``ENFORCED`` traits -- lives here; what
+    belongs to one alternative lives in the :class:`ColumnConstraintBranch`
+    this refers to. Two levels because that is where the grammar puts them,
+    not for convenience: it is what lets a backend re-spell one kind without
+    touching the prefix or the traits, and what makes a request the kind
+    cannot honour impossible to express at all.
+
+    Args:
+        dialect: The dialect that renders the clause.
+        branch: The alternative this clause states -- a
+            :class:`ColumnConstraintBranch`. Required: a constraint clause
+            without one says nothing.
+        name: The ``CONSTRAINT <name>`` prefix. Authorised by
+            ``supports_constraint_naming``.
+        deferrable / not_deferrable: the deferral trait. Authorised by
+            ``supports_deferrable_constraint``; carried only by the PRIMARY
+            KEY, UNIQUE and FOREIGN KEY branches, so asking for it on another
+            branch is a ``TypeError`` raised by :meth:`validate_branch_traits`
+            rather than a request that is quietly dropped.
+        initially_deferred / initially_immediate: the timing half of the same
+            trait, which the standard lets appear without the deferral half.
+        enforced / not_enforced: the SQL:2016 enforcement trait, carried by
+            the PRIMARY KEY, UNIQUE, FOREIGN KEY and CHECK branches.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column_constraint"
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        *,
+        branch: ColumnConstraintBranch,
+        name: Optional[str] = None,
+        deferrable: bool = False,
+        not_deferrable: bool = False,
+        initially_deferred: bool = False,
+        initially_immediate: bool = False,
+        enforced: bool = False,
+        not_enforced: bool = False,
+    ):
+        from rhosocial.activerecord.backend.expression import (
+            ColumnConstraintBranch,
+        )
+        super().__init__(dialect)
+        if not isinstance(branch, ColumnConstraintBranch):
+            raise TypeError(
+                f"ColumnConstraint.branch must be a ColumnConstraintBranch, "
+                f"got {type(branch).__name__}"
+            )
+        self.require_exclusive_options(deferrable, not_deferrable, "deferrable", "not_deferrable")
+        self.require_exclusive_options(
+            initially_deferred,
+            initially_immediate,
+            "initially_deferred",
+            "initially_immediate",
+        )
+        self.require_exclusive_options(enforced, not_enforced, "enforced", "not_enforced")
+        self.branch = branch
+        self.name = name
+        self.deferrable = deferrable
+        self.not_deferrable = not_deferrable
+        self.initially_deferred = initially_deferred
+        self.initially_immediate = initially_immediate
+        self.enforced = enforced
+        self.not_enforced = not_enforced
+        self.validate_branch_traits(branch)
+
+    def validate_branch_traits(self, branch: ColumnConstraintBranch) -> None:
+        """Refuse a trait the branch's kind cannot carry.
+
+        The branches that can carry each trait are named by
+        :attr:`DEFERRABLE_BRANCHES` and :attr:`ENFORCABLE_BRANCHES`. Before
+        the branches existed, a request on a kind that had no meaning for it
+        was accepted and then dropped without a word; here it cannot be
+        written in the first place.
+        """
+        wants_deferral = self.deferrable or self.not_deferrable
+        if (wants_deferral or self.initially_deferred or self.initially_immediate) and (
+            type(branch) not in self.DEFERRABLE_BRANCHES
+        ):
+            raise ValueError(
+                f"DEFERRABLE / INITIALLY cannot ride a "
+                f"{type(branch).__name__}; the SQL:2016 kinds are "
+                f"PRIMARY KEY, UNIQUE and FOREIGN KEY"
+            )
+        if (self.enforced or self.not_enforced) and type(branch) not in self.ENFORCABLE_BRANCHES:
+            raise ValueError(
+                f"ENFORCED/NOT ENFORCED cannot ride a {type(branch).__name__}; "
+                f"the SQL:2016 kinds are PRIMARY KEY, UNIQUE, FOREIGN KEY and CHECK"
+            )
+
+    #: Branches whose kind can carry the deferral trait.
+    DEFERRABLE_BRANCHES = frozenset(
+        {ColumnPrimaryKeyConstraint, ColumnUniqueConstraint, ColumnForeignKeyConstraint}
+    )
+
+    #: Branches whose kind can carry the enforcement trait (SQL:2016).
+    ENFORCABLE_BRANCHES = frozenset(
+        {
+            ColumnPrimaryKeyConstraint,
+            ColumnUniqueConstraint,
+            ColumnForeignKeyConstraint,
+            ColumnCheckConstraint,
+        }
+    )
+
+    @property
+    def constraint_type(self):
+        """The removed tag, reported rather than silently absent.
+
+        ``constraint_type`` said which kind a fat node was pretending to be.
+        The branch says it now, in a class rather than in a field, so a
+        caller still asking for the tag is told where the answer moved.
+        """
+        from rhosocial.activerecord.backend.expression import (
+            ColumnCheckConstraint,
+            ColumnDefaultConstraint,
+            ColumnForeignKeyConstraint,
+            ColumnGeneratedConstraint,
+            ColumnNotNullConstraint,
+            ColumnNullableConstraint,
+            ColumnPrimaryKeyConstraint,
+            ColumnUniqueConstraint,
+        )
+        kind = {
+            ColumnPrimaryKeyConstraint: "PRIMARY KEY",
+            ColumnUniqueConstraint: "UNIQUE",
+            ColumnNotNullConstraint: "NOT NULL",
+            ColumnNullableConstraint: "NULL",
+            ColumnCheckConstraint: "CHECK",
+            ColumnDefaultConstraint: "DEFAULT",
+            ColumnForeignKeyConstraint: "FOREIGN KEY",
+            ColumnGeneratedConstraint: "GENERATED",
+        }.get(type(self.branch), type(self.branch).__name__)
+        raise AttributeError(
+            f"ColumnConstraint.constraint_type is gone; the kind is the branch "
+            f"({type(self.branch).__name__}, which is a {kind} constraint)"
+        )
+
+
+class TableConstraintBranch(BaseExpression, ABC):
+    """Base class for the branches of a table-level constraint.
+
+    The table counterpart of :class:`ColumnConstraintBranch`: one node per
+    alternative of the table-constraint production, each holding only its own
+    fields, with :class:`TableConstraint` holding the production-level prefix,
+    the ``NOT VALID`` trait and the enforcement trait.
+    """
+
+
+class TablePrimaryKeyConstraint(TableConstraintBranch):
+    """A table-level ``PRIMARY KEY`` over one or more columns."""
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        columns: List[str],
+    ):
+        super().__init__(dialect)
+        self.columns = list(columns)
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_table_primary_key_constraint"
+
+
+class TableUniqueConstraint(TableConstraintBranch):
+    """A table-level ``UNIQUE`` over one or more columns."""
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        columns: List[str],
+    ):
+        super().__init__(dialect)
+        self.columns = list(columns)
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_table_unique_constraint"
+
+
+class TableCheckConstraint(TableConstraintBranch):
+    """A table-level ``CHECK (<condition>)``.
+
+    A CHECK position accepts no bind parameters, so the class declares
+    the literals are marked inline; the dialect renders the condition inline-only
+    and refuses any residual bind value.
+    """
+
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        condition: "SQLPredicate",
+    ):
+        if condition is None:
+            raise ValueError(
+                "TableCheckConstraint needs a condition: CHECK without one "
+                "states nothing."
+            )
+        super().__init__(dialect)
+        self.condition = condition
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_table_check_constraint"
+
+
+class TableForeignKeyConstraint(TableConstraintBranch):
+    """A table-level ``FOREIGN KEY`` over one or more columns."""
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        columns: List[str],
+        references: Tuple["Table", Optional[List[str]]],
+        on_delete: Optional["ReferentialAction"] = None,
+        on_update: Optional["ReferentialAction"] = None,
+        match_type: Optional["ForeignKeyMatchType"] = None,
+    ):
+        super().__init__(dialect)
+        if references is None or references[0] is None:
+            raise ValueError(
+                "TableForeignKeyConstraint needs references: the (Table, "
+                "[columns]) it points at."
+            )
+        self.columns = list(columns or [])
+        self.references = references
+        self.on_delete = on_delete
+        self.on_update = on_update
+        self.match_type = match_type
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_table_foreign_key_constraint"
+
+
+class TableExcludeConstraint(TableConstraintBranch):
+    """``EXCLUDE`` -- the exclusion constraint.
+
+    Enumerable, so it is modelled rather than refused: one branch, and the
+    dialects that cannot spell it refuse it by name through
+    :meth:`supports_exclude_constraint` instead of rendering SQL their server
+    will reject. Only PostgreSQL can spell it today; the probe is what says so
+    per dialect.
+    """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        columns: List[str],
+        operator: str = "=",
+        index_method: Optional[str] = None,
+    ):
+        super().__init__(dialect)
+        self.columns = list(columns)
+        self.operator = operator
+        self.index_method = index_method
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_table_exclude_constraint"
+
+
 class TableConstraint(BaseExpression):
-    """Represents a table-level constraint clause in CREATE/ALTER TABLE."""
+    """One table-level constraint clause: ``[CONSTRAINT <name>] <branch> [traits]``.
+
+    The production, with the alternative it states named by :attr:`branch`.
+    The table counterpart of :class:`ColumnConstraint`: ``name`` and the
+    ``NOT VALID`` trait are production-level because the grammars put them
+    there, and the columns, the referenced table and the check condition
+    belong to the branches.
+    """
 
     @property
     def format_method(self) -> str:
@@ -439,12 +927,9 @@ class TableConstraint(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        constraint_type: TableConstraintType,
+        *,
+        branch: TableConstraintBranch,
         name: Optional[str] = None,
-        columns: Optional[List[str]] = None,
-        check_condition: Optional["SQLPredicate"] = None,
-        foreign_key_table: Optional["Table"] = None,
-        foreign_key_columns: Optional[List[str]] = None,
         deferrable: bool = False,
         not_deferrable: bool = False,
         initially_deferred: bool = False,
@@ -453,21 +938,25 @@ class TableConstraint(BaseExpression):
         enforced: bool = False,
         not_enforced: bool = False,
     ):
+        from rhosocial.activerecord.backend.expression import (
+            TableConstraintBranch,
+        )
         super().__init__(dialect)
-        if deferrable and not_deferrable:
-            raise ValueError("deferrable and not_deferrable are mutually exclusive options")
-        if initially_deferred and initially_immediate:
-            raise ValueError(
-                "initially_deferred and initially_immediate are mutually exclusive options"
+        if not isinstance(branch, TableConstraintBranch):
+            raise TypeError(
+                f"TableConstraint.branch must be a TableConstraintBranch, "
+                f"got {type(branch).__name__}"
             )
-        if enforced and not_enforced:
-            raise ValueError("enforced and not_enforced are mutually exclusive options")
-        self.constraint_type = constraint_type
+        self.require_exclusive_options(enforced, not_enforced, "enforced", "not_enforced")
+        self.require_exclusive_options(deferrable, not_deferrable, "deferrable", "not_deferrable")
+        self.require_exclusive_options(
+            initially_deferred,
+            initially_immediate,
+            "initially_deferred",
+            "initially_immediate",
+        )
+        self.branch = branch
         self.name = name
-        self.columns = columns
-        self.check_condition = check_condition
-        self.foreign_key_table = foreign_key_table
-        self.foreign_key_columns = foreign_key_columns
         self.deferrable = deferrable
         self.not_deferrable = not_deferrable
         self.initially_deferred = initially_deferred
@@ -477,10 +966,65 @@ class TableConstraint(BaseExpression):
         # MariaDB/SQL Server: CHECK ... [NOT] ENFORCED (None = backend default).
         self.enforced = enforced
         self.not_enforced = not_enforced
+        if (self.enforced or self.not_enforced) and type(branch) not in self.ENFORCABLE_BRANCHES:
+            raise ValueError(
+                f"ENFORCED/NOT ENFORCED cannot ride a {type(branch).__name__}; "
+                f"the SQL:2016 kinds are PRIMARY KEY, UNIQUE, FOREIGN KEY and CHECK"
+            )
+        wants_deferral = self.deferrable or self.not_deferrable
+        if (wants_deferral or self.initially_deferred or self.initially_immediate) and (
+            type(branch) not in self.DEFERRABLE_BRANCHES
+        ):
+            raise ValueError(
+                f"DEFERRABLE / INITIALLY cannot ride a {type(branch).__name__}; "
+                f"the SQL:2016 kinds are PRIMARY KEY, UNIQUE and FOREIGN KEY"
+            )
+
+    #: Branches whose kind can carry the enforcement trait (SQL:2016).
+    ENFORCABLE_BRANCHES = frozenset(
+        {
+            TablePrimaryKeyConstraint,
+            TableUniqueConstraint,
+            TableForeignKeyConstraint,
+            TableCheckConstraint,
+        }
+    )
+
+    #: Branches whose kind can carry the deferral trait.
+    DEFERRABLE_BRANCHES = frozenset(
+        {TablePrimaryKeyConstraint, TableUniqueConstraint, TableForeignKeyConstraint}
+    )
+
+    @property
+    def constraint_type(self):
+        """The removed tag, reported rather than silently absent."""
+        from rhosocial.activerecord.backend.expression import (
+            TableCheckConstraint,
+            TableExcludeConstraint,
+            TableForeignKeyConstraint,
+            TablePrimaryKeyConstraint,
+            TableUniqueConstraint,
+        )
+        kind = {
+            TablePrimaryKeyConstraint: "PRIMARY KEY",
+            TableUniqueConstraint: "UNIQUE",
+            TableForeignKeyConstraint: "FOREIGN KEY",
+            TableCheckConstraint: "CHECK",
+            TableExcludeConstraint: "EXCLUDE",
+        }.get(type(self.branch), type(self.branch).__name__)
+        raise AttributeError(
+            f"TableConstraint.constraint_type is gone; the kind is the branch "
+            f"({type(self.branch).__name__}, which is a {kind} constraint)"
+        )
 
 
 class ForeignKeyConstraint(TableConstraint):
-    """Specialized table constraint for foreign keys with additional options."""
+    """A table-level FOREIGN KEY, with the referential actions defaulted.
+
+    Construction sugar over :class:`TableForeignKeyConstraint`: the standard
+    implies ``NO ACTION`` when the action is not written, so this fills it in
+    where the plain branch leaves "not specified" as ``None``.
+    """
 
     @property
     def format_method(self) -> str:
@@ -490,12 +1034,12 @@ class ForeignKeyConstraint(TableConstraint):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        columns: Optional[List[str]] = None,
-        foreign_key_table: Optional["Table"] = None,
-        foreign_key_columns: Optional[List[str]] = None,
+        columns: List[str],
+        foreign_key_table: "Table",
+        foreign_key_columns: List[str],
         on_delete: "ReferentialAction" = ReferentialAction.NO_ACTION,
         on_update: "ReferentialAction" = ReferentialAction.NO_ACTION,
-        match_type: Optional[str] = None,
+        match_type: Optional["ForeignKeyMatchType"] = None,
         name: Optional[str] = None,
         deferrable: bool = False,
         not_deferrable: bool = False,
@@ -505,13 +1049,20 @@ class ForeignKeyConstraint(TableConstraint):
         enforced: bool = False,
         not_enforced: bool = False,
     ):
+        from rhosocial.activerecord.backend.expression import (
+            TableForeignKeyConstraint,
+        )
         super().__init__(
             dialect,
-            TableConstraintType.FOREIGN_KEY,
+            branch=TableForeignKeyConstraint(
+                dialect,
+                columns or [],
+                (foreign_key_table, foreign_key_columns) if foreign_key_table else (None, None),
+                on_delete,
+                on_update,
+                match_type,
+            ),
             name=name,
-            columns=columns,
-            foreign_key_table=foreign_key_table,
-            foreign_key_columns=foreign_key_columns,
             deferrable=deferrable,
             not_deferrable=not_deferrable,
             initially_deferred=initially_deferred,
@@ -520,9 +1071,41 @@ class ForeignKeyConstraint(TableConstraint):
             enforced=enforced,
             not_enforced=not_enforced,
         )
-        self.on_delete = on_delete
-        self.on_update = on_update
-        self.match_type = match_type
+
+    # The referential fields live on the branch now. They are exposed here as
+    # views rather than stored twice: the sugar declares these parameters, and
+    # ``get_params()`` -- the single serialization path -- looks each declared
+    # parameter up by name.
+
+    @property
+    def columns(self) -> List[str]:
+        """The local columns, as the branch records them."""
+        return self.branch.columns
+
+    @property
+    def foreign_key_table(self) -> Optional["Table"]:
+        """The referenced relation, as the branch records it."""
+        return self.branch.references[0]
+
+    @property
+    def foreign_key_columns(self) -> Optional[List[str]]:
+        """The referenced columns, as the branch records them."""
+        return self.branch.references[1]
+
+    @property
+    def on_delete(self) -> Optional["ReferentialAction"]:
+        """The delete action, as the branch records it."""
+        return self.branch.on_delete
+
+    @property
+    def on_update(self) -> Optional["ReferentialAction"]:
+        """The update action, as the branch records it."""
+        return self.branch.on_update
+
+    @property
+    def match_type(self) -> Optional["ForeignKeyMatchType"]:
+        """The MATCH type, as the branch records it."""
+        return self.branch.match_type
 
 
 class IndexDefinition(BaseExpression):
@@ -593,7 +1176,7 @@ class CreateTableOptions(BaseExpression):
       MySQL/MariaDB/ClickHouse-family dialect convenience (Snowflake renders
       ``COMMENT = '<text>'``, BigQuery ``OPTIONS(description='<text>')``), and
       the standalone ``COMMENT ON`` statement is a separate de-facto vendor
-      mechanism (:class:`CommentOnExpression`), not this clause. Bare comment
+      mechanism (:class:`CommentOnStatement`), not this clause. Bare comment
       text is **not** accepted — build the clause node explicitly; rendering
       is capability-gated by the statement renderer through
       :meth:`supports_table_comment`, which raises ``UnsupportedFeatureError``
@@ -633,7 +1216,7 @@ class CreateTableOptions(BaseExpression):
         self.comment = comment
 
 
-class CreateTableExpression(BaseExpression):
+class CreateTableStatement(BaseExpression):
     """Represents a comprehensive CREATE TABLE statement supporting full SQL standard features."""
 
     def __init__(
@@ -679,11 +1262,11 @@ class CreateTableExpression(BaseExpression):
         return "format_create_table_statement"
 
 
-class CreateTableAsExpression(BaseExpression):
+class CreateTableAsStatement(BaseExpression):
     """Represents ``CREATE TABLE ... AS <query>`` (CTAS).
 
     The table's structure is derived from the result of a query.  Unlike the
-    explicit-schema form (:class:`CreateTableExpression`), the body is a query,
+    explicit-schema form (:class:`CreateTableStatement`), the body is a query,
     not a column list.
 
     Rendering is delegated to the dialect's ``format_create_table_as_statement``.
@@ -700,7 +1283,7 @@ class CreateTableAsExpression(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         table: "Table",
-        as_query: "QueryExpression",
+        as_query: "QueryStatement",
         *,
         columns: Optional[List[ColumnDefinition]] = None,
         temporary: bool = False,
@@ -710,11 +1293,10 @@ class CreateTableAsExpression(BaseExpression):
         no_data: bool = False,
     ):
         super().__init__(dialect)
-        if with_data and no_data:
-            raise ValueError("with_data and no_data are mutually exclusive options")
+        self.require_exclusive_options(with_data, no_data, "with_data", "no_data")
         self.table = table
         if as_query is None:
-            raise ValueError("as_query is required for CreateTableAsExpression")
+            raise ValueError("as_query is required for CreateTableAsStatement")
         self.as_query = as_query
         self.columns = list(columns or [])
         self.temporary = temporary
@@ -729,7 +1311,7 @@ class CreateTableAsExpression(BaseExpression):
         return self.table.name
 
 
-class CreateTableLikeExpression(BaseExpression):
+class CreateTableLikeStatement(BaseExpression):
     """Represents ``CREATE TABLE ... LIKE <source_table>``.
 
     Creates a new empty table copying the *definition* (column attributes,
@@ -741,7 +1323,7 @@ class CreateTableLikeExpression(BaseExpression):
     * BigQuery:        ``CREATE TABLE t LIKE src [OPTIONS (...)]``
     * PostgreSQL:      clause form ``CREATE TABLE t (LIKE src [INCLUDING ...])``
     * ClickHouse:      uses ``AS src`` / ``CLONE AS src`` -- model through
-      :class:`CreateTableAsExpression` / :class:`CreateTableCloneExpression`,
+      :class:`CreateTableAsStatement` / :class:`CreateTableCloneStatement`,
       not this class.
 
     The generic ``format_create_table_like_statement`` raises
@@ -777,14 +1359,17 @@ class CreateTableLikeExpression(BaseExpression):
         return self.table.name
 
 
-class CreateTableCloneMode(Enum):
+class CreateTableCloneMode(str, Enum):
+    #: A member *is* the word it carries; see ``SortDirection.__str__``.
+    __str__ = str.__str__
+
     """Mode of a definition/data copy operation."""
 
     CLONE = "CLONE"
     COPY = "COPY"
 
 
-class CreateTableCloneExpression(BaseExpression):
+class CreateTableCloneStatement(BaseExpression):
     """Represents ``CREATE TABLE ... CLONE/COPY <source_table>``.
 
     Zero-copy (or metadata/data copy) creation from an existing table:
@@ -833,25 +1418,25 @@ class CreateTableCloneExpression(BaseExpression):
         return self.table.name
 
 
-class CreateTableFromTemplateExpression(BaseExpression):
+class CreateTableFromTemplateStatement(BaseExpression):
     """Represents Snowflake ``CREATE TABLE ... USING TEMPLATE <query>``.
 
     Derives the table's column definitions from staged files described by a
     query (typically ``INFER_SCHEMA``).  Dialects that do not support this form
     raise :class:`UnsupportedFeatureError` from
-    ``format_create_table_using_template``.
+    ``format_create_table_from_template_statement``.
     """
 
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_create_table_using_template"
+        return "format_create_table_from_template_statement"
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         table: "Table",
-        template: "QueryExpression",
+        template: "QueryStatement",
         *,
         temporary: bool = False,
         if_not_exists: bool = False,
@@ -859,7 +1444,7 @@ class CreateTableFromTemplateExpression(BaseExpression):
         super().__init__(dialect)
         self.table = table
         if template is None:
-            raise ValueError("template is required for CreateTableFromTemplateExpression")
+            raise ValueError("template is required for CreateTableFromTemplateStatement")
         self.template = template
         self.temporary = temporary
         self.if_not_exists = if_not_exists
@@ -870,7 +1455,7 @@ class CreateTableFromTemplateExpression(BaseExpression):
         return self.table.name
 
 
-class DropTableExpression(BaseExpression):
+class DropTableStatement(BaseExpression):
     """Represents a DROP TABLE statement conforming to SQL standard.
 
     SQL Standard Syntax:
@@ -913,23 +1498,23 @@ class DropTableExpression(BaseExpression):
 
     Examples:
         # Simple drop
-        DropTableExpression(dialect, Table(dialect, "users"))
+        DropTableStatement(dialect, Table(dialect, "users"))
         # -> DROP TABLE users
 
         # With IF EXISTS
-        DropTableExpression(dialect, "users", if_exists=True)
+        DropTableStatement(dialect, "users", if_exists=True)
         # -> DROP TABLE IF EXISTS users  (on dialects supporting IF EXISTS)
 
         # With CASCADE (PostgreSQL / MySQL / MariaDB)
-        DropTableExpression(dialect, "users", cascade=True)
+        DropTableStatement(dialect, "users", cascade=True)
         # -> DROP TABLE users CASCADE
 
         # With CASCADE on Oracle (dialect renders its own form)
-        DropTableExpression(oracle_dialect, "users", cascade=True, purge=True)
+        DropTableStatement(oracle_dialect, "users", cascade=True, purge=True)
         # -> DROP TABLE users CASCADE CONSTRAINTS PURGE
 
         # With schema-qualified table
-        DropTableExpression(dialect, Table(dialect, "users", schema_name="public"))
+        DropTableStatement(dialect, Table(dialect, "users", schema_name="public"))
         # -> DROP TABLE public.users
     """
     
@@ -948,8 +1533,7 @@ class DropTableExpression(BaseExpression):
         purge: bool = False,
     ):
         super().__init__(dialect)
-        if cascade and restrict:
-            raise ValueError("cascade and restrict are mutually exclusive options")
+        self.require_exclusive_options(cascade, restrict, "cascade", "restrict")
         self.table = table
         self.if_exists = if_exists
         self.cascade = cascade
@@ -963,7 +1547,11 @@ class StorageOptionsExpression(BaseExpression):
     Holds a mapping of option names to values.  The dialect formatter renders
     each pair as ``key = <value>`` where the value is inlined via
     ``inline_sql_literal``.
+
+    Storage options are a DDL position, so the class declares
+    the literals are marked inline: values render inline only.
     """
+
 
     def __init__(
         self,
@@ -974,10 +1562,10 @@ class StorageOptionsExpression(BaseExpression):
         self.options = options
 
     def to_sql(self) -> SQLQueryAndParams:
-        """Delegate to the dialect's ``format_storage_options``."""
-        return self.dialect.format_storage_options(self)
+        """Delegate to the dialect's ``format_storage_options_expression``."""
+        return self.dialect.format_storage_options_expression(self)
 
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_storage_options"
+        return "format_storage_options_expression"

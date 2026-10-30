@@ -22,10 +22,10 @@ if TYPE_CHECKING:  # pragma: no cover
         ColumnsClause,
         TablePropertiesClause,
         VertexTable,
-        EdgeTable,
-        CreatePropertyGraphExpression,
-        DropPropertyGraphExpression,
-        AlterPropertyGraphExpression,
+        EdgeTableDefinition,
+        CreatePropertyGraphStatement,
+        DropPropertyGraphStatement,
+        AlterPropertyGraphStatement,
     )
 
 
@@ -502,15 +502,18 @@ class GraphTableMixin:
         if vt.alias:
             parts.append(f"AS {self.format_identifier(vt.alias)}")
 
+        # KEY before LABEL: that is the order the grammar wants, and the
+        # other order is a parse error rather than a wrong answer --
+        # "missing right parenthesis", with the statement rejected whole.
+        if vt.key_columns:
+            keys = ", ".join(self.format_identifier(k) for k in vt.key_columns)
+            parts.append(f"KEY ({keys})")
+
         if vt.labels:
             labels = " ".join(
                 f"LABEL {self.format_identifier(label)}" for label in vt.labels
             )
             parts.append(labels)
-
-        if vt.key_columns:
-            keys = ", ".join(self.format_identifier(k) for k in vt.key_columns)
-            parts.append(f"KEY ({keys})")
 
         if vt.properties is not None:
             sql, _ = vt.properties.to_sql()
@@ -519,11 +522,11 @@ class GraphTableMixin:
         sql = " ".join(parts)
         return sql, ()
 
-    def format_edge_table(self, et: "EdgeTable") -> Tuple[str, tuple]:
+    def format_edge_table_definition(self, et: "EdgeTableDefinition") -> Tuple[str, tuple]:
         """Format an edge table definition for CREATE PROPERTY GRAPH.
 
         Args:
-            et: EdgeTable object exposing table, optional alias, key columns,
+            et: EdgeTableDefinition object exposing table, optional alias, key columns,
                 source/destination keys (with optional references), labels and
                 properties.
 
@@ -531,14 +534,14 @@ class GraphTableMixin:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
-            TypeError: ``EdgeTable.table`` is not an EdgeTableObject. Another object
+            TypeError: ``EdgeTableDefinition.table`` is not an EdgeTableObject. Another object
             kind would have had its own name rendered as the edge table's.
             UnsupportedFeatureError: If the dialect does not support property
                 graph tables.
         """
         if not isinstance(et.table, EdgeTableObject):
             raise TypeError(
-                f"EdgeTable.table must be an EdgeTableObject, "
+                f"EdgeTableDefinition.table must be an EdgeTableObject, "
                 f"got {type(et.table).__name__}"
             )
         if not self.supports_graph_table():
@@ -583,18 +586,18 @@ class GraphTableMixin:
         sql = " ".join(parts)
         return sql, ()
 
-    def format_create_property_graph_statement(self, expr: "CreatePropertyGraphExpression") -> Tuple[str, tuple]:
+    def format_create_property_graph_statement(self, expr: "CreatePropertyGraphStatement") -> Tuple[str, tuple]:
         """Format a CREATE PROPERTY GRAPH DDL statement.
 
         Args:
-            expr: CreatePropertyGraphExpression exposing graph name,
+            expr: CreatePropertyGraphStatement exposing graph name,
                 ``if_not_exists``, vertex tables and edge tables.
 
         Returns:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
-            TypeError: ``CreatePropertyGraphExpression.graph`` is not a
+            TypeError: ``CreatePropertyGraphStatement.graph`` is not a
             PropertyGraph. Another object kind would have had its own name rendered
             as the graph's.
             UnsupportedFeatureError: If the dialect does not support property
@@ -602,7 +605,7 @@ class GraphTableMixin:
         """
         if not isinstance(expr.graph, PropertyGraph):
             raise TypeError(
-                f"CreatePropertyGraphExpression.graph must be a PropertyGraph, "
+                f"CreatePropertyGraphStatement.graph must be a PropertyGraph, "
                 f"got {type(expr.graph).__name__}"
             )
         if not self.supports_graph_table():
@@ -629,25 +632,25 @@ class GraphTableMixin:
 
         return " ".join(parts), ()
 
-    def format_drop_property_graph_statement(self, expr: "DropPropertyGraphExpression") -> Tuple[str, tuple]:
+    def format_drop_property_graph_statement(self, expr: "DropPropertyGraphStatement") -> Tuple[str, tuple]:
         """Format a DROP PROPERTY GRAPH DDL statement.
 
         Args:
-            expr: DropPropertyGraphExpression exposing graph name,
+            expr: DropPropertyGraphStatement exposing graph name,
                 ``if_exists`` and ``cascade``.
 
         Returns:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
-            TypeError: ``DropPropertyGraphExpression.graph`` is not a PropertyGraph.
+            TypeError: ``DropPropertyGraphStatement.graph`` is not a PropertyGraph.
             Another object kind would have had its own name rendered as the graph's.
             UnsupportedFeatureError: If the dialect does not support property
                 graph tables.
         """
         if not isinstance(expr.graph, PropertyGraph):
             raise TypeError(
-                f"DropPropertyGraphExpression.graph must be a PropertyGraph, "
+                f"DropPropertyGraphStatement.graph must be a PropertyGraph, "
                 f"got {type(expr.graph).__name__}"
             )
         if not self.supports_graph_table():
@@ -679,18 +682,18 @@ class GraphTableMixin:
                 return normalized
         raise ValueError(f"Invalid ALTER PROPERTY GRAPH {label}: {value!r}")
 
-    def format_alter_property_graph_statement(self, expr: "AlterPropertyGraphExpression") -> Tuple[str, tuple]:
+    def format_alter_property_graph_statement(self, expr: "AlterPropertyGraphStatement") -> Tuple[str, tuple]:
         """Format an ALTER PROPERTY GRAPH DDL statement.
 
         Args:
-            expr: AlterPropertyGraphExpression exposing graph name, action,
+            expr: AlterPropertyGraphStatement exposing graph name, action,
                 target, vertex tables and edge tables.
 
         Returns:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
-            TypeError: ``AlterPropertyGraphExpression.graph`` is not a
+            TypeError: ``AlterPropertyGraphStatement.graph`` is not a
             PropertyGraph. Another object kind would have had its own name rendered
             as the graph's.
             UnsupportedFeatureError: If the dialect does not support property
@@ -698,18 +701,18 @@ class GraphTableMixin:
         """
         if not isinstance(expr.graph, PropertyGraph):
             raise TypeError(
-                f"AlterPropertyGraphExpression.graph must be a PropertyGraph, "
+                f"AlterPropertyGraphStatement.graph must be a PropertyGraph, "
                 f"got {type(expr.graph).__name__}"
             )
         if not self.supports_graph_table():
             raise UnsupportedFeatureError(self.name, "ALTER PROPERTY GRAPH")
 
-        from ...expression.graph import AlterPropertyGraphExpression, EdgeTable, VertexTable
+        from ...expression.graph import AlterPropertyGraphStatement, EdgeTableDefinition, VertexTable
 
-        if not isinstance(expr, AlterPropertyGraphExpression):
+        if not isinstance(expr, AlterPropertyGraphStatement):
             raise TypeError(
                 "ALTER PROPERTY GRAPH expression must be an "
-                "AlterPropertyGraphExpression"
+                "AlterPropertyGraphStatement"
             )
         action = self._normalize_alter_keyword(expr.action, self._ALTER_ACTIONS, "action")
         target = self._normalize_alter_keyword(expr.target, self._ALTER_TARGETS, "target")
@@ -726,8 +729,8 @@ class GraphTableMixin:
             raise ValueError("EDGE TABLES cannot contain vertex tables")
         if any(not isinstance(table, VertexTable) for table in vertex_tables):
             raise TypeError("ALTER PROPERTY GRAPH vertex tables must be VertexTable instances")
-        if any(not isinstance(table, EdgeTable) for table in edge_tables):
-            raise TypeError("ALTER PROPERTY GRAPH edge tables must be EdgeTable instances")
+        if any(not isinstance(table, EdgeTableDefinition) for table in edge_tables):
+            raise TypeError("ALTER PROPERTY GRAPH edge tables must be EdgeTableDefinition instances")
 
         parts = [
             "ALTER PROPERTY GRAPH",

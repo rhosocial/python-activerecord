@@ -1,3 +1,19 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefaultConstraint,
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.expression.types import IntegerType, RealType, TextType
+from rhosocial.activerecord.backend.expression import (
+    CreateTableStatement,
+    DropTableStatement,
+    CreateIndexStatement,
+    ColumnDefinition,
+    ColumnConstraint,
+    AlterTableStatement,
+    AddColumnAction,
+)
 # src/rhosocial/activerecord/backend/impl/sqlite/examples/named_expressions/order_ddl.py
 """
 DDL named expression examples — CREATE / ALTER / DROP.
@@ -6,18 +22,7 @@ Each function takes 'dialect' as first parameter and returns
 a BaseExpression that implements Executable.
 """
 
-from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression,
-    DropTableExpression,
-    CreateIndexExpression,
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
-    AlterTableExpression,
-    AddColumn,
-)
-from rhosocial.activerecord.backend.expression.types import IntegerType, RealType, TextType
-from .....expression.objects import Table
+
 
 
 def _pk_column(name: str):
@@ -26,7 +31,7 @@ def _pk_column(name: str):
         name=name,
         data_type=IntegerType(),
         constraints=[
-            ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY),
+            ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect)),
         ],
     )
 
@@ -35,10 +40,10 @@ def _integer_column(name: str, default: int = None, not_null: bool = False):
     """Integer column definition with optional DEFAULT / NOT NULL."""
     constraints = []
     if not_null:
-        constraints.append(ColumnConstraint(dialect, constraint_type=ColumnConstraintType.NOT_NULL))
+        constraints.append(ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)))
     if default is not None:
         constraints.append(
-            ColumnConstraint(dialect, constraint_type=ColumnConstraintType.DEFAULT, default_value=default)
+            ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, default))
         )
     return ColumnDefinition(dialect, name=name, data_type=IntegerType(), constraints=constraints)
 
@@ -47,10 +52,10 @@ def _text_column(name: str, default: str = None, not_null: bool = False):
     """Text column definition with optional DEFAULT / NOT NULL."""
     constraints = []
     if not_null:
-        constraints.append(ColumnConstraint(dialect, constraint_type=ColumnConstraintType.NOT_NULL))
+        constraints.append(ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)))
     if default is not None:
         constraints.append(
-            ColumnConstraint(dialect, constraint_type=ColumnConstraintType.DEFAULT, default_value=default)
+            ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, default))
         )
     return ColumnDefinition(dialect, name=name, data_type=TextType(), constraints=constraints)
 
@@ -60,7 +65,7 @@ def _real_column(name: str, default: float = None):
     constraints = []
     if default is not None:
         constraints.append(
-            ColumnConstraint(dialect, constraint_type=ColumnConstraintType.DEFAULT, default_value=default)
+            ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, default))
         )
     return ColumnDefinition(dialect, name=name, data_type=RealType(), constraints=constraints)
 
@@ -72,9 +77,9 @@ def create_orders_table(dialect):
         dialect: SQL dialect instance.
 
     Returns:
-        CreateTableExpression.
+        CreateTableStatement.
     """
-    return CreateTableExpression(
+    return CreateTableStatement(
         dialect,
         table=Table(dialect, 'orders'),
         columns=[
@@ -95,9 +100,9 @@ def create_inventory_table(dialect):
         dialect: SQL dialect instance.
 
     Returns:
-        CreateTableExpression.
+        CreateTableStatement.
     """
-    return CreateTableExpression(
+    return CreateTableStatement(
         dialect,
         table=Table(dialect, 'inventory'),
         columns=[
@@ -116,13 +121,13 @@ def add_amount_column(dialect):
         dialect: SQL dialect instance.
 
     Returns:
-        AlterTableExpression.
+        AlterTableStatement.
     """
-    return AlterTableExpression(
+    return AlterTableStatement(
         dialect,
         table_name="orders",
         actions=[
-            AddColumn(
+            AddColumnAction(
                 dialect,
                 column=_real_column("amount", default=0.0),
             ),
@@ -137,9 +142,9 @@ def add_orders_status_index(dialect):
         dialect: SQL dialect instance.
 
     Returns:
-        CreateIndexExpression.
+        CreateIndexStatement.
     """
-    return CreateIndexExpression(
+    return CreateIndexStatement(
         dialect,
         index_name="idx_orders_status",
         table_name="orders",
@@ -155,9 +160,9 @@ def drop_old_orders_table(dialect):
         dialect: SQL dialect instance.
 
     Returns:
-        DropTableExpression.
+        DropTableStatement.
     """
-    return DropTableExpression(
+    return DropTableStatement(
         dialect,
         table=Table(dialect, 'temp_orders'),
         if_exists=True,

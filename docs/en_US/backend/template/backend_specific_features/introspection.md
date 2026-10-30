@@ -203,8 +203,8 @@ python -m rhosocial.activerecord.backend.impl.{backend}.cli introspect tables
 python -m rhosocial.activerecord.backend.impl.{backend}.cli introspect columns users
 
 # Output formats
-python -m rhosocial.activerecord.backend.impl.{backend}.cli introspect tables --format json
-python -m rhosocial.activerecord.backend.impl.{backend}.cli introspect tables --format csv
+python -m rhosocial.activerecord.backend.impl.{backend}.cli introspect tables -o json
+python -m rhosocial.activerecord.backend.impl.{backend}.cli introspect tables -o csv
 ```
 
 ## See Also

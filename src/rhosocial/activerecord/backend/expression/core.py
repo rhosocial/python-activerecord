@@ -3,55 +3,59 @@
 Core SQL expression components like columns, literals, function calls, and subqueries.
 """
 
-import copy
 from typing import Any, Optional, Tuple, TYPE_CHECKING, Union
 
-from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValueExpression, is_sql_query_and_params
+from .bases import BaseExpression, QueryWithParams, SQLPredicate, SQLQueryAndParams, SQLValue
 from .column_types import ColumnBase
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
     BooleanLogicMixin,
     ComparisonMixin,
-    ArrayMixin,
-    DateTimeMixin,
-    StringToIntegerMixin,
-    JSONAccessorMixin,
     NotANumberMixin,
-    NotComparableMixin,
-    NullTestMixin,
-    NumericValueMixin,
     ResultTypeMixin,
     StringPatternPredicateMixin,
-    StringValueMixin,
-    TemporalArithmeticMixin,
-    TranscendentalMixin,
     TypeCastingMixin,
-    WrappedCallMixin,
 )
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
+    from .sources import NamedRelationRef  # pragma: no cover
     from ..dialect import SQLDialectBase
     from .advanced_functions import WindowSpecification
     from .types._base import DataType
 
 
-class Literal(
-    AliasableMixin,
-    ArithmeticMixin,
-    ComparisonMixin,
-    StringPatternPredicateMixin,
-    TypeCastingMixin,
-    SQLValueExpression,
-):
-    """Represents a literal value in a SQL query.
+class Literal(BaseExpression):
+    """A literal, and nothing but the decision of how it reaches SQL.
 
-    ``inline_literals`` (a construction-time, factory choice made through the
-    ``ToSQLProtocol`` contract) decides how this literal renders: when
-    ``True`` the value is spliced into the SQL text via
-    ``dialect.format_literal`` (no bind parameter); when ``False`` (the safe
-    default) it renders as a bind parameter. Rendering is a pure read of
-    this already-collected state.
+    Every value that reaches SQL passes through this class, so that the question
+    "does this value become a bind parameter or SQL text?" has exactly one place
+    that answers it. Nothing else in the tree has to know: a formatter calls
+    ``child.to_sql()`` and gets ``(sql, params)`` back, whether the child was a
+    function call or a value.
+
+    :attr:`inline` is that answer, and it is per **position** rather than per
+    class. A node whose values all take the same treatment never needs it — the
+    default, ``False``, binds, which is what every DQL/DML data position wants.
+    A DDL syntax position that accepts no bind parameters at all passes
+    ``inline=True`` and gets escaped SQL text instead. Where one node holds
+    several values and only some of them are exempt from binding, this is the
+    only way to say so.
+
+    What the class deliberately does **not** claim is what kind of value this
+    is. It is not a :class:`~...bases.SQLValue`: that category says "this
+    expression yields a value of some type", and a bare position does not know
+    its type — ``NULLIF(a, b)`` is text or a number depending on the data. The
+    earlier version of this class inherited the comparison, arithmetic and
+    string-pattern mixins, which let ``Literal(d, 7).like()`` compile and
+    promised SQL the database would reject. The result's type is declared
+    elsewhere, by :meth:`~...mixins.ResultTypeMixin.as_text` and its siblings.
+
+    Nor is a literal aliasable. A bind parameter has no name to give — the
+    parameter the driver fills in is the driver's, not the query's — and a name
+    on SQL text would be naming text rather than a result. Aliasing belongs to
+    the things that produce a named result, which is what
+    :class:`~...bases.SQLValue` is for.
     """
 
     @property
@@ -64,16 +68,28 @@ class Literal(
         dialect: "SQLDialectBase",
         value: Any,
         *,
-        alias: Optional[str] = None,
-        inline_literals: bool = False,
+        inline: bool = False,
     ):
         super().__init__(dialect)
+        from .values import LiteralKind
+
+        # Which value kind this is, read off the host value. It is the artifact
+        # identity, and it cannot be derived from the class: one class carries
+        # every value, while the wire still names the twelve kinds separately --
+        # ``"2020-01-02"`` as a date and as a string are the same bytes, and
+        # only the kind tells them apart.
+        #
+        # ``None`` for a type no kind names -- a ``Point``, an ``inet``, any
+        # ``SQLLiteral`` implementor. The literal still renders through the
+        # dialect's own literal construction; what it cannot do is travel, and
+        # serialization is where that is said.
+        self.value_kind = LiteralKind.match(value)
         self.value = value
-        self.alias = alias
-        self.inline_literals = inline_literals
+        self.inline = inline
 
     def __repr__(self) -> str:
-        return f"Literal({self.value!r}, inline_literals={self.inline_literals!r})"
+        where = "" if not self.inline else ", inline"
+        return f"Literal({self.value!r}{where})"
 
 
 class Column(ColumnBase):
@@ -118,547 +134,42 @@ class Column(ColumnBase):
         return "format_column"
 
 
-class TemporalValueExpression(
-    WrappedCallMixin,
-    AliasableMixin,
-    ComparisonMixin,
-    DateTimeMixin,
-    TemporalArithmeticMixin,
-    TypeCastingMixin,
-    SQLValueExpression,
-):
-    """Shared base for the four temporal value types.
-
-    A date, a time, a timestamp and an interval offer the same operations --
-    ``date_add``, ``date_sub``, ``date_diff``, ``date_part``, ``extract`` -- and
-    none of them supports ``upper``, so the operations live here and the
-    subclasses say only which kind of temporal value they are. The arithmetic
-    they share is interval-based (:class:`TemporalArithmeticMixin`): a point in
-    time moves by an interval, two points subtract to an interval, and a plain
-    number never enters.
-
-    They are four classes rather than one because they are four types. A
-    timestamp added to an interval is a timestamp; a span minus a span is a
-    span; and a year cannot be extracted from a span the way it is from a
-    point in time. With one class and a label those differences would have had
-    to be spelled as data, and the operations a caller could reach would be the
-    union of four unrelated ones.
-
-    Subclasses exist so that ``current_date()`` and ``current_timestamp()``
-    arrive already typed. Neither carries ``StringPatternPredicateMixin``:
-    a temporal value is not text.
-    """
-
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        call: "FunctionCall",
-    ):
-        super().__init__(dialect)
-        self.call = call
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_function_call"
-
-    def to_sql(self):
-        """Render the wrapped function call.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
-        alias = self.__dict__.get("alias")
-        if alias and getattr(self.call, "alias", None) != alias:
-            call = copy.copy(self.call)
-            call.alias = alias
-            return call.to_sql()
-        return self.call.to_sql()
-
-
-class DateValueExpression(TemporalValueExpression):
-    """A date with no time component. ``CURRENT_DATE`` answers with one."""
-
-
-class TimeValueExpression(TemporalValueExpression):
-    """A time of day. ``CURRENT_TIME`` answers with one."""
-
-
-class TimestampValueExpression(TemporalValueExpression):
-    """A date and a time together. ``NOW()`` and ``CURRENT_TIMESTAMP`` answer
-    with one, and adding an interval to it gives another."""
-
-
-class IntervalValueExpression(TemporalValueExpression):
-    """A span of time rather than a point in it.
-
-    An interval is not a timestamp, which is why it is its own type here and
-    not a ``date_add`` argument that happens to be special. Its arithmetic is
-    the span's own: :class:`TemporalArithmeticMixin` adds and subtracts spans
-    into spans and scales one by a number, while a temporal value moves by a
-    span and two temporal values subtract into one.
-    """
-
-
-class JSONValueExpression(
-    WrappedCallMixin,
-    AliasableMixin,
-    ComparisonMixin,
-    JSONAccessorMixin,
-    TypeCastingMixin,
-    SQLValueExpression,
-):
-    """A JSON document that is not a column reference.
-
-    The result of json_build_object, json_array_elements and the aggregate that
-    assembles documents. Carries the JSON accessors, so a built document can
-    be walked the same way a column can — json_path is scalar and terminal,
-    json_value keeps a document to chain on."""
-
-
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        call: "FunctionCall",
-   ):
-        super().__init__(dialect)
-        self.call = call
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_function_call"
-
-    def to_sql(self):
-        """Render the wrapped function call.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
-        alias = self.__dict__.get("alias")
-        if alias and getattr(self.call, "alias", None) != alias:
-            call = copy.copy(self.call)
-            call.alias = alias
-            return call.to_sql()
-        return self.call.to_sql()
-
-
-class ArrayValueExpression(
-    WrappedCallMixin,
-    AliasableMixin,
-    ComparisonMixin,
-    ArrayMixin,
-    TypeCastingMixin,
-    NotANumberMixin,
-    SQLValueExpression,
-):
-    """A sequence that is not a column reference.
-
-    The result of unnest and of the aggregate that collects into one. Carries
-    the array operations, so a collected sequence can be measured or expanded
-    the same way a column can."""
-
-
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        call: "FunctionCall",
-   ):
-        super().__init__(dialect)
-        self.call = call
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_function_call"
-
-    def to_sql(self):
-        """Render the wrapped function call.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
-        alias = self.__dict__.get("alias")
-        if alias and getattr(self.call, "alias", None) != alias:
-            call = copy.copy(self.call)
-            call.alias = alias
-            return call.to_sql()
-        return self.call.to_sql()
-
-
-class BooleanValueExpression(
-    WrappedCallMixin,
+class LogicalValue(
     AliasableMixin,
     ComparisonMixin,
     BooleanLogicMixin,
     TypeCastingMixin,
     NotANumberMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
-    """A true/false value that is not a column reference.
+    """A boolean value expression used in SELECT lists.
 
-    A boolean is a value, not a predicate, so it can be aliased, projected and
-    compared. Its connectives keep the value type
-    (:class:`BooleanLogicExpression`), so ``(a & b)`` is still selectable;
-    its comparisons yield predicates."""
-
-
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        call: "FunctionCall",
-   ):
-        super().__init__(dialect)
-        self.call = call
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_function_call"
-
-    def to_sql(self):
-        """Render the wrapped function call.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
-        alias = self.__dict__.get("alias")
-        if alias and getattr(self.call, "alias", None) != alias:
-            call = copy.copy(self.call)
-            call.alias = alias
-            return call.to_sql()
-        return self.call.to_sql()
-
-
-class BooleanLogicExpression(
-    AliasableMixin,
-    ComparisonMixin,
-    BooleanLogicMixin,
-    TypeCastingMixin,
-    NotANumberMixin,
-    SQLValueExpression,
-):
-    """``a AND b`` / ``a OR b`` / ``NOT a`` as a boolean **value**.
+    Renders TRUE/FALSE or boolean logic (AND/OR/NOT) as a **value** that can
+    appear in a SELECT column list. Not a predicate — does not belong in
+    WHERE/HAVING clauses.
 
     A predicate and this expression render the same SQL; what differs is what
     the caller may do with the result. Combining predicates stays a predicate
     -- that is how ``WHERE`` clauses are built -- while a truth value keeps
     its value type: ``(a & b)`` can be aliased into a ``SELECT`` list,
     compared, cast, and combined further. The class carries the same ``op``
-    and ``predicates`` shape
+    and ``operands`` shape
     :class:`~...predicates.LogicalPredicate` does, so both go through the one
     dialect entry point (``format_logical_predicate``).
     """
 
-    def __init__(self, dialect: Any, op: str, *predicates: Any):
+    def __init__(self, dialect: Any, op: str, *operands: Any):
         super().__init__(dialect)
         self.op = op
         # The names are the renderer's: the dialect formatter reads ``op`` and
-        # ``predicates`` whatever class carried them in, and the expression
+        # ``operands`` whatever class carried them in, and the expression
         # contract stores every ``__init__`` parameter under its own name.
-        self.predicates = list(predicates)
+        self.operands = list(operands)
 
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
         return "format_logical_predicate"
-
-
-class BinaryValueExpression(
-    WrappedCallMixin,
-    AliasableMixin,
-    ComparisonMixin,
-    TypeCastingMixin,
-    NotANumberMixin,
-    SQLValueExpression,
-):
-    """Raw bytes that are not a column reference.
-
-    There is no byte operation to offer, so this carries comparisons and
-    casting. It exists so a function that returns bytes says so instead of being
-    unknown."""
-
-
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        call: "FunctionCall",
-   ):
-        super().__init__(dialect)
-        self.call = call
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_function_call"
-
-    def to_sql(self):
-        """Render the wrapped function call.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
-        alias = self.__dict__.get("alias")
-        if alias and getattr(self.call, "alias", None) != alias:
-            call = copy.copy(self.call)
-            call.alias = alias
-            return call.to_sql()
-        return self.call.to_sql()
-
-
-class XMLValueExpression(
-    WrappedCallMixin,
-    AliasableMixin,
-    NotComparableMixin,
-    NullTestMixin,
-    TypeCastingMixin,
-    NotANumberMixin,
-    SQLValueExpression,
-):
-    """An XML document that is not a column reference.
-
-    Returned by the SQL/XML constructors, by the XML access operations, and by
-    a cast to :class:`~...types.XmlType`. Same wrapper shape as
-    :class:`BinaryValueExpression` -- it holds the call it was built from and
-    forwards its alias -- with one difference: an XML value cannot be compared.
-
-    That is the whole surface of XML on the backends that have it. PostgreSQL
-    refuses ``xml = xml`` ("operator does not exist: xml = xml") along with
-    ordering and ``IN``; SQL Server documents that "the xml data type cannot
-    be compared or sorted"; Oracle's ``XMLType`` has no comparison operators
-    either. What they all accept is ``IS NULL``, which is why the null tests
-    :class:`NullTestMixin` provides stay while :class:`NotComparableMixin`
-    refuses the rest. Casting stays too: the way to ask a question of an XML
-    value is to cast it or to use a SQL/XML function, not to compare it.
-    """
-
-
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        call: "FunctionCall",
-   ):
-        super().__init__(dialect)
-        self.call = call
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_function_call"
-
-    def to_sql(self):
-        """Render the wrapped function call.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
-        alias = self.__dict__.get("alias")
-        if alias and getattr(self.call, "alias", None) != alias:
-            call = copy.copy(self.call)
-            call.alias = alias
-            return call.to_sql()
-        return self.call.to_sql()
-
-
-class UUIDValueExpression(
-    WrappedCallMixin,
-    AliasableMixin,
-    ComparisonMixin,
-    TypeCastingMixin,
-    NotANumberMixin,
-    SQLValueExpression,
-):
-    """A UUID that is not a column reference.
-
-    Same shape as the binary wrapper: comparisons and casting, and nothing to
-    extend with. A backend that cannot generate one raises at the factory rather
-    than returning an untyped node."""
-
-
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        call: "FunctionCall",
-   ):
-        super().__init__(dialect)
-        self.call = call
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_function_call"
-
-    def to_sql(self):
-        """Render the wrapped function call.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
-        alias = self.__dict__.get("alias")
-        if alias and getattr(self.call, "alias", None) != alias:
-            call = copy.copy(self.call)
-            call.alias = alias
-            return call.to_sql()
-        return self.call.to_sql()
-
-
-class NumericValueExpression(
-    WrappedCallMixin,
-    AliasableMixin,
-    ArithmeticMixin,
-    ComparisonMixin,
-    NumericValueMixin,
-    TranscendentalMixin,
-    TypeCastingMixin,
-    SQLValueExpression,
-):
-    """A fractional-valued expression that is not a column reference.
-
-    The result of ``sqrt``, ``log``, ``abs`` on a fractional operand, ``avg``,
-    ``percent_rank`` and the other math functions. Carries arithmetic, so
-    numeric expressions compose, and comparisons, which every value can do.
-    Not the pattern predicates: ``LIKE`` is text matching, and a fraction is not
-    text, so ``sqrt(x).like('1%')`` fails here rather than at the database.
-
-    ``ceil``, ``floor`` and ``truncate`` do *not* land here when the operand is
-    integral — a whole number rounded to a whole number is an integer, and
-    saying otherwise would offer ``bit_length`` on the result of ``ceil``.
-    """
-
-
-    def __init__(self, dialect: "SQLDialectBase", call: "FunctionCall"):
-        super().__init__(dialect)
-        self.call = call
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_function_call"
-
-    def to_sql(self):
-        """Render the wrapped function call.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
-        # as_() sets the alias on this wrapper, but the rendering happens in
-        # the wrapped call, which has its own alias and knows nothing about
-        # this one. Handing the alias down is what keeps `length().as_("n")`
-        # from silently rendering as a bare LENGTH(x).
-        alias = self.__dict__.get("alias")
-        if alias and getattr(self.call, "alias", None) != alias:
-            call = copy.copy(self.call)
-            call.alias = alias
-            return call.to_sql()
-        return self.call.to_sql()
-
-class IntegerValueExpression(
-    WrappedCallMixin,
-    AliasableMixin,
-    ArithmeticMixin,
-    ComparisonMixin,
-    NumericValueMixin,
-    TranscendentalMixin,
-    TypeCastingMixin,
-    SQLValueExpression,
-):
-
-    """An integer-valued expression that is not a column reference.
-
-    Returned by the string operations whose result is a number — ``length``,
-    ``ascii``, ``strpos``, ``position``, ``octet_length``, ``bit_length`` — so
-    that ``col.length() > 5`` reads naturally and ``col.length().upper()``
-    fails, which it should: there is no such thing as an upper-cased length.
-
-    It carries :class:`ArithmeticMixin`, so integer arithmetic is available
-    and stays an integer. It carries comparisons, which every value can do, and
-    not the pattern predicates: ``LIKE`` is text matching, and a whole number is
-    not text. That absence is the point of the class — ``length().like("1%")``
-    has to fail at the call, naming the operation, rather than be accepted here
-    and rejected by the server minutes later.
-    """
-
-    def __init__(self, dialect: "SQLDialectBase", call: "FunctionCall"):
-        super().__init__(dialect)
-        self.call = call
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_function_call"
-
-    def to_sql(self):
-        """Render the wrapped function call.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
-        # as_() sets the alias on this wrapper, but the rendering happens in
-        # the wrapped call, which has its own alias and knows nothing about
-        # this one. Handing the alias down is what keeps `length().as_("n")`
-        # from silently rendering as a bare LENGTH(x).
-        alias = self.__dict__.get("alias")
-        if alias and getattr(self.call, "alias", None) != alias:
-            call = copy.copy(self.call)
-            call.alias = alias
-            return call.to_sql()
-        return self.call.to_sql()
-
-class StringValueExpression(
-    WrappedCallMixin,
-    AliasableMixin,
-    ComparisonMixin,
-    StringToIntegerMixin,
-    StringPatternPredicateMixin,
-    StringValueMixin,
-    TypeCastingMixin,
-    NotANumberMixin,
-    SQLValueExpression,
-):
-
-    """A string-valued expression that is not a column reference.
-
-    This is what makes the string value operations chain. ``col.upper()``
-    returns one of these rather than a bare ``FunctionCall``, so the next
-    operation in the chain is available: ``col.upper().substr(0, 3)`` is
-    ``SUBSTRING(UPPER("name"), 1, 3)`` and the result is still a string.
-
-    It is deliberately **not** a :class:`StringColumn`. A column names a field
-    and ``format_column`` reads ``name`` / ``table`` / ``schema_name``; a
-    derived value has none of those, so claiming to be a column would be a lie
-    about the object. What it shares with a string column is the *value type*,
-    which is what decides which operations are offered.
-
-    The class mirrors :class:`~...expression.advanced_functions.JSONDocumentExpression`,
-    which plays the same role for the JSON family.
-    """
-
-    def __init__(self, dialect: "SQLDialectBase", call: "FunctionCall"):
-        super().__init__(dialect)
-        self.call = call
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_function_call"
-
-    def to_sql(self):
-        """Render the wrapped function call.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
-        # as_() sets the alias on this wrapper, but the rendering happens in
-        # the wrapped call, which has its own alias and knows nothing about
-        # this one. Handing the alias down is what keeps `length().as_("n")`
-        # from silently rendering as a bare LENGTH(x).
-        alias = self.__dict__.get("alias")
-        if alias and getattr(self.call, "alias", None) != alias:
-            call = copy.copy(self.call)
-            call.alias = alias
-            return call.to_sql()
-        return self.call.to_sql()
-
 class FunctionCall(
     AliasableMixin,
     ArithmeticMixin,
@@ -666,7 +177,7 @@ class FunctionCall(
     StringPatternPredicateMixin,
     TypeCastingMixin,
     ResultTypeMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """Represents a SQL function call, scalar or aggregate, such as LOWER, CONCAT, COUNT, SUM.
 
@@ -763,9 +274,17 @@ class CastExpression(
     ComparisonMixin,
     StringPatternPredicateMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """Represents a SQL type cast as a proper AST node.
+
+    The ``Expression`` suffix is not a fallback spelling: it transcribes the
+    standard production this node stands for -- ISO/IEC 9075-2
+    ``<cast specification>``. Per spec §4.9 (the "scalar expression special
+    forms" row) a CAST is a scalar-expression production rather than a routine
+    invocation, so it is neither a ``*Function`` nor a ``*Clause``; the name is
+    kept verbatim from the standard and the ``*Expression`` suffix is the
+    retired spelling's single exemption class.
 
     ``CAST(expression AS target_type)`` is a **unary tree node**: its single
     child is the wrapped expression and ``target_type`` is a construction
@@ -789,7 +308,7 @@ class CastExpression(
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        expression: "SQLValueExpression",
+        expression: "SQLValue",
         target_type: "DataType",
         *,
         alias: Optional[str] = None,
@@ -818,7 +337,7 @@ class CastExpression(
         return f"CastExpression({self.expression!r} AS {self.target_type!r})"
 
 
-class Subquery(AliasableMixin, ArithmeticMixin, ComparisonMixin, TypeCastingMixin, SQLValueExpression):
+class Subquery(AliasableMixin, ArithmeticMixin, ComparisonMixin, TypeCastingMixin, SQLValue):
     """Represents a subquery in a SQL expression."""
 
     @property
@@ -849,7 +368,7 @@ class Subquery(AliasableMixin, ArithmeticMixin, ComparisonMixin, TypeCastingMixi
                 # If input is a string, use it directly with empty params
                 self.query_input = query
                 self.query_params = ()
-            elif is_sql_query_and_params(query):
+            elif QueryWithParams.holds(query):
                 # If input is a SQLQueryAndParams (str, tuple), extract SQL and params
                 sql_str, params = query
                 # If params is None, use an empty tuple
@@ -869,7 +388,7 @@ class Subquery(AliasableMixin, ArithmeticMixin, ComparisonMixin, TypeCastingMixi
                 self.query_params = ()
 
 
-class QualifiedIdentifierExpression(BaseExpression):
+class QualifiedIdentifier(BaseExpression):
     """Represents a schema-qualified identifier (e.g., schema.table_name).
 
     Per-role quoting fields (all default to ``True``):
@@ -890,37 +409,56 @@ class QualifiedIdentifierExpression(BaseExpression):
         schema_need_quote: bool = True,
     ):
         super().__init__(dialect)
-        self.name_need_quote = name_need_quote
-        self.schema_need_quote = schema_need_quote
+        self.name_need_quote = self.quote_flag(name_need_quote, "name_need_quote")
+        self.schema_need_quote = self.quote_flag(schema_need_quote, "schema_need_quote")
         self.schema = schema
         self.name = name
 
 
-class WildcardExpression(SQLValueExpression):
-    """Represents a wildcard expression (SELECT *) in a SQL query.
+class AllColumnsWildcard(SQLValue):
+    """Every column of a relation source: the select-list ``*``.
 
-    Per-role quoting fields (all default to ``True``):
-    - ``table_need_quote`` ↔ ``table``
-    - ``schema_need_quote`` ↔ ``schema_name``
+    Its standing is that of a column reference, and its home is the select
+    list and the RETURNING clause -- the spec's first wildcard class (4.10.1).
+    A bare ``*`` (``relation`` empty) lets the surrounding clause decide what
+    "all columns" spans: every FROM source in a select list, the DML target
+    in RETURNING. The clause's formatter injects that scope; this node does
+    not know where it sits and must not probe.
+
+    A ``relation`` present renders the qualified ``rel.*`` -- the reference
+    spelling the query itself uses (the alias when aliased, the qualified
+    name otherwise). Row counting is a different contract: the asterisk in
+    ``COUNT(*)`` counts rows rather than expanding columns, and belongs to
+    :class:`RowCountWildcard` alone.
     """
 
     @property
     def format_method(self) -> str:
-        return "format_wildcard"
+        return "format_all_columns_wildcard"
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table: Optional[str] = None,
-        schema_name: Optional[str] = None,
-        table_need_quote: bool = True,
-        schema_need_quote: bool = True,
+        relation: Optional["NamedRelationRef"] = None,
     ):
         super().__init__(dialect)
-        self.table_need_quote = table_need_quote
-        self.schema_need_quote = schema_need_quote
-        self.table = table
-        self.schema_name = schema_name
+        self.relation = relation
 
 
+class RowCountWildcard(SQLValue):
+    """The asterisk that counts rows: ``COUNT(*)``'s parameter.
 
+    The spec's second wildcard class (4.10.2). Its semantics are rows, not
+    column expansion, so it accepts no relation: standard ``COUNT(*)`` takes
+    the bare asterisk, and the qualified ``COUNT(t.*)`` is a different
+    (non-NULL row count) that supporting backends define as their own derived
+    node. The only aggregate whose contract admits this node is ``COUNT``;
+    ``SUM``/``AVG``/``MAX``/``MIN`` refuse it where they are built.
+    """
+
+    @property
+    def format_method(self) -> str:
+        return "format_row_count_wildcard"
+
+    def __init__(self, dialect: "SQLDialectBase"):
+        super().__init__(dialect)
