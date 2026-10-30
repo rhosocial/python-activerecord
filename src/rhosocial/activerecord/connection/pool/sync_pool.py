@@ -574,8 +574,8 @@ class BackendPool:
                 existing_conn.begin_transaction()
                 yield existing_conn
                 existing_conn.commit_transaction()
-            except Exception:
-                existing_conn.rollback_transaction()
+            except Exception as original:
+                self._rollback_after_failure(existing_conn, original)
                 raise
             finally:
                 ctx._reset_transaction_backend(tx_token)
@@ -589,13 +589,27 @@ class BackendPool:
             backend.begin_transaction()
             yield backend
             backend.commit_transaction()
-        except Exception:
-            backend.rollback_transaction()
+        except Exception as original:
+            self._rollback_after_failure(backend, original)
             raise
         finally:
             ctx._reset_connection_backend(conn_token)
             ctx._reset_transaction_backend(tx_token)
             self.release(backend)
+
+    def _rollback_after_failure(self, backend: Any, original: BaseException) -> None:
+        """Roll back after the body failed, without hiding what failed.
+
+        See :meth:`AsyncBackendPool._rollback_after_failure`; the sync twin.
+        """
+        try:
+            backend.rollback_transaction()
+        except Exception as rollback_error:  # noqa: BLE001 - the original wins
+            logger.warning(
+                "Rollback after %s failed; keeping the original error: %s",
+                type(original).__name__,
+                rollback_error,
+            )
 
     def close(self, timeout: Optional[float] = None, force: bool = False) -> None:
         """Close connection pool gracefully.

@@ -613,8 +613,8 @@ class AsyncBackendPool:
                 await existing_conn.begin_transaction()
                 yield existing_conn
                 await existing_conn.commit_transaction()
-            except Exception:
-                await existing_conn.rollback_transaction()
+            except Exception as original:
+                await self._rollback_after_failure(existing_conn, original)
                 raise
             finally:
                 ctx._reset_async_transaction_backend(tx_token)
@@ -628,13 +628,34 @@ class AsyncBackendPool:
             await backend.begin_transaction()
             yield backend
             await backend.commit_transaction()
-        except Exception:
-            await backend.rollback_transaction()
+        except Exception as original:
+            await self._rollback_after_failure(backend, original)
             raise
         finally:
             ctx._reset_async_connection_backend(conn_token)
             ctx._reset_async_transaction_backend(tx_token)
             await self.release(backend)
+
+    async def _rollback_after_failure(self, backend: Any, original: BaseException) -> None:
+        """Roll back after the body failed, without hiding what failed.
+
+        A rollback can legitimately fail for reasons that say nothing about the
+        original error: the transaction was already ended (a statement error
+        aborts it), the connection is gone, or another coroutine finished it.
+        Letting that error replace the body's exception is how
+        ``TransactionError: No active transaction to rollback`` came to be
+        reported for what was actually a duplicate-key ``IntegrityError``: the
+        caller lost the only fact it could act on. The rollback failure is
+        logged, and the original exception is what propagates.
+        """
+        try:
+            await backend.rollback_transaction()
+        except Exception as rollback_error:  # noqa: BLE001 - the original wins
+            logger.warning(
+                "Rollback after %s failed; keeping the original error: %s",
+                type(original).__name__,
+                rollback_error,
+            )
 
     async def close(self, timeout: Optional[float] = None, force: bool = False) -> None:
         """Close connection pool gracefully.

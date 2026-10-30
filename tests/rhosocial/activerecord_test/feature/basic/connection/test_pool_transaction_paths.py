@@ -21,6 +21,8 @@ Every test in this module MUST have an async twin in
 """
 import pytest
 
+from rhosocial.activerecord.backend.errors import TransactionError
+
 from rhosocial.activerecord.connection.pool import (
     get_current_transaction_backend,
     get_current_connection_backend,
@@ -211,3 +213,38 @@ class TestSyncPathPrecedence:
                 # No new savepoint should have been registered.
                 assert mgr._active_savepoints == saved_sp
             assert mgr.transaction_level == 1
+
+
+class TestRollbackFailureKeepsTheOriginalError:
+    """Sync twin of TestAsyncRollbackFailureKeepsTheOriginalError."""
+
+    @staticmethod
+    def _break_rollback(backend) -> None:  # noqa: ANN001 - a test double
+        def broken(*_args, **_kwargs):  # noqa: ANN002, ANN003, ANN202
+            raise TransactionError("No active transaction to rollback")
+
+        backend.rollback_transaction = broken
+
+    def test_path2_keeps_the_body_error(self, sync_pool_and_model) -> None:
+        pool, _model = sync_pool_and_model
+        with pool.connection():
+            with pytest.raises(RuntimeError, match="the body failed"):
+                with pool.transaction() as tx:
+                    self._break_rollback(tx)
+                    raise RuntimeError("the body failed")
+
+    def test_path3_keeps_the_body_error(self, sync_pool_and_model) -> None:
+        pool, _model = sync_pool_and_model
+        with pytest.raises(RuntimeError, match="the body failed"):
+            with pool.transaction() as backend:
+                self._break_rollback(backend)
+                raise RuntimeError("the body failed")
+
+    def test_tokens_are_cleared_after_a_failed_rollback(self, sync_pool_and_model) -> None:
+        pool, _model = sync_pool_and_model
+        with pytest.raises(RuntimeError):
+            with pool.transaction() as backend:
+                self._break_rollback(backend)
+                raise RuntimeError("the body failed")
+        assert get_current_transaction_backend() is None
+        assert get_current_connection_backend() is None

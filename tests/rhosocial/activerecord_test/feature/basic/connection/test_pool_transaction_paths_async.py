@@ -8,6 +8,8 @@ symmetry required by the project code style.
 """
 import pytest
 
+from rhosocial.activerecord.backend.errors import TransactionError
+
 from rhosocial.activerecord.connection.pool import (
     get_current_async_transaction_backend,
     get_current_async_connection_backend,
@@ -147,3 +149,46 @@ class TestAsyncPathPrecedence:
             async with pool.transaction():
                 assert mgr._active_savepoints == saved_sp
             assert mgr.transaction_level == 1
+
+
+class TestAsyncRollbackFailureKeepsTheOriginalError:
+    """A failing rollback must not replace the error that caused it.
+
+    This is the shape of a real ledger entry: an ``IntegrityError`` inside a
+    transaction, then a rollback on a transaction that was already gone
+    (``TransactionError: No active transaction to rollback``), and the caller
+    was told about the rollback instead of the duplicate key.
+    """
+
+    @staticmethod
+    def _break_rollback(backend) -> None:  # noqa: ANN001 - a test double
+        async def broken(*_args, **_kwargs):  # noqa: ANN002, ANN003, ANN202
+            raise TransactionError("No active transaction to rollback")
+
+        backend.rollback_transaction = broken
+
+    async def test_path2_keeps_the_body_error(self, async_pool_and_model) -> None:
+        pool, _model = async_pool_and_model
+        async with pool.connection():
+            with pytest.raises(RuntimeError, match="the body failed"):
+                async with pool.transaction() as tx:
+                    self._break_rollback(tx)
+                    raise RuntimeError("the body failed")
+
+    async def test_path3_keeps_the_body_error(self, async_pool_and_model) -> None:
+        pool, _model = async_pool_and_model
+        with pytest.raises(RuntimeError, match="the body failed"):
+            async with pool.transaction() as backend:
+                self._break_rollback(backend)
+                raise RuntimeError("the body failed")
+
+    async def test_tokens_are_cleared_after_a_failed_rollback(
+        self, async_pool_and_model
+    ) -> None:
+        pool, _model = async_pool_and_model
+        with pytest.raises(RuntimeError):
+            async with pool.transaction() as backend:
+                self._break_rollback(backend)
+                raise RuntimeError("the body failed")
+        assert get_current_async_transaction_backend() is None
+        assert get_current_async_connection_backend() is None
