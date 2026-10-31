@@ -6,7 +6,11 @@ This module provides the SQLiteIntrospectionCapabilityMixin class.
 """
 
 import re
+import sqlite3
+from functools import lru_cache
 from typing import List, Optional, Tuple, TYPE_CHECKING
+
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression.introspection import (
@@ -23,10 +27,12 @@ if TYPE_CHECKING:
     )
     from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
         SQLiteIndexDdlStatement,
+        SQLiteIndexOwnerStatement,
         SQLitePragmaQueryStatement,
         SQLitePragmaSetStatement,
         SQLiteTableCountStatement,
         SQLiteTableDdlStatement,
+        SQLiteTableStorageStatement,
     )
     from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
 
@@ -36,6 +42,30 @@ if TYPE_CHECKING:
 #: written as an escaped string literal, which is the form that cannot carry
 #: statement text into the assignment.
 _PRAGMA_VALUE_TOKEN = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_+\-.]*")
+
+
+@lru_cache(maxsize=1)
+def _dbstat_compiled_in() -> bool:
+    """Whether the linked SQLite library was built with the ``dbstat`` table.
+
+    ``PRAGMA compile_options`` names ``ENABLE_DBSTAT_VTAB`` when it was, and
+    the library is the same one every connection in this process opens -- so a
+    throwaway in-memory connection answers for all of them. The answer is
+    cached because a compile-time fact does not change under a running
+    process, and answering it raises no exception outward: a build that cannot
+    answer is a build without the table, which is what ``False`` says.
+    """
+    try:
+        connection = sqlite3.connect(":memory:")
+    except sqlite3.Error:  # pragma: no cover - a library that cannot open
+        return False
+    try:
+        options = connection.execute("PRAGMA compile_options").fetchall()
+        return any("ENABLE_DBSTAT_VTAB" in str(row[0]) for row in options)
+    except sqlite3.Error:  # pragma: no cover - a pragma that cannot answer
+        return False
+    finally:
+        connection.close()
 
 
 class SQLiteIntrospectionCapabilityMixin:
@@ -131,6 +161,16 @@ class SQLiteIntrospectionCapabilityMixin:
     def supports_extensions(self) -> bool:
         """SQLite supports extension introspection via pragma_module_list."""
         return True
+
+    def supports_table_storage_introspection(self) -> bool:
+        """Whether per-table storage metrics introspection is supported.
+
+        The answer is the ``dbstat`` virtual table, which is a compile-time
+        option (``SQLITE_ENABLE_DBSTAT_VTAB``) rather than a version: a build
+        without it has no page-level facts to report, and the honest answer
+        is False rather than a storage list of zeroes.
+        """
+        return _dbstat_compiled_in()
 
     # ========== DDL Extraction ==========
 
@@ -401,6 +441,76 @@ class SQLiteIntrospectionCapabilityMixin:
                 ),
                 ComparisonPredicate(self, "eq", Column(self, "name"), Literal(self, expr.index_name)),
             ],
+        )
+
+    def format_table_storage_statement(
+        self, expr: "SQLiteTableStorageStatement"
+    ) -> Tuple[str, tuple]:
+        """Format the per-page storage question the ``dbstat`` table answers.
+
+        The rows come back one per page -- ``name`` naming the btree and
+        ``pgsize`` its size -- because the reduction to one byte count per
+        btree belongs to the parser, which attributes index pages to their
+        owning table in the same pass. No ``WHERE`` and no aggregation are
+        asked of the engine: the question is "what exists", and the answer's
+        meaning is decided in Python.
+
+        Raises:
+            UnsupportedFeatureError: If this SQLite build has no ``dbstat``.
+        """
+        if not self.supports_table_storage_introspection():
+            raise UnsupportedFeatureError(self.name, "table storage introspection")
+
+        from rhosocial.activerecord.backend.expression import Column, QueryStatement
+        from rhosocial.activerecord.backend.expression.sources.relation import (
+            NamedRelationRef,
+        )
+        from ..expression import SQLiteTable
+
+        return QueryStatement(
+            self,
+            select=[Column(self, "name"), Column(self, "pgsize")],
+            from_=NamedRelationRef(
+                self,
+                SQLiteTable(
+                    self,
+                    "dbstat",
+                    schema_name=expr.schema or "main",
+                    schema_need_quote=False,
+                    name_need_quote=False,
+                ),
+            ),
+        ).to_sql()
+
+    def format_index_owner_statement(self, expr: "SQLiteIndexOwnerStatement") -> Tuple[str, tuple]:
+        """Format the question that attributes each index to its table.
+
+        ``sqlite_master`` is read once for the whole database: the mapping is
+        a catalogue fact, and the storage reducer needs every entry rather
+        than one table's, so the per-table PRAGMA would ask the same question
+        once per table.
+
+        Args:
+            expr: The index-ownership question.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        from rhosocial.activerecord.backend.expression import (
+            Column,
+            ComparisonPredicate,
+            Literal,
+        )
+
+        return self.sqlite_master_query(
+            expr.schema or "main",
+            [Column(self, "name"), Column(self, "tbl_name")],
+            [
+                ComparisonPredicate(
+                    self, "eq", Column(self, "type"), Literal(self, "index", inline=True)
+                ),
+            ],
+            [Column(self, "name")],
         )
 
     def format_table_list_query_statement(self, expr: "TableListQueryStatement") -> Tuple[str, tuple]:

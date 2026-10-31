@@ -78,6 +78,68 @@ The type list is therefore owned by each backend (`INTROSPECT_TYPES` beside its
 capability for the single-connection case, not a mirror of it, and core does
 not arbitrate it.
 
+## 5. Ownership is decided by divergence, and never by `extra`.
+
+When backends answer a family differently, the difference itself decides where
+the family lives. There are three bands:
+
+- One shape, one question: core holds the smallest common type, every backend
+  fills it.
+- One question, drifted fields: core holds the common minimum -- the typed
+  slots every engine can answer -- and each backend keeps its own complete
+  class beside it. The core shape is the cross-dialect entry point, not the
+  ceiling.
+- A question only one engine asks: it does not enter core at all. The backend
+  owns the statement, the type, the probe and the CLI type whole.
+
+`extra` is not a place for other engines' facts, and it is not a way to widen a
+signature: parameters that belong to one engine are named typed fields on that
+engine's own class. The `extra` channel survives for one purpose only -- a
+spelling that maps onto a core member (rule 2: BigQuery's `CLONE`,
+ClickHouse's engines) -- never for a second family's fields. Where a
+backend-specific family currently sits in core, it moves out; the paragraph in
+`status/types.py` that steered such facts into `extra` is retired with the
+move.
+
+What the bands settled, concretely:
+
+- **Sequences.** Core gains `SequenceInfo` as the common minimum: `name`,
+  `schema`, `data_type`, `start_value`, `minimum_value`, `maximum_value`,
+  `increment`, `cycle`, `cache_size`, `last_value`. The four parallel classes
+  -- PostgreSQL's and MariaDB's `SequenceInfo`,
+  `SQLServerSequenceInfo`, `OracleSequenceInfo` -- remain the complete
+  semantics of their engines (name drift and all), and each must be
+  projectable onto the core minimum.
+- **Per-table storage.** Core widens `IntrospectionTableInfo` with
+  `data_size_bytes` and `index_size_bytes` beside the existing `size_bytes`
+  and `row_count`, and `supports_table_storage_introspection` gates the
+  family. An engine that can answer it must: Firebird answers "not supported
+  here", and its CLI offers nothing. An engine whose storage is not
+  row-plus-index shaped -- ClickHouse, BigQuery, Snowflake -- leaves those two
+  slots `None`; that is a legal answer, not a gap.
+- **Status families one engine owns.** `WALInfo`, `ReplicationInfo`,
+  `ArchiveInfo`, `SecurityInfo` move to PostgreSQL; `InnoDBInfo`,
+  `BinaryLogInfo`, `SlowQueryInfo`, `ReplicationSlaveInfo`,
+  `ReplicationMasterInfo`, `MySQLReplicationInfo` move to MySQL. Core's
+  `ServerOverview` keeps the public slots only; a backend's overview is a
+  subclass (`PostgreSQLServerOverview(ServerOverview)`,
+  `MySQLServerOverview(ServerOverview)`) carrying its own typed fields, and
+  `get_overview()`'s signature does not change. MariaDB writes its own binlog
+  and replication classes when it answers that family -- it does not borrow
+  MySQL's.
+
+## 6. One enhancement lands whole: code, CLI, and capability together.
+
+An introspection change that the backend's CLI cannot show is half a feature.
+A family declared `supports_*` gets its CLI type in the same change, and the
+type list stays derived from the capability mapping (`_TYPE_CAPABILITIES`),
+so "answerable but unaskable" cannot happen and "unanswerable but offered"
+stays refused. Per-table storage rides the existing `introspect tables`
+columns on the narrow slots; an engine whose storage needs finer facts keeps
+its own CLI type on its own class (Snowflake's `table-storage-metrics`).
+Moving a type needs no CLI change -- the per-backend `_serialize_for_output`
+recursion is agnostic to which module a dataclass came from.
+
 ## What follows for the code
 
 - A statement collects all of its parameters at construction. There are no
@@ -89,10 +151,21 @@ not arbitrate it.
   (`<family>_statement` / `parse_<family>`).
 - Names carry no underscore. A method that would be private is either a
   public contract or a class that has not been written yet.
+- Type relocation is consumed whole, in the feature branch that caused it:
+  the move, the backend-side import change and the `ServerOverview` subclass
+  all land in one change set. Version numbers in `pyproject.toml` stay
+  untouched on feature branches: the merge carries the break, and numbering
+  is the release process's alone -- this branch asserts nothing about it.
+- mysql and mariadb look like copies -- SHOW node families, EXPLAIN rows,
+  table options. No shared layer is extracted: the engines' evolution has
+  already diverged (binlog, JSON explain) and a forced unification costs the
+  second split later. The copies stay, and each repo's CHANGELOG annotates
+  that the family has a twin in the other repo whose changes must be
+  synchronized by hand.
 
 ## Checking it
 
-Three mechanical checks belong in the shared test suite, one call per
+Four mechanical checks belong in the shared test suite, one call per
 repository:
 
 1. no `def _name` inside the introspection packages (`__init__` and other
@@ -100,4 +173,7 @@ repository:
 2. no string literal that starts a statement (`SELECT`, `INSERT`, `UPDATE`,
    `DELETE`, `WITH`) and no f-string containing one;
 3. every family declared by `supports_*_introspection()` has a matching
-   `format_*_query_statement` that renders non-empty SQL.
+   `format_*_query_statement` that renders non-empty SQL;
+4. every CLI type in a backend's `_TYPE_CAPABILITIES` names a `supports_*`
+   switch that dialect actually declares, so a type cannot be offered
+   without an answer behind it.

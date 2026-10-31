@@ -218,3 +218,70 @@ class SQLiteIndexDdlStatement(IntrospectionExpression):
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
         return "format_index_ddl_statement"
+
+
+class SQLiteTableStorageStatement(IntrospectionExpression):
+    """How many pages each btree of one database uses.
+
+    The ``dbstat`` virtual table reports one row per page, naming the btree
+    the page belongs to; the reduction to one byte count per btree is the
+    parser's job, so this statement asks nothing of the engine that would
+    aggregate. ``dbstat`` is a compile-time option
+    (``SQLITE_ENABLE_DBSTAT_VTAB``) rather than a version, so the dialect's
+    ``supports_table_storage_introspection`` answers whether this is asked
+    at all, and the rows it returns -- ``name`` and ``pgsize`` -- are what
+    the storage reducer reads.
+
+    Args:
+        dialect: The SQL dialect to use for SQL generation.
+        schema: The database whose pages are counted, such as ``"main"``.
+            Defaults to the primary database.
+
+    Example:
+        >>> expr = SQLiteTableStorageStatement(dialect, "main")
+        >>> sql, params = expr.to_sql()
+    """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        schema: Optional[str] = None,
+    ):
+        super().__init__(dialect, schema)
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_table_storage_statement"
+
+
+class SQLiteIndexOwnerStatement(IntrospectionExpression):
+    """Which table each index of one database belongs to.
+
+    ``sqlite_master`` carries an index's owning table in ``tbl_name``, which
+    is the only place that mapping exists: ``dbstat`` names the index's own
+    btree, and PRAGMA ``index_list`` answers per table. Reading it once for
+    the whole database lets the storage reducer attribute index pages to the
+    table they belong to without one question per table.
+
+    Args:
+        dialect: The SQL dialect to use for SQL generation.
+        schema: The database holding the indexes, such as ``"main"``.
+            Defaults to the primary database.
+
+    Example:
+        >>> expr = SQLiteIndexOwnerStatement(dialect, "main")
+        >>> sql, params = expr.to_sql()
+    """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        schema: Optional[str] = None,
+    ):
+        super().__init__(dialect, schema)
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_index_owner_statement"

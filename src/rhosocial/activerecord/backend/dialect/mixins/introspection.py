@@ -109,6 +109,10 @@ class IntrospectionMixin:
         """Whether installed extensions introspection is supported. Defaults to False."""
         return False
 
+    def supports_table_storage_introspection(self) -> bool:
+        """Whether per-table storage metrics introspection is supported. Defaults to False."""
+        return False
+
     # ========== DDL Extraction ==========
 
     def supports_ddl_extraction(self) -> bool:
@@ -378,6 +382,10 @@ class AsyncIntrospectionMixin:
 
     def supports_extensions(self) -> bool:
         """Whether installed extensions introspection is supported. Defaults to False."""
+        return False
+
+    def supports_table_storage_introspection(self) -> bool:
+        """Whether per-table storage metrics introspection is supported. Defaults to False."""
         return False
 
     # ========== DDL Extraction ==========

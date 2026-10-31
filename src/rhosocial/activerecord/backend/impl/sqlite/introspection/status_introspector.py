@@ -331,6 +331,24 @@ class SyncSQLiteStatusIntrospector(SQLiteStatusIntrospectorMixin, SyncAbstractSt
         except Exception:
             pass
 
+        # Free pages: what the file holds beyond what the btrees use. The
+        # engine's own freelist accounting, multiplied by the page size, is a
+        # figure rather than a subtraction of two estimates -- and it fills
+        # the StorageInfo slot SQLite otherwise leaves empty.
+        try:
+            freelist = self._pragma.get("freelist_count")
+            if freelist and isinstance(freelist, dict):
+                freelist = list(freelist.values())[0] if freelist else None
+            page_size = self._pragma.get("page_size")
+            if page_size and isinstance(page_size, dict):
+                page_size = list(page_size.values())[0] if page_size else None
+            # Zero free pages is the common answer, and a real one: only a
+            # pragma that could not answer is None.
+            if freelist is not None and page_size:
+                storage.free_space_bytes = int(freelist) * int(page_size)
+        except Exception:
+            pass
+
         return storage
 
     def list_databases(self) -> List[DatabaseBriefInfo]:
@@ -517,6 +535,22 @@ class AsyncSQLiteStatusIntrospector(SQLiteStatusIntrospectorMixin, AsyncAbstract
                 storage.data_size_bytes = calculated_size
                 if storage.total_size_bytes is None:
                     storage.total_size_bytes = calculated_size
+        except Exception:
+            pass
+
+        # Free pages: the async twin of the sync freelist read, awaiting the
+        # same pragmas so the two directions report one figure.
+        try:
+            freelist = await self._pragma.get("freelist_count")
+            if freelist and isinstance(freelist, dict):
+                freelist = list(freelist.values())[0] if freelist else None
+            page_size = await self._pragma.get("page_size")
+            if page_size and isinstance(page_size, dict):
+                page_size = list(page_size.values())[0] if page_size else None
+            # Zero free pages is the common answer, and a real one: only a
+            # pragma that could not answer is None.
+            if freelist is not None and page_size:
+                storage.free_space_bytes = int(freelist) * int(page_size)
         except Exception:
             pass
 

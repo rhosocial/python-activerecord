@@ -236,7 +236,18 @@ class IntrospectionTriggerInfo:
 
 @dataclass
 class IntrospectionTableInfo:
-    """Table information."""
+    """Table information.
+
+    The storage slots are the common minimum a cross-dialect consumer needs.
+    ``size_bytes`` and ``row_count`` carry the table's total footprint and a
+    row estimate; ``data_size_bytes`` and ``index_size_bytes`` carry the split
+    for engines whose storage is row-plus-index shaped. An engine whose
+    storage is shaped otherwise -- managed byte storage, engine-specific parts
+    -- leaves those slots ``None``, which is a legal answer rather than a gap.
+    Finer facts (partition-level bytes, billing tiers) belong to the backend's
+    own complete class beside this one, not to a wider core type
+    (``.claude/rules/introspection.md`` §5).
+    """
 
     name: str
     schema: Optional[str] = None
@@ -244,10 +255,39 @@ class IntrospectionTableInfo:
     comment: Optional[str] = None
     row_count: Optional[int] = None
     size_bytes: Optional[int] = None
+    data_size_bytes: Optional[int] = None
+    index_size_bytes: Optional[int] = None
     auto_increment: Optional[int] = None
     create_time: Optional[str] = None
     update_time: Optional[str] = None
     columns: List[IntrospectionColumnInfo] = field(default_factory=list)
     indexes: List[IndexInfo] = field(default_factory=list)
     foreign_keys: List[IntrospectionForeignKeyInfo] = field(default_factory=list)
+    extra: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class SequenceInfo:
+    """Common minimum a sequence introspection answer carries.
+
+    ``IntrospectionScope`` named sequences without a result type, so four
+    backends grew four incompatible classes. This one is the smallest shape
+    every engine with sequences can answer, and the cross-dialect entry
+    point: a backend keeps its own complete class -- PostgreSQL's textual
+    ``cycle``, MariaDB's sequence type, Oracle's ``order`` and
+    ``last_number`` -- with every engine-specific fact as a named field on
+    it, joined to this shape by projection rather than by inheritance-wide
+    ``extra`` (``.claude/rules/introspection.md`` §5).
+    """
+
+    name: str
+    schema: Optional[str] = None
+    data_type: Optional[str] = None
+    start_value: Optional[int] = None
+    minimum_value: Optional[int] = None
+    maximum_value: Optional[int] = None
+    increment: Optional[int] = None
+    cycle: Optional[bool] = None
+    cache_size: Optional[int] = None
+    last_value: Optional[int] = None
     extra: Dict[str, Any] = field(default_factory=dict)

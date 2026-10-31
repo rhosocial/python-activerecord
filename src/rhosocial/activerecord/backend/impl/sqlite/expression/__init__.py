@@ -18,10 +18,12 @@ Directory structure:
 from .introspection import (
     SQLiteColumnInfoExpression,
     SQLiteIndexDdlStatement,
+    SQLiteIndexOwnerStatement,
     SQLitePragmaQueryStatement,
     SQLitePragmaSetStatement,
     SQLiteTableCountStatement,
     SQLiteTableDdlStatement,
+    SQLiteTableStorageStatement,
 )
 from .table import SQLiteTable
 from .table_list import SQLiteTableListExpression
@@ -62,10 +64,12 @@ from .json import SQLiteJsonExtractFunction
 for _sqlite_expression in (
     SQLiteColumnInfoExpression,
     SQLiteIndexDdlStatement,
+    SQLiteIndexOwnerStatement,
     SQLitePragmaQueryStatement,
     SQLitePragmaSetStatement,
     SQLiteTableCountStatement,
     SQLiteTableDdlStatement,
+    SQLiteTableStorageStatement,
     SQLiteTable,
     SQLiteTableListExpression,
     SQLiteReindexStatement,
@@ -93,10 +97,12 @@ del _sqlite_expression
 __all__ = [
     "SQLiteColumnInfoExpression",
     "SQLiteIndexDdlStatement",
+    "SQLiteIndexOwnerStatement",
     "SQLitePragmaQueryStatement",
     "SQLitePragmaSetStatement",
     "SQLiteTableCountStatement",
     "SQLiteTableDdlStatement",
+    "SQLiteTableStorageStatement",
     "SQLiteTable",
     "SQLiteTableListExpression",
     "SQLiteReindexStatement",

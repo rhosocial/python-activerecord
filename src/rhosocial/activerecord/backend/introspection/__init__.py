@@ -29,6 +29,7 @@ from .types import (
     IntrospectionForeignKeyInfo,
     IntrospectionViewInfo,
     IntrospectionTriggerInfo,
+    SequenceInfo,
 )
 from .errors import (
     IntrospectionError,
@@ -66,6 +67,7 @@ __all__ = [
     "IntrospectionForeignKeyInfo",
     "IntrospectionViewInfo",
     "IntrospectionTriggerInfo",
+    "SequenceInfo",
     # Exceptions
     "IntrospectionError",
     "IntrospectionNotSupportedError",

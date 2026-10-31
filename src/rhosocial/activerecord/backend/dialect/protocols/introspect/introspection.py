@@ -109,6 +109,18 @@ class IntrospectionSupport(Protocol):
         """Whether installed extensions introspection is supported."""
         ...  # pragma: no cover
 
+    def supports_table_storage_introspection(self) -> bool:
+        """Whether per-table storage metrics introspection is supported.
+
+        Declaring it means the dialect can answer the storage slots of
+        ``IntrospectionTableInfo`` -- ``size_bytes``, ``row_count``, and
+        where the engine's storage is row-plus-index shaped,
+        ``data_size_bytes`` / ``index_size_bytes``. An engine whose storage
+        answers no part of that (Firebird) answers False, and its CLI offers
+        the family as "not supported here" rather than an empty list.
+        """
+        ...  # pragma: no cover
+
     # ========== DDL Extraction ==========
 
     def supports_ddl_extraction(self) -> bool:
