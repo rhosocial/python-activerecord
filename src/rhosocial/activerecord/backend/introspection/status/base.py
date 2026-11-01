@@ -6,7 +6,7 @@ This module provides the abstract base classes for database server status
 introspection, following the project's sync/async parity principle:
 
 1. StatusIntrospectorMixin: Shared non-I/O logic
-2. SyncAbstractStatusIntrospector: Synchronous status introspector
+2. AbstractStatusIntrospector: Synchronous status introspector
 3. AsyncAbstractStatusIntrospector: Asynchronous status introspector
 
 Design principles:
@@ -42,7 +42,7 @@ class StatusIntrospectorMixin:
     - Common parsing utilities
     - Category grouping logic
 
-    Both SyncAbstractStatusIntrospector and AsyncAbstractStatusIntrospector
+    Both AbstractStatusIntrospector and AsyncAbstractStatusIntrospector
     inherit from this mixin to share all non-I/O logic.
     """
 
@@ -95,7 +95,7 @@ class StatusIntrospectorMixin:
         return "Unknown"
 
 
-class SyncAbstractStatusIntrospector(StatusIntrospectorMixin, ABC):
+class AbstractStatusIntrospector(StatusIntrospectorMixin, ABC):
     """Synchronous abstract base class for server status introspection.
 
     All methods are synchronous. Method names do NOT have an _async suffix.

@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Tuple
 
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.introspection import InMemoryIntrospectionCache
-from rhosocial.activerecord.backend.introspection.executor import SyncIntrospectorExecutor
+from rhosocial.activerecord.backend.introspection.executor import IntrospectorExecutor
 
 TABLES = 40
 COLUMNS = 8
@@ -90,7 +90,7 @@ def walk_schema(backend: SQLiteBackend, counting: Any) -> int:
 # --------------------------------------------------------------------- #
 
 
-class CountingExecutor(SyncIntrospectorExecutor):
+class CountingExecutor(IntrospectorExecutor):
     """An executor that also reports how much it was asked to do."""
 
     def __init__(self, backend: Any) -> None:

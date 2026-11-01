@@ -8,11 +8,11 @@ including invalidate_cache and clear_cache.
 
 import time
 
+from rhosocial.activerecord.backend.impl.sqlite.introspection import (
+    SQLiteIntrospector,
+)
 from rhosocial.activerecord.backend.introspection import InMemoryIntrospectionCache
 from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
-from rhosocial.activerecord.backend.impl.sqlite.introspection import (
-    SyncSQLiteIntrospector,
-)
 
 
 class TestCacheManagement:
@@ -261,9 +261,9 @@ class CountingExecutor:
 
     def __init__(self, backend):
         from rhosocial.activerecord.backend.introspection.executor import (
-            SyncIntrospectorExecutor,
+            IntrospectorExecutor,
         )
-        self._inner = SyncIntrospectorExecutor(backend)
+        self._inner = IntrospectorExecutor(backend)
         self.calls = 0
 
     def execute(self, sql, params=()):
@@ -300,7 +300,7 @@ class TestCacheRemovesQuestions:
         cache = InMemoryIntrospectionCache(ttl=ttl) if ttl is not None else None
         executor = CountingExecutor(backend)
         backend.set_introspector(
-            SyncSQLiteIntrospector(backend, executor, cache=cache)
+            SQLiteIntrospector(backend, executor, cache=cache)
         )
         return executor
 

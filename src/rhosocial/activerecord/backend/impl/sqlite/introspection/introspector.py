@@ -2,7 +2,7 @@
 """
 SQLite concrete introspectors.
 
-Implements SyncAbstractIntrospector and AsyncAbstractIntrospector for SQLite
+Implements AbstractIntrospector and AsyncAbstractIntrospector for SQLite
 databases using PRAGMA commands and the sqlite_master / sqlite_schema system
 table for metadata queries.
 
@@ -15,7 +15,7 @@ Key behaviours:
   - ``parse_*`` methods are pure Python — shared by sync and async introspectors
 
 Design principle: Sync and Async are separate and cannot coexist.
-- SyncSQLiteIntrospector: for synchronous backends
+- SQLiteIntrospector: for synchronous backends
 - AsyncSQLiteIntrospector: for asynchronous backends
 """
 
@@ -26,12 +26,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from rhosocial.activerecord.backend.introspection.base import (
     IntrospectorMixin,
-    SyncAbstractIntrospector,
+    AbstractIntrospector,
     AsyncAbstractIntrospector,
 )
 from rhosocial.activerecord.backend.introspection.cache import IntrospectionCache
 from rhosocial.activerecord.backend.introspection.executor import (
-    SyncIntrospectorExecutor,
+    IntrospectorExecutor,
     AsyncIntrospectorExecutor,
 )
 from rhosocial.activerecord.backend.introspection.types import (
@@ -50,11 +50,11 @@ from rhosocial.activerecord.backend.introspection.types import (
     IntrospectionScope,
 )
 from .pragma_introspector import (
-    SyncPragmaIntrospector,
+    PragmaIntrospector,
     AsyncPragmaIntrospector,
 )
 from .status_introspector import (
-    SyncSQLiteStatusIntrospector,
+    SQLiteStatusIntrospector,
     AsyncSQLiteStatusIntrospector,
 )
 from ..expression.introspection import (
@@ -69,7 +69,7 @@ from ..expression.introspection import (
 class SQLiteIntrospectorMixin(IntrospectorMixin):
     """Mixin providing shared SQLite-specific introspection logic.
 
-    Both SyncSQLiteIntrospector and AsyncSQLiteIntrospector inherit
+    Both SQLiteIntrospector and AsyncSQLiteIntrospector inherit
     from this mixin to share:
     - Default schema handling
     - SQLite version detection
@@ -600,10 +600,10 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             return None
 
 
-class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
+class SQLiteIntrospector(SQLiteIntrospectorMixin, AbstractIntrospector):
     """Synchronous introspector for SQLite backends.
 
-    In addition to the standard SyncAbstractIntrospector interface, exposes the
+    In addition to the standard AbstractIntrospector interface, exposes the
     `.pragma` sub-introspector for direct PRAGMA access::
 
         # Standard API
@@ -618,25 +618,25 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
     def __init__(
         self,
         backend: Any,
-        executor: SyncIntrospectorExecutor,
+        executor: IntrospectorExecutor,
         cache: Optional[IntrospectionCache] = None,
     ) -> None:
         super().__init__(backend, executor, cache)
-        self._pragma_instance: Optional[SyncPragmaIntrospector] = None
-        self._status_instance: Optional[SyncSQLiteStatusIntrospector] = None
+        self._pragma_instance: Optional[PragmaIntrospector] = None
+        self._status_instance: Optional[SQLiteStatusIntrospector] = None
 
     @property
-    def pragma(self) -> SyncPragmaIntrospector:
+    def pragma(self) -> PragmaIntrospector:
         """SQLite-specific PRAGMA sub-introspector (lazily created)."""
         if self._pragma_instance is None:
-            self._pragma_instance = SyncPragmaIntrospector(self._backend, self._executor)
+            self._pragma_instance = PragmaIntrospector(self._backend, self._executor)
         return self._pragma_instance
 
     @property
-    def status(self) -> SyncSQLiteStatusIntrospector:
+    def status(self) -> SQLiteStatusIntrospector:
         """SQLite status introspector (lazily created)."""
         if self._status_instance is None:
-            self._status_instance = SyncSQLiteStatusIntrospector(self._backend)
+            self._status_instance = SQLiteStatusIntrospector(self._backend)
         return self._status_instance
 
 
@@ -884,7 +884,7 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
         return self._status_instance
 
     async def get_database_info(self) -> IntrospectionDatabaseInfo:
-        """The async twin of :meth:`SyncSQLiteIntrospector.get_database_info`.
+        """The async twin of :meth:`SQLiteIntrospector.get_database_info`.
 
         Same questions, awaited, and the same :meth:`parse_database_info`
         reduction -- so the two directions cannot report different encodings or
@@ -918,7 +918,7 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
     async def collect_table_storage(
         self, schema: Optional[str] = None
     ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-        """The async twin of :meth:`SyncSQLiteIntrospector.collect_table_storage`.
+        """The async twin of :meth:`SQLiteIntrospector.collect_table_storage`.
 
         Same two statements, awaited; the same empty-pair answer when the
         build has no ``dbstat``, so the async and sync reductions see the
@@ -939,7 +939,7 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
         include_system: bool = False,
         table_type: Optional[str] = None,
     ) -> List[IntrospectionTableInfo]:
-        """The async twin of :meth:`SyncSQLiteIntrospector.list_tables`.
+        """The async twin of :meth:`SQLiteIntrospector.list_tables`.
 
         Same questions awaited, same reducer, same cache key: one direction
         of the pair fills the storage slots and the other cannot answer them

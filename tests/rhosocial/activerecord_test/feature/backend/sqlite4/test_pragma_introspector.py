@@ -2,7 +2,7 @@
 """
 Tests for SQLite PRAGMA introspector.
 
-This module tests the SyncPragmaIntrospector class which provides
+This module tests the PragmaIntrospector class which provides
 direct access to SQLite's PRAGMA interface.
 """
 
@@ -11,8 +11,7 @@ import sqlite3
 import pytest
 
 
-
-class TestSyncPragmaIntrospectorBasic:
+class TestPragmaIntrospectorBasic:
     """Tests for basic PRAGMA operations."""
 
     def test_pragma_get_journal_mode(self, sqlite_backend):
@@ -62,7 +61,7 @@ class TestSyncPragmaIntrospectorBasic:
             assert isinstance(row, dict)
 
 
-class TestSyncPragmaIntrospectorTableInfo:
+class TestPragmaIntrospectorTableInfo:
     """Tests for table_info and table_xinfo PRAGMAs."""
 
     def test_table_info(self, backend_with_tables):
@@ -112,7 +111,7 @@ class TestSyncPragmaIntrospectorTableInfo:
         assert len(result) == 5
 
 
-class TestSyncPragmaIntrospectorIndexInfo:
+class TestPragmaIntrospectorIndexInfo:
     """Tests for index_list, index_info, and index_xinfo PRAGMAs."""
 
     def test_index_list(self, backend_with_tables):
@@ -163,7 +162,7 @@ class TestSyncPragmaIntrospectorIndexInfo:
         assert len(result) >= 1
 
 
-class TestSyncPragmaIntrospectorForeignKeyList:
+class TestPragmaIntrospectorForeignKeyList:
     """Tests for foreign_key_list PRAGMA."""
 
     def test_foreign_key_list(self, backend_with_tables):
@@ -199,7 +198,7 @@ class TestSyncPragmaIntrospectorForeignKeyList:
         assert len(result) == 2
 
 
-class TestSyncPragmaIntrospectorTableList:
+class TestPragmaIntrospectorTableList:
     """Tests for table_list PRAGMA."""
 
     def test_table_list(self, backend_with_tables):
@@ -230,7 +229,7 @@ class TestSyncPragmaIntrospectorTableList:
         assert isinstance(result, list)
 
 
-class TestSyncPragmaIntrospectorMaintenance:
+class TestPragmaIntrospectorMaintenance:
     """Tests for maintenance PRAGMAs."""
 
     def test_integrity_check(self, backend_with_tables):
@@ -301,7 +300,7 @@ class TestSyncPragmaIntrospectorMaintenance:
                 assert isinstance(result, dict)
 
 
-class TestSyncPragmaIntrospectorSchemaParameter:
+class TestPragmaIntrospectorSchemaParameter:
     """Tests for schema parameter in PRAGMA operations."""
 
     def test_table_info_with_temp_schema(self, sqlite_backend):

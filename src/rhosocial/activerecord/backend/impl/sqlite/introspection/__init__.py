@@ -2,23 +2,23 @@
 """SQLite introspection package."""
 
 from .introspector import (
-    SyncSQLiteIntrospector,
+    SQLiteIntrospector,
     AsyncSQLiteIntrospector,
 )
 from .pragma_introspector import (
-    SyncPragmaIntrospector,
+    PragmaIntrospector,
     AsyncPragmaIntrospector,
 )
 from .status_introspector import (
-    SyncSQLiteStatusIntrospector,
+    SQLiteStatusIntrospector,
     AsyncSQLiteStatusIntrospector,
 )
 
 __all__ = [
-    "SyncSQLiteIntrospector",
+    "SQLiteIntrospector",
     "AsyncSQLiteIntrospector",
-    "SyncPragmaIntrospector",
+    "PragmaIntrospector",
     "AsyncPragmaIntrospector",
-    "SyncSQLiteStatusIntrospector",
+    "SQLiteStatusIntrospector",
     "AsyncSQLiteStatusIntrospector",
 ]

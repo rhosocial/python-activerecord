@@ -6,17 +6,17 @@ Executors decouple the Introspector from sync/async execution details.
 The Introspector generates SQL; the executor runs it against the backend.
 
 Design principle: Sync and Async are separate and cannot coexist.
-- SyncIntrospectorExecutor: for synchronous backends
+- IntrospectorExecutor: for synchronous backends
 - AsyncIntrospectorExecutor: for asynchronous backends
 """
 
 from typing import Any, Dict, List, Tuple
 
 
-class SyncIntrospectorExecutor:
+class IntrospectorExecutor:
     """Executor that wraps a synchronous backend.
 
-    This executor is used by SyncAbstractIntrospector to execute SQL
+    This executor is used by AbstractIntrospector to execute SQL
     statements synchronously against the backend.
     """
 

@@ -4,11 +4,11 @@ SQLite PRAGMA sub-introspectors.
 
 Provides direct access to SQLite's PRAGMA interface. These classes do not
 inherit from AbstractIntrospector — they are purpose-built "sub-introspectors"
-exposed as the `.pragma` property on SyncSQLiteIntrospector and
+exposed as the `.pragma` property on SQLiteIntrospector and
 AsyncSQLiteIntrospector.
 
 Design principle: Sync and Async are separate and cannot coexist.
-- SyncPragmaIntrospector: for synchronous backends (method names without _async suffix)
+- PragmaIntrospector: for synchronous backends (method names without _async suffix)
 - AsyncPragmaIntrospector: for asynchronous backends (method names without _async suffix)
 
 Usage::
@@ -28,18 +28,18 @@ Usage::
 from typing import Any, Dict, List, Optional
 
 from rhosocial.activerecord.backend.introspection.executor import (
-    SyncIntrospectorExecutor,
+    IntrospectorExecutor,
     AsyncIntrospectorExecutor,
 )
 
 
-class SyncPragmaIntrospector:
+class PragmaIntrospector:
     """Synchronous PRAGMA introspector for SQLite backends.
 
     All methods are synchronous. Method names do NOT have an _async suffix.
     """
 
-    def __init__(self, backend: Any, executor: SyncIntrospectorExecutor) -> None:
+    def __init__(self, backend: Any, executor: IntrospectorExecutor) -> None:
         self._backend = backend
         self._executor = executor
 

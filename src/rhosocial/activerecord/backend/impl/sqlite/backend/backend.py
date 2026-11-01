@@ -103,12 +103,12 @@ class SQLiteBackend(
         return SQLiteExplainResult(raw_rows=raw_rows, sql=sql, duration=duration, rows=rows)
 
     def _create_introspector(self) -> Any:
-        from ..introspection import SyncSQLiteIntrospector
+        from ..introspection import SQLiteIntrospector
         from rhosocial.activerecord.backend.introspection.executor import (
-            SyncIntrospectorExecutor,
+            IntrospectorExecutor,
         )
 
-        return SyncSQLiteIntrospector(self, SyncIntrospectorExecutor(self))
+        return SQLiteIntrospector(self, IntrospectorExecutor(self))
 
     def set_pragma(self, pragma_key: str, pragma_value: Any) -> None:
         """Set a pragma parameter at runtime.

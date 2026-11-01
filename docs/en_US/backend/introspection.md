@@ -47,7 +47,7 @@ matter to a backend author:
 
 The introspection system follows the project's sync/async parity principle:
 
-- `SyncAbstractIntrospector` — Synchronous introspector
+- `AbstractIntrospector` — Synchronous introspector
 - `AsyncAbstractIntrospector` — Asynchronous introspector
 - `IntrospectorMixin` — Shared non-I/O logic (caching, SQL generation, parsing), including `server_version`: the version the introspector read from the server, so a capability question can be answered without asking again
 

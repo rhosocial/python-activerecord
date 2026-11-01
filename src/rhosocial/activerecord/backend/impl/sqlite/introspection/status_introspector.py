@@ -7,7 +7,7 @@ This module provides status introspection by reading PRAGMA values
 and database file information.
 
 Design principle: Sync and Async are separate and cannot coexist.
-- SyncSQLiteStatusIntrospector: for synchronous backends
+- SQLiteStatusIntrospector: for synchronous backends
 - AsyncSQLiteStatusIntrospector: for asynchronous backends
 """
 
@@ -24,7 +24,7 @@ from rhosocial.activerecord.backend.introspection.status import (
     ConnectionInfo,
     StorageInfo,
     SessionInfo,
-    SyncAbstractStatusIntrospector,
+    AbstractStatusIntrospector,
     AsyncAbstractStatusIntrospector,
 )
 
@@ -63,7 +63,7 @@ SQLITE_PRAGMA_CONFIG = [
 class SQLiteStatusIntrospectorMixin:
     """Mixin providing shared logic for SQLite status introspectors.
 
-    Both SyncSQLiteStatusIntrospector and AsyncSQLiteStatusIntrospector
+    Both SQLiteStatusIntrospector and AsyncSQLiteStatusIntrospector
     inherit from this mixin to share non-I/O logic.
     """
 
@@ -181,7 +181,7 @@ class SQLiteStatusIntrospectorMixin:
         )
 
 
-class SyncSQLiteStatusIntrospector(SQLiteStatusIntrospectorMixin, SyncAbstractStatusIntrospector):
+class SQLiteStatusIntrospector(SQLiteStatusIntrospectorMixin, AbstractStatusIntrospector):
     """Synchronous SQLite status introspector.
 
     Reads PRAGMA values and database file information to provide

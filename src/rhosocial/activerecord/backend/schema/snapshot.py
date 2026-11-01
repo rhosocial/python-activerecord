@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
-from ..introspection.base import SyncAbstractIntrospector, AsyncAbstractIntrospector
+from ..introspection.base import AbstractIntrospector, AsyncAbstractIntrospector
 from ..introspection.types import (
     IntrospectionDatabaseInfo,
     IntrospectionTableInfo,
@@ -337,7 +337,7 @@ class SyncSchemaSnapshotBuilder:
         snapshot = builder.build(schema="public")
     """
 
-    def __init__(self, introspector: SyncAbstractIntrospector, dialect: "SQLDialectBase"):
+    def __init__(self, introspector: AbstractIntrospector, dialect: "SQLDialectBase"):
         self._introspector = introspector
         self._dialect = dialect
 

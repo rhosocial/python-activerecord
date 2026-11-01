@@ -21,7 +21,7 @@ from .types import (
 )
 from .base import (
     StatusIntrospectorMixin,
-    SyncAbstractStatusIntrospector,
+    AbstractStatusIntrospector,
     AsyncAbstractStatusIntrospector,
 )
 
@@ -39,6 +39,6 @@ __all__ = [
     "ExtensionInfo",
     # Base classes
     "StatusIntrospectorMixin",
-    "SyncAbstractStatusIntrospector",
+    "AbstractStatusIntrospector",
     "AsyncAbstractStatusIntrospector",
 ]

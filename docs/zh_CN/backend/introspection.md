@@ -41,7 +41,7 @@ backend/introspection/
 
 内省系统遵循项目的同步/异步对等原则：
 
-- `SyncAbstractIntrospector` — 同步内省器
+- `AbstractIntrospector` — 同步内省器
 - `AsyncAbstractIntrospector` — 异步内省器
 - `IntrospectorMixin` — 共享的非 I/O 逻辑（缓存、SQL 生成、解析），包括 `server_version`：内省器从服务器读到的版本，使能力判断不必再次询问服务器
 

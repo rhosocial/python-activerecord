@@ -9,7 +9,7 @@ following the project's sync/async parity principle:
    knows the default schema. It holds no state, does no I/O and never sees
    a result row.
 
-2. SyncAbstractIntrospector: Synchronous introspector with all I/O methods
+2. AbstractIntrospector: Synchronous introspector with all I/O methods
    being synchronous.
 
 3. AsyncAbstractIntrospector: Asynchronous introspector with all I/O methods
@@ -58,7 +58,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ViewInfoQueryStatement,
         ViewListQueryStatement,
     )
-    from .executor import SyncIntrospectorExecutor, AsyncIntrospectorExecutor
+    from .executor import IntrospectorExecutor, AsyncIntrospectorExecutor
 
 
 class IntrospectorMixin:
@@ -359,7 +359,7 @@ class IntrospectorBase(IntrospectorMixin, ABC):
         ...
 
 
-class SyncAbstractIntrospector(IntrospectorBase, ABC):
+class AbstractIntrospector(IntrospectorBase, ABC):
     """Abstract base class for synchronous database introspectors.
 
     This class provides all synchronous I/O methods for database introspection.
@@ -378,7 +378,7 @@ class SyncAbstractIntrospector(IntrospectorBase, ABC):
     def __init__(
         self,
         backend: Any,
-        executor: "SyncIntrospectorExecutor",
+        executor: "IntrospectorExecutor",
         cache: Optional[IntrospectionCache] = None,
     ) -> None:
         super().__init__(backend, executor, cache)
