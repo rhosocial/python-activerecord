@@ -12,7 +12,11 @@ the *model* would send, which is exactly the question the change is about.
 
 from __future__ import annotations
 
-from typing import Annotated
+try:
+    from typing import Annotated, Optional
+except ImportError:  # Python 3.8, where Annotated is still in typing_extensions
+    from typing_extensions import Annotated
+    from typing import Optional
 
 import pytest
 
@@ -24,7 +28,7 @@ from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
 
 #: A database-generated key field. ``None`` default because the value does not
 #: exist until the INSERT has run -- which is the whole point.
-GeneratedId = Annotated[int | None, UseColumnAttributes(IdentityAttribute())]
+GeneratedId = Annotated[Optional[int], UseColumnAttributes(IdentityAttribute())]
 
 
 class PartitionedLog(CompositePKMixin, ActiveRecord):
@@ -36,7 +40,7 @@ class PartitionedLog(CompositePKMixin, ActiveRecord):
     id: GeneratedId = None
     # A supplied key field is optional at declaration and required at save time:
     # nothing but the caller's own value can fill it.
-    bucket: str | None = None
+    bucket: Optional[str] = None
     job_id: int = 0
 
 
@@ -47,7 +51,7 @@ class AsyncPartitionedLog(CompositePKMixin, AsyncActiveRecord):
     __primary_key__ = ("id", "bucket")
 
     id: GeneratedId = None
-    bucket: str | None = None
+    bucket: Optional[str] = None
     job_id: int = 0
 
 
@@ -67,7 +71,7 @@ class SingleKey(ActiveRecord):
 
     __table_name__ = "ct_single_key"
 
-    id: int | None = None
+    id: Optional[int] = None
     name: str = ""
 
 
