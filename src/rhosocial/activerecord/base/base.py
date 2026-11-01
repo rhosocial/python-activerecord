@@ -201,7 +201,9 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
 
         Raises:
             DatabaseError: If there's an issue retrieving the primary key after insert
+            ValidationError: If a required primary key field has no value
         """
+        self.__class__._missing_key_fields_on_insert(self)
         self.log_data(logging.DEBUG, "Raw data for insert", data)
         prepared_data = self.__class__._map_fields_to_columns(data)
         generated = self.__class__.get_generated_columns()
@@ -899,7 +901,9 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
 
         Raises:
             DatabaseError: If there's an issue retrieving the primary key after insert
+            ValidationError: If a required primary key field has no value
         """
+        self.__class__._missing_key_fields_on_insert(self)
         self.log_data(logging.DEBUG, "Raw data for insert", data)
         prepared_data = self.__class__._map_fields_to_columns(data)
         generated = self.__class__.get_generated_columns()

@@ -206,12 +206,39 @@ class ActiveRecordBase(BaseModel, ABC):
 
         resolved = []
         for field in cls.primary_key_fields():
-            if any(
-                isinstance(attr, IdentityAttribute)
-                for attr in cls.column_attributes(field)
-            ):
+            if any(isinstance(attr, IdentityAttribute) for attr in cls.column_attributes(field)):
                 resolved.append(field)
         return tuple(resolved)
+
+    @classmethod
+    def _missing_key_fields_on_insert(cls, record: "ActiveRecordBase") -> Tuple[str, ...]:
+        """Key fields this record would insert without a value.
+
+        Asked at INSERT time rather than at construction, because a record is
+        built before it is whole: the write path is the first moment the model
+        could know every caller-supplied value has arrived. A field that is
+        None is missing; a field the database generates is not asked, nor is
+        one the application fills in a ``prepare_save_data`` hook.
+        """
+        from ..backend.errors import ValidationError as DBValidationError
+
+        missing = [
+            field for field in cls.required_pk_fields() if getattr(record, field, None) is None
+        ]
+        if not missing:
+            return ()
+        raise DBValidationError(
+            f"{cls.__name__} cannot be inserted without its primary key "
+            f"{cls._name_key_fields(missing)}: no database will generate "
+            f"{'it' if len(missing) == 1 else 'them'}, so the row would be "
+            f"unaddressable afterwards. Supply "
+            f"{cls._name_key_fields(missing)} before saving."
+        )
+
+    @staticmethod
+    def _name_key_fields(fields: Tuple[str, ...]) -> str:
+        """``('a',)`` -> ``a``, ``('a', 'b')`` -> ``a and b`` -- for an error."""
+        return " and ".join(f"'{f}'" for f in fields)
 
     @classmethod
     def _insert_pk_exclusions(cls) -> Set[str]:

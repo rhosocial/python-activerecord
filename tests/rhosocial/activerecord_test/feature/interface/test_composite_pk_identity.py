@@ -16,6 +16,7 @@ from typing import Annotated
 
 import pytest
 
+from rhosocial.activerecord.backend.errors import ValidationError as DBValidationError
 from rhosocial.activerecord.base.ddl import IdentityAttribute
 from rhosocial.activerecord.base.fields import UseColumnAttributes
 from rhosocial.activerecord.field.composite_pk import CompositePKMixin
@@ -153,3 +154,56 @@ class TestConstruction:
     def test_a_caller_supplied_key_field_may_not(self):
         with pytest.raises(ValueError, match="bucket"):
             PartitionedLog()
+
+
+class TestMissingKeyFieldIsNamedAtWriteTime:
+    """The server would say "no partition found for row"; the caller needs a name.
+
+    Construction already refuses a record built without its key, so what is
+    asserted here is the second line of defence: a value lost after
+    construction (a caller clearing it, a hook that drops it), and a model that
+    declares a composite key without ``CompositePKMixin`` and so never had the
+    construction check at all.
+    """
+
+    def test_partitioned_log_refuses_to_insert_without_the_key_it_needs(self):
+        row = PartitionedLog(bucket="202610", job_id=7)
+        row.bucket = None
+        with pytest.raises(DBValidationError, match="'bucket'"):
+            PartitionedLog._missing_key_fields_on_insert(row)
+
+    def test_the_message_says_the_row_would_be_unaddressable(self):
+        # The point is not that a value is absent: it is that no one can fill
+        # it, so the saved row could never be looked up again.
+        row = PartitionedLog(bucket="202610", job_id=7)
+        row.bucket = None
+        with pytest.raises(DBValidationError, match="unaddressable"):
+            PartitionedLog._missing_key_fields_on_insert(row)
+
+    def test_a_complete_record_passes(self):
+        row = PartitionedLog(bucket="202610", job_id=7)
+        assert PartitionedLog._missing_key_fields_on_insert(row) == ()
+
+    @pytest.mark.parametrize("model", [PartitionedLog, AsyncPartitionedLog])
+    def test_both_twins_report_the_same_absence(self, model):
+        row = model(bucket="202610", job_id=7)
+        row.bucket = None
+        with pytest.raises(DBValidationError, match="'bucket'"):
+            model._missing_key_fields_on_insert(row)
+
+
+class TestSingleKeyAndPlainCompositeAreNeverRefused:
+    def test_an_ordinary_model_inserts_without_being_asked_for_a_key(self):
+        assert SingleKey._missing_key_fields_on_insert(SingleKey(name="x")) == ()
+
+    def test_a_model_supplying_its_own_key_is_asked_for_it(self):
+        # The flag-off branch: the application owns every key field, so the
+        # write path is right to insist on them.
+        row = PlainComposite(order_id=1, product_id=2)
+        row.order_id = None
+        with pytest.raises(DBValidationError, match="'order_id'"):
+            PlainComposite._missing_key_fields_on_insert(row)
+
+    def test_and_accepts_it_once_given(self):
+        row = PlainComposite(order_id=1, product_id=2)
+        assert PlainComposite._missing_key_fields_on_insert(row) == ()
