@@ -184,6 +184,89 @@ class ActiveRecordBase(BaseModel, ABC):
         return tuple(getattr(cls, "__table_generated_columns__", ()) or ())
 
     @classmethod
+    def identity_pk_fields(cls) -> Tuple[str, ...]:
+        """Primary key fields the *database* fills in on INSERT.
+
+        Derived, not declared: a field is an identity primary key when it is
+        part of ``__primary_key__`` and carries an ``IdentityAttribute`` in its
+        column attributes -- the declaration that already exists for rendering
+        ``GENERATED ... AS IDENTITY``. So a model answers "which key fields do I
+        supply, and which does the server supply?" without a second place to
+        keep the answer, and a model that declares no identity attribute gets an
+        empty tuple, which is today's behaviour for a single-column key.
+
+        Why the question exists at all: a composite primary key mixes the two
+        kinds. ``__primary_key__ = ("id", "bucket")`` needs ``id`` excluded from
+        the INSERT so the sequence fills it, while ``bucket`` must stay in the
+        column list because no sequence will ever supply it. A single
+        "auto-generated" flag cannot say half of that, which is why the answer
+        is per field and read from the column's own declaration.
+        """
+        from ..base.ddl import IdentityAttribute
+
+        resolved = []
+        for field in cls.primary_key_fields():
+            if any(
+                isinstance(attr, IdentityAttribute)
+                for attr in cls.column_attributes(field)
+            ):
+                resolved.append(field)
+        return tuple(resolved)
+
+    @classmethod
+    def _insert_pk_exclusions(cls) -> Set[str]:
+        """The primary-key fields to leave out of an INSERT's column list.
+
+        The set that keeps a composite key honest: only the key fields the
+        database generates go here, so the ones a caller has to give stay in
+        the statement with every other column.
+
+        The per-field answer comes first, and the class-wide flag is what is
+        left when no key field answers for itself. That ordering is why a
+        composite key holding a generated surrogate works even though
+        ``__pk_auto_generated__`` is False for the model -- the flag says "the
+        model supplies its key", which a key with a database-generated member
+        makes untrue, and the per-field answer is the more precise of the two.
+        With no identity member the flag decides exactly as before: off means
+        every key field is the application's to give (an application-assigned
+        key, see :class:`~...field.uuid.UUIDMixin`), on means the whole key is
+        the server's to give, which is what a single-column surrogate key has
+        always needed.
+        """
+        identity = set(cls.identity_pk_fields())
+        if identity:
+            return identity
+        if not cls.__pk_auto_generated__:
+            return set()
+        return set(cls.primary_key_fields()) & set(cls.model_fields)
+
+    @classmethod
+    def required_pk_fields(cls) -> Tuple[str, ...]:
+        """Primary key fields a caller must supply on INSERT.
+
+        Decided the same three ways :meth:`_insert_pk_exclusions` decides, and
+        for the same reason -- the two answers must be one answer, or a field
+        can end up neither excluded nor required, which is a silently null key:
+
+        * a field declared ``IdentityAttribute`` is the database's, so nothing
+          is required of the caller for it;
+        * otherwise ``__pk_auto_generated__`` decides for the whole key: off
+          means the application writes every member, on means the database does,
+          and a single-column surrogate key with no identity declaration is the
+          ordinary case of the latter -- it requires nothing from the caller;
+        * a key holding both kinds is what the per-field answer exists for, and
+          then it names the caller's share -- a partition column above all,
+          which no engine can infer from the values a row happens to be
+          missing.
+        """
+        identity = set(cls.identity_pk_fields())
+        if identity:
+            return tuple(f for f in cls.primary_key_fields() if f not in identity)
+        if not cls.__pk_auto_generated__:
+            return cls.primary_key_fields()
+        return ()
+
+    @classmethod
     def backend(cls) -> Union[StorageBackend, AsyncStorageBackend]:
         """Get storage backend instance.
 

@@ -392,10 +392,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         pk_fields = set(self.__class__.primary_key_fields())
         generated = set(self.__class__.get_generated_columns())
         if is_new:
-            if self.__class__.__pk_auto_generated__:
-                data = self.model_dump(exclude=pk_fields if pk_fields & set(self.__class__.model_fields) else set())
-            else:
-                data = self.model_dump()
+            data = self.model_dump(exclude=self.__class__._insert_pk_exclusions())
         else:
             all_data = self.model_dump()
             data = {field: all_data[field] for field in self._dirty_fields if field not in pk_fields}
@@ -1093,10 +1090,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         pk_fields = set(self.__class__.primary_key_fields())
         generated = set(self.__class__.get_generated_columns())
         if is_new:
-            if self.__class__.__pk_auto_generated__:
-                data = self.model_dump(exclude=pk_fields if pk_fields & set(self.__class__.model_fields) else set())
-            else:
-                data = self.model_dump()
+            data = self.model_dump(exclude=self.__class__._insert_pk_exclusions())
         else:
             all_data = self.model_dump()
             data = {field: all_data[field] for field in self._dirty_fields if field not in pk_fields}
