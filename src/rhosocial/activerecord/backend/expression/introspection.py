@@ -167,6 +167,83 @@ class TableUsageStatsQueryStatement(IntrospectionExpression):
         return "format_table_usage_stats_query_statement"
 
 
+class RuntimeMetricsQueryStatement(IntrospectionExpression):
+    """Expression for the engine's live runtime measurements.
+
+    No parameters beyond the schema: runtime facts describe the *server*, not
+    one object in it, so narrowing by table would invite a dialect to render a
+    filter that does not apply to what is being measured.
+
+    Example:
+        >>> expr = RuntimeMetricsQueryStatement(dialect, schema='public')
+        >>> sql, params = expr.to_sql()
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_runtime_metrics_query_statement"
+
+
+class IndexUsageStatsQueryStatement(IntrospectionExpression):
+    """Expression for per-index use counters across a schema.
+
+    One query for the schema, for the same reason as the usage-stats family:
+    a per-index form would invite a caller to loop the catalogue one index at
+    a time, and use counters are cheap to ask for all at once and expensive
+    to ask for one.
+
+    Example:
+        >>> expr = IndexUsageStatsQueryStatement(dialect, schema='public')
+        >>> sql, params = expr.to_sql()
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_index_usage_stats_query_statement"
+
+
+class ObjectDependencyQueryStatement(IntrospectionExpression):
+    """Expression for the object dependency graph.
+
+    ``object_name`` narrows to one object's dependants when the caller names
+    it -- the "what breaks if I drop this" question -- and is omitted for the
+    whole graph, which is a different and much larger answer.
+
+    Example:
+        >>> expr = ObjectDependencyQueryStatement(dialect, schema='public')
+        >>> sql, params = expr.to_sql()
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_object_dependency_query_statement"
+
+
+class DDLStatementQueryStatement(IntrospectionExpression):
+    """Expression for the DDL that recreates one object.
+
+    ``object_name`` is required: unlike the other families, this answers for
+    exactly one object, because a DDL text is large and the question is always
+    about a specific thing. ``object_type`` names what kind it is when the
+    caller knows (table, view, index), and is omitted when it does not, in
+    which case the dialect searches the kinds it can retrieve.
+
+    Example:
+        >>> expr = DDLStatementQueryStatement(
+        ...     dialect, table_name='orders', schema='public'
+        ... )
+        >>> sql, params = expr.to_sql()
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_ddl_statement_query_statement"
+
+
 class TableInfoQueryStatement(IntrospectionExpression):
     """Expression for single table information queries.
 

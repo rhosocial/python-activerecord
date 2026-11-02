@@ -82,7 +82,27 @@ class IntrospectionSupport(Protocol):
     # ========== Runtime Statistics ==========
 
     def supports_runtime_stats(self) -> bool:
-        """Whether runtime statistics introspection is supported."""
+        """Whether the engine's live runtime measurements are answerable.
+
+        Answering ``True`` obliges
+        :meth:`format_runtime_metrics_query_statement` to render. What the
+        numbers cover is the backend's to state: every one of them is *since
+        something* -- a statistics reset, a server start, a DMV flush -- and
+        the window is where the meaning lives. See
+        :class:`RuntimeMetricItem` for why ``source`` is part of the answer
+        rather than a comment.
+        """
+        ...  # pragma: no cover
+
+    def supports_index_stats(self) -> bool:
+        """Whether per-index use counters are answerable.
+
+        A different question from ``supports_unused_indexes_detection``:
+        that one asks "has this index ever been used", this one asks "how
+        much is it used". Both are worth asking of an index and they have
+        different costs and different answers, so they stay separate rather
+        than becoming one type with a flag.
+        """
         ...  # pragma: no cover
 
     def supports_table_stats(self) -> bool:
@@ -121,7 +141,23 @@ class IntrospectionSupport(Protocol):
         ...  # pragma: no cover
 
     def supports_object_dependencies(self) -> bool:
-        """Whether object dependencies introspection is supported."""
+        """Whether the object dependency graph is answerable.
+
+        The graph is *declared*, not inferred: an engine reports what its
+        catalog records as depending on what, and ``kind`` / ``action`` carry
+        the relation and the drop behaviour in the engine's own vocabulary.
+        """
+        ...  # pragma: no cover
+
+    def supports_ddl_extraction(self) -> bool:
+        """Whether the DDL that recreates an object is answerable.
+
+        No catalogue of structure can reconstruct this: CHECK expressions,
+        generated-column expressions, storage parameters and trigger bodies
+        exist only in the engine's own retained text. ``native`` on the answer
+        says whether that text came from the engine or was assembled here,
+        and assembly is lossy -- the caller decides which to trust.
+        """
         ...  # pragma: no cover
 
     def supports_extensions(self) -> bool:
@@ -323,6 +359,79 @@ class IntrospectionSupport(Protocol):
 
         Args:
             expr: Table usage stats expression with parameters.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        ...  # pragma: no cover
+
+    def format_runtime_metrics_query_statement(
+        self, expr: "RuntimeMetricsQueryStatement"
+    ) -> Tuple[str, tuple]:
+        """Format a runtime-measurement listing.
+
+        The contract: each row carries a name and a value, and the answer as a
+        whole states its window in ``source`` -- the engine's reset schedule is
+        what makes a zero mean "nothing happened" rather than "nothing ever
+        happened".
+
+        Args:
+            expr: Runtime metrics expression with parameters.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        ...  # pragma: no cover
+
+    def format_index_usage_stats_query_statement(
+        self, expr: "IndexUsageStatsQueryStatement"
+    ) -> Tuple[str, tuple]:
+        """Format a per-index use-counter listing.
+
+        The contract: the address columns plus the counters the engine keeps.
+        A counter the engine does not keep is left out of the projection
+        rather than rendered as a zero it never measured.
+
+        Args:
+            expr: Index usage stats expression with parameters.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        ...  # pragma: no cover
+
+    def format_object_dependency_query_statement(
+        self, expr: "ObjectDependencyQueryStatement"
+    ) -> Tuple[str, tuple]:
+        """Format an object-dependency listing.
+
+        The contract: the dependent object, the referenced object, and the
+        relation between them in the engine's vocabulary. Direction matters
+        and is fixed here -- ``dependent`` needs ``referenced`` -- because a
+        reader asking "what breaks if I drop this" is asking about dependants,
+        not about dependencies.
+
+        Args:
+            expr: Object dependency expression with parameters.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        ...  # pragma: no cover
+
+    def format_ddl_statement_query_statement(
+        self, expr: "DDLStatementQueryStatement"
+    ) -> Tuple[str, tuple]:
+        """Format a DDL retrieval for one object.
+
+        The contract: the DDL text, and whether it is the engine's own or an
+        assembly. An engine without native retrieval answers
+        ``UnsupportedFeatureError`` here rather than assembling something that
+        looks authoritative -- a reconstruction is not the same fact as the
+        engine's text, and the two must not be confused.
+
+        Args:
+            expr: DDL statement expression with parameters.
 
         Returns:
             Tuple of (SQL string, parameters tuple).

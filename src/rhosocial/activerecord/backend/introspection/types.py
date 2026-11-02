@@ -294,6 +294,124 @@ class SequenceInfo:
 
 
 @dataclass
+class RuntimeMetricItem:
+    """One runtime measurement, as one narrow row.
+
+    Modelled on :class:`~...status.types.StatusItem` rather than a new shape,
+    because the operational families answer the same kind of question -- a
+    named number a reader either acts on or does not -- and four parallel
+    result types would be four places for the narrow-table rule to drift.
+
+    ``source`` is the one addition that matters: these counters are *since
+    something*. The event is per engine (PostgreSQL's statistics reset,
+    MySQL's server start, SQL Server's DMV flush), so the number says "how
+    much happened in the window the engine remembers" and nothing more. The
+    engine states its window in its own subclass beside its own numbers; a
+    zero means "nothing in the window", never "nothing ever".
+    """
+
+    name: str
+    value: Any
+    #: What kind of measurement this is, so a consumer can group without
+    #: knowing which engine spelled it: ``activity`` for concurrency and
+    #: session facts, ``throughput`` for rates and counts, ``latency`` for
+    #: timings, ``error`` for failure counts.
+    kind: Optional[str] = None
+    unit: Optional[str] = None
+    description: Optional[str] = None
+    #: The reset window this number covers, as the engine names it.
+    source: Optional[str] = None
+    extra: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class IndexUsageStats:
+    """How an index is being used, beyond "has it ever been used".
+
+    The common minimum beside :class:`UnusedIndexInfo`: that family answers
+    the binary question, this one answers the counters. They are deliberately
+    separate answers rather than one type with an ``unused`` flag -- a reader
+    asking "is it unused" and a reader asking "how much is it used" want
+    different things, and collapsing them forces one of them to compute what
+    the other needs.
+
+    ``row_reads`` and ``row_fetches`` are the common slots where the engine
+    has them; where it does not they stay ``None``, which is the engine
+    saying so rather than reporting a zero it never measured.
+    """
+
+    schema: Optional[str] = None
+    table_name: str = ""
+    index_name: str = ""
+    #: Times the planner chose this index, since the statistics were reset.
+    scans: Optional[int] = None
+    #: Rows read through the index, where the engine counts them.
+    rows_read: Optional[int] = None
+    #: Rows returned to the client from the index (heap fetches included).
+    rows_fetched: Optional[int] = None
+    #: Index size in bytes, for the "worth this much space" question.
+    size_bytes: Optional[int] = None
+    extra: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ObjectDependency:
+    """One edge of the object dependency graph.
+
+    A dependency is directional and *declared*, not inferred: an engine
+    reports what its catalog records as depending on what. ``dependent`` is
+    the object that needs ``referenced``, and ``kind`` names the relation in
+    the engine's own vocabulary -- a view on a table, an index on a table, a
+    function used by a trigger. Dropping an object with dependants fails or
+    cascades, so the graph is what answers "what breaks if I drop this".
+
+    ``action`` carries the engine's drop behaviour (CASCADE, RESTRICT, SET
+    NULL) where it declares one, because that is the half that decides
+    whether the drop is safe.
+    """
+
+    schema: Optional[str] = None
+    dependent_schema: Optional[str] = None
+    #: The object that depends; its type is named in ``dependent_type``.
+    dependent: str = ""
+    dependent_type: Optional[str] = None
+    #: The object depended upon.
+    referenced: str = ""
+    referenced_type: Optional[str] = None
+    #: The relation in the engine's vocabulary.
+    kind: Optional[str] = None
+    #: What happens to the dependant when the referenced object is dropped.
+    action: Optional[str] = None
+    extra: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class DDLStatement:
+    """The DDL an engine says recreates an object.
+
+    The answer to "what did this object actually get created as", which no
+    amount of structure introspection can reconstruct: a CHECK expression, a
+    generated column's expression, a storage parameter and a trigger body all
+    live in text only the engine holds.
+
+    ``native`` says whether the text came from the engine's own DDL retrieval
+    (``DBMS_METADATA``, ``SHOW CREATE TABLE``) or was assembled by this
+    library from catalogue facts. Assembly is a reconstruction and therefore a
+    lossy one; a caller deciding whether to trust the text needs to know
+    which it is looking at.
+    """
+
+    schema: Optional[str] = None
+    object_type: Optional[str] = None
+    object_name: str = ""
+    #: The DDL text, or ``None`` when the engine will not give one.
+    ddl: Optional[str] = None
+    #: Whether the text is the engine's own or this library's assembly.
+    native: Optional[bool] = None
+    extra: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class UnusedIndexInfo:
     """An index the engine reports as never having served a query.
 

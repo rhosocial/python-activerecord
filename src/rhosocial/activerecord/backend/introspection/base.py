@@ -44,6 +44,10 @@ from .types import (
     IntrospectionViewInfo,
     IntrospectionTriggerInfo,
     IntrospectionScope,
+    DDLStatement,
+    IndexUsageStats,
+    ObjectDependency,
+    RuntimeMetricItem,
     TableUsageStats,
     UnusedIndexInfo,
 )
@@ -53,8 +57,12 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..expression.introspection import (
         ColumnInfoQueryStatement,
         DatabaseInfoQueryStatement,
+        DDLStatementQueryStatement,
         ForeignKeyQueryStatement,
         IndexInfoQueryStatement,
+        IndexUsageStatsQueryStatement,
+        ObjectDependencyQueryStatement,
+        RuntimeMetricsQueryStatement,
         TableListQueryStatement,
         TableUsageStatsQueryStatement,
         TriggerListQueryStatement,
@@ -307,6 +315,72 @@ class IntrospectorBase(IntrospectorMixin, ABC):
 
         target_schema = schema if schema is not None else self.default_schema
         return TableUsageStatsQueryStatement(self.dialect, schema=target_schema)
+
+    def runtime_metrics_statement(
+        self, *, schema: Optional[str]
+    ) -> "RuntimeMetricsQueryStatement":
+        """Return the statement that reads the engine's live measurements.
+
+        No table name, for the reason the class records: runtime facts describe
+        the server, so a filter that does not apply to them is worse than no
+        filter.
+        """
+        from ..expression.introspection import RuntimeMetricsQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return RuntimeMetricsQueryStatement(self.dialect, schema=target_schema)
+
+    def index_usage_stats_statement(
+        self, *, schema: Optional[str]
+    ) -> "IndexUsageStatsQueryStatement":
+        """Return the statement that reads per-index use counters.
+
+        One query for the schema, because use counters are cheap to ask for
+        all at once and the shape of "is this index worth its space" is a
+        question about the set of them.
+        """
+        from ..expression.introspection import IndexUsageStatsQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return IndexUsageStatsQueryStatement(self.dialect, schema=target_schema)
+
+    def object_dependency_statement(
+        self, *, schema: Optional[str], object_name: Optional[str] = None
+    ) -> "ObjectDependencyQueryStatement":
+        """Return the statement that reads the dependency graph.
+
+        Narrows to one object when the caller names it, which is the "what
+        breaks if I drop this" question and the reason the parameter exists;
+        omitted, the answer is the whole graph.
+        """
+        from ..expression.introspection import ObjectDependencyQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return ObjectDependencyQueryStatement(
+            self.dialect, schema=target_schema, object_name=object_name
+        )
+
+    def ddl_statement_statement(
+        self,
+        *,
+        schema: Optional[str],
+        object_name: str,
+        object_type: Optional[str] = None,
+    ) -> "DDLStatementQueryStatement":
+        """Return the statement that reads one object's DDL.
+
+        Always about one object: a DDL text is large, and the question "what
+        did this get created as" is always asked of a specific thing.
+        """
+        from ..expression.introspection import DDLStatementQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return DDLStatementQueryStatement(
+            self.dialect,
+            schema=target_schema,
+            object_name=object_name,
+            object_type=object_type,
+        )
     # ------------------------------------------------------------------ #
     # Cache — the manager's own service contract
     # ------------------------------------------------------------------ #
@@ -431,6 +505,177 @@ class IntrospectorBase(IntrospectorMixin, ABC):
                             "object_name",
                         }
                         and value is not None
+                    },
+                )
+            )
+        return found
+
+    def parse_runtime_metrics(
+        self,
+        rows: List[Dict[str, Any]],
+    ) -> List[RuntimeMetricItem]:
+        """Project runtime-measurement rows into the narrow shape.
+
+        Both spellings of a value are read (``value`` / ``metric_value``)
+        because engines name the column after the concept rather than after
+        the type. The ``kind`` slot is left ``None`` unless the row already
+        names one: guessing whether a counter is throughput or latency from
+        its name would be the engine's statistics pretending to be insight.
+        """
+        found: List[RuntimeMetricItem] = []
+        for row in rows or []:
+            name = row.get("name") or row.get("metric_name") or row.get("stat_name")
+            if not name:
+                continue
+            value = row.get("value")
+            if value is None:
+                value = row.get("metric_value")
+            if value is None:
+                value = row.get("stat_value")
+            known = {"name", "metric_name", "stat_name", "value", "metric_value", "stat_value"}
+            found.append(
+                RuntimeMetricItem(
+                    name=str(name),
+                    value=value,
+                    kind=row.get("kind"),
+                    unit=row.get("unit"),
+                    description=row.get("description") or row.get("desc"),
+                    source=row.get("source") or row.get("window"),
+                    extra={
+                        k: v for k, v in row.items() if k not in known and v is not None
+                    },
+                )
+            )
+        return found
+
+    def parse_index_usage_stats(
+        self,
+        rows: List[Dict[str, Any]],
+        schema: str,
+    ) -> List[IndexUsageStats]:
+        """Project per-index counter rows, leaving unmeasured slots None."""
+        found: List[IndexUsageStats] = []
+
+        def _first_int(row: Dict[str, Any], *keys: str) -> Optional[int]:
+            """The first named counter present, or None when none is."""
+            for key in keys:
+                v = row.get(key)
+                if v is not None:
+                    return int(v)
+            return None
+
+        for row in rows or []:
+            row_schema = row.get("schema_name") or row.get("schema") or schema
+            table = row.get("table_name") or row.get("relname") or row.get("table") or ""
+            index = row.get("index_name") or row.get("indexrelname") or row.get("index") or ""
+            if not table or not index:
+                continue
+
+            known = {
+                "schema", "schema_name", "table", "table_name", "relname",
+                "index", "index_name", "indexrelname",
+                "idx_scan", "scans", "index_scans",
+                "idx_tup_read", "rows_read", "rows_fetched", "idx_tup_fetch",
+                "index_size_bytes", "size_bytes",
+            }
+            found.append(
+                IndexUsageStats(
+                    schema=row_schema,
+                    table_name=table,
+                    index_name=index,
+                    scans=_first_int(row, "idx_scan", "scans", "index_scans"),
+                    rows_read=_first_int(row, "idx_tup_read", "rows_read"),
+                    rows_fetched=_first_int(row, "idx_tup_fetch", "rows_fetched"),
+                    size_bytes=_first_int(row, "index_size_bytes", "size_bytes"),
+                    extra={k: v for k, v in row.items() if k not in known and v is not None},
+                )
+            )
+        return found
+
+    def parse_object_dependencies(
+        self,
+        rows: List[Dict[str, Any]],
+        schema: str,
+    ) -> List[ObjectDependency]:
+        """Project dependency edges, reading both spellings of each address."""
+        found: List[ObjectDependency] = []
+        for row in rows or []:
+            dependent = (
+                row.get("dependent_name")
+                or row.get("dependent")
+                or row.get("object_name")
+                or ""
+            )
+            referenced = row.get("referenced_name") or row.get("referenced") or ""
+            if not dependent or not referenced:
+                continue
+
+            dependent_schema = (
+                row.get("dependent_schema")
+                or row.get("dependent_schema_name")
+                or row.get("schema")
+                or schema
+            )
+            found.append(
+                ObjectDependency(
+                    schema=row.get("schema_name") or row.get("schema") or schema,
+                    dependent_schema=dependent_schema,
+                    dependent=str(dependent),
+                    dependent_type=row.get("dependent_type") or row.get("type"),
+                    referenced=str(referenced),
+                    referenced_type=row.get("referenced_type"),
+                    kind=row.get("kind") or row.get("dependency_type"),
+                    action=row.get("action") or row.get("on_delete"),
+                    extra={
+                        k: v
+                        for k, v in row.items()
+                        if v is not None
+                        and k
+                        not in {
+                            "schema", "schema_name",
+                            "dependent_schema", "dependent_schema_name",
+                            "dependent", "dependent_name", "object_name", "dependent_type", "type",
+                            "referenced", "referenced_name", "referenced_type",
+                            "kind", "dependency_type", "action", "on_delete",
+                        }
+                    },
+                )
+            )
+        return found
+
+    def parse_ddl_statements(
+        self,
+        rows: List[Dict[str, Any]],
+        schema: str,
+    ) -> List[DDLStatement]:
+        """Project DDL rows; a row carrying no text is skipped, not raised.
+
+        An engine that can name an object but not reproduce its DDL would
+        produce exactly such a row, and the honest answer for it is the empty
+        list -- the caller asked for text, and silently returning a row with a
+        ``None`` text invites a reader to treat absence as a value.
+        """
+        found: List[DDLStatement] = []
+        for row in rows or []:
+            ddl = row.get("ddl") or row.get("sql") or row.get("definition")
+            if not ddl:
+                continue
+            found.append(
+                DDLStatement(
+                    schema=row.get("schema_name") or row.get("schema") or schema,
+                    object_type=row.get("object_type") or row.get("type"),
+                    object_name=str(row.get("object_name") or row.get("name") or ""),
+                    ddl=str(ddl),
+                    native=row.get("native"),
+                    extra={
+                        k: v
+                        for k, v in row.items()
+                        if v is not None
+                        and k
+                        not in {
+                            "schema", "schema_name", "object_type", "type",
+                            "object_name", "name", "ddl", "sql", "definition", "native",
+                        }
                     },
                 )
             )
@@ -753,6 +998,89 @@ class AbstractIntrospector(IntrospectorBase, ABC):
         self._cache.set(key, result)
         return result
 
+    def list_runtime_metrics(
+        self,
+        schema: Optional[str] = None,
+    ) -> List[RuntimeMetricItem]:
+        """Read the engine's live runtime measurements.
+
+        Every number is *since the window the engine remembers*; the window is
+        the engine's to state and lands in each item's ``source``. An engine
+        that cannot answer returns empty, same rule as the other families.
+        """
+        key = self._cache.key(IntrospectionScope.DATABASE, "runtime", schema=schema)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.runtime_metrics_statement(schema=schema).to_sql()
+        result = self.parse_runtime_metrics(self._executor.execute(sql, params))
+        self._cache.set(key, result)
+        return result
+
+    def list_index_usage_stats(
+        self,
+        schema: Optional[str] = None,
+    ) -> List[IndexUsageStats]:
+        """Read per-index use counters, answering "how much" rather than "ever"."""
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(IntrospectionScope.INDEX, "usage_stats", schema=schema)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.index_usage_stats_statement(schema=schema).to_sql()
+        result = self.parse_index_usage_stats(self._executor.execute(sql, params), target)
+        self._cache.set(key, result)
+        return result
+
+    def list_object_dependencies(
+        self,
+        object_name: Optional[str] = None,
+        schema: Optional[str] = None,
+    ) -> List[ObjectDependency]:
+        """Read the object dependency graph, or one object's dependants.
+
+        ``object_name`` answers "what breaks if I drop this"; omitted, the
+        answer is the whole graph, which is larger and slower.
+        """
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(
+            IntrospectionScope.TABLE, object_name or "*", "dependencies", schema=schema
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.object_dependency_statement(
+            schema=schema, object_name=object_name
+        ).to_sql()
+        result = self.parse_object_dependencies(self._executor.execute(sql, params), target)
+        self._cache.set(key, result)
+        return result
+
+    def get_ddl_statement(
+        self,
+        object_name: str,
+        object_type: Optional[str] = None,
+        schema: Optional[str] = None,
+    ) -> Optional[DDLStatement]:
+        """Read the DDL that recreates one object, or None when the engine won't.
+
+        An engine without native retrieval answers UnsupportedFeatureError
+        rather than being handed an assembly that looks authoritative.
+        """
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(
+            IntrospectionScope.TABLE, object_name, "ddl", schema=schema
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached[0] if cached else None
+        sql, params = self.ddl_statement_statement(
+            schema=schema, object_name=object_name, object_type=object_type
+        ).to_sql()
+        found = self.parse_ddl_statements(self._executor.execute(sql, params), target)
+        self._cache.set(key, found)
+        return found[0] if found else None
+
     def get_trigger_info(self, trigger_name: str, schema: Optional[str] = None) -> Optional[IntrospectionTriggerInfo]:
         """Return information for a specific trigger, or None if not found."""
         return next(
@@ -1009,6 +1337,80 @@ class AsyncAbstractIntrospector(IntrospectorBase, ABC):
         result = self.parse_table_usage_stats(await self._executor.execute(sql, params), target)
         self._cache.set(key, result)
         return result
+
+    async def list_runtime_metrics(
+        self,
+        schema: Optional[str] = None,
+    ) -> List[RuntimeMetricItem]:
+        """Read the engine's live runtime measurements; the async twin's copy.
+
+        Identical to the sync one apart from the await, so the two cannot
+        disagree about what a zero covers.
+        """
+        key = self._cache.key(IntrospectionScope.DATABASE, "runtime", schema=schema)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.runtime_metrics_statement(schema=schema).to_sql()
+        result = self.parse_runtime_metrics(await self._executor.execute(sql, params))
+        self._cache.set(key, result)
+        return result
+
+    async def list_index_usage_stats(
+        self,
+        schema: Optional[str] = None,
+    ) -> List[IndexUsageStats]:
+        """Read per-index use counters; the async twin's copy."""
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(IntrospectionScope.INDEX, "usage_stats", schema=schema)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.index_usage_stats_statement(schema=schema).to_sql()
+        result = self.parse_index_usage_stats(await self._executor.execute(sql, params), target)
+        self._cache.set(key, result)
+        return result
+
+    async def list_object_dependencies(
+        self,
+        object_name: Optional[str] = None,
+        schema: Optional[str] = None,
+    ) -> List[ObjectDependency]:
+        """Read the object dependency graph; the async twin's copy."""
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(
+            IntrospectionScope.TABLE, object_name or "*", "dependencies", schema=schema
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.object_dependency_statement(
+            schema=schema, object_name=object_name
+        ).to_sql()
+        result = self.parse_object_dependencies(await self._executor.execute(sql, params), target)
+        self._cache.set(key, result)
+        return result
+
+    async def get_ddl_statement(
+        self,
+        object_name: str,
+        object_type: Optional[str] = None,
+        schema: Optional[str] = None,
+    ) -> Optional[DDLStatement]:
+        """Read one object's DDL; the async twin's copy."""
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(
+            IntrospectionScope.TABLE, object_name, "ddl", schema=schema
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached[0] if cached else None
+        sql, params = self.ddl_statement_statement(
+            schema=schema, object_name=object_name, object_type=object_type
+        ).to_sql()
+        found = self.parse_ddl_statements(await self._executor.execute(sql, params), target)
+        self._cache.set(key, found)
+        return found[0] if found else None
 
     async def get_trigger_info(self, trigger_name: str, schema: Optional[str] = None) -> Optional[IntrospectionTriggerInfo]:
         """Return information for a specific trigger, or None if not found."""
