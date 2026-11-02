@@ -14,6 +14,7 @@ from .async_relational import AsyncRelationalQueryMixin
 from .set_operation import SetOperationQuery
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.expression import AllColumnsWildcard, statements, LimitOffsetClause, bases
+from ..backend.expression.collect_columns import referenced_columns
 from ..backend.expression.objects import Table
 from ..backend.expression.sources import NamedRelationRef
 from ..interface.model import IActiveRecord, IAsyncActiveRecord
@@ -26,6 +27,42 @@ from ..interface.query import (
     IAsyncSetOperationQuery,
     ThreadSafeDict,
 )
+
+
+def _warn_partial_key_scope(query: "IQuery") -> None:
+    """Log when a model query leaves part of its key unconstrained.
+
+    One function for both the sync and the async query classes, because the
+    answer does not depend on which one asks: the model names the key, the
+    WHERE tree says what it constrains, and the two are compared. A second
+    copy of that comparison is a second place for it to drift.
+
+    The framework does not fill in what was left out: no engine can say from
+    the data which value a missing key column should take, so the caller
+    supplies it or goes without. What this can do is say the difference out
+    loud -- a query that constrains only part of a key matches every value of
+    the rest, and on a table partitioned by one of those columns that is
+    every partition, which is a cost the reader rarely intends and never sees.
+
+    A warning rather than a refusal because the query is not wrong. Reading
+    every month of a partitioned log is a legitimate question, and so is a
+    lookup through a key the caller knows is partial; only the reader who
+    thinks they wrote a row address is mistaken, and they are the one who
+    needs the message. So the message names the table, names the columns, and
+    says what the query will match.
+    """
+    model = query.model_class
+    uncovered = model._unconstrained_key_columns(referenced_columns(query.where_clause))
+    if not uncovered:
+        return
+    query._log(
+        logging.WARNING,
+        "query on %s leaves key column(s) %s unconstrained: it matches every "
+        "value those columns can hold, so it is not a row lookup -- and on a "
+        "table partitioned by one of them it scans every partition. Add the "
+        "column(s) to the query if that is not the intent."
+        % (model.table_name(), ", ".join(uncovered)),
+    )
 
 
 class ActiveQuery(
@@ -259,6 +296,25 @@ class ActiveQuery(
             for_update=self._for_update_clause,
         )
 
+    def _warn_partial_key_scope(self) -> None:
+        """Log when this query does not address rows by their whole key.
+
+        The framework does not fill in what was left out: no engine can say
+        from the data which value a missing key column should take, so the
+        caller supplies it or goes without. What this can do is say the
+        difference out loud -- a query that constrains only part of a key
+        matches every value of the rest, and on a table partitioned by one of
+        those columns that is every partition, which is a cost the reader
+        rarely intends and never sees.
+
+        A warning rather than a refusal because the query is not wrong. Reading
+        every month of a partitioned log is a legitimate question, and so is a
+        lookup through a key the caller knows is partial; only the reader who
+        thinks they wrote a row address is mistaken, and they are the one who
+        needs the message.
+        """
+        _warn_partial_key_scope(self)
+
     def to_sql(self) -> "bases.SQLQueryAndParams":
         """Generate the SQL query string and parameters for ActiveQuery.
 
@@ -268,6 +324,7 @@ class ActiveQuery(
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
+        self._warn_partial_key_scope()
         # Generate SQL using the QueryStatement
         return self.to_query_expression().to_sql()
 
@@ -600,6 +657,15 @@ class AsyncActiveQuery(
 
         return record
 
+    def _warn_partial_key_scope(self) -> None:
+        """Log when this query does not address rows by their whole key.
+
+        The async twin's call into the shared check; documented on the
+        sync side. Kept as a one-liner so the two cannot disagree about
+        when a scope is warned about.
+        """
+        _warn_partial_key_scope(self)
+
     def to_sql(self) -> "bases.SQLQueryAndParams":
         """Generate the SQL query string and parameters for AsyncActiveQuery.
 
@@ -635,6 +701,7 @@ class AsyncActiveQuery(
         )
 
         # Generate SQL using the QueryStatement
+        self._warn_partial_key_scope()
         return query_expr.to_sql()
 
     def union(self, other: "IAsyncQuery") -> "IAsyncSetOperationQuery":

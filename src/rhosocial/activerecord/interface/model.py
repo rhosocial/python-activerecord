@@ -241,6 +241,40 @@ class ActiveRecordBase(BaseModel, ABC):
         return " and ".join(f"'{f}'" for f in fields)
 
     @classmethod
+    def required_pk_columns(cls) -> Tuple[str, ...]:
+        """Column names of :meth:`required_pk_fields` -- the caller's key columns.
+
+        Spelled in column names because that is what a WHERE tree carries: a
+        condition built from ``Model.c.field`` renders the model's column name,
+        and so does the tree ``_build_pk_where_predicate` builds. Comparing a
+        field name against it would under-report, and a query that does
+        constrain the key would be warned about for no reason.
+        """
+        return tuple(
+            cls.column_name(field) for field in cls.required_pk_fields()
+        )
+
+    @classmethod
+    def _unconstrained_key_columns(cls, referenced: Set[str]) -> Tuple[str, ...]:
+        """Key columns this query's conditions do not mention.
+
+        Only the caller-supplied key columns are asked for. A database-generated
+        one is not part of a row's address from the reader's side -- a lookup by
+        the generated surrogate alone is a complete lookup, whereas a lookup
+        that leaves out a column nobody else can fill is not: it matches every
+        value that column can hold. On a table partitioned by that column it
+        means scanning every partition, which is the case worth hearing about.
+
+        Args:
+            referenced: Column names appearing anywhere in the query's WHERE
+                tree, from :func:`referenced_columns`.
+        """
+        wanted = set(cls.required_pk_columns())
+        if not wanted:
+            return ()
+        return tuple(sorted(wanted - set(referenced or ())))
+
+    @classmethod
     def _insert_pk_exclusions(cls) -> Set[str]:
         """The primary-key fields to leave out of an INSERT's column list.
 
