@@ -52,7 +52,14 @@ def _warn_partial_key_scope(query: "IQuery") -> None:
     says what the query will match.
     """
     model = query.model_class
-    uncovered = model._unconstrained_key_columns(referenced_columns(query.where_clause))
+    wanted = set(model.required_pk_columns())
+    if not wanted:
+        # No key column is the caller's to give, so no query can address a
+        # row more completely than this one already does. Checking that first
+        # also keeps the tree walk off the path of the ordinary single-key
+        # model, which is every query this service runs.
+        return
+    uncovered = wanted - referenced_columns(query.where_clause)
     if not uncovered:
         return
     query._log(

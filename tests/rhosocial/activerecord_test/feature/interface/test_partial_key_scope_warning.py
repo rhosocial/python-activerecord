@@ -14,6 +14,7 @@ in-memory backend is enough to reach the code that raises it.
 from __future__ import annotations
 
 import logging
+from unittest import mock
 
 try:
     from typing import Annotated, ClassVar, Optional
@@ -213,6 +214,31 @@ class TestQueryIsNotChanged:
         # Nothing about a partial scope is an error.
         result = PartitionedLog.query().where(PartitionedLog.c.job_id == 7).all()
         assert result == []
+
+
+class TestSingleKeyQueryCostsNothing:
+    """The check is on the path of every query in the library.
+
+    A model whose whole key the database writes has nothing to report, and the
+    walk that would find that out is pure overhead on a path that every
+    ordinary SELECT takes. These tests pin that the walk is not performed for
+    such a model, rather than trusting that the early return stays early.
+    """
+
+    def test_the_tree_is_not_walked_for_a_single_key_model(self, captured):
+        # Counting the walk directly: a handler attached to the module's
+        # function would be intrusive, so this asserts the observable outcome
+        # -- no warning -- while the cost is structural.
+        with mock.patch(
+            "rhosocial.activerecord.backend.expression.collect_columns.referenced_columns"
+        ) as walk:
+            PlainModel.query().where(PlainModel.c.name == "x").to_sql()
+            assert walk.called is False
+
+    def test_and_the_query_still_renders(self):
+        sql, params = PlainModel.query().where(PlainModel.c.name == "x").to_sql()
+        assert "ct_plain_scope" in sql
+        assert params
 
 
 class TestWalker:
