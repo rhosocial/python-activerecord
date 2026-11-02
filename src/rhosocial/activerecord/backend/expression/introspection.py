@@ -148,6 +148,25 @@ class UnusedIndexesQueryStatement(IntrospectionExpression):
         return "format_unused_indexes_query_statement"
 
 
+class TableUsageStatsQueryStatement(IntrospectionExpression):
+    """Expression for per-table usage counters.
+
+    Answers for every table in one query, as the counters themselves are the
+    answer: a single-table form would invite a caller to loop the catalogue
+    one table at a time, and statistics collectors price their first query
+    far above their next.
+
+    Example:
+        >>> expr = TableUsageStatsQueryStatement(dialect, schema='public')
+        >>> sql, params = expr.to_sql()
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_table_usage_stats_query_statement"
+
+
 class TableInfoQueryStatement(IntrospectionExpression):
     """Expression for single table information queries.
 

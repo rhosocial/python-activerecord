@@ -44,6 +44,7 @@ from .types import (
     IntrospectionViewInfo,
     IntrospectionTriggerInfo,
     IntrospectionScope,
+    TableUsageStats,
     UnusedIndexInfo,
 )
 
@@ -55,6 +56,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ForeignKeyQueryStatement,
         IndexInfoQueryStatement,
         TableListQueryStatement,
+        TableUsageStatsQueryStatement,
         TriggerListQueryStatement,
         UnusedIndexesQueryStatement,
         ViewInfoQueryStatement,
@@ -290,6 +292,21 @@ class IntrospectorBase(IntrospectorMixin, ABC):
 
         target_schema = schema if schema is not None else self.default_schema
         return UnusedIndexesQueryStatement(self.dialect, schema=target_schema)
+
+    def table_usage_stats_statement(
+        self, *, schema: Optional[str]
+    ) -> "TableUsageStatsQueryStatement":
+        """Return the statement that reads every table's usage counters.
+
+        One query for the whole schema, because statistics collectors price
+        their first query far above their next and the counters are the
+        answer: a per-table form would invite looping the catalogue one table
+        at a time.
+        """
+        from ..expression.introspection import TableUsageStatsQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return TableUsageStatsQueryStatement(self.dialect, schema=target_schema)
     # ------------------------------------------------------------------ #
     # Cache — the manager's own service contract
     # ------------------------------------------------------------------ #
@@ -418,7 +435,75 @@ class IntrospectorBase(IntrospectorMixin, ABC):
                 )
             )
         return found
-        ...
+
+    def parse_table_usage_stats(
+        self,
+        rows: List[Dict[str, Any]],
+        schema: str,
+    ) -> List[TableUsageStats]:
+        """Project usage-counter rows into the common shape.
+
+        Engines name their counters differently and track different subsets;
+        each slot reads by every spelling this codebase has met, and stays
+        ``None`` when no spelling is present -- an engine that does not track
+        a counter is answering honestly by leaving it out, and a zero it
+        never measured would be a lie of a different kind.
+        """
+        found: List[TableUsageStats] = []
+
+        def _first_int(row: Dict[str, Any], *keys: str) -> Optional[int]:
+            """The first named counter present, or None when none is."""
+            for key in keys:
+                value = row.get(key)
+                if value is not None:
+                    return int(value)
+            return None
+
+        for row in rows or []:
+            row_schema = row.get("schema_name") or row.get("schema") or schema
+            table = row.get("table_name") or row.get("table") or row.get("relname") or ""
+            if not table:
+                continue
+
+            known = {
+                "schema",
+                "schema_name",
+                "table",
+                "table_name",
+                "relname",
+                "seq_scan",
+                "sequential_scans",
+                "idx_scan",
+                "indexed_scans",
+                "index_scans",
+                "n_tup_ins",
+                "inserts",
+                "n_tup_upd",
+                "updates",
+                "n_tup_del",
+                "deletes",
+                "n_live_tup",
+                "estimated_row_count",
+                "table_rows",
+            }
+            found.append(
+                TableUsageStats(
+                    schema=row_schema,
+                    table_name=table,
+                    sequential_scans=_first_int(row, "seq_scan", "sequential_scans"),
+                    indexed_scans=_first_int(row, "idx_scan", "indexed_scans", "index_scans"),
+                    inserts=_first_int(row, "n_tup_ins", "inserts"),
+                    updates=_first_int(row, "n_tup_upd", "updates"),
+                    deletes=_first_int(row, "n_tup_del", "deletes"),
+                    estimated_row_count=_first_int(row, "n_live_tup", "estimated_row_count", "table_rows"),
+                    extra={
+                        key: value
+                        for key, value in row.items()
+                        if key not in known and value is not None
+                    },
+                )
+            )
+        return found
 
 
 class AbstractIntrospector(IntrospectorBase, ABC):
@@ -643,6 +728,28 @@ class AbstractIntrospector(IntrospectorBase, ABC):
             return cached
         sql, params = self.unused_indexes_statement(schema=schema).to_sql()
         result = self.parse_unused_indexes(self._executor.execute(sql, params), target)
+        self._cache.set(key, result)
+        return result
+
+    def list_table_usage_stats(
+        self,
+        schema: Optional[str] = None,
+    ) -> List[TableUsageStats]:
+        """Read every table's usage counters, as the engine last counted them.
+
+        Empty for an engine that cannot answer, same rule as
+        :meth:`list_unused_indexes`. Every counter returned is *since the
+        statistics were last reset*, on the engine's own schedule -- the
+        number answers "how much has happened in the window the engine
+        remembers", and nothing more.
+        """
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(IntrospectionScope.TABLE, "usage_stats", schema=schema)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.table_usage_stats_statement(schema=schema).to_sql()
+        result = self.parse_table_usage_stats(self._executor.execute(sql, params), target)
         self._cache.set(key, result)
         return result
 
@@ -881,6 +988,25 @@ class AsyncAbstractIntrospector(IntrospectorBase, ABC):
             return cached
         sql, params = self.unused_indexes_statement(schema=schema).to_sql()
         result = self.parse_unused_indexes(await self._executor.execute(sql, params), target)
+        self._cache.set(key, result)
+        return result
+
+    async def list_table_usage_stats(
+        self,
+        schema: Optional[str] = None,
+    ) -> List[TableUsageStats]:
+        """Read every table's usage counters; the async twin's copy.
+
+        Identical to the sync one apart from the await, so the two cannot
+        drift on what a counter counts.
+        """
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(IntrospectionScope.TABLE, "usage_stats", schema=schema)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.table_usage_stats_statement(schema=schema).to_sql()
+        result = self.parse_table_usage_stats(await self._executor.execute(sql, params), target)
         self._cache.set(key, result)
         return result
 

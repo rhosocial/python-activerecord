@@ -17,6 +17,7 @@ if TYPE_CHECKING:  # pragma: no cover
         IndexInfoQueryStatement,
         TableInfoQueryStatement,
         TableListQueryStatement,
+        TableUsageStatsQueryStatement,
         TriggerInfoQueryStatement,
         TriggerListQueryStatement,
         UnusedIndexesQueryStatement,
@@ -85,7 +86,16 @@ class IntrospectionSupport(Protocol):
         ...  # pragma: no cover
 
     def supports_table_stats(self) -> bool:
-        """Whether table statistics introspection is supported."""
+        """Whether per-table usage counters are answerable.
+
+        Answering ``True`` obliges
+        :meth:`format_table_usage_stats_query_statement` to render, and the
+        rendered query to return at least the address columns plus the
+        read/write counter set that has a name in
+        ``TableUsageStats``. Every counter is *since the statistics were last
+        reset*, on whatever schedule the engine resets them -- that part is
+        the backend's to document, not the protocol's to guess.
+        """
         ...  # pragma: no cover
 
     def supports_index_stats(self) -> bool:
@@ -296,6 +306,23 @@ class IntrospectionSupport(Protocol):
 
         Args:
             expr: Unused indexes expression with parameters.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        ...  # pragma: no cover
+    def format_table_usage_stats_query_statement(
+        self, expr: "TableUsageStatsQueryStatement"
+    ) -> Tuple[str, tuple]:
+        """Format a per-table usage-counter listing.
+
+        The contract the family fixes: the rendered query returns at least
+        the address columns plus whatever subset of the common counters the
+        engine tracks -- a counter the engine does not keep is left out of
+        the projection rather than rendered as a zero it never measured.
+
+        Args:
+            expr: Table usage stats expression with parameters.
 
         Returns:
             Tuple of (SQL string, parameters tuple).

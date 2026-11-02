@@ -319,3 +319,37 @@ class UnusedIndexInfo:
     table_name: str = ""
     index_name: str = ""
     extra: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class TableUsageStats:
+    """How a table is being used, as the engine's own counters report it.
+
+    The common minimum is the read/write counter set every engine with a
+    statistics collector answers: sequential and indexed reads on one side,
+    inserts, updates and deletes on the other. ``estimated_row_count`` rides
+    here too because every counter source carries one alongside the counters,
+    and a reader needs it to turn a scan count into a share of the table.
+
+    Every counter is **since the statistics were last reset**, and each engine
+    resets differently -- PostgreSQL on crash or `pg_stat_reset`, MySQL for as
+    long as the server has been up. None of them says "ever". A zero is
+    therefore "no access in the window", not "no access", and comparing
+    counters across engines is meaningless. The reset semantics are the
+    backend's to document beside its own subclass, which carries the
+    engine-specific counters (PostgreSQL's dead tuples and last-access times,
+    MySQL's read/modified flags) that have no common name.
+
+    Absent slots are ``None`` -- an engine that does not track one of the
+    common counters says so rather than reporting a zero it did not measure.
+    """
+
+    schema: Optional[str] = None
+    table_name: str = ""
+    sequential_scans: Optional[int] = None
+    indexed_scans: Optional[int] = None
+    inserts: Optional[int] = None
+    updates: Optional[int] = None
+    deletes: Optional[int] = None
+    estimated_row_count: Optional[int] = None
+    extra: Dict[str, Any] = field(default_factory=dict)
