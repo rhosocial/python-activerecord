@@ -159,8 +159,17 @@ class SQLiteIntrospectionCapabilityMixin:
         return False
 
     def supports_extensions(self) -> bool:
-        """SQLite supports extension introspection via pragma_module_list."""
-        return True
+        """SQLite has registered virtual table modules (``PRAGMA module_list``) but does not expose them.
+
+        It used to answer ``True`` on the strength of that pragma alone, with
+        no query formatting, no result type and no CLI type behind it -- a
+        caller was promised an answer it could not get, which is worse than
+        ``False``. ``False`` until the listing exists; when it does, the
+        engine's own name for it (``supports_module_introspection``) is the
+        honest one, because "module" and PostgreSQL's "extension" are not the
+        same thing and this dialect should not be read as claiming they are.
+        """
+        return False
 
     def supports_table_storage_introspection(self) -> bool:
         """Whether per-table storage metrics introspection is supported.

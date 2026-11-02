@@ -44,6 +44,44 @@ the enum. The rule is the same in both cases: the introspector is the only
 layer that saw the catalog's distinction, so nothing may be folded away there
 and recovered later.
 
+### 2a. A capability switch buys discoverability, never semantics.
+
+A `supports_*` name in core is a question worth asking through one spelling,
+**not** a promise that every engine answers it the same way. That distinction
+decides what to do when the mechanisms diverge, and it is settled by asking
+which of the two is uniform:
+
+- the **question** uniform, the **answer shape** not -> keep the name in core,
+  and say so where a reader will look. `supports_fulltext_search` is the
+  standing example: `MATCH ... AGAINST` and `CONTAINS` share nothing but the
+  question, and the name stays because a caller wants one way to ask it;
+- the **question** itself is not uniform -> the switch belongs to the backend
+  alone, exactly as partitions do.
+
+`supports_extensions` is the case that makes the rule necessary. `extension`
+is not SQL vocabulary, and it names different objects per engine -- PostgreSQL
+`CREATE EXTENSION` packages (version, schema), SQLite registered virtual table
+modules. It was once argued that it should be withdrawn from core for exactly
+that reason. The argument loses: withdrawing it would not make the semantics
+agree, it would only make the question unaskable through a common surface, so
+a caller would have to already know the backend's private spelling
+(`supports_extension_introspection`) -- which is strictly worse than an answer
+that has to be read together with its backend's docs.
+
+Consequences for anyone editing such a probe:
+
+1. **`True` promises "this engine will answer", never "it will answer in that
+   shape".** The field set lives in the backend's own result type. A probe
+   answered `True` with no query formatting, no result type and no CLI type
+   behind it is a broken promise -- worse than `False`, because `False` is
+   merely "I do not answer" while that is "I will" followed by nothing. This
+   happened, and the fix was to answer `False`.
+2. **One capability, one answer.** A backend must not answer `True` through
+   its own spelling while the core spelling still defaults to `False`: two
+   names for one fact let a caller be told "unsupported" by whichever name it
+   happened to use. Either the backend answers through the core name, or the
+   core name does not exist.
+
 ## 3. Every backend completes its own semantics.
 
 An introspection class derives from core, and that derivation is the floor, not

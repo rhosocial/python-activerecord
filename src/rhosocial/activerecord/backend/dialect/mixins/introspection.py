@@ -106,7 +106,17 @@ class IntrospectionMixin:
         return False
 
     def supports_extensions(self) -> bool:
-        """Whether installed extensions introspection is supported. Defaults to False."""
+        """Whether this engine exposes a catalogue of installed add-on components.
+
+        Defaults to ``False``. ``extension`` is not SQL-standard vocabulary and
+        the concept differs per engine -- PostgreSQL's are ``CREATE EXTENSION``
+        packages with a version and a schema, SQLite's are registered virtual
+        table modules -- so a ``True`` promises that the engine *will answer*,
+        not *what shape the answer takes*. Read the backend's own docs and
+        result type before relying on any field; see
+        :class:`~...protocols.introspect.introspection.IntrospectionSupport`
+        for why the name stays in core despite that.
+        """
         return False
 
     def supports_table_storage_introspection(self) -> bool:
@@ -381,7 +391,17 @@ class AsyncIntrospectionMixin:
         return False
 
     def supports_extensions(self) -> bool:
-        """Whether installed extensions introspection is supported. Defaults to False."""
+        """Whether this engine exposes a catalogue of installed add-on components.
+
+        Defaults to ``False``. ``extension`` is not SQL-standard vocabulary and
+        the concept differs per engine -- PostgreSQL's are ``CREATE EXTENSION``
+        packages with a version and a schema, SQLite's are registered virtual
+        table modules -- so a ``True`` promises that the engine *will answer*,
+        not *what shape the answer takes*. Read the backend's own docs and
+        result type before relying on any field; see
+        :class:`~...protocols.introspect.introspection.IntrospectionSupport`
+        for why the name stays in core despite that.
+        """
         return False
 
     def supports_table_storage_introspection(self) -> bool:

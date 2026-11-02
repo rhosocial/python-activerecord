@@ -106,7 +106,24 @@ class IntrospectionSupport(Protocol):
         ...  # pragma: no cover
 
     def supports_extensions(self) -> bool:
-        """Whether installed extensions introspection is supported."""
+        """Whether this engine exposes a catalogue of installed add-on components.
+
+        The question is uniform across engines; the answer is not.
+        ``extension`` is not SQL-standard vocabulary -- each engine calls its
+        loadable, inspectable add-ons something different, and the concept
+        differs materially: PostgreSQL's are ``CREATE EXTENSION`` packages
+        carrying a version and a schema (``pg_extension``), SQLite's are
+        registered virtual table modules (``PRAGMA module_list``), MySQL's are
+        plugins (``information_schema.plugins``). A ``True`` therefore promises
+        that this engine *will answer*, never *what shape the answer takes*.
+
+        This is the same situation as ``supports_fulltext_search``, where the
+        mechanism differs completely (``MATCH ... AGAINST`` versus ``CONTAINS``)
+        while the question stays worth asking through one name. What the probe
+        buys is discoverability, not semantics -- so the field set of the
+        answer lives in the backend's own result type, and reading that type
+        (and the backend's docs) is required before relying on any field.
+        """
         ...  # pragma: no cover
 
     def supports_table_storage_introspection(self) -> bool:
