@@ -212,9 +212,29 @@ class ObjectDependencyQueryStatement(IntrospectionExpression):
     whole graph, which is a different and much larger answer.
 
     Example:
-        >>> expr = ObjectDependencyQueryStatement(dialect, schema='public')
+        >>> expr = ObjectDependencyQueryStatement(
+        ...     dialect, object_name='orders', schema='public'
+        ... )
         >>> sql, params = expr.to_sql()
     """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        schema: Optional[str] = None,
+        object_name: Optional[str] = None,
+    ):
+        """Initialize the object dependency expression.
+
+        Args:
+            dialect: The SQL dialect to use for SQL generation.
+            schema: Optional schema name. Defaults to None.
+            object_name: Narrows to one object's dependants when given --
+                the "what breaks if I drop this" question. Omitted, the
+                answer is the whole graph, which is larger.
+        """
+        super().__init__(dialect, schema)
+        self.object_name = object_name
 
     @property
     def format_method(self) -> str:
@@ -233,10 +253,33 @@ class DDLStatementQueryStatement(IntrospectionExpression):
 
     Example:
         >>> expr = DDLStatementQueryStatement(
-        ...     dialect, table_name='orders', schema='public'
+        ...     dialect, object_name='orders', schema='public'
         ... )
         >>> sql, params = expr.to_sql()
     """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        object_name: str = "",
+        schema: Optional[str] = None,
+        object_type: Optional[str] = None,
+    ):
+        """Initialize the DDL retrieval expression.
+
+        Args:
+            dialect: The SQL dialect to use for SQL generation.
+            object_name: The object whose DDL is wanted. Defaulting to empty
+                rather than being positional keeps the class constructible by
+                a generic filler -- a caller who omits it and gets an empty
+                answer sees ``None`` from the parser, not a constructor error.
+            schema: Optional schema name. Defaults to None.
+            object_type: What kind of object it is, when the caller knows.
+                Omitted, the dialect searches the kinds it can retrieve.
+        """
+        super().__init__(dialect, schema)
+        self.object_name = object_name
+        self.object_type = object_type
 
     @property
     def format_method(self) -> str:
