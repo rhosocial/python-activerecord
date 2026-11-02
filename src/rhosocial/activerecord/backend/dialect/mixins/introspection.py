@@ -92,7 +92,13 @@ class IntrospectionMixin:
         return False
 
     def supports_unused_indexes_detection(self) -> bool:
-        """Whether unused indexes detection is supported. Defaults to False."""
+        """Whether unused indexes detection is supported. Defaults to False.
+
+        Answering ``True`` obliges ``format_unused_indexes_query_statement``
+        to render. What "unused" means is the backend's to state: counters
+        reset, views cover only the statistics they can see, and an index
+        missing from the answer is absence of evidence, never proof of use.
+        """
         return False
 
     # ========== Structure Information ==========
@@ -377,7 +383,13 @@ class AsyncIntrospectionMixin:
         return False
 
     def supports_unused_indexes_detection(self) -> bool:
-        """Whether unused indexes detection is supported. Defaults to False."""
+        """Whether unused indexes detection is supported. Defaults to False.
+
+        Answering ``True`` obliges ``format_unused_indexes_query_statement``
+        to render. What "unused" means is the backend's to state: counters
+        reset, views cover only the statistics they can see, and an index
+        missing from the answer is absence of evidence, never proof of use.
+        """
         return False
 
     # ========== Structure Information ==========

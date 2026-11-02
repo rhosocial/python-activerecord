@@ -44,6 +44,7 @@ from .types import (
     IntrospectionViewInfo,
     IntrospectionTriggerInfo,
     IntrospectionScope,
+    UnusedIndexInfo,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -55,6 +56,7 @@ if TYPE_CHECKING:  # pragma: no cover
         IndexInfoQueryStatement,
         TableListQueryStatement,
         TriggerListQueryStatement,
+        UnusedIndexesQueryStatement,
         ViewInfoQueryStatement,
         ViewListQueryStatement,
     )
@@ -273,6 +275,21 @@ class IntrospectorBase(IntrospectorMixin, ABC):
             self.dialect, schema=target_schema, table_name=table_name
         )
 
+    def unused_indexes_statement(
+        self, *, schema: Optional[str]
+    ) -> "UnusedIndexesQueryStatement":
+        """Return the statement that lists indexes the engine reports as unused.
+
+        An unused index is a fact about the whole database rather than about
+        one table, so unlike the trigger statement this takes no table name:
+        narrowing the answer is the caller's job, and a dialect asked to
+        filter by table would have to invent a filter its statistics cannot
+        honour.
+        """
+        from ..expression.introspection import UnusedIndexesQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return UnusedIndexesQueryStatement(self.dialect, schema=target_schema)
     # ------------------------------------------------------------------ #
     # Cache — the manager's own service contract
     # ------------------------------------------------------------------ #
@@ -355,7 +372,52 @@ class IntrospectorBase(IntrospectorMixin, ABC):
 
     @abstractmethod
     def parse_triggers(self, rows: List[Dict[str, Any]], schema: str) -> List[IntrospectionTriggerInfo]:
-        """Parse trigger list from query result rows."""
+        """Parse trigger rows into trigger information objects."""
+        ...
+
+    def parse_unused_indexes(
+        self,
+        rows: List[Dict[str, Any]],
+        schema: str,
+    ) -> List[UnusedIndexInfo]:
+        """Project the rows of an unused-indexes listing.
+
+        Column names are read by both spellings because engines disagree even
+        on whether the schema is a column of its own, and a key that is simply
+        absent yields ``""`` rather than raising: a listing that omits an
+        address component is still a listing, while one exception here would
+        drop every row with it.
+        """
+        found: List[UnusedIndexInfo] = []
+        for row in rows or []:
+            row_schema = row.get("schema_name") or row.get("schema") or schema
+            table = row.get("table_name") or row.get("table") or row.get("object_name") or ""
+            index = row.get("index_name") or row.get("index") or row.get("object_name") or ""
+            if not table or not index:
+                continue
+            found.append(
+                UnusedIndexInfo(
+                    schema=row_schema,
+                    table_name=table,
+                    index_name=index,
+                    extra={
+                        key: value
+                        for key, value in row.items()
+                        if key
+                        not in {
+                            "schema",
+                            "schema_name",
+                            "table",
+                            "table_name",
+                            "index",
+                            "index_name",
+                            "object_name",
+                        }
+                        and value is not None
+                    },
+                )
+            )
+        return found
         ...
 
 
@@ -559,6 +621,28 @@ class AbstractIntrospector(IntrospectorBase, ABC):
             return cached
         sql, params = self.trigger_list_statement(schema=schema, table_name=table_name).to_sql()
         result = self.parse_triggers(self._executor.execute(sql, params), target)
+        self._cache.set(key, result)
+        return result
+
+    def list_unused_indexes(
+        self,
+        schema: Optional[str] = None,
+    ) -> List[UnusedIndexInfo]:
+        """List the indexes this engine reports as never having served a query.
+
+        Returns an empty list for an engine that cannot answer -- ``False``
+        from the dialect's capability probe is what the caller checks first,
+        and an engine that answers but has nothing to report also returns
+        empty. The two are indistinguishable here, which is why the docstring
+        of :class:`UnusedIndexInfo` says what absence does and does not prove.
+        """
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(IntrospectionScope.INDEX, "unused", schema=schema)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.unused_indexes_statement(schema=schema).to_sql()
+        result = self.parse_unused_indexes(self._executor.execute(sql, params), target)
         self._cache.set(key, result)
         return result
 
@@ -778,6 +862,25 @@ class AsyncAbstractIntrospector(IntrospectorBase, ABC):
             return cached
         sql, params = self.trigger_list_statement(schema=schema, table_name=table_name).to_sql()
         result = self.parse_triggers(await self._executor.execute(sql, params), target)
+        self._cache.set(key, result)
+        return result
+
+    async def list_unused_indexes(
+        self,
+        schema: Optional[str] = None,
+    ) -> List[UnusedIndexInfo]:
+        """List the indexes this engine reports as never having served a query.
+
+        The async twin's copy; identical to the sync one apart from the await,
+        and kept word-for-word so the two cannot drift on what absence means.
+        """
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(IntrospectionScope.INDEX, "unused", schema=schema)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.unused_indexes_statement(schema=schema).to_sql()
+        result = self.parse_unused_indexes(await self._executor.execute(sql, params), target)
         self._cache.set(key, result)
         return result
 

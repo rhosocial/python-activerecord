@@ -145,7 +145,14 @@ class SQLiteIntrospectionCapabilityMixin:
         return False
 
     def supports_unused_indexes_detection(self) -> bool:
-        """SQLite does not support unused indexes detection."""
+        """SQLite keeps no per-index use counter, so it cannot report one.
+
+        Not "SQLite has no indexes" -- ``PRAGMA index_list`` answers those. It
+        has no statistic to derive "never served a query" from: the query
+        planner does not maintain per-index counters, and ``sqlite_stat1`` is
+        a table-size estimator, not a use record. Answering ``True`` here would
+        promise a number that does not exist.
+        """
         return False
 
     # ========== Structure Information ==========

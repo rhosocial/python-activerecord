@@ -129,6 +129,25 @@ class TableListQueryStatement(IntrospectionExpression):
         return "format_table_list_query_statement"
 
 
+class UnusedIndexesQueryStatement(IntrospectionExpression):
+    """Expression for listing indexes the engine reports as never used.
+
+    No parameters beyond the schema every other catalogue question carries: an
+    unused index is a fact about a whole database, not about one table, so
+    narrowing it by table would be the caller's job on the way back and would
+    only invite a dialect to render a filter it cannot honour consistently.
+
+    Example:
+        >>> expr = UnusedIndexesQueryStatement(dialect, schema='public')
+        >>> sql, params = expr.to_sql()
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_unused_indexes_query_statement"
+
+
 class TableInfoQueryStatement(IntrospectionExpression):
     """Expression for single table information queries.
 

@@ -291,3 +291,31 @@ class SequenceInfo:
     cache_size: Optional[int] = None
     last_value: Optional[int] = None
     extra: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class UnusedIndexInfo:
+    """An index the engine reports as never having served a query.
+
+    The common minimum is the *address* -- which schema, which table, which
+    index -- because that is what every engine that can answer at all will
+    answer. Everything about *how* unused it is stays with the backend, and
+    the shapes genuinely differ: MySQL's ``sys.schema_unused_indexes`` reports
+    an estimated ``rows_searched`` per access, PostgreSQL's
+    ``pg_stat_user_indexes`` reports ``idx_scan`` counts that a reader has to
+    interpret (zero since the last stats reset, which is not the same as "never
+    used ever"). Those facts belong on the backend's own subclass beside this
+    one, not as a ``time_window`` or ``confidence`` field guessed at here --
+    a field meaning one thing on one engine and another on the next is the bug
+    ``extra`` exists to avoid (``.claude/rules/introspection.md`` sec.5).
+
+    Absence of an index from the list is **not** evidence it is used: engines
+    report from counters that reset, and MySQL's view only covers indexes it
+    can see statistics for. Treat a miss as "no evidence", never as "proof of
+    use", and read the backend's own docs for what its numbers cover.
+    """
+
+    schema: Optional[str] = None
+    table_name: str = ""
+    index_name: str = ""
+    extra: Dict[str, Any] = field(default_factory=dict)

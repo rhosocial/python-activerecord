@@ -19,6 +19,7 @@ if TYPE_CHECKING:  # pragma: no cover
         TableListQueryStatement,
         TriggerInfoQueryStatement,
         TriggerListQueryStatement,
+        UnusedIndexesQueryStatement,
         ViewInfoQueryStatement,
         ViewListQueryStatement,
     )
@@ -92,7 +93,15 @@ class IntrospectionSupport(Protocol):
         ...  # pragma: no cover
 
     def supports_unused_indexes_detection(self) -> bool:
-        """Whether unused indexes detection is supported."""
+        """Whether unused indexes detection is supported.
+
+        Answering ``True`` means :meth:`format_unused_indexes_query_statement`
+        renders for this dialect. What "unused" *means* is the backend's to
+        state -- counters reset, views cover only the statistics they can see,
+        and an index missing from the answer is absence of evidence, never
+        proof of use. The common minimum returned is an address; the engine's
+        own numbers ride on its subclass or in ``extra``.
+        """
         ...  # pragma: no cover
 
     # ========== Structure Information ==========
@@ -268,6 +277,25 @@ class IntrospectionSupport(Protocol):
 
         Args:
             expr: Trigger info expression with parameters.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        ...  # pragma: no cover
+
+    def format_unused_indexes_query_statement(
+        self, expr: "UnusedIndexesQueryStatement"
+    ) -> Tuple[str, tuple]:
+        """Format an unused-indexes listing.
+
+        The one place the family's meaning is fixed: whatever an engine
+        counts, the rendered query must return at least the three address
+        columns -- schema, table, index -- because the caller receives
+        ``UnusedIndexInfo`` and nothing downstream can rebuild an address out
+        of a statistic. What the numbers *mean* is the backend's to state.
+
+        Args:
+            expr: Unused indexes expression with parameters.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
