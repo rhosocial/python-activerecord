@@ -32,7 +32,7 @@ Design principles:
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from .cache import InMemoryIntrospectionCache, IntrospectionCache
 from .types import (
