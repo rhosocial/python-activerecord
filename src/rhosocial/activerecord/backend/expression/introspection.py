@@ -242,6 +242,138 @@ class ObjectDependencyQueryStatement(IntrospectionExpression):
         return "format_object_dependency_query_statement"
 
 
+class ColumnDataProfileQueryStatement(IntrospectionExpression):
+    """Expression for the data profile of every column in one table.
+
+    ``table_name`` is required and there is no ``column_name``: a statistics
+    catalogue answers for a whole table in one query, and a per-column form
+    would invite a caller to loop the columns of a table -- one round trip
+    each -- for data the engine already had together.
+
+    Example:
+        >>> expr = ColumnDataProfileQueryStatement(
+        ...     dialect, table_name='orders', schema='public'
+        ... )
+        >>> sql, params = expr.to_sql()
+    """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        table_name: str,
+        schema: Optional[str] = None,
+    ):
+        """Initialize the column data profile expression.
+
+        Args:
+            dialect: The SQL dialect to use for SQL generation.
+            table_name: The table whose columns are profiled.
+            schema: Optional schema name. Defaults to None.
+        """
+        super().__init__(dialect, schema)
+        self.table_name = table_name
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column_data_profile_query_statement"
+
+
+class ColumnValueSampleQueryStatement(IntrospectionExpression):
+    """Expression for the most frequent values of one column.
+
+    ``limit`` is an upper bound, not a promise: an engine that keeps a
+    fixed-size "most common values" list (PostgreSQL's is 100 by default,
+    adjustable through ``statistics_target``) returns fewer, and fewer is a
+    correct answer rather than a truncation to report.
+
+    Example:
+        >>> expr = ColumnValueSampleQueryStatement(
+        ...     dialect, 'orders', 'status', limit=20, schema='public'
+        ... )
+        >>> sql, params = expr.to_sql()
+    """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        table_name: str,
+        column_name: str,
+        limit: int = 100,
+        schema: Optional[str] = None,
+    ):
+        """Initialize the value-sample expression.
+
+        Args:
+            dialect: The SQL dialect to use for SQL generation.
+            table_name: The table the column belongs to.
+            column_name: The column whose values are sampled.
+            limit: Upper bound on returned values. Defaults to 100.
+            schema: Optional schema name. Defaults to None.
+        """
+        super().__init__(dialect, schema)
+        self.table_name = table_name
+        self.column_name = column_name
+        self.limit = limit
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column_value_sample_query_statement"
+
+
+class JoinCoverageQueryStatement(IntrospectionExpression):
+    """Expression for how much two columns' value domains overlap.
+
+    Both sides are named explicitly -- table *and* column -- because unlike
+    every other introspection family there is no single object being asked
+    about: the question is a relation between two, and a signature that
+    assumed one of them would be answering a different question.
+
+    The most expensive member of the family and the only one with no cheap
+    path: it reads both columns.
+
+    Example:
+        >>> expr = JoinCoverageQueryStatement(
+        ...     dialect,
+        ...     left_table='orders', left_column='customer_ref',
+        ...     right_table='customers', right_column='code',
+        ...     schema='public',
+        ... )
+        >>> sql, params = expr.to_sql()
+    """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        left_table: str,
+        left_column: str,
+        right_table: str,
+        right_column: str,
+        schema: Optional[str] = None,
+    ):
+        """Initialize the join-coverage expression.
+
+        Args:
+            dialect: The SQL dialect to use for SQL generation.
+            left_table: The table holding the values being tested.
+            left_column: The column holding the values being tested.
+            right_table: The table whose domain they are tested against.
+            right_column: The column whose domain they are tested against.
+            schema: Optional schema name, applied to both sides. Defaults to None.
+        """
+        super().__init__(dialect, schema)
+        self.left_table = left_table
+        self.left_column = left_column
+        self.right_table = right_table
+        self.right_column = right_column
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_join_coverage_query_statement"
+
+
 class DDLStatementQueryStatement(IntrospectionExpression):
     """Expression for the DDL that recreates one object.
 

@@ -194,6 +194,35 @@ class SQLiteIntrospectionCapabilityMixin:
         """SQLite supports DDL extraction via sqlite_master."""
         return True
 
+    def supports_column_data_profile(self) -> bool:
+        """SQLite answers a column data profile by aggregating the rows.
+
+        There is no statistics catalogue to read: ``sqlite_stat1`` is a
+        table-size estimator, not a per-column profile. So the answer is exact
+        and paid for in time, which is why the result must be labelled
+        ``AGGREGATE`` rather than left to look like an estimate.
+        """
+        return True
+
+    def supports_column_value_sample(self) -> bool:
+        """SQLite answers a value listing by aggregating with a limit.
+
+        Nothing is precomputed, so this costs a grouped scan -- the same order
+        as the profile itself, which is why the two are separate probes rather
+        than one call that would force the cheap half to pay for the dear one.
+        """
+        return True
+
+    def supports_join_coverage(self) -> bool:
+        """SQLite cannot compare two columns' domains without reading both.
+
+        Answering False is deliberate rather than an admission: with no
+        catalogue statistics, "how much do these overlap" means two scans plus
+        a set intersection, and a caller who wants that should ask for it
+        knowingly rather than have a schema-linking pass trigger it silently.
+        """
+        return False
+
     def supports_ddl_extraction_native(self) -> bool:
         """SQLite does not have native DDL extraction (requires assembly)."""
         return False

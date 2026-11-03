@@ -44,8 +44,11 @@ from .types import (
     IntrospectionViewInfo,
     IntrospectionTriggerInfo,
     IntrospectionScope,
+    ColumnDataProfile,
+    ColumnValueFrequency,
     DDLStatement,
     IndexUsageStats,
+    JoinCoverage,
     ObjectDependency,
     RuntimeMetricItem,
     TableUsageStats,
@@ -55,12 +58,15 @@ from .types import (
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect.base import SQLDialectBase
     from ..expression.introspection import (
+        ColumnDataProfileQueryStatement,
         ColumnInfoQueryStatement,
+        ColumnValueSampleQueryStatement,
         DatabaseInfoQueryStatement,
         DDLStatementQueryStatement,
         ForeignKeyQueryStatement,
         IndexInfoQueryStatement,
         IndexUsageStatsQueryStatement,
+        JoinCoverageQueryStatement,
         ObjectDependencyQueryStatement,
         RuntimeMetricsQueryStatement,
         TableListQueryStatement,
@@ -381,6 +387,75 @@ class IntrospectorBase(IntrospectorMixin, ABC):
             object_name=object_name,
             object_type=object_type,
         )
+
+    def column_data_profile_statement(
+        self, *, schema: Optional[str], table_name: str
+    ) -> "ColumnDataProfileQueryStatement":
+        """Return the statement that profiles every column of one table.
+
+        ``table_name`` is required and there is no column parameter: a
+        statistics catalogue answers for a whole table at once, and a
+        per-column form would make a caller loop a table's columns for data
+        the engine already had together.
+        """
+        from ..expression.introspection import ColumnDataProfileQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return ColumnDataProfileQueryStatement(
+            self.dialect, table_name=table_name, schema=target_schema
+        )
+
+    def column_value_sample_statement(
+        self,
+        *,
+        schema: Optional[str],
+        table_name: str,
+        column_name: str,
+        limit: int = 100,
+    ) -> "ColumnValueSampleQueryStatement":
+        """Return the statement that lists a column's most frequent values.
+
+        ``limit`` is an upper bound, not a promise -- an engine keeping a
+        fixed-size most-common-values list returns what it kept.
+        """
+        from ..expression.introspection import ColumnValueSampleQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return ColumnValueSampleQueryStatement(
+            self.dialect,
+            table_name=table_name,
+            column_name=column_name,
+            limit=limit,
+            schema=target_schema,
+        )
+
+    def join_coverage_statement(
+        self,
+        *,
+        schema: Optional[str],
+        left_table: str,
+        left_column: str,
+        right_table: str,
+        right_column: str,
+    ) -> "JoinCoverageQueryStatement":
+        """Return the statement that measures two columns' domain overlap.
+
+        Both sides are named because the question is a relation between two
+        objects rather than a fact about one -- the only family here of that
+        shape.
+        """
+        from ..expression.introspection import JoinCoverageQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return JoinCoverageQueryStatement(
+            self.dialect,
+            left_table=left_table,
+            left_column=left_column,
+            right_table=right_table,
+            right_column=right_column,
+            schema=target_schema,
+        )
+
     # ------------------------------------------------------------------ #
     # Cache — the manager's own service contract
     # ------------------------------------------------------------------ #
@@ -750,6 +825,158 @@ class IntrospectorBase(IntrospectorMixin, ABC):
             )
         return found
 
+    def parse_column_data_profiles(
+        self,
+        rows: List[Dict[str, Any]],
+        schema: str,
+        table_name: str,
+    ) -> List[ColumnDataProfile]:
+        """Project a table's per-column profile rows.
+
+        Slot names are read under both spellings engines use, and a figure the
+        engine did not project stays ``None`` -- that is the engine saying "I
+        do not measure this", which must not be smoothed into a zero.
+
+        ``row_count`` doubles as the sample size when ``source`` is a sample,
+        which is why the two travel together rather than as separate fields.
+        """
+        found: List[ColumnDataProfile] = []
+
+        def _first(row: Dict[str, Any], *keys: str) -> Any:
+            for key in keys:
+                if key in row and row[key] is not None:
+                    return row[key]
+            return None
+
+        for row in rows or []:
+            column = _first(row, "column_name", "attname", "column")
+            if not column:
+                continue
+            nulls = _first(row, "null_fraction", "null_frac", "null_ratio")
+            distinct = _first(row, "distinct_count", "n_distinct", "num_distinct")
+            known = {
+                "schema", "schema_name",
+                "table", "table_name", "relname",
+                "column", "column_name", "attname",
+                "null_fraction", "null_frac", "null_ratio",
+                "distinct_count", "n_distinct", "num_distinct",
+                "min_value", "min", "low_value",
+                "max_value", "max", "high_value",
+                "row_count", "rows", "n_live_tup", "num_rows",
+                "source", "collected_at", "last_analyzed", "last_analyze",
+            }
+            found.append(
+                ColumnDataProfile(
+                    schema=_first(row, "schema_name", "schema") or schema,
+                    table_name=_first(row, "table_name", "relname", "table") or table_name,
+                    column_name=str(column),
+                    null_fraction=float(nulls) if nulls is not None else None,
+                    distinct_count=int(distinct) if distinct is not None else None,
+                    min_value=_first(row, "min_value", "min", "low_value"),
+                    max_value=_first(row, "max_value", "max", "high_value"),
+                    row_count=_first(row, "row_count", "rows", "n_live_tup", "num_rows"),
+                    source=_first(row, "source"),
+                    collected_at=_first(row, "collected_at", "last_analyzed", "last_analyze"),
+                    extra={
+                        key: value
+                        for key, value in row.items()
+                        if key not in known and value is not None
+                    },
+                )
+            )
+        return found
+
+    def parse_column_value_samples(
+        self,
+        rows: List[Dict[str, Any]],
+    ) -> List[ColumnValueFrequency]:
+        """Project a value listing.
+
+        A row's value may legitimately be ``None`` -- NULL is often the most
+        interesting member of a column's domain -- so the "skip when empty"
+        rule applied to addresses does **not** apply here.
+        """
+        found: List[ColumnValueFrequency] = []
+        for row in rows or []:
+            if not any(k in row for k in ("value", "val", "most_common_val")):
+                continue
+            value = row.get("value")
+            if value is None:
+                value = row.get("val")
+            if value is None and "most_common_val" in row:
+                value = row.get("most_common_val")
+            count = row.get("count")
+            if count is None:
+                count = row.get("n")
+            frequency = row.get("frequency")
+            if frequency is None:
+                frequency = row.get("most_common_freq")
+            known = {
+                "value", "val", "most_common_val",
+                "count", "n",
+                "frequency", "most_common_freq",
+            }
+            found.append(
+                ColumnValueFrequency(
+                    value=value,
+                    count=int(count) if count is not None else None,
+                    frequency=float(frequency) if frequency is not None else None,
+                    extra={
+                        key: v
+                        for key, v in row.items()
+                        if key not in known and v is not None
+                    },
+                )
+            )
+        return found
+
+    def parse_join_coverage(
+        self,
+        rows: List[Dict[str, Any]],
+        *,
+        left_table: str,
+        left_column: str,
+        right_table: str,
+        right_column: str,
+        schema: Optional[str] = None,
+    ) -> Optional[JoinCoverage]:
+        """Project the single row an overlap measurement returns.
+
+        ``None`` when the answer carries no row: an engine that could not
+        compute the measurement is answering "no measurement", which a caller
+        must be able to tell apart from "zero overlap".
+        """
+        for row in rows or []:
+            left = row.get("left_coverage")
+            if left is None:
+                left = row.get("left_fraction")
+            right = row.get("right_coverage")
+            if right is None:
+                right = row.get("right_fraction")
+            if left is None and right is None:
+                continue
+            return JoinCoverage(
+                left_schema=schema,
+                left_table=left_table,
+                left_column=left_column,
+                right_schema=schema,
+                right_table=right_table,
+                right_column=right_column,
+                left_coverage=float(left) if left is not None else None,
+                right_coverage=float(right) if right is not None else None,
+                extra={
+                    key: value
+                    for key, value in row.items()
+                    if key
+                    not in {
+                        "left_coverage", "left_fraction",
+                        "right_coverage", "right_fraction",
+                    }
+                    and value is not None
+                },
+            )
+        return None
+
 
 class AbstractIntrospector(IntrospectorBase, ABC):
     """Abstract base class for synchronous database introspectors.
@@ -995,6 +1222,116 @@ class AbstractIntrospector(IntrospectorBase, ABC):
             return cached
         sql, params = self.table_usage_stats_statement(schema=schema).to_sql()
         result = self.parse_table_usage_stats(self._executor.execute(sql, params), target)
+        self._cache.set(key, result)
+        return result
+
+    def list_column_data_profiles(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+    ) -> List[ColumnDataProfile]:
+        """Profile every column of one table from the data itself.
+
+        The counterpart of :meth:`list_columns`, which reports what a column
+        *promises*; this reports what it *holds*, and the two disagreeing is
+        the useful signal. Every figure may be ``None``, and ``source`` says
+        whether what came back is an estimate or a count -- a caller comparing
+        profiles across engines must read it.
+
+        Empty for an engine that cannot answer.
+        """
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(
+            IntrospectionScope.COLUMN, table_name, "data_profile", schema=schema
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.column_data_profile_statement(
+            schema=schema, table_name=table_name
+        ).to_sql()
+        result = self.parse_column_data_profiles(
+            self._executor.execute(sql, params), target, table_name
+        )
+        self._cache.set(key, result)
+        return result
+
+    def sample_column_values(
+        self,
+        table_name: str,
+        column_name: str,
+        limit: int = 100,
+        schema: Optional[str] = None,
+    ) -> List[ColumnValueFrequency]:
+        """List a column's most frequent values, up to ``limit``.
+
+        Fewer than ``limit`` is a correct answer: an engine that keeps a
+        fixed-size most-common-values list returns what it kept, and padding
+        the list would invent values.
+        """
+        key = self._cache.key(
+            IntrospectionScope.COLUMN,
+            table_name,
+            column_name,
+            "values",
+            limit,
+            schema=schema,
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.column_value_sample_statement(
+            schema=schema, table_name=table_name, column_name=column_name, limit=limit
+        ).to_sql()
+        result = self.parse_column_value_samples(self._executor.execute(sql, params))
+        self._cache.set(key, result)
+        return result
+
+    def estimate_join_coverage(
+        self,
+        left_table: str,
+        left_column: str,
+        right_table: str,
+        right_column: str,
+        schema: Optional[str] = None,
+    ) -> Optional[JoinCoverage]:
+        """Measure how much two columns' distinct value domains overlap.
+
+        ``None`` when the engine cannot measure it -- which is not the same
+        answer as "zero overlap", and a caller deciding whether a join is
+        worth writing needs to tell them apart.
+
+        Both fractions are estimates: NULLs are excluded on both sides,
+        collations are not reconciled, and the engine may sample. A high
+        coverage is evidence of a join, not proof of one.
+        """
+        key = self._cache.key(
+            IntrospectionScope.COLUMN,
+            left_table,
+            left_column,
+            "join_coverage",
+            right_table,
+            right_column,
+            schema=schema,
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.join_coverage_statement(
+            schema=schema,
+            left_table=left_table,
+            left_column=left_column,
+            right_table=right_table,
+            right_column=right_column,
+        ).to_sql()
+        result = self.parse_join_coverage(
+            self._executor.execute(sql, params),
+            left_table=left_table,
+            left_column=left_column,
+            right_table=right_table,
+            right_column=right_column,
+            schema=schema if schema is not None else self.default_schema,
+        )
         self._cache.set(key, result)
         return result
 
@@ -1335,6 +1672,97 @@ class AsyncAbstractIntrospector(IntrospectorBase, ABC):
             return cached
         sql, params = self.table_usage_stats_statement(schema=schema).to_sql()
         result = self.parse_table_usage_stats(await self._executor.execute(sql, params), target)
+        self._cache.set(key, result)
+        return result
+
+    async def list_column_data_profiles(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+    ) -> List[ColumnDataProfile]:
+        """Profile every column of one table; the async twin's copy.
+
+        Identical to the sync one apart from the await, so the two cannot
+        disagree about what ``source`` means.
+        """
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(
+            IntrospectionScope.COLUMN, table_name, "data_profile", schema=schema
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.column_data_profile_statement(
+            schema=schema, table_name=table_name
+        ).to_sql()
+        result = self.parse_column_data_profiles(
+            await self._executor.execute(sql, params), target, table_name
+        )
+        self._cache.set(key, result)
+        return result
+
+    async def sample_column_values(
+        self,
+        table_name: str,
+        column_name: str,
+        limit: int = 100,
+        schema: Optional[str] = None,
+    ) -> List[ColumnValueFrequency]:
+        """List a column's most frequent values; the async twin's copy."""
+        key = self._cache.key(
+            IntrospectionScope.COLUMN,
+            table_name,
+            column_name,
+            "values",
+            limit,
+            schema=schema,
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.column_value_sample_statement(
+            schema=schema, table_name=table_name, column_name=column_name, limit=limit
+        ).to_sql()
+        result = self.parse_column_value_samples(await self._executor.execute(sql, params))
+        self._cache.set(key, result)
+        return result
+
+    async def estimate_join_coverage(
+        self,
+        left_table: str,
+        left_column: str,
+        right_table: str,
+        right_column: str,
+        schema: Optional[str] = None,
+    ) -> Optional[JoinCoverage]:
+        """Measure two columns' domain overlap; the async twin's copy."""
+        key = self._cache.key(
+            IntrospectionScope.COLUMN,
+            left_table,
+            left_column,
+            "join_coverage",
+            right_table,
+            right_column,
+            schema=schema,
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.join_coverage_statement(
+            schema=schema,
+            left_table=left_table,
+            left_column=left_column,
+            right_table=right_table,
+            right_column=right_column,
+        ).to_sql()
+        result = self.parse_join_coverage(
+            await self._executor.execute(sql, params),
+            left_table=left_table,
+            left_column=left_column,
+            right_table=right_table,
+            right_column=right_column,
+            schema=schema if schema is not None else self.default_schema,
+        )
         self._cache.set(key, result)
         return result
 

@@ -471,3 +471,129 @@ class TableUsageStats:
     deletes: Optional[int] = None
     estimated_row_count: Optional[int] = None
     extra: Dict[str, Any] = field(default_factory=dict)
+
+
+class ProfileSource(str, Enum):
+    """Where a data-profile number came from -- and therefore what it means.
+
+    Not a decoration. The same ``null_fraction`` is two different facts
+    depending on its origin: PostgreSQL's ``pg_stats.null_frac`` is a *sampled
+    estimate* produced by the last ANALYZE, while MySQL's and SQLite's are
+    *exact* counts bought with a full aggregate. Reading 0.3 without knowing
+    which is which is reading nothing, so the source travels with the number.
+
+    ``str`` because this is a word a JSON artifact carries, not a node in a
+    tree -- the same reason ``PartitionStrategy`` is one.
+    """
+
+    #: The engine's statistics catalog: cheap, and possibly stale.
+    ESTIMATE = "estimate"
+    #: Computed here from the rows themselves: exact, and paid for in time.
+    AGGREGATE = "aggregate"
+    #: Computed over a subset of rows; ``ColumnDataProfile.row_count`` says how
+    #: many, and the number is an estimate of the whole.
+    SAMPLE = "sample"
+    #: The engine answered but did not say how the number was produced.
+    UNKNOWN = "unknown"
+
+
+@dataclass
+class ColumnDataProfile:
+    """What one column actually holds, as opposed to what it declares.
+
+    The counterpart of :class:`IntrospectionColumnInfo`, which answers what a
+    column *promises*. This one answers what the data *is*, and the two
+    disagreeing is the most valuable signal either can produce: a ``NOT NULL``
+    column holding nulls, a ``TEXT`` column holding nothing but numbers, a
+    table declared without a primary key whose every value in one column is
+    unique.
+
+    Deliberately *not* here: storage-class distribution, text-format
+    fingerprints and unit guesses. The first is a real dialect difference
+    (SQLite and ClickHouse carry runtime types; PostgreSQL does not), so it
+    belongs on the backend that has it. The other two are interpretations of
+    ``min``/``max`` rather than database facts, and building them into a probe
+    would mean nine backends writing the same regexes.
+
+    Every slot may be ``None``, and ``None`` means "not measured" rather than
+    zero -- an engine that does not keep a figure says so, it does not report
+    a zero it never counted.
+    """
+
+    schema: Optional[str] = None
+    table_name: str = ""
+    column_name: str = ""
+    #: Fraction of rows holding NULL, in ``[0.0, 1.0]``.
+    null_fraction: Optional[float] = None
+    #: Distinct non-null values. Some engines estimate this; ``source`` says
+    #: how to read it.
+    distinct_count: Optional[int] = None
+    #: The smallest and largest values, in the driver's own Python types.
+    #:
+    #: Not strings: for a text column the maximum is the lexicographic one,
+    #: for a timestamp it is a datetime, and converting either to text would
+    #: force the consumer to parse what it already had. What "smallest" means
+    #: depends on the column's declared type, which
+    #: :class:`IntrospectionColumnInfo` supplies.
+    min_value: Optional[Any] = None
+    max_value: Optional[Any] = None
+    #: Rows the profile was computed over -- the whole table for an aggregate,
+    #: the sample size for a sample, and the collector's estimate for an
+    #: estimate. Beside ``distinct_count`` it is what turns a count into a
+    #: share.
+    row_count: Optional[int] = None
+    #: How the numbers above were produced. See :class:`ProfileSource`.
+    source: Optional[str] = None
+    #: When the estimate was collected, for sources that can be stale.
+    #:
+    #: Required reading whenever ``source`` is an estimate: a ``null_fraction``
+    #: from seven months ago and one from today are not the same fact, and
+    #: without this slot the difference is invisible.
+    collected_at: Optional[str] = None
+    extra: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ColumnValueFrequency:
+    """One value a column actually contains, with its weight.
+
+    ``count`` and ``frequency`` are both optional rather than one being
+    derived, because engines report one or the other and converting needs a
+    row count neither side is obliged to have. A caller holding the row count
+    can divide; a library that divided for it would have had to guess.
+
+    ``value`` may be ``None``: a NULL is a legal, and often the most
+    interesting, member of a column's value domain.
+    """
+
+    value: Optional[Any] = None
+    count: Optional[int] = None
+    frequency: Optional[float] = None
+    extra: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class JoinCoverage:
+    """How much of one column's value domain appears in another's.
+
+    The question a schema-linking consumer asks when no foreign key exists:
+    ``orders.customer_ref`` and ``customers.code`` look joinable, but only the
+    data can say whether they are.
+
+    Two fractions rather than one because the relation is not symmetric: every
+    order's customer may exist while most customers have never ordered. Both
+    are estimates, for the reasons :meth:`AbstractIntrospector.estimate_join_coverage`
+    records.
+    """
+
+    left_schema: Optional[str] = None
+    left_table: str = ""
+    left_column: str = ""
+    right_schema: Optional[str] = None
+    right_table: str = ""
+    right_column: str = ""
+    #: Share of the left column's distinct values that also occur on the right.
+    left_coverage: Optional[float] = None
+    #: Share of the right column's distinct values that also occur on the left.
+    right_coverage: Optional[float] = None
+    extra: Dict[str, Any] = field(default_factory=dict)

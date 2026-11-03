@@ -129,6 +129,35 @@ class IntrospectionMixin:
         """Whether per-table storage metrics introspection is supported. Defaults to False."""
         return False
 
+    def supports_column_data_profile(self) -> bool:
+        """Whether a column's *data* can be profiled. Defaults to False.
+
+        Answering ``True`` obliges
+        ``format_column_data_profile_query_statement`` to render, and the
+        answer to carry provenance: an estimate from a statistics catalogue and
+        an exact count are different facts wearing the same slot name.
+        """
+        return False
+
+    def supports_column_value_sample(self) -> bool:
+        """Whether a column's most frequent values are answerable. Defaults to False.
+
+        Kept apart from the data profile because the two cost differently on
+        every engine: a catalogue answers the profile for free, while a value
+        listing either comes from a kept ``most_common_vals`` list or has to
+        aggregate.
+        """
+        return False
+
+    def supports_join_coverage(self) -> bool:
+        """Whether two columns' value domains can be compared. Defaults to False.
+
+        The most expensive probe of the family and the only one about a
+        *relation* rather than an object; a backend that cannot read both
+        columns should answer False rather than approximate.
+        """
+        return False
+
     # ========== DDL Extraction ==========
 
     def supports_ddl_extraction(self) -> bool:
@@ -418,6 +447,35 @@ class AsyncIntrospectionMixin:
 
     def supports_table_storage_introspection(self) -> bool:
         """Whether per-table storage metrics introspection is supported. Defaults to False."""
+        return False
+
+    def supports_column_data_profile(self) -> bool:
+        """Whether a column's *data* can be profiled. Defaults to False.
+
+        Answering ``True`` obliges
+        ``format_column_data_profile_query_statement`` to render, and the
+        answer to carry provenance: an estimate from a statistics catalogue and
+        an exact count are different facts wearing the same slot name.
+        """
+        return False
+
+    def supports_column_value_sample(self) -> bool:
+        """Whether a column's most frequent values are answerable. Defaults to False.
+
+        Kept apart from the data profile because the two cost differently on
+        every engine: a catalogue answers the profile for free, while a value
+        listing either comes from a kept ``most_common_vals`` list or has to
+        aggregate.
+        """
+        return False
+
+    def supports_join_coverage(self) -> bool:
+        """Whether two columns' value domains can be compared. Defaults to False.
+
+        The most expensive probe of the family and the only one about a
+        *relation* rather than an object; a backend that cannot read both
+        columns should answer False rather than approximate.
+        """
         return False
 
     # ========== DDL Extraction ==========
