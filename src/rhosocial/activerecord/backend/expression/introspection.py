@@ -19,7 +19,7 @@ the parameters readable to IDE introspection, static analysis and MCP service
 integration -- a chain of setters hides them behind the last call.
 """
 
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, Sequence, TYPE_CHECKING
 
 from .bases import BaseExpression
 
@@ -262,6 +262,7 @@ class ColumnDataProfileQueryStatement(IntrospectionExpression):
         dialect: "SQLDialectBase",
         table_name: str,
         schema: Optional[str] = None,
+        columns: Sequence[str] = (),
     ):
         """Initialize the column data profile expression.
 
@@ -269,9 +270,18 @@ class ColumnDataProfileQueryStatement(IntrospectionExpression):
             dialect: The SQL dialect to use for SQL generation.
             table_name: The table whose columns are profiled.
             schema: Optional schema name. Defaults to None.
+            columns: The table's column names, for engines that must
+                *aggregate* the rows rather than read a statistics catalogue.
+                A catalogue-based dialect ignores this -- ``pg_stats`` already
+                answers for every column of the table. An aggregating dialect
+                cannot: SQL cannot pivot ``AVG(col IS NULL)`` over columns it
+                has not been told about, so a caller profiling a table with no
+                catalogue has to supply the list (one ``list_columns`` call,
+                which is cheap). Defaults to empty.
         """
         super().__init__(dialect, schema)
         self.table_name = table_name
+        self.columns = tuple(columns)
 
     @property
     def format_method(self) -> str:

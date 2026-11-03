@@ -389,20 +389,24 @@ class IntrospectorBase(IntrospectorMixin, ABC):
         )
 
     def column_data_profile_statement(
-        self, *, schema: Optional[str], table_name: str
+        self, *, schema: Optional[str], table_name: str, columns: Sequence[str] = ()
     ) -> "ColumnDataProfileQueryStatement":
         """Return the statement that profiles every column of one table.
 
-        ``table_name`` is required and there is no column parameter: a
+        ``table_name`` is required and there is no single-column form: a
         statistics catalogue answers for a whole table at once, and a
-        per-column form would make a caller loop a table's columns for data
-        the engine already had together.
+        per-column signature would make a caller loop a table's columns for
+        data the engine already had together.
+
+        ``columns`` is passed through for engines that must aggregate rather
+        than read a catalogue -- see the expression's own docstring for why
+        those cannot do without it.
         """
         from ..expression.introspection import ColumnDataProfileQueryStatement
 
         target_schema = schema if schema is not None else self.default_schema
         return ColumnDataProfileQueryStatement(
-            self.dialect, table_name=table_name, schema=target_schema
+            self.dialect, table_name=table_name, schema=target_schema, columns=columns
         )
 
     def column_value_sample_statement(
@@ -854,11 +858,20 @@ class IntrospectorBase(IntrospectorMixin, ABC):
                 continue
             nulls = _first(row, "null_fraction", "null_frac", "null_ratio")
             distinct = _first(row, "distinct_count", "n_distinct", "num_distinct")
+            rows_in_profile = _first(row, "row_count", "rows", "n_live_tup", "num_rows")
+            if nulls is None:
+                # An aggregating dialect can count nulls more cheaply than it
+                # can divide by a row count it may report as zero; the fraction
+                # is derived here so both shapes land in one slot.
+                null_count = _first(row, "null_count", "num_nulls")
+                if null_count is not None and rows_in_profile:
+                    nulls = float(null_count) / float(rows_in_profile)
             known = {
                 "schema", "schema_name",
                 "table", "table_name", "relname",
                 "column", "column_name", "attname",
                 "null_fraction", "null_frac", "null_ratio",
+                "null_count", "num_nulls",
                 "distinct_count", "n_distinct", "num_distinct",
                 "min_value", "min", "low_value",
                 "max_value", "max", "high_value",
@@ -874,7 +887,7 @@ class IntrospectorBase(IntrospectorMixin, ABC):
                     distinct_count=int(distinct) if distinct is not None else None,
                     min_value=_first(row, "min_value", "min", "low_value"),
                     max_value=_first(row, "max_value", "max", "high_value"),
-                    row_count=_first(row, "row_count", "rows", "n_live_tup", "num_rows"),
+                    row_count=rows_in_profile,
                     source=_first(row, "source"),
                     collected_at=_first(row, "collected_at", "last_analyzed", "last_analyze"),
                     extra={
@@ -1247,8 +1260,12 @@ class AbstractIntrospector(IntrospectorBase, ABC):
         cached = self._cache.get(key)
         if cached is not None:
             return cached
+        # The catalogue already knows the column names, and an aggregating
+        # dialect needs them to pivot its aggregates; a catalogue-based one
+        # ignores the list. One cheap query either way.
+        columns = tuple(column.name for column in self.list_columns(table_name, schema))
         sql, params = self.column_data_profile_statement(
-            schema=schema, table_name=table_name
+            schema=schema, table_name=table_name, columns=columns
         ).to_sql()
         result = self.parse_column_data_profiles(
             self._executor.execute(sql, params), target, table_name
@@ -1692,8 +1709,11 @@ class AsyncAbstractIntrospector(IntrospectorBase, ABC):
         cached = self._cache.get(key)
         if cached is not None:
             return cached
+        columns = tuple(
+            column.name for column in await self.list_columns(table_name, schema)
+        )
         sql, params = self.column_data_profile_statement(
-            schema=schema, table_name=table_name
+            schema=schema, table_name=table_name, columns=columns
         ).to_sql()
         result = self.parse_column_data_profiles(
             await self._executor.execute(sql, params), target, table_name

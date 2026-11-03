@@ -14,16 +14,19 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression.introspection import (
-        DatabaseInfoQueryStatement,
-        TableListQueryStatement,
-        TableInfoQueryStatement,
+        ColumnDataProfileQueryStatement,
         ColumnInfoQueryStatement,
-        IndexInfoQueryStatement,
+        ColumnValueSampleQueryStatement,
+        DatabaseInfoQueryStatement,
         ForeignKeyQueryStatement,
-        ViewListQueryStatement,
-        ViewInfoQueryStatement,
-        TriggerListQueryStatement,
+        IndexInfoQueryStatement,
+        JoinCoverageQueryStatement,
+        TableInfoQueryStatement,
+        TableListQueryStatement,
         TriggerInfoQueryStatement,
+        TriggerListQueryStatement,
+        ViewInfoQueryStatement,
+        ViewListQueryStatement,
     )
     from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
         SQLiteIndexDdlStatement,
@@ -214,14 +217,15 @@ class SQLiteIntrospectionCapabilityMixin:
         return True
 
     def supports_join_coverage(self) -> bool:
-        """SQLite cannot compare two columns' domains without reading both.
+        """SQLite answers overlap by counting distinct values on both sides.
 
-        Answering False is deliberate rather than an admission: with no
-        catalogue statistics, "how much do these overlap" means two scans plus
-        a set intersection, and a caller who wants that should ask for it
-        knowingly rather than have a schema-linking pass trigger it silently.
+        Exact, and paid for with two scans plus an intersection. Answering
+        ``True`` is right because the probe asks whether the engine *can*
+        answer, not whether it can answer cheaply -- the cost belongs in the
+        docstring, not in a False that would claim SQLite cannot measure its
+        own rows.
         """
-        return False
+        return True
 
     def supports_ddl_extraction_native(self) -> bool:
         """SQLite does not have native DDL extraction (requires assembly)."""
@@ -887,3 +891,146 @@ class SQLiteIntrospectionCapabilityMixin:
             conditions,
         )
 
+    # ========== Data Profiles (row-shaped answers) ==========
+
+    def _quoted(self, name: str) -> str:
+        """One identifier, quoted the way this dialect quotes it.
+
+        The profile statements are UNION ALLs over a column list the dialect
+        cannot know from a table name, so they are assembled as text rather
+        than as expression nodes -- but the identifiers still come from the
+        dialect's own renderer, so they are quoted exactly as every other
+        statement quotes them.
+        """
+        from rhosocial.activerecord.backend.expression import Column
+
+        return Column(self, name).to_sql()[0]
+
+    def _quoted_table(self, table_name: str, schema: "Optional[str]") -> str:
+        """A table reference, quoted, with the schema prefix SQLite expects."""
+        schema_prefix = ""
+        if schema and schema not in ("main", "temp"):
+            schema_prefix = self._quoted(schema) + "."
+        return schema_prefix + self._quoted(table_name)
+
+    def format_column_data_profile_query_statement(
+        self, expr: "ColumnDataProfileQueryStatement"
+    ) -> Tuple[str, tuple]:
+        """Format a per-column profile by aggregating the rows themselves.
+
+        SQLite has no statistics catalogue to read, so the answer is exact
+        and paid for in time -- which is why the result must be labelled
+        ``AGGREGATE`` rather than left to look like an estimate. That labelling
+        is the caller's, from ``source``.
+
+        One ``UNION ALL`` arm per column, over the column list the expression
+        carries: SQL cannot pivot ``SUM(col IS NULL)`` across columns it was
+        never told about, so an aggregating dialect genuinely needs that list
+        where a catalogue-based one does not.
+
+        ``null_count`` rather than a fraction: dividing by a row count that
+        may legitimately be zero belongs in the parser, not in a SQL expression
+        that would then have to guard against it.
+
+        Returns an empty statement for an empty column list -- a table with no
+        columns is answerable, and its profile is an empty list rather than an
+        error.
+        """
+        table_sql = self._quoted_table(expr.table_name, expr.schema)
+        arms = []
+        for name in expr.columns:
+            column_sql = self._quoted(name)
+            arms.append(
+                "SELECT "
+                + self._literal_label(name)
+                + " AS column_name, "
+                + f"SUM(CASE WHEN {column_sql} IS NULL THEN 1 ELSE 0 END) AS null_count, "
+                + f"COUNT(DISTINCT {column_sql}) AS distinct_count, "
+                + f"MIN({column_sql}) AS min_value, "
+                + f"MAX({column_sql}) AS max_value, "
+                + "COUNT(*) AS row_count, "
+                # The provenance travels in the data, not in a docstring: a
+                # consumer comparing a SQLite profile with a PostgreSQL one
+                # must be able to tell an exact count from a sampled estimate
+                # without knowing which engine it asked.
+                + self._literal_label("aggregate")
+                + " AS source "
+                + f"FROM {table_sql}"
+            )
+        if not arms:
+            return "SELECT NULL AS column_name WHERE 0", ()
+        return " UNION ALL ".join(arms), ()
+
+    def _literal_label(self, text: str) -> str:
+        """One string literal, quoted with the dialect's own literal renderer."""
+        from rhosocial.activerecord.backend.expression import Literal
+
+        return Literal(self, text, inline=True).to_sql()[0]
+
+    def format_column_value_sample_query_statement(
+        self, expr: "ColumnValueSampleQueryStatement"
+    ) -> Tuple[str, tuple]:
+        """Format a most-frequent-values listing with a grouped scan.
+
+        Nothing is precomputed in SQLite, so this costs a ``GROUP BY`` over the
+        column -- the same order as the profile itself, which is why the two
+        are separate probes rather than one call that would make the cheap half
+        pay for the dear one.
+
+        ``ORDER BY count DESC`` is what makes the answer "the most frequent
+        values" rather than "the first values"; ties break by value so two
+        runs of the same query agree.
+        """
+        from rhosocial.activerecord.backend.expression import Literal
+
+        table_sql = self._quoted_table(expr.table_name, expr.schema)
+        column_sql = self._quoted(expr.column_name)
+        limit_sql, limit_params = Literal(self, int(expr.limit), inline=True).to_sql()
+        sql = (
+            f"SELECT {column_sql} AS value, COUNT(*) AS count "
+            f"FROM {table_sql} GROUP BY {column_sql} "
+            f"ORDER BY COUNT(*) DESC, {column_sql} LIMIT {limit_sql}"
+        )
+        return sql, limit_params
+
+    def format_join_coverage_query_statement(
+        self, expr: "JoinCoverageQueryStatement"
+    ) -> Tuple[str, tuple]:
+        """Format a two-sided coverage measurement over distinct values.
+
+        Both sides are counted as *distinct values*, not rows: a heavily
+        repeated key that matches once would otherwise look well covered.
+
+        NULLs are excluded from both numerators and denominators, because a
+        NULL is not a value that could ever join -- counting it would drag
+        coverage down for a reason that has nothing to do with the join.
+
+        Two subqueries in one row rather than two round trips: the two
+        fractions are only meaningful together.
+        """
+        left_table = self._quoted_table(expr.left_table, expr.schema)
+        right_table = self._quoted_table(expr.right_table, expr.schema)
+        left_col = self._quoted(expr.left_column)
+        right_col = self._quoted(expr.right_column)
+
+        left_share = (
+            "(SELECT COUNT(*) FROM ("
+            f"SELECT DISTINCT {left_col} FROM {left_table} "
+            f"WHERE {left_col} IS NOT NULL "
+            f"AND {left_col} IN (SELECT {right_col} FROM {right_table} "
+            f"WHERE {right_col} IS NOT NULL))) * 1.0 / "
+            "NULLIF((SELECT COUNT(DISTINCT {c}) FROM {t} WHERE {c} IS NOT NULL), 0)".format(
+                c=left_col, t=left_table
+            )
+        )
+        right_share = (
+            "(SELECT COUNT(*) FROM ("
+            f"SELECT DISTINCT {right_col} FROM {right_table} "
+            f"WHERE {right_col} IS NOT NULL "
+            f"AND {right_col} IN (SELECT {left_col} FROM {left_table} "
+            f"WHERE {left_col} IS NOT NULL))) * 1.0 / "
+            "NULLIF((SELECT COUNT(DISTINCT {c}) FROM {t} WHERE {c} IS NOT NULL), 0)".format(
+                c=right_col, t=right_table
+            )
+        )
+        return f"SELECT {left_share} AS left_coverage, {right_share} AS right_coverage", ()
