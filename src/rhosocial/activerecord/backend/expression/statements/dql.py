@@ -419,9 +419,7 @@ class SetOperationStatement(ArithmeticMixin, ComparisonMixin, SQLValue):
         """
         super().__init__(dialect)
         self.op = (
-            SetOperationKind(op)
-            if isinstance(op, SetOperationKind)
-            else SetOperationKind.parse(op)
+            SetOperationKind(op) if isinstance(op, SetOperationKind) else SetOperationKind.parse(op)
         )
         self.parts: List["QueryStatement"] = list(parts)
 
