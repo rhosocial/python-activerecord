@@ -1,5 +1,15 @@
 # src/rhosocial/activerecord/backend/impl/sqlite/cli/introspect.py
-"""introspect subcommand - Database introspection."""
+"""introspect subcommand - Database introspection.
+
+Beyond the catalogue families -- tables, views, columns, indexes, foreign keys,
+triggers and the database itself -- SQLite answers three questions about what
+the *rows* hold: the profile of every column of a table, the most frequent
+values of one column, and how much two columns' value domains overlap. There is
+no statistics catalogue to read, so each of those is an exact count paid for
+with a scan, and each answer carries how it was produced so a caller need not
+assume. They are offered here because the dialect declares it can answer them;
+a type the dialect refuses is never offered.
+"""
 
 import argparse
 import sys
@@ -23,6 +33,13 @@ _TYPE_CAPABILITIES = {
     "foreign-keys": "supports_foreign_key_introspection",
     "triggers": "supports_trigger_introspection",
     "database": "supports_database_info",
+    # The three data families SQLite answers by aggregating its own rows:
+    # there is no statistics catalogue to read, so every figure is an exact
+    # count bought with a scan. Each one names the switch that says the
+    # engine can measure its own rows at all.
+    "column-profiles": "supports_column_data_profile",
+    "value-samples": "supports_column_value_sample",
+    "join-coverage": "supports_join_coverage",
 }
 
 INTROSPECT_TYPES = list(_TYPE_CAPABILITIES)
@@ -43,6 +60,11 @@ _NAME_RULE = {
     "foreign-keys": "required",
     "triggers": "optional",
     "database": "forbidden",
+    # The three data families are per-table questions, so the table name is
+    # required: ``NAME`` is the table they read.
+    "column-profiles": "required",
+    "value-samples": "required",
+    "join-coverage": "required",
 }
 
 
@@ -64,6 +86,15 @@ def create_parser(subparsers):
 
   # The triggers of one table
   %(prog)s introspect triggers posts --db-file mydb.sqlite
+
+  # Profile every column of a table from its data, and sample one column.
+  # The figures are exact counts bought with a scan, and each row says so.
+  %(prog)s introspect column-profiles orders --db-file mydb.sqlite
+  %(prog)s introspect value-samples orders --column status --db-file mydb.sqlite
+
+  # Measure how two columns' value domains overlap
+  %(prog)s introspect join-coverage orders --column buyer_id \
+      --right-table users --right-column id --db-file mydb.sqlite
 
   # Output as JSON
   %(prog)s introspect tables --db-file mydb.sqlite -o json
@@ -118,6 +149,27 @@ def create_parser(subparsers):
         help="Include system tables",
     )
 
+    # The three families that ask about a column or a second table carry the
+    # names the probe needs. They stay flags rather than more positionals
+    # because ``name`` already means "the table" everywhere else, and
+    # ``value-samples orders.email`` would read as a dotted object name.
+    parser.add_argument(
+        "--column",
+        default=None,
+        help="Column name: the column to sample for value-samples, and the "
+        "left column for join-coverage",
+    )
+    parser.add_argument(
+        "--right-table",
+        default=None,
+        help="Right-hand table for join-coverage",
+    )
+    parser.add_argument(
+        "--right-column",
+        default=None,
+        help="Right-hand column for join-coverage",
+    )
+
     return parser
 
 
@@ -135,6 +187,7 @@ def handle(args):
 
     try:
         _require_capability(args, backend)
+        _refuse_unused_arguments(args)
         introspector = backend.introspector
 
         if args.type == "tables":
@@ -179,6 +232,78 @@ def handle(args):
             info = introspector.get_database_info()
             data = [_serialize_for_output(info)]
             provider.display_results(data, title="Database Info")
+
+        # ---- the data families ------------------------------------------
+        # These read the rows rather than the catalogue, so every figure they
+        # print is an exact count paid for with a scan. Each row carries how it
+        # was produced, which is why the profile listing projects ``source``:
+        # a consumer comparing a SQLite profile with a PostgreSQL estimate has
+        # to be able to tell the two apart without knowing which engine it
+        # asked.
+
+        elif args.type == "column-profiles":
+            if not args.name:
+                print(
+                    "Error: Table name is required for 'column-profiles' introspection",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            profiles = introspector.list_column_data_profiles(args.name)
+            data = _serialize_for_output(profiles)
+            provider.display_results(data, title=f"Column profiles of {args.name}")
+
+        elif args.type == "value-samples":
+            if not args.name:
+                print(
+                    "Error: Table name is required for 'value-samples' introspection",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            if not args.column:
+                print(
+                    "Error: --column is required for 'value-samples' introspection",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            samples = introspector.sample_column_values(args.name, args.column)
+            data = _serialize_for_output(samples)
+            provider.display_results(data, title=f"Values of {args.name}.{args.column}")
+
+        elif args.type == "join-coverage":
+            if not args.name:
+                print(
+                    "Error: Left table name is required for 'join-coverage' introspection",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            if not args.column:
+                print(
+                    "Error: --column is required for 'join-coverage' introspection",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            if not args.right_table or not args.right_column:
+                print(
+                    "Error: --right-table and --right-column are required for "
+                    "'join-coverage' introspection",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            coverage = introspector.estimate_join_coverage(
+                args.name, args.column, args.right_table, args.right_column
+            )
+            if coverage is None:
+                # A column with nothing to match answers "no measurement",
+                # which is not zero overlap; printing a row of nulls would
+                # read as a measured zero.
+                print(
+                    f"Error: no coverage could be measured for {args.name}.{args.column} "
+                    f"and {args.right_table}.{args.right_column}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            data = _serialize_for_output([coverage])
+            provider.display_results(data, title="Join Coverage")
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
@@ -242,6 +367,38 @@ def _require_capability(args, backend) -> None:
         file=sys.stderr,
     )
     sys.exit(2)
+
+
+def _refuse_unused_arguments(args) -> None:
+    """Refuse a flag the chosen type has no question for.
+
+    The same defect as a silently dropped name, one flag over: ``--column``
+    beside ``introspect tables`` would be ignored and the listing printed as
+    if the column had been part of the question. Only the families whose probe
+    takes a column read the flag, so only they may be given it.
+
+    The flags are read with ``getattr`` because the handler is also driven with
+    hand-built namespaces (the offline tests), which carry no flags at all --
+    an absent attribute is "not given", not an error.
+    """
+    column = getattr(args, "column", None)
+    right_table = getattr(args, "right_table", None)
+    right_column = getattr(args, "right_column", None)
+
+    if column is not None and args.type not in ("value-samples", "join-coverage"):
+        print(
+            f"Error: '{args.type}' does not take --column; "
+            "use 'value-samples' or 'join-coverage'",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    if (right_table is not None or right_column is not None) and args.type != "join-coverage":
+        print(
+            f"Error: '{args.type}' does not take --right-table or --right-column; "
+            "use 'join-coverage'",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
 
 def _serialize_for_output(obj):
