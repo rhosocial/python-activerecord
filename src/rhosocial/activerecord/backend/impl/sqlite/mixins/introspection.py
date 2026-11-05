@@ -194,8 +194,24 @@ class SQLiteIntrospectionCapabilityMixin:
     # ========== DDL Extraction ==========
 
     def supports_ddl_extraction(self) -> bool:
-        """SQLite supports DDL extraction via sqlite_master."""
-        return True
+        """SQLite cannot yet read back the DDL of an object.
+
+        ``sqlite_master`` does keep the statement text each object was declared
+        with, so the raw material is there -- but there is no
+        ``format_ddl_statement_query_statement`` behind this probe, so a
+        ``True`` here promised an answer that resolved to the protocol stub
+        and raised ``ProtocolNotImplementedError`` at the caller. A probe
+        answered ``True`` with nothing behind it is worse than a ``False``: the
+        caller believes it asked a question and got a refusal instead of an
+        answer.
+
+        ``False`` until a formatter exists. Unlike PostgreSQL and MySQL, which
+        assemble a faithful ``CREATE TABLE`` from the catalogue and mark the
+        assembly ``native=False``, SQLite has no such assembly written -- and
+        inventing one that cannot reproduce storage constraints, virtual-table
+        options or a trigger body would read as authoritative when it is not.
+        """
+        return False
 
     def supports_column_data_profile(self) -> bool:
         """SQLite answers a column data profile by aggregating the rows.
