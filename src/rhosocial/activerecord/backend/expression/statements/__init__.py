@@ -140,7 +140,7 @@ from .dml import (
 )
 from .explain import ExplainType, ExplainFormat, ExplainOptions, ExplainStatement
 from ..query_parts import WhereClause, ForUpdateClause
-from .dql import SelectModifier, QueryStatement
+from .dql import SelectModifier, QueryStatement, SetOperationStatement
 # src/rhosocial/activerecord/backend/expression/statements/__init__.py
 """
 SQL DML (Data Manipulation Language), DQL (Data Query Language),
@@ -190,6 +190,7 @@ to a backend-specific dialect.
 __all__ = [
     "SelectModifier",
     "QueryStatement",
+    "SetOperationStatement",
     "WhereClause",
     "ForUpdateClause",
     "ExplainType",

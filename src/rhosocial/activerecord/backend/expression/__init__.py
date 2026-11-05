@@ -175,6 +175,7 @@ from .graph import (
 )
 from .statements import (
     QueryStatement,
+    SetOperationStatement,
     DeleteStatement,
     UpdateStatement,
     InsertStatement,
@@ -616,6 +617,7 @@ __all__ = [
     "JSONTableColumn",
     "JSONTableExpression",
     "QueryStatement",
+    "SetOperationStatement",
     "DeleteStatement",
     "UpdateStatement",
     "InsertStatement",

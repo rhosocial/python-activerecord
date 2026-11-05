@@ -7,12 +7,13 @@ combine two query sides. The node carries the operation as a **word form**
 the word back to the SQL spelling and gates it behind the per-operation
 probes.
 """
-from typing import Tuple, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
 from ...expression.query_sources import SetOperationKind
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.query_sources import SetOperation
+    from ...expression.statements import SetOperationStatement
 
 #: Compound-SELECT word form -> the SQL keyword this dialect spells it with.
 #: Keyed by the enum, so a word that is not one of the four cannot reach here
@@ -95,3 +96,53 @@ class SetOperationMixin:
         # When used as a subquery (e.g. in a FROM clause), the caller
         # (Subquery / QueryStatement / dql.py) adds the required wrapping.
         return base_sql, tuple(left_params + right_params)
+
+    def format_set_operation_statement(
+        self, expr: "SetOperationStatement"
+    ) -> Tuple[str, Tuple]:
+        """Format a compound SELECT: its parts joined by the operator word.
+
+        The only text this method contributes is the keyword itself, mapped
+        from the node's word form through the same table the binary formatter
+        uses, so one spelling of ``UNION ALL`` exists in the tree and one in
+        the dialect. Everything else is already rendered: each part is a real
+        query statement and renders through its own ``format_query_statement``,
+        keeping the projection, the identifiers and the bind parameters of
+        every arm on the side that owns them.
+
+        Args:
+            expr: The node exposing ``op`` (a word form) and ``parts``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple), the parameters
+            concatenated in part order.
+
+        Raises:
+            UnsupportedFeatureError: The dialect does not support the
+                requested operation (the per-operation probe said no).
+        """
+        from ..exceptions import UnsupportedFeatureError
+
+        if self.strict_validation:
+            expr.validate(strict=True)
+
+        probe = {
+            SetOperationKind.UNION: self.supports_union,
+            SetOperationKind.UNION_ALL: self.supports_union_all,
+            SetOperationKind.INTERSECT: self.supports_intersect,
+            SetOperationKind.EXCEPT: self.supports_except,
+        }[expr.op]
+        if not probe():
+            raise UnsupportedFeatureError(
+                self.name,
+                f"{SET_OPERATION_KEYWORD[expr.op]} operation",
+                f"{self.name} does not support {SET_OPERATION_KEYWORD[expr.op]}.",
+            )
+        keyword = SET_OPERATION_KEYWORD[expr.op]
+        rendered: List[str] = []
+        params: List[object] = []
+        for part in expr.parts:
+            part_sql, part_params = part.to_sql()
+            rendered.append(part_sql)
+            params.extend(part_params)
+        return f" {keyword} ".join(rendered), tuple(params)
