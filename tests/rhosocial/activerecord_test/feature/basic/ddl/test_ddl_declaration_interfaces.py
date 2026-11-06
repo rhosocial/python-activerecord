@@ -22,7 +22,7 @@ from rhosocial.activerecord.base import (
     UseIndex,
     UseSqlType,
 )
-from rhosocial.activerecord.backend.expression.types import DataType
+from rhosocial.activerecord.backend.expression.types import DataType, TextType
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     IndexDefinition,
     TableConstraint,
@@ -126,9 +126,21 @@ class WithDerivedDeclarations(ActiveRecord):
     computed: Annotated[str, UseGeneratedColumn(lambda dialect: object())]
 
 
+#: The marker classes, the field of ``EveryRegisteredMarker`` that carries each
+#: one, and the attribute the registry says it lands on. Written out here so the
+#: registry is checked against an expectation rather than against itself.
+_MARKER_FIELDS = {
+    UseSqlType: "sql_typed",
+    UseConstraint: "constrained",
+    UseIndex: "indexed",
+    UseColumnAttributes: "attributed",
+    UseComment: "commented",
+    UseGeneratedColumn: "generated",
+}
+
+
 class ForeignAttribute(ColumnAttribute):
     kind = "foreign_custom"
-
 
 class WithForeignAttribute(ActiveRecord):
     __table_name__ = "with_foreign_attribute"
@@ -166,6 +178,20 @@ class WithUnhandledAnnotation(ActiveRecord):
     value: Annotated[str, UnhandledAnnotation()]
 
 
+class EveryRegisteredMarker(ActiveRecord):
+    """One field per core marker, so the registry can be walked against them."""
+
+    __table_name__ = "every_registered_marker"
+
+    id: int
+    sql_typed: Annotated[str, UseSqlType(TextType())]
+    constrained: Annotated[Optional[str], UseConstraint(ColumnNullableConstraint)] = None
+    indexed: Annotated[str, UseIndex("idx_every_registered_marker")]
+    attributed: Annotated[str, UseColumnAttributes(CollationAttribute(name="NOCASE"))]
+    commented: Annotated[str, UseComment("a comment")]
+    generated: Annotated[str, UseGeneratedColumn(lambda dialect: object())]
+
+
 def test_activerecord_satisfies_ddl_source():
     assert isinstance(Plain, DDLSource)
 
@@ -194,6 +220,72 @@ def test_column_options_base_contract():
     metadata = DDLFieldMetadata(Plain.model_fields["id"])
     with pytest.raises(TypeError, match="ColumnOptions"):
         metadata.add_column_options(object())
+
+
+def test_the_marker_registry_is_what_the_declaration_interface_reads():
+    """Which marker writes which attribute, and in what plurality.
+
+    ``MARKER_REGISTRY`` is read once -- by ``DDLFieldMetadata.__init__`` -- and
+    the attribute name it holds is what the DDL layer then reads. A rename in the
+    registry therefore stops being what the layer reads, and a rename in the
+    layer stops being what the registry writes, with nothing saying so. The
+    expected mapping is written out here, and the marker classes are the same
+    six the annotation handler dispatches, which is the other list that has to
+    agree with it and nothing keeps in step with it either.
+    """
+    from rhosocial.activerecord.base.ddl import (
+        DDLAnnotationHandler,
+        MARKER_REGISTRY,
+    )
+
+    expected = {
+        UseSqlType: ("use_sql_type", True),
+        UseConstraint: ("constraints", False),
+        UseIndex: ("indexes", False),
+        UseColumnAttributes: ("column_attributes", False),
+        UseComment: ("column_comment", True),
+        UseGeneratedColumn: ("generated_column", True),
+    }
+    assert MARKER_REGISTRY == expected, (
+        f"the registry writes {sorted(attr for attr, _ in MARKER_REGISTRY.values())} "
+        f"and the declaration interface reads "
+        f"{sorted(attr for attr, _ in expected.values())}"
+    )
+    assert set(MARKER_REGISTRY) == set(DDLAnnotationHandler.annotation_types), (
+        f"collected but never dispatched: "
+        f"{sorted(c.__name__ for c in set(MARKER_REGISTRY) - set(DDLAnnotationHandler.annotation_types))}; "
+        f"dispatched but never collected: "
+        f"{sorted(c.__name__ for c in set(DDLAnnotationHandler.annotation_types) - set(MARKER_REGISTRY))}"
+    )
+
+
+def test_a_marker_reaches_its_attribute_in_the_plurality_its_entry_promises():
+    """``singular`` is the difference between one marker and a tuple of them.
+
+    The flag decides the shape of every attribute the DDL layer reads, and a
+    flipped one is invisible in the registry: it shows up as a tuple where the
+    code takes a marker, or as one marker where the code takes all of them.
+    """
+    from rhosocial.activerecord.base.ddl import MARKER_REGISTRY
+
+    fields = EveryRegisteredMarker.model_fields
+    for marker_class, (attr_name, singular) in MARKER_REGISTRY.items():
+        metadata = DDLFieldMetadata(fields[_MARKER_FIELDS[marker_class]])
+        value = getattr(metadata, attr_name)
+        if singular:
+            assert isinstance(value, marker_class), (
+                f"{marker_class.__name__} is registered singular, so "
+                f"{attr_name} must hold the marker itself, got {value!r}"
+            )
+        else:
+            assert isinstance(value, tuple), (
+                f"{marker_class.__name__} is registered plural, so {attr_name} "
+                f"must hold a tuple, got {value!r}"
+            )
+            assert type(value[0]) is marker_class, (
+                f"{attr_name} must hold the {marker_class.__name__} markers, got "
+                f"{[type(v).__name__ for v in value]}"
+            )
 
 
 def test_single_primary_key_is_added_to_column_declaration():

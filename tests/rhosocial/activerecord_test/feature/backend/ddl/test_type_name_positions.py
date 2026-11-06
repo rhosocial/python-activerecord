@@ -29,6 +29,9 @@ from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
 )
 from rhosocial.activerecord.backend.expression.type_name import (
     InvalidTypeNameError,
+    MULTI_WORD_TYPE_NAMES,
+    is_valid_type_name,
+    validate_type_name,
 )
 from rhosocial.activerecord.backend.expression.types import (
     CustomType,
@@ -135,3 +138,48 @@ class TestThePositionsRefuseAValueThatIsNotAType:
             _serialize(dialect, 42)
         with pytest.raises(TypeError):
             _set_data_type(dialect, object())
+
+
+class TestTheMultiWordBuiltins:
+    """The one thing about a type name that is not a bare identifier.
+
+    ``MULTI_WORD_TYPE_NAMES`` is read once -- by ``validate_type_name`` -- so it
+    is the whole grammar rule for a name containing a space, and it is read once
+    means nothing but these assertions says what it holds. It is a security
+    boundary as much as a grammar one: permitting a space through would let
+    ``INTEGER, (SELECT 1)`` be spelled as a type name, so every entry must be a
+    name made of nothing but words, digits and single spaces.
+    """
+
+    @pytest.mark.parametrize("name", sorted(MULTI_WORD_TYPE_NAMES))
+    def test_a_multi_word_builtin_is_an_accepted_type_name(self, name):
+        """The ones the table names are exactly the ones with a space accepted."""
+        assert validate_type_name(name) == name
+        assert validate_type_name(name.upper()) == name.upper()
+
+    def test_an_ordinary_phrase_is_not_a_type_name(self):
+        """A space is not permitted generally -- only the table's entries carry one.
+
+        This is the direction that keeps the table a whitelist rather than a
+        hint: without it, allowing spaces for the enumerated names would be
+        indistinguishable from allowing spaces at all.
+        """
+        assert not is_valid_type_name("double precision floating")
+        assert not is_valid_type_name("character varying varying")
+
+    @pytest.mark.parametrize("name", sorted(MULTI_WORD_TYPE_NAMES))
+    def test_an_entry_is_only_words_separated_by_single_spaces(self, name):
+        """No entry may carry what would end the type or start something else.
+
+        A comma, a parenthesis, a quote, a semicolon or a comment marker inside
+        one of these would travel straight into a position that cannot take a
+        bound parameter.
+        """
+        assert "  " not in name and name == name.strip(), (
+            f"{name!r} is not words separated by single spaces"
+        )
+        assert all(character not in name for character in "(),;'\"-/*"), (
+            f"{name!r} carries a character that ends a type name or begins "
+            f"something else"
+        )
+        assert name == name.lower(), f"{name!r} must be spelled lower-case"
