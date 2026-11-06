@@ -24,6 +24,19 @@ What this cannot see, and the rule says so:
 * a value spelled three times with each copy read once. The count asks
   whether a *name* is read; it cannot ask whether a *value* is one thing.
 
+The reader of these sources is the ``ast`` of whichever interpreter is
+running the check, and that grammar is not the same grammar everywhere:
+the PEP 695 class headers the fixtures write cannot be read by anything
+below 3.12. So what a run tells you about unreadable files depends on the
+interpreter it ran under. On 3.12 and above the grammar is as new as the
+sources are, every file is read, and a file that still refuses is a hole in
+the coverage and fails. Below 3.12 the files this grammar rejects are
+recorded in a warning and the assertion is taken over what could be read --
+a failure there would be this check reporting the age of its own reader
+instead of anything about the source, and it would take four CI legs down
+with it. Either way a skipped file is never passed over in silence: a file
+nobody is told about is a file nobody is checking.
+
 The exemptions are ``python-hazards.md`` §11.3's, applied so this check does
 not re-litigate what that rule already settled: compiled regexes and the
 fragments composed into them, numeric defaults, tables keyed by an Enum
@@ -33,6 +46,8 @@ member, and lazily built caches.
 import ast
 import os
 import re
+import sys
+import warnings
 from pathlib import Path
 
 import pytest
@@ -65,6 +80,12 @@ _SKIPPED = frozenset(
 #: A module-level name in capitals, with or without the leading underscore:
 #: ``INTROSPECT_TYPES`` and ``_SUGGESTION_QUALIFY`` make the same claim.
 _NAME = re.compile(r"^_{0,1}[A-Z][A-Z0-9_]*$")
+
+#: Where the grammar the sources are written in arrived. PEP 695's
+#: ``class C[T]:`` is used by the py312 fixtures, and 3.12 is the first
+#: interpreter that can read it, which is what makes a skip below this line
+#: the grammar's age and a skip at or above it a gap in the coverage.
+_PEP695 = (3, 12)
 
 #: Typing roots that make an assignment a type alias rather than a value.
 _TYPING_ROOTS = frozenset(
@@ -200,7 +221,16 @@ class _Scan:
     """One parse of the source and test trees, with the counts taken."""
 
     def __init__(self):
-        self.trees = [(path, self._parse(path)) for path in _python_files()]
+        self.trees = []
+        # The files this interpreter could not parse. Recorded so the gap is
+        # visible somewhere; see _unreadable.
+        self.skipped = []
+        for path in _python_files():
+            tree = self._parse(path)
+            if tree is None:
+                self.skipped.append(path)
+            else:
+                self.trees.append((path, tree))
         # (name, path, lineno, value, enums)
         self.constants = []
         # name -> readers; name -> [statement] holding every reader
@@ -213,8 +243,29 @@ class _Scan:
 
     @staticmethod
     def _parse(path):
-        with open(path, encoding="utf-8") as handle:
-            return ast.parse(handle.read(), filename=str(path))
+        """The file's ``ast`` tree, or ``None`` when this grammar cannot read it.
+
+        A tool that reads source has to be more tolerant than the source it
+        reads: one file this interpreter refuses costs the check a piece of
+        the tree, never the check itself. ``feature_version`` is deliberately
+        not pinned -- it asks for an *older* grammar than the running one, and
+        a target ahead of the interpreter is either rejected outright or
+        parsed with the grammar it already has, so syntax newer than the
+        reader stays unreadable either way and the parameter would only
+        suggest otherwise.
+
+        Three ways a file refuses to be read, all survivable: a
+        ``SyntaxError``, which is a grammar younger than this interpreter's;
+        a ``ValueError``, which is bytes that are not UTF-8 (a
+        ``UnicodeDecodeError`` *is* one) or a NUL smuggled into the text; and
+        a ``RecursionError``, which is the parser giving up on the nesting
+        before the check has to.
+        """
+        try:
+            with open(path, encoding="utf-8") as handle:
+                return ast.parse(handle.read(), filename=str(path))
+        except (SyntaxError, ValueError, RecursionError):
+            return None
 
     # -- collection ----------------------------------------------------- #
 
@@ -325,6 +376,25 @@ class _Scan:
         return sorted(found)
 
 
+def _unreadable(skipped):
+    """The files this interpreter could not parse, one line each, or ``None``.
+
+    A file the running grammar refuses is a gap in the coverage and not an
+    error in the check, so it is named rather than dropped: the point of the
+    check is that its output can be trusted, and a file skipped in silence is
+    a file nobody checked. What is done with the list depends on the age of
+    the grammar, which is the caller's business.
+    """
+    if not skipped:
+        return None
+    return "\n".join(
+        # A path the walk somehow produced from outside the tree still gets
+        # named: this reports the gap, it does not raise on one.
+        f"  {path.relative_to(_REPO_ROOT) if _REPO_ROOT in path.parents else path}"
+        for path in skipped
+    )
+
+
 def test_no_module_level_constant_is_read_once_and_pinned_nowhere():
     """A name in caps has to be read in more than one place, or pinned.
 
@@ -332,8 +402,38 @@ def test_no_module_level_constant_is_read_once_and_pinned_nowhere():
     The offenders are listed by file and line so a reader can act without
     rerunning anything; what to do about them is
     ``.claude/rules/constants.md``.
+
+    What this run says about files it could not read, per interpreter. On
+    3.12 and above the grammar is as new as the sources, so a file that
+    refuses is a hole in the coverage and fails here naming the file: at
+    that age the grammar has stopped being the explanation. Below 3.12 the
+    fixtures' PEP 695 headers cannot be read at all, and failing on them
+    would be the check reporting the age of its own reader instead of
+    anything about the source -- it would take the CI leg down with it --
+    so they are recorded in a warning and the assertion below runs over the
+    tree that could be read. A reader of the output is told either way: the
+    offender count on an old interpreter is taken over fewer files, and the
+    warning names which ones.
     """
-    offenders = _Scan().offenders()
+    scan = _Scan()
+    if sys.version_info >= _PEP695 and scan.skipped:
+        # This grammar is as new as the sources are. A file it still cannot
+        # read is not the grammar's age -- it is a file nothing checked.
+        pytest.fail(
+            "every file in the tree should be readable by this grammar; "
+            "these were skipped, so nothing checked them:\n" + _unreadable(scan.skipped)
+        )
+    elif scan.skipped:
+        # Below 3.12 the fixtures' PEP 695 headers cannot be read at all, and
+        # failing on them would be the check reporting the age of its own
+        # reader instead of anything about the source. Recorded, not passed
+        # over in silence.
+        warnings.warn(
+            "not checked, because this interpreter's grammar cannot read them "
+            "(PEP 695 needs 3.12):\n" + _unreadable(scan.skipped),
+            stacklevel=1,
+        )
+    offenders = scan.offenders()
     assert not offenders, "\n".join(
         ["module-level constants read exactly once and named by no test assertion:"]
         + [f"  {path}:{lineno}: {name}" for path, lineno, name in offenders]
