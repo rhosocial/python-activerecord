@@ -22,15 +22,10 @@ from rhosocial.activerecord.backend.errors import (
 from rhosocial.activerecord.backend.protocols import ConcurrencyHint
 from rhosocial.activerecord.backend.type_adapter import SQLTypeAdapter
 
-
-DEFAULT_PRAGMAS = {
-    "foreign_keys": "ON",
-    "journal_mode": "WAL",
-    "synchronous": "FULL",
-    "wal_autocheckpoint": "1000",
-    "wal_checkpoint": "FULL",
-}
-
+#: The pragma table this backend's connection opens with, re-exported from the
+#: one definition in ``config.py`` for the two backend classes that carry it as
+#: a class attribute. The spelling lives beside the config that reads it.
+from ..config import DEFAULT_PRAGMAS  # noqa: F401
 
 TYPE_MAPPINGS = [
     (bool, int),
