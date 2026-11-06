@@ -542,8 +542,10 @@ class ColumnDataProfile:
     #: estimate. Beside ``distinct_count`` it is what turns a count into a
     #: share.
     row_count: Optional[int] = None
-    #: How the numbers above were produced. See :class:`ProfileSource`.
-    source: Optional[str] = None
+    #: How the numbers above were produced. See :class:`ProfileSource` -- a
+    #: ``str`` Enum, so a consumer writing the engine's own word still gets a
+    #: value that compares equal to the member that names it.
+    source: Optional[ProfileSource] = None
     #: When the estimate was collected, for sources that can be stale.
     #:
     #: Required reading whenever ``source`` is an estimate: a ``null_fraction``

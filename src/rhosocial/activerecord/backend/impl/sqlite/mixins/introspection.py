@@ -11,6 +11,7 @@ from functools import lru_cache
 from typing import List, Optional, Tuple, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.introspection.types import ProfileSource
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression.introspection import (
@@ -1000,8 +1001,9 @@ class SQLiteIntrospectionCapabilityMixin:
                 # The provenance travels in the data, not in a docstring: a
                 # consumer comparing a SQLite profile with a PostgreSQL one
                 # must be able to tell an exact count from a sampled estimate
-                # without knowing which engine it asked.
-                self._profile_label("aggregate", "source"),
+                # without knowing which engine it asked. The word is the enum
+                # member's own spelling, so the closed set has one source.
+                self._profile_label(ProfileSource.AGGREGATE.value, "source"),
             ],
             from_=self._user_relation(table_name, schema),
         )
