@@ -177,16 +177,6 @@ from .mixins import (
 )
 from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression
 
-# Module-level constants for error suggestions (SonarCloud S1192)
-_SUGGESTION_ARRAY_TYPES = "SQLite does not support native array types. Consider using JSON or comma-separated values."
-_SUGGESTION_JSON_TABLE = (
-    "SQLite does not support JSON_TABLE. Consider using json_each() or json_extract() with subqueries."
-)
-_SUGGESTION_GRAPH_MATCH = "SQLite does not support graph MATCH clause."
-_SUGGESTION_ORDERED_SET_AGG = "SQLite does not support ordered-set aggregate functions (WITHIN GROUP)."
-_SUGGESTION_QUALIFY = "SQLite does not support QUALIFY clause. Use a subquery or CTE instead."
-
-
 class SQLiteDialect(
     # The bases below come in bundles: a backend mixin, then the core bundle
     # it stands in for. The backend's answer has to come first -- a mixin
@@ -1069,12 +1059,22 @@ class SQLiteDialect(
     def format_array_expression(self, expr: "ArrayValue") -> Tuple[str, Tuple]:
         """Format array expression."""
         # SQLite does not support native array types
-        raise UnsupportedFeatureError(self.name, "Array operations", _SUGGESTION_ARRAY_TYPES)
+        raise UnsupportedFeatureError(
+            self.name,
+            "Array operations",
+            "SQLite does not support native array types. Consider using JSON "
+            "or comma-separated values.",
+        )
 
     def format_json_table_expression(self, _expr: "JSONTableExpression") -> Tuple[str, Tuple]:
         """Format JSON_TABLE expression — unsupported in SQLite."""
         # SQLite does not support JSON_TABLE function directly
-        raise UnsupportedFeatureError(self.name, "JSON_TABLE function", _SUGGESTION_JSON_TABLE)
+        raise UnsupportedFeatureError(
+            self.name,
+            "JSON_TABLE function",
+            "SQLite does not support JSON_TABLE. Consider using json_each() or "
+            "json_extract() with subqueries.",
+        )
 
     def format_match_clause(self, _clause: "MatchClause") -> Tuple[str, tuple]:
         """
@@ -1087,7 +1087,9 @@ class SQLiteDialect(
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
         # SQLite does not support graph MATCH clause
-        raise UnsupportedFeatureError(self.name, "graph MATCH clause", _SUGGESTION_GRAPH_MATCH)
+        raise UnsupportedFeatureError(
+            self.name, "graph MATCH clause", "SQLite does not support graph MATCH clause."
+        )
 
     def format_ordered_set_aggregation(self, _aggregation: "OrderedSetAggregation") -> Tuple[str, Tuple]:
         """
@@ -1100,12 +1102,20 @@ class SQLiteDialect(
             Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
         # SQLite does not support ordered-set aggregate functions
-        raise UnsupportedFeatureError(self.name, "ordered-set aggregate functions", _SUGGESTION_ORDERED_SET_AGG)
+        raise UnsupportedFeatureError(
+            self.name,
+            "ordered-set aggregate functions",
+            "SQLite does not support ordered-set aggregate functions (WITHIN GROUP).",
+        )
 
     def format_qualify_clause(self, _clause: "QualifyClause") -> Tuple[str, tuple]:
         """Format QUALIFY clause."""
         # SQLite does not support QUALIFY clause
-        raise UnsupportedFeatureError(self.name, "QUALIFY clause", _SUGGESTION_QUALIFY)
+        raise UnsupportedFeatureError(
+            self.name,
+            "QUALIFY clause",
+            "SQLite does not support QUALIFY clause. Use a subquery or CTE instead.",
+        )
 
     # endregion
 

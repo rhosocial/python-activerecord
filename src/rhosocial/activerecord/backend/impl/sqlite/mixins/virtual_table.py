@@ -5,19 +5,13 @@ SQLite-specific Virtual Table implementation.
 This module provides the SQLiteVirtualTableMixin class.
 """
 
-from typing import Set, Tuple, TYPE_CHECKING
+from typing import Tuple, TYPE_CHECKING
 
 from .extension import SQLiteExtensionMixin
 
 if TYPE_CHECKING:
     from ..expression.fts5 import SQLiteFTS5MatchPredicate
     from ..expression.virtual_table import CreateVirtualTableStatement, DropVirtualTableStatement
-
-_KNOWN_VTABLE_MODULES: Set[str] = {
-    "rtree", "fts5", "fts4", "fts3", "geopoly",
-    "json_each", "json_tree", "generate_series",
-    "csv", "dbstat", "dbpage", "wholenumber", "rtree_i32",
-}
 
 
 class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
@@ -115,7 +109,15 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         Raises:
             ValueError: If module name contains unsafe characters
         """
-        if expr.module not in _KNOWN_VTABLE_MODULES and not expr.module.isidentifier():
+        # The virtual table modules SQLite ships, plus the two spellings of the
+        # R-Tree index width. Any other module name must be a plain identifier,
+        # so the check is "known, or a name that cannot contain anything else".
+        known_modules = {
+            "rtree", "fts5", "fts4", "fts3", "geopoly",
+            "json_each", "json_tree", "generate_series",
+            "csv", "dbstat", "dbpage", "wholenumber", "rtree_i32",
+        }
+        if expr.module not in known_modules and not expr.module.isidentifier():
             raise ValueError(f"Unsafe virtual table module name: {expr.module!r}")
         name = expr.table.to_sql()[0]
         cols = ", ".join(self.format_identifier(c) for c in expr.columns)

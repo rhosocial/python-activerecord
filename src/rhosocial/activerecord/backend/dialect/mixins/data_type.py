@@ -375,13 +375,6 @@ def _annotated_data_type(formatter: Optional[Callable]) -> Optional[type]:
     return None
 
 
-#: Where a backend keeps the ``DataType`` subclasses its dispatch names refer to.
-#: Every backend that defines backend-named types keeps them in exactly this
-#: module; one that does not is simply left alone (see
-#: :func:`_load_backend_type_module`).
-_BACKEND_TYPE_MODULE = "rhosocial.activerecord.backend.impl.{backend}.expression.types"
-
-
 @lru_cache(maxsize=None)
 def _load_backend_type_module(dialect_class: type, name: str) -> None:
     """Import the module a backend keeps its own ``DataType`` classes in.
@@ -395,6 +388,11 @@ def _load_backend_type_module(dialect_class: type, name: str) -> None:
     its types somewhere else — the lookup then proceeds exactly as it did before.
     Anything else the module raises while importing is a real error and is left to
     propagate; a broken type module must not look like a missing one.
+
+    Every backend that defines backend-named types keeps them in
+    ``...impl.<backend>.expression.types`` and in exactly that module, so the
+    path below is the one spelling of the convention; one that keeps its types
+    somewhere else is left alone by the ``ImportError`` above.
     """
     from ...expression.types._base import DataType
 
@@ -407,7 +405,9 @@ def _load_backend_type_module(dialect_class: type, name: str) -> None:
     import importlib
 
     try:
-        importlib.import_module(_BACKEND_TYPE_MODULE.format(backend=backend))
+        importlib.import_module(
+            f"rhosocial.activerecord.backend.impl.{backend}.expression.types"
+        )
     except ImportError:
         return
 

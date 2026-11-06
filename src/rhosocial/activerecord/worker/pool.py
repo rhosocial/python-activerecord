@@ -42,9 +42,9 @@ from .scheduling import (
     create_scheduler,
 )
 
-from ..logging.defaults import _LOGGER_WORKER, get_logger
+from ..logging.defaults import get_logger
 
-logger = get_logger(_LOGGER_WORKER)
+logger = get_logger("rhosocial.activerecord.worker")
 
 
 # ── Sentinel ─────────────────────────────────────────────────────────────────
