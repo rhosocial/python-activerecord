@@ -9,16 +9,25 @@ still gets a value that compares equal to the member that names it, and the
 JSON artifact still carries the word rather than a class name. These tests are
 what keeps that true. Dropping the ``str`` base, or renaming a member's value,
 is a change to every consumer, not a tidy-up.
+
+Being typed is only half of it. The shared parser writes what the engine
+projected into the slot, and a word written into a slot typed with an Enum is
+still a word: ``ProfileSource.AGGREGATE == "aggregate"`` is True, so an
+assertion written with ``==`` cannot tell a member from the string that spells
+it. The tests below therefore assert *identity* where the parser is concerned
+-- ``is``, which a plain string never satisfies.
 """
 
 import ast
 import json
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import pytest
 
 import rhosocial.activerecord.backend.introspection as introspection_package
+from rhosocial.activerecord.backend.introspection.base import IntrospectorBase
 from rhosocial.activerecord.backend.introspection.types import (
     ColumnDataProfile,
     ProfileSource,
@@ -40,6 +49,47 @@ def _profile(source):
         null_fraction=0.1,
         source=source,
     )
+
+
+class _Parser(IntrospectorBase):
+    """An introspector with no database behind it, which is all a parser needs.
+
+    ``parse_column_data_profiles`` reads the rows it is handed and nothing
+    else: no executor, no cache, no dialect. The eight stubs are what the
+    abstract base asks for, and they are stubs because this test never calls
+    them -- which is the point of the parser being a pure function of its
+    rows.
+    """
+
+    def parse_columns(self, rows, schema: Optional[str]) -> List[Dict[str, Any]]:
+        raise NotImplementedError
+
+    def parse_database_info(self, rows) -> Dict[str, Any]:
+        raise NotImplementedError
+
+    def parse_foreign_keys(self, rows, schema: Optional[str]):
+        raise NotImplementedError
+
+    def parse_indexes(self, rows, schema: Optional[str]):
+        raise NotImplementedError
+
+    def parse_tables(self, rows, schema: Optional[str]):
+        raise NotImplementedError
+
+    def parse_triggers(self, rows, schema: Optional[str]):
+        raise NotImplementedError
+
+    def parse_view_info(self, rows, schema: Optional[str]):
+        raise NotImplementedError
+
+    def parse_views(self, rows, schema: Optional[str]):
+        raise NotImplementedError
+
+
+@pytest.fixture
+def parser():
+    """The shared parser, reachable without a connection."""
+    return _Parser(backend=None, executor=None)
 
 
 class TestTheClosedSet:
@@ -98,6 +148,66 @@ class TestTheSlot:
         profile = ColumnDataProfile(table_name="orders", column_name="status")
 
         assert profile.source is None
+
+
+class TestTheParser:
+    """What the shared parser writes into a slot typed with a member.
+
+    The parser is the boundary an engine's word crosses, and it used to cross
+    it unchanged: ``source=_first(row, "source")`` wrote the bare string into
+    the slot, and ``== ProfileSource.AGGREGATE`` was True while ``is`` was
+    False. Identity is what is asserted here, because equality cannot tell a
+    member from the word that spells it -- which is exactly how the defect
+    survived a whole branch with a typed slot and a test that read it.
+    """
+
+    def test_the_engine_s_word_becomes_the_member(self, parser):
+        found = parser.parse_column_data_profiles(
+            [{"column_name": "status", "source": "aggregate", "row_count": 10}],
+            "main",
+            "orders",
+        )
+
+        assert len(found) == 1
+        assert found[0].source is ProfileSource.AGGREGATE
+
+    def test_the_member_a_caller_wrote_is_returned_unchanged(self, parser):
+        """The Enum's own lookup, so a member is not re-resolved into another."""
+        found = parser.parse_column_data_profiles(
+            [{"column_name": "status", "source": ProfileSource.ESTIMATE}],
+            "main",
+            "orders",
+        )
+
+        assert found[0].source is ProfileSource.ESTIMATE
+
+    def test_a_row_the_engine_said_nothing_about_stays_none(self, parser):
+        """``None`` means "not measured", and ``_first`` already decides that."""
+        found = parser.parse_column_data_profiles(
+            [{"column_name": "note", "row_count": 10}],
+            "main",
+            "orders",
+        )
+
+        assert found[0].source is None
+
+    def test_a_word_the_set_does_not_name_is_refused(self, parser):
+        """A typo is not a fact, and ``UNKNOWN`` would have made it one.
+
+        ``UNKNOWN`` is the engine declining to say how it measured. A word no
+        member spells is a spelling nobody validated, and the parser is where
+        it is caught -- which is what stops a misspelling reaching a consumer
+        as a legitimate "the engine would not say".
+        """
+        with pytest.raises(ValueError) as raised:
+            parser.parse_column_data_profiles(
+                [{"column_name": "status", "source": "agregate"}],
+                "main",
+                "orders",
+            )
+
+        assert "agregate" in str(raised.value)
+        assert "ProfileSource" in str(raised.value)
 
 
 class TestSerialisation:

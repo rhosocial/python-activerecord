@@ -1,12 +1,35 @@
 # tests/rhosocial/activerecord_test/feature/rules/test_constant_discipline.py
 """The mechanical half of ``.claude/rules/constants.md``.
 
-A module-level name written in capitals claims that the value is a fact of the
-domain and that everyone who reads it sees the same one. This is where that
-claim is checked rather than trusted: every module-level all-caps assignment
-under ``src/`` is parsed, its readers are counted across ``src/`` and
-``tests/``, and a name read exactly once -- and named by no test assertion --
-is reported with its file and line.
+A name written in capitals claims that the value is a fact of the domain and
+that everyone who reads it sees the same one. This is where that claim is
+checked rather than trusted: every all-caps assignment under ``src/`` is
+parsed, its readers are counted across ``src/`` and ``tests/``, and a name
+read exactly once -- and named by no test assertion -- is reported with its
+file and line.
+
+The assignment is collected wherever a class or a module declares one. It used
+to stop at the module body, which saw 135 of the 541 all-caps assignments
+under ``src/`` and none of the 406 a class declares for itself -- and a class
+is where a reader expects to find one, so that is where they were going. Of
+those 406, 319 are members of an Enum: a member is the closed set naming
+itself, not a constant anybody declared, and collecting them would report
+spellings of a decision ``python-hazards.md`` §11.3 already settled and drown
+the names that are claims. The 87 that remain are collected. Fifty of the 406
+are names more than one class declares -- ``PARAMETERS`` on 24,
+``SPELLINGS`` on 14, ``KIND_RESERVED`` on 6, ``UPDATE`` on 4 -- and eight of
+those fifty are not Enum members, which is the shape that has to stay visible:
+a spelling that drifted between two classes would change which two
+declarations compare equal.
+
+A reader is counted where it is written, and a ``self.TABLE`` or ``expr.TABLE``
+is a reader: it used to be counted only where a name stood alone, so a
+catalogue read only through an attribute scored nothing and was invisible --
+``META`` is read that way and by no other spelling. Counting the attribute
+closes that, and it turns nine catalogues from invisible into reported; all
+nine are pinned by ``test_catalogues_that_earn_their_name.py`` rather than
+inlined, because each is the one place an engine writes its own vocabulary
+down.
 
 What is *not* a read: an ``import`` statement. Importing a name nobody reads
 is the defect, not the exoneration, so ``from x import Y`` does not count
@@ -20,7 +43,20 @@ What this cannot see, and the rule says so:
   same shape, same meaning -- is unenforced here and belongs in
   ``python-activerecord-testsuite``;
 * any reader outside the AST: a ``getattr``, a name in a config file, a
-  script, a benchmark or a document;
+  script, a benchmark or a document. An attribute inside the AST is counted,
+  but only where the attribute is spelled with the constant's own name, so a
+  reader that reaches it by a computed name is still invisible. The example
+  packages re-export ``META`` with a comment saying the registry reads the
+  name; no registry in this tree does, and if it lived somewhere else it
+  would read it by ``getattr`` and nothing here would count it;
+* which definition site a reader read. The count is pooled over every
+  definition of a name, so a name declared twice with one reader each scores
+  two and is never reported: ``_COLLATION_NAME_RE`` is defined in
+  ``impl/dummy/dialect.py`` and ``impl/sqlite/mixins/datetime.py``, read once
+  in each, and nothing here can say so -- a bare name does not record which
+  of the two it resolved to, and guessing would be the check inventing a
+  fact. Both copies are regex fragments, so the exemption covers them today;
+  the next one in that shape that is not exempt is invisible;
 * a value spelled more than once where every spelling claims a name. The
   count asks whether a *name* is read, and the pragma table was read
   everywhere; that half is the second check below, which reads values.
@@ -293,15 +329,44 @@ class _Scan:
             if _REPO_ROOT / "src" not in path.parents:
                 continue
             enums = _enum_classes(tree)
-            for node in tree.body:
-                for target in _target_names(node):
-                    if not _NAME.match(target.id):
-                        continue
-                    self.constants.append(
-                        (target.id, path, node.lineno, _assigned_value(node), enums)
-                    )
-                    self.loads.setdefault(target.id, 0)
-                    self.load_sites.setdefault(target.id, [])
+            # A member of a closed set is the Enum's own, not a constant
+            # anybody declared: ````ProfileSource.AGGREGATE = "aggregate"````
+            # is the set naming itself. Collecting those would report 319
+            # spellings of a decision the rule already settled, and drown the
+            # names that are claims. ``_enum_bodies`` answers which class
+            # bodies hold members; ``_enum_classes`` answers which module
+            # declares an Enum, for the table exemption below.
+            bodies = _enum_bodies(tree)
+            self._collect_in(tree.body, path, enums, bodies, False)
+
+    def _collect_in(self, statements, path, enums, bodies, in_class):
+        """Every all-caps assignment here, at module or at class level.
+
+        ``in_class`` is what makes the difference. A module-level walk alone
+        sees 135 of the 541 all-caps assignments under ``src/`` and misses
+        every name a class declares for itself -- which is where the capitals
+        actually accumulate, because a class is where a reader expects to find
+        one. ``DEFAULT_PRAGMAS`` was once a module table and a ``ClassVar``
+        spelling of the same table, and a check that cannot see the second
+        half of that is not a defence.
+
+        An Enum body is skipped whole rather than member by member: a closed
+        set takes an Enum, and its members are not constants.
+        """
+        for node in statements:
+            if isinstance(node, ast.ClassDef):
+                if id(node) in bodies:
+                    continue
+                self._collect_in(node.body, path, enums, bodies, True)
+                continue
+            for target in _target_names(node):
+                if not _NAME.match(target.id):
+                    continue
+                self.constants.append(
+                    (target.id, path, node.lineno, _assigned_value(node), enums)
+                )
+                self.loads.setdefault(target.id, 0)
+                self.load_sites.setdefault(target.id, [])
 
     def _collect_readers(self):
         for _, tree in self.trees:
@@ -309,7 +374,20 @@ class _Scan:
                 self._walk_reads(node, node)
 
     def _walk_reads(self, node, statement):
-        """Count every load of a collected name, remembering its statement."""
+        """Count every load of a collected name, remembering its statement.
+
+        Two spellings, because both are reads. A name standing alone is one.
+        An attribute carrying the name -- ``self.TABLE``, ``expr.TABLE`` -- is
+        the other, and it is the only spelling a class-level catalogue is ever
+        read through: ``_TYPE_CAPABILITIES`` is read through the class, the
+        trigger words through ``cls``, the extract formats through ``self``.
+        Counting only the first left every one of them scoring nothing.
+
+        An attribute is counted wherever its name matches a collected one, so
+        a reader that reaches the constant by a name computed at run time --
+        ``getattr(module, "META")`` -- is still not seen. That is stated in the
+        module docstring rather than papered over.
+        """
         for child in ast.iter_child_nodes(node):
             if isinstance(child, ast.stmt):
                 self._walk_reads(child, child)
@@ -318,6 +396,10 @@ class _Scan:
                 if child.id in self.loads:
                     self.loads[child.id] += 1
                     self.load_sites[child.id].append(statement)
+            elif isinstance(child, ast.Attribute):
+                if child.attr in self.loads:
+                    self.loads[child.attr] += 1
+                    self.load_sites[child.attr].append(statement)
             self._walk_reads(child, statement)
 
     def _collect_pinned(self):
@@ -414,13 +496,27 @@ def _unreadable(skipped):
     )
 
 
-def test_no_module_level_constant_is_read_once_and_pinned_nowhere():
+def test_no_constant_is_read_once_and_pinned_nowhere():
     """A name in caps has to be read in more than one place, or pinned.
 
     One reader and no assertion is a sentence somebody wanted to type once.
     The offenders are listed by file and line so a reader can act without
     rerunning anything; what to do about them is
     ``.claude/rules/constants.md``.
+
+    Collected at class level as well as module level, because that is where
+    the capitals were hiding: the module body alone saw 135 of the 541
+    all-caps assignments under ``src/``, and every name a class declares for
+    itself scored nothing at all. An Enum's members are not collected -- a
+    closed set takes an Enum, and its members are the set naming itself rather
+    than constants anyone declared -- which leaves the 87 class-level
+    assignments that are claims, eight of them names more than one class
+    declares.
+
+    Closing the attribute-reader blind spot is what turned this from a check
+    that could not see a class catalogue into one that reports nine of them;
+    the nine are pinned by ``test_catalogues_that_earn_their_name.py``. What
+    is still not collected, and why, is in the module docstring.
 
     What this run says about files it could not read, per interpreter. On
     3.12 and above the grammar is as new as the sources, so a file that
@@ -454,7 +550,7 @@ def test_no_module_level_constant_is_read_once_and_pinned_nowhere():
         )
     offenders = scan.offenders()
     assert not offenders, "\n".join(
-        ["module-level constants read exactly once and named by no test assertion:"]
+        ["constants read exactly once and named by no test assertion:"]
         + [f"  {path}:{lineno}: {name}" for path, lineno, name in offenders]
     )
 

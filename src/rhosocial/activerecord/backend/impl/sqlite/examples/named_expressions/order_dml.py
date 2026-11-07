@@ -18,21 +18,7 @@ from rhosocial.activerecord.backend.expression import (
     ReturningClause,
 )
 from .....expression.objects import Table
-
-
-#: The status a new order carries in the demo schema when the caller names
-#: none.
-#:
-#: The order examples run against one fixture table whose first row is a
-#: pending order, and three of the write and clause examples default to it.
-#: Writing ``"pending"`` down three times would be three places that have to
-#: stay in step: change one and the others would insert or filter on a status
-#: the fixture does not hold, which is a silent mismatch rather than an error.
-#: Per ``.claude/rules/constants.md`` a value read from more than one
-#: function, where the readings must agree, takes a module-level constant and
-#: a test that pins it -- see
-#: ``tests/rhosocial/activerecord_test/feature/rules/test_shared_defaults.py``.
-DEFAULT_ORDER_STATUS: str = "pending"
+from ..defaults import DEFAULT_ORDER_STATUS
 
 
 def add_order(dialect, user_id: int, status: str = DEFAULT_ORDER_STATUS):

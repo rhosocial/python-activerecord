@@ -36,7 +36,9 @@ sees no literal and is satisfied, and only a signature comparison can say
 whether the twins still hold the same value.
 """
 
+import ast
 import inspect
+from pathlib import Path
 
 import pytest
 
@@ -373,7 +375,13 @@ def test_the_example_migrations_agree_on_the_table_they_create_and_drop():
     the migration class that drives them both carries the name too. A name
     that drifted between them would leave a table the ``down()`` could not
     drop, which is a silent failure rather than an error.
+
+    The definition lives in the examples' leaf module rather than in
+    ``expressions.py``, and the class in ``migrations.py`` reads it from there:
+    that module is what removes the edge a migration class had to the
+    expressions module for nothing but a string.
     """
+    from rhosocial.activerecord.backend.impl.sqlite.examples import defaults
     from rhosocial.activerecord.backend.impl.sqlite.examples.named_migrations import (
         expressions,
         migrations,
@@ -391,7 +399,7 @@ def test_the_example_migrations_agree_on_the_table_they_create_and_drop():
         "V003CreateCustomTable.table_name no longer reads the same name as "
         "create_custom_table"
     )
-    assert created is expressions.DEFAULT_CUSTOM_TABLE_NAME
+    assert created is defaults.DEFAULT_CUSTOM_TABLE_NAME
     assert created == "custom_table"
 
 
@@ -401,22 +409,85 @@ def test_the_order_examples_default_to_one_pending_status():
     Three examples over the same fixture table default to ``pending``, and a
     status that drifted between them would insert or filter on a status the
     fixture does not hold -- a silent mismatch rather than an error.
+
+    The definition lives in the examples' leaf module rather than in
+    ``order_dml.py``, which is what removes the edge the clause examples had
+    to the DML examples for nothing but a string.
     """
+    from rhosocial.activerecord.backend.impl.sqlite.examples import defaults
     from rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions import (
         order_clauses,
         order_dml,
     )
 
-    defaults = (
+    defaults_of = (
         _default_of(order_dml.add_order, "status"),
         _default_of(order_dml.add_payment, "status"),
         _default_of(order_clauses.compound_example, "status"),
     )
-    for value in defaults:
-        assert value is order_dml.DEFAULT_ORDER_STATUS, (
+    for value in defaults_of:
+        assert value is defaults.DEFAULT_ORDER_STATUS, (
             "an order example no longer reads DEFAULT_ORDER_STATUS"
         )
-    assert order_dml.DEFAULT_ORDER_STATUS == "pending"
+    assert defaults.DEFAULT_ORDER_STATUS == "pending"
+
+
+def _relative_imports(module):
+    """Every module *module* reaches for inside its own package, resolved.
+
+    ``from ..defaults import X`` in a module of ``...examples.named_expressions``
+    names ``...examples.defaults``. The resolution is written out because a
+    level is not a module name, and what is being asserted here is a direction
+    -- which module a reader took a name from -- that only the resolved name
+    can state.
+    """
+    path = Path(inspect.getsourcefile(module))
+    package = module.__name__.rsplit(".", 1)[0]
+    parts = package.split(".")
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    found = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ImportFrom) or not node.module:
+            continue
+        # One dot is this module's own package, two its parent, and so on
+        # outward -- so ``level`` climbs ``level - 1`` packages up.
+        keep = len(parts) - (node.level - 1)
+        if keep <= 0:
+            continue
+        found.add(".".join(parts[:keep] + [node.module]))
+    return found
+
+
+def test_no_example_module_reads_a_default_out_of_a_sibling_example():
+    """The leaf module is where an example module takes a shared default from.
+
+    The defect this fixes was a direction, not a count: ``order_clauses``
+    imported ``order_dml`` and ``migrations`` imported ``expressions`` for
+    nothing but a string, so whichever module happened to declare it first
+    owned what the others read, and the next reader had to know which of the
+    three to look in. Both spellings are an import, so no count or AST check
+    can tell a default from a registry table -- the direction is pinned here
+    instead, on the two edges that were actually walked the wrong way, and on
+    the leaf remaining reachable from both sides.
+    """
+    from rhosocial.activerecord.backend.impl.sqlite.examples import defaults
+    from rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions import (
+        order_clauses,
+        order_dml,
+    )
+    from rhosocial.activerecord.backend.impl.sqlite.examples.named_migrations import (
+        expressions,
+        migrations,
+    )
+
+    for reader, sibling in ((order_clauses, order_dml), (migrations, expressions)):
+        reached = _relative_imports(reader)
+        assert sibling.__name__ not in reached, (
+            f"{reader.__name__} reads a default out of {sibling.__name__} again"
+        )
+        assert defaults.__name__ in reached, (
+            f"{reader.__name__} no longer reads the examples' leaf module"
+        )
 
 
 def test_the_count_caller_no_longer_spells_the_wildcard_it_gets_for_free():

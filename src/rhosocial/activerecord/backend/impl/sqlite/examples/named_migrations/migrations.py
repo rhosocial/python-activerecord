@@ -8,7 +8,7 @@ dependencies, and up()/down() methods that call named expressions.
 
 from rhosocial.activerecord.backend.migration import NamedMigration, MigrationContext
 from rhosocial.activerecord.backend.expression.objects import Table
-from .expressions import DEFAULT_CUSTOM_TABLE_NAME
+from ..defaults import DEFAULT_CUSTOM_TABLE_NAME
 
 
 class V001CreateUsers(NamedMigration):

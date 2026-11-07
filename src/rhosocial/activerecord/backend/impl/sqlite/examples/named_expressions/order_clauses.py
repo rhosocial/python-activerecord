@@ -24,7 +24,7 @@ from rhosocial.activerecord.backend.expression import (
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from .....expression.objects import Table
-from .order_dml import DEFAULT_ORDER_STATUS
+from ..defaults import DEFAULT_ORDER_STATUS
 
 
 def where_example(dialect, status: str = "active"):

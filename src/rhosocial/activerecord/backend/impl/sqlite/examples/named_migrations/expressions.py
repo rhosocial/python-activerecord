@@ -12,6 +12,7 @@ from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     DropTableStatement,
 )
 from .....expression.objects import Table
+from ..defaults import DEFAULT_CUSTOM_TABLE_NAME
 # src/rhosocial/activerecord/backend/impl/sqlite/examples/named_migrations/expressions.py
 """
 DDL named expression functions for migration examples.
@@ -19,22 +20,6 @@ DDL named expression functions for migration examples.
 Each function receives a *dialect* and returns a DDL expression object.
 These are the building blocks used by NamedMigration up()/down() methods.
 """
-
-
-#: The table the custom-table migration creates when the caller names none.
-#:
-#: ``create_custom_table`` and ``drop_custom_table`` are the two halves of one
-#: migration: the second has to drop the table the first built. Writing the
-#: name down twice would be two places that have to stay in step with nothing
-#: keeping them in step, and a migration that created a table its ``down()``
-#: could not drop is a silent failure rather than an error. Per
-#: ``.claude/rules/constants.md`` a value read from more than one function,
-#: where the readings must agree, takes a module-level constant and a test
-#: that pins it -- see
-#: ``tests/rhosocial/activerecord_test/feature/rules/test_shared_defaults.py``.
-DEFAULT_CUSTOM_TABLE_NAME: str = "custom_table"
-
-
 
 
 def create_users_table(dialect):

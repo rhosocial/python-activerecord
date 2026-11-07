@@ -113,12 +113,19 @@ class TestColumnDataProfiles:
         readings off a statistics catalogue, and a consumer comparing them
         with a PostgreSQL estimate has to be able to tell the two apart
         without knowing which engine it asked.
+
+        Identity, not equality: ``ProfileSource`` is a ``str`` Enum, so a bare
+        ``"aggregate"`` compares equal to the member and an assertion written
+        with ``==`` would pass on the word the parser used to write before it
+        learned the closed set. ``is`` cannot.
         """
+        from rhosocial.activerecord.backend.introspection.types import ProfileSource
+
         profiles = profiled.introspector.list_column_data_profiles("orders")
 
         assert profiles, "no profile came back"
         for profile in profiles:
-            assert profile.source == "aggregate"
+            assert profile.source is ProfileSource.AGGREGATE
 
     def test_the_column_list_is_the_tables_own(self, profiled):
         """One profile per column, and the names are the table's, in order."""

@@ -48,6 +48,7 @@ from .types import (
     ColumnDataProfile,
     ColumnValueFrequency,
     DDLStatement,
+    ProfileSource,
     IndexUsageStats,
     JoinCoverage,
     ObjectDependency,
@@ -844,6 +845,12 @@ class IntrospectorBase(IntrospectorMixin, ABC):
         engine did not project stays ``None`` -- that is the engine saying "I
         do not measure this", which must not be smoothed into a zero.
 
+        ``source`` is read as a word and written as a
+        :class:`~...introspection.types.ProfileSource` member, because that is
+        the slot's annotation and a word is not a member: the two compare
+        equal, so a test written against ``==`` cannot tell them apart. The
+        parser is where the engine's spelling becomes the closed set's own.
+
         ``row_count`` doubles as the sample size when ``source`` is a sample,
         which is why the two travel together rather than as separate fields.
         """
@@ -854,6 +861,27 @@ class IntrospectorBase(IntrospectorMixin, ABC):
                 if key in row and row[key] is not None:
                     return row[key]
             return None
+
+        def _source(value: Any) -> Optional[ProfileSource]:
+            """The member *value* names, or ``None`` when the engine said nothing.
+
+            ``ProfileSource(value)`` is the Enum's own lookup over the closed
+            set it declares, which is why there is no table beside it mapping
+            words to members: such a table would be a second place that has to
+            stay in step with the member list, which is the defect this
+            repository just spent a change removing. A member is returned
+            unchanged, so a caller that already holds one is not re-resolved.
+
+            A word the set does not name raises rather than being smoothed
+            into ``UNKNOWN``. ``UNKNOWN`` is the engine declining to say how it
+            measured, which is a fact; a misspelled ``"agregate"`` is nobody's
+            fact, and writing ``UNKNOWN`` over it would hide the typo the rule
+            is about -- a value nothing validates. This parser is the boundary
+            an engine's word crosses, so it is the place that validates it.
+            """
+            if value is None:
+                return None
+            return ProfileSource(value)
 
         for row in rows or []:
             column = _first(row, "column_name", "attname", "column")
@@ -891,7 +919,7 @@ class IntrospectorBase(IntrospectorMixin, ABC):
                     min_value=_first(row, "min_value", "min", "low_value"),
                     max_value=_first(row, "max_value", "max", "high_value"),
                     row_count=rows_in_profile,
-                    source=_first(row, "source"),
+                    source=_source(_first(row, "source")),
                     collected_at=_first(row, "collected_at", "last_analyzed", "last_analyze"),
                     extra={
                         key: value
