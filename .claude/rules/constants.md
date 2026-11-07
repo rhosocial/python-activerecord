@@ -77,7 +77,15 @@ again as a `ClassVar` on `SQLitePragmaMixin` in `config.py`, with the two
 backend classes aliased onto the first of them. No reference count could see
 it, because every copy was read -- which is the limit of counting names. The
 count asks whether a name is read; it cannot ask whether a value is one
-thing.
+thing. That question is the second check's, and it asks it wherever a value
+claims a name: the default of a parameter answers the question that
+parameter's name asks, and an assignment in capitals answers the question the
+constant's name asks, so two places answering one name are two places that
+must agree. A literal in neither position claims nothing, and repeating one
+of those is as often an accident as a decision -- a `0.8` warn threshold and
+the price of a banana in an example are not one fact written twice -- which
+is why the second check reads the named sites and leaves the anonymous ones
+alone.
 
 ## Read across functions
 
@@ -170,15 +178,37 @@ An import is also why the check asks for exactly one load and not one or
 none: a name nobody loads is the "never referenced" case, which the rule
 settles as a deletion and which is a different finding from "one reader".
 
-Three things it cannot see, each a limit of the rule as much as of the code.
-It sees this repository alone, so the cross-repository clause above is
-unenforced here -- that check belongs in `python-activerecord-testsuite`,
-which is the only layer that can hold all ten. It sees the AST alone, so a
-reader that is a `getattr`, a name in a config file, a script or a document
-is invisible to it. And it counts names, not values, so a value spelled more
-than once under the same name passes it cleanly -- which is what SQLite's
-pragma table did before it was collapsed to one definition. The rule is worth
-exactly as much as the check behind it: a criterion nobody runs is a
-preference, and this one was written after a survey of 665 constants across
-ten repositories found the capitals accumulating in the branches nobody was
-reading.
+The same file holds the second check, which is the count's blind spot. It
+parses `src/` alone, collects every literal that claims a name -- a parameter
+default, or the value of a constant at module or class level -- and fails
+listing every value one name answers in two or more places. A table counts as
+one value, so a catalogue's entries are its contents rather than numbers
+anybody wrote on their own; an Enum member is exempt, because a closed set
+takes an Enum and two enums agreeing on a member are agreeing rather than
+duplicating; and a literal claiming no name is not read, for the reason in
+the section above. It reports both sites with the kind of each -- a parameter
+default against a constant -- because the value alone, `100` written a
+hundred times, is not something anyone can act on.
+
+Run against this repository today the first check reports nothing and the
+second reports twenty-one values, every one of them the shape above:
+`limit` defaulting to `100` on four signatures, `batch_size` to `100` and
+`page_size` to `1000` on the sync and async twins each, `wal_checkpoint`'s
+`mode` to `PASSIVE` twice, `PARAMETERS = ("unsigned",)` on six classes and
+`KIND_RESERVED = ("SQLite",)` on five, `OUTPUT_CHOICES` written three times
+across the SQLite CLIs, and the example registries' `META` three times.
+Clearing them is a separate change; the check stays red until it is done,
+which is the point.
+
+Three things the pair of them cannot see, each a limit of the rule as much as
+of the code. They see this repository alone, so the cross-repository clause
+above is unenforced here -- that check belongs in
+`python-activerecord-testsuite`, which is the only layer that can hold all
+ten. They see the AST alone, so a reader that is a `getattr`, a name in a
+config file, a script or a document is invisible to them. And the second asks
+whether two places answer the *same name*: `limit` written four times is
+caught, `limit` here and `max_rows` there is the same defect and no AST says
+so. The rule is worth exactly as much as the check behind it: a criterion
+nobody runs is a preference, and this one was written after a survey of 665
+constants across ten repositories found the capitals accumulating in the
+branches nobody was reading.

@@ -21,8 +21,21 @@ What this cannot see, and the rule says so:
   ``python-activerecord-testsuite``;
 * any reader outside the AST: a ``getattr``, a name in a config file, a
   script, a benchmark or a document;
-* a value spelled three times with each copy read once. The count asks
-  whether a *name* is read; it cannot ask whether a *value* is one thing.
+* a value spelled more than once where every spelling claims a name. The
+  count asks whether a *name* is read, and the pragma table was read
+  everywhere; that half is the second check below, which reads values.
+
+The second check is the count's blind spot made mechanical. ``limit: int
+= 100`` on four signatures, or one table written twice under one name,
+passes every count: every copy is read, so the name looks used and the
+value looks agreed. Nothing says the copies agree, which is the defect.
+The second check therefore collects the literal values written under
+``src/`` where they claim a name -- the default of a parameter, or the
+value of a constant -- and reports a value one name answers in more than
+one place. It is deliberately not "one value anywhere twice": a literal
+in neither position claims nothing, so a collision with one is
+indistinguishable from a coincidence, and a check that reports those
+teaches its reader to ignore it.
 
 The reader of these sources is the ``ast`` of whichever interpreter is
 running the check, and that grammar is not the same grammar everywhere:
@@ -121,6 +134,32 @@ def _python_files():
             for filename in sorted(filenames):
                 if filename.endswith(".py"):
                     yield Path(dirpath) / filename
+
+
+def _parse(path):
+    """The file's ``ast`` tree, or ``None`` when this grammar cannot read it.
+
+    A tool that reads source has to be more tolerant than the source it
+    reads: one file this interpreter refuses costs the check a piece of
+    the tree, never the check itself. ``feature_version`` is deliberately
+    not pinned -- it asks for an *older* grammar than the running one, and
+    a target ahead of the interpreter is either rejected outright or
+    parsed with the grammar it already has, so syntax newer than the
+    reader stays unreadable either way and the parameter would only
+    suggest otherwise.
+
+    Three ways a file refuses to be read, all survivable: a
+    ``SyntaxError``, which is a grammar younger than this interpreter's;
+    a ``ValueError``, which is bytes that are not UTF-8 (a
+    ``UnicodeDecodeError`` *is* one) or a NUL smuggled into the text; and
+    a ``RecursionError``, which is the parser giving up on the nesting
+    before the check has to.
+    """
+    try:
+        with open(path, encoding="utf-8") as handle:
+            return ast.parse(handle.read(), filename=str(path))
+    except (SyntaxError, ValueError, RecursionError):
+        return None
 
 
 def _target_names(node):
@@ -243,29 +282,9 @@ class _Scan:
 
     @staticmethod
     def _parse(path):
-        """The file's ``ast`` tree, or ``None`` when this grammar cannot read it.
-
-        A tool that reads source has to be more tolerant than the source it
-        reads: one file this interpreter refuses costs the check a piece of
-        the tree, never the check itself. ``feature_version`` is deliberately
-        not pinned -- it asks for an *older* grammar than the running one, and
-        a target ahead of the interpreter is either rejected outright or
-        parsed with the grammar it already has, so syntax newer than the
-        reader stays unreadable either way and the parameter would only
-        suggest otherwise.
-
-        Three ways a file refuses to be read, all survivable: a
-        ``SyntaxError``, which is a grammar younger than this interpreter's;
-        a ``ValueError``, which is bytes that are not UTF-8 (a
-        ``UnicodeDecodeError`` *is* one) or a NUL smuggled into the text; and
-        a ``RecursionError``, which is the parser giving up on the nesting
-        before the check has to.
-        """
-        try:
-            with open(path, encoding="utf-8") as handle:
-                return ast.parse(handle.read(), filename=str(path))
-        except (SyntaxError, ValueError, RecursionError):
-            return None
+        """The file's ``ast`` tree, or ``None`` when this grammar cannot
+        read it; see :func:`_parse`."""
+        return _parse(path)
 
     # -- collection ----------------------------------------------------- #
 
@@ -438,3 +457,312 @@ def test_no_module_level_constant_is_read_once_and_pinned_nowhere():
         ["module-level constants read exactly once and named by no test assertion:"]
         + [f"  {path}:{lineno}: {name}" for path, lineno, name in offenders]
     )
+
+
+# ---- the value, not the name ------------------------------------------- #
+
+#: Values that are the language's own letters for "nothing", so that a
+#: second copy of one is not a decision anybody made twice. An empty
+#: container and ``...`` are here for the same reason: they say "nothing
+#: is specified", not "this much". ``-1`` is here because a count below
+#: zero is how a program spells "no limit" rather than a limit it chose.
+_TRIVIAL = frozenset(
+    {
+        ("s", "NoneType", None),
+        ("s", "bool", True),
+        ("s", "bool", False),
+        ("s", "int", 0),
+        ("s", "int", 1),
+        ("s", "int", -1),
+        ("s", "str", ""),
+        ("s", "ellipsis", Ellipsis),
+        ("list", ()),
+        ("tuple", ()),
+        ("set", ()),
+        ("dict", ()),
+    }
+)
+
+#: Base names that make a class body a closed set of values rather than a
+#: set of claims. A member is the word it carries -- two enums that spell
+#: a member the same way are two vocabularies agreeing on a word, which is
+#: consistency rather than a fact written twice -- and
+#: ``python-hazards.md`` §11.3 already settled where that spelling goes.
+_ENUM_BASES = frozenset({"Enum", "IntEnum", "StrEnum", "Flag", "IntFlag"})
+
+#: What a site is, for a reader who has to act on the finding.
+_PARAMETER = "parameter default"
+_MODULE = "module constant"
+_CLASS = "class constant"
+
+
+def _literal(node):
+    """A hashable key for a literal expression, or ``None``.
+
+    A table is one value. The key for ``{"a": 1}`` describes the whole
+    table, and the ``1`` inside it is the table's content rather than a
+    number anybody wrote on its own -- which is what keeps a catalogue's
+    vocabulary out of the findings, since a word inside a table repeats
+    because the table holds it, not because two places decided it.
+
+    Anything not written out in full has no key: a name, a call, a
+    comprehension, an interpolated string. A value computed at run time is
+    not a value two places can be caught disagreeing about.
+    """
+    if isinstance(node, ast.Constant):
+        return ("s", type(node.value).__name__, node.value)
+    if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+        elements = tuple(_literal(element) for element in node.elts)
+        if any(element is None for element in elements):
+            return None
+        kind = {ast.List: "list", ast.Tuple: "tuple", ast.Set: "set"}[type(node)]
+        return (kind, elements)
+    if isinstance(node, ast.Dict):
+        pairs = tuple(
+            (_literal(key), _literal(value))
+            for key, value in zip(node.keys, node.values)
+            if key is not None
+        )
+        if any(key is None or value is None for key, value in pairs):
+            return None
+        return ("dict", pairs)
+    return None
+
+
+def _enum_bodies(tree):
+    """The ``ClassDef`` nodes this module declares as an Enum, by identity.
+
+    Wider than :func:`_enum_classes` on purpose: that one asks which
+    classes hold tables keyed by an enum member, this one asks which
+    class bodies hold members. ``IntEnum`` and ``str, Enum`` are both
+    closed sets, and the members inside them are exempt here for the
+    reason above.
+    """
+    found = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        for base in node.bases:
+            name = base.attr if isinstance(base, ast.Attribute) else getattr(base, "id", None)
+            if name in _ENUM_BASES:
+                found.add(id(node))
+                break
+    return found
+
+
+def _defaults_of(func):
+    """``(parameter name, default node)`` for every default a signature
+    offers, positional ones aligned to the parameters they belong to."""
+    args = func.args
+    positional = list(args.posonlyargs) + list(args.args)
+    pairs = [
+        (arg.arg, default)
+        for arg, default in zip(positional[len(positional) - len(args.defaults) :], args.defaults)
+    ]
+    pairs.extend(
+        (arg.arg, default)
+        for arg, default in zip(args.kwonlyargs, args.kw_defaults)
+        if default is not None
+    )
+    return pairs
+
+
+def _render(key):
+    """The value a key describes, written the way source writes it."""
+    if key[0] == "s":
+        return repr(key[2])
+    if key[0] == "dict":
+        return "{" + ", ".join(f"{_render(k)}: {_render(v)}" for k, v in key[1]) + "}"
+    elements = [_render(element) for element in key[1]]
+    if key[0] == "tuple":
+        # A one-element tuple is not a tuple without the comma that says so.
+        return "(" + ", ".join(elements) + (",)" if len(elements) == 1 else ")")
+    if key[0] == "list":
+        return "[" + ", ".join(elements) + "]"
+    return "{" + ", ".join(elements) + "}"
+
+
+def _shorten(text, limit=64):
+    """A rendering a reader can scan, however long the value is."""
+    return text if len(text) <= limit else text[: limit - 3] + "..."
+
+
+class _ValueScan:
+    """One parse of the source tree, with every literal that claims a name.
+
+    A value is collected where it claims one. The default of a parameter
+    answers the question that parameter's name asks; an assignment to a
+    name in capitals answers the question that constant's name asks. Both
+    are places that must agree with every other place answering the same
+    question, and the finding is one name answered twice.
+
+    A literal in neither position is not collected at all. The looser rule
+    -- one value anywhere, twice -- was measured first and reports every
+    coincidence in the tree: a serializer's warn threshold of ``0.8``
+    against the price of a banana in an example, a ``0.0`` retry delay
+    against a ``0.0`` sleep in a worker pool, ``100`` against every
+    hundred in the codebase. A literal nobody names claims nothing, so
+    nothing distinguishes its repetition from an accident, and a check
+    that lists accidents is a check its reader learns to skip.
+
+    Enum members are exempt for the reason ``python-hazards.md`` §11.3
+    gives: a closed set takes an Enum, and two enums spelling one member
+    the same way are agreeing, not duplicating. Constants inside a
+    function body are not read as claims -- a capital on a local is the
+    rule's own "a local variable, without the capital name" case, which is
+    a different finding from a value written twice.
+
+    Tests are not scanned. A twin in a test is a fixture the test needs,
+    and the plan puts the cross-repository half of this rule in
+    ``python-activerecord-testsuite``, where all ten repositories are
+    visible; here the tree is this repository's ``src/``.
+    """
+
+    def __init__(self):
+        # (path, tree) for every file this interpreter could read
+        self.trees = []
+        # The files this interpreter could not parse, as for _Scan above.
+        self.skipped = []
+        for path in _python_files():
+            if _REPO_ROOT / "src" not in path.parents:
+                continue
+            tree = _parse(path)
+            if tree is None:
+                self.skipped.append(path)
+            else:
+                self.trees.append((path, tree))
+        # (name, value key) -> {(path, lineno, kind)}
+        self.writings = {}
+        self._collect()
+
+    # -- collection ----------------------------------------------------- #
+
+    def _collect(self):
+        for path, tree in self.trees:
+            self._walk(tree.body, path, _enum_bodies(tree), False, False, False)
+
+    def _walk(self, nodes, path, enums, in_class, in_enum, in_function):
+        """Read the statements here, recording each literal that claims a name.
+
+        ``in_function`` says a function body has been entered, which is
+        where a capital name stops being a constant and becomes a local
+        variable wearing one.
+        """
+        for node in nodes:
+            if isinstance(node, ast.ClassDef):
+                self._walk(node.body, path, enums, True, id(node) in enums, False)
+                continue
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                self._record_defaults(node, path)
+                self._walk(node.body, path, enums, False, False, True)
+                continue
+            if isinstance(node, ast.Lambda):
+                self._record_defaults(node, path)
+                continue
+            if isinstance(node, (ast.Assign, ast.AnnAssign)) and not in_enum and not in_function:
+                self._record_constant(node, path, in_class)
+                continue
+            # Every other statement is plumbing: the value is written where
+            # it claims a name, or it is a body to walk into.
+            self._walk(
+                list(ast.iter_child_nodes(node)), path, enums, in_class, in_enum, in_function
+            )
+
+    def _record_defaults(self, func, path):
+        """The defaults a signature offers, each against its parameter's name."""
+        for name, default in _defaults_of(func):
+            key = _literal(default)
+            if key is None or key in _TRIVIAL:
+                continue
+            self.writings.setdefault((name, key), set()).add((path, default.lineno, _PARAMETER))
+
+    def _record_constant(self, node, path, in_class):
+        """The value an all-caps assignment writes, against the name it writes
+        it under -- at class level as well as module level, because
+        ``DEFAULT_PRAGMAS`` was once a module table and a ``ClassVar``
+        spelling of the same table, and the two had to agree."""
+        for target in _target_names(node):
+            if not _NAME.match(target.id):
+                continue
+            key = _literal(_assigned_value(node))
+            if key is None or key in _TRIVIAL:
+                continue
+            kind = _CLASS if in_class else _MODULE
+            self.writings.setdefault((target.id, key), set()).add((path, node.lineno, kind))
+
+    # -- the finding ----------------------------------------------------- #
+
+    def offenders(self):
+        """Every value one name answers in more than one place, as
+        ``(path, lineno, kind, name, value)`` sorted into groups."""
+        found = []
+        for (name, key), sites in self.writings.items():
+            if len(sites) < 2:
+                continue
+            found.append((name, key, sorted(sites)))
+        return sorted(found, key=lambda group: (group[0], str(group[1])))
+
+
+def _value_findings(offenders):
+    """The findings as lines, grouped by the name that answers twice.
+
+    The value alone is not actionable: ``100`` is written a hundred times
+    and nobody is going to look. The name and the kind of each site are
+    what make it a decision -- whose default, which constant -- and the
+    locations are what make it fixable without rerunning anything.
+    """
+    lines = ["one value written where two places must agree, with nothing asserting it:"]
+    for name, key, sites in offenders:
+        lines.append(f"  {name} = {_shorten(_render(key))}")
+        for kind in (_PARAMETER, _MODULE, _CLASS):
+            for path, lineno, site_kind in sites:
+                if site_kind == kind:
+                    lines.append(f"      {kind:17} {path.relative_to(_REPO_ROOT)}:{lineno}")
+    return "\n".join(lines)
+
+
+def test_no_value_is_written_in_two_places_that_must_agree():
+    """A default is not a fact because two places wrote it down.
+
+    The rule's clause, made mechanical: the count in the check above asks
+    whether a *name* is read, and ``DEFAULT_PRAGMAS`` was read everywhere
+    it was spelled, so every copy passed. This check reads values instead,
+    where they claim a name, and fails listing the ones one name answers
+    twice -- ``limit`` defaulting to ``100`` on four signatures, a table
+    written twice under one name -- with the name, the kind of each site
+    and the file and line, so a reader can act without rerunning anything.
+
+    What this run says about files it could not read is the same as above,
+    for the same reason and with the same consequence: on 3.12 and above a
+    file that refuses is a hole in the coverage and fails here naming it,
+    and below 3.12 the fixtures' PEP 695 headers cannot be read at all, so
+    they are recorded in a warning and the assertion runs over what could
+    be read. A reader is told either way that the count was taken over
+    fewer files.
+
+    What this still cannot see: two *different* names answering one
+    question -- ``limit`` in four places is caught, ``limit`` here and
+    ``max_rows`` there is the same defect and no AST says so. A value
+    written once under a name and once where nothing names it, which is a
+    coincidence as often as it is a duplicate. A reader outside the AST,
+    as above. And the other nine repositories, as above: the plan's
+    ``DEFAULT_VALUE_SAMPLE_LIMIT`` is spelled in five CLIs against this
+    repository's four signatures, and the half of that pair which lives
+    here is what ``limit`` reports.
+    """
+    scan = _ValueScan()
+    if sys.version_info >= _PEP695 and scan.skipped:
+        # This grammar is as new as the sources are, so a file it still cannot
+        # read is a file nothing checked.
+        pytest.fail(
+            "every file in the tree should be readable by this grammar; "
+            "these were skipped, so nothing checked them:\n" + _unreadable(scan.skipped)
+        )
+    elif scan.skipped:
+        warnings.warn(
+            "not checked, because this interpreter's grammar cannot read them "
+            "(PEP 695 needs 3.12):\n" + _unreadable(scan.skipped),
+            stacklevel=1,
+        )
+    offenders = scan.offenders()
+    assert not offenders, _value_findings(offenders)
