@@ -605,6 +605,22 @@ class DerivedField:
 
          dialect = Product.backend().dialect
          expr = Column(dialect, "price") * Literal(dialect, 2)
+
+    3. When the value needs rows that the model's own table does not hold,
+       return a scalar ``Subquery``; a plain expression cannot carry its own
+       ``FROM``/``WHERE``.
+
+         class RunAttempt(ActiveRecord):
+             job_span_seconds: ClassVar[Annotated[float, DerivedField(
+                 lambda d: Subquery(d, Job.query().select(...).where(...).to_sql()),
+             )]]
+
+       A scalar subquery is a nested ``SELECT`` with its own ``FROM``/``WHERE``,
+       correlated to the outer row, and SQL requires it to be parenthesized.
+       Every other expression -- a column, a literal, an arithmetic or function
+       node over columns of the outer row -- is injected as-is. Wrapping a plain
+       expression in ``Subquery`` only adds parentheses and misstates what the
+       node is.
     """
 
     def __init__(
