@@ -29,13 +29,30 @@ class, so the collapse is where it belongs.
 
 from __future__ import annotations
 
+from typing import Tuple
+
 from rhosocial.activerecord.backend.expression.types import (
     BlobType,
     DataType,
     IntegerType,
+    PRECISION_PARAMETERS,
     RealType,
     TextType,
 )
+
+#: The token the SQLite type classes keep whole when their kind is derived.
+#:
+#: ``SQLite`` is a compound word and the general capital-run rule would split
+#: it into ``sq_lite_...``, so the classes whose names begin with it name the
+#: token here and keep it whole. The package's own ``__init__`` loop applies
+#: the same token to the rest of the package's expressions, and both places
+#: read this one value: a derived kind is part of the wire contract, so two
+#: spellings of the token would be two places that have to stay in step with
+#: nothing keeping them in step. Per ``.claude/rules/constants.md`` a value
+#: read from more than one place, where the readings must agree, takes a
+#: module-level constant and a test that pins it -- see
+#: ``tests/rhosocial/activerecord_test/feature/rules/test_shared_defaults.py``.
+SQLITE_KIND_RESERVED: Tuple[str, ...] = ("SQLite",)
 
 
 class SQLiteIntegerType(IntegerType):
@@ -46,7 +63,7 @@ class SQLiteIntegerType(IntegerType):
     reuse.
     """
 
-    KIND_RESERVED = ("SQLite",)
+    KIND_RESERVED = SQLITE_KIND_RESERVED
 
     name = "sqlite_integer"
 
@@ -60,7 +77,7 @@ class SQLiteTextType(TextType):
     introspection round-trips.
     """
 
-    KIND_RESERVED = ("SQLite",)
+    KIND_RESERVED = SQLITE_KIND_RESERVED
 
     name = "sqlite_text"
 
@@ -79,7 +96,7 @@ class SQLiteRealType(RealType):
     type affinity mapping.
     """
 
-    KIND_RESERVED = ("SQLite",)
+    KIND_RESERVED = SQLITE_KIND_RESERVED
 
     name = "sqlite_real"
 
@@ -90,7 +107,7 @@ class SQLiteRealType(RealType):
         super().__init__(dialect)
         self.precision = precision
 
-    PARAMETERS = ("precision",)
+    PARAMETERS = PRECISION_PARAMETERS
 
 class SQLiteNumericType(DataType):
     """SQLite NUMERIC — the affinity that spans three type families.
@@ -103,7 +120,7 @@ class SQLiteNumericType(DataType):
     single core type.
     """
 
-    KIND_RESERVED = ("SQLite",)
+    KIND_RESERVED = SQLITE_KIND_RESERVED
 
     name = "sqlite_numeric"
 
@@ -126,6 +143,6 @@ class SQLiteBlobType(BlobType):
     this affinity.
     """
 
-    KIND_RESERVED = ("SQLite",)
+    KIND_RESERVED = SQLITE_KIND_RESERVED
 
     name = "sqlite_blob"

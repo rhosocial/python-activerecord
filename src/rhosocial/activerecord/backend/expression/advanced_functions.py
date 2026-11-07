@@ -26,6 +26,8 @@ from .core import (
 
 from .query_parts import OrderByClause
 
+from .defaults import TRIM_DEFAULT_DIRECTION
+
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
@@ -515,7 +517,7 @@ class TrimExpression(
         dialect: "SQLDialectBase",
         expr: "BaseExpression",
         chars: Optional["BaseExpression"] = None,
-        direction: str = "BOTH",
+        direction: str = TRIM_DEFAULT_DIRECTION,
         alias: Optional[str] = None,
     ):
         super().__init__(dialect)

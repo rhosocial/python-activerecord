@@ -14,6 +14,29 @@ if TYPE_CHECKING:
     from ...dialect import SQLDialectBase
 
 
+# The field names a type's :attr:`PARAMETERS` tuple is built from, written once
+# each. Every concrete type that carries a length, a precision or a
+# signedness declares the *same* tuple for the *same* reason, and a spelling
+# that drifted between two of them would change which two declarations compare
+# equal -- with nothing asserting the agreement. The vocabulary itself is
+# enumerated in :attr:`DataType.PARAMETERS`'s comment; these are the tuples
+# read off it. Per ``.claude/rules/constants.md`` a value read from more than
+# one function, where the readings must agree, takes a module-level constant
+# *and* a test that pins it -- see
+# ``tests/rhosocial/activerecord_test/feature/rules/test_shared_defaults.py``.
+
+#: The identity parameters of a type whose width is what makes it what it is.
+LENGTH_PARAMETERS: Tuple[str, ...] = ("length",)
+
+#: The identity parameters of a type whose fractional-seconds precision is
+#: what makes it what it is.
+PRECISION_PARAMETERS: Tuple[str, ...] = ("precision",)
+
+#: The identity parameters of a type whose signedness is what makes it what
+#: it is.
+UNSIGNED_PARAMETERS: Tuple[str, ...] = ("unsigned",)
+
+
 class DataType(BaseExpression, ABC):
     """Base for all SQL data type expressions.
 

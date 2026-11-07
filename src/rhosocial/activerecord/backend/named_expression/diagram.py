@@ -28,6 +28,12 @@ from .procedure import (
     TransactionMode,
 )
 
+from .defaults import (
+    DEFAULT_DIAGRAM_KIND,
+    DEFAULT_LOG_LEVEL,
+    DEFAULT_PROCEDURE_NAME,
+)
+
 if TYPE_CHECKING:
     from .procedure import ProcedureResult
 
@@ -154,7 +160,7 @@ class _DryRunContext:
     def rollback_transaction(self) -> None:
         pass
 
-    def log(self, message: str, level: str = "INFO", step: Optional[str] = None) -> None:
+    def log(self, message: str, level: str = DEFAULT_LOG_LEVEL, step: Optional[str] = None) -> None:
         pass
 
     def abort(self, procedure_name: str = "", reason: str = "") -> None:
@@ -276,7 +282,7 @@ class _AsyncDryRunContext:
     async def rollback_transaction(self) -> None:
         pass
 
-    async def log(self, message: str, level: str = "INFO", step: Optional[str] = None) -> None:
+    async def log(self, message: str, level: str = DEFAULT_LOG_LEVEL, step: Optional[str] = None) -> None:
         pass
 
     async def abort(self, procedure_name: str = "", reason: str = "") -> None:
@@ -291,7 +297,7 @@ class ProcedureDiagram:
         dialect_name: Optional[str] = None,
         backend_name: Optional[str] = None,
         backend_hint: Optional[str] = None,
-        procedure_name: str = "Procedure",
+        procedure_name: str = DEFAULT_PROCEDURE_NAME,
     ) -> None:
         self.static_trace = static_trace
         self.instance_trace = instance_trace
@@ -308,7 +314,7 @@ class ProcedureDiagram:
     def from_result(
         cls,
         result: "ProcedureResult",
-        procedure_name: str = "Procedure",
+        procedure_name: str = DEFAULT_PROCEDURE_NAME,
     ) -> "ProcedureDiagram":
         return cls(
             static_trace=result.static_trace,
@@ -355,7 +361,7 @@ class ProcedureDiagram:
             procedure_name=procedure_cls.__name__,
         )
 
-    def to_mermaid(self, kind: str = "flowchart") -> str:
+    def to_mermaid(self, kind: str = DEFAULT_DIAGRAM_KIND) -> str:
         if kind == "flowchart":
             return self._render_flowchart()
         if kind == "sequence":

@@ -35,6 +35,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from .cache import InMemoryIntrospectionCache, IntrospectionCache
+from .defaults import VALUE_SAMPLE_LIMIT
 from .types import (
     IntrospectionDatabaseInfo,
     IntrospectionTableInfo,
@@ -415,12 +416,14 @@ class IntrospectorBase(IntrospectorMixin, ABC):
         schema: Optional[str],
         table_name: str,
         column_name: str,
-        limit: int = 100,
+        limit: int = VALUE_SAMPLE_LIMIT,
     ) -> "ColumnValueSampleQueryStatement":
         """Return the statement that lists a column's most frequent values.
 
         ``limit`` is an upper bound, not a promise -- an engine keeping a
-        fixed-size most-common-values list returns what it kept.
+        fixed-size most-common-values list returns what it kept. The default
+        is the expression's own; see
+        :data:`~...introspection.defaults.VALUE_SAMPLE_LIMIT`.
         """
         from ..expression.introspection import ColumnValueSampleQueryStatement
 
@@ -1277,14 +1280,15 @@ class AbstractIntrospector(IntrospectorBase, ABC):
         self,
         table_name: str,
         column_name: str,
-        limit: int = 100,
+        limit: int = VALUE_SAMPLE_LIMIT,
         schema: Optional[str] = None,
     ) -> List[ColumnValueFrequency]:
         """List a column's most frequent values, up to ``limit``.
 
         Fewer than ``limit`` is a correct answer: an engine that keeps a
         fixed-size most-common-values list returns what it kept, and padding
-        the list would invent values.
+        the list would invent values. The default is the expression's own;
+        see :data:`~...introspection.defaults.VALUE_SAMPLE_LIMIT`.
         """
         key = self._cache.key(
             IntrospectionScope.COLUMN,
@@ -1725,7 +1729,7 @@ class AsyncAbstractIntrospector(IntrospectorBase, ABC):
         self,
         table_name: str,
         column_name: str,
-        limit: int = 100,
+        limit: int = VALUE_SAMPLE_LIMIT,
         schema: Optional[str] = None,
     ) -> List[ColumnValueFrequency]:
         """List a column's most frequent values; the async twin's copy."""

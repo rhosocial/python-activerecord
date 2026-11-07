@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from ._base import DataType
+from ._base import DataType, LENGTH_PARAMETERS
 
 
 class BlobType(DataType):
@@ -35,7 +35,7 @@ class BinaryType(DataType):
         super().__init__(dialect)
         self.length = length
 
-    PARAMETERS = ("length",)
+    PARAMETERS = LENGTH_PARAMETERS
 
 class VarBinaryType(DataType):
     """VARBINARY(n) — variable-length byte string."""
@@ -49,4 +49,4 @@ class VarBinaryType(DataType):
         super().__init__(dialect)
         self.length = length
 
-    PARAMETERS = ("length",)
+    PARAMETERS = LENGTH_PARAMETERS

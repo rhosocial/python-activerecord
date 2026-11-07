@@ -24,6 +24,7 @@ from rhosocial.activerecord.backend.expression import (
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from .....expression.objects import Table
+from .order_dml import DEFAULT_ORDER_STATUS
 
 
 def where_example(dialect, status: str = "active"):
@@ -154,7 +155,7 @@ def distinct_example(dialect):
     )
 
 
-def compound_example(dialect, user_id: int = 1, status: str = "pending"):
+def compound_example(dialect, user_id: int = 1, status: str = DEFAULT_ORDER_STATUS):
     """Combined clauses — WHERE + JOIN + ORDER BY + LIMIT.
 
     Demonstrates how multiple clauses compose together.

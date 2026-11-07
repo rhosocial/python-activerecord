@@ -17,9 +17,7 @@ from dataclasses import asdict, is_dataclass
 from enum import Enum
 
 from .connection import add_connection_args, create_backend
-from .output import create_provider
-
-OUTPUT_CHOICES = ["table", "json", "csv", "tsv"]
+from .output import OUTPUT_CHOICES, create_provider
 
 #: The single place a type name maps to the dialect capability that decides
 #: whether this backend can answer it. ``INTROSPECT_TYPES`` is derived from it,

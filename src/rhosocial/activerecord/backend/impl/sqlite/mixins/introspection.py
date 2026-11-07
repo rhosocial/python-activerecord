@@ -441,7 +441,7 @@ class SQLiteIntrospectionCapabilityMixin:
 
         return self.sqlite_master_query(
             expr.schema or "main",
-            [count(self, "*", alias="table_count")],
+            [count(self, alias="table_count")],
             [
                 ComparisonPredicate(
                     self, "eq", Column(self, "type"), Literal(self, "table", inline=True)

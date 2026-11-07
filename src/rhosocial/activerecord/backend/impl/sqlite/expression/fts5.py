@@ -17,6 +17,24 @@ if TYPE_CHECKING:
     from ....dialect import SQLDialectBase
 
 
+#: The HTML a highlighted match is wrapped in when the caller names none.
+#:
+#: FTS5's ``highlight`` and ``snippet`` both take the pair of markers as
+#: arguments rather than as a dialect decision: they are literal text spliced
+#: into the returned string, not SQL, so the dialect has no say in them. The
+#: two expressions ask one question -- what wraps a match -- and answer it
+#: with one pair, so the markers are defined once and both read them. Per
+#: ``.claude/rules/constants.md`` a value read from more than one function,
+#: where the readings must agree, takes a module-level constant and a test
+#: that pins it -- see
+#: ``tests/rhosocial/activerecord_test/feature/rules/test_shared_defaults.py``.
+HIGHLIGHT_PREFIX_MARKER: str = "<b>"
+
+#: The HTML that closes a highlighted match. The partner of
+#: :data:`HIGHLIGHT_PREFIX_MARKER`: a pair the two FTS5 expressions share.
+HIGHLIGHT_SUFFIX_MARKER: str = "</b>"
+
+
 class SQLiteFTS5MatchPredicate(SQLPredicate):
 
     @property
@@ -118,8 +136,8 @@ class SQLiteFTS5HighlightExpression(SQLValue):
         dialect: "SQLDialectBase",
         table: "Table",
         column: str,
-        prefix_marker: str = "<b>",
-        suffix_marker: str = "</b>",
+        prefix_marker: str = HIGHLIGHT_PREFIX_MARKER,
+        suffix_marker: str = HIGHLIGHT_SUFFIX_MARKER,
     ):
         super().__init__(dialect)
         if not isinstance(table, Table):
@@ -144,8 +162,8 @@ class SQLiteFTS5SnippetExpression(SQLValue):
         dialect: "SQLDialectBase",
         table: "Table",
         column: str,
-        prefix_marker: str = "<b>",
-        suffix_marker: str = "</b>",
+        prefix_marker: str = HIGHLIGHT_PREFIX_MARKER,
+        suffix_marker: str = HIGHLIGHT_SUFFIX_MARKER,
         context_tokens: int = 10,
         ellipsis: str = "...",
     ):

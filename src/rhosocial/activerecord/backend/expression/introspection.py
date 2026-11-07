@@ -21,6 +21,7 @@ integration -- a chain of setters hides them behind the last call.
 
 from typing import Optional, Sequence, TYPE_CHECKING
 
+from ..introspection.defaults import VALUE_SAMPLE_LIMIT
 from .bases import BaseExpression
 
 if TYPE_CHECKING:
@@ -309,7 +310,7 @@ class ColumnValueSampleQueryStatement(IntrospectionExpression):
         dialect: "SQLDialectBase",
         table_name: str,
         column_name: str,
-        limit: int = 100,
+        limit: int = VALUE_SAMPLE_LIMIT,
         schema: Optional[str] = None,
     ):
         """Initialize the value-sample expression.
@@ -318,7 +319,8 @@ class ColumnValueSampleQueryStatement(IntrospectionExpression):
             dialect: The SQL dialect to use for SQL generation.
             table_name: The table the column belongs to.
             column_name: The column whose values are sampled.
-            limit: Upper bound on returned values. Defaults to 100.
+            limit: Upper bound on returned values. Defaults to
+                :data:`VALUE_SAMPLE_LIMIT`.
             schema: Optional schema name. Defaults to None.
         """
         super().__init__(dialect, schema)

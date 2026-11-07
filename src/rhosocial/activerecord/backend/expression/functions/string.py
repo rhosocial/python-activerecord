@@ -3,6 +3,9 @@
 
 from typing import Union, Optional, TYPE_CHECKING
 
+from rhosocial.activerecord.backend.expression.defaults import (
+    TRIM_DEFAULT_DIRECTION,
+)
 from .. import values
 from ..bases import BaseExpression, SQLValue
 from ..core import (
@@ -35,6 +38,21 @@ if TYPE_CHECKING:  # pragma: no cover
 
 #: The length units ``CharLengthFunction`` admits (spec 4.2).
 CHAR_LENGTH_UNITS = ("char", "octet", "bit")
+
+#: The length unit asked for when the caller names none.
+#:
+#: The node owns the question -- it is the one that validates the unit
+#: against :data:`CHAR_LENGTH_UNITS` and records it -- and ``length()``, the
+#: factory that wraps it, offers the same default to its own callers. Writing
+#: ``"char"`` down twice would be two places that have to stay in step with
+#: nothing keeping them in step: a dialect that started measuring in octets
+#: would have to change both, and the check in
+#: ``test_constant_discipline.py`` would say nothing until a caller noticed
+#: the size had changed. Per ``.claude/rules/constants.md`` a value read from
+#: more than one function, where the readings must agree, takes a
+#: module-level constant and a test that pins it -- see
+#: ``tests/rhosocial/activerecord_test/feature/rules/test_shared_defaults.py``.
+CHAR_LENGTH_DEFAULT_UNIT = "char"
 
 
 class UpperFunction(
@@ -120,7 +138,7 @@ class CharLengthFunction(
         self,
         dialect: "SQLDialectBase",
         operand: "BaseExpression",
-        unit: str = "char",
+        unit: str = CHAR_LENGTH_DEFAULT_UNIT,
     ):
         if unit not in CHAR_LENGTH_UNITS:
             raise ValueError(
@@ -783,7 +801,7 @@ def coalesce(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) ->
 def length(
     dialect: "SQLDialectBase",
     expr: Union[str, "BaseExpression"],
-    unit: str = "char",
+    unit: str = CHAR_LENGTH_DEFAULT_UNIT,
 ) -> "CharLengthFunction":
     """
     Creates a CHAR_LENGTH node.
@@ -858,7 +876,7 @@ def trim(
     dialect: "SQLDialectBase",
     expr: Union[str, "BaseExpression"],
     chars: Optional[Union[str, "BaseExpression"]] = None,
-    direction: str = "BOTH",
+    direction: str = TRIM_DEFAULT_DIRECTION,
 ) -> "TrimExpression":
     """
     Creates a TRIM node.

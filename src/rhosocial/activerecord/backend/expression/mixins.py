@@ -37,6 +37,11 @@ from typing import (
     TypeVar,
     Union,
 )
+
+from rhosocial.activerecord.backend.expression.defaults import (
+    TRIM_DEFAULT_DIRECTION,
+)
+
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
     from .bases import BaseExpression, SQLValue, SQLPredicate
@@ -1660,7 +1665,7 @@ class StringValueMixin:
 
     # --- whitespace ---
 
-    def trim(self, chars: Optional[str] = None, direction: str = "BOTH") -> "StringValueMixin":
+    def trim(self, chars: Optional[str] = None, direction: str = TRIM_DEFAULT_DIRECTION) -> "StringValueMixin":
         """Trim whitespace or *chars*. ``TRIM([direction] [chars] FROM col)``
 
         Args:

@@ -10,9 +10,7 @@ from enum import Enum
 from rhosocial.activerecord.backend.introspection.status import StatusCategory
 
 from .connection import add_connection_args, create_backend
-from .output import create_provider, RICH_AVAILABLE
-
-OUTPUT_CHOICES = ["table", "json", "csv", "tsv"]
+from .output import OUTPUT_CHOICES, RICH_AVAILABLE, create_provider
 
 STATUS_TYPES = ["all", "config", "performance", "storage", "databases"]
 
