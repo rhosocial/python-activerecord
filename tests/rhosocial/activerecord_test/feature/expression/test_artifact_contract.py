@@ -317,6 +317,33 @@ def test_serialization_never_builds_a_registry():
 # ---------------------------------------------------------------------------
 
 
+def test_the_xml_document_is_wrapped_in_the_tag_the_format_names():
+    """The root tag is the artifact's name on the wire.
+
+    ``ROOT`` is read once -- by the writer -- so nothing but an assertion says
+    which tag an artifact is wrapped in, and a reader in another language has
+    only the tag to go on. The module's docstring documents the shape; this is
+    the check that the writer emits it rather than a tag that merely looks like
+    it.
+    """
+    from xml.etree import ElementTree as ET
+
+    from rhosocial.activerecord.backend.expression.xml_serialization import (
+        KIND_EL,
+        PARAMS_EL,
+        ROOT,
+    )
+
+    dialect = _dialect()
+    root = ET.fromstring(serialize_xml(Column(dialect, "id")))
+
+    assert root.tag == ROOT
+    assert [child.tag for child in root] == [KIND_EL, PARAMS_EL], (
+        f"the artifact's outer shape must be <{ROOT}><{KIND_EL}/><{PARAMS_EL}/>, "
+        f"got <{root.tag}> with {[child.tag for child in root]}"
+    )
+
+
 @pytest.mark.parametrize("channel", ["dict", "json", "xml"])
 def test_every_carryable_value_survives_every_channel(channel):
     """Parameters and SQL both come back unchanged.

@@ -39,6 +39,7 @@ from rhosocial.activerecord.backend.expression.types import (
     TinyIntType,
     VarCharType,
 )
+from rhosocial.activerecord.backend.impl.dummy.dialect import _PARSE_CONCEPTS
 
 _CORE_TYPES_PREFIX = "rhosocial.activerecord.backend.expression.types"
 
@@ -258,6 +259,64 @@ def test_character_varying_is_never_the_fixed_length_type(dialect_id):
         f"{dialect_id}: 'character' parsed as the variable-length "
         f"{type(fixed).__name__}"
     )
+
+
+def test_the_concept_table_is_the_vocabulary_the_dialect_renders():
+    """``_PARSE_CONCEPTS`` is exactly the closed set ``parse_type`` resolves to.
+
+    The dialect module states the equivalence -- dummy renders SQL-standard type
+    names, so those names are what it can read back -- and nothing checks it.
+    Checked from both sides it catches either direction: a concept in the table
+    the dialect cannot format is a name the parse answers with no way to write
+    it back, and a formatted concept the table omits is a name dummy writes and
+    cannot read.
+
+    Four concepts are rendered and deliberately outside the table, each because
+    the parse reaches them by another route: ``IntervalType`` through its
+    qualifier prefix, ``EnumType`` not at all (``ENUM('a','b')`` is a value list
+    rather than a type name), ``CustomType`` as the verbatim answer for a name
+    dummy does not render, and ``ArrayType`` as the wrapper an element is
+    carried in rather than a concept of its own.
+    """
+    dialect = _dialects()["dummy"]
+    rendered = {
+        name[len("format_data_type_"):]
+        for name in dir(dialect)
+        if name.startswith("format_data_type_")
+    }
+    outside_the_table = {"array", "custom", "enum", "interval"}
+    tabulated = {concept.name for concept in _PARSE_CONCEPTS}
+
+    assert tabulated == rendered - outside_the_table, (
+        f"the parse's vocabulary is not the dialect's: only in the table "
+        f"{sorted(tabulated - rendered)}, rendered but unreachable "
+        f"{sorted(rendered - tabulated - outside_the_table)}"
+    )
+
+
+def test_the_concept_table_lists_each_concept_once():
+    """A repeated entry, or two concepts sharing one name, is a silent collapse.
+
+    ``_PARSE_VOCABULARY`` is built from this tuple, so two concepts answering to
+    one name would leave one unreachable and the parse would report the other's
+    storage for it -- which on a schema differ is a change that is not there.
+    """
+    assert len(_PARSE_CONCEPTS) == len(set(_PARSE_CONCEPTS)), (
+        "a concept is listed twice"
+    )
+    names = [concept.name for concept in _PARSE_CONCEPTS]
+    assert len(names) == len(set(names)), (
+        f"two concepts share one name: "
+        f"{sorted(n for n in set(names) if names.count(n) > 1)}"
+    )
+    for concept in _PARSE_CONCEPTS:
+        assert not inspect.isabstract(concept), (
+            f"{concept.__name__} is abstract, so the parse could not build one"
+        )
+        assert concept.__module__.startswith(_CORE_TYPES_PREFIX), (
+            f"{concept.__name__} is a backend's own type and does not belong in "
+            f"core's closed vocabulary"
+        )
 
 
 def test_dummy_carries_the_spelling_it_was_parsed_from():

@@ -2,9 +2,8 @@
 """DQL (Data Query Language) statement expressions."""
 
 from enum import Enum
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, List, Optional, Sequence, Union
 
-from ...expression.objects import Table
 from ...schema import StatementType
 from ..bases import BaseExpression, SQLPredicate, SQLValue
 from ..core import Subquery
@@ -18,6 +17,7 @@ from ..query_parts import (
     QualifyClause,
     WhereClause,
 )
+from ..query_sources import SetOperationKind
 from ..sources import TableSource
 from ._types import FromSourceType
 
@@ -338,3 +338,120 @@ class QueryStatement(ArithmeticMixin, ComparisonMixin, SQLValue):
 
 
 # endregion Query Statement
+
+
+# region Set Operation Statement
+class SetOperationStatement(ArithmeticMixin, ComparisonMixin, SQLValue):
+    """A compound SELECT: several query parts joined by one set operator.
+
+    The node exists because a ``UNION ALL`` over a column list the *dialect*
+    does not know -- an introspection question that aggregates every column
+    of a table, for instance -- has no other representation. Each part is a
+    real :class:`QueryStatement`, so the projection, the relation, the
+    predicates and the bind parameters of every arm are the renderers' to
+    decide; this node carries no SQL text of its own beyond the single
+    operator word the dialect maps out of ``op``.
+
+    That word is deliberately *not* stored here. ``op`` is a
+    :class:`~..query_sources.SetOperationKind` member -- a language-neutral
+    word form, never a keyword -- and ``SET_OPERATION_KEYWORD`` on the
+    set-operation mixin is the one place a spelling exists. A node carrying
+    ``"UNION ALL"`` would put dialect text in the tree, which is the reverse
+    of the direction information flows: the tree says what is meant, the
+    dialect says how it is spelled.
+
+    This is the *statement* half of the pair. Its sibling
+    :class:`~..query_sources.SetOperation` is the *source* half: one binary
+    operation that can sit in a FROM clause, nest, and be aliased. The two are
+    not the same question. A source models ``FROM (a UNION ALL b) AS x`` --
+    exactly two sides, each of which may itself be a set operation -- while a
+    statement models an executable compound query whose parts are all queries
+    of the same width. An introspector that must ask one question per column
+    needs the second shape: folding three arms into two nested binary nodes
+    would describe a tree nobody wrote, and would make the arms' order an
+    artefact of how the nesting happened to be built.
+
+    Ordering, row limiting and locking of a compound query are statement-level
+    clauses, and this node carries none of them -- the same division
+    :class:`~..query_sources.WithStatement` keeps. A caller that needs a
+    trailing ORDER BY over the whole compound result asks a different
+    question, which this node does not pretend to be.
+
+    Example Usage:
+        >>> from rhosocial.activerecord.backend.expression import (
+        ...     Column, QueryStatement, SetOperationStatement,
+        ... )
+        >>> from rhosocial.activerecord.backend.expression.query_sources import (
+        ...     SetOperationKind,
+        ... )
+        >>> parts = [
+        ...     QueryStatement(dialect, select=[Column(dialect, "a")]),
+        ...     QueryStatement(dialect, select=[Column(dialect, "b")]),
+        ...     QueryStatement(dialect, select=[Column(dialect, "c")]),
+        ... ]
+        >>> SetOperationStatement(
+        ...     dialect, op=SetOperationKind.UNION_ALL, parts=parts
+        ... ).to_sql()
+        ('SELECT "a" UNION ALL SELECT "b" UNION ALL SELECT "c"', ())
+    """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        op: SetOperationKind,
+        parts: Sequence["QueryStatement"] = (),
+    ):
+        """Initialize a set-operation statement.
+
+        Args:
+            dialect: The SQL dialect to use for formatting.
+            op: The compound operation, as a
+                :class:`~..query_sources.SetOperationKind` member. A bare word
+                is accepted and parsed, so a caller reading SQL-ish text
+                ("union_all") gets the same node one writing the member does.
+            parts: The query parts, in the order the operator joins them. Two
+                at least for a real compound query; one is legal and renders
+                that query alone, and an empty sequence renders nothing -- the
+                caller that has nothing to ask should not build the node.
+
+        Raises:
+            ValueError: If ``op`` is not one of the four word forms.
+        """
+        super().__init__(dialect)
+        self.op = (
+            SetOperationKind(op) if isinstance(op, SetOperationKind) else SetOperationKind.parse(op)
+        )
+        self.parts: List["QueryStatement"] = list(parts)
+
+    def validate(self, strict: bool = True) -> None:
+        """Validate the parts this statement joins.
+
+        Args:
+            strict: If True, check that every part is a query statement. An
+                introspector builds arms in a loop, so a part that is not one
+                is a defect worth naming rather than a render that quietly
+                spells something else.
+
+        Raises:
+            TypeError: If a part is not a :class:`QueryStatement`.
+        """
+        if not strict:
+            return
+        for index, part in enumerate(self.parts):
+            if not isinstance(part, QueryStatement):
+                raise TypeError(
+                    f"parts[{index}] must be a QueryStatement, got {type(part).__name__}"
+                )
+
+    @property
+    def statement_type(self) -> StatementType:
+        """Return the statement type for this query expression."""
+        return StatementType.DQL
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_set_operation_statement"
+
+
+# endregion Set Operation Statement

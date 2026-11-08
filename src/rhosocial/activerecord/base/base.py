@@ -201,7 +201,9 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
 
         Raises:
             DatabaseError: If there's an issue retrieving the primary key after insert
+            ValidationError: If a required primary key field has no value
         """
+        self.__class__._missing_key_fields_on_insert(self)
         self.log_data(logging.DEBUG, "Raw data for insert", data)
         prepared_data = self.__class__._map_fields_to_columns(data)
         generated = self.__class__.get_generated_columns()
@@ -392,10 +394,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         pk_fields = set(self.__class__.primary_key_fields())
         generated = set(self.__class__.get_generated_columns())
         if is_new:
-            if self.__class__.__pk_auto_generated__:
-                data = self.model_dump(exclude=pk_fields if pk_fields & set(self.__class__.model_fields) else set())
-            else:
-                data = self.model_dump()
+            data = self.model_dump(exclude=self.__class__._insert_pk_exclusions())
         else:
             all_data = self.model_dump()
             data = {field: all_data[field] for field in self._dirty_fields if field not in pk_fields}
@@ -902,7 +901,9 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
 
         Raises:
             DatabaseError: If there's an issue retrieving the primary key after insert
+            ValidationError: If a required primary key field has no value
         """
+        self.__class__._missing_key_fields_on_insert(self)
         self.log_data(logging.DEBUG, "Raw data for insert", data)
         prepared_data = self.__class__._map_fields_to_columns(data)
         generated = self.__class__.get_generated_columns()
@@ -1093,10 +1094,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         pk_fields = set(self.__class__.primary_key_fields())
         generated = set(self.__class__.get_generated_columns())
         if is_new:
-            if self.__class__.__pk_auto_generated__:
-                data = self.model_dump(exclude=pk_fields if pk_fields & set(self.__class__.model_fields) else set())
-            else:
-                data = self.model_dump()
+            data = self.model_dump(exclude=self.__class__._insert_pk_exclusions())
         else:
             all_data = self.model_dump()
             data = {field: all_data[field] for field in self._dirty_fields if field not in pk_fields}

@@ -22,9 +22,6 @@ from rhosocial.activerecord.backend.explain.types import BaseExplainResult
 # Index usage pattern labels shared by both result types.
 IndexUsage = Literal["full_scan", "index_with_lookup", "covering_index", "unknown"]
 
-# Bytecode opcodes that indicate an index seek (range or equality navigation).
-_SEEK_OPCODES = frozenset({"SeekGE", "SeekGT", "SeekLE", "SeekLT", "SeekEQ", "SeekRowid", "NotFound"})
-
 
 class SQLiteExplainRow(BaseModel):
     """One row from ``EXPLAIN <stmt>`` (SQLite bytecode output).
@@ -104,7 +101,13 @@ class SQLiteExplainResult(BaseExplainResult):
             ``"covering_index"``, or ``"unknown"``.
         """
         open_reads = [r for r in self.rows if r.opcode == "OpenRead"]
-        has_seek = any(r.opcode in _SEEK_OPCODES for r in self.rows)
+        # The bytecode opcodes that indicate an index seek (range or equality
+        # navigation); any other opcode is a scan or a sort.
+        has_seek = any(
+            r.opcode
+            in {"SeekGE", "SeekGT", "SeekLE", "SeekLT", "SeekEQ", "SeekRowid", "NotFound"}
+            for r in self.rows
+        )
 
         if not has_seek:
             return "full_scan"

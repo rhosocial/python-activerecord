@@ -16,6 +16,21 @@ from rhosocial.activerecord.backend.config import ConnectionConfig
 # SQLite constants
 SQLITE_MEMORY_DB = ":memory:"
 
+#: The pragmas a connection opens with unless the caller says otherwise.
+#:
+#: One definition: the connection config below and both backend classes carry
+#: this table, so a sixth pragma is added here or nowhere. A caller's own
+#: pragmas replace it wholesale rather than merging into it, and each reader
+#: copies before handing it out, so a mutation cannot reach the next
+#: connection.
+DEFAULT_PRAGMAS: Dict[str, str] = {
+    "foreign_keys": "ON",
+    "journal_mode": "WAL",
+    "synchronous": "FULL",
+    "wal_autocheckpoint": "1000",
+    "wal_checkpoint": "FULL",
+}
+
 # ==== SQLite-specific Protocols ====
 
 
@@ -60,14 +75,9 @@ class SQLitePragmaMixin:
 
     pragmas: Dict[str, Any] = field(default_factory=dict)
 
-    # Default SQLite pragmas
-    DEFAULT_PRAGMAS: ClassVar[Dict[str, str]] = {
-        "foreign_keys": "ON",
-        "journal_mode": "WAL",
-        "synchronous": "FULL",
-        "wal_autocheckpoint": "1000",
-        "wal_checkpoint": "FULL",
-    }
+    #: Default SQLite pragmas -- the table above, under the name a reader of
+    #: this class asks for. Not a second spelling of it.
+    DEFAULT_PRAGMAS: ClassVar[Dict[str, str]] = DEFAULT_PRAGMAS
 
     def __post_init__(self) -> None:
         """Initialize with default pragmas if none provided."""

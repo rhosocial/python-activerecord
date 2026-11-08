@@ -19,8 +19,9 @@ the parameters readable to IDE introspection, static analysis and MCP service
 integration -- a chain of setters hides them behind the last call.
 """
 
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, Sequence, TYPE_CHECKING
 
+from ..introspection.defaults import VALUE_SAMPLE_LIMIT
 from .bases import BaseExpression
 
 if TYPE_CHECKING:
@@ -127,6 +128,307 @@ class TableListQueryStatement(IntrospectionExpression):
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
         return "format_table_list_query_statement"
+
+
+class UnusedIndexesQueryStatement(IntrospectionExpression):
+    """Expression for listing indexes the engine reports as never used.
+
+    No parameters beyond the schema every other catalogue question carries: an
+    unused index is a fact about a whole database, not about one table, so
+    narrowing it by table would be the caller's job on the way back and would
+    only invite a dialect to render a filter it cannot honour consistently.
+
+    Example:
+        >>> expr = UnusedIndexesQueryStatement(dialect, schema='public')
+        >>> sql, params = expr.to_sql()
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_unused_indexes_query_statement"
+
+
+class TableUsageStatsQueryStatement(IntrospectionExpression):
+    """Expression for per-table usage counters.
+
+    Answers for every table in one query, as the counters themselves are the
+    answer: a single-table form would invite a caller to loop the catalogue
+    one table at a time, and statistics collectors price their first query
+    far above their next.
+
+    Example:
+        >>> expr = TableUsageStatsQueryStatement(dialect, schema='public')
+        >>> sql, params = expr.to_sql()
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_table_usage_stats_query_statement"
+
+
+class RuntimeMetricsQueryStatement(IntrospectionExpression):
+    """Expression for the engine's live runtime measurements.
+
+    No parameters beyond the schema: runtime facts describe the *server*, not
+    one object in it, so narrowing by table would invite a dialect to render a
+    filter that does not apply to what is being measured.
+
+    Example:
+        >>> expr = RuntimeMetricsQueryStatement(dialect, schema='public')
+        >>> sql, params = expr.to_sql()
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_runtime_metrics_query_statement"
+
+
+class IndexUsageStatsQueryStatement(IntrospectionExpression):
+    """Expression for per-index use counters across a schema.
+
+    One query for the schema, for the same reason as the usage-stats family:
+    a per-index form would invite a caller to loop the catalogue one index at
+    a time, and use counters are cheap to ask for all at once and expensive
+    to ask for one.
+
+    Example:
+        >>> expr = IndexUsageStatsQueryStatement(dialect, schema='public')
+        >>> sql, params = expr.to_sql()
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_index_usage_stats_query_statement"
+
+
+class ObjectDependencyQueryStatement(IntrospectionExpression):
+    """Expression for the object dependency graph.
+
+    ``object_name`` narrows to one object's dependants when the caller names
+    it -- the "what breaks if I drop this" question -- and is omitted for the
+    whole graph, which is a different and much larger answer.
+
+    Example:
+        >>> expr = ObjectDependencyQueryStatement(
+        ...     dialect, object_name='orders', schema='public'
+        ... )
+        >>> sql, params = expr.to_sql()
+    """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        schema: Optional[str] = None,
+        object_name: Optional[str] = None,
+    ):
+        """Initialize the object dependency expression.
+
+        Args:
+            dialect: The SQL dialect to use for SQL generation.
+            schema: Optional schema name. Defaults to None.
+            object_name: Narrows to one object's dependants when given --
+                the "what breaks if I drop this" question. Omitted, the
+                answer is the whole graph, which is larger.
+        """
+        super().__init__(dialect, schema)
+        self.object_name = object_name
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_object_dependency_query_statement"
+
+
+class ColumnDataProfileQueryStatement(IntrospectionExpression):
+    """Expression for the data profile of every column in one table.
+
+    ``table_name`` is required and there is no ``column_name``: a statistics
+    catalogue answers for a whole table in one query, and a per-column form
+    would invite a caller to loop the columns of a table -- one round trip
+    each -- for data the engine already had together.
+
+    Example:
+        >>> expr = ColumnDataProfileQueryStatement(
+        ...     dialect, table_name='orders', schema='public'
+        ... )
+        >>> sql, params = expr.to_sql()
+    """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        table_name: str,
+        schema: Optional[str] = None,
+        columns: Sequence[str] = (),
+    ):
+        """Initialize the column data profile expression.
+
+        Args:
+            dialect: The SQL dialect to use for SQL generation.
+            table_name: The table whose columns are profiled.
+            schema: Optional schema name. Defaults to None.
+            columns: The table's column names, for engines that must
+                *aggregate* the rows rather than read a statistics catalogue.
+                A catalogue-based dialect ignores this -- ``pg_stats`` already
+                answers for every column of the table. An aggregating dialect
+                cannot: SQL cannot pivot ``AVG(col IS NULL)`` over columns it
+                has not been told about, so a caller profiling a table with no
+                catalogue has to supply the list (one ``list_columns`` call,
+                which is cheap). Defaults to empty.
+        """
+        super().__init__(dialect, schema)
+        self.table_name = table_name
+        self.columns = tuple(columns)
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column_data_profile_query_statement"
+
+
+class ColumnValueSampleQueryStatement(IntrospectionExpression):
+    """Expression for the most frequent values of one column.
+
+    ``limit`` is an upper bound, not a promise: an engine that keeps a
+    fixed-size "most common values" list (PostgreSQL's is 100 by default,
+    adjustable through ``statistics_target``) returns fewer, and fewer is a
+    correct answer rather than a truncation to report.
+
+    Example:
+        >>> expr = ColumnValueSampleQueryStatement(
+        ...     dialect, 'orders', 'status', limit=20, schema='public'
+        ... )
+        >>> sql, params = expr.to_sql()
+    """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        table_name: str,
+        column_name: str,
+        limit: int = VALUE_SAMPLE_LIMIT,
+        schema: Optional[str] = None,
+    ):
+        """Initialize the value-sample expression.
+
+        Args:
+            dialect: The SQL dialect to use for SQL generation.
+            table_name: The table the column belongs to.
+            column_name: The column whose values are sampled.
+            limit: Upper bound on returned values. Defaults to
+                :data:`VALUE_SAMPLE_LIMIT`.
+            schema: Optional schema name. Defaults to None.
+        """
+        super().__init__(dialect, schema)
+        self.table_name = table_name
+        self.column_name = column_name
+        self.limit = limit
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column_value_sample_query_statement"
+
+
+class JoinCoverageQueryStatement(IntrospectionExpression):
+    """Expression for how much two columns' value domains overlap.
+
+    Both sides are named explicitly -- table *and* column -- because unlike
+    every other introspection family there is no single object being asked
+    about: the question is a relation between two, and a signature that
+    assumed one of them would be answering a different question.
+
+    The most expensive member of the family and the only one with no cheap
+    path: it reads both columns.
+
+    Example:
+        >>> expr = JoinCoverageQueryStatement(
+        ...     dialect,
+        ...     left_table='orders', left_column='customer_ref',
+        ...     right_table='customers', right_column='code',
+        ...     schema='public',
+        ... )
+        >>> sql, params = expr.to_sql()
+    """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        left_table: str,
+        left_column: str,
+        right_table: str,
+        right_column: str,
+        schema: Optional[str] = None,
+    ):
+        """Initialize the join-coverage expression.
+
+        Args:
+            dialect: The SQL dialect to use for SQL generation.
+            left_table: The table holding the values being tested.
+            left_column: The column holding the values being tested.
+            right_table: The table whose domain they are tested against.
+            right_column: The column whose domain they are tested against.
+            schema: Optional schema name, applied to both sides. Defaults to None.
+        """
+        super().__init__(dialect, schema)
+        self.left_table = left_table
+        self.left_column = left_column
+        self.right_table = right_table
+        self.right_column = right_column
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_join_coverage_query_statement"
+
+
+class DDLStatementQueryStatement(IntrospectionExpression):
+    """Expression for the DDL that recreates one object.
+
+    ``object_name`` is required: unlike the other families, this answers for
+    exactly one object, because a DDL text is large and the question is always
+    about a specific thing. ``object_type`` names what kind it is when the
+    caller knows (table, view, index), and is omitted when it does not, in
+    which case the dialect searches the kinds it can retrieve.
+
+    Example:
+        >>> expr = DDLStatementQueryStatement(
+        ...     dialect, object_name='orders', schema='public'
+        ... )
+        >>> sql, params = expr.to_sql()
+    """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        object_name: str = "",
+        schema: Optional[str] = None,
+        object_type: Optional[str] = None,
+    ):
+        """Initialize the DDL retrieval expression.
+
+        Args:
+            dialect: The SQL dialect to use for SQL generation.
+            object_name: The object whose DDL is wanted. Defaulting to empty
+                rather than being positional keeps the class constructible by
+                a generic filler -- a caller who omits it and gets an empty
+                answer sees ``None`` from the parser, not a constructor error.
+            schema: Optional schema name. Defaults to None.
+            object_type: What kind of object it is, when the caller knows.
+                Omitted, the dialect searches the kinds it can retrieve.
+        """
+        super().__init__(dialect, schema)
+        self.object_name = object_name
+        self.object_type = object_type
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_ddl_statement_query_statement"
 
 
 class TableInfoQueryStatement(IntrospectionExpression):

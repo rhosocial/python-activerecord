@@ -5,10 +5,10 @@ Database introspection — types, exceptions, executor, and introspector base.
 Quick start::
 
     from rhosocial.activerecord.backend.introspection import (
-        SyncAbstractIntrospector,
+        AbstractIntrospector,
         AsyncAbstractIntrospector,
         IntrospectorBackendMixin,
-        SyncIntrospectorExecutor,
+        IntrospectorExecutor,
         AsyncIntrospectorExecutor,
         IntrospectionDatabaseInfo, IntrospectionTableInfo, IntrospectionColumnInfo, IndexInfo,
         IntrospectionForeignKeyInfo, IntrospectionViewInfo, IntrospectionTriggerInfo,
@@ -29,6 +29,7 @@ from .types import (
     IntrospectionForeignKeyInfo,
     IntrospectionViewInfo,
     IntrospectionTriggerInfo,
+    SequenceInfo,
 )
 from .errors import (
     IntrospectionError,
@@ -38,14 +39,14 @@ from .errors import (
     IntrospectionCacheError,
 )
 from .executor import (
-    SyncIntrospectorExecutor,
+    IntrospectorExecutor,
     AsyncIntrospectorExecutor,
 )
 from .cache import InMemoryIntrospectionCache, IntrospectionCache
 from .base import (
     IntrospectorMixin,
     IntrospectorBase,
-    SyncAbstractIntrospector,
+    AbstractIntrospector,
     AsyncAbstractIntrospector,
 )
 from .backend_mixin import IntrospectorBackendMixin
@@ -66,6 +67,7 @@ __all__ = [
     "IntrospectionForeignKeyInfo",
     "IntrospectionViewInfo",
     "IntrospectionTriggerInfo",
+    "SequenceInfo",
     # Exceptions
     "IntrospectionError",
     "IntrospectionNotSupportedError",
@@ -73,7 +75,7 @@ __all__ = [
     "ObjectNotFoundError",
     "IntrospectionCacheError",
     # Executor
-    "SyncIntrospectorExecutor",
+    "IntrospectorExecutor",
     "AsyncIntrospectorExecutor",
     # Cache
     "IntrospectionCache",
@@ -81,7 +83,7 @@ __all__ = [
     # Core
     "IntrospectorMixin",
     "IntrospectorBase",
-    "SyncAbstractIntrospector",
+    "AbstractIntrospector",
     "AsyncAbstractIntrospector",
     "IntrospectorBackendMixin",
 ]

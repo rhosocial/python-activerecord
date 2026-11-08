@@ -6,7 +6,61 @@ import tempfile
 import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.config import (
+    DEFAULT_PRAGMAS,
+    SQLiteConnectionConfig,
+)
+
+
+class TestDefaultPragmasAreOneTable:
+    """The pragma defaults are written once, and every spelling agrees.
+
+    The table used to be spelled out in full twice -- as a module-level dict in
+    ``backend/common.py`` and again as the ``ClassVar`` on the pragma mixin --
+    with both backend classes aliased onto the first of them. Nothing asserted
+    the two agreed, so a pragma added to one and not the other would have been
+    invisible until a connection opened the wrong way. These tests hold the
+    spellings together now that there is one definition.
+    """
+
+    EXPECTED = {
+        "foreign_keys": "ON",
+        "journal_mode": "WAL",
+        "synchronous": "FULL",
+        "wal_autocheckpoint": "1000",
+        "wal_checkpoint": "FULL",
+    }
+
+    def test_the_config_carries_the_five_pragmas(self):
+        assert SQLiteConnectionConfig.DEFAULT_PRAGMAS == self.EXPECTED
+
+    def test_both_backend_classes_carry_the_same_five_pragmas(self):
+        assert SQLiteBackend.DEFAULT_PRAGMAS == self.EXPECTED
+
+        from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
+
+        assert AsyncSQLiteBackend.DEFAULT_PRAGMAS == self.EXPECTED
+
+    def test_the_backend_common_module_carries_the_same_table(self):
+        from rhosocial.activerecord.backend.impl.sqlite.backend.common import (
+            DEFAULT_PRAGMAS as from_common,
+        )
+
+        assert from_common == self.EXPECTED
+
+    def test_every_spelling_is_the_one_table(self):
+        # Equality could survive a drifted copy; identity cannot. One
+        # definition means a sixth pragma is added in one place or nowhere.
+        assert SQLiteConnectionConfig.DEFAULT_PRAGMAS is DEFAULT_PRAGMAS
+        assert SQLiteBackend.DEFAULT_PRAGMAS is DEFAULT_PRAGMAS
+
+    def test_a_connection_copies_rather_than_shares_the_table(self):
+        # The config hands out a copy, so editing one connection's pragmas
+        # cannot reach the class attribute or the next connection.
+        config = SQLiteConnectionConfig(database=":memory:")
+        config.pragmas["journal_mode"] = "MEMORY"
+
+        assert DEFAULT_PRAGMAS["journal_mode"] == "WAL"
 
 
 class TestSQLitePragma:

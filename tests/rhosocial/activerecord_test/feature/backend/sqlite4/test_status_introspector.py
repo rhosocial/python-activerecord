@@ -2,24 +2,23 @@
 """
 Tests for SQLite status introspector.
 
-This module tests the SyncSQLiteStatusIntrospector functionality
+This module tests the SQLiteStatusIntrospector functionality
 for retrieving server status information via PRAGMA values.
 """
 
 import os
 import sqlite3
 
-
 from rhosocial.activerecord.backend.introspection.status import (
-    StatusItem,
-    StatusCategory,
-    ServerOverview,
     ConnectionInfo,
+    ServerOverview,
+    StatusCategory,
+    StatusItem,
     StorageInfo,
 )
 
 
-class TestSyncSQLiteStatusIntrospector:
+class TestSQLiteStatusIntrospector:
     """Tests for synchronous SQLite status introspector."""
 
     def test_get_overview(self, sqlite_backend):

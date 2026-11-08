@@ -18,10 +18,12 @@ Directory structure:
 from .introspection import (
     SQLiteColumnInfoExpression,
     SQLiteIndexDdlStatement,
+    SQLiteIndexOwnerStatement,
     SQLitePragmaQueryStatement,
     SQLitePragmaSetStatement,
     SQLiteTableCountStatement,
     SQLiteTableDdlStatement,
+    SQLiteTableStorageStatement,
 )
 from .table import SQLiteTable
 from .table_list import SQLiteTableListExpression
@@ -59,13 +61,24 @@ from .json import SQLiteJsonExtractFunction
 # declaration, made where it assembles its own expressions. The core holds no
 # backend names, so another backend declaring its own tokens needs no change here
 # or in the core (§5.1: rhosocial's own packages get no privilege).
+#
+# The token itself is written once, in ``types.py`` beside the classes that
+# declare it in their own bodies, and this loop and those classes both read the
+# one value. A token spelled twice could drift, and a derived kind is part of
+# the wire contract, so the two spellings would have been two places that have
+# to stay in step with nothing keeping them in step — which is what
+# ``.claude/rules/constants.md`` forbids and what its second check reports.
+from .types import SQLITE_KIND_RESERVED
+
 for _sqlite_expression in (
     SQLiteColumnInfoExpression,
     SQLiteIndexDdlStatement,
+    SQLiteIndexOwnerStatement,
     SQLitePragmaQueryStatement,
     SQLitePragmaSetStatement,
     SQLiteTableCountStatement,
     SQLiteTableDdlStatement,
+    SQLiteTableStorageStatement,
     SQLiteTable,
     SQLiteTableListExpression,
     SQLiteReindexStatement,
@@ -87,16 +100,18 @@ for _sqlite_expression in (
     SQLiteGeopolyAreaExpression,
     SQLiteJsonExtractFunction,
 ):
-    _sqlite_expression.KIND_RESERVED = ("SQLite",)
+    _sqlite_expression.KIND_RESERVED = SQLITE_KIND_RESERVED
 del _sqlite_expression
 
 __all__ = [
     "SQLiteColumnInfoExpression",
     "SQLiteIndexDdlStatement",
+    "SQLiteIndexOwnerStatement",
     "SQLitePragmaQueryStatement",
     "SQLitePragmaSetStatement",
     "SQLiteTableCountStatement",
     "SQLiteTableDdlStatement",
+    "SQLiteTableStorageStatement",
     "SQLiteTable",
     "SQLiteTableListExpression",
     "SQLiteReindexStatement",

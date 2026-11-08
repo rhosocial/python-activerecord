@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from ._base import DataType
+from ._base import DataType, UNSIGNED_PARAMETERS
 from ._defaults import declared_parameter
 
 
@@ -123,7 +123,7 @@ class RealType(DataType):
         super().__init__(dialect)
         self.unsigned = unsigned
 
-    PARAMETERS = ("unsigned",)
+    PARAMETERS = UNSIGNED_PARAMETERS
 
 
 class DoubleType(DataType):
@@ -145,7 +145,7 @@ class DoubleType(DataType):
         self.unsigned = unsigned
         self.spelling = spelling
 
-    PARAMETERS = ("unsigned",)
+    PARAMETERS = UNSIGNED_PARAMETERS
 
 
 class DecimalType(DataType):

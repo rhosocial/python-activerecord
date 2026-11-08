@@ -14,6 +14,16 @@
 - **视图信息**：视图定义 SQL
 - **触发器信息**：触发事件、执行时机、触发器 SQL
 
+## 可以问什么
+
+内省回答三个层次的问题，本页详述第一层：
+
+- **声明层** —— 目录说对象是什么：数据库、表、列、索引、外键、视图和触发器。dialect 的能力探针说明某个引擎是否能回答其中每一类；见[能力探针](introspection/capabilities.md)。
+- **运维层** —— 引擎运行中统计了什么：未使用索引、表与索引使用计数、运行时测量、对象依赖和 DDL 取回；见[运维家族](introspection/operations.md)。
+- **数据层** —— 行实际持有什么，而不是模式承诺什么：列数据剖面、高频值和连接覆盖度；见[列数据剖面](introspection/data-profiles.md)。
+
+某类问题的能力探针返回 `False` 时，该引擎不提供这类回答；各后端自己的文档说明哪些探针返回 `True`，以及它的回答意味着什么。
+
 ## 架构设计
 
 ### 模块结构
@@ -41,9 +51,9 @@ backend/introspection/
 
 内省系统遵循项目的同步/异步对等原则：
 
-- `SyncAbstractIntrospector` — 同步内省器
+- `AbstractIntrospector` — 同步内省器
 - `AsyncAbstractIntrospector` — 异步内省器
-- `IntrospectorMixin` — 共享的非 I/O 逻辑（缓存、SQL 生成、解析），包括 `server_version`：内省器从服务器读到的版本，使能力判断不必再次询问服务器
+- `IntrospectorMixin` — 共享的非 I/O 基类：它知道默认 schema，并暴露 `dialect` 与 `server_version` 快捷入口，但本身不持有状态、不做 I/O、也从不接触结果行。缓存与结果行解析属于继承它的管理器，SQL 由 dialect 的 `format_*` 方法从语句对象渲染。`server_version` 是内省器从服务器读到的版本，使能力判断不必再次询问服务器
 
 ## 数据结构
 
@@ -84,7 +94,7 @@ class IntrospectionTableInfo:
     extra: Dict[str, Any]        # 额外信息
 ```
 
-`table_type` 保留目录实际做出的区分，而不是把所有关系都折叠成"表"。例如在 SQLite 上，FTS 或 R-Tree 虚拟表背后的存储表是 `SYSTEM_TABLE`，而虚拟表本身是 `EXTERNAL`。
+`table_type` 保留目录实际做出的区分，而不是把所有关系都折叠成"表"。某个引擎如何归类一种关系，由该后端自己的文档说明。
 
 ### IntrospectionColumnInfo
 
@@ -254,7 +264,7 @@ for idx in indexes:
         print(f"  - {col.name} ({desc})")
 
 # 检查索引是否存在
-if backend.introspector.index_exists("users", "idx_users_email"):
+if backend.introspector.get_index_info("users", "idx_users_email"):
     print("email 索引存在")
 ```
 
@@ -304,7 +314,7 @@ for trigger in table_triggers:
     print(f"  时机: {trigger.timing.value}")
 
 # 获取触发器详情
-trigger_info = backend.introspector.get_trigger_info("users", "trg_users_audit")
+trigger_info = backend.introspector.get_trigger_info("trg_users_audit")
 ```
 
 ## 异步 API
@@ -412,34 +422,7 @@ backend.introspector.invalidate_cache(
 
 ## 后端特定实现
 
-### SQLite
-
-SQLite 使用 `PRAGMA` 指令实现内省：
-
-```python
-# SQLite 专属：直接访问 PragmaIntrospector
-pragma = backend.introspector.pragma
-
-# 使用 PRAGMA 指令
-table_info = pragma.pragma_table_info("users")
-index_list = pragma.pragma_index_list("users")
-foreign_keys = pragma.pragma_foreign_key_list("posts")
-```
-
-### MySQL
-
-MySQL 使用 `information_schema` 和 `SHOW` 语句实现内省：
-
-```python
-# MySQL 专属：直接访问 ShowIntrospector
-show = backend.introspector.show
-
-# 使用 SHOW 语句
-tables = show.show_tables()
-columns = show.show_columns("users")
-indexes = show.show_index("users")
-create_table = show.show_create_table("users")
-```
+公共方法建立在后端提供的辅助内省器之上——内置 SQLite 后端的 `PragmaIntrospector` 与（例如）MySQL 的 `ShowIntrospector` 就是其中两种——各后端自己的文档说明它有哪些辅助内省器、它们回答什么，以及这些回答意味着什么。
 
 ## 错误处理
 
@@ -521,32 +504,70 @@ async def get_schema_info(backend):
 
 ## 限制与注意事项
 
-1. **权限要求**：内省功能需要数据库用户具有读取元数据的权限
-2. **性能影响**：大规模数据库的内省可能较慢，建议启用缓存
-3. **版本差异**：不同数据库版本的元数据可用性可能不同
-4. **一致性**：内省结果反映查询时刻的数据库状态，非实时
+三条事实能解释几乎每一个出人意料的内省回答：
+
+1. **计数器是一个窗口，不是一生。** 运维家族报告的是引擎在*最后一次统计重置以来*数到了什么。零意味着"这个窗口里没有发生"，绝不意味着"从未发生过"。
+2. **剖面可能描述一张更旧的表。** 从统计目录读到的数字可能和引擎最后一次刷新一样陈旧；`collected_at` 就在它们旁边，让读者知道它们描述的是哪个时刻。
+3. **有些引擎回答不了有些问题。** 先问 dialect 的能力探针——见[能力探针](introspection/capabilities.md)。`False` 是确定的"这个引擎不回答这一类问题"，而各后端自己的文档说明哪些探针返回 `True`、它的回答意味着什么。
 
 ## API 参考
 
-### 核心方法
+以下签名省略 `self`；同步与异步内省器的方法名和参数相同。
 
-| 方法 | 说明 | 参数 |
-|------|------|------|
-| `get_database_info()` | 获取数据库信息 | 无 |
-| `list_tables()` | 列出表 | `include_system`, `table_type`, `schema` |
-| `get_table_info(name)` | 获取表详情 | `name`, `schema` |
-| `table_exists(name)` | 检查表存在 | `name`, `schema` |
-| `list_columns(table_name)` | 列出列 | `table_name`, `schema` |
-| `get_column_info(table_name, column_name)` | 获取列详情 | `table_name`, `column_name`, `schema` |
-| `get_primary_key(table_name)` | 获取主键 | `table_name`, `schema` |
-| `list_indexes(table_name)` | 列出索引 | `table_name`, `schema` |
-| `get_index_info(table_name, index_name)` | 获取索引详情 | `table_name`, `index_name`, `schema` |
-| `index_exists(table_name, index_name)` | 检查索引存在 | `table_name`, `index_name`, `schema` |
-| `list_foreign_keys(table_name)` | 列出外键 | `table_name`, `schema` |
-| `list_views()` | 列出视图 | `schema` |
-| `get_view_info(name)` | 获取视图详情 | `name`, `schema` |
-| `view_exists(name)` | 检查视图存在 | `name`, `schema` |
-| `list_triggers(table_name)` | 列出触发器 | `table_name`, `schema` |
-| `get_trigger_info(table_name, trigger_name)` | 获取触发器详情 | `table_name`, `trigger_name`, `schema` |
-| `clear_cache()` | 清除缓存 | 无 |
-| `invalidate_cache(scope, ...)` | 使缓存失效 | `scope`, `name`, `table_name` |
+### 核心方法 —— 声明层
+
+目录说对象是什么。每个结果都缓存在它所属的作用域下。
+
+| 方法 | 参数（含默认值） | 说明 |
+|------|------------------|------|
+| `get_database_info()` | — | 数据库信息 |
+| `list_tables()` | `schema=None, include_system=False, table_type=None` | 列出表（含视图） |
+| `get_table_info(table_name)` | `schema=None` | 表详情，含列、索引和外键 |
+| `table_exists(table_name)` | `schema=None` | 表是否存在 |
+| `list_columns(table_name)` | `schema=None` | 列出列 |
+| `get_column_info(table_name, column_name)` | `schema=None` | 列详情 |
+| `column_exists(table_name, column_name)` | `schema=None` | 列是否存在 |
+| `get_primary_key(table_name)` | `schema=None` | 主键索引 |
+| `list_indexes(table_name)` | `schema=None` | 列出索引 |
+| `get_index_info(table_name, index_name)` | `schema=None` | 索引详情 |
+| `list_foreign_keys(table_name)` | `schema=None` | 列出外键 |
+| `get_foreign_key_info(table_name, fk_name)` | `schema=None` | 外键详情 |
+| `list_views()` | `schema=None, include_system=False` | 列出视图 |
+| `get_view_info(view_name)` | `schema=None` | 视图详情 |
+| `view_exists(view_name)` | `schema=None` | 视图是否存在 |
+| `list_triggers()` | `table_name=None, schema=None` | 列出触发器，可按表过滤 |
+| `get_trigger_info(trigger_name)` | `schema=None` | 触发器详情 |
+
+### 核心方法 —— 运维层
+
+这里的计数器是窗口，不是一生：零意味着"最后一次统计重置以来没有发生"（见[限制与注意事项](#限制与注意事项)）。调用前先看 dialect 的能力探针；`False` 表示该引擎不提供这一类回答。
+
+| 方法 | 参数（含默认值） | 说明 |
+|------|------------------|------|
+| `list_unused_indexes()` | `schema=None` | 引擎报告从未服务过查询的索引 |
+| `list_table_usage_stats()` | `schema=None` | 每张表的读/写计数，自最后一次统计重置起 |
+| `list_runtime_metrics()` | `schema=None` | 实时运行时测量；每一项的 `source` 说明其窗口 |
+| `list_index_usage_stats()` | `schema=None` | 每个索引的使用计数（"用了多少"，而非"是否用过"） |
+| `list_object_dependencies()` | `object_name=None, schema=None` | 依赖图，或某个对象的依赖者 |
+| `get_ddl_statement(object_name)` | `object_type=None, schema=None` | 重建某个对象的 DDL，或 `None` |
+
+### 核心方法 —— 数据层
+
+声明说一列*承诺*什么；这些方法说它*实际装*什么。`None` 表示未测量，绝不是零；剖面的 `source` 说明数字从哪来。
+
+| 方法 | 参数（含默认值） | 说明 |
+|------|------------------|------|
+| `list_column_data_profiles(table_name)` | `schema=None` | 剖析一张表的每一列 |
+| `sample_column_values(table_name, column_name)` | `limit=VALUE_SAMPLE_LIMIT, schema=None` | 一列最高频的值，最多 `limit` 个 |
+| `estimate_join_coverage(left_table, left_column, right_table, right_column)` | `schema=None` | 两列值域的重叠程度；未测量时为 `None` |
+
+`VALUE_SAMPLE_LIMIT` 只在 `backend/introspection/defaults.py` 中定义一次（当前为 100）；签名引用该常量，而不是重复它的值。
+
+### 缓存与失效
+
+缓存是每一层结果都会经过的组件；它本身不是一个层。
+
+| 方法 | 参数（含默认值） | 说明 |
+|------|------------------|------|
+| `clear_cache()` | — | 丢弃全部缓存结果 |
+| `invalidate_cache()` | `scope=None, name=None` | 使缓存失效，从全体一直到单个对象 |

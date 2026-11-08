@@ -13,18 +13,6 @@ from rhosocial.activerecord.backend.config import BaseConfig
 from .exceptions import NamedConnectionInvalidReturnTypeError
 
 
-# Sensitive field names that should be filtered in describe()
-SENSITIVE_FIELDS = frozenset(
-    {
-        "password",
-        "secret",
-        "token",
-        "api_key",
-        "private_key",
-    }
-)
-
-
 def validate_connection_config(
     config: BaseConfig,
     qualified_name: str,
@@ -77,4 +65,6 @@ def filter_sensitive_fields(data: dict) -> dict:
         >>> filter_sensitive_fields(data)
         {"host": "localhost", "username": "user"}
     """
-    return {k: v for k, v in data.items() if k not in SENSITIVE_FIELDS}
+    # The sensitive field names filtered out of describe() output.
+    sensitive = {"password", "secret", "token", "api_key", "private_key"}
+    return {k: v for k, v in data.items() if k not in sensitive}

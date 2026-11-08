@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import types
 import typing
 from dataclasses import dataclass
 from typing import (
@@ -59,6 +58,14 @@ try:
 except ImportError:  # Python 3.8
     from typing_extensions import Annotated
 
+try:
+    # PEP 604's ``int | str``. Present from 3.10; the spelling is the module's
+    # own attribute rather than a ``getattr``, so a reader and a checker both
+    # see which name is being asked for (``python-hazards.md`` §11.2).
+    from types import UnionType
+except ImportError:  # Python 3.8 / 3.9
+    UnionType = None
+
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.dialect import SQLDialectBase
@@ -72,7 +79,6 @@ DDLGeneratedColumn = Union[
     Callable[["SQLDialectBase"], ColumnGeneratedConstraint],
 ]
 
-PEP604_UNION_TYPE = getattr(types, "UnionType", None)
 MARKER_REGISTRY: Dict[Type[Any], Tuple[str, bool]] = {
     UseSqlType: ("use_sql_type", True),
     UseConstraint: ("constraints", False),
@@ -183,7 +189,7 @@ class DDLFieldMetadata:
     @staticmethod
     def union_arguments(annotation: Any) -> Optional[tuple]:
         origin = typing.get_origin(annotation)
-        if origin is typing.Union or origin is PEP604_UNION_TYPE:
+        if origin is typing.Union or origin is UnionType:
             return typing.get_args(annotation)
         return None
 

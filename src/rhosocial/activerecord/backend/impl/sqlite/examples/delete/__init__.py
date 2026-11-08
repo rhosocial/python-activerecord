@@ -2,7 +2,4 @@
 CRUD Delete operations.
 """
 
-META = {
-    "category": "crud",
-    "priority": 10,
-}
+from ..insert import META  # noqa: F401  re-exported: the registry reads this name

@@ -18,9 +18,10 @@ from rhosocial.activerecord.backend.expression import (
     ReturningClause,
 )
 from .....expression.objects import Table
+from ..defaults import DEFAULT_ORDER_STATUS
 
 
-def add_order(dialect, user_id: int, status: str = "pending"):
+def add_order(dialect, user_id: int, status: str = DEFAULT_ORDER_STATUS):
     """Insert a new order record.
 
     Args:
@@ -108,7 +109,7 @@ def cancel_order(dialect, order_id: int):
     )
 
 
-def add_payment(dialect, order_id: int, status: str = "pending"):
+def add_payment(dialect, order_id: int, status: str = DEFAULT_ORDER_STATUS):
     """Insert a payment record (INSERT with RETURNING).
 
     Args:

@@ -72,6 +72,11 @@ Exempt: compiled regexes and fragments, numeric defaults, and lazily built
 caches keyed by classes — the last is the same exemption §11.2 makes for the
 registry.
 
+What §11.3 does not decide is a value that is not a closed set and is read
+once: an Enum earns its members because the set is closed, and a constant earns
+its capital name because a second place reads it and a test pins the reading.
+That criterion, and the check that enforces it, live in `constants.md`.
+
 Measured surface: **34** private constants under `expression/` and `dialect/`,
 counting class-level ones and not only module-level. **9** are enumerable
 domains; the other 25 are exempt.

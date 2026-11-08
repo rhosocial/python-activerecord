@@ -18,10 +18,6 @@ if TYPE_CHECKING:
     )
 
 _SUGGESTION_MATERIALIZED_VIEW = "SQLite does not support materialized views."
-_SUGGESTION_MATERIALIZED_VIEW_ALT = (
-    "SQLite does not support materialized views. Consider using regular views "
-    "or creating tables to store precomputed results."
-)
 
 
 class SQLiteViewMixin:
@@ -149,7 +145,12 @@ class SQLiteViewMixin:
 
     def format_create_materialized_view_statement(self, expr: "CreateMaterializedViewStatement") -> Tuple[str, tuple]:
         """Format CREATE MATERIALIZED VIEW statement - not supported by SQLite."""
-        raise UnsupportedFeatureError(self.name, "CREATE MATERIALIZED VIEW", _SUGGESTION_MATERIALIZED_VIEW_ALT)
+        raise UnsupportedFeatureError(
+            self.name,
+            "CREATE MATERIALIZED VIEW",
+            "SQLite does not support materialized views. Consider using regular "
+            "views or creating tables to store precomputed results.",
+        )
 
     def format_drop_materialized_view_statement(self, expr: "DropMaterializedViewStatement") -> Tuple[str, tuple]:
         """Format DROP MATERIALIZED VIEW statement - not supported by SQLite."""

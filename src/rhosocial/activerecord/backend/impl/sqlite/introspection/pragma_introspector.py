@@ -4,11 +4,11 @@ SQLite PRAGMA sub-introspectors.
 
 Provides direct access to SQLite's PRAGMA interface. These classes do not
 inherit from AbstractIntrospector — they are purpose-built "sub-introspectors"
-exposed as the `.pragma` property on SyncSQLiteIntrospector and
+exposed as the `.pragma` property on SQLiteIntrospector and
 AsyncSQLiteIntrospector.
 
 Design principle: Sync and Async are separate and cannot coexist.
-- SyncPragmaIntrospector: for synchronous backends (method names without _async suffix)
+- PragmaIntrospector: for synchronous backends (method names without _async suffix)
 - AsyncPragmaIntrospector: for asynchronous backends (method names without _async suffix)
 
 Usage::
@@ -28,18 +28,32 @@ Usage::
 from typing import Any, Dict, List, Optional
 
 from rhosocial.activerecord.backend.introspection.executor import (
-    SyncIntrospectorExecutor,
+    IntrospectorExecutor,
     AsyncIntrospectorExecutor,
 )
 
 
-class SyncPragmaIntrospector:
+#: The WAL checkpoint mode used when the caller names none.
+#:
+#: ``PASSIVE`` is the only mode that never blocks: it checkpoints as much as
+#: it can without waiting for readers or writers, so a caller who has not
+#: thought about checkpointing gets the one mode that cannot stall. ``FULL``
+#: waits for readers, ``RESTART`` and ``TRUNCATE`` wait for writers too.
+#: Both the sync and the async introspector run the same PRAGMA, so they
+#: answer one question with one mode; per ``.claude/rules/constants.md`` a
+#: value read from more than one function, where the readings must agree,
+#: takes a module-level constant and a test that pins it -- see
+#: ``tests/rhosocial/activerecord_test/feature/rules/test_shared_defaults.py``.
+WAL_CHECKPOINT_DEFAULT_MODE: str = "PASSIVE"
+
+
+class PragmaIntrospector:
     """Synchronous PRAGMA introspector for SQLite backends.
 
     All methods are synchronous. Method names do NOT have an _async suffix.
     """
 
-    def __init__(self, backend: Any, executor: SyncIntrospectorExecutor) -> None:
+    def __init__(self, backend: Any, executor: IntrospectorExecutor) -> None:
         self._backend = backend
         self._executor = executor
 
@@ -154,13 +168,14 @@ class SyncPragmaIntrospector:
 
     def wal_checkpoint(
         self,
-        mode: str = "PASSIVE",
+        mode: str = WAL_CHECKPOINT_DEFAULT_MODE,
         schema: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """Run a WAL checkpoint.
 
         Args:
             mode:   One of ``PASSIVE``, ``FULL``, ``RESTART``, ``TRUNCATE``.
+                Defaults to :data:`WAL_CHECKPOINT_DEFAULT_MODE`.
             schema: Attached-database name, or ``None`` for the main DB.
         """
         return self.get("wal_checkpoint", mode, schema)
@@ -288,13 +303,14 @@ class AsyncPragmaIntrospector:
 
     async def wal_checkpoint(
         self,
-        mode: str = "PASSIVE",
+        mode: str = WAL_CHECKPOINT_DEFAULT_MODE,
         schema: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """Run a WAL checkpoint.
 
         Args:
             mode:   One of ``PASSIVE``, ``FULL``, ``RESTART``, ``TRUNCATE``.
+                Defaults to :data:`WAL_CHECKPOINT_DEFAULT_MODE`.
             schema: Attached-database name, or ``None`` for the main DB.
         """
         return await self.get("wal_checkpoint", mode, schema)

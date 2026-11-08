@@ -9,7 +9,7 @@ following the project's sync/async parity principle:
    knows the default schema. It holds no state, does no I/O and never sees
    a result row.
 
-2. SyncAbstractIntrospector: Synchronous introspector with all I/O methods
+2. AbstractIntrospector: Synchronous introspector with all I/O methods
    being synchronous.
 
 3. AsyncAbstractIntrospector: Asynchronous introspector with all I/O methods
@@ -32,9 +32,10 @@ Design principles:
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from .cache import InMemoryIntrospectionCache, IntrospectionCache
+from .defaults import VALUE_SAMPLE_LIMIT
 from .types import (
     IntrospectionDatabaseInfo,
     IntrospectionTableInfo,
@@ -44,21 +45,40 @@ from .types import (
     IntrospectionViewInfo,
     IntrospectionTriggerInfo,
     IntrospectionScope,
+    ColumnDataProfile,
+    ColumnValueFrequency,
+    DDLStatement,
+    ProfileSource,
+    IndexUsageStats,
+    JoinCoverage,
+    ObjectDependency,
+    RuntimeMetricItem,
+    TableUsageStats,
+    UnusedIndexInfo,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect.base import SQLDialectBase
     from ..expression.introspection import (
+        ColumnDataProfileQueryStatement,
         ColumnInfoQueryStatement,
+        ColumnValueSampleQueryStatement,
         DatabaseInfoQueryStatement,
+        DDLStatementQueryStatement,
         ForeignKeyQueryStatement,
         IndexInfoQueryStatement,
+        IndexUsageStatsQueryStatement,
+        JoinCoverageQueryStatement,
+        ObjectDependencyQueryStatement,
+        RuntimeMetricsQueryStatement,
         TableListQueryStatement,
+        TableUsageStatsQueryStatement,
         TriggerListQueryStatement,
+        UnusedIndexesQueryStatement,
         ViewInfoQueryStatement,
         ViewListQueryStatement,
     )
-    from .executor import SyncIntrospectorExecutor, AsyncIntrospectorExecutor
+    from .executor import IntrospectorExecutor, AsyncIntrospectorExecutor
 
 
 class IntrospectorMixin:
@@ -273,6 +293,177 @@ class IntrospectorBase(IntrospectorMixin, ABC):
             self.dialect, schema=target_schema, table_name=table_name
         )
 
+    def unused_indexes_statement(
+        self, *, schema: Optional[str]
+    ) -> "UnusedIndexesQueryStatement":
+        """Return the statement that lists indexes the engine reports as unused.
+
+        An unused index is a fact about the whole database rather than about
+        one table, so unlike the trigger statement this takes no table name:
+        narrowing the answer is the caller's job, and a dialect asked to
+        filter by table would have to invent a filter its statistics cannot
+        honour.
+        """
+        from ..expression.introspection import UnusedIndexesQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return UnusedIndexesQueryStatement(self.dialect, schema=target_schema)
+
+    def table_usage_stats_statement(
+        self, *, schema: Optional[str]
+    ) -> "TableUsageStatsQueryStatement":
+        """Return the statement that reads every table's usage counters.
+
+        One query for the whole schema, because statistics collectors price
+        their first query far above their next and the counters are the
+        answer: a per-table form would invite looping the catalogue one table
+        at a time.
+        """
+        from ..expression.introspection import TableUsageStatsQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return TableUsageStatsQueryStatement(self.dialect, schema=target_schema)
+
+    def runtime_metrics_statement(
+        self, *, schema: Optional[str]
+    ) -> "RuntimeMetricsQueryStatement":
+        """Return the statement that reads the engine's live measurements.
+
+        No table name, for the reason the class records: runtime facts describe
+        the server, so a filter that does not apply to them is worse than no
+        filter.
+        """
+        from ..expression.introspection import RuntimeMetricsQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return RuntimeMetricsQueryStatement(self.dialect, schema=target_schema)
+
+    def index_usage_stats_statement(
+        self, *, schema: Optional[str]
+    ) -> "IndexUsageStatsQueryStatement":
+        """Return the statement that reads per-index use counters.
+
+        One query for the schema, because use counters are cheap to ask for
+        all at once and the shape of "is this index worth its space" is a
+        question about the set of them.
+        """
+        from ..expression.introspection import IndexUsageStatsQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return IndexUsageStatsQueryStatement(self.dialect, schema=target_schema)
+
+    def object_dependency_statement(
+        self, *, schema: Optional[str], object_name: Optional[str] = None
+    ) -> "ObjectDependencyQueryStatement":
+        """Return the statement that reads the dependency graph.
+
+        Narrows to one object when the caller names it, which is the "what
+        breaks if I drop this" question and the reason the parameter exists;
+        omitted, the answer is the whole graph.
+        """
+        from ..expression.introspection import ObjectDependencyQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return ObjectDependencyQueryStatement(
+            self.dialect, schema=target_schema, object_name=object_name
+        )
+
+    def ddl_statement_statement(
+        self,
+        *,
+        schema: Optional[str],
+        object_name: str,
+        object_type: Optional[str] = None,
+    ) -> "DDLStatementQueryStatement":
+        """Return the statement that reads one object's DDL.
+
+        Always about one object: a DDL text is large, and the question "what
+        did this get created as" is always asked of a specific thing.
+        """
+        from ..expression.introspection import DDLStatementQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return DDLStatementQueryStatement(
+            self.dialect,
+            schema=target_schema,
+            object_name=object_name,
+            object_type=object_type,
+        )
+
+    def column_data_profile_statement(
+        self, *, schema: Optional[str], table_name: str, columns: Sequence[str] = ()
+    ) -> "ColumnDataProfileQueryStatement":
+        """Return the statement that profiles every column of one table.
+
+        ``table_name`` is required and there is no single-column form: a
+        statistics catalogue answers for a whole table at once, and a
+        per-column signature would make a caller loop a table's columns for
+        data the engine already had together.
+
+        ``columns`` is passed through for engines that must aggregate rather
+        than read a catalogue -- see the expression's own docstring for why
+        those cannot do without it.
+        """
+        from ..expression.introspection import ColumnDataProfileQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return ColumnDataProfileQueryStatement(
+            self.dialect, table_name=table_name, schema=target_schema, columns=columns
+        )
+
+    def column_value_sample_statement(
+        self,
+        *,
+        schema: Optional[str],
+        table_name: str,
+        column_name: str,
+        limit: int = VALUE_SAMPLE_LIMIT,
+    ) -> "ColumnValueSampleQueryStatement":
+        """Return the statement that lists a column's most frequent values.
+
+        ``limit`` is an upper bound, not a promise -- an engine keeping a
+        fixed-size most-common-values list returns what it kept. The default
+        is the expression's own; see
+        :data:`~...introspection.defaults.VALUE_SAMPLE_LIMIT`.
+        """
+        from ..expression.introspection import ColumnValueSampleQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return ColumnValueSampleQueryStatement(
+            self.dialect,
+            table_name=table_name,
+            column_name=column_name,
+            limit=limit,
+            schema=target_schema,
+        )
+
+    def join_coverage_statement(
+        self,
+        *,
+        schema: Optional[str],
+        left_table: str,
+        left_column: str,
+        right_table: str,
+        right_column: str,
+    ) -> "JoinCoverageQueryStatement":
+        """Return the statement that measures two columns' domain overlap.
+
+        Both sides are named because the question is a relation between two
+        objects rather than a fact about one -- the only family here of that
+        shape.
+        """
+        from ..expression.introspection import JoinCoverageQueryStatement
+
+        target_schema = schema if schema is not None else self.default_schema
+        return JoinCoverageQueryStatement(
+            self.dialect,
+            left_table=left_table,
+            left_column=left_column,
+            right_table=right_table,
+            right_column=right_column,
+            schema=target_schema,
+        )
+
     # ------------------------------------------------------------------ #
     # Cache — the manager's own service contract
     # ------------------------------------------------------------------ #
@@ -355,11 +546,483 @@ class IntrospectorBase(IntrospectorMixin, ABC):
 
     @abstractmethod
     def parse_triggers(self, rows: List[Dict[str, Any]], schema: str) -> List[IntrospectionTriggerInfo]:
-        """Parse trigger list from query result rows."""
+        """Parse trigger rows into trigger information objects."""
         ...
 
+    def parse_unused_indexes(
+        self,
+        rows: List[Dict[str, Any]],
+        schema: str,
+    ) -> List[UnusedIndexInfo]:
+        """Project the rows of an unused-indexes listing.
 
-class SyncAbstractIntrospector(IntrospectorBase, ABC):
+        Column names are read by both spellings because engines disagree even
+        on whether the schema is a column of its own, and a key that is simply
+        absent yields ``""`` rather than raising: a listing that omits an
+        address component is still a listing, while one exception here would
+        drop every row with it.
+        """
+        found: List[UnusedIndexInfo] = []
+        for row in rows or []:
+            row_schema = row.get("schema_name") or row.get("schema") or schema
+            table = row.get("table_name") or row.get("table") or row.get("object_name") or ""
+            index = row.get("index_name") or row.get("index") or row.get("object_name") or ""
+            if not table or not index:
+                continue
+            found.append(
+                UnusedIndexInfo(
+                    schema=row_schema,
+                    table_name=table,
+                    index_name=index,
+                    extra={
+                        key: value
+                        for key, value in row.items()
+                        if key
+                        not in {
+                            "schema",
+                            "schema_name",
+                            "table",
+                            "table_name",
+                            "index",
+                            "index_name",
+                            "object_name",
+                        }
+                        and value is not None
+                    },
+                )
+            )
+        return found
+
+    def parse_runtime_metrics(
+        self,
+        rows: List[Dict[str, Any]],
+    ) -> List[RuntimeMetricItem]:
+        """Project runtime-measurement rows into the narrow shape.
+
+        Both spellings of a value are read (``value`` / ``metric_value``)
+        because engines name the column after the concept rather than after
+        the type. The ``kind`` slot is left ``None`` unless the row already
+        names one: guessing whether a counter is throughput or latency from
+        its name would be the engine's statistics pretending to be insight.
+        """
+        found: List[RuntimeMetricItem] = []
+        for row in rows or []:
+            name = row.get("name") or row.get("metric_name") or row.get("stat_name")
+            if not name:
+                continue
+            value = row.get("value")
+            if value is None:
+                value = row.get("metric_value")
+            if value is None:
+                value = row.get("stat_value")
+            known = {"name", "metric_name", "stat_name", "value", "metric_value", "stat_value"}
+            found.append(
+                RuntimeMetricItem(
+                    name=str(name),
+                    value=value,
+                    kind=row.get("kind"),
+                    unit=row.get("unit"),
+                    description=row.get("description") or row.get("desc"),
+                    source=row.get("source") or row.get("window"),
+                    extra={
+                        k: v for k, v in row.items() if k not in known and v is not None
+                    },
+                )
+            )
+        return found
+
+    def parse_index_usage_stats(
+        self,
+        rows: List[Dict[str, Any]],
+        schema: str,
+    ) -> List[IndexUsageStats]:
+        """Project per-index counter rows, leaving unmeasured slots None."""
+        found: List[IndexUsageStats] = []
+
+        def _first_int(row: Dict[str, Any], *keys: str) -> Optional[int]:
+            """The first named counter present, or None when none is."""
+            for key in keys:
+                v = row.get(key)
+                if v is not None:
+                    return int(v)
+            return None
+
+        for row in rows or []:
+            row_schema = row.get("schema_name") or row.get("schema") or schema
+            table = row.get("table_name") or row.get("relname") or row.get("table") or ""
+            index = row.get("index_name") or row.get("indexrelname") or row.get("index") or ""
+            if not table or not index:
+                continue
+
+            known = {
+                "schema", "schema_name", "table", "table_name", "relname",
+                "index", "index_name", "indexrelname",
+                "idx_scan", "scans", "index_scans",
+                "idx_tup_read", "rows_read", "rows_fetched", "idx_tup_fetch",
+                "index_size_bytes", "size_bytes",
+            }
+            found.append(
+                IndexUsageStats(
+                    schema=row_schema,
+                    table_name=table,
+                    index_name=index,
+                    scans=_first_int(row, "idx_scan", "scans", "index_scans"),
+                    rows_read=_first_int(row, "idx_tup_read", "rows_read"),
+                    rows_fetched=_first_int(row, "idx_tup_fetch", "rows_fetched"),
+                    size_bytes=_first_int(row, "index_size_bytes", "size_bytes"),
+                    extra={k: v for k, v in row.items() if k not in known and v is not None},
+                )
+            )
+        return found
+
+    def parse_object_dependencies(
+        self,
+        rows: List[Dict[str, Any]],
+        schema: str,
+    ) -> List[ObjectDependency]:
+        """Project dependency edges, reading both spellings of each address."""
+        found: List[ObjectDependency] = []
+        for row in rows or []:
+            dependent = (
+                row.get("dependent_name")
+                or row.get("dependent")
+                or row.get("object_name")
+                or ""
+            )
+            referenced = row.get("referenced_name") or row.get("referenced") or ""
+            if not dependent or not referenced:
+                continue
+
+            dependent_schema = (
+                row.get("dependent_schema")
+                or row.get("dependent_schema_name")
+                or row.get("schema")
+                or schema
+            )
+            found.append(
+                ObjectDependency(
+                    schema=row.get("schema_name") or row.get("schema") or schema,
+                    dependent_schema=dependent_schema,
+                    dependent=str(dependent),
+                    dependent_type=row.get("dependent_type") or row.get("type"),
+                    referenced=str(referenced),
+                    referenced_type=row.get("referenced_type"),
+                    kind=row.get("kind") or row.get("dependency_type"),
+                    action=row.get("action") or row.get("on_delete"),
+                    extra={
+                        k: v
+                        for k, v in row.items()
+                        if v is not None
+                        and k
+                        not in {
+                            "schema", "schema_name",
+                            "dependent_schema", "dependent_schema_name",
+                            "dependent", "dependent_name", "object_name", "dependent_type", "type",
+                            "referenced", "referenced_name", "referenced_type",
+                            "kind", "dependency_type", "action", "on_delete",
+                        }
+                    },
+                )
+            )
+        return found
+
+    def parse_ddl_statements(
+        self,
+        rows: List[Dict[str, Any]],
+        schema: str,
+    ) -> List[DDLStatement]:
+        """Project DDL rows; a row carrying no text is skipped, not raised.
+
+        An engine that can name an object but not reproduce its DDL would
+        produce exactly such a row, and the honest answer for it is the empty
+        list -- the caller asked for text, and silently returning a row with a
+        ``None`` text invites a reader to treat absence as a value.
+        """
+        found: List[DDLStatement] = []
+        for row in rows or []:
+            ddl = row.get("ddl") or row.get("sql") or row.get("definition")
+            if not ddl:
+                continue
+            found.append(
+                DDLStatement(
+                    schema=row.get("schema_name") or row.get("schema") or schema,
+                    object_type=row.get("object_type") or row.get("type"),
+                    object_name=str(row.get("object_name") or row.get("name") or ""),
+                    ddl=str(ddl),
+                    native=row.get("native"),
+                    extra={
+                        k: v
+                        for k, v in row.items()
+                        if v is not None
+                        and k
+                        not in {
+                            "schema", "schema_name", "object_type", "type",
+                            "object_name", "name", "ddl", "sql", "definition", "native",
+                        }
+                    },
+                )
+            )
+        return found
+
+    def parse_table_usage_stats(
+        self,
+        rows: List[Dict[str, Any]],
+        schema: str,
+    ) -> List[TableUsageStats]:
+        """Project usage-counter rows into the common shape.
+
+        Engines name their counters differently and track different subsets;
+        each slot reads by every spelling this codebase has met, and stays
+        ``None`` when no spelling is present -- an engine that does not track
+        a counter is answering honestly by leaving it out, and a zero it
+        never measured would be a lie of a different kind.
+        """
+        found: List[TableUsageStats] = []
+
+        def _first_int(row: Dict[str, Any], *keys: str) -> Optional[int]:
+            """The first named counter present, or None when none is."""
+            for key in keys:
+                value = row.get(key)
+                if value is not None:
+                    return int(value)
+            return None
+
+        for row in rows or []:
+            row_schema = row.get("schema_name") or row.get("schema") or schema
+            table = row.get("table_name") or row.get("table") or row.get("relname") or ""
+            if not table:
+                continue
+
+            known = {
+                "schema",
+                "schema_name",
+                "table",
+                "table_name",
+                "relname",
+                "seq_scan",
+                "sequential_scans",
+                "idx_scan",
+                "indexed_scans",
+                "index_scans",
+                "n_tup_ins",
+                "inserts",
+                "n_tup_upd",
+                "updates",
+                "n_tup_del",
+                "deletes",
+                "n_live_tup",
+                "estimated_row_count",
+                "table_rows",
+            }
+            found.append(
+                TableUsageStats(
+                    schema=row_schema,
+                    table_name=table,
+                    sequential_scans=_first_int(row, "seq_scan", "sequential_scans"),
+                    indexed_scans=_first_int(row, "idx_scan", "indexed_scans", "index_scans"),
+                    inserts=_first_int(row, "n_tup_ins", "inserts"),
+                    updates=_first_int(row, "n_tup_upd", "updates"),
+                    deletes=_first_int(row, "n_tup_del", "deletes"),
+                    estimated_row_count=_first_int(row, "n_live_tup", "estimated_row_count", "table_rows"),
+                    extra={
+                        key: value
+                        for key, value in row.items()
+                        if key not in known and value is not None
+                    },
+                )
+            )
+        return found
+
+    def parse_column_data_profiles(
+        self,
+        rows: List[Dict[str, Any]],
+        schema: str,
+        table_name: str,
+    ) -> List[ColumnDataProfile]:
+        """Project a table's per-column profile rows.
+
+        Slot names are read under both spellings engines use, and a figure the
+        engine did not project stays ``None`` -- that is the engine saying "I
+        do not measure this", which must not be smoothed into a zero.
+
+        ``source`` is read as a word and written as a
+        :class:`~...introspection.types.ProfileSource` member, because that is
+        the slot's annotation and a word is not a member: the two compare
+        equal, so a test written against ``==`` cannot tell them apart. The
+        parser is where the engine's spelling becomes the closed set's own.
+
+        ``row_count`` doubles as the sample size when ``source`` is a sample,
+        which is why the two travel together rather than as separate fields.
+        """
+        found: List[ColumnDataProfile] = []
+
+        def _first(row: Dict[str, Any], *keys: str) -> Any:
+            for key in keys:
+                if key in row and row[key] is not None:
+                    return row[key]
+            return None
+
+        def _source(value: Any) -> Optional[ProfileSource]:
+            """The member *value* names, or ``None`` when the engine said nothing.
+
+            ``ProfileSource(value)`` is the Enum's own lookup over the closed
+            set it declares, which is why there is no table beside it mapping
+            words to members: such a table would be a second place that has to
+            stay in step with the member list, which is the defect this
+            repository just spent a change removing. A member is returned
+            unchanged, so a caller that already holds one is not re-resolved.
+
+            A word the set does not name raises rather than being smoothed
+            into ``UNKNOWN``. ``UNKNOWN`` is the engine declining to say how it
+            measured, which is a fact; a misspelled ``"agregate"`` is nobody's
+            fact, and writing ``UNKNOWN`` over it would hide the typo the rule
+            is about -- a value nothing validates. This parser is the boundary
+            an engine's word crosses, so it is the place that validates it.
+            """
+            if value is None:
+                return None
+            return ProfileSource(value)
+
+        for row in rows or []:
+            column = _first(row, "column_name", "attname", "column")
+            if not column:
+                continue
+            nulls = _first(row, "null_fraction", "null_frac", "null_ratio")
+            distinct = _first(row, "distinct_count", "n_distinct", "num_distinct")
+            rows_in_profile = _first(row, "row_count", "rows", "n_live_tup", "num_rows")
+            if nulls is None:
+                # An aggregating dialect can count nulls more cheaply than it
+                # can divide by a row count it may report as zero; the fraction
+                # is derived here so both shapes land in one slot.
+                null_count = _first(row, "null_count", "num_nulls")
+                if null_count is not None and rows_in_profile:
+                    nulls = float(null_count) / float(rows_in_profile)
+            known = {
+                "schema", "schema_name",
+                "table", "table_name", "relname",
+                "column", "column_name", "attname",
+                "null_fraction", "null_frac", "null_ratio",
+                "null_count", "num_nulls",
+                "distinct_count", "n_distinct", "num_distinct",
+                "min_value", "min", "low_value",
+                "max_value", "max", "high_value",
+                "row_count", "rows", "n_live_tup", "num_rows",
+                "source", "collected_at", "last_analyzed", "last_analyze",
+            }
+            found.append(
+                ColumnDataProfile(
+                    schema=_first(row, "schema_name", "schema") or schema,
+                    table_name=_first(row, "table_name", "relname", "table") or table_name,
+                    column_name=str(column),
+                    null_fraction=float(nulls) if nulls is not None else None,
+                    distinct_count=int(distinct) if distinct is not None else None,
+                    min_value=_first(row, "min_value", "min", "low_value"),
+                    max_value=_first(row, "max_value", "max", "high_value"),
+                    row_count=rows_in_profile,
+                    source=_source(_first(row, "source")),
+                    collected_at=_first(row, "collected_at", "last_analyzed", "last_analyze"),
+                    extra={
+                        key: value
+                        for key, value in row.items()
+                        if key not in known and value is not None
+                    },
+                )
+            )
+        return found
+
+    def parse_column_value_samples(
+        self,
+        rows: List[Dict[str, Any]],
+    ) -> List[ColumnValueFrequency]:
+        """Project a value listing.
+
+        A row's value may legitimately be ``None`` -- NULL is often the most
+        interesting member of a column's domain -- so the "skip when empty"
+        rule applied to addresses does **not** apply here.
+        """
+        found: List[ColumnValueFrequency] = []
+        for row in rows or []:
+            if not any(k in row for k in ("value", "val", "most_common_val")):
+                continue
+            value = row.get("value")
+            if value is None:
+                value = row.get("val")
+            if value is None and "most_common_val" in row:
+                value = row.get("most_common_val")
+            count = row.get("count")
+            if count is None:
+                count = row.get("n")
+            frequency = row.get("frequency")
+            if frequency is None:
+                frequency = row.get("most_common_freq")
+            known = {
+                "value", "val", "most_common_val",
+                "count", "n",
+                "frequency", "most_common_freq",
+            }
+            found.append(
+                ColumnValueFrequency(
+                    value=value,
+                    count=int(count) if count is not None else None,
+                    frequency=float(frequency) if frequency is not None else None,
+                    extra={
+                        key: v
+                        for key, v in row.items()
+                        if key not in known and v is not None
+                    },
+                )
+            )
+        return found
+
+    def parse_join_coverage(
+        self,
+        rows: List[Dict[str, Any]],
+        *,
+        left_table: str,
+        left_column: str,
+        right_table: str,
+        right_column: str,
+        schema: Optional[str] = None,
+    ) -> Optional[JoinCoverage]:
+        """Project the single row an overlap measurement returns.
+
+        ``None`` when the answer carries no row: an engine that could not
+        compute the measurement is answering "no measurement", which a caller
+        must be able to tell apart from "zero overlap".
+        """
+        for row in rows or []:
+            left = row.get("left_coverage")
+            if left is None:
+                left = row.get("left_fraction")
+            right = row.get("right_coverage")
+            if right is None:
+                right = row.get("right_fraction")
+            if left is None and right is None:
+                continue
+            return JoinCoverage(
+                left_schema=schema,
+                left_table=left_table,
+                left_column=left_column,
+                right_schema=schema,
+                right_table=right_table,
+                right_column=right_column,
+                left_coverage=float(left) if left is not None else None,
+                right_coverage=float(right) if right is not None else None,
+                extra={
+                    key: value
+                    for key, value in row.items()
+                    if key
+                    not in {
+                        "left_coverage", "left_fraction",
+                        "right_coverage", "right_fraction",
+                    }
+                    and value is not None
+                },
+            )
+        return None
+
+
+class AbstractIntrospector(IntrospectorBase, ABC):
     """Abstract base class for synchronous database introspectors.
 
     This class provides all synchronous I/O methods for database introspection.
@@ -378,7 +1041,7 @@ class SyncAbstractIntrospector(IntrospectorBase, ABC):
     def __init__(
         self,
         backend: Any,
-        executor: "SyncIntrospectorExecutor",
+        executor: "IntrospectorExecutor",
         cache: Optional[IntrospectionCache] = None,
     ) -> None:
         super().__init__(backend, executor, cache)
@@ -561,6 +1224,248 @@ class SyncAbstractIntrospector(IntrospectorBase, ABC):
         result = self.parse_triggers(self._executor.execute(sql, params), target)
         self._cache.set(key, result)
         return result
+
+    def list_unused_indexes(
+        self,
+        schema: Optional[str] = None,
+    ) -> List[UnusedIndexInfo]:
+        """List the indexes this engine reports as never having served a query.
+
+        Returns an empty list for an engine that cannot answer -- ``False``
+        from the dialect's capability probe is what the caller checks first,
+        and an engine that answers but has nothing to report also returns
+        empty. The two are indistinguishable here, which is why the docstring
+        of :class:`UnusedIndexInfo` says what absence does and does not prove.
+        """
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(IntrospectionScope.INDEX, "unused", schema=schema)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.unused_indexes_statement(schema=schema).to_sql()
+        result = self.parse_unused_indexes(self._executor.execute(sql, params), target)
+        self._cache.set(key, result)
+        return result
+
+    def list_table_usage_stats(
+        self,
+        schema: Optional[str] = None,
+    ) -> List[TableUsageStats]:
+        """Read every table's usage counters, as the engine last counted them.
+
+        Empty for an engine that cannot answer, same rule as
+        :meth:`list_unused_indexes`. Every counter returned is *since the
+        statistics were last reset*, on the engine's own schedule -- the
+        number answers "how much has happened in the window the engine
+        remembers", and nothing more.
+        """
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(IntrospectionScope.TABLE, "usage_stats", schema=schema)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.table_usage_stats_statement(schema=schema).to_sql()
+        result = self.parse_table_usage_stats(self._executor.execute(sql, params), target)
+        self._cache.set(key, result)
+        return result
+
+    def list_column_data_profiles(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+    ) -> List[ColumnDataProfile]:
+        """Profile every column of one table from the data itself.
+
+        The counterpart of :meth:`list_columns`, which reports what a column
+        *promises*; this reports what it *holds*, and the two disagreeing is
+        the useful signal. Every figure may be ``None``, and ``source`` says
+        whether what came back is an estimate or a count -- a caller comparing
+        profiles across engines must read it.
+
+        Empty for an engine that cannot answer.
+        """
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(
+            IntrospectionScope.COLUMN, table_name, "data_profile", schema=schema
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        # The catalogue already knows the column names, and an aggregating
+        # dialect needs them to pivot its aggregates; a catalogue-based one
+        # ignores the list. One cheap query either way.
+        columns = tuple(column.name for column in self.list_columns(table_name, schema))
+        sql, params = self.column_data_profile_statement(
+            schema=schema, table_name=table_name, columns=columns
+        ).to_sql()
+        result = self.parse_column_data_profiles(
+            self._executor.execute(sql, params), target, table_name
+        )
+        self._cache.set(key, result)
+        return result
+
+    def sample_column_values(
+        self,
+        table_name: str,
+        column_name: str,
+        limit: int = VALUE_SAMPLE_LIMIT,
+        schema: Optional[str] = None,
+    ) -> List[ColumnValueFrequency]:
+        """List a column's most frequent values, up to ``limit``.
+
+        Fewer than ``limit`` is a correct answer: an engine that keeps a
+        fixed-size most-common-values list returns what it kept, and padding
+        the list would invent values. The default is the expression's own;
+        see :data:`~...introspection.defaults.VALUE_SAMPLE_LIMIT`.
+        """
+        key = self._cache.key(
+            IntrospectionScope.COLUMN,
+            table_name,
+            column_name,
+            "values",
+            limit,
+            schema=schema,
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.column_value_sample_statement(
+            schema=schema, table_name=table_name, column_name=column_name, limit=limit
+        ).to_sql()
+        result = self.parse_column_value_samples(self._executor.execute(sql, params))
+        self._cache.set(key, result)
+        return result
+
+    def estimate_join_coverage(
+        self,
+        left_table: str,
+        left_column: str,
+        right_table: str,
+        right_column: str,
+        schema: Optional[str] = None,
+    ) -> Optional[JoinCoverage]:
+        """Measure how much two columns' distinct value domains overlap.
+
+        ``None`` when the engine cannot measure it -- which is not the same
+        answer as "zero overlap", and a caller deciding whether a join is
+        worth writing needs to tell them apart.
+
+        Both fractions are estimates: NULLs are excluded on both sides,
+        collations are not reconciled, and the engine may sample. A high
+        coverage is evidence of a join, not proof of one.
+        """
+        key = self._cache.key(
+            IntrospectionScope.COLUMN,
+            left_table,
+            left_column,
+            "join_coverage",
+            right_table,
+            right_column,
+            schema=schema,
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.join_coverage_statement(
+            schema=schema,
+            left_table=left_table,
+            left_column=left_column,
+            right_table=right_table,
+            right_column=right_column,
+        ).to_sql()
+        result = self.parse_join_coverage(
+            self._executor.execute(sql, params),
+            left_table=left_table,
+            left_column=left_column,
+            right_table=right_table,
+            right_column=right_column,
+            schema=schema if schema is not None else self.default_schema,
+        )
+        self._cache.set(key, result)
+        return result
+
+    def list_runtime_metrics(
+        self,
+        schema: Optional[str] = None,
+    ) -> List[RuntimeMetricItem]:
+        """Read the engine's live runtime measurements.
+
+        Every number is *since the window the engine remembers*; the window is
+        the engine's to state and lands in each item's ``source``. An engine
+        that cannot answer returns empty, same rule as the other families.
+        """
+        key = self._cache.key(IntrospectionScope.DATABASE, "runtime", schema=schema)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.runtime_metrics_statement(schema=schema).to_sql()
+        result = self.parse_runtime_metrics(self._executor.execute(sql, params))
+        self._cache.set(key, result)
+        return result
+
+    def list_index_usage_stats(
+        self,
+        schema: Optional[str] = None,
+    ) -> List[IndexUsageStats]:
+        """Read per-index use counters, answering "how much" rather than "ever"."""
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(IntrospectionScope.INDEX, "usage_stats", schema=schema)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.index_usage_stats_statement(schema=schema).to_sql()
+        result = self.parse_index_usage_stats(self._executor.execute(sql, params), target)
+        self._cache.set(key, result)
+        return result
+
+    def list_object_dependencies(
+        self,
+        object_name: Optional[str] = None,
+        schema: Optional[str] = None,
+    ) -> List[ObjectDependency]:
+        """Read the object dependency graph, or one object's dependants.
+
+        ``object_name`` answers "what breaks if I drop this"; omitted, the
+        answer is the whole graph, which is larger and slower.
+        """
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(
+            IntrospectionScope.TABLE, object_name or "*", "dependencies", schema=schema
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.object_dependency_statement(
+            schema=schema, object_name=object_name
+        ).to_sql()
+        result = self.parse_object_dependencies(self._executor.execute(sql, params), target)
+        self._cache.set(key, result)
+        return result
+
+    def get_ddl_statement(
+        self,
+        object_name: str,
+        object_type: Optional[str] = None,
+        schema: Optional[str] = None,
+    ) -> Optional[DDLStatement]:
+        """Read the DDL that recreates one object, or None when the engine won't.
+
+        An engine without native retrieval answers UnsupportedFeatureError
+        rather than being handed an assembly that looks authoritative.
+        """
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(
+            IntrospectionScope.TABLE, object_name, "ddl", schema=schema
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached[0] if cached else None
+        sql, params = self.ddl_statement_statement(
+            schema=schema, object_name=object_name, object_type=object_type
+        ).to_sql()
+        found = self.parse_ddl_statements(self._executor.execute(sql, params), target)
+        self._cache.set(key, found)
+        return found[0] if found else None
 
     def get_trigger_info(self, trigger_name: str, schema: Optional[str] = None) -> Optional[IntrospectionTriggerInfo]:
         """Return information for a specific trigger, or None if not found."""
@@ -780,6 +1685,212 @@ class AsyncAbstractIntrospector(IntrospectorBase, ABC):
         result = self.parse_triggers(await self._executor.execute(sql, params), target)
         self._cache.set(key, result)
         return result
+
+    async def list_unused_indexes(
+        self,
+        schema: Optional[str] = None,
+    ) -> List[UnusedIndexInfo]:
+        """List the indexes this engine reports as never having served a query.
+
+        The async twin's copy; identical to the sync one apart from the await,
+        and kept word-for-word so the two cannot drift on what absence means.
+        """
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(IntrospectionScope.INDEX, "unused", schema=schema)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.unused_indexes_statement(schema=schema).to_sql()
+        result = self.parse_unused_indexes(await self._executor.execute(sql, params), target)
+        self._cache.set(key, result)
+        return result
+
+    async def list_table_usage_stats(
+        self,
+        schema: Optional[str] = None,
+    ) -> List[TableUsageStats]:
+        """Read every table's usage counters; the async twin's copy.
+
+        Identical to the sync one apart from the await, so the two cannot
+        drift on what a counter counts.
+        """
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(IntrospectionScope.TABLE, "usage_stats", schema=schema)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.table_usage_stats_statement(schema=schema).to_sql()
+        result = self.parse_table_usage_stats(await self._executor.execute(sql, params), target)
+        self._cache.set(key, result)
+        return result
+
+    async def list_column_data_profiles(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+    ) -> List[ColumnDataProfile]:
+        """Profile every column of one table; the async twin's copy.
+
+        Identical to the sync one apart from the await, so the two cannot
+        disagree about what ``source`` means.
+        """
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(
+            IntrospectionScope.COLUMN, table_name, "data_profile", schema=schema
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        columns = tuple(
+            column.name for column in await self.list_columns(table_name, schema)
+        )
+        sql, params = self.column_data_profile_statement(
+            schema=schema, table_name=table_name, columns=columns
+        ).to_sql()
+        result = self.parse_column_data_profiles(
+            await self._executor.execute(sql, params), target, table_name
+        )
+        self._cache.set(key, result)
+        return result
+
+    async def sample_column_values(
+        self,
+        table_name: str,
+        column_name: str,
+        limit: int = VALUE_SAMPLE_LIMIT,
+        schema: Optional[str] = None,
+    ) -> List[ColumnValueFrequency]:
+        """List a column's most frequent values; the async twin's copy."""
+        key = self._cache.key(
+            IntrospectionScope.COLUMN,
+            table_name,
+            column_name,
+            "values",
+            limit,
+            schema=schema,
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.column_value_sample_statement(
+            schema=schema, table_name=table_name, column_name=column_name, limit=limit
+        ).to_sql()
+        result = self.parse_column_value_samples(await self._executor.execute(sql, params))
+        self._cache.set(key, result)
+        return result
+
+    async def estimate_join_coverage(
+        self,
+        left_table: str,
+        left_column: str,
+        right_table: str,
+        right_column: str,
+        schema: Optional[str] = None,
+    ) -> Optional[JoinCoverage]:
+        """Measure two columns' domain overlap; the async twin's copy."""
+        key = self._cache.key(
+            IntrospectionScope.COLUMN,
+            left_table,
+            left_column,
+            "join_coverage",
+            right_table,
+            right_column,
+            schema=schema,
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.join_coverage_statement(
+            schema=schema,
+            left_table=left_table,
+            left_column=left_column,
+            right_table=right_table,
+            right_column=right_column,
+        ).to_sql()
+        result = self.parse_join_coverage(
+            await self._executor.execute(sql, params),
+            left_table=left_table,
+            left_column=left_column,
+            right_table=right_table,
+            right_column=right_column,
+            schema=schema if schema is not None else self.default_schema,
+        )
+        self._cache.set(key, result)
+        return result
+
+    async def list_runtime_metrics(
+        self,
+        schema: Optional[str] = None,
+    ) -> List[RuntimeMetricItem]:
+        """Read the engine's live runtime measurements; the async twin's copy.
+
+        Identical to the sync one apart from the await, so the two cannot
+        disagree about what a zero covers.
+        """
+        key = self._cache.key(IntrospectionScope.DATABASE, "runtime", schema=schema)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.runtime_metrics_statement(schema=schema).to_sql()
+        result = self.parse_runtime_metrics(await self._executor.execute(sql, params))
+        self._cache.set(key, result)
+        return result
+
+    async def list_index_usage_stats(
+        self,
+        schema: Optional[str] = None,
+    ) -> List[IndexUsageStats]:
+        """Read per-index use counters; the async twin's copy."""
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(IntrospectionScope.INDEX, "usage_stats", schema=schema)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.index_usage_stats_statement(schema=schema).to_sql()
+        result = self.parse_index_usage_stats(await self._executor.execute(sql, params), target)
+        self._cache.set(key, result)
+        return result
+
+    async def list_object_dependencies(
+        self,
+        object_name: Optional[str] = None,
+        schema: Optional[str] = None,
+    ) -> List[ObjectDependency]:
+        """Read the object dependency graph; the async twin's copy."""
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(
+            IntrospectionScope.TABLE, object_name or "*", "dependencies", schema=schema
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.object_dependency_statement(
+            schema=schema, object_name=object_name
+        ).to_sql()
+        result = self.parse_object_dependencies(await self._executor.execute(sql, params), target)
+        self._cache.set(key, result)
+        return result
+
+    async def get_ddl_statement(
+        self,
+        object_name: str,
+        object_type: Optional[str] = None,
+        schema: Optional[str] = None,
+    ) -> Optional[DDLStatement]:
+        """Read one object's DDL; the async twin's copy."""
+        target = schema if schema is not None else self.default_schema
+        key = self._cache.key(
+            IntrospectionScope.TABLE, object_name, "ddl", schema=schema
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached[0] if cached else None
+        sql, params = self.ddl_statement_statement(
+            schema=schema, object_name=object_name, object_type=object_type
+        ).to_sql()
+        found = self.parse_ddl_statements(await self._executor.execute(sql, params), target)
+        self._cache.set(key, found)
+        return found[0] if found else None
 
     async def get_trigger_info(self, trigger_name: str, schema: Optional[str] = None) -> Optional[IntrospectionTriggerInfo]:
         """Return information for a specific trigger, or None if not found."""

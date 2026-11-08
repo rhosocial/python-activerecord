@@ -59,6 +59,12 @@ from typing import Any, AsyncIterator, Callable, Dict, Iterator, List, Optional,
 
 from .resolver import resolve_named_expression
 
+from .defaults import (
+    DEFAULT_DIAGRAM_KIND,
+    DEFAULT_LOG_LEVEL,
+    DEFAULT_PROCEDURE_NAME,
+)
+
 
 def _coerce_param_value(value: Any, annotation: Any) -> Any:
     """Coerce a raw (CLI string) parameter value to the annotated type.
@@ -208,8 +214,8 @@ class ProcedureResult:
 
     def diagram(
         self,
-        kind: str = "flowchart",
-        procedure_name: str = "Procedure",
+        kind: str = DEFAULT_DIAGRAM_KIND,
+        procedure_name: str = DEFAULT_PROCEDURE_NAME,
     ) -> str:
         from .diagram import ProcedureDiagram
 
@@ -478,7 +484,7 @@ class ProcedureContext:
         else:
             self._bindings[name] = {"data": [data]}
 
-    def log(self, message: str, level: str = "INFO") -> None:
+    def log(self, message: str, level: str = DEFAULT_LOG_LEVEL) -> None:
         """Log a message from the procedure.
 
         Args:
@@ -807,7 +813,7 @@ class AsyncProcedureContext:
         else:
             self._bindings[name] = {"data": [data]}
 
-    async def log(self, message: str, level: str = "INFO") -> None:
+    async def log(self, message: str, level: str = DEFAULT_LOG_LEVEL) -> None:
         self._logs.append(LogEntry(level=level, message=message))
 
     async def abort(self, procedure_name: str, reason: str) -> None:
@@ -1022,7 +1028,7 @@ class Procedure:
         return params
 
     @classmethod
-    def static_diagram(cls, kind: str = "flowchart", dialect: Any = None) -> str:
+    def static_diagram(cls, kind: str = DEFAULT_DIAGRAM_KIND, dialect: Any = None) -> str:
         """Generate a static diagram without executing the procedure.
 
         This performs a dry-run to capture the procedure structure.
@@ -1137,7 +1143,7 @@ class AsyncProcedure:
         return params
 
     @classmethod
-    async def static_diagram(cls, kind: str = "flowchart", dialect: Any = None) -> str:
+    async def static_diagram(cls, kind: str = DEFAULT_DIAGRAM_KIND, dialect: Any = None) -> str:
         """Generate a static diagram without executing the procedure (async).
 
         Args:

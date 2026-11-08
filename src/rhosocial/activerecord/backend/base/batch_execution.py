@@ -73,6 +73,27 @@ DQLExpression = Union[
 ]
 
 
+#: How many rows one DQL page holds when the caller names none.
+#:
+#: The page is a memory decision rather than a semantic one: the page is
+#: fetched whole and yielded page by page, so a caller that does not say how
+#: much it wants at a time still gets a bounded fetch. Both the sync and the
+#: async executor fetch with the same page, because a cursor is a cursor and
+#: the two must answer one question the same way. Per
+#: ``.claude/rules/constants.md`` a value read from more than one function,
+#: where the readings must agree, takes a module-level constant and a test
+#: that pins it -- see
+#: ``tests/rhosocial/activerecord_test/feature/rules/test_shared_defaults.py``.
+DEFAULT_PAGE_SIZE: int = 1000
+
+#: How many expressions one DML batch processes when the caller names none.
+#:
+#: The batch is a transaction-shape decision: ``WHOLE`` wraps every batch in
+#: one transaction, so the size governs how much work sits inside a single
+#: commit. Both the sync and the async executor commit at the same boundary.
+DEFAULT_BATCH_SIZE: int = 100
+
+
 class BatchExecutionMixin:
     """
     Mixin for batch DML and DQL execution methods (synchronous).
@@ -91,7 +112,7 @@ class BatchExecutionMixin:
         self,
         expressions: HomogeneousDMLList,
         *,
-        batch_size: int = 100,
+        batch_size: int = DEFAULT_BATCH_SIZE,
         commit_mode: BatchCommitMode = BatchCommitMode.WHOLE,
         returning_columns: Optional[List[str]] = None,
         column_adapters: Optional[Dict] = None,
@@ -247,7 +268,7 @@ class BatchExecutionMixin:
         self,
         expression: DQLExpression,
         *,
-        page_size: int = 1000,
+        page_size: int = DEFAULT_PAGE_SIZE,
         column_adapters: Optional[Dict] = None,
         column_mapping: Optional[Dict] = None,
     ) -> Iterator[BatchDQLResult]:
@@ -619,7 +640,7 @@ class AsyncBatchExecutionMixin:
         self,
         expressions: HomogeneousDMLList,
         *,
-        batch_size: int = 100,
+        batch_size: int = DEFAULT_BATCH_SIZE,
         commit_mode: BatchCommitMode = BatchCommitMode.WHOLE,
         returning_columns: Optional[List[str]] = None,
         column_adapters: Optional[Dict] = None,
@@ -718,7 +739,7 @@ class AsyncBatchExecutionMixin:
         self,
         expression: DQLExpression,
         *,
-        page_size: int = 1000,
+        page_size: int = DEFAULT_PAGE_SIZE,
         column_adapters: Optional[Dict] = None,
         column_mapping: Optional[Dict] = None,
     ) -> AsyncIterator[BatchDQLResult]:

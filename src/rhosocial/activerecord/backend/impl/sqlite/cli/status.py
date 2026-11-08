@@ -10,9 +10,7 @@ from enum import Enum
 from rhosocial.activerecord.backend.introspection.status import StatusCategory
 
 from .connection import add_connection_args, create_backend
-from .output import create_provider, RICH_AVAILABLE
-
-OUTPUT_CHOICES = ["table", "json", "csv", "tsv"]
+from .output import OUTPUT_CHOICES, RICH_AVAILABLE, create_provider
 
 STATUS_TYPES = ["all", "config", "performance", "storage", "databases"]
 
@@ -233,6 +231,8 @@ def _display_status_rich(status, verbose: int = 0):
         storage_table.add_row("Total Size", _format_size(status.storage.total_size_bytes))
         if status.storage.data_size_bytes is not None:
             storage_table.add_row("Data Size", _format_size(status.storage.data_size_bytes))
+        if status.storage.free_space_bytes is not None:
+            storage_table.add_row("Free Space", _format_size(status.storage.free_space_bytes))
 
         console.print(storage_table)
         console.print()

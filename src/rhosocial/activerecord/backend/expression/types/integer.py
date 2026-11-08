@@ -14,7 +14,7 @@ linear chain cannot hold a (width x signedness) grid.
 
 from __future__ import annotations
 
-from ._base import DataType
+from ._base import DataType, UNSIGNED_PARAMETERS
 
 
 class TinyIntType(DataType):
@@ -32,7 +32,7 @@ class TinyIntType(DataType):
         self.unsigned = unsigned
         self.spelling = spelling
 
-    PARAMETERS = ("unsigned",)
+    PARAMETERS = UNSIGNED_PARAMETERS
 
 class SmallIntType(DataType):
     """SMALLINT / INT2 (16-bit)."""
@@ -49,7 +49,7 @@ class SmallIntType(DataType):
         self.unsigned = unsigned
         self.spelling = spelling
 
-    PARAMETERS = ("unsigned",)
+    PARAMETERS = UNSIGNED_PARAMETERS
 
 class IntegerType(DataType):
     """INTEGER / INT (32-bit).
@@ -79,7 +79,7 @@ class IntegerType(DataType):
         self.unsigned = unsigned
         self.spelling = spelling
 
-    PARAMETERS = ("unsigned",)
+    PARAMETERS = UNSIGNED_PARAMETERS
 
 class BigIntType(DataType):
     """BIGINT / INT8 (64-bit)."""
@@ -96,4 +96,4 @@ class BigIntType(DataType):
         self.unsigned = unsigned
         self.spelling = spelling
 
-    PARAMETERS = ("unsigned",)
+    PARAMETERS = UNSIGNED_PARAMETERS

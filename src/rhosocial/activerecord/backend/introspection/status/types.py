@@ -152,106 +152,6 @@ class SessionInfo:
 
 
 @dataclass
-class WALInfo:
-    """Write-Ahead Logging information.
-
-    Attributes:
-        wal_level: WAL level (minimal, replica, logical)
-        wal_size_bytes: Current WAL size in bytes
-        wal_files: Number of WAL files
-        checkpoint_count: Number of checkpoints
-        checkpoint_time: Time of last checkpoint
-        wal_write_rate: WAL write rate in bytes/second
-        wal_segments: Current number of WAL segments
-        extra: Additional backend-specific information
-    """
-
-    wal_level: Optional[str] = None
-    wal_size_bytes: Optional[int] = None
-    wal_files: Optional[int] = None
-    checkpoint_count: Optional[int] = None
-    checkpoint_time: Optional[str] = None
-    wal_write_rate: Optional[float] = None
-    wal_segments: Optional[int] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class ReplicationInfo:
-    """Replication status information.
-
-    Attributes:
-        is_primary: Whether this server is a primary/master
-        is_standby: Whether this server is a standby/replica
-        replication_slots: Number of replication slots
-        active_replications: Number of active replication connections
-        lag_bytes: Replication lag in bytes (for standby)
-        streaming: Whether streaming replication is active
-        extra: Additional backend-specific information
-    """
-
-    is_primary: Optional[bool] = None
-    is_standby: Optional[bool] = None
-    replication_slots: Optional[int] = None
-    active_replications: Optional[int] = None
-    lag_bytes: Optional[int] = None
-    streaming: Optional[bool] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class ArchiveInfo:
-    """Archive status information.
-
-    Attributes:
-        archive_mode: Archive mode (on, off, always)
-        archive_command: Archive command
-        archive_timeout: Archive timeout in seconds
-        archived_count: Number of archived WAL files
-        failed_count: Number of failed archive attempts
-        last_archived: Time of last archive
-        last_failed: Time of last failed archive
-        extra: Additional backend-specific information
-    """
-
-    archive_mode: Optional[str] = None
-    archive_command: Optional[str] = None
-    archive_timeout: Optional[int] = None
-    archived_count: Optional[int] = None
-    failed_count: Optional[int] = None
-    last_archived: Optional[str] = None
-    last_failed: Optional[str] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class SecurityInfo:
-    """Security-related status information.
-
-    Attributes:
-        ssl_enabled: Whether SSL is enabled
-        ssl_cert_file: SSL certificate file path
-        ssl_key_file: SSL key file path
-        ssl_ca_file: SSL CA file path
-        password_encryption: Password encryption method
-        auth_method: Authentication method
-        krb_enabled: Whether Kerberos is enabled
-        row_security: Row-level security status
-        extra: Additional backend-specific information
-    """
-
-    ssl_enabled: Optional[bool] = None
-    ssl_cert_file: Optional[str] = None
-    ssl_key_file: Optional[str] = None
-    ssl_ca_file: Optional[str] = None
-    password_encryption: Optional[str] = None
-    auth_method: Optional[str] = None
-    krb_enabled: Optional[bool] = None
-    row_security: Optional[bool] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
 class ExtensionInfo:
     """Installed extension information.
 
@@ -267,104 +167,6 @@ class ExtensionInfo:
     version: Optional[str] = None
     schema: Optional[str] = None
     description: Optional[str] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class InnoDBInfo:
-    """InnoDB storage engine information (MySQL specific).
-
-    Attributes:
-        buffer_pool_size: Buffer pool size in bytes
-        buffer_pool_instances: Number of buffer pool instances
-        buffer_pool_pages_total: Total pages in buffer pool
-        buffer_pool_pages_data: Data pages in buffer pool
-        buffer_pool_pages_dirty: Dirty pages in buffer pool
-        buffer_pool_pages_free: Free pages in buffer pool
-        buffer_pool_read_requests: Number of read requests
-        buffer_pool_reads: Number of reads from disk
-        buffer_pool_wait_free: Number of times had to wait for free page
-        log_waits: Number of log waits
-        log_write_requests: Number of log write requests
-        log_writes: Number of log writes
-        os_file_reads: Number of OS file reads
-        os_file_writes: Number of OS file writes
-        os_fsyncs: Number of OS fsyncs
-        row_lock_current_waits: Current row lock waits
-        row_lock_time: Total row lock time in ms
-        row_lock_time_avg: Average row lock time in ms
-        row_lock_waits: Number of row lock waits
-        rows_read: Rows read
-        rows_inserted: Rows inserted
-        rows_updated: Rows updated
-        rows_deleted: Rows deleted
-        data_reads: Data reads
-        data_writes: Data writes
-        data_read: Data read in bytes
-        data_written: Data written in bytes
-        extra: Additional backend-specific information
-    """
-
-    buffer_pool_size: Optional[int] = None
-    buffer_pool_instances: Optional[int] = None
-    buffer_pool_pages_total: Optional[int] = None
-    buffer_pool_pages_data: Optional[int] = None
-    buffer_pool_pages_dirty: Optional[int] = None
-    buffer_pool_pages_free: Optional[int] = None
-    buffer_pool_read_requests: Optional[int] = None
-    buffer_pool_reads: Optional[int] = None
-    buffer_pool_wait_free: Optional[int] = None
-    log_waits: Optional[int] = None
-    log_write_requests: Optional[int] = None
-    log_writes: Optional[int] = None
-    os_file_reads: Optional[int] = None
-    os_file_writes: Optional[int] = None
-    os_fsyncs: Optional[int] = None
-    row_lock_current_waits: Optional[int] = None
-    row_lock_time: Optional[int] = None
-    row_lock_time_avg: Optional[float] = None
-    row_lock_waits: Optional[int] = None
-    rows_read: Optional[int] = None
-    rows_inserted: Optional[int] = None
-    rows_updated: Optional[int] = None
-    rows_deleted: Optional[int] = None
-    data_reads: Optional[int] = None
-    data_writes: Optional[int] = None
-    data_read: Optional[int] = None
-    data_written: Optional[int] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class BinaryLogInfo:
-    """Binary log information (MySQL specific).
-
-    Attributes:
-        log_enabled: Whether binary logging is enabled
-        log_format: Binary log format (ROW, STATEMENT, MIXED)
-        log_files: List of binary log files
-        current_log_file: Current binary log file name
-        current_log_position: Current position in binary log
-        log_size_bytes: Total size of binary logs
-        gtid_mode: GTID mode (ON, OFF, ON_PERMISSIVE, OFF_PERMISSIVE)
-        gtid_executed: Executed GTID set
-        gtid_purged: Purged GTID set
-        binlog_rows_query_log_events: Whether rows query log events are enabled
-        binlog_checksum: Checksum algorithm used
-        extra: Additional backend-specific information
-    """
-
-    log_enabled: Optional[bool] = None
-    log_format: Optional[str] = None
-    log_files: List[str] = field(default_factory=list)
-    current_log_file: Optional[str] = None
-    current_log_position: Optional[int] = None
-    log_size_bytes: Optional[int] = None
-    gtid_mode: Optional[str] = None
-    gtid_executed: Optional[str] = None
-    gtid_purged: Optional[str] = None
-    binlog_rows_query_log_events: Optional[bool] = None
-    binlog_checksum: Optional[str] = None
     extra: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -396,122 +198,6 @@ class ProcessInfo:
 
 
 @dataclass
-class SlowQueryInfo:
-    """Slow query log configuration information (MySQL specific).
-
-    Attributes:
-        slow_query_log: Whether slow query log is enabled
-        slow_query_log_file: Slow query log file path
-        long_query_time: Threshold for slow queries in seconds
-        log_queries_not_using_indexes: Whether to log queries not using indexes
-        log_slow_admin_statements: Whether to log slow admin statements
-        log_slow_slave_statements: Whether to log slow slave statements
-        min_examined_row_limit: Minimum rows examined to be logged
-        slow_queries_count: Number of slow queries recorded
-        extra: Additional backend-specific information
-    """
-
-    slow_query_log: Optional[bool] = None
-    slow_query_log_file: Optional[str] = None
-    long_query_time: Optional[float] = None
-    log_queries_not_using_indexes: Optional[bool] = None
-    log_slow_admin_statements: Optional[bool] = None
-    log_slow_slave_statements: Optional[bool] = None
-    min_examined_row_limit: Optional[int] = None
-    slow_queries_count: Optional[int] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class ReplicationSlaveInfo:
-    """MySQL slave replication status information.
-
-    Attributes:
-        master_host: Master host
-        master_port: Master port
-        master_user: Master user
-        slave_io_running: Whether IO thread is running
-        slave_sql_running: Whether SQL thread is running
-        seconds_behind_master: Seconds behind master
-        master_log_file: Current master log file
-        read_master_log_pos: Position read from master log
-        relay_master_log_file: Relay master log file
-        slave_io_state: IO thread state
-        last_io_errno: Last IO error number
-        last_io_error: Last IO error message
-        last_sql_errno: Last SQL error number
-        last_sql_error: Last SQL error message
-        relay_log_file: Current relay log file
-        relay_log_pos: Position in relay log
-        exec_master_log_pos: Executed position in master log
-        extra: Additional backend-specific information
-    """
-
-    master_host: Optional[str] = None
-    master_port: Optional[int] = None
-    master_user: Optional[str] = None
-    slave_io_running: Optional[str] = None
-    slave_sql_running: Optional[str] = None
-    seconds_behind_master: Optional[int] = None
-    master_log_file: Optional[str] = None
-    read_master_log_pos: Optional[int] = None
-    relay_master_log_file: Optional[str] = None
-    slave_io_state: Optional[str] = None
-    last_io_errno: Optional[int] = None
-    last_io_error: Optional[str] = None
-    last_sql_errno: Optional[int] = None
-    last_sql_error: Optional[str] = None
-    relay_log_file: Optional[str] = None
-    relay_log_pos: Optional[int] = None
-    exec_master_log_pos: Optional[int] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class ReplicationMasterInfo:
-    """MySQL master replication status information.
-
-    Attributes:
-        binary_log_file: Current binary log file
-        binary_log_position: Current binary log position
-        binlog_do_db: Databases to replicate
-        binlog_ignore_db: Databases to ignore
-        gtid_executed: Executed GTID set
-        gtid_purged: Purged GTID set
-        extra: Additional backend-specific information
-    """
-
-    binary_log_file: Optional[str] = None
-    binary_log_position: Optional[int] = None
-    binlog_do_db: List[str] = field(default_factory=list)
-    binlog_ignore_db: List[str] = field(default_factory=list)
-    gtid_executed: Optional[str] = None
-    gtid_purged: Optional[str] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class MySQLReplicationInfo:
-    """MySQL replication status information (combines master and slave info).
-
-    Attributes:
-        is_master: Whether this server is a master
-        is_slave: Whether this server is a slave
-        server_id: Server ID
-        master_info: Master replication info (if this is a master)
-        slave_info: Slave replication info (if this is a slave)
-        extra: Additional backend-specific information
-    """
-
-    is_master: Optional[bool] = None
-    is_slave: Optional[bool] = None
-    server_id: Optional[int] = None
-    master_info: Optional[ReplicationMasterInfo] = None
-    slave_info: Optional[ReplicationSlaveInfo] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
 class ServerOverview:
     """Complete server status overview.
 
@@ -529,43 +215,28 @@ class ServerOverview:
         storage: Storage information
         databases: List of databases/schemas
         users: List of users/roles
-        wal: WAL information (PostgreSQL specific)
-        replication: Replication information (PostgreSQL specific)
-        archive: Archive information (PostgreSQL specific)
-        security: Security information
-        extensions: List of installed extensions (PostgreSQL specific)
-        innodb: InnoDB storage engine information — **MySQL only, ``None``
-            everywhere else**
-        binary_log: Binary log information — **MySQL only, ``None`` everywhere
-            else**
-        processes: List of current running processes (MySQL specific)
-        slow_query: Slow query log configuration — **MySQL only, ``None``
-            everywhere else**
-        mysql_replication: MySQL replication status — **MySQL only, ``None``
-            everywhere else**
+        processes: List of current running processes
+        extensions: List of installed extensions
         extra: Additional backend-specific information
 
-    **On the four MySQL-named slots.** They are declared here, so every
-    backend carries them, and on any other server they are permanently
-    ``None`` — a ClickHouse or Oracle or Firebird introspector cannot fill an
-    ``InnoDBInfo``, because that engine does not exist there. The name is a
-    false claim about the backend in the same way a prefixed dispatch key is a
-    false claim about a type: it asserts the backend has something it does not.
+    **Engine-level facts live in subclasses, not here.** The slots that used
+    to sit on this class -- ``wal``, ``replication``, ``archive``,
+    ``security`` on PostgreSQL's side, ``innodb``, ``binary_log``,
+    ``slow_query``, ``mysql_replication`` on MySQL's -- named families only
+    one engine answers, which asserted on every other backend that it had
+    something it does not have. They moved to their engines: an overview that
+    answers those families is a subclass of this one carrying its own typed
+    fields (``PostgreSQLServerOverview(ServerOverview)``,
+    ``MySQLServerOverview(ServerOverview)``), and ``get_overview()`` keeps
+    its core signature because the subclass is a legal covariant return.
+    ``to_dict()`` iterates the instance's fields rather than naming them, so
+    the subclass's facts serialize without being re-declared here.
 
-    Renaming them is a cross-repository API break — ``to_dict()`` would lose or
-    change those four keys, every ``get_overview()`` that passes them breaks,
-    and the ``cli/status.py`` of four backends reads them. That needs its own
-    change with its own release note, not a drive-by edit here.
-
-    Until then the rule is: **a backend must not name these at all.** The
-    ClickHouse introspector used to take an ``innodb: Optional[InnoDBInfo] =
-    None`` parameter and pass ``None`` on every call, which put the false claim
-    into a *signature* rather than only into this file; it no longer does, and
-    a test there asserts ``"innodb"`` is absent from the builder's local
-    variable names. A backend with its own engine-level facts puts them in
-    ``extra`` — ClickHouse's storage engines, Oracle's tablespaces, SQL
-    Server's filegroups — which is where a vendor-neutral shape belongs and
-    needs no new core field per vendor.
+    Facts that only one engine has are named typed fields on that engine's
+    subclass -- ClickHouse's storage engines, Oracle's tablespaces, SQL
+    Server's filegroups -- not ``extra`` entries: ``extra`` holds spellings
+    that map onto a core member (``.claude/rules/introspection.md`` §2, §5),
+    not a second family's fields.
     """
 
     server_version: str
@@ -578,16 +249,8 @@ class ServerOverview:
     storage: StorageInfo = field(default_factory=StorageInfo)
     databases: List[DatabaseBriefInfo] = field(default_factory=list)
     users: List[UserInfo] = field(default_factory=list)
-    wal: Optional[WALInfo] = None
-    replication: Optional[ReplicationInfo] = None
-    archive: Optional[ArchiveInfo] = None
-    security: Optional[SecurityInfo] = None
-    extensions: List[ExtensionInfo] = field(default_factory=list)
-    innodb: Optional[InnoDBInfo] = None
-    binary_log: Optional[BinaryLogInfo] = None
     processes: List[ProcessInfo] = field(default_factory=list)
-    slow_query: Optional[SlowQueryInfo] = None
-    mysql_replication: Optional[MySQLReplicationInfo] = None
+    extensions: List[ExtensionInfo] = field(default_factory=list)
     extra: Dict[str, Any] = field(default_factory=dict)
 
     def get_items_by_category(self, category: StatusCategory) -> List[StatusItem]:
@@ -605,31 +268,35 @@ class ServerOverview:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to a dictionary suitable for JSON serialization.
 
+        Field-driven on purpose: a backend's overview is a subclass of this
+        one carrying its own engine-level facts as typed fields, and this
+        method serializes whatever fields the instance actually has, so the
+        subclass's facts serialize without being re-declared here
+        (``.claude/rules/introspection.md`` §5).
+
         Returns:
             Dictionary representation of the server overview
         """
-        from dataclasses import asdict
+        from dataclasses import asdict, fields, is_dataclass
 
-        return {
-            "server_version": self.server_version,
-            "server_vendor": self.server_vendor,
-            "server_name": self.server_name,
-            "session": asdict(self.session) if self.session else None,
-            "configuration": [{**asdict(item), "category": item.category.value} for item in self.configuration],
-            "performance": [{**asdict(item), "category": item.category.value} for item in self.performance],
-            "connections": asdict(self.connections),
-            "storage": asdict(self.storage),
-            "databases": [asdict(db) for db in self.databases],
-            "users": [asdict(user) for user in self.users],
-            "wal": asdict(self.wal) if self.wal else None,
-            "replication": asdict(self.replication) if self.replication else None,
-            "archive": asdict(self.archive) if self.archive else None,
-            "security": asdict(self.security) if self.security else None,
-            "extensions": [asdict(ext) for ext in self.extensions],
-            "innodb": asdict(self.innodb) if self.innodb else None,
-            "binary_log": asdict(self.binary_log) if self.binary_log else None,
-            "processes": [asdict(proc) for proc in self.processes],
-            "slow_query": asdict(self.slow_query) if self.slow_query else None,
-            "mysql_replication": asdict(self.mysql_replication) if self.mysql_replication else None,
-            "extra": self.extra,
-        }
+        result: Dict[str, Any] = {}
+        for item_field in fields(self):
+            value = getattr(self, item_field.name)
+            if item_field.name in ("configuration", "performance"):
+                result[item_field.name] = [
+                    {**asdict(item), "category": item.category.value} for item in value
+                ]
+            elif isinstance(value, list):
+                result[item_field.name] = [
+                    (
+                        asdict(member)
+                        if is_dataclass(member) and not isinstance(member, type)
+                        else member
+                    )
+                    for member in value
+                ]
+            elif is_dataclass(value) and not isinstance(value, type):
+                result[item_field.name] = asdict(value)
+            else:
+                result[item_field.name] = value
+        return result

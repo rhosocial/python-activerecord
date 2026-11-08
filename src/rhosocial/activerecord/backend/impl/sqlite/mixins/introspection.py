@@ -6,27 +6,37 @@ This module provides the SQLiteIntrospectionCapabilityMixin class.
 """
 
 import re
+import sqlite3
+from functools import lru_cache
 from typing import List, Optional, Tuple, TYPE_CHECKING
+
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.introspection.types import ProfileSource
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression.introspection import (
-        DatabaseInfoQueryStatement,
-        TableListQueryStatement,
-        TableInfoQueryStatement,
+        ColumnDataProfileQueryStatement,
         ColumnInfoQueryStatement,
-        IndexInfoQueryStatement,
+        ColumnValueSampleQueryStatement,
+        DatabaseInfoQueryStatement,
         ForeignKeyQueryStatement,
-        ViewListQueryStatement,
-        ViewInfoQueryStatement,
-        TriggerListQueryStatement,
+        IndexInfoQueryStatement,
+        JoinCoverageQueryStatement,
+        TableInfoQueryStatement,
+        TableListQueryStatement,
         TriggerInfoQueryStatement,
+        TriggerListQueryStatement,
+        ViewInfoQueryStatement,
+        ViewListQueryStatement,
     )
     from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
         SQLiteIndexDdlStatement,
+        SQLiteIndexOwnerStatement,
         SQLitePragmaQueryStatement,
         SQLitePragmaSetStatement,
         SQLiteTableCountStatement,
         SQLiteTableDdlStatement,
+        SQLiteTableStorageStatement,
     )
     from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
 
@@ -36,6 +46,30 @@ if TYPE_CHECKING:
 #: written as an escaped string literal, which is the form that cannot carry
 #: statement text into the assignment.
 _PRAGMA_VALUE_TOKEN = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_+\-.]*")
+
+
+@lru_cache(maxsize=1)
+def _dbstat_compiled_in() -> bool:
+    """Whether the linked SQLite library was built with the ``dbstat`` table.
+
+    ``PRAGMA compile_options`` names ``ENABLE_DBSTAT_VTAB`` when it was, and
+    the library is the same one every connection in this process opens -- so a
+    throwaway in-memory connection answers for all of them. The answer is
+    cached because a compile-time fact does not change under a running
+    process, and answering it raises no exception outward: a build that cannot
+    answer is a build without the table, which is what ``False`` says.
+    """
+    try:
+        connection = sqlite3.connect(":memory:")
+    except sqlite3.Error:  # pragma: no cover - a library that cannot open
+        return False
+    try:
+        options = connection.execute("PRAGMA compile_options").fetchall()
+        return any("ENABLE_DBSTAT_VTAB" in str(row[0]) for row in options)
+    except sqlite3.Error:  # pragma: no cover - a pragma that cannot answer
+        return False
+    finally:
+        connection.close()
 
 
 class SQLiteIntrospectionCapabilityMixin:
@@ -115,7 +149,14 @@ class SQLiteIntrospectionCapabilityMixin:
         return False
 
     def supports_unused_indexes_detection(self) -> bool:
-        """SQLite does not support unused indexes detection."""
+        """SQLite keeps no per-index use counter, so it cannot report one.
+
+        Not "SQLite has no indexes" -- ``PRAGMA index_list`` answers those. It
+        has no statistic to derive "never served a query" from: the query
+        planner does not maintain per-index counters, and ``sqlite_stat1`` is
+        a table-size estimator, not a use record. Answering ``True`` here would
+        promise a number that does not exist.
+        """
         return False
 
     # ========== Structure Information ==========
@@ -129,13 +170,78 @@ class SQLiteIntrospectionCapabilityMixin:
         return False
 
     def supports_extensions(self) -> bool:
-        """SQLite supports extension introspection via pragma_module_list."""
-        return True
+        """SQLite has registered virtual table modules (``PRAGMA module_list``) but does not expose them.
+
+        It used to answer ``True`` on the strength of that pragma alone, with
+        no query formatting, no result type and no CLI type behind it -- a
+        caller was promised an answer it could not get, which is worse than
+        ``False``. ``False`` until the listing exists; when it does, the
+        engine's own name for it (``supports_module_introspection``) is the
+        honest one, because "module" and PostgreSQL's "extension" are not the
+        same thing and this dialect should not be read as claiming they are.
+        """
+        return False
+
+    def supports_table_storage_introspection(self) -> bool:
+        """Whether per-table storage metrics introspection is supported.
+
+        The answer is the ``dbstat`` virtual table, which is a compile-time
+        option (``SQLITE_ENABLE_DBSTAT_VTAB``) rather than a version: a build
+        without it has no page-level facts to report, and the honest answer
+        is False rather than a storage list of zeroes.
+        """
+        return _dbstat_compiled_in()
 
     # ========== DDL Extraction ==========
 
     def supports_ddl_extraction(self) -> bool:
-        """SQLite supports DDL extraction via sqlite_master."""
+        """SQLite cannot yet read back the DDL of an object.
+
+        ``sqlite_master`` does keep the statement text each object was declared
+        with, so the raw material is there -- but there is no
+        ``format_ddl_statement_query_statement`` behind this probe, so a
+        ``True`` here promised an answer that resolved to the protocol stub
+        and raised ``ProtocolNotImplementedError`` at the caller. A probe
+        answered ``True`` with nothing behind it is worse than a ``False``: the
+        caller believes it asked a question and got a refusal instead of an
+        answer.
+
+        ``False`` until a formatter exists. Unlike PostgreSQL and MySQL, which
+        assemble a faithful ``CREATE TABLE`` from the catalogue and mark the
+        assembly ``native=False``, SQLite has no such assembly written -- and
+        inventing one that cannot reproduce storage constraints, virtual-table
+        options or a trigger body would read as authoritative when it is not.
+        """
+        return False
+
+    def supports_column_data_profile(self) -> bool:
+        """SQLite answers a column data profile by aggregating the rows.
+
+        There is no statistics catalogue to read: ``sqlite_stat1`` is a
+        table-size estimator, not a per-column profile. So the answer is exact
+        and paid for in time, which is why the result must be labelled
+        ``AGGREGATE`` rather than left to look like an estimate.
+        """
+        return True
+
+    def supports_column_value_sample(self) -> bool:
+        """SQLite answers a value listing by aggregating with a limit.
+
+        Nothing is precomputed, so this costs a grouped scan -- the same order
+        as the profile itself, which is why the two are separate probes rather
+        than one call that would force the cheap half to pay for the dear one.
+        """
+        return True
+
+    def supports_join_coverage(self) -> bool:
+        """SQLite answers overlap by counting distinct values on both sides.
+
+        Exact, and paid for with two scans plus an intersection. Answering
+        ``True`` is right because the probe asks whether the engine *can*
+        answer, not whether it can answer cheaply -- the cost belongs in the
+        docstring, not in a False that would claim SQLite cannot measure its
+        own rows.
+        """
         return True
 
     def supports_ddl_extraction_native(self) -> bool:
@@ -335,7 +441,7 @@ class SQLiteIntrospectionCapabilityMixin:
 
         return self.sqlite_master_query(
             expr.schema or "main",
-            [count(self, "*", alias="table_count")],
+            [count(self, alias="table_count")],
             [
                 ComparisonPredicate(
                     self, "eq", Column(self, "type"), Literal(self, "table", inline=True)
@@ -401,6 +507,76 @@ class SQLiteIntrospectionCapabilityMixin:
                 ),
                 ComparisonPredicate(self, "eq", Column(self, "name"), Literal(self, expr.index_name)),
             ],
+        )
+
+    def format_table_storage_statement(
+        self, expr: "SQLiteTableStorageStatement"
+    ) -> Tuple[str, tuple]:
+        """Format the per-page storage question the ``dbstat`` table answers.
+
+        The rows come back one per page -- ``name`` naming the btree and
+        ``pgsize`` its size -- because the reduction to one byte count per
+        btree belongs to the parser, which attributes index pages to their
+        owning table in the same pass. No ``WHERE`` and no aggregation are
+        asked of the engine: the question is "what exists", and the answer's
+        meaning is decided in Python.
+
+        Raises:
+            UnsupportedFeatureError: If this SQLite build has no ``dbstat``.
+        """
+        if not self.supports_table_storage_introspection():
+            raise UnsupportedFeatureError(self.name, "table storage introspection")
+
+        from rhosocial.activerecord.backend.expression import Column, QueryStatement
+        from rhosocial.activerecord.backend.expression.sources.relation import (
+            NamedRelationRef,
+        )
+        from ..expression import SQLiteTable
+
+        return QueryStatement(
+            self,
+            select=[Column(self, "name"), Column(self, "pgsize")],
+            from_=NamedRelationRef(
+                self,
+                SQLiteTable(
+                    self,
+                    "dbstat",
+                    schema_name=expr.schema or "main",
+                    schema_need_quote=False,
+                    name_need_quote=False,
+                ),
+            ),
+        ).to_sql()
+
+    def format_index_owner_statement(self, expr: "SQLiteIndexOwnerStatement") -> Tuple[str, tuple]:
+        """Format the question that attributes each index to its table.
+
+        ``sqlite_master`` is read once for the whole database: the mapping is
+        a catalogue fact, and the storage reducer needs every entry rather
+        than one table's, so the per-table PRAGMA would ask the same question
+        once per table.
+
+        Args:
+            expr: The index-ownership question.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        from rhosocial.activerecord.backend.expression import (
+            Column,
+            ComparisonPredicate,
+            Literal,
+        )
+
+        return self.sqlite_master_query(
+            expr.schema or "main",
+            [Column(self, "name"), Column(self, "tbl_name")],
+            [
+                ComparisonPredicate(
+                    self, "eq", Column(self, "type"), Literal(self, "index", inline=True)
+                ),
+            ],
+            [Column(self, "name")],
         )
 
     def format_table_list_query_statement(self, expr: "TableListQueryStatement") -> Tuple[str, tuple]:
@@ -732,3 +908,350 @@ class SQLiteIntrospectionCapabilityMixin:
             conditions,
         )
 
+    # ========== Data Profiles (row-shaped answers) ==========
+
+    def _user_relation(self, table_name: str, schema: "Optional[str]", alias: "Optional[str]" = None):
+        """A user table as a FROM source, quoted by this dialect.
+
+        The opposite of :meth:`sqlite_master_query`'s catalogue relation: a
+        user table is whatever its owner declared -- mixed case, a space, a
+        reserved word -- so its name and its database are left to the
+        dialect's identifier renderer. The database is the attached name
+        SQLite calls a schema, which is why it rides on
+        :class:`~...expression.table.SQLiteTable` rather than being spelled
+        here. The alias is optional, and is what tells the two sides of a
+        coverage measurement apart.
+        """
+        from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+        from ..expression import SQLiteTable
+
+        return NamedRelationRef(
+            self, SQLiteTable(self, table_name, schema_name=schema), alias=alias
+        )
+
+    def _profile_label(self, text: "Optional[str]", alias: str):
+        """A constant label as a named select-list entry.
+
+        ``Literal`` is deliberately unaliasable -- a value has nothing to name
+        (see :class:`~...expression.core.Literal`) -- so the constant is cast
+        to text, which is the smallest node in the tree that produces a named
+        result. The cast is not there for its type: it is there so the label
+        can be called ``column_name`` or ``source``, which is what the parser
+        reads. ``None`` is the same node carrying SQL NULL, which is how the
+        empty profile says "the column name is absent" without inventing one.
+        """
+        from rhosocial.activerecord.backend.expression.core import (
+            CastExpression,
+            Literal,
+        )
+        from rhosocial.activerecord.backend.expression.types.string import CharType
+
+        return CastExpression(self, Literal(self, text, inline=True), CharType(self), alias=alias)
+
+    def _profile_arm(self, table_name: str, schema: "Optional[str]", column_name: str):
+        """One column's arm of the profile, as a node.
+
+        The seven entries are the family's contract: the column's own name,
+        the null count, the distinct count, the two endpoints, the row count
+        the parser divides by, and the provenance. The null count is a ``SUM``
+        over a ``CASE`` so an empty table answers NULL rather than a
+        fabricated zero; the distinct count is ``COUNT(DISTINCT ...)``; the
+        endpoints are the engine's own ``MIN``/``MAX``; and ``COUNT(*)`` rides
+        the same scan, so an arm reads its table once.
+
+        ``COUNT(*)`` and the null count share a scan because they are two
+        halves of one fraction: the parser divides one by the other, and
+        reading the same table twice to get them would double the cost of the
+        cheapest part of the answer.
+        """
+        from rhosocial.activerecord.backend.expression import (
+            CaseExpression,
+            Column,
+            CountFunction,
+            FunctionCall,
+            IsNullPredicate,
+            Literal,
+            QueryStatement,
+            RowCountWildcard,
+            SumFunction,
+        )
+
+        column = Column(self, column_name)
+        return QueryStatement(
+            self,
+            select=[
+                self._profile_label(column_name, "column_name"),
+                SumFunction(
+                    self,
+                    CaseExpression(
+                        self,
+                        cases=[
+                            (
+                                IsNullPredicate(self, column),
+                                Literal(self, 1, inline=True),
+                            )
+                        ],
+                        else_result=Literal(self, 0, inline=True),
+                    ),
+                ).as_("null_count"),
+                CountFunction(self, column, distinct=True).as_("distinct_count"),
+                FunctionCall(self, "MIN", column).as_("min_value"),
+                FunctionCall(self, "MAX", column).as_("max_value"),
+                CountFunction(self, RowCountWildcard(self)).as_("row_count"),
+                # The provenance travels in the data, not in a docstring: a
+                # consumer comparing a SQLite profile with a PostgreSQL one
+                # must be able to tell an exact count from a sampled estimate
+                # without knowing which engine it asked. The word is the enum
+                # member's own spelling, so the closed set has one source.
+                self._profile_label(ProfileSource.AGGREGATE.value, "source"),
+            ],
+            from_=self._user_relation(table_name, schema),
+        )
+
+    def format_column_data_profile_query_statement(
+        self, expr: "ColumnDataProfileQueryStatement"
+    ) -> Tuple[str, tuple]:
+        """Format a per-column profile by aggregating the rows themselves.
+
+        SQLite has no statistics catalogue to read, so the answer is exact
+        and paid for in time -- which is why the result must be labelled
+        ``AGGREGATE`` rather than left to look like an estimate. That labelling
+        is the caller's, from ``source``.
+
+        One ``UNION ALL`` arm per column, over the column list the expression
+        carries: SQL cannot pivot ``SUM(col IS NULL)`` across columns it was
+        never told about, so an aggregating dialect genuinely needs that list
+        where a catalogue-based one does not.
+
+        ``null_count`` rather than a fraction: dividing by a row count that
+        may legitimately be zero belongs in the parser, not in a SQL expression
+        that would then have to guard against it.
+
+        An empty column list answers with no rows. That case cannot arise from
+        a real table -- SQLite requires at least one column -- but the branch
+        has to render, so it is a statement that selects no rows rather than a
+        special-case string.
+        """
+        params = expr.get_params()
+        table_name = params.get("table_name")
+        schema = params.get("schema")
+
+        arms = [self._profile_arm(table_name, schema, name) for name in expr.columns]
+        if not arms:
+            # No arm to join: a projection of NULL with a predicate that
+            # cannot hold, which is what "no columns" answers as.
+            from rhosocial.activerecord.backend.expression import (
+                ComparisonPredicate,
+                Literal,
+                QueryStatement,
+                WhereClause,
+            )
+
+            return QueryStatement(
+                self,
+                select=[self._profile_label(None, "column_name")],
+                where=WhereClause(
+                    self,
+                    ComparisonPredicate(
+                        self,
+                        "eq",
+                        Literal(self, 0, inline=True),
+                        Literal(self, 1, inline=True),
+                    ),
+                ),
+            ).to_sql()
+
+        # Every arm is a real QueryStatement, so the compound question is one
+        # node rather than a join of rendered text: the operator word is the
+        # dialect's, and the projection, identifiers and parameters of each
+        # arm stay with the renderer that owns them.
+        from rhosocial.activerecord.backend.expression.query_sources import (
+            SetOperationKind,
+        )
+        from rhosocial.activerecord.backend.expression.statements import (
+            SetOperationStatement,
+        )
+
+        return SetOperationStatement(
+            self, op=SetOperationKind.UNION_ALL, parts=arms
+        ).to_sql()
+
+    def format_column_value_sample_query_statement(
+        self, expr: "ColumnValueSampleQueryStatement"
+    ) -> Tuple[str, tuple]:
+        """Format a most-frequent-values listing with a grouped scan.
+
+        Nothing is precomputed in SQLite, so this costs a ``GROUP BY`` over the
+        column plus a sort of the groups -- the same order as the profile
+        itself, which is why the two are separate probes rather than one call
+        that would make the cheap half pay for the dear one.
+
+        ``ORDER BY COUNT(*) DESC`` is what makes the answer "the most frequent
+        values" rather than "the first values"; ties break by the value so two
+        runs of the same query agree. The ``LIMIT`` is a bind parameter, as it
+        is everywhere else in this dialect: keeping it bound means the
+        caller's integer is never spliced into statement text, and SQLite
+        accepts the placeholder once it reaches it as a number.
+        """
+        from rhosocial.activerecord.backend.expression import (
+            Column,
+            CountFunction,
+            GroupByHavingClause,
+            LimitOffsetClause,
+            OrderByClause,
+            QueryStatement,
+            RowCountWildcard,
+        )
+
+        column = Column(self, expr.column_name)
+        return QueryStatement(
+            self,
+            select=[
+                column.as_("value"),
+                CountFunction(self, RowCountWildcard(self)).as_("count"),
+            ],
+            from_=self._user_relation(expr.table_name, expr.schema),
+            group_by_having=GroupByHavingClause(
+                self, group_by=[Column(self, expr.column_name)]
+            ),
+            order_by=OrderByClause(
+                self,
+                expressions=[
+                    (CountFunction(self, RowCountWildcard(self)), "DESC"),
+                    (Column(self, expr.column_name), "ASC"),
+                ],
+            ),
+            limit_offset=LimitOffsetClause(self, limit=int(expr.limit)),
+        ).to_sql()
+
+    def _coverage_fraction(self, column, source, other_column, other_source):
+        """One side of the overlap: the share of *column* the other side holds.
+
+        The numerator counts the *distinct* values of *column* that also occur
+        in *other_column*, as a ``COUNT(*)`` over a derived table of those
+        distinct values; the denominator counts *column*'s distinct non-NULL
+        values. Distinct on both sides is what makes the figure a coverage of
+        values rather than of rows -- a key repeated a thousand times that
+        matches once would otherwise read as well covered.
+
+        ``IS NOT NULL`` is written on both halves rather than relied upon. In
+        the numerator it is load-bearing: ``SELECT DISTINCT`` treats a NULL as
+        one value, so counting it would credit the tested side with a match it
+        does not have. In the divisor ``COUNT(DISTINCT ...)`` skips NULLs on
+        its own, but the statement says so explicitly, because the share is of
+        the values that could join and that is the fact being measured.
+        ``NULLIF(..., 0)`` then makes a column with no value at all answer
+        NULL rather than 0, which the parser reads as "no measurement": the
+        difference between "nothing matched" and "nothing to match" survives
+        to the caller.
+
+        ``* 1.0`` is load-bearing on this engine, unlike MySQL's version of
+        this method: SQLite divides integers by truncation, so
+        ``COUNT(*) / COUNT(...)`` would answer 0 for every share below one.
+        """
+        from rhosocial.activerecord.backend.expression import (
+            CountFunction,
+            FunctionCall,
+            InPredicate,
+            Literal,
+            LogicalPredicate,
+            QueryStatement,
+            RowCountWildcard,
+            SelectModifier,
+            Subquery,
+            WhereClause,
+        )
+        from rhosocial.activerecord.backend.expression.sources import DerivedTableSource
+
+        overlap = QueryStatement(
+            self,
+            select=[column],
+            from_=source,
+            where=WhereClause(
+                self,
+                LogicalPredicate(
+                    self,
+                    "AND",
+                    column.is_not_null(),
+                    InPredicate(
+                        self,
+                        column,
+                        Subquery(
+                            self,
+                            QueryStatement(
+                                self,
+                                select=[other_column],
+                                from_=other_source,
+                                where=WhereClause(self, other_column.is_not_null()),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            select_modifier=SelectModifier.DISTINCT,
+        )
+        covered = Subquery(
+            self,
+            QueryStatement(
+                self,
+                select=[CountFunction(self, RowCountWildcard(self))],
+                from_=DerivedTableSource(self, overlap, alias="covered"),
+            ),
+        )
+        total = Subquery(
+            self,
+            QueryStatement(
+                self,
+                select=[
+                    FunctionCall(
+                        self,
+                        "NULLIF",
+                        CountFunction(self, column, distinct=True),
+                        Literal(self, 0, inline=True),
+                    )
+                ],
+                from_=source,
+                where=WhereClause(self, column.is_not_null()),
+            ),
+        )
+        return (covered * Literal(self, 1.0, inline=True)) / total
+
+    def format_join_coverage_query_statement(
+        self, expr: "JoinCoverageQueryStatement"
+    ) -> Tuple[str, tuple]:
+        """Format a two-sided coverage measurement over distinct values.
+
+        Both sides are counted as *distinct values*, not rows: a heavily
+        repeated key that matches once would otherwise look well covered.
+
+        NULLs are excluded from both numerators and denominators, because a
+        NULL is not a value that could ever join -- counting it would drag
+        coverage down for a reason that has nothing to do with the join.
+
+        Two subqueries in one row rather than two round trips: the two
+        fractions are only meaningful together.
+
+        The aliases ``l`` and ``r`` are what keep the two columns apart in the
+        rendered statement, and they are quoted like every other identifier.
+        """
+        from rhosocial.activerecord.backend.expression import Column, QueryStatement
+
+        params = expr.get_params()
+        schema = params.get("schema")
+
+        left_source = self._user_relation(params.get("left_table"), schema, alias="l")
+        right_source = self._user_relation(params.get("right_table"), schema, alias="r")
+        left_column = Column(self, params.get("left_column"), table="l")
+        right_column = Column(self, params.get("right_column"), table="r")
+
+        return QueryStatement(
+            self,
+            select=[
+                self._coverage_fraction(
+                    left_column, left_source, right_column, right_source
+                ).as_("left_coverage"),
+                self._coverage_fraction(
+                    right_column, right_source, left_column, left_source
+                ).as_("right_coverage"),
+            ],
+        ).to_sql()

@@ -15,6 +15,20 @@ from ..backend.expression.objects import Table
 from ..backend.expression.sources import NamedRelationRef
 
 
+#: The column a count names when the caller names none: every row.
+#:
+#: ``COUNT(*)`` answers "how many rows are there", which is a different
+#: question from "how many rows have this column set", and the wildcard is
+#: what marks the difference. The sync and the async ``count()`` both offer
+#: it, and the parity rule (``dev-sync-async-parity``) requires them to
+#: answer alike, so the wildcard is defined once and both twins read it.
+#: Per ``.claude/rules/constants.md`` a value read from more than one
+#: function, where the readings must agree, takes a module-level constant and
+#: a test that pins it -- see
+#: ``tests/rhosocial/activerecord_test/feature/rules/test_shared_defaults.py``.
+COUNT_ALL_COLUMNS: str = "*"
+
+
 class AggregateQueryMixin:
     """Query mixin for aggregation operations that access the database.
 
@@ -33,7 +47,10 @@ class AggregateQueryMixin:
     """
 
     def count(
-        self, column: Union[str, BaseExpression] = "*", is_distinct: bool = False, alias: Optional[str] = None
+        self,
+        column: Union[str, BaseExpression] = COUNT_ALL_COLUMNS,
+        is_distinct: bool = False,
+        alias: Optional[str] = None,
     ) -> int:
         """Simple aggregation function that returns a scalar count value when used at the end of a method chain.
 
@@ -422,7 +439,10 @@ class AsyncAggregateQueryMixin:
     """Asynchronous query mixin for aggregation operations."""
 
     async def count(
-        self, column: Union[str, BaseExpression] = "*", is_distinct: bool = False, alias: Optional[str] = None
+        self,
+        column: Union[str, BaseExpression] = COUNT_ALL_COLUMNS,
+        is_distinct: bool = False,
+        alias: Optional[str] = None,
     ) -> int:
         """Simple asynchronous aggregation function that returns a scalar count value
         when used at the end of a method chain.

@@ -6,6 +6,7 @@ from typing import List, Union, Type, Optional, Iterable
 from ..interface import IQuery, IActiveRecord
 from ..backend.expression import SQLPredicate, RawSQLPredicate, JoinExpression
 from ..backend.expression.objects import Table
+from ..backend.expression.query_parts import DEFAULT_JOIN_TYPE
 from ..backend.expression.sources import NamedRelationRef
 from .utils import convert_qmark_placeholder
 
@@ -225,7 +226,7 @@ class JoinQueryMixin:
     def natural_join(
         self,
         right: Union[str, Type["IActiveRecord"], NamedRelationRef],
-        join_type: str = "JOIN",
+        join_type: str = DEFAULT_JOIN_TYPE,
         alias: Optional[str] = None,
     ) -> "IQuery[IActiveRecord]":
         """

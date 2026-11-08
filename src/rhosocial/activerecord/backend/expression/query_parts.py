@@ -70,6 +70,20 @@ _JOIN_PHRASES = {
 #: the phrase keeps them working while the artifact sees only the word.
 _JOIN_PHRASE_TO_TYPE = {phrase: member for member, phrase in _JOIN_PHRASES.items()}
 
+#: The join type used when the caller names none.
+#:
+#: ``JOIN`` is the plain inner join SQL spells without a qualifier. The join
+#: clause owns the question -- it is the node the dialect renders -- and the
+#: query layer's ``natural_join`` and the clause's own ``join()`` both forward
+#: their callers' choices to it. The value is read off :data:`_JOIN_PHRASES`
+#: rather than written a second time, so the spelling of every phrase stays in
+#: the one table that already decides it. Per
+#: ``.claude/rules/constants.md`` a value read from more than one function,
+#: where the readings must agree, takes a module-level constant and a test that
+#: pins it -- see
+#: ``tests/rhosocial/activerecord_test/feature/rules/test_shared_defaults.py``.
+DEFAULT_JOIN_TYPE: str = _JOIN_PHRASES[JoinType.JOIN]
+
 
 def normalize_join_type(join_type: Any) -> JoinType:
     """Resolve *join_type* to a :class:`JoinType`.
@@ -673,7 +687,7 @@ class JoinClause(AliasableMixin, TableSource, BaseExpression):
         dialect: "SQLDialectBase",
         left_table: Union[str, "NamedRelationRef", "Subquery", "QueryStatement", "JoinClause"],
         right_table: Union[str, "NamedRelationRef", "Subquery", "QueryStatement", "JoinClause"],
-        join_type: str = "JOIN",
+        join_type: str = DEFAULT_JOIN_TYPE,
         condition: Optional[
             "SQLPredicate"
         ] = None,  # ON condition (mutually exclusive with 'using')
@@ -745,7 +759,7 @@ class JoinClause(AliasableMixin, TableSource, BaseExpression):
     def join(
         self,
         right_table: Union[str, "NamedRelationRef", "Subquery", "QueryStatement", "JoinClause"],
-        join_type: str = "JOIN",
+        join_type: str = DEFAULT_JOIN_TYPE,
         condition: Optional["SQLPredicate"] = None,
         using: Optional[List[str]] = None,
         natural: bool = False,

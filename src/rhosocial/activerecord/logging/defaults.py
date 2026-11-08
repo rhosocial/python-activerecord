@@ -7,11 +7,8 @@ from typing import Optional
 from .config import LoggingConfig
 
 _ROOT_LOGGER = "rhosocial.activerecord"
-_LOGGER_MODEL = "rhosocial.activerecord.model"
-_LOGGER_BACKEND = "rhosocial.activerecord.backend"
 _LOGGER_QUERY = "rhosocial.activerecord.query"
 _LOGGER_TRANSACTION = "rhosocial.activerecord.transaction"
-_LOGGER_WORKER = "rhosocial.activerecord.worker"
 _LOGGER_CONNECTION = "rhosocial.activerecord.connection"
 
 _default_logging_config = LoggingConfig()

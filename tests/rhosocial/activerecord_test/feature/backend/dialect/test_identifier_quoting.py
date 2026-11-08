@@ -81,6 +81,46 @@ class TestSQLDialectBaseIdentifierQuoting:
         d = SQLiteDialect()
         assert len(d.reserved_words) > 0
 
+    def test_the_dialect_answers_from_the_word_set_the_module_publishes(self):
+        """The dialect's copy is the module's table, and the copy answers.
+
+        ``SQLITE_RESERVED_WORDS`` is loaded once, into ``self._reserved_words``,
+        and everything afterwards reads the attribute -- so the name itself is
+        read once while the value it holds is read on every identifier the
+        dialect quotes. Counting reads counts names, not values, and this is the
+        shape that under-counts: what has to be guaranteed is that the dialect's
+        own set is the published one and that it answers for the words in it.
+        """
+        from rhosocial.activerecord.backend.impl.sqlite.reserved_words import (
+            SQLITE_RESERVED_WORDS,
+        )
+
+        d = SQLiteDialect()
+        assert d.reserved_words == SQLITE_RESERVED_WORDS
+        assert "select" in SQLITE_RESERVED_WORDS
+        assert d.is_reserved_word("SELECT") is True
+
+    def test_every_published_word_answers_through_the_dialects_copy(self):
+        """A word in the table the dialect would not refuse is not reserved.
+
+        The set is what decides whether an identifier gets quoted, so an entry
+        the copy does not answer for is an entry that silently stops protecting
+        the identifier spelled with it.
+        """
+        from rhosocial.activerecord.backend.impl.sqlite.reserved_words import (
+            SQLITE_RESERVED_WORDS,
+        )
+
+        d = SQLiteDialect()
+        assert d.reserved_words, "the reserved word set is empty"
+        unanswerable = sorted(
+            word for word in SQLITE_RESERVED_WORDS if not d.is_reserved_word(word)
+        )
+        assert not unanswerable, (
+            f"published as reserved but not answered by the dialect's own set: "
+            f"{unanswerable}"
+        )
+
     def test_is_reserved_word_case_insensitive(self):
         d = SQLiteDialect()
         assert d.is_reserved_word("SELECT") is True

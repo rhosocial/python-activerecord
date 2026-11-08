@@ -1,7 +1,6 @@
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnPrimaryKeyConstraint,
 )
-from .....expression.objects import Table
 from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
     SQLiteIntegerType,
     SQLiteTextType,
@@ -12,6 +11,8 @@ from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     ColumnConstraint,
     DropTableStatement,
 )
+from .....expression.objects import Table
+from ..defaults import DEFAULT_CUSTOM_TABLE_NAME
 # src/rhosocial/activerecord/backend/impl/sqlite/examples/named_migrations/expressions.py
 """
 DDL named expression functions for migration examples.
@@ -19,8 +20,6 @@ DDL named expression functions for migration examples.
 Each function receives a *dialect* and returns a DDL expression object.
 These are the building blocks used by NamedMigration up()/down() methods.
 """
-
-
 
 
 def create_users_table(dialect):
@@ -67,7 +66,7 @@ def drop_posts_table(dialect):
     return DropTableStatement(dialect, table=Table(dialect, 'posts'), if_exists=True)
 
 
-def create_custom_table(dialect, table_name: str = "custom_table"):
+def create_custom_table(dialect, table_name: str = DEFAULT_CUSTOM_TABLE_NAME):
     """CREATE TABLE <table_name> (id INTEGER PRIMARY KEY, value TEXT).
 
     This expression accepts an extra ``table_name`` parameter, allowing
@@ -87,6 +86,6 @@ def create_custom_table(dialect, table_name: str = "custom_table"):
     )
 
 
-def drop_custom_table(dialect, table_name: str = "custom_table"):
+def drop_custom_table(dialect, table_name: str = DEFAULT_CUSTOM_TABLE_NAME):
     """DROP TABLE IF EXISTS <table_name>."""
     return DropTableStatement(dialect, table=Table(dialect, table_name), if_exists=True)

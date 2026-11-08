@@ -92,7 +92,13 @@ class IntrospectionMixin:
         return False
 
     def supports_unused_indexes_detection(self) -> bool:
-        """Whether unused indexes detection is supported. Defaults to False."""
+        """Whether unused indexes detection is supported. Defaults to False.
+
+        Answering ``True`` obliges ``format_unused_indexes_query_statement``
+        to render. What "unused" means is the backend's to state: counters
+        reset, views cover only the statistics they can see, and an index
+        missing from the answer is absence of evidence, never proof of use.
+        """
         return False
 
     # ========== Structure Information ==========
@@ -106,7 +112,50 @@ class IntrospectionMixin:
         return False
 
     def supports_extensions(self) -> bool:
-        """Whether installed extensions introspection is supported. Defaults to False."""
+        """Whether this engine exposes a catalogue of installed add-on components.
+
+        Defaults to ``False``. ``extension`` is not SQL-standard vocabulary and
+        the concept differs per engine -- PostgreSQL's are ``CREATE EXTENSION``
+        packages with a version and a schema, SQLite's are registered virtual
+        table modules -- so a ``True`` promises that the engine *will answer*,
+        not *what shape the answer takes*. Read the backend's own docs and
+        result type before relying on any field; see
+        :class:`~...protocols.introspect.introspection.IntrospectionSupport`
+        for why the name stays in core despite that.
+        """
+        return False
+
+    def supports_table_storage_introspection(self) -> bool:
+        """Whether per-table storage metrics introspection is supported. Defaults to False."""
+        return False
+
+    def supports_column_data_profile(self) -> bool:
+        """Whether a column's *data* can be profiled. Defaults to False.
+
+        Answering ``True`` obliges
+        ``format_column_data_profile_query_statement`` to render, and the
+        answer to carry provenance: an estimate from a statistics catalogue and
+        an exact count are different facts wearing the same slot name.
+        """
+        return False
+
+    def supports_column_value_sample(self) -> bool:
+        """Whether a column's most frequent values are answerable. Defaults to False.
+
+        Kept apart from the data profile because the two cost differently on
+        every engine: a catalogue answers the profile for free, while a value
+        listing either comes from a kept ``most_common_vals`` list or has to
+        aggregate.
+        """
+        return False
+
+    def supports_join_coverage(self) -> bool:
+        """Whether two columns' value domains can be compared. Defaults to False.
+
+        The most expensive probe of the family and the only one about a
+        *relation* rather than an object; a backend that cannot read both
+        columns should answer False rather than approximate.
+        """
         return False
 
     # ========== DDL Extraction ==========
@@ -363,7 +412,13 @@ class AsyncIntrospectionMixin:
         return False
 
     def supports_unused_indexes_detection(self) -> bool:
-        """Whether unused indexes detection is supported. Defaults to False."""
+        """Whether unused indexes detection is supported. Defaults to False.
+
+        Answering ``True`` obliges ``format_unused_indexes_query_statement``
+        to render. What "unused" means is the backend's to state: counters
+        reset, views cover only the statistics they can see, and an index
+        missing from the answer is absence of evidence, never proof of use.
+        """
         return False
 
     # ========== Structure Information ==========
@@ -377,7 +432,50 @@ class AsyncIntrospectionMixin:
         return False
 
     def supports_extensions(self) -> bool:
-        """Whether installed extensions introspection is supported. Defaults to False."""
+        """Whether this engine exposes a catalogue of installed add-on components.
+
+        Defaults to ``False``. ``extension`` is not SQL-standard vocabulary and
+        the concept differs per engine -- PostgreSQL's are ``CREATE EXTENSION``
+        packages with a version and a schema, SQLite's are registered virtual
+        table modules -- so a ``True`` promises that the engine *will answer*,
+        not *what shape the answer takes*. Read the backend's own docs and
+        result type before relying on any field; see
+        :class:`~...protocols.introspect.introspection.IntrospectionSupport`
+        for why the name stays in core despite that.
+        """
+        return False
+
+    def supports_table_storage_introspection(self) -> bool:
+        """Whether per-table storage metrics introspection is supported. Defaults to False."""
+        return False
+
+    def supports_column_data_profile(self) -> bool:
+        """Whether a column's *data* can be profiled. Defaults to False.
+
+        Answering ``True`` obliges
+        ``format_column_data_profile_query_statement`` to render, and the
+        answer to carry provenance: an estimate from a statistics catalogue and
+        an exact count are different facts wearing the same slot name.
+        """
+        return False
+
+    def supports_column_value_sample(self) -> bool:
+        """Whether a column's most frequent values are answerable. Defaults to False.
+
+        Kept apart from the data profile because the two cost differently on
+        every engine: a catalogue answers the profile for free, while a value
+        listing either comes from a kept ``most_common_vals`` list or has to
+        aggregate.
+        """
+        return False
+
+    def supports_join_coverage(self) -> bool:
+        """Whether two columns' value domains can be compared. Defaults to False.
+
+        The most expensive probe of the family and the only one about a
+        *relation* rather than an object; a backend that cannot read both
+        columns should answer False rather than approximate.
+        """
         return False
 
     # ========== DDL Extraction ==========

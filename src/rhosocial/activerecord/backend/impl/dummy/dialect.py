@@ -291,25 +291,6 @@ _PARSE_VOCABULARY.update({
     "TIMESTAMP WITHOUT TIME ZONE": TimestampType,
 })
 
-#: Which constructor keyword each numeric parameter of a type name fills, in
-#: the order the numbers are written.  A concept absent from this table takes no
-#: numbers, so ``INT(11)`` is *not* silently read as ``INT`` — a width the type
-#: cannot carry is not a type name dummy writes, and it is reported as the raw
-#: text instead.
-_PARSE_NUMERIC_PARAMS: Dict[Type, Tuple[str, ...]] = {
-    BinaryType: ("length",),
-    CharType: ("length",),
-    DateTimeType: ("precision",),
-    DecimalType: ("precision", "scale"),
-    FloatType: ("precision",),
-    TimeType: ("precision",),
-    TimeTzType: ("precision",),
-    TimestampType: ("precision",),
-    TimestampTzType: ("precision",),
-    VarBinaryType: ("length",),
-    VarCharType: ("length",),
-}
-
 #: One precision group, digits only, wherever it appears in the name: the
 #: standard writes it before the zone suffix (``TIMESTAMP(3) WITH TIME ZONE``)
 #: as well as at the end (``DECIMAL(10,2)``).
@@ -766,6 +747,26 @@ class DummyDialect(
         name, numbers = _split_precision(element_name)
         upper = name.upper()
 
+        # Which constructor keyword each numeric parameter of a type name fills,
+        # in the order the numbers are written.  A concept absent from it takes
+        # no numbers, so ``INT(11)`` is *not* silently read as ``INT`` — a width
+        # the type cannot carry is not a type name dummy writes, and it is
+        # reported as the raw text instead.  It belongs to this function: this is
+        # the one place that reads it.
+        numeric_params: Dict[Type, Tuple[str, ...]] = {
+            BinaryType: ("length",),
+            CharType: ("length",),
+            DateTimeType: ("precision",),
+            DecimalType: ("precision", "scale"),
+            FloatType: ("precision",),
+            TimeType: ("precision",),
+            TimeTzType: ("precision",),
+            TimestampType: ("precision",),
+            TimestampTzType: ("precision",),
+            VarBinaryType: ("length",),
+            VarCharType: ("length",),
+        }
+
         # ``INTERVAL`` carries a qualifier rather than a name, so it is matched
         # as a prefix.  IntervalType validates the qualifier itself.
         if upper == "INTERVAL" or upper.startswith("INTERVAL "):
@@ -774,7 +775,7 @@ class DummyDialect(
             )
         else:
             concept = _PARSE_VOCABULARY.get(upper)
-            fields = _PARSE_NUMERIC_PARAMS.get(concept, ()) if concept else ()
+            fields = numeric_params.get(concept, ()) if concept else ()
             if concept is None or len(numbers) > len(fields):
                 # Either a name dummy does not render, or numbers the concept
                 # cannot carry (``INT(11)``). Both are reported verbatim rather

@@ -2,7 +2,7 @@
 """
 SQLite concrete introspectors.
 
-Implements SyncAbstractIntrospector and AsyncAbstractIntrospector for SQLite
+Implements AbstractIntrospector and AsyncAbstractIntrospector for SQLite
 databases using PRAGMA commands and the sqlite_master / sqlite_schema system
 table for metadata queries.
 
@@ -15,23 +15,23 @@ Key behaviours:
   - ``parse_*`` methods are pure Python — shared by sync and async introspectors
 
 Design principle: Sync and Async are separate and cannot coexist.
-- SyncSQLiteIntrospector: for synchronous backends
+- SQLiteIntrospector: for synchronous backends
 - AsyncSQLiteIntrospector: for asynchronous backends
 """
 
 import copy
 import re
 import sqlite3
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from rhosocial.activerecord.backend.introspection.base import (
     IntrospectorMixin,
-    SyncAbstractIntrospector,
+    AbstractIntrospector,
     AsyncAbstractIntrospector,
 )
 from rhosocial.activerecord.backend.introspection.cache import IntrospectionCache
 from rhosocial.activerecord.backend.introspection.executor import (
-    SyncIntrospectorExecutor,
+    IntrospectorExecutor,
     AsyncIntrospectorExecutor,
 )
 from rhosocial.activerecord.backend.introspection.types import (
@@ -50,24 +50,26 @@ from rhosocial.activerecord.backend.introspection.types import (
     IntrospectionScope,
 )
 from .pragma_introspector import (
-    SyncPragmaIntrospector,
+    PragmaIntrospector,
     AsyncPragmaIntrospector,
 )
 from .status_introspector import (
-    SyncSQLiteStatusIntrospector,
+    SQLiteStatusIntrospector,
     AsyncSQLiteStatusIntrospector,
 )
 from ..expression.introspection import (
     SQLiteIndexDdlStatement,
+    SQLiteIndexOwnerStatement,
     SQLiteTableCountStatement,
     SQLiteTableDdlStatement,
+    SQLiteTableStorageStatement,
 )
 
 
 class SQLiteIntrospectorMixin(IntrospectorMixin):
     """Mixin providing shared SQLite-specific introspection logic.
 
-    Both SyncSQLiteIntrospector and AsyncSQLiteIntrospector inherit
+    Both SQLiteIntrospector and AsyncSQLiteIntrospector inherit
     from this mixin to share:
     - Default schema handling
     - SQLite version detection
@@ -218,6 +220,54 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
                     create_time=None,
                 )
             )
+        return tables
+
+    def parse_table_storage(
+        self,
+        tables: List[IntrospectionTableInfo],
+        storage_rows: List[Dict[str, Any]],
+        index_rows: List[Dict[str, Any]],
+    ) -> List[IntrospectionTableInfo]:
+        """Attribute page bytes to the tables they belong to.
+
+        The two row sets answer two catalogue questions: ``dbstat`` names
+        every btree and its size, and ``sqlite_master`` names the table each
+        index belongs to. Reducing them here -- rather than asking the engine
+        to aggregate -- keeps the statements simple and the mapping explicit:
+        a table's own btree carries its rows (``data_size_bytes``), the
+        btrees of its indexes carry the rest (``index_size_bytes``), and
+        ``size_bytes`` is their sum.
+
+        A table with no pages keeps every slot ``None``: a view has no btree,
+        and "this object's storage is not a question this engine answers for
+        it" is a different answer from zero. Both directions hand the same
+        rows to this method, so the two cannot disagree about one table's
+        size.
+        """
+        bytes_by_btree: Dict[str, int] = {}
+        for row in storage_rows:
+            name = row.get("name")
+            if not name:
+                continue
+            try:
+                bytes_by_btree[name] = bytes_by_btree.get(name, 0) + int(row.get("pgsize") or 0)
+            except (TypeError, ValueError):
+                continue
+
+        index_bytes: Dict[str, int] = {}
+        for row in index_rows:
+            index_name = row.get("name")
+            owner = row.get("tbl_name")
+            if index_name and owner:
+                index_bytes[owner] = index_bytes.get(owner, 0) + bytes_by_btree.get(index_name, 0)
+
+        for table in tables:
+            data_bytes = bytes_by_btree.get(table.name)
+            this_index_bytes = index_bytes.get(table.name) or None
+            table.data_size_bytes = data_bytes
+            table.index_size_bytes = this_index_bytes
+            if data_bytes is not None:
+                table.size_bytes = data_bytes + (this_index_bytes or 0)
         return tables
 
     @staticmethod
@@ -550,10 +600,10 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             return None
 
 
-class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
+class SQLiteIntrospector(SQLiteIntrospectorMixin, AbstractIntrospector):
     """Synchronous introspector for SQLite backends.
 
-    In addition to the standard SyncAbstractIntrospector interface, exposes the
+    In addition to the standard AbstractIntrospector interface, exposes the
     `.pragma` sub-introspector for direct PRAGMA access::
 
         # Standard API
@@ -568,28 +618,86 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
     def __init__(
         self,
         backend: Any,
-        executor: SyncIntrospectorExecutor,
+        executor: IntrospectorExecutor,
         cache: Optional[IntrospectionCache] = None,
     ) -> None:
         super().__init__(backend, executor, cache)
-        self._pragma_instance: Optional[SyncPragmaIntrospector] = None
-        self._status_instance: Optional[SyncSQLiteStatusIntrospector] = None
+        self._pragma_instance: Optional[PragmaIntrospector] = None
+        self._status_instance: Optional[SQLiteStatusIntrospector] = None
 
     @property
-    def pragma(self) -> SyncPragmaIntrospector:
+    def pragma(self) -> PragmaIntrospector:
         """SQLite-specific PRAGMA sub-introspector (lazily created)."""
         if self._pragma_instance is None:
-            self._pragma_instance = SyncPragmaIntrospector(self._backend, self._executor)
+            self._pragma_instance = PragmaIntrospector(self._backend, self._executor)
         return self._pragma_instance
 
     @property
-    def status(self) -> SyncSQLiteStatusIntrospector:
+    def status(self) -> SQLiteStatusIntrospector:
         """SQLite status introspector (lazily created)."""
         if self._status_instance is None:
-            self._status_instance = SyncSQLiteStatusIntrospector(self._backend)
+            self._status_instance = SQLiteStatusIntrospector(self._backend)
         return self._status_instance
 
 
+
+    # ------------------------------------------------------------------ #
+    # Per-table storage: one dbstat read, one index-ownership read, and the
+    # shared reducer that attributes the bytes.
+    # ------------------------------------------------------------------ #
+
+    def collect_table_storage(
+        self, schema: Optional[str] = None
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """The two row sets the storage reducer needs, or two empty ones.
+
+        Empty rather than an error when the build has no ``dbstat``: the
+        family is not answerable here, and the reducer keeps every slot
+        ``None`` -- the same answer a caller sees for an unsupported family
+        on any other backend, arrived at without raising.
+        """
+        if not self.dialect.supports_table_storage_introspection():
+            return [], []
+        storage_sql, storage_params = SQLiteTableStorageStatement(self.dialect, schema).to_sql()
+        owner_sql, owner_params = SQLiteIndexOwnerStatement(self.dialect, schema).to_sql()
+        return (
+            self._executor.execute(storage_sql, storage_params),
+            self._executor.execute(owner_sql, owner_params),
+        )
+
+    def list_tables(
+        self,
+        schema: Optional[str] = None,
+        include_system: bool = False,
+        table_type: Optional[str] = None,
+    ) -> List[IntrospectionTableInfo]:
+        """List tables, with the storage slots filled where this build can.
+
+        The base flow asks one question and parses its rows; this override
+        adds the two storage questions beside it, gated by the dialect's
+        ``supports_table_storage_introspection``. A build without ``dbstat``
+        answers the same list with the slots left ``None`` -- one code path,
+        one cache key, no second shape.
+        """
+        key = self._cache.key(
+            IntrospectionScope.TABLE,
+            schema=schema,
+            extra=f"{include_system}:{table_type}",
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.table_list_statement(
+            schema=schema,
+            include_system=include_system,
+            include_views=True,
+            table_type=table_type,
+        ).to_sql()
+        tables = self.parse_tables(self._executor.execute(sql, params), schema)
+        storage_rows, index_rows = self.collect_table_storage(schema)
+        tables = self.parse_table_storage(tables, storage_rows, index_rows)
+        self._cache.set(key, tables)
+        return tables
 
     # ------------------------------------------------------------------ #
     # Override list_columns for auto-increment detection
@@ -776,7 +884,7 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
         return self._status_instance
 
     async def get_database_info(self) -> IntrospectionDatabaseInfo:
-        """The async twin of :meth:`SyncSQLiteIntrospector.get_database_info`.
+        """The async twin of :meth:`SQLiteIntrospector.get_database_info`.
 
         Same questions, awaited, and the same :meth:`parse_database_info`
         reduction -- so the two directions cannot report different encodings or
@@ -802,6 +910,60 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
             self.dialect, self.default_schema
         ).to_sql()
         return self.parse_table_count(await self._executor.execute(sql, params))
+
+    # ------------------------------------------------------------------ #
+    # Per-table storage: the async twin of the sync pair above.
+    # ------------------------------------------------------------------ #
+
+    async def collect_table_storage(
+        self, schema: Optional[str] = None
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """The async twin of :meth:`SQLiteIntrospector.collect_table_storage`.
+
+        Same two statements, awaited; the same empty-pair answer when the
+        build has no ``dbstat``, so the async and sync reductions see the
+        same inputs and cannot disagree.
+        """
+        if not self.dialect.supports_table_storage_introspection():
+            return [], []
+        storage_sql, storage_params = SQLiteTableStorageStatement(self.dialect, schema).to_sql()
+        owner_sql, owner_params = SQLiteIndexOwnerStatement(self.dialect, schema).to_sql()
+        return (
+            await self._executor.execute(storage_sql, storage_params),
+            await self._executor.execute(owner_sql, owner_params),
+        )
+
+    async def list_tables(
+        self,
+        schema: Optional[str] = None,
+        include_system: bool = False,
+        table_type: Optional[str] = None,
+    ) -> List[IntrospectionTableInfo]:
+        """The async twin of :meth:`SQLiteIntrospector.list_tables`.
+
+        Same questions awaited, same reducer, same cache key: one direction
+        of the pair fills the storage slots and the other cannot answer them
+        differently.
+        """
+        key = self._cache.key(
+            IntrospectionScope.TABLE,
+            schema=schema,
+            extra=f"{include_system}:{table_type}",
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        sql, params = self.table_list_statement(
+            schema=schema,
+            include_system=include_system,
+            include_views=True,
+            table_type=table_type,
+        ).to_sql()
+        tables = self.parse_tables(await self._executor.execute(sql, params), schema)
+        storage_rows, index_rows = await self.collect_table_storage(schema)
+        tables = self.parse_table_storage(tables, storage_rows, index_rows)
+        self._cache.set(key, tables)
+        return tables
 
     # ------------------------------------------------------------------ #
     # Override list_columns for auto-increment detection

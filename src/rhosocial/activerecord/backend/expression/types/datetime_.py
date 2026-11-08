@@ -6,7 +6,7 @@ from __future__ import annotations
 import re
 from typing import Optional
 
-from ._base import DataType
+from ._base import DataType, PRECISION_PARAMETERS
 
 
 class DateType(DataType):
@@ -27,7 +27,7 @@ class TimeType(DataType):
         super().__init__(dialect)
         self.precision = precision
 
-    PARAMETERS = ("precision",)
+    PARAMETERS = PRECISION_PARAMETERS
 
 class TimeTzType(DataType):
     """TIME[(p)] WITH TIME ZONE (SQL standard)."""
@@ -41,7 +41,7 @@ class TimeTzType(DataType):
         super().__init__(dialect)
         self.precision = precision
 
-    PARAMETERS = ("precision",)
+    PARAMETERS = PRECISION_PARAMETERS
 
 class DateTimeType(DataType):
     """DATETIME — date + time (MySQL / SQLite)."""
@@ -55,7 +55,7 @@ class DateTimeType(DataType):
         super().__init__(dialect)
         self.precision = precision
 
-    PARAMETERS = ("precision",)
+    PARAMETERS = PRECISION_PARAMETERS
 
 class TimestampType(DataType):
     """TIMESTAMP[(p)] [WITHOUT TIME ZONE] (SQL standard)."""
@@ -69,7 +69,7 @@ class TimestampType(DataType):
         super().__init__(dialect)
         self.precision = precision
 
-    PARAMETERS = ("precision",)
+    PARAMETERS = PRECISION_PARAMETERS
 
 class TimestampTzType(DataType):
     """TIMESTAMP[(p)] WITH TIME ZONE (SQL standard, PostgreSQL)."""
@@ -83,7 +83,7 @@ class TimestampTzType(DataType):
         super().__init__(dialect)
         self.precision = precision
 
-    PARAMETERS = ("precision",)
+    PARAMETERS = PRECISION_PARAMETERS
 
 #: The six fields an interval qualifier can name, in ascending resolution.
 #: SQL:2016 gives an interval a *resolution*: either one field, or one field

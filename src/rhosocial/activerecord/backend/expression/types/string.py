@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from ._base import DataType
+from ._base import DataType, LENGTH_PARAMETERS
 from ._defaults import declared_parameter
 
 
@@ -77,7 +77,7 @@ class CharType(DataType):
     def length(self, value: Optional[int]) -> None:
         self._length = value
 
-    PARAMETERS = ("length",)
+    PARAMETERS = LENGTH_PARAMETERS
 
 class VarCharType(DataType):
     """VARCHAR(n) / CHARACTER VARYING(n) — variable-length string.
@@ -131,7 +131,7 @@ class VarCharType(DataType):
     def length(self, value: Optional[int]) -> None:
         self._length = value
 
-    PARAMETERS = ("length",)
+    PARAMETERS = LENGTH_PARAMETERS
 
 class TextType(DataType):
     """TEXT / CLOB — unbounded string.

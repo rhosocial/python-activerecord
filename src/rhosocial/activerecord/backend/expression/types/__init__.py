@@ -44,7 +44,12 @@ Usage::
     ('INTEGER', ())
 """
 
-from ._base import DataType
+from ._base import (
+    DataType,
+    LENGTH_PARAMETERS,
+    PRECISION_PARAMETERS,
+    UNSIGNED_PARAMETERS,
+)
 from .array import ArrayType
 from .custom import CustomType
 from ..type_name import InvalidTypeNameError
@@ -76,6 +81,10 @@ __all__ = [
     "DataType",
     "ArrayType",
     "CustomType",
+    # the identity-field vocabulary every concrete type reads its PARAMETERS from
+    "LENGTH_PARAMETERS",
+    "PRECISION_PARAMETERS",
+    "UNSIGNED_PARAMETERS",
     # integer
     "TinyIntType",
     "SmallIntType",

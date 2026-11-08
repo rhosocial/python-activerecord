@@ -10,7 +10,6 @@ import logging
 from typing import Optional, ClassVar, Any
 
 from .config import LoggingConfig
-from .defaults import _LOGGER_BACKEND, _LOGGER_MODEL
 from .formatter import ActiveRecordFormatter
 
 
@@ -103,7 +102,7 @@ class LoggingMixin:
         module = cls.__module__
         if module.startswith("rhosocial.activerecord"):
             # Library class: use semantic naming
-            return f"{_LOGGER_MODEL}.{cls.__name__}"
+            return f"rhosocial.activerecord.model.{cls.__name__}"
         else:
             # User-defined class: use user module namespace
             return f"{module}.{cls.__name__}"
@@ -280,7 +279,7 @@ class BackendLoggingMixin:
             # Extract backend type from class name (SQLiteBackend -> sqlite)
             class_name = self.__class__.__name__
             backend_type = class_name.replace("Backend", "").lower()
-            return f"{_LOGGER_BACKEND}.{backend_type}"
+            return f"rhosocial.activerecord.backend.{backend_type}"
         else:
             # Custom backend: use module namespace
             return f"{module}.{self.__class__.__name__}"

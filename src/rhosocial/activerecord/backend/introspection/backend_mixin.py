@@ -8,9 +8,9 @@ class MySyncBackend(IntrospectorBackendMixin, StorageBackend):
     def _create_introspector(self):
         from .introspection import SyncMyDBIntrospector
         from rhosocial.activerecord.backend.introspection.executor import (
-            SyncIntrospectorExecutor,
+            IntrospectorExecutor,
         )
-        return SyncMyDBIntrospector(self, SyncIntrospectorExecutor(self))
+        return SyncMyDBIntrospector(self, IntrospectorExecutor(self))
 
 class MyAsyncBackend(IntrospectorBackendMixin, AsyncStorageBackend):
     def _create_introspector(self):
@@ -24,7 +24,7 @@ class MyAsyncBackend(IntrospectorBackendMixin, AsyncStorageBackend):
 from typing import Optional, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .base import SyncAbstractIntrospector, AsyncAbstractIntrospector
+    from .base import AbstractIntrospector, AsyncAbstractIntrospector
 
 
 class IntrospectorBackendMixin:
@@ -34,7 +34,7 @@ class IntrospectorBackendMixin:
     `_create_introspector()`, which concrete backends must implement.
 
     For sync backends, _create_introspector() should return a
-    SyncAbstractIntrospector subclass.
+    AbstractIntrospector subclass.
     For async backends, it should return an AsyncAbstractIntrospector subclass.
 
     Example::
@@ -43,14 +43,14 @@ class IntrospectorBackendMixin:
             def _create_introspector(self):
                 from .introspection import SyncMyDBIntrospector
                 from rhosocial.activerecord.backend.introspection.executor import (
-                    SyncIntrospectorExecutor,
+                    IntrospectorExecutor,
                 )
-                return SyncMyDBIntrospector(self, SyncIntrospectorExecutor(self))
+                return SyncMyDBIntrospector(self, IntrospectorExecutor(self))
     """
 
-    _introspector_instance: Optional[Union["SyncAbstractIntrospector", "AsyncAbstractIntrospector"]] = None
+    _introspector_instance: Optional[Union["AbstractIntrospector", "AsyncAbstractIntrospector"]] = None
 
-    def _create_introspector(self) -> Union["SyncAbstractIntrospector", "AsyncAbstractIntrospector"]:
+    def _create_introspector(self) -> Union["AbstractIntrospector", "AsyncAbstractIntrospector"]:
         """Create the introspector instance.
 
         Subclasses must implement this method to return the appropriate
@@ -58,19 +58,19 @@ class IntrospectorBackendMixin:
         is synchronous or asynchronous.
 
         Returns:
-            A SyncAbstractIntrospector for sync backends,
+            A AbstractIntrospector for sync backends,
             or an AsyncAbstractIntrospector for async backends.
         """
         raise NotImplementedError(f"{self.__class__.__name__} must implement _create_introspector()")
 
     @property
-    def introspector(self) -> Union["SyncAbstractIntrospector", "AsyncAbstractIntrospector"]:
+    def introspector(self) -> Union["AbstractIntrospector", "AsyncAbstractIntrospector"]:
         """Get the introspector instance (created lazily)."""
         if self._introspector_instance is None:
             self._introspector_instance = self._create_introspector()
         return self._introspector_instance
 
-    def set_introspector(self, introspector: Union["SyncAbstractIntrospector", "AsyncAbstractIntrospector"]) -> None:
+    def set_introspector(self, introspector: Union["AbstractIntrospector", "AsyncAbstractIntrospector"]) -> None:
         """Inject a custom introspector (useful for testing or extension).
 
         Args:

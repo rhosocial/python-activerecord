@@ -236,22 +236,6 @@ _default_serializer = ExpressionSerializer()
 #: actually deserializes. A caller who only serializes never pays for it.
 _default_registry = None
 
-#: Packages the framework registers into its default instance: the core
-#: expressions plus the backends built into this distribution.
-#:
-#: ``backend.transaction`` is here because expressions carry its vocabulary.
-#: ``IsolationLevel`` and ``TransactionMode`` are parameters of the transaction
-#: statements, so a reader that cannot resolve them fails on an artifact the
-#: library itself produced. A package list is a statement about which types the
-#: artifact format admits, and it has to be as wide as the vocabulary -- which
-#: is why it is checked against real instances rather than assumed complete.
-_FRAMEWORK_PACKAGES = (
-    "rhosocial.activerecord.backend.expression",
-    "rhosocial.activerecord.backend.transaction",
-    "rhosocial.activerecord.backend.impl.sqlite.expression",
-    "rhosocial.activerecord.backend.impl.dummy.expression",
-)
-
 class ArtifactError(ExpressionDeserializationError):
     """Raised when an artifact cannot be read. Always names the kind."""
 
@@ -286,9 +270,24 @@ def _populate_default_registry(registry):
 
     from .registry import RegistryError, RegistryReason
 
+    # The packages registered into the default instance: the core expressions
+    # plus the backends built into this distribution. ``backend.transaction``
+    # is here because expressions carry its vocabulary -- ``IsolationLevel`` and
+    # ``TransactionMode`` are parameters of the transaction statements, so a
+    # reader that cannot resolve them fails on an artifact the library itself
+    # produced. A package list is a statement about which types the artifact
+    # format admits, and it has to be as wide as the vocabulary -- which is why
+    # it is checked against real instances rather than assumed complete.
+    framework_packages = (
+        "rhosocial.activerecord.backend.expression",
+        "rhosocial.activerecord.backend.transaction",
+        "rhosocial.activerecord.backend.impl.sqlite.expression",
+        "rhosocial.activerecord.backend.impl.dummy.expression",
+    )
+
     by_kind = {}
     ordered = []
-    for pkgname in _FRAMEWORK_PACKAGES:
+    for pkgname in framework_packages:
         try:
             pkg = importlib.import_module(pkgname)
         except Exception:
