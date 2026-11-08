@@ -23,6 +23,9 @@ Enforcement is layered:
    merging dirty-field data, overriding any user-assigned value.
 4. A user-assigned version that differs from the snapshot is rejected
    outright with :class:`DatabaseError` at BEFORE_UPDATE time.
+5. An UPDATE that matches no row -- the record was changed after it was
+   read -- raises :class:`StaleRecordError`, a :class:`DatabaseError`
+   subclass carrying the model, primary key and expected version.
 
 Customisation example::
 
@@ -45,7 +48,7 @@ from ..interface.update import IUpdateBehavior
 from ..interface import ModelEvent
 from ..backend.result import QueryResult
 from ..backend.expression import SQLPredicate, SQLValue
-from ..backend.errors import DatabaseError
+from ..backend.errors import DatabaseError, StaleRecordError
 from ..base.fields import UseConstraint
 from pydantic import Field
 from typing import Any, ClassVar, Dict, List, Union
@@ -69,6 +72,8 @@ class OptimisticLockMixin(IUpdateBehavior):
     * SET  ``<version column> = <version column> + increment``
 
     The column value is framework-managed: manual writes are rejected.
+    When the UPDATE affects no rows, the record is stale and
+    :class:`StaleRecordError` is raised.
     """
 
     __version_field__: ClassVar[str] = "version"
@@ -231,11 +236,16 @@ class OptimisticLockMixin(IUpdateBehavior):
         """Verify the lock and sync the version after UPDATE.
 
         Raises:
-            DatabaseError: If optimistic lock check fails (record was
-                updated by another process).
+            StaleRecordError: If the optimistic-lock check fails because the
+                record was updated by another process. It is also a
+                :class:`DatabaseError`, so existing handlers keep working.
         """
         if result.affected_rows == 0:
-            raise DatabaseError("Record was updated by another process")
+            raise StaleRecordError(
+                model=type(self),
+                primary_key=self._get_pk_value(),
+                expected_version=self._version_snapshot,
+            )
 
         value = self._extract_returned_version(result)
         if value is None:
