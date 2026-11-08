@@ -79,6 +79,19 @@ users = User.query().with_(
 
 A modifier receives an `ActiveQuery` object `q` and returns the modified query. It can chain `.where()`, `.order_by()`, `.limit()` and other methods.
 
+### Ordered Relations and Modifiers
+
+If a relation declares `HasMany(..., order_by=...)`, its default ordering is applied first and the modifier runs afterwards. A modifier's `.order_by(...)` is therefore appended as **secondary** ordering:
+
+```python
+posts = Post.query().with_(
+    ("comments", lambda q: q.order_by("status"))
+).all()
+# ORDER BY created_at DESC, id ASC, status ASC
+```
+
+To make another column the primary order, use a plain `HasMany` for that relation, or declare a second relation with a different `order_by`. See [Ordered One-to-Many](definitions.md#ordered-one-to-many-orderedhasmany).
+
 ### Prefer Named Functions for Complex Modifiers
 
 For complex modifiers, prefer named functions over lambdas. When a modifier is **overwritten**, the framework logs a WARNING; a named function is shown with its full `module.qualname` for easier debugging, while a lambda appears as `<lambda>`:

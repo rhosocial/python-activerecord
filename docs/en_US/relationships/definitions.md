@@ -107,6 +107,32 @@ class Post(ActiveRecord):
 
 > 💡 **AI Prompt Example**: "How is a one-to-many relationship represented in the database? How to access related data through code?"
 
+## Ordered One-to-Many: `HasMany(order_by=...)`
+
+When a one-to-many relation always needs the same sort order, declare it on the relation instead of repeating `.order_by(...)` at every call site:
+
+```python
+from typing import ClassVar
+from rhosocial.activerecord.relation import HasMany
+
+class Post(ActiveRecord):
+    comments: ClassVar[HasMany['Comment']] = HasMany(
+        foreign_key='post_id',
+        inverse_of='post',
+        order_by=[('created_at', 'DESC'), ('id', 'ASC')],
+    )
+
+post.comments()                          # ordered
+post.comments_query().all()              # ordered
+Post.query().with_('comments').all()     # eager loading is ordered too
+```
+
+`order_by` is optional. Omit it, or pass `None`, and `HasMany` behaves exactly as before: no default ordering and no primary-key tie-breakers. When supplied, it must be non-empty and accepts a field name, a `(field_name, 'ASC'|'DESC')` tuple, or a list of those. Only model field names are accepted - not database column names or expression objects; unknown and derived fields raise `ValueError` when the first query is built. Primary-key fields are appended as tie-breakers automatically.
+
+The declared order always comes first; a later `.order_by(...)` call or a `with_` modifier appends secondary ordering. Use a second relation with a different `order_by` if a query must use a different primary order. `AsyncHasMany` accepts the same `order_by` keyword.
+
+> 💡 **AI Prompt Example**: "How do I declare a default sort order for a HasMany relation without repeating order_by at every call site?"
+
 ## Relationship Usage Examples
 
 After defining relationships, you can use them as follows:
