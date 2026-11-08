@@ -597,12 +597,15 @@ class RelationalQueryMixin(RelationalQueryMixinBase):
                           f"{self.model_class.__name__}, skipping eager load")
                 continue
 
-            # Build base query with modifier if configured
+            # Build base query with modifier if configured. The relation's
+            # default ordering is applied first; the modifier's own order_by
+            # entries are appended as secondary ordering.
             base_query = None
             if config.query_modifier is not None:
                 related_model = relation.get_related_model(self.model_class)
                 if related_model is not None:
-                    base_query = config.query_modifier(related_model.query())
+                    base_query = relation.apply_order(related_model.query(), related_model)
+                    base_query = config.query_modifier(base_query)
 
             loaded = loader(relation, records, base_query)
 

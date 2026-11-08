@@ -10,6 +10,7 @@ from typing import Type, Any, Generic, TypeVar, Union, ForwardRef, Optional, Lis
 
 from .cache import CacheConfig, InstanceCache
 from .interfaces import IAsyncRelationValidation, IAsyncRelationLoader
+from .ordering import apply_order_to_query, normalize_order_by
 from .type_resolver import evaluate_annotation, resolve_relation_type
 from ..interface import IAsyncActiveRecord, IAsyncActiveQuery
 from ..backend.expression.core import Column
@@ -345,9 +346,29 @@ class AsyncRelationDescriptor(Generic[U]):
                             ComparisonPredicate(backend.dialect, "=", fk_column, Literal(backend.dialect, pk_value))
                         )
 
+            query = self.apply_order(query, related_model)
+
             return query
 
         return query_method
+
+    def apply_order(self, query: Any, model_class: Type[Any]) -> Any:
+        """Apply the relation's default ordering to *query*.
+
+        The base implementation leaves the caller's ordering untouched.
+        ``AsyncHasMany`` overrides this hook when it declares an ``order_by``.
+        The default loader calls it when it builds a query itself; custom
+        loaders must call it explicitly. This method only manipulates the
+        query object; it performs no I/O.
+
+        Args:
+            query: The query object built for the related model.
+            model_class: The resolved related model class.
+
+        Returns:
+            The query object, optionally extended with ORDER BY clauses.
+        """
+        return query
 
     async def _load_relation(self, instance: Any) -> Optional[U]:
         """
@@ -714,6 +735,11 @@ class AsyncDefaultRelationLoader(IAsyncRelationLoader[U]):
                         combined = combined | p
                     query = query.where(combined)
 
+            # See the sync loader for the rationale: apply the descriptor's
+            # ordering only when this loader built the query itself.
+            if base_query is None:
+                query = self.descriptor.apply_order(query, model_class)
+
             query._log(logging.DEBUG, f"Async batch load SQL (HasMany): {query.to_sql()}")
             related_records = await query.all()
 
@@ -866,6 +892,20 @@ class AsyncHasMany(AsyncRelationDescriptor[U], Generic[U]):
     - The foreign key is stored in the related model
     - Returns a list of related model instances
     - Common examples: AsyncUser hasMany AsyncPosts, AsyncCategory hasMany AsyncProducts
+    - Optionally declares a default ordering for the related collection
+
+    ``order_by`` is optional. When omitted (or ``None``), the relation behaves
+    exactly like a plain ``AsyncHasMany``: no default ``ORDER BY`` and no
+    primary-key tie-breakers. When supplied, the ordering applies to
+    ``{relation}_query()``, direct access, top-level eager loading and nested
+    eager loading.
+
+    The declared ordering always comes first; explicit ``.order_by(...)``
+    calls or ``with_`` modifiers append secondary ordering. Primary-key fields
+    are appended as tie-breakers for stable results. ``order_by`` accepts model
+    field names only, never database column names or expression objects;
+    unknown or derived fields raise ``ValueError`` when the first query is
+    built.
 
     Usage:
         class AsyncUser(AsyncActiveRecord):
@@ -873,8 +913,12 @@ class AsyncHasMany(AsyncRelationDescriptor[U], Generic[U]):
             name: str
 
             # IMPORTANT: Relationship fields must be declared as ClassVar to avoid being tracked by Pydantic
-            # AsyncUser has many AsyncPosts
-            posts: ClassVar[AsyncHasMany['AsyncPost']] = AsyncHasMany(foreign_key='user_id', inverse_of='user')
+            # AsyncUser has many AsyncPosts, always ordered by creation date
+            posts: ClassVar[AsyncHasMany['AsyncPost']] = AsyncHasMany(
+                foreign_key='user_id',
+                inverse_of='user',
+                order_by=[('created_at', 'DESC'), ('id', 'ASC')],
+            )
 
         class AsyncPost(AsyncActiveRecord):
             id: int
@@ -888,9 +932,21 @@ class AsyncHasMany(AsyncRelationDescriptor[U], Generic[U]):
         # Access the related models
         user = await AsyncUser.find_one(1)
         posts = await user.posts()  # Returns a list of related AsyncPost instances
+
+    Args:
+        foreign_key: Foreign key field name used to establish the relationship
+        inverse_of: Name of the inverse relation on the related model
+        order_by: Optional ordering specification; ``None`` keeps plain AsyncHasMany behavior
+        loader: Custom async loader implementation for loading related data
+        validator: Custom validation implementation for relationship validation
+        cache_config: Cache configuration for controlling caching behavior
+
+    Raises:
+        TypeError: If an ordering entry is not a field name or two-item tuple
+        ValueError: If a supplied ``order_by`` is empty or uses an invalid direction
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, order_by: Any = None, **kwargs):
         """
         Initialize an AsyncHasMany relationship with automatic validation.
 
@@ -900,6 +956,15 @@ class AsyncHasMany(AsyncRelationDescriptor[U], Generic[U]):
 
         Args:
             *args: Arguments passed to parent constructor
+            order_by: Optional default ordering specification
             **kwargs: Keyword arguments passed to parent constructor
         """
+        self._order_by = normalize_order_by(order_by) if order_by is not None else None
         super().__init__(*args, validator=AsyncRelationshipValidator(self), **kwargs)
+
+    def apply_order(self, query: Any, model_class: Type[Any]) -> Any:
+        """Append the declared default ordering and primary-key tie-breakers."""
+        if self._order_by is None:
+            return query
+        return apply_order_to_query(query, model_class, self.name, self._order_by)
+
