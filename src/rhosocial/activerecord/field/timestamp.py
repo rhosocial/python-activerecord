@@ -1,13 +1,16 @@
 # src/rhosocial/activerecord/field/timestamp.py
 """Module providing timestamp functionality.
 
-Two classes, per "who defines the column, who declares it":
+Three classes, per "who defines the column, who declares it":
 
 * :class:`TimestampMixin` — **maintenance semantics only**.  Declares no
   fields.  Point it at the model's declared timestamp fields via
   ``__created_at_field__`` / ``__updated_at_field__`` (both required).
 * :class:`DefaultTimestampMixin` — adds the conventional
   ``created_at`` / ``updated_at`` fields for the common case.
+* :class:`UtcTimestampMixin` — optional validation: a naive ``datetime``
+  assigned to any field is read as UTC, so it compares with the aware values
+  the library generates.
 
 All timestamps are generated in Python (UTC) for consistency across
 database backends.
@@ -16,7 +19,7 @@ database backends.
 from datetime import datetime, timezone
 from typing import Any, ClassVar, Dict, Union
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from ..interface import ModelEvent
 from ..interface.update import IUpdateBehavior
@@ -105,3 +108,51 @@ class DefaultTimestampMixin(TimestampMixin):
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class UtcTimestampMixin:
+    """Read every naive ``datetime`` as UTC.
+
+    The library generates timestamps with ``datetime.now(timezone.utc)``,
+    but a caller may assign ``datetime.now()`` (naive) or a database driver
+    may return a naive value.  Comparing a naive value with an aware one
+    raises ``TypeError`` far from the assignment that caused it.  Mix this in
+    to attach UTC to naive datetimes while leaving non-datetime fields and
+    aware values untouched -- an aware value keeps the offset it arrived with.
+
+    Two validators are needed because input reaches a field in two shapes:
+    an already-built ``datetime`` is seen by the ``before`` validator, while a
+    string or number is parsed by Pydantic *after* that one and is normalized
+    by the ``after`` validator.
+
+    This is optional: models that never compare or mix caller-supplied and
+    library-generated timestamps do not need it.
+
+    Example:
+        >>> class Event(UtcTimestampMixin, DefaultTimestampMixin, ActiveRecord):
+        ...     __table_name__ = "events"
+        ...     id: Optional[int] = None
+        ...     name: str
+        ...     occurred_at: datetime
+        ...
+        >>> event = Event(name="deploy", occurred_at=datetime(2026, 1, 1, 12))
+        >>> event.occurred_at.tzinfo is timezone.utc
+        True
+    """
+
+    @staticmethod
+    def _as_utc(value: Any) -> Any:
+        """Attach UTC to a naive datetime; leave every other value untouched."""
+        if isinstance(value, datetime) and value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def _naive_datetime_before(cls, value: Any) -> Any:
+        return cls._as_utc(value)
+
+    @field_validator("*", mode="after")
+    @classmethod
+    def _naive_datetime_after(cls, value: Any) -> Any:
+        return cls._as_utc(value)

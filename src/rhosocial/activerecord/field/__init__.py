@@ -2,7 +2,7 @@
 """Field mixins providing common model attributes and behaviors."""
 
 from .integer_pk import IntegerPKMixin
-from .timestamp import TimestampMixin, DefaultTimestampMixin
+from .timestamp import TimestampMixin, DefaultTimestampMixin, UtcTimestampMixin
 from .version import OptimisticLockMixin, DefaultOptimisticLockMixin
 from .soft_delete import SoftDeleteMixin, DefaultSoftDeleteMixin, AsyncSoftDeleteMixin, DefaultAsyncSoftDeleteMixin
 from .uuid import UUIDMixin
@@ -10,7 +10,8 @@ from .composite_pk import CompositePKMixin
 from .field_config import FieldConfigValidationHandler
 
 __all__ = [
-    "IntegerPKMixin", "TimestampMixin", "DefaultTimestampMixin", "OptimisticLockMixin",
+    "IntegerPKMixin", "TimestampMixin", "DefaultTimestampMixin", "UtcTimestampMixin",
+    "OptimisticLockMixin",
     "DefaultOptimisticLockMixin",
     "SoftDeleteMixin", "DefaultSoftDeleteMixin", "AsyncSoftDeleteMixin",
     "DefaultAsyncSoftDeleteMixin", "UUIDMixin", "CompositePKMixin",
