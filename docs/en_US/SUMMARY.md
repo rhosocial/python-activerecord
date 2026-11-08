@@ -149,6 +149,10 @@
 * [FTS5](backend/sqlite/backend_specific_features/fts5.md)
 * [Extension](backend/sqlite/backend_specific_features/extension.md)
 
+## Command-Line Interface
+
+* [Model CRUD CLI](cli/README.md)
+
 ## Testing
 
 * [Overview](testing/README.md)
