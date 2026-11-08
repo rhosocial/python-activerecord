@@ -110,9 +110,15 @@
 
 * [Overview](backend/README.md)
 * [Architecture](backend/architecture.md)
-* [Introspection](backend/introspection.md)
 * [Query Explain](backend/explain.md)
 * [Custom Backend](backend/custom_backend.md)
+
+### Introspection
+
+* [Overview](backend/introspection.md)
+* [Capabilities](backend/introspection/capabilities.md)
+* [Operational Families](backend/introspection/operations.md)
+* [Column Data Profiles](backend/introspection/data-profiles.md)
 
 ### Named Backend
 

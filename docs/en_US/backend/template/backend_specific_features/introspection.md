@@ -8,6 +8,42 @@ The introspection API follows the same two-layer pattern as expressions:
 
 2. **Backend layer** — Each backend implements the introspector using database-specific system tables. MySQL queries `information_schema` and uses `SHOW` commands; PostgreSQL queries `pg_catalog`; SQLite reads `sqlite_master`.
 
+## Three Layers of Question
+
+Every introspection family belongs to one of three layers, and the core API
+treats them differently:
+
+1. **Declaration** — what the catalogue says an object is: database, table,
+   column, index, key, view, trigger. Cheap, cached, and usually one catalogue
+   query.
+2. **Operational** — what the engine has counted while running: usage
+   counters, unused indexes, runtime metrics, dependencies, DDL. A number is
+   valid only inside the engine's window, which is why its `source` travels
+   with it.
+3. **Data** — what the rows actually hold, as opposed to what the declaration
+   promises: profiles, frequent values, join coverage. `None` means not
+   measured, and every answer names its provenance.
+
+A backend implements a family in all three places, not in one: a statement
+class declares the question, a dialect formatter renders it, the introspector
+parses the rows, the CLI types it, and a test proves it.
+
+## The Author's Obligation
+
+A capability probe is a promise, not a wish list. The project's §6 rule, seen
+from the outside, says:
+
+- **If your probe answers `True`**, that family must have a statement class, a
+  dialect formatter, a parser, a CLI type and a test. A `True` with any of
+  those missing is a `False` that lies.
+- **If your engine cannot answer**, the probe answers `False`, and the reason
+  goes in the probe's docstring: what the engine lacks and what a caller
+  should do instead. A `False` with no stated reason is indistinguishable from
+  one nobody implemented.
+
+The probe is also the only correct way for a caller to find out; do not infer
+support from an empty result.
+
 ## Basic Usage
 
 ### Accessing the Introspector
@@ -155,23 +191,22 @@ if isinstance(dialect, IntrospectionSupport):
         partitions = introspector.list_partitions('users')
 ```
 
-### What Each Backend Supports
+### An Illustration, Not a Matrix
 
-| Feature | SQLite | MySQL | PostgreSQL |
-|---------|--------|-------|------------|
-| Table listing | Yes | Yes | Yes |
-| Column introspection | Yes | Yes | Yes |
-| Index introspection | Yes | Yes | Yes |
-| Foreign key introspection | Yes | Yes | Yes |
-| View introspection | Yes | Yes | Yes |
-| Schema support | No | Yes (synonym for DATABASE) | Yes |
-| Materialized views | No | No | Yes |
-| Partition info | No | Yes | Yes |
-| Extension info | No | No | Yes |
-| DDL extraction | Yes | Yes | Yes |
-| Runtime stats | No | Yes | Yes |
-| Unused index detection | No | No | Yes |
-| Object dependencies | No | No | Yes |
+The table below shows the *shape* of a capability answer, one row per layer.
+The answers are examples, not facts about any engine; do not copy them into
+another backend's documentation.
+
+| Layer | Probe | An example answer |
+|-------|-------|-------------------|
+| Declaration | `supports_table_introspection()` | `True` |
+| Operational | `supports_unused_indexes_detection()` | `False` — the engine keeps no per-index counters |
+| Data | `supports_column_data_profile()` | `True` |
+
+The authoritative source for what a real backend supports is that backend's
+own documentation, together with the probe itself: a `True` from the probe is
+the promise described under [The Author's Obligation](#the-authors-obligation),
+and the backend's docs say what its answer means and which window it covers.
 
 ## Async API
 

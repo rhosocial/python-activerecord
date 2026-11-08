@@ -14,6 +14,16 @@ The introspection system is accessible via the `backend.introspector` attribute 
 - **View Information**: View definition SQL
 - **Trigger Information**: Trigger event, timing, trigger SQL
 
+## What You Can Ask
+
+Introspection answers three layers of question, and this page covers the first in detail:
+
+- **Declaration layer** — what the catalogue says objects are: databases, tables, columns, indexes, foreign keys, views and triggers. The dialect's capability probes say which of these an engine answers at all; see [Capabilities](introspection/capabilities.md).
+- **Operational layer** — what the engine has counted while running: unused indexes, table and index usage counters, runtime measurements, object dependencies and DDL retrieval; see [Operational Families](introspection/operations.md).
+- **Data layer** — what the rows actually hold, rather than what the schema promises: column profiles, frequent values and join coverage; see [Column Data Profiles](introspection/data-profiles.md).
+
+A family whose capability probe answers `False` is not available on that engine; the backend's own documentation states which probes answer `True` and what its answers mean.
+
 ## Architecture Design
 
 ### Module Structure
@@ -49,7 +59,7 @@ The introspection system follows the project's sync/async parity principle:
 
 - `AbstractIntrospector` — Synchronous introspector
 - `AsyncAbstractIntrospector` — Asynchronous introspector
-- `IntrospectorMixin` — Shared non-I/O logic (caching, SQL generation, parsing), including `server_version`: the version the introspector read from the server, so a capability question can be answered without asking again
+- `IntrospectorMixin` — Shared non-I/O base: it knows the default schema and exposes the `dialect` and `server_version` shortcuts, but holds no state, performs no I/O and never sees a result row. Caching and row parsing belong to the manager that inherits it, and SQL is rendered by the dialect's `format_*` methods from statement objects. `server_version` is the version the introspector read from the server, so a capability question can be answered without asking again
 
 ## Data Structures
 
@@ -91,9 +101,8 @@ class IntrospectionTableInfo:
 ```
 
 `table_type` keeps the distinction the catalogue actually makes rather than
-folding every relation into "table". On SQLite, for instance, the storage tables
-behind an FTS or R-Tree virtual table are `SYSTEM_TABLE` and the virtual table
-itself is `EXTERNAL`.
+folding every relation into "table". How a particular engine classifies a
+relation is that backend's own documentation to state.
 
 ### IntrospectionColumnInfo
 
@@ -262,8 +271,8 @@ for idx in indexes:
         desc = "DESC" if col.is_descending else "ASC"
         print(f"  - {col.name} ({desc})")
 
-# Check if index exists
-if backend.introspector.index_exists("users", "idx_users_email"):
+# Check if an index exists
+if backend.introspector.get_index_info("users", "idx_users_email"):
     print("email index exists")
 ```
 
@@ -313,7 +322,7 @@ for trigger in table_triggers:
     print(f"  Timing: {trigger.timing.value}")
 
 # Get trigger details
-trigger_info = backend.introspector.get_trigger_info("users", "trg_users_audit")
+trigger_info = backend.introspector.get_trigger_info("trg_users_audit")
 ```
 
 ## Async API
@@ -429,34 +438,7 @@ question is about travels in the `name` (or, for `key()`, in `schema`/`extra`):
 
 ## Backend-Specific Implementations
 
-### SQLite
-
-SQLite uses `PRAGMA` directives for introspection:
-
-```python
-# SQLite-specific: Direct access to PragmaIntrospector
-pragma = backend.introspector.pragma
-
-# Use PRAGMA directives
-table_info = pragma.pragma_table_info("users")
-index_list = pragma.pragma_index_list("users")
-foreign_keys = pragma.pragma_foreign_key_list("posts")
-```
-
-### MySQL
-
-MySQL uses `information_schema` and `SHOW` statements for introspection:
-
-```python
-# MySQL-specific: Direct access to ShowIntrospector
-show = backend.introspector.show
-
-# Use SHOW statements
-tables = show.show_tables()
-columns = show.show_columns("users")
-indexes = show.show_index("users")
-create_table = show.show_create_table("users")
-```
+The common methods are assembled over helper introspectors the backend supplies — the built-in SQLite backend's `PragmaIntrospector` and, for example, MySQL's `ShowIntrospector` are two — and each backend's own documentation states which helpers it has, what they answer, and what those answers mean.
 
 ## Error Handling
 
@@ -538,32 +520,88 @@ async def get_schema_info(backend):
 
 ## Limitations and Considerations
 
-1. **Permission Requirements**: Introspection requires database users to have metadata read permissions
-2. **Performance Impact**: Introspection on large-scale databases may be slow; caching is recommended
-3. **Version Differences**: Metadata availability may vary across database versions
-4. **Consistency**: Introspection results reflect the database state at query time, not real-time
+Three facts explain almost every surprising introspection answer:
+
+1. **A counter is a window, not a lifetime.** The operational families report
+   what the engine has counted *since the statistics were last reset*. A zero
+   means "nothing in this window", never "nothing ever happened".
+2. **A profile may describe an older table.** Figures read from a statistics
+   catalogue can be as stale as the engine's last refresh; `collected_at`
+   travels beside them so a reader can tell what moment they describe.
+3. **Some engines cannot answer some questions.** Ask the dialect's capability
+   probe first — see [Capabilities](introspection/capabilities.md). A `False`
+   is a definite "this engine does not answer this family", and each backend's
+   own documentation says which probes answer `True` and what its answers mean.
 
 ## API Reference
 
-### Core Methods
+The signatures below omit `self`; the sync and async introspectors have the
+same method names and parameters.
 
-| Method | Description | Parameters |
-|--------|-------------|------------|
-| `get_database_info()` | Get database information | None |
-| `list_tables()` | List tables | `include_system`, `table_type`, `schema` |
-| `get_table_info(name)` | Get table details | `name`, `schema` |
-| `table_exists(name)` | Check table exists | `name`, `schema` |
-| `list_columns(table_name)` | List columns | `table_name`, `schema` |
-| `get_column_info(table_name, column_name)` | Get column details | `table_name`, `column_name`, `schema` |
-| `get_primary_key(table_name)` | Get primary key | `table_name`, `schema` |
-| `list_indexes(table_name)` | List indexes | `table_name`, `schema` |
-| `get_index_info(table_name, index_name)` | Get index details | `table_name`, `index_name`, `schema` |
-| `index_exists(table_name, index_name)` | Check index exists | `table_name`, `index_name`, `schema` |
-| `list_foreign_keys(table_name)` | List foreign keys | `table_name`, `schema` |
-| `list_views()` | List views | `schema` |
-| `get_view_info(name)` | Get view details | `name`, `schema` |
-| `view_exists(name)` | Check view exists | `name`, `schema` |
-| `list_triggers(table_name)` | List triggers | `table_name`, `schema` |
-| `get_trigger_info(table_name, trigger_name)` | Get trigger details | `table_name`, `trigger_name`, `schema` |
-| `clear_cache()` | Clear cache | None |
-| `invalidate_cache(scope, ...)` | Invalidate cache | `scope`, `name`, `table_name` |
+### Core Methods — Declaration Layer
+
+What the catalogue says objects are. Every result is cached under the scope it
+belongs to.
+
+| Method | Parameters (defaults) | Description |
+|--------|-----------------------|-------------|
+| `get_database_info()` | — | Database information |
+| `list_tables()` | `schema=None, include_system=False, table_type=None` | List tables (and views) |
+| `get_table_info(table_name)` | `schema=None` | Table details, with columns, indexes and foreign keys |
+| `table_exists(table_name)` | `schema=None` | Whether the table exists |
+| `list_columns(table_name)` | `schema=None` | List columns |
+| `get_column_info(table_name, column_name)` | `schema=None` | Column details |
+| `column_exists(table_name, column_name)` | `schema=None` | Whether the column exists |
+| `get_primary_key(table_name)` | `schema=None` | Primary key index |
+| `list_indexes(table_name)` | `schema=None` | List indexes |
+| `get_index_info(table_name, index_name)` | `schema=None` | Index details |
+| `list_foreign_keys(table_name)` | `schema=None` | List foreign keys |
+| `get_foreign_key_info(table_name, fk_name)` | `schema=None` | Foreign key details |
+| `list_views()` | `schema=None, include_system=False` | List views |
+| `get_view_info(view_name)` | `schema=None` | View details |
+| `view_exists(view_name)` | `schema=None` | Whether the view exists |
+| `list_triggers()` | `table_name=None, schema=None` | List triggers, optionally for one table |
+| `get_trigger_info(trigger_name)` | `schema=None` | Trigger details |
+
+### Core Methods — Operational Layer
+
+Counters here are windows, not lifetimes: a zero means "nothing since the
+statistics were last reset" (see
+[Limitations and Considerations](#limitations-and-considerations)). Check the
+dialect's capability probe before calling; a `False` means the family is not
+available on that engine.
+
+| Method | Parameters (defaults) | Description |
+|--------|-----------------------|-------------|
+| `list_unused_indexes()` | `schema=None` | Indexes the engine reports as never having served a query |
+| `list_table_usage_stats()` | `schema=None` | Per-table read/write counters, since the last statistics reset |
+| `list_runtime_metrics()` | `schema=None` | Live runtime measurements; each item's `source` states its window |
+| `list_index_usage_stats()` | `schema=None` | Per-index use counters ("how much", not "ever") |
+| `list_object_dependencies()` | `object_name=None, schema=None` | The dependency graph, or one object's dependants |
+| `get_ddl_statement(object_name)` | `object_type=None, schema=None` | DDL that recreates one object, or `None` |
+
+### Core Methods — Data Layer
+
+The declaration says what a column *promises*; these say what it *holds*.
+`None` means not measured, never zero, and a profile's `source` says where its
+figures came from.
+
+| Method | Parameters (defaults) | Description |
+|--------|-----------------------|-------------|
+| `list_column_data_profiles(table_name)` | `schema=None` | Profile every column of one table |
+| `sample_column_values(table_name, column_name)` | `limit=VALUE_SAMPLE_LIMIT, schema=None` | A column's most frequent values, up to `limit` |
+| `estimate_join_coverage(left_table, left_column, right_table, right_column)` | `schema=None` | How much two columns' value domains overlap; `None` when unmeasured |
+
+`VALUE_SAMPLE_LIMIT` is defined once in
+`backend/introspection/defaults.py` (currently 100); the signature names the
+constant rather than repeating its value.
+
+### Cache and Invalidation
+
+The cache is the component every layer's results pass through; it is not a
+layer of its own.
+
+| Method | Parameters (defaults) | Description |
+|--------|-----------------------|-------------|
+| `clear_cache()` | — | Drop every cached result |
+| `invalidate_cache()` | `scope=None, name=None` | Drop cached results, from everything down to one object |

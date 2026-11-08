@@ -110,9 +110,15 @@
 
 * [概述](backend/README.md)
 * [架构设计](backend/architecture.md)
-* [数据库内省](backend/introspection.md)
 * [查询解释接口](backend/explain.md)
 * [自定义后端](backend/custom_backend.md)
+
+### 内省
+
+* [概述](backend/introspection.md)
+* [能力探针](backend/introspection/capabilities.md)
+* [运维家族](backend/introspection/operations.md)
+* [列数据剖面](backend/introspection/data-profiles.md)
 
 ### 命名后端 (Named Backend)
 
