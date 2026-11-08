@@ -120,7 +120,7 @@ are split into a semantics base (declares no fields; points at a model-declared 
 attribute like `__created_at_field__`) and a `Default*` subclass that adds the conventional field.
 - `DefaultTimestampMixin` (field/timestamp.py): Adds `created_at`, `updated_at`; auto-set on save. `TimestampMixin` is the field-free semantics base.
 - `DefaultSoftDeleteMixin` (field/soft_delete.py): Adds `deleted_at`; `.delete()` sets timestamp instead of removing row. `SoftDeleteMixin` is the field-free semantics base (+ `AsyncSoftDeleteMixin`/`DefaultAsyncSoftDeleteMixin`).
-- `DefaultOptimisticLockMixin` (field/version.py): Adds `version`; raises on concurrent update conflict. `OptimisticLockMixin` is the field-free semantics base.
+- `DefaultOptimisticLockMixin` (field/version.py): Adds `version`; raises `StaleRecordError` (a `DatabaseError` subclass) on concurrent update conflict. `OptimisticLockMixin` is the field-free semantics base.
 - `UUIDMixin` (field/uuid.py): Generates UUID4 primary keys.
 - `IntegerPKMixin` (field/integer_pk.py): Auto-increment integer primary key.
 
