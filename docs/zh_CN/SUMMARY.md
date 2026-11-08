@@ -43,6 +43,7 @@
 * [自定义类型](modeling/custom_types.md)
 * [模型最佳实践](modeling/best_practices.md)
 * [只读模型](modeling/readonly_models.md)
+* [无主键模型](modeling/keyless_models.md)
 * [批量处理（模型层）](modeling/bulk_operations.md)
 * [批量处理（后端层）](modeling/batch_processing.md)
 * [并发](modeling/concurrency.md)

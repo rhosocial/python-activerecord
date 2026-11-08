@@ -3,8 +3,8 @@ Example script demonstrating read-only analytics model patterns.
 
 This script validates the recommendations from
 docs/en_US/modeling/readonly_models.md:
-  1. ReadOnlyMixin overrides save(), delete(), and bulk_create() so that
-     accidental write attempts raise TypeError immediately.
+  1. ReadOnlyMixin gates save(), delete(), and bulk_create() so that
+     accidental write attempts raise ReadOnlyError before any SQL is issued.
   2. A read-only model can be configured against a separate backend
      (e.g. an analytics replica).
   3. Combining ReadOnlyMixin with a shared field Mixin keeps field definitions
@@ -21,6 +21,8 @@ from pydantic import BaseModel
 
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy
+from rhosocial.activerecord.backend.errors import ReadOnlyError
+from rhosocial.activerecord.field import ReadOnlyMixin
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.options import ExecutionOptions
@@ -45,27 +47,8 @@ _USERS_DDL = """
 
 
 # ---------------------------------------------------------------------------
-# ReadOnlyMixin (as described in the article)
+# ReadOnlyMixin is provided by the framework: no local copy is needed.
 # ---------------------------------------------------------------------------
-
-
-class ReadOnlyMixin:
-    """Mix into any ActiveRecord subclass to make it read-only."""
-
-    __readonly__: bool = True
-
-    def save(self, *args, **kwargs):
-        raise TypeError(
-            f"{type(self).__name__} is a read-only model and cannot be saved. "
-            "Use the corresponding writable model class instead."
-        )
-
-    def delete(self, *args, **kwargs):
-        raise TypeError(f"{type(self).__name__} is a read-only model and cannot be deleted.")
-
-    @classmethod
-    def bulk_create(cls, *args, **kwargs):
-        raise TypeError(f"{cls.__name__} is a read-only model.")
 
 
 # ---------------------------------------------------------------------------
@@ -123,7 +106,7 @@ class UserAnalytics(ReadOnlyMixin, UserFields, ActiveRecord):
 
 
 def demonstrate_readonly_protection() -> None:
-    """save(), delete(), and bulk_create() all raise TypeError immediately.
+    """save(), delete(), and bulk_create() all raise ReadOnlyError immediately.
 
     No database call is made; the error is caught in Python before any
     network or disk I/O occurs.
@@ -143,24 +126,24 @@ def demonstrate_readonly_protection() -> None:
     try:
         instance.save()
         print("  ✗ No error raised -- unexpected!")
-    except TypeError as exc:
-        print(f"  ✓ TypeError raised: {exc}")
+    except ReadOnlyError as exc:
+        print(f"  ✓ ReadOnlyError raised: {exc}")
 
     # --- Test delete() ---
     print("\nAttempting UserAnalytics(...).delete() ...")
     try:
         instance.delete()
         print("  ✗ No error raised -- unexpected!")
-    except TypeError as exc:
-        print(f"  ✓ TypeError raised: {exc}")
+    except ReadOnlyError as exc:
+        print(f"  ✓ ReadOnlyError raised: {exc}")
 
     # --- Test bulk_create() ---
     print("\nAttempting UserAnalytics.bulk_create([...]) ...")
     try:
         UserAnalytics.bulk_create([{"name": "X", "email": "x@example.com"}])
         print("  ✗ No error raised -- unexpected!")
-    except TypeError as exc:
-        print(f"  ✓ TypeError raised: {exc}")
+    except ReadOnlyError as exc:
+        print(f"  ✓ ReadOnlyError raised: {exc}")
 
     print("\n✓ All write operations are blocked by ReadOnlyMixin.")
 
@@ -311,7 +294,7 @@ if __name__ == "__main__":
     print("=" * 60)
     print("This example demonstrates:")
     print("1. ReadOnlyMixin makes save(), delete(), and bulk_create() raise")
-    print("   TypeError immediately -- no database call is made.")
+    print("   ReadOnlyError immediately -- no database call is made.")
     print("2. A read-only model and its writable counterpart can be configured")
     print("   against separate backends (primary vs. replica/analytics).")
     print("3. @property fields compute derived metrics in Python without schema")
