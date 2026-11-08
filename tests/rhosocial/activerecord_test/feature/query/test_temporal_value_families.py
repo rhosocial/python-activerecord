@@ -205,6 +205,7 @@ def test_a_temporal_column_follows_the_same_gate(dialect, timestamp):
         ("date_part", ("year",), NumericValue),
         ("interval", (1, "day"), TemporalValue),
         ("date_diff", ("day",), NumericValue),
+        ("seconds_between", (), NumericValue),
     ],
 )
 def test_a_temporal_operation_yields_its_own_type(dialect, timestamp, factory, args, result_cls):
@@ -212,11 +213,12 @@ def test_a_temporal_operation_yields_its_own_type(dialect, timestamp, factory, a
 
     ``EXTRACT`` yields a number and ``DATE_DIFF`` a whole number; each is
     decided by the factory that builds the node, and neither needed a label to
-    say so afterwards.
+    say so afterwards. ``SECONDS_BETWEEN`` is the fractional member: seconds
+    are divisible, so its result is the numeric family again.
     """
     if factory == "interval":
         result = getattr(datetime_functions, factory)(dialect, *args)
-    elif factory == "date_diff":
+    elif factory in ("date_diff", "seconds_between"):
         result = getattr(datetime_functions, factory)(dialect, *args, timestamp, timestamp)
     else:
         result = getattr(datetime_functions, factory)(dialect, *args, timestamp)
@@ -225,7 +227,7 @@ def test_a_temporal_operation_yields_its_own_type(dialect, timestamp, factory, a
 
 def test_a_temporal_value_offers_temporal_operations(dialect):
     now = datetime_functions.now(dialect)
-    for method in ("date_add", "date_sub", "date_diff", "date_part", "extract"):
+    for method in ("date_add", "date_sub", "date_diff", "seconds_between", "date_part", "extract"):
         assert hasattr(now, method), f"a timestamp lost {method}"
 
 

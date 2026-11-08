@@ -117,6 +117,23 @@ class SQLiteDateTimeMixin:
         sql = base_sql if multiplier == "1" else f"({base_sql} * {multiplier})"
         return self.apply_alias(sql, start_params + end_params, expr)
 
+    def format_seconds_between_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+        """Format signed seconds between two instants using SQLite julianday.
+
+        ``julianday`` is a real number, so the difference keeps the sub-second
+        part that ``strftime('%s', ...)`` drops. Dates before 1970 are below
+        the julianday origin too, so the negative direction needs no special
+        case: ``end`` before ``start`` simply subtracts to a negative number.
+
+        The rendering writes ``end`` first, so its parameters are collected
+        first as well -- bind order follows the SQL, not the constructor's
+        argument order.
+        """
+        start_sql, start_params = expr.start.to_sql()
+        end_sql, end_params = expr.end.to_sql()
+        sql = f"((julianday({end_sql}) - julianday({start_sql})) * 86400.0)"
+        return self.apply_alias(sql, end_params + start_params, expr)
+
     def supports_collate_expression(self) -> bool:
         """SQLite supports expression-level COLLATE."""
         return True

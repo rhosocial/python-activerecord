@@ -465,6 +465,51 @@ ow() -
         return "format_datetime_diff_expression"
 
 
+class SecondsBetweenExpression(
+    _TemporalValue,
+    DeclaredValueType,
+    NumericValue,
+):
+    """The elapsed time between two instants, counted in seconds.
+
+    Signed: ``end - start``, so an end earlier than the start is a negative
+    number and equal instants are exactly zero. Fractional: a second has a
+    fraction, and an engine that stores one keeps it here. Rounding is the
+    caller's decision, not this node's -- claiming whole seconds would make
+    the result wrong wherever a sub-second is present.
+
+    Why this is a node of its own rather than a ``DateTimeField.EPOCH``
+    member: that enum is shared with :class:`DateTruncExpression`, where
+    ``EPOCH`` names nothing truncatable, and ``EXTRACT(EPOCH FROM ts)`` is one
+    timestamp's offset from 1970 rather than the distance between two
+    timestamps. A dedicated node states the actual question once, and a
+    backend spells it however its engine can: ``EXTRACT(EPOCH FROM (end -
+    start))`` where subtraction yields an interval, ``julianday`` arithmetic
+    where dates are numbers, or a ``TIMESTAMPDIFF`` over the finest unit the
+    engine keeps.
+
+    The two operands are sources, not units: the caller supplies the start and
+    the end, and the difference is always the end minus the start.
+    """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        start: BaseExpression,
+        end: BaseExpression,
+        alias: str = None,
+    ):
+        BaseExpression.__init__(self, dialect)
+        self.start = start
+        self.end = end
+        self.alias = alias
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_seconds_between_expression"
+
+
 class NowFunction(
     _TemporalValue,
     DeclaredValueType,

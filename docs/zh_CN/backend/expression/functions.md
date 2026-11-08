@@ -1913,6 +1913,71 @@ sql, params = interval.to_sql()
 # params: ()
 ```
 
+### seconds_between
+
+创建两个时刻之间经过的带符号、带小数的秒数。
+
+```python
+from rhosocial.activerecord.backend.expression import Column, seconds_between
+
+elapsed = seconds_between(
+    dialect,
+    Column(dialect, "queued_at"),
+    Column(dialect, "started_at"),
+).as_("queue_seconds")
+sql, params = elapsed.to_sql()
+# SQLite:
+# sql: '((julianday("started_at") - julianday("queued_at")) * 86400.0) AS "queue_seconds"'
+# params: ()
+```
+
+结果始终是 `end - start`，单位为秒：
+
+| 情形 | 结果 |
+|------|------|
+| `end` 晚于 `start` | 正数 |
+| `end` 早于 `start` | 负数 |
+| 同一时刻 | `0` |
+| 任一侧带小数 | 引擎能存储小数时保留小数 |
+
+`started.seconds_between(ended)` 是在列上提出同一个问题；普通 `Column` 没有时间
+操作面，因此接收方必须是时间戳列（`TimestampColumn`，或通过 `Model.c.<field>` 取得的
+`datetime` 字段）。
+
+#### 为什么使用独立节点而不是 `DateTimeField.EPOCH`
+
+`DateTimeField` 同时是 `extract` 与 `date_trunc` 的词汇表。`EPOCH` 不是可截断的字段，
+放进该枚举会让 `date_trunc("epoch")` 也能构造，并把拒绝留给每个方言。而且 epoch 提取
+回答的并非本节点的问题：`EXTRACT(EPOCH FROM ts)` 是单个时间戳相对 1970 的偏移，调用方
+仍要相减两次并把操作数顺序自己想清楚；独立节点把“两点之间的距离”一次性表达出来。
+
+`date_diff` 仍然按命名的整单位计数（`date_diff("day", ...)` 数经过的日界线）；
+`seconds_between` 是它保留小数的兄弟。需要整数秒的调用方自行取整。
+
+#### 后端需要实现什么
+
+节点只委托一个方言方法：
+
+```python
+def format_seconds_between_expression(self, expr) -> Tuple[str, Tuple]:
+```
+
+`expr.start` 与 `expr.end` 都是表达式；各自用 `to_sql()` 渲染，返回 `end - start`
+以秒为单位的 SQL 与绑定参数，参数顺序必须与占位符顺序一致（下例先写 `end`，所以它的
+参数在前）。调用 `self.apply_alias(...)`，使 `.as_("...")` 保留。核心方法抛出
+`UnsupportedFeatureError`；尚未适配的后端会明确拒绝，而不是渲染一个错误的数值。
+
+| 后端 | 拼写 | 小数 |
+|------|------|------|
+| SQLite（已实现） | `((julianday(end) - julianday(start)) * 86400.0)` | 保留，精度受儒略日双精度限制 |
+| PostgreSQL | `EXTRACT(EPOCH FROM (end - start))` | 保留，微秒 |
+| MySQL / MariaDB | `TIMESTAMPDIFF(SECOND, start, end)` | 整秒；保留小数用 `TIMESTAMPDIFF(MICROSECOND, ...) / 1000000` |
+| SQL Server | `DATEDIFF_BIG(MILLISECOND, start, end) / 1000.0` | 毫秒；`DATEDIFF_BIG` 避免 `DATEDIFF` 溢出 |
+| Oracle | `(CAST(end AS DATE) - CAST(start AS DATE)) * 86400` | 仅 `DATE` 精度；`TIMESTAMP` 需把日/时/分/秒分量求和 |
+| ClickHouse | `dateDiff('millisecond', start, end) / 1000.0` | 毫秒 |
+
+只能按整单位计数的引擎必须在其方言文档中说明；符号与“秒”作为单位不可协商。
+
 ### 日期时间运算
 
 ```python

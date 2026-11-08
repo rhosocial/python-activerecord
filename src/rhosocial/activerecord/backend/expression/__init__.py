@@ -59,6 +59,7 @@ from .functions import (
     date_add,
     date_sub,
     date_diff,
+    seconds_between,
     # Conditional function factories
     case,
     nullif,
@@ -381,6 +382,7 @@ from .datetime import (
     DatetimeAddExpression,
     DatetimeSubtractExpression,
     DatetimeDiffExpression,
+    SecondsBetweenExpression,
 )
 from .collation import (
     CollateFunction,
@@ -543,6 +545,7 @@ __all__ = [
     "DatetimeAddExpression",
     "DatetimeSubtractExpression",
     "DatetimeDiffExpression",
+    "SecondsBetweenExpression",
     "PassingClause",
     "XMLAggExpression",
     "XMLAttribute",
@@ -801,6 +804,7 @@ __all__ = [
     "date_add",
     "date_sub",
     "date_diff",
+    "seconds_between",
     "case",
     "nullif",
     "greatest",
