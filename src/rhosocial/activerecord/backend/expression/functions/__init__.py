@@ -97,6 +97,7 @@ from .datetime import (
     date_add,
     date_sub,
     date_diff,
+    seconds_between,
     # SQL standard datetime functions
     current_timestamp,
     localtimestamp,
@@ -217,6 +218,7 @@ __all__ = [
     "date_add",
     "date_sub",
     "date_diff",
+    "seconds_between",
     "current_timestamp",
     "localtimestamp",
     "extract",

@@ -26,12 +26,14 @@ from rhosocial.activerecord.backend.expression import (
     IntervalExpression,
     DateTimeField,
     IntervalUnit,
+    SecondsBetweenExpression,
     collate,
     date_add,
     date_diff,
     date_sub,
     extract,
     interval,
+    seconds_between,
 )
 from rhosocial.activerecord.backend.expression.datetime import (
     normalize_datetime_field,
@@ -213,6 +215,19 @@ class TestIntervalAndDateTimeArithmetic:
         with pytest.raises(Exception) as exc_info:
             expr.to_sql()
         assert "date_diff" in str(exc_info.value)
+
+    def test_seconds_between_factory_constructs(self, dialect):
+        expr = seconds_between(dialect, "created_at", Literal(dialect, "updated_at"))
+        assert isinstance(expr, SecondsBetweenExpression)
+
+    def test_seconds_between_to_sql_unsupported(self, dialect):
+        """The generic dialect has no subtraction that yields seconds."""
+        expr = seconds_between(
+            dialect, Column(dialect, "created_at"), Column(dialect, "updated_at")
+        )
+        with pytest.raises(Exception) as exc_info:
+            expr.to_sql()
+        assert "seconds_between" in str(exc_info.value)
 
 
 class TestNormalizeAndValidate:

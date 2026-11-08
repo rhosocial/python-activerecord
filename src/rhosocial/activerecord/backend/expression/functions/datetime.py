@@ -21,6 +21,7 @@ from ..datetime import (
     DateTruncExpression,
     ExtractExpression,
     IntervalExpression,
+    SecondsBetweenExpression,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -316,3 +317,19 @@ def date_diff(
     start = start_expr if isinstance(start_expr, BaseExpression) else Column(dialect, start_expr)
     end = end_expr if isinstance(end_expr, BaseExpression) else Column(dialect, end_expr)
     return DatetimeDiffExpression(dialect, unit, start, end)
+
+
+def seconds_between(
+    dialect: "SQLDialectBase",
+    start_expr: "BaseExpression",
+    end_expr: "BaseExpression",
+) -> "SecondsBetweenExpression":
+    """Creates the signed, fractional seconds elapsed from *start* to *end*.
+
+    The result is ``end - start`` in seconds: positive when the end is later,
+    negative when it is earlier and zero when the two are the same instant.
+    A bare string names a column, the same convention :func:`date_diff` uses.
+    """
+    start = start_expr if isinstance(start_expr, BaseExpression) else Column(dialect, start_expr)
+    end = end_expr if isinstance(end_expr, BaseExpression) else Column(dialect, end_expr)
+    return SecondsBetweenExpression(dialect, start, end)

@@ -1914,6 +1914,79 @@ sql, params = interval.to_sql()
 # params: ()
 ```
 
+### seconds_between
+
+Creates the signed, fractional number of seconds elapsed from one instant to
+another.
+
+```python
+from rhosocial.activerecord.backend.expression import Column, seconds_between
+
+elapsed = seconds_between(
+    dialect,
+    Column(dialect, "queued_at"),
+    Column(dialect, "started_at"),
+).as_("queue_seconds")
+sql, params = elapsed.to_sql()
+# SQLite:
+# sql: '((julianday("started_at") - julianday("queued_at")) * 86400.0) AS "queue_seconds"'
+# params: ()
+```
+
+The result is always `end - start`, in seconds:
+
+| Case | Result |
+|------|--------|
+| `end` later than `start` | positive |
+| `end` earlier than `start` | negative |
+| same instant | `0` |
+| fraction present in either value | the fraction is kept where the engine stores it |
+
+`started.seconds_between(ended)` is the same question asked on the column side;
+`Column` objects do not carry the temporal surface, so the receiver must be a
+timestamp column (`TimestampColumn`, or a `datetime` field reached through
+`Model.c.<field>`).
+
+#### Why this is a node rather than `DateTimeField.EPOCH`
+
+`DateTimeField` is the vocabulary of **both** `extract` and `date_trunc`.
+`EPOCH` is not a field that can be truncated, so adding it there would make
+`date_trunc("epoch")` constructible and leave each dialect to refuse it. An
+epoch extraction is also not the question this answers: `EXTRACT(EPOCH FROM ts)`
+is one timestamp's offset from 1970, so a caller still has to subtract two
+offsets and pick the operand order; a dedicated node states the distance once.
+
+`date_diff` remains the whole-unit operation (`date_diff("day", ...)` counts
+days crossed); `seconds_between` is its fractional sibling. A caller who wants
+whole seconds rounds the result explicitly.
+
+#### What a backend implements
+
+The node delegates to one dialect method:
+
+```python
+def format_seconds_between_expression(self, expr) -> Tuple[str, Tuple]:
+```
+
+`expr.start` and `expr.end` are expressions; render each with `to_sql()` and
+return the SQL for `end - start` in seconds together with the bind parameters
+**in the order the placeholders appear** (the examples below write `end` first,
+so its parameters come first). Call `self.apply_alias(...)` so `.as_("...")`
+survives. The core method raises `UnsupportedFeatureError`; a backend that has
+not adapted yet refuses rather than renders a wrong number.
+
+| Backend | Spelling | Fraction |
+|---------|----------|----------|
+| SQLite (implemented) | `((julianday(end) - julianday(start)) * 86400.0)` | kept, to the resolution of the julian-day double |
+| PostgreSQL | `EXTRACT(EPOCH FROM (end - start))` | kept, microseconds |
+| MySQL / MariaDB | `TIMESTAMPDIFF(SECOND, start, end)` | whole seconds; use `TIMESTAMPDIFF(MICROSECOND, ...) / 1000000` to keep the fraction |
+| SQL Server | `DATEDIFF_BIG(MILLISECOND, start, end) / 1000.0` | milliseconds; `DATEDIFF_BIG` avoids the `DATEDIFF` overflow |
+| Oracle | `(CAST(end AS DATE) - CAST(start AS DATE)) * 86400` | only with `DATE` precision; `TIMESTAMP` needs its day/hour/minute/second components summed |
+| ClickHouse | `dateDiff('millisecond', start, end) / 1000.0` | milliseconds |
+
+An engine that can only count whole units must say so in its dialect's
+docstring; the sign and the second as the unit are not negotiable.
+
 ### Date/time arithmetic
 
 ```python

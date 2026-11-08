@@ -55,6 +55,7 @@ if TYPE_CHECKING:  # pragma: no cover
         DatetimeSubtractExpression,
         DateTruncExpression,
         ExtractExpression,
+        SecondsBetweenExpression,
     )
     from .advanced_functions import JSONDocumentValue, JSONTextValue
     from .declared import (
@@ -2025,6 +2026,12 @@ class DateTimeMixin:
         from .datetime import DatetimeDiffExpression
 
         return self._temporal_node(DatetimeDiffExpression, unit, self, end)
+
+    def seconds_between(self, end) -> "SecondsBetweenExpression":
+        """Signed seconds from this instant to *end*, fraction included."""
+        from .datetime import SecondsBetweenExpression
+
+        return self._temporal_node(SecondsBetweenExpression, self, end)
 
 
 def _as_interval(dialect, value, unit: Optional[str]):

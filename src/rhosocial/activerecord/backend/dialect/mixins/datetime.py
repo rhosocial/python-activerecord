@@ -170,3 +170,27 @@ class DateTimeMixin:
             f"date_diff({expr.unit.value})",
             "Override format_datetime_diff_expression() in the target dialect.",
         )
+
+    def format_seconds_between_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+        """Format the signed seconds elapsed from ``expr.start`` to ``expr.end``.
+
+        The core provides no generic syntax: the operation is a subtraction
+        whose result is a duration on PostgreSQL, a real number on SQLite and
+        a function call on the engines that count in named units. A dialect
+        that adapts this must answer with ``end - start`` in seconds -- the
+        sign carries the direction, and a fraction is kept where the engine
+        stores one.
+
+        Args:
+            expr: The expression carrying ``start`` and ``end``.
+
+        Raises:
+            UnsupportedFeatureError: Always, at the core layer.
+        """
+        from ..exceptions import UnsupportedFeatureError
+        raise UnsupportedFeatureError(
+            self.name,
+            "seconds_between(start, end)",
+            "Override format_seconds_between_expression() in the target dialect "
+            "so it renders end - start in seconds.",
+        )

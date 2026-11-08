@@ -8,6 +8,7 @@ from rhosocial.activerecord.backend.expression import Column, Literal, QueryStat
 from rhosocial.activerecord.backend.expression.datetime import (
     DateTimeField,
     IntervalUnit,
+    SecondsBetweenExpression,
     normalize_datetime_field,
     normalize_interval_unit,
 )
@@ -19,7 +20,10 @@ from rhosocial.activerecord.backend.expression.functions import (
     date_trunc,
     extract,
     interval,
+    seconds_between,
 )
+from rhosocial.activerecord.backend.expression.column_types import TimestampColumn
+from rhosocial.activerecord.backend.expression.value_types import NumericValue
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.types import TextType
 
@@ -156,6 +160,88 @@ class TestSQLiteDateTimeIntervalExpressions:
 
         with pytest.raises(UnsupportedFeatureError):
             expr.to_sql()
+
+    def test_seconds_between_columns(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        expr = seconds_between(
+            sqlite_dialect_3_8_0,
+            Column(sqlite_dialect_3_8_0, "started_at"),
+            Column(sqlite_dialect_3_8_0, "ended_at"),
+        )
+
+        sql, params = expr.to_sql()
+
+        assert sql == (
+            '((julianday("ended_at") - julianday("started_at")) * 86400.0)'
+        )
+        assert params == ()
+
+    def test_seconds_between_literal_params_follow_sql_order(
+        self, sqlite_dialect_3_8_0: SQLiteDialect
+    ):
+        expr = seconds_between(
+            sqlite_dialect_3_8_0,
+            Literal(sqlite_dialect_3_8_0, "2026-01-01 00:00:00"),
+            Literal(sqlite_dialect_3_8_0, "2026-01-02 00:00:00"),
+        )
+
+        sql, params = expr.to_sql()
+
+        assert sql == "((julianday(?) - julianday(?)) * 86400.0)"
+        # ``end`` is written first, so its parameter binds first.
+        assert params == ("2026-01-02 00:00:00", "2026-01-01 00:00:00")
+
+    def test_seconds_between_factory_coerces_string_to_column(
+        self, sqlite_dialect_3_8_0: SQLiteDialect
+    ):
+        expr = seconds_between(sqlite_dialect_3_8_0, "started_at", "ended_at")
+
+        sql, params = expr.to_sql()
+
+        assert sql == (
+            '((julianday("ended_at") - julianday("started_at")) * 86400.0)'
+        )
+        assert params == ()
+
+    def test_seconds_between_column_method(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        started = TimestampColumn(sqlite_dialect_3_8_0, "started_at")
+        ended = TimestampColumn(sqlite_dialect_3_8_0, "ended_at")
+
+        expr = started.seconds_between(ended)
+
+        sql, params = expr.to_sql()
+
+        assert sql == (
+            '((julianday("ended_at") - julianday("started_at")) * 86400.0)'
+        )
+        assert params == ()
+
+    def test_seconds_between_is_a_fractional_number(
+        self, sqlite_dialect_3_8_0: SQLiteDialect
+    ):
+        expr = seconds_between(
+            sqlite_dialect_3_8_0,
+            Column(sqlite_dialect_3_8_0, "started_at"),
+            Column(sqlite_dialect_3_8_0, "ended_at"),
+        )
+
+        assert isinstance(expr, SecondsBetweenExpression)
+        assert isinstance(expr, NumericValue)
+        assert expr.format_method == "format_seconds_between_expression"
+
+    def test_seconds_between_alias(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        expr = seconds_between(
+            sqlite_dialect_3_8_0,
+            Column(sqlite_dialect_3_8_0, "started_at"),
+            Column(sqlite_dialect_3_8_0, "ended_at"),
+        ).as_("elapsed")
+
+        sql, params = expr.to_sql()
+
+        assert sql == (
+            '((julianday("ended_at") - julianday("started_at")) * 86400.0) '
+            'AS "elapsed"'
+        )
+        assert params == ()
 
     @pytest.mark.parametrize(
         "field,expected",
