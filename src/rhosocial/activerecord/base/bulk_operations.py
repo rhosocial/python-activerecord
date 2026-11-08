@@ -3,7 +3,12 @@
 
 from typing import List, Optional, TYPE_CHECKING
 
-from ..backend.errors import DatabaseError, BulkStateError, BulkValidationError
+from ..backend.errors import (
+    BulkStateError,
+    BulkValidationError,
+    DatabaseError,
+    UnaddressableRecordError,
+)
 from ..backend.expression import Column, Literal
 from ..backend.expression.predicates import InPredicate
 from ..backend.options import BulkInsertOptions, BulkUpdateOptions, DeleteOptions, UpdateOptions
@@ -40,7 +45,9 @@ class BulkOperationsMixin:
             BulkStateError: If any record is not a new record.
             BulkValidationError: If any record fails validation.
             DatabaseError: On database errors.
+            ReadOnlyError: If the model is read-only.
         """
+        cls.refuse_read_only("bulk_create")
         if not records:
             return records
 
@@ -80,7 +87,10 @@ class BulkOperationsMixin:
 
         supports_returning = backend.dialect.supports_returning_insert()
         is_composite = cls.is_composite_pk()
-        returning_columns = list(cls.primary_key_columns()) if supports_returning else None
+        addressable = cls.addressable()
+        # A keyless model has no column to read back, so ask the backend for
+        # no returning columns and skip the identity bookkeeping below.
+        returning_columns = list(cls.primary_key_columns()) if supports_returning and addressable else None
         column_mapping = cls.get_column_to_field_map()
         column_adapters = cls.get_column_adapters()
 
@@ -98,7 +108,7 @@ class BulkOperationsMixin:
             )
             result = backend.bulk_insert(opts)
 
-            if supports_returning and result.data:
+            if supports_returning and addressable and result.data:
                 if not is_composite:
                     pk_field = cls._get_field_name(cls.primary_key())
                     for j, row_data in enumerate(result.data):
@@ -112,7 +122,7 @@ class BulkOperationsMixin:
                                 field = cls._get_field_name(col)
                                 if field in row_data:
                                     setattr(batch_records[j], field, row_data[field])
-            elif result.last_insert_id is not None and not is_composite:
+            elif result.last_insert_id is not None and not is_composite and addressable:
                 pk_field = cls._get_field_name(cls.primary_key())
                 for j, rec in enumerate(batch_records):
                     if getattr(rec, pk_field, None) is None:
@@ -158,9 +168,13 @@ class BulkOperationsMixin:
             BulkStateError: If any record is a new record.
             BulkValidationError: If any record fails validation.
             ValueError: If fields list is empty or contains invalid field names.
+            ReadOnlyError: If the model is read-only.
         """
+        cls.refuse_read_only("bulk_update")
         if not records:
             return 0
+        if not cls.addressable():
+            raise UnaddressableRecordError(cls.__name__, "bulk_update")
 
         if not fields:
             raise ValueError("fields parameter must not be empty")
@@ -255,9 +269,13 @@ class BulkOperationsMixin:
 
         Raises:
             BulkStateError: If any record is a new record.
+            ReadOnlyError: If the model is read-only.
         """
+        cls.refuse_read_only("bulk_delete")
         if not records:
             return 0
+        if not cls.addressable():
+            raise UnaddressableRecordError(cls.__name__, "bulk_delete")
 
         backend = cls.backend()
         if not backend:
@@ -369,7 +387,9 @@ class AsyncBulkOperationsMixin:
             BulkStateError: If any record is not a new record.
             BulkValidationError: If any record fails validation.
             DatabaseError: On database errors.
+            ReadOnlyError: If the model is read-only.
         """
+        cls.refuse_read_only("bulk_create")
         if not records:
             return records
 
@@ -409,7 +429,10 @@ class AsyncBulkOperationsMixin:
 
         supports_returning = backend.dialect.supports_returning_insert()
         is_composite = cls.is_composite_pk()
-        returning_columns = list(cls.primary_key_columns()) if supports_returning else None
+        addressable = cls.addressable()
+        # A keyless model has no column to read back, so ask the backend for
+        # no returning columns and skip the identity bookkeeping below.
+        returning_columns = list(cls.primary_key_columns()) if supports_returning and addressable else None
         column_mapping = cls.get_column_to_field_map()
         column_adapters = cls.get_column_adapters()
 
@@ -427,7 +450,7 @@ class AsyncBulkOperationsMixin:
             )
             result = await backend.bulk_insert(opts)
 
-            if supports_returning and result.data:
+            if supports_returning and addressable and result.data:
                 if not is_composite:
                     pk_field = cls._get_field_name(cls.primary_key())
                     for j, row_data in enumerate(result.data):
@@ -441,7 +464,7 @@ class AsyncBulkOperationsMixin:
                                 field = cls._get_field_name(col)
                                 if field in row_data:
                                     setattr(batch_records[j], field, row_data[field])
-            elif result.last_insert_id is not None and not is_composite:
+            elif result.last_insert_id is not None and not is_composite and addressable:
                 pk_field = cls._get_field_name(cls.primary_key())
                 for j, rec in enumerate(batch_records):
                     if getattr(rec, pk_field, None) is None:
@@ -485,9 +508,13 @@ class AsyncBulkOperationsMixin:
             BulkStateError: If any record is a new record.
             BulkValidationError: If any record fails validation.
             ValueError: If fields list is empty or contains invalid field names.
+            ReadOnlyError: If the model is read-only.
         """
+        cls.refuse_read_only("bulk_update")
         if not records:
             return 0
+        if not cls.addressable():
+            raise UnaddressableRecordError(cls.__name__, "bulk_update")
 
         if not fields:
             raise ValueError("fields parameter must not be empty")
@@ -581,9 +608,13 @@ class AsyncBulkOperationsMixin:
 
         Raises:
             BulkStateError: If any record is a new record.
+            ReadOnlyError: If the model is read-only.
         """
+        cls.refuse_read_only("bulk_delete")
         if not records:
             return 0
+        if not cls.addressable():
+            raise UnaddressableRecordError(cls.__name__, "bulk_delete")
 
         backend = cls.backend()
         if not backend:

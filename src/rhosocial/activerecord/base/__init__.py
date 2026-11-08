@@ -35,6 +35,7 @@ from .ddl import (
     DDLSourceMixin,
     IdentityAttribute,
     MARKER_REGISTRY,
+    ObjectDeclaration,
 )
 from .metaclass import MetaclassMixin, ActiveRecordMetaclass
 
@@ -74,6 +75,7 @@ __all__ = [
     "DDLGeneratedColumn",
     "DDLSource",
     "DDLSourceMixin",
+    "ObjectDeclaration",
     "IdentityAttribute",
     "MARKER_REGISTRY",
     "MetaclassMixin",

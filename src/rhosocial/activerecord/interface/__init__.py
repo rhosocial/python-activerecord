@@ -19,12 +19,13 @@ from .query import (
     IQueryBuilding,
     ThreadSafeDict,
 )
-from .update import IUpdateBehavior
+from .update import IReadOnlyBehavior, IUpdateBehavior
 
 __all__ = [
     "ActiveRecordBase",
     "IActiveRecord",
     "IAsyncActiveRecord",
+    "IReadOnlyBehavior",
     "IUpdateBehavior",
     "ISetOperationQuery",
     "IBackend",

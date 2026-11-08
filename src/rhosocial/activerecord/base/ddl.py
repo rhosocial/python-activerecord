@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import typing
 from dataclasses import dataclass
+from enum import Enum
 from typing import (
     Any,
     Callable,
@@ -78,6 +79,32 @@ DDLColumnType = Union["UseColumnType", Type["ColumnBase"], Sequence[Type["Column
 DDLGeneratedColumn = Union[
     Callable[["SQLDialectBase"], ColumnGeneratedConstraint],
 ]
+
+
+class ObjectDeclaration(Enum):
+    """Which kind of database object a :class:`DDLSource` describes.
+
+    A declaration, never a runtime probe: a source answers this from its own
+    class definition, and a caller that needs to know whether a database
+    actually holds a view of that name must ask introspection instead.
+
+    ``TABLE``
+        The default. Anything declared through the column/constraint/index
+        methods below.
+    ``VIEW``
+        A plain view -- a stored query with no entity behind it. Prefer
+        expressing those as an encapsulated query rather than a model; this
+        member exists so a non-model :class:`DDLSource` can declare one for
+        migration purposes.
+    ``MATERIALIZED_VIEW``
+        A stored result set with a refresh cycle. Unlike a view this *is* an
+        entity, so a model may map one.
+    """
+
+    TABLE = "table"
+    VIEW = "view"
+    MATERIALIZED_VIEW = "materialized_view"
+
 
 MARKER_REGISTRY: Dict[Type[Any], Tuple[str, bool]] = {
     UseSqlType: ("use_sql_type", True),
@@ -426,6 +453,9 @@ class DDLSource(Protocol):
     def table_tablespace(self) -> Optional[str]:
         ...
 
+    def object_type(self) -> ObjectDeclaration:
+        ...
+
 
 class DDLSourceMixin:
     """Provide overridable DDL parameter defaults for ActiveRecord models.
@@ -508,6 +538,18 @@ TableConstraint(
     @classmethod
     def table_tablespace(cls) -> Optional[str]:
         return None
+
+    @classmethod
+    def object_type(cls) -> ObjectDeclaration:
+        """Which kind of object this source describes. Defaults to a table.
+
+        A declaration, not a probe: no introspection happens here. The DDL
+        layer reads this value to choose which statement to build, and the
+        dialect's capability gates decide whether that statement is
+        expressible. Model metadata stays free of I/O, which is what lets it
+        be resolved at import time.
+        """
+        return ObjectDeclaration.TABLE
 
     @classmethod
     def index_definition(cls, marker: UseIndex, column_name: str) -> IndexDefinition:
@@ -780,6 +822,7 @@ __all__ = [
     "DDLGeneratedColumn",
     "DDLSource",
     "DDLSourceMixin",
+    "ObjectDeclaration",
     "IdentityAttribute",
     "MARKER_REGISTRY",
 ]
