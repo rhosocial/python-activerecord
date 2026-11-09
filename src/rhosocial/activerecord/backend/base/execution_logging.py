@@ -264,7 +264,15 @@ def log_execution_summary(
     fields["duration_ms"] = round(duration * 1000, 2)
 
     if category == "DML":
-        fields["rows_affected"] = getattr(cursor, "rowcount", 0)
+        rows_affected = getattr(cursor, "rowcount", 0)
+        if rows_affected is None or rows_affected < 0:
+            rows_affected = 0
+        # Older SQLite/Python builds report rowcount 0 for INSERT ... RETURNING
+        # until the returned rows are consumed; the row count is then the
+        # number of returned rows.  Keep the summary equal to QueryResult.
+        if rows_affected == 0 and data:
+            rows_affected = len(data)
+        fields["rows_affected"] = rows_affected
     elif category == "DQL":
         fields["rows_returned"] = len(data) if data is not None else 0
 
