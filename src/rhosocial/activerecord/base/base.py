@@ -3,12 +3,30 @@
 
 import logging
 import inspect
+from collections.abc import Mapping as MappingABC
 from pydantic.fields import FieldInfo
-from typing import Any, Callable, Dict, List, Optional, Type, Union, get_origin, get_args, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Type,
+    Union,
+    get_origin,
+    get_args,
+    Tuple,
+)
 
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
-from ..backend.errors import DatabaseError, RecordNotFound, ValidationError as DBValidationError
+from ..backend.errors import (
+    DatabaseError,
+    IntegrityError,
+    RecordNotFound,
+    ValidationError as DBValidationError,
+)
 from ..backend.expression import (
     Column,
     ColumnBase,
@@ -563,6 +581,203 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             cls.log(logging.WARNING, f"Record not found for {cls.__name__} with find_one condition: {condition}")
             raise RecordNotFound(f"Record not found for {cls.__name__}")
         return record
+
+    @classmethod
+    def _check_lookup_value(cls, field: str, value: Any) -> None:
+        """Reject lookup values that cannot be compared by equality."""
+        if value is None:
+            raise ValueError(
+                f"lookup value for {field!r} is None; an equality lookup needs a concrete value"
+            )
+        if isinstance(value, (ColumnBase, SQLPredicate)) or QueryWithParams.holds(value):
+            raise TypeError(
+                f"lookup value for {field!r} is an expression; find_one_or_create only supports "
+                "plain equality values"
+            )
+
+    @classmethod
+    def _prepare_find_or_create_inputs(
+        cls,
+        lookup: Dict[str, Any],
+        defaults: Optional[Mapping[str, Any]],
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """Validate ``lookup`` / ``defaults`` and return the create values.
+
+        ``lookup`` is the natural key and must name at least one model field.
+        ``defaults`` fill the remaining fields on creation only, so ``lookup``
+        wins when both name the same field.
+        """
+        if not lookup:
+            raise ValueError(
+                f"{cls.__name__}.find_one_or_create needs at least one lookup field; "
+                "an empty lookup would return an arbitrary row"
+            )
+        if defaults is None:
+            default_values: Dict[str, Any] = {}
+        elif isinstance(defaults, MappingABC):
+            default_values = dict(defaults)
+        else:
+            raise TypeError(
+                f"defaults must be a mapping or None, got {type(defaults).__name__}"
+            )
+
+        model_fields = cls.model_fields
+        cleaned_lookup: Dict[str, Any] = {}
+        for field, value in lookup.items():
+            if not isinstance(field, str) or field not in model_fields:
+                raise TypeError(f"{field!r} is not a field of {cls.__name__}")
+            cls._check_lookup_value(field, value)
+            cleaned_lookup[field] = value
+
+        cleaned_defaults: Dict[str, Any] = {}
+        for field, value in default_values.items():
+            if not isinstance(field, str) or field not in model_fields:
+                raise TypeError(f"{field!r} is not a field of {cls.__name__} (in defaults)")
+            if isinstance(value, (ColumnBase, SQLPredicate)) or QueryWithParams.holds(value):
+                raise TypeError(
+                    f"defaults value for {field!r} is an expression; find_one_or_create only "
+                    "supports plain values"
+                )
+            cleaned_defaults[field] = value
+
+        if cls.__pk_auto_generated__:
+            key_fields = [
+                field
+                for field in cls.primary_key_fields()
+                if field in cleaned_lookup or field in cleaned_defaults
+            ]
+            if key_fields:
+                raise ValueError(
+                    f"{cls.__name__} generates its primary key in the database; do not pass "
+                    f"{key_fields} in lookup or defaults. Use the natural key instead."
+                )
+
+        create_values = dict(cleaned_defaults)
+        create_values.update(cleaned_lookup)
+        return cleaned_lookup, create_values
+
+    @classmethod
+    def _find_one_by_lookup(cls, lookup: Dict[str, Any]) -> Optional["BaseActiveRecord"]:
+        """Return the first row matching every field in ``lookup`` by equality."""
+        query = cls.query()
+        condition = None
+        for field, value in lookup.items():
+            column = getattr(cls.c, field)
+            comparison = ComparisonPredicate(
+                column.dialect, "=", column, Literal(column.dialect, value)
+            )
+            condition = comparison if condition is None else condition & comparison
+        query = query.where(condition)
+        return query.one()
+
+    @classmethod
+    def _open_savepoint_if_usable(cls) -> Optional[str]:
+        """Open a savepoint only when already inside a transaction that supports one."""
+        backend = cls.backend()
+        if backend is None:
+            return None
+        manager = backend.transaction_manager
+        try:
+            if not callable(getattr(manager, "supports_savepoint", None)):
+                return None
+            if not manager.supports_savepoint():
+                return None
+            if not getattr(manager, "is_active", False):
+                return None
+            return manager.savepoint()
+        except Exception as exc:  # capability probing must not break the write path
+            cls.log(logging.WARNING, f"Could not open savepoint for find_one_or_create: {exc}")
+            return None
+
+    @classmethod
+    def _rollback_to_savepoint(cls, savepoint: Optional[str]) -> None:
+        """Best-effort recovery to a savepoint; never masks the original failure."""
+        if savepoint is None:
+            return
+        manager = cls.backend().transaction_manager
+        try:
+            manager.rollback_to(savepoint)
+            manager.release(savepoint)
+        except Exception as exc:
+            cls.log(logging.WARNING, f"Could not roll back to savepoint {savepoint}: {exc}")
+
+    @classmethod
+    def _release_savepoint(cls, savepoint: Optional[str]) -> None:
+        """Best-effort release of a savepoint after a successful insert."""
+        if savepoint is None:
+            return
+        manager = cls.backend().transaction_manager
+        try:
+            manager.release(savepoint)
+        except Exception as exc:
+            cls.log(logging.WARNING, f"Could not release savepoint {savepoint}: {exc}")
+
+    @classmethod
+    def find_one_or_create(
+        cls: Type["BaseActiveRecord"],
+        *,
+        defaults: Optional[Mapping[str, Any]] = None,
+        **lookup: Any,
+    ) -> Tuple["BaseActiveRecord", bool]:
+        """Return ``(row, created)`` for the row matching ``lookup``.
+
+        ``lookup`` is a natural key: every keyword names a model field and is
+        compared by equality. ``defaults`` fill the remaining fields **on
+        creation only**; an existing row is returned untouched.
+
+        The method does not open, commit or roll back a transaction. It runs on
+        the connection and transaction context the caller already has, so the
+        caller may wrap the call in ``Model.transaction()`` when the lookup and
+        insert must share a transaction. Inside an active transaction that
+        supports savepoints, a savepoint is used to recover from a failed
+        insert; it is a recovery point, not a transaction boundary.
+
+        Args:
+            defaults: Values used only when the row is created. When a key also
+                appears in ``lookup``, the lookup value wins because it defines
+                the identity being searched for.
+            **lookup: At least one model field. Only plain equality values are
+                accepted; expressions are rejected.
+
+        Returns:
+            ``(row, created)``. ``created`` is True only when this call
+            inserted the row, in which case ``row`` is the new instance. When a
+            concurrent caller inserted the same key first, the winner is
+            returned with ``created=False``.
+
+        Raises:
+            ValueError: ``lookup`` is empty, contains ``None``, or names a
+                database-generated primary key field.
+            TypeError: A lookup/defaults key is not a model field, or a value
+                is an expression.
+            IntegrityError: The insert failed for a constraint that the lookup
+                does not explain; re-raised rather than hidden.
+        """
+        lookup_values, create_values = cls._prepare_find_or_create_inputs(lookup, defaults)
+
+        existing = cls._find_one_by_lookup(lookup_values)
+        if existing is not None:
+            return existing, False
+
+        row = cls(**create_values)
+        savepoint = cls._open_savepoint_if_usable()
+        try:
+            row.save()
+        except IntegrityError as exc:
+            cls._rollback_to_savepoint(savepoint)
+            try:
+                winner = cls._find_one_by_lookup(lookup_values)
+            except Exception:
+                winner = None
+            if winner is not None:
+                return winner, False
+            raise exc
+        except BaseException:
+            cls._rollback_to_savepoint(savepoint)
+            raise
+        else:
+            cls._release_savepoint(savepoint)
+            return row, True
 
     def save(self) -> int:
         """
@@ -1263,6 +1478,203 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             cls.log(logging.WARNING, f"Record not found for {cls.__name__} with find_one condition: {condition}")
             raise RecordNotFound(f"Record not found for {cls.__name__}")
         return record
+
+    @classmethod
+    def _check_lookup_value(cls, field: str, value: Any) -> None:
+        """Reject lookup values that cannot be compared by equality."""
+        if value is None:
+            raise ValueError(
+                f"lookup value for {field!r} is None; an equality lookup needs a concrete value"
+            )
+        if isinstance(value, (ColumnBase, SQLPredicate)) or QueryWithParams.holds(value):
+            raise TypeError(
+                f"lookup value for {field!r} is an expression; find_one_or_create only supports "
+                "plain equality values"
+            )
+
+    @classmethod
+    def _prepare_find_or_create_inputs(
+        cls,
+        lookup: Dict[str, Any],
+        defaults: Optional[Mapping[str, Any]],
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """Validate ``lookup`` / ``defaults`` and return the create values.
+
+        ``lookup`` is the natural key and must name at least one model field.
+        ``defaults`` fill the remaining fields on creation only, so ``lookup``
+        wins when both name the same field.
+        """
+        if not lookup:
+            raise ValueError(
+                f"{cls.__name__}.find_one_or_create needs at least one lookup field; "
+                "an empty lookup would return an arbitrary row"
+            )
+        if defaults is None:
+            default_values: Dict[str, Any] = {}
+        elif isinstance(defaults, MappingABC):
+            default_values = dict(defaults)
+        else:
+            raise TypeError(
+                f"defaults must be a mapping or None, got {type(defaults).__name__}"
+            )
+
+        model_fields = cls.model_fields
+        cleaned_lookup: Dict[str, Any] = {}
+        for field, value in lookup.items():
+            if not isinstance(field, str) or field not in model_fields:
+                raise TypeError(f"{field!r} is not a field of {cls.__name__}")
+            cls._check_lookup_value(field, value)
+            cleaned_lookup[field] = value
+
+        cleaned_defaults: Dict[str, Any] = {}
+        for field, value in default_values.items():
+            if not isinstance(field, str) or field not in model_fields:
+                raise TypeError(f"{field!r} is not a field of {cls.__name__} (in defaults)")
+            if isinstance(value, (ColumnBase, SQLPredicate)) or QueryWithParams.holds(value):
+                raise TypeError(
+                    f"defaults value for {field!r} is an expression; find_one_or_create only "
+                    "supports plain values"
+                )
+            cleaned_defaults[field] = value
+
+        if cls.__pk_auto_generated__:
+            key_fields = [
+                field
+                for field in cls.primary_key_fields()
+                if field in cleaned_lookup or field in cleaned_defaults
+            ]
+            if key_fields:
+                raise ValueError(
+                    f"{cls.__name__} generates its primary key in the database; do not pass "
+                    f"{key_fields} in lookup or defaults. Use the natural key instead."
+                )
+
+        create_values = dict(cleaned_defaults)
+        create_values.update(cleaned_lookup)
+        return cleaned_lookup, create_values
+
+    @classmethod
+    async def _find_one_by_lookup(cls, lookup: Dict[str, Any]) -> Optional["AsyncBaseActiveRecord"]:
+        """Return the first row matching every field in ``lookup`` by equality."""
+        query = cls.query()
+        condition = None
+        for field, value in lookup.items():
+            column = getattr(cls.c, field)
+            comparison = ComparisonPredicate(
+                column.dialect, "=", column, Literal(column.dialect, value)
+            )
+            condition = comparison if condition is None else condition & comparison
+        query = query.where(condition)
+        return await query.one()
+
+    @classmethod
+    async def _open_savepoint_if_usable(cls) -> Optional[str]:
+        """Open a savepoint only when already inside a transaction that supports one."""
+        backend = cls.backend()
+        if backend is None:
+            return None
+        manager = backend.transaction_manager
+        try:
+            if not callable(getattr(manager, "supports_savepoint", None)):
+                return None
+            if not await manager.supports_savepoint():
+                return None
+            if not getattr(manager, "is_active", False):
+                return None
+            return await manager.savepoint()
+        except Exception as exc:  # capability probing must not break the write path
+            cls.log(logging.WARNING, f"Could not open savepoint for find_one_or_create: {exc}")
+            return None
+
+    @classmethod
+    async def _rollback_to_savepoint(cls, savepoint: Optional[str]) -> None:
+        """Best-effort recovery to a savepoint; never masks the original failure."""
+        if savepoint is None:
+            return
+        manager = cls.backend().transaction_manager
+        try:
+            await manager.rollback_to(savepoint)
+            await manager.release(savepoint)
+        except Exception as exc:
+            cls.log(logging.WARNING, f"Could not roll back to savepoint {savepoint}: {exc}")
+
+    @classmethod
+    async def _release_savepoint(cls, savepoint: Optional[str]) -> None:
+        """Best-effort release of a savepoint after a successful insert."""
+        if savepoint is None:
+            return
+        manager = cls.backend().transaction_manager
+        try:
+            await manager.release(savepoint)
+        except Exception as exc:
+            cls.log(logging.WARNING, f"Could not release savepoint {savepoint}: {exc}")
+
+    @classmethod
+    async def find_one_or_create(
+        cls: Type["AsyncBaseActiveRecord"],
+        *,
+        defaults: Optional[Mapping[str, Any]] = None,
+        **lookup: Any,
+    ) -> Tuple["AsyncBaseActiveRecord", bool]:
+        """Return ``(row, created)`` for the row matching ``lookup`` asynchronously.
+
+        ``lookup`` is a natural key: every keyword names a model field and is
+        compared by equality. ``defaults`` fill the remaining fields **on
+        creation only**; an existing row is returned untouched.
+
+        The method does not open, commit or roll back a transaction. It runs on
+        the connection and transaction context the caller already has, so the
+        caller may wrap the call in ``Model.transaction()`` when the lookup and
+        insert must share a transaction. Inside an active transaction that
+        supports savepoints, a savepoint is used to recover from a failed
+        insert; it is a recovery point, not a transaction boundary.
+
+        Args:
+            defaults: Values used only when the row is created. When a key also
+                appears in ``lookup``, the lookup value wins because it defines
+                the identity being searched for.
+            **lookup: At least one model field. Only plain equality values are
+                accepted; expressions are rejected.
+
+        Returns:
+            ``(row, created)``. ``created`` is True only when this call
+            inserted the row, in which case ``row`` is the new instance. When a
+            concurrent caller inserted the same key first, the winner is
+            returned with ``created=False``.
+
+        Raises:
+            ValueError: ``lookup`` is empty, contains ``None``, or names a
+                database-generated primary key field.
+            TypeError: A lookup/defaults key is not a model field, or a value
+                is an expression.
+            IntegrityError: The insert failed for a constraint that the lookup
+                does not explain; re-raised rather than hidden.
+        """
+        lookup_values, create_values = cls._prepare_find_or_create_inputs(lookup, defaults)
+
+        existing = await cls._find_one_by_lookup(lookup_values)
+        if existing is not None:
+            return existing, False
+
+        row = cls(**create_values)
+        savepoint = await cls._open_savepoint_if_usable()
+        try:
+            await row.save()
+        except IntegrityError as exc:
+            await cls._rollback_to_savepoint(savepoint)
+            try:
+                winner = await cls._find_one_by_lookup(lookup_values)
+            except Exception:
+                winner = None
+            if winner is not None:
+                return winner, False
+            raise exc
+        except BaseException:
+            await cls._rollback_to_savepoint(savepoint)
+            raise
+        else:
+            await cls._release_savepoint(savepoint)
+            return row, True
 
     async def save(self) -> int:
         """
