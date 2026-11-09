@@ -8,6 +8,7 @@ import logging
 from rhosocial.activerecord.logging import (
     ActiveRecordEventFormatter,
     ActiveRecordJsonFormatter,
+    DEFAULT_EVENT_TEMPLATES,
     LogEvent,
     log_event,
     render_event,
@@ -106,3 +107,36 @@ def test_unknown_event_renders_event_name():
 def test_render_event_tolerates_missing_fields():
     result = render_event(LogEvent.DQL_SELECT, {})
     assert result.startswith("dql.select")
+
+
+def test_every_event_constant_has_a_default_template():
+    assert {
+        LogEvent.DML_INSERT,
+        LogEvent.DML_UPDATE,
+        LogEvent.DML_DELETE,
+        LogEvent.DML_SOFT_DELETE,
+        LogEvent.DML_BATCH,
+        LogEvent.DQL_SELECT,
+        LogEvent.DQL_AGGREGATE,
+        LogEvent.DQL_CTE,
+        LogEvent.DQL_SET_OPERATION,
+        LogEvent.DDL_CREATE,
+        LogEvent.DDL_ALTER,
+        LogEvent.DDL_DROP,
+        LogEvent.TRANSACTION_BEGIN,
+        LogEvent.TRANSACTION_COMMIT,
+        LogEvent.TRANSACTION_ROLLBACK,
+        LogEvent.TRANSACTION_SAVEPOINT,
+        LogEvent.MODEL_FIND_ONE,
+        LogEvent.MODEL_FIND_ONE_OR_CREATE,
+        LogEvent.RELATION_BATCH_LOAD,
+        LogEvent.WORKER_EXIT,
+    } <= set(DEFAULT_EVENT_TEMPLATES)
+
+
+def test_json_formatter_correlation_fields_are_documented():
+    assert {
+        "request_id",
+        "trace_id",
+        "span_id",
+    } <= set(ActiveRecordJsonFormatter.CORRELATION_FIELDS)

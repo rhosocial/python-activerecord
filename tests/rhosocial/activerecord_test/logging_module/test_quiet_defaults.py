@@ -25,6 +25,7 @@ from rhosocial.activerecord.logging import (
     get_logger,
     reset_default_logging_config,
 )
+from rhosocial.activerecord.logging.config import _QUIET_DEFAULT_LEVEL
 
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -217,3 +218,7 @@ class TestApplicationOwnership:
             logger.debug("should not be seen")
 
         assert "should not be seen" not in caplog.text
+
+
+def test_quiet_default_level_is_warning():
+    assert _QUIET_DEFAULT_LEVEL == logging.WARNING
