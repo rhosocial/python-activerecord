@@ -42,6 +42,7 @@ pip install rhosocial-activerecord[all]
 * **[架构设计](architecture.md)**: 后端如何组装——后端 vs. 方言拆分、Mixin 组合、以及表达式-方言-后端的数据流。
 * **[数据库内省 (Introspection)](introspection.md)**: 查询数据库结构元数据。
 * **[查询解释接口 (Query Explain)](explain.md)**: 执行 EXPLAIN 语句，分析查询计划和索引使用情况。
+* **[分区维护 (Partition Maintenance)](partition.md)**: 引擎无关的报告结构，以及后端可选实现的维护动词。
 * **[表达式系统 (Expression System)](expression/README.md)**: Python 对象如何变成 SQL 字符串。
 * **[自定义后端 (Custom Backend)](custom_backend.md)**: 实现一个新的数据库驱动。
 * **[命名表达式 (Named Expression)](named_expression.md)**: 基于 CLI 的表达式执行（后端功能，非 ActiveRecord）。
