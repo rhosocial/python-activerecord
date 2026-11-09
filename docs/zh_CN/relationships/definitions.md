@@ -107,6 +107,32 @@ class Post(ActiveRecord):
 
 > 💡 **AI提示词示例**: "一对多关系在数据库中如何表示？如何通过代码访问关联的数据？"
 
+## 有序一对多：`HasMany(order_by=...)`
+
+如果某个一对多关系始终需要相同的排序，把排序声明在关系上，而不是在每个调用点重复 `.order_by(...)`：
+
+```python
+from typing import ClassVar
+from rhosocial.activerecord.relation import HasMany
+
+class Post(ActiveRecord):
+    comments: ClassVar[HasMany['Comment']] = HasMany(
+        foreign_key='post_id',
+        inverse_of='post',
+        order_by=[('created_at', 'DESC'), ('id', 'ASC')],
+    )
+
+post.comments()                          # 已排序
+post.comments_query().all()              # 已排序
+Post.query().with_('comments').all()     # 预加载同样有序
+```
+
+`order_by` 是可选的。省略或传入 `None` 时，`HasMany` 与旧行为完全一致：没有默认排序，也没有主键 tie-breaker。一旦提供，它必须非空，并接受字段名、`(字段名, 'ASC'|'DESC')` 二元组，或由它们组成的列表。只接受**模型字段名**，不接受数据库列名或表达式对象；未知字段和派生字段在首次构建查询时抛出 `ValueError`。主键字段会自动追加为 tie-breaker，保证相同排序键下结果稳定。
+
+声明的排序**永远最先**；之后链式调用的 `.order_by(...)` 或 `with_` 修饰器追加的是次级排序。若某次查询需要不同的主排序，请声明第二个具有不同 `order_by` 的关系。`AsyncHasMany` 接受同一个 `order_by` 关键字。
+
+> 💡 **AI提示词示例**: "如何为 HasMany 关系声明默认排序，而不必在每个调用点重复 order_by？"
+
 ## 关系使用示例
 
 定义好关系后，可以通过以下方式使用：

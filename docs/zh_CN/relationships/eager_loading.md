@@ -79,6 +79,19 @@ users = User.query().with_(
 
 修饰器接收一个 `ActiveQuery` 对象 `q`，返回修改后的查询对象，可以链式调用 `.where()`、`.order_by()`、`.limit()` 等方法。
 
+### 有序关系与修饰器
+
+如果关系声明了 `HasMany(..., order_by=...)`，默认排序会先应用，修饰器随后执行。因此修饰器里的 `.order_by(...)` 追加的是**次级**排序：
+
+```python
+posts = Post.query().with_(
+    ("comments", lambda q: q.order_by("status"))
+).all()
+# ORDER BY created_at DESC, id ASC, status ASC
+```
+
+若要让另一列成为主排序，请为该关系使用普通 `HasMany`，或声明第二个具有不同 `order_by` 的关系。参见 [有序一对多](definitions.md#有序一对多orderedhasmany)。
+
 ### 复杂修饰器推荐具名函数
 
 复杂修饰器建议使用具名函数而非 lambda。当修饰器被**覆盖**时，框架会记录 WARNING 日志，具名函数会显示完整的 `模块.函数名`，便于调试；lambda 则显示为 `<lambda>`：

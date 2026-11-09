@@ -45,7 +45,8 @@ class AsyncRelationalQueryMixin(RelationalQueryMixinBase):
             if config.query_modifier is not None:
                 related_model = relation.get_related_model(self.model_class)
                 if related_model is not None:
-                    base_query = config.query_modifier(related_model.query())
+                    base_query = relation.apply_order(related_model.query(), related_model)
+                    base_query = config.query_modifier(base_query)
 
             loaded = await loader(relation, records, base_query)
 

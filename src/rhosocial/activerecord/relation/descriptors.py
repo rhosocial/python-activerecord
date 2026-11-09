@@ -9,6 +9,7 @@ from typing import Type, Any, Generic, TypeVar, Union, ForwardRef, Optional, Lis
 
 from .cache import CacheConfig, InstanceCache
 from .interfaces import IRelationValidation, IRelationManagement, IRelationLoader
+from .ordering import apply_order_to_query, normalize_order_by
 from .type_resolver import evaluate_annotation, resolve_relation_type
 from ..backend.expression.core import Column
 from ..backend.expression import ComparisonPredicate, Literal
@@ -343,9 +344,28 @@ class RelationDescriptor(Generic[T]):
                             ComparisonPredicate(backend.dialect, "=", fk_column, Literal(backend.dialect, pk_value))
                         )
 
+            query = self.apply_order(query, related_model)
+
             return query
 
         return query_method
+
+    def apply_order(self, query: Any, model_class: Type[Any]) -> Any:
+        """Apply the relation's default ordering to *query*.
+
+        The base implementation leaves the caller's ordering untouched.
+        ``HasMany`` overrides this hook when it declares an ``order_by``. The
+        default loader calls it when it builds a query itself; custom loaders
+        must call it explicitly.
+
+        Args:
+            query: The query object built for the related model.
+            model_class: The resolved related model class.
+
+        Returns:
+            The query object, optionally extended with ORDER BY clauses.
+        """
+        return query
 
     def _load_relation(self, instance: Any) -> Optional[T]:
         """
@@ -616,6 +636,26 @@ class HasMany(RelationDescriptor[T], Generic[T]):
     - The foreign key is stored in the related models
     - Returns a collection of related model instances
     - Common examples: Post hasMany Comments, User hasMany Orders
+    - Optionally declares a default ordering for the related collection
+
+    ``order_by`` is optional. When omitted (or ``None``), the relation behaves
+    exactly like a plain ``HasMany``: no default ``ORDER BY`` and no primary-key
+    tie-breakers. When supplied, the ordering applies to:
+
+    * ``instance.{relation}_query()``
+    * direct relation access (``instance.{relation}()``)
+    * top-level eager loading (``Model.query().with_(relation)``)
+    * nested eager loading (``Model.query().with_("parent.relation")``)
+
+    The declared ordering is always applied **first**; explicit
+    ``.order_by(...)`` calls on the query or inside a ``with_`` modifier are
+    appended as secondary ordering. Primary-key fields are appended
+    automatically as tie-breakers so equal sort keys still produce a stable
+    order.
+
+    ``order_by`` accepts model field names only, never database column names
+    or expression objects. Field names are resolved to columns on the first
+    query build; unknown or derived fields raise ``ValueError`` there.
 
     Usage:
         class Post(ActiveRecord):
@@ -623,24 +663,32 @@ class HasMany(RelationDescriptor[T], Generic[T]):
             title: str
 
             # IMPORTANT: Relationship fields must be declared as ClassVar to avoid being tracked by Pydantic
-            # Post has many Comments
-            comments: ClassVar[HasMany['Comment']] = HasMany(foreign_key='post_id', inverse_of='post')
+            # Post has many Comments, always ordered by creation date
+            comments: ClassVar[HasMany['Comment']] = HasMany(
+                foreign_key='post_id',
+                inverse_of='post',
+                order_by=[('created_at', 'DESC'), ('id', 'ASC')],
+            )
 
-        class Comment(ActiveRecord):
-            id: int
-            content: str
-            post_id: int  # Foreign key
-
-            # IMPORTANT: Relationship fields must be declared as ClassVar to avoid being tracked by Pydantic
-            # Comment belongs to a Post (inverse relationship)
-            post: ClassVar[BelongsTo['Post']] = BelongsTo(foreign_key='post_id', inverse_of='comments')
-
-        # Access the related models
         post = Post.find_one(1)
-        comments = post.comments()  # Returns list of related Comment instances
+        post.comments()                          # ordered
+        post.comments_query().all()              # ordered; further .order_by() appends
+        Post.query().with_('comments').all()     # eager loading is ordered too
+
+    Args:
+        foreign_key: Foreign key field name used to establish the relationship
+        inverse_of: Name of the inverse relation on the related model
+        order_by: Optional ordering specification; ``None`` keeps plain HasMany behavior
+        loader: Custom loader implementation for loading related data
+        validator: Custom validation implementation for relationship validation
+        cache_config: Cache configuration for controlling caching behavior
+
+    Raises:
+        TypeError: If an ordering entry is not a field name or two-item tuple
+        ValueError: If a supplied ``order_by`` is empty or uses an invalid direction
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, order_by: Any = None, **kwargs):
         """
         Initialize a HasMany relationship with automatic validation.
 
@@ -650,9 +698,17 @@ class HasMany(RelationDescriptor[T], Generic[T]):
 
         Args:
             *args: Arguments passed to parent constructor
+            order_by: Optional default ordering specification
             **kwargs: Keyword arguments passed to parent constructor
         """
+        self._order_by = normalize_order_by(order_by) if order_by is not None else None
         super().__init__(*args, validator=RelationshipValidator(self), **kwargs)
+
+    def apply_order(self, query: Any, model_class: Type[Any]) -> Any:
+        """Append the declared default ordering and primary-key tie-breakers."""
+        if self._order_by is None:
+            return query
+        return apply_order_to_query(query, model_class, self.name, self._order_by)
 
 
 R = TypeVar("R", bound=IActiveRecord)
@@ -873,6 +929,14 @@ class DefaultIRelationLoader(IRelationLoader[R]):
                     for p in predicates[1:]:
                         combined = combined | p
                     query = query.where(combined)
+
+            # When the loader builds the query itself (direct access or nested
+            # eager loading), apply the descriptor's default ordering. When an
+            # eager modifier supplied the base query, ordering was already
+            # applied before the modifier; applying it again here would let the
+            # modifier's order_by take precedence.
+            if base_query is None:
+                query = self.descriptor.apply_order(query, model_class)
 
             query._log(logging.DEBUG, f"Batch load SQL (HasMany): {query.to_sql()}")
             related_records = query.all()
