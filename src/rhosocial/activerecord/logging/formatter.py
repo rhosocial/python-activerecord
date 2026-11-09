@@ -5,9 +5,14 @@ This module provides custom logging formatters that enhance log records
 with additional context information specific to ActiveRecord operations.
 """
 
+import copy
+import json
 import logging
 import os
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Mapping, Optional
+
+from .events import render_event
 
 
 class ModuleFormatter(logging.Formatter):
@@ -102,3 +107,81 @@ class ActiveRecordFormatter(ModuleFormatter):
             datefmt: Custom date format string. If None, uses default.
         """
         super().__init__(fmt or self.DEFAULT_FORMAT, datefmt)
+
+
+class ActiveRecordEventFormatter(ActiveRecordFormatter):
+    """Render structured ActiveRecord events through event templates.
+
+    Records created by :func:`rhosocial.activerecord.logging.events.log_event`
+    carry an ``event`` name and an ``activerecord`` payload.  This formatter
+    renders the payload with the default event template, or with a caller
+    supplied template mapping, while keeping the human-readable prefix from
+    :class:`ActiveRecordFormatter`.
+    """
+
+    def __init__(
+        self,
+        fmt: Optional[str] = None,
+        datefmt: Optional[str] = None,
+        templates: Optional[Mapping[str, str]] = None,
+    ):
+        super().__init__(fmt, datefmt)
+        self.templates = templates
+
+    def format(self, record: logging.LogRecord) -> str:
+        event = getattr(record, "event", None)
+        if event:
+            fields = dict(getattr(record, "activerecord", {}) or {})
+            fields.setdefault("event", event)
+            rendered = render_event(event, fields, self.templates)
+            record = copy.copy(record)
+            record.msg = rendered
+            record.args = ()
+        return super().format(record)
+
+
+class ActiveRecordJsonFormatter(logging.Formatter):
+    """Render ActiveRecord log records as line-delimited JSON.
+
+    The formatter keeps the record's standard fields and merges the
+    ``activerecord`` payload plus the correlation fields used by ELK/APM.
+    Values that are not JSON serializable are converted with ``str`` after the
+    logging layer has had a chance to redact them.
+    """
+
+    CORRELATION_FIELDS = (
+        "request_id",
+        "trace_id",
+        "span_id",
+        "service.name",
+        "service.version",
+        "deployment.environment",
+    )
+
+    def format(self, record: logging.LogRecord) -> str:
+        payload: dict = {
+            "@timestamp": datetime.fromtimestamp(
+                record.created, tz=timezone.utc
+            ).isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+
+        event = getattr(record, "event", None)
+        if event:
+            payload["event"] = event
+
+        fields = getattr(record, "activerecord", None)
+        if isinstance(fields, Mapping):
+            payload.update(fields)
+
+        for key in self.CORRELATION_FIELDS:
+            if hasattr(record, key):
+                payload[key] = getattr(record, key)
+
+        if record.exc_info:
+            payload["exception"] = self.formatException(record.exc_info)
+
+        return json.dumps(payload, ensure_ascii=False, default=str)
+

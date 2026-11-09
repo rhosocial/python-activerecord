@@ -29,6 +29,20 @@ def configure_logging(
     propagate: Optional[bool] = None,
     auto_setup: Optional[bool] = None,
 ) -> None:
+    """Adjust the framework-level logging defaults.
+
+    Called with no arguments this is a no-op: the defaults are ``WARNING``,
+    ``propagate=True`` and ``auto_setup=False``.  That means ActiveRecord
+    never installs a handler and never writes to stderr on import; an
+    application that wants detail raises the level or configures the root
+    logger itself.
+
+    Args:
+        level: New default level for framework-level loggers.
+        formatter: Formatter used when ``auto_setup`` installs a handler.
+        propagate: Whether loggers propagate to their parent loggers.
+        auto_setup: Whether ``get_logger`` installs a stream handler.
+    """
     config = get_default_logging_config()
     if level is not None:
         config.default_level = level

@@ -34,6 +34,33 @@ flowchart TB
     FrameworkDefault --> WorkerLog
 ```
 
+## Quiet by Default
+
+The application owns logging. ActiveRecord does not install handlers, does not
+write to stderr on import, and does not touch the root logger:
+
+| Setting | Default | Meaning |
+| ------- | ------- | ------- |
+| `LoggingConfig.default_level` | `logging.WARNING` | `DEBUG` / `INFO` records stay silent until the application asks for them |
+| `LoggingConfig.auto_setup` | `False` | the library never attaches a `StreamHandler` of its own |
+| `LoggingConfig.propagate` | `True` | library loggers hand records to the application's root handlers |
+
+Importing `rhosocial.activerecord` only creates configuration objects and
+logger names; it emits no records. To see more, either raise the library level
+or configure the root logger:
+
+```python
+import logging
+
+logging.basicConfig(level=logging.DEBUG)          # application handler
+logging.getLogger("rhosocial.activerecord").setLevel(logging.DEBUG)
+```
+
+An explicitly set level is never overwritten. While `default_level` is the
+quiet `WARNING`, loggers stay `NOTSET` so they inherit the application's root
+level; a non-default level, or a per-logger `LoggerConfig`, is written
+explicitly.
+
 ## Quick Start
 
 ```python
@@ -70,7 +97,7 @@ Use `configure_logging()` only for framework loggers outside model/backend owner
 import logging
 from rhosocial.activerecord.logging import configure_logging, get_logger
 
-configure_logging(level=logging.INFO, propagate=False)
+configure_logging(level=logging.INFO)  # propagate stays True; the root decides
 logger = get_logger("rhosocial.activerecord.worker")
 ```
 
@@ -137,9 +164,223 @@ def setup_logging(log_dir="logs", log_filename="app", level="INFO", when="d", ba
 
 3. **Wire into the FastAPI lifespan**: call once at startup; afterwards ORM internal logs (SQL execution, model ops), application logs, and uvicorn access logs share one format.
 
-> **Relationship with framework `LoggingConfig`**: the framework's model/backend loggers are managed by their own `LoggingConfig`, defaulting to `propagate=False` (no root pollution). The setup above is the **application layer** attaching handlers to the root and explicitly routing uvicorn — the two do not conflict: framework logs are controlled by `LoggingConfig` (format + sensitive-data masking), application logs by the root logger.
+> **Relationship with framework `LoggingConfig`**: the framework's model/backend loggers are managed by their own `LoggingConfig`, which propagates to the root by default and installs no handler. The setup above is the **application layer** attaching handlers to the root and explicitly routing uvicorn — the two do not conflict: framework logs inherit the root handlers (with `LoggingConfig` responsible for sensitive-data masking), application logs use those handlers too.
 
 A complete runnable example is in the [FastAPI Integration scenario](../scenarios/fastapi.md#7-logging-configuration) (`docs/examples/chapter_14_scenarios/fastapi_blog/app/logging_conf.py`).
+
+## Structured Events
+
+`log_event()` writes a stable event name and a structured payload:
+
+```python
+import logging
+from rhosocial.activerecord.logging import LogEvent, log_event
+
+logger = logging.getLogger("rhosocial.activerecord.model.User")
+
+log_event(
+    logger,
+    LogEvent.DML_INSERT,
+    model="User",
+    model_fqn="app.models.User",
+    object_name="users",
+    object_type="table",
+    schema="public",
+    rows_affected=1,
+    duration_ms=12.4,
+)
+```
+
+The record carries:
+
+```python
+record.event == "dml.insert"
+record.activerecord == {
+    "model": "User",
+    "model_fqn": "app.models.User",
+    "object_name": "users",
+    "object_type": "table",
+    "schema": "public",
+    "rows_affected": 1,
+    "duration_ms": 12.4,
+}
+```
+
+Event names are grouped by statement/operation:
+
+```text
+dml.insert / dml.update / dml.delete / dml.batch
+dql.select / dql.aggregate / dql.cte / dql.set_operation
+ddl.create / ddl.alter / ddl.drop
+transaction.begin / transaction.commit / transaction.rollback / transaction.savepoint
+model.find_one / model.find_one_or_create
+relation.batch_load
+worker.exit
+```
+
+Recommended fields:
+
+| Field | Meaning |
+| ----- | ------- |
+| `model` | Model class name, e.g. `User` |
+| `model_fqn` | Fully qualified model name, e.g. `app.models.User` |
+| `operation` | `select`, `insert`, `update`, `delete`, `batch`, ... |
+| `object_name` | Logical table/view name, e.g. `users` |
+| `object_type` | `table`, `view`, `materialized_view` |
+| `schema` | Schema name, when known |
+| `database` | Database/catalog name, when known |
+| `rows_affected` | DML affected rows |
+| `rows_returned` | DQL returned rows |
+| `parameter_sets` | Batch parameter-set count |
+| `param_count` | Parameter count, never a parameter value |
+| `duration_ms` | Operation duration |
+| `relation` | Relation name |
+| `cache_hit` | Relation cache hit flag |
+| `error_type` | Exception type |
+
+Do not use `table` as a single "fully qualified" field.  A logical name plus
+`schema`, `database` and `object_type` keeps tables and views unambiguous.
+
+## Event Formatters
+
+`ActiveRecordEventFormatter` renders the event template with the usual
+human-readable prefix:
+
+```python
+from rhosocial.activerecord.logging import ActiveRecordEventFormatter
+
+handler.setFormatter(
+    ActiveRecordEventFormatter(
+        templates={"dml.insert": "insert {model} into {object_name}"}
+    )
+)
+```
+
+`ActiveRecordJsonFormatter` emits one JSON object per line:
+
+```python
+from rhosocial.activerecord.logging import ActiveRecordJsonFormatter
+
+handler.setFormatter(ActiveRecordJsonFormatter())
+```
+
+```json
+{
+  "@timestamp": "2026-11-10T10:15:30.123Z",
+  "level": "INFO",
+  "logger": "rhosocial.activerecord.model.User",
+  "message": "dml.insert model=User object_name=users object_type=table rows_affected=1 duration_ms=12.4",
+  "event": "dml.insert",
+  "model": "User",
+  "model_fqn": "app.models.User",
+  "object_name": "users",
+  "object_type": "table",
+  "schema": "public",
+  "rows_affected": 1,
+  "duration_ms": 12.4
+}
+```
+
+## Redacting Query Parameters
+
+`LoggingConfig.redact()` takes a `LogPayload` and applies the configured data
+mode:
+
+```python
+from rhosocial.activerecord.logging import LogDataKind, LogPayload
+
+payload = LogPayload(
+    ("alice", "secret"),
+    LogDataKind.QUERY_PARAMS,
+    param_names=("name", "password"),
+    sensitive_names=("password",),
+)
+redacted = ActiveRecord.__logging_config__.redact(payload)
+# {"name": "alice", "password": "***MASKED***"}
+```
+
+Positional parameters without names are never printed by default:
+
+```python
+LogPayload(("alice", "secret"), LogDataKind.QUERY_PARAMS)
+# "<2 params: str, str>"
+```
+
+Use `SensitiveValue` for an ad-hoc value that must be masked:
+
+```python
+from rhosocial.activerecord.logging import SensitiveValue, unwrap_sensitive
+
+lookup_value = SensitiveValue("secret", masker="default")
+# SQL assembly must use unwrap_sensitive(lookup_value)
+```
+
+`unwrap_sensitive()` recursively unwraps lists, tuples, sets and dictionaries.
+The database must receive the original value; only the log payload uses the
+masked representation.
+
+The default sensitive field names include common credential names such as
+`password`, `token`, `secret`, `api_key` and `private_key`.  Use
+`LogDataMode.FULL` only for controlled debugging: it intentionally disables
+masking.
+
+## Correlation IDs in JSON Logs
+
+`ActiveRecordJsonFormatter` includes `request_id`, `trace_id` and `span_id`
+when a logging filter sets them on the record.  A typical web application uses
+`contextvars` plus a filter:
+
+```python
+import contextvars
+import logging
+
+request_id_var = contextvars.ContextVar("request_id", default=None)
+
+class RequestIdFilter(logging.Filter):
+    def filter(self, record):
+        record.request_id = request_id_var.get()
+        return True
+```
+
+Then any library logger that propagates to the same handler carries the
+request ID.  OpenTelemetry users can set `trace_id` and `span_id` from the
+current span; the JSON formatter does not depend on OpenTelemetry.
+
+## Execution Logging Contract
+
+SQL text and parameter values belong to the backend execution layer:
+
+- `DEBUG` records SQL and redacted parameters.
+- `INFO` records a DML/DQL/DDL/TCL summary without SQL or values.
+- Query objects pass model/operation/parameter metadata to the backend instead
+  of logging the same SQL a second time.
+- Exceptions that are re-raised are not logged again as `ERROR`.
+
+Example summaries:
+
+```text
+dml.insert model=User object_name=users object_type=table rows_affected=1 duration_ms=12.4
+dql.select model=User object_name=users object_type=table rows_returned=3 duration_ms=12.4
+dml.batch model=User operation=insert_many parameter_sets=100 rows_affected=100 duration_ms=120.5
+```
+
+## Local ELK Verification
+
+A local Elasticsearch + Logstash + Kibana stack is useful for validating the
+JSON event schema, but it is a development tool and is not part of this
+repository.  Use `ActiveRecordJsonFormatter` with a file or TCP handler, map
+`event`, `model`, `object_name`, `object_type`, `request_id`, `trace_id` and
+`span_id` as `keyword`, and index numeric fields such as `rows_affected` and
+`duration_ms` as numbers.
+
+Kibana queries:
+
+```text
+event: "dml.insert"
+event: "dql.select" and duration_ms > 100
+request_id: "req-..."
+model: "User" and rows_affected > 1
+```
 
 ## Example Code
 
@@ -151,6 +392,10 @@ Complete examples are in `docs/examples/chapter_09_logging/`:
 | [02_data_summarization.py](../../examples/chapter_09_logging/02_data_summarization.py) | `LogDataMode` and `SummarizerConfig` |
 | [03_per_logger_config.py](../../examples/chapter_09_logging/03_per_logger_config.py) | Per-logger rules inside owning `LoggingConfig` objects |
 | [04_advanced_scenarios.py](../../examples/chapter_09_logging/04_advanced_scenarios.py) | Production/development presets and `BackendGroup` |
+| [05_logging_levels.py](../../examples/chapter_09_logging/05_logging_levels.py) | Default quiet behavior vs explicit INFO/DEBUG levels |
+| [06_structured_events.py](../../examples/chapter_09_logging/06_structured_events.py) | Event schema, `ActiveRecordEventFormatter` and `ActiveRecordJsonFormatter` |
+| [07_redaction_modes.py](../../examples/chapter_09_logging/07_redaction_modes.py) | Query-parameter redaction, `LogDataMode` and `SensitiveValue` |
+| [08_correlation_ids.py](../../examples/chapter_09_logging/08_correlation_ids.py) | `contextvars` correlation IDs in JSON logs |
 
 ```bash
 cd python-activerecord

@@ -24,6 +24,7 @@ class LoggingMixin:
     - User module namespace for user-defined classes
     - Automatic stack level calculation for correct source attribution
     - Optional formatter auto-setup (does NOT modify root logger)
+    - Propagation to the application's root logger by default
 
     The mixin is designed to be inherited by model base classes.
 
@@ -152,8 +153,8 @@ class LoggingMixin:
         if logger.handlers:
             for handler in logger.handlers:
                 handler.setFormatter(formatter)
-        # If no handlers, the manager will add one with the correct formatter
-        # when the first log is written (if auto_setup is enabled)
+        # If no handlers, nothing is installed: propagation hands records to
+        # the application's root handlers (auto_setup is off by default)
 
     @classmethod
     def log(cls, level: int, msg: str, *args, **kwargs) -> None:

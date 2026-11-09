@@ -35,27 +35,29 @@ class TestLoggingIsolation:
         root_logger = logging.getLogger()
         original_handlers = list(root_logger.handlers)
 
-        configure_logging(level=logging.DEBUG, formatter=ActiveRecordFormatter())
-
-        model_logger = LoggingMixin.__logging_config__.get_logger("rhosocial.activerecord.model")
+        # Explicit per-owner config so the handler requirement is unambiguous.
+        model_config = LoggingConfig(default_level=logging.DEBUG, auto_setup=True)
+        model_logger = model_config.get_logger("rhosocial.activerecord.model")
         model_logger.handlers[0].setFormatter(ActiveRecordFormatter())
 
         assert list(root_logger.handlers) == original_handlers
+        model_logger.handlers.clear()
+        model_logger.setLevel(logging.NOTSET)
 
-    def test_propagate_false_by_default(self):
-        """Test that loggers do not propagate to root by default."""
+    def test_propagate_true_by_default(self):
+        """Test that loggers propagate to the application's root logger by default."""
         model_logger = LoggingMixin.__logging_config__.get_logger("rhosocial.activerecord.model")
         storage_logger = BackendLoggingMixin.__logging_config__.get_logger("rhosocial.activerecord.backend")
 
-        assert model_logger.propagate is False
-        assert storage_logger.propagate is False
+        assert model_logger.propagate is True
+        assert storage_logger.propagate is True
 
-    def test_propagate_can_be_enabled_for_framework_default(self):
-        """Test that framework-level propagate can be enabled if user wants it."""
-        configure_logging(propagate=True)
+    def test_propagate_can_be_disabled_for_framework_default(self):
+        """Test that framework-level propagation can be disabled if a user wants it."""
+        configure_logging(propagate=False)
 
-        logger = get_logger("test_propagate_enabled")
-        assert logger.propagate is True
+        logger = get_logger("test_propagate_disabled")
+        assert logger.propagate is False
 
     def test_root_logger_not_affected_by_framework_logging(self, caplog):
         """Test that framework logs don't appear in root logger when propagate=False."""

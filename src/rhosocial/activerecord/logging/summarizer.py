@@ -154,6 +154,10 @@ class DataSummarizer:
         else:
             return self.config.mask_placeholder
 
+    def mask_value(self, field_name: str, value: Any) -> Any:
+        """Mask one value using the configured field masker or placeholder."""
+        return self._mask_field(field_name, value)
+
     def _truncate_string(self, value: str) -> str:
         """Truncate a string if it exceeds max length.
 

@@ -3,14 +3,18 @@
 
 This module provides a unified logging system for ActiveRecord that:
 
-- Does NOT modify the root logger
+- Does NOT modify the root logger and does NOT install handlers
+- Emits nothing on import: only logger objects are created
+- Propagates to the application's root logger by default
 - Provides framework-level logging helpers through configure_logging()
 - Supports custom formatters and log levels
 - Supports explicit LoggingConfig objects for models and backends
 
 Key Principle:
-    ActiveRecord logging is isolated from user's logging configuration.
-    By default, logs do not propagate to the root logger.
+    The application owns logging.  ActiveRecord loggers default to
+    ``WARNING``, have no handlers of their own, and propagate to their
+    parents.  Silencing or enabling the library is therefore an application
+    decision: set a level on the logger or configure the root logger.
 
 Basic Usage:
     Configure ActiveRecord models::
@@ -20,6 +24,13 @@ Basic Usage:
         from rhosocial.activerecord.model import ActiveRecord
 
         ActiveRecord.__logging_config__ = LoggingConfig(default_level=logging.INFO)
+
+    Let the application's root configuration decide::
+
+        import logging
+
+        logging.basicConfig(level=logging.DEBUG)
+        # Library loggers already propagate; no handler is installed by us.
 
 Advanced Usage:
     Custom formatter::
@@ -55,7 +66,24 @@ Custom Logger for a Model:
         User.set_logger(None)
 """
 
-from .formatter import ModuleFormatter, ActiveRecordFormatter
+from .formatter import (
+    ModuleFormatter,
+    ActiveRecordFormatter,
+    ActiveRecordEventFormatter,
+    ActiveRecordJsonFormatter,
+)
+from .events import LogEvent, DEFAULT_EVENT_TEMPLATES, log_event, render_event
+from .redaction import (
+    LogDataKind,
+    LogPayload,
+    ParamMeta,
+    MASKERS,
+    SensitiveValue,
+    default_mask,
+    get_masker,
+    register_masker,
+    unwrap_sensitive,
+)
 from .config import LoggerConfig, LoggingConfig, LogDataMode
 from .summarizer import SummarizerConfig, DataSummarizer
 from .defaults import (
@@ -70,6 +98,23 @@ __all__ = [
     # Formatters
     "ModuleFormatter",
     "ActiveRecordFormatter",
+    "ActiveRecordEventFormatter",
+    "ActiveRecordJsonFormatter",
+    # Structured events
+    "LogEvent",
+    "DEFAULT_EVENT_TEMPLATES",
+    "log_event",
+    "render_event",
+    # Redaction
+    "LogDataKind",
+    "LogPayload",
+    "ParamMeta",
+    "MASKERS",
+    "SensitiveValue",
+    "default_mask",
+    "get_masker",
+    "register_masker",
+    "unwrap_sensitive",
     # Configuration
     "LoggerConfig",
     "LoggingConfig",
