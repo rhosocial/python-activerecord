@@ -277,9 +277,15 @@ class BackendLoggingMixin:
         # Check if this is a library backend
         module = self.__class__.__module__
         if module.startswith("rhosocial.activerecord"):
-            # Extract backend type from class name (SQLiteBackend -> sqlite)
+            # Extract backend type from class name: SQLiteBackend -> sqlite,
+            # AsyncSQLiteBackend -> sqlite.  Sync and async forms of the same
+            # backend must share one library logger.
             class_name = self.__class__.__name__
-            backend_type = class_name.replace("Backend", "").lower()
+            if class_name.startswith("Async"):
+                class_name = class_name[len("Async"):]
+            if class_name.endswith("Backend"):
+                class_name = class_name[: -len("Backend")]
+            backend_type = class_name.lower()
             return f"rhosocial.activerecord.backend.{backend_type}"
         else:
             # Custom backend: use module namespace

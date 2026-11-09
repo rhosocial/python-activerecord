@@ -328,6 +328,19 @@ class LogUserRef:
     __table_name__ = "log_users"
 
 
+def test_sync_and_async_backend_share_logger_name():
+    from rhosocial.activerecord.backend.impl.sqlite.backend import (
+        AsyncSQLiteBackend,
+        SQLiteBackend,
+    )
+
+    sync_backend = SQLiteBackend(database=":memory:")
+    async_backend = AsyncSQLiteBackend(database=":memory:")
+
+    assert sync_backend._get_logger_name() == "rhosocial.activerecord.backend.sqlite"
+    assert async_backend._get_logger_name() == "rhosocial.activerecord.backend.sqlite"
+
+
 def test_resolve_event_uses_sources():
     from rhosocial.activerecord.backend.base.execution_logging import (
         resolve_event,
