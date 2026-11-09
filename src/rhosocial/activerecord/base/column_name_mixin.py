@@ -298,12 +298,16 @@ This allows a model to define a field like `creation_date: ... UseColumn("create
         if cls.is_composite_pk():
             return tuple(cls._get_field_name(col) for col in cls.primary_key_columns())
         pk_column = cls.primary_key()
+        if pk_column is None:
+            return None
         return cls._get_field_name(pk_column)
 
     @classmethod
     def primary_key_fields(cls) -> Tuple[str, ...]:
-        """Always return a tuple of primary key field names."""
+        """Primary key field names, as a tuple; empty for a keyless model."""
         result = cls.primary_key_field()
+        if result is None:
+            return ()
         return result if isinstance(result, tuple) else (result,)
 
     @classmethod

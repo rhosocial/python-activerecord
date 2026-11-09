@@ -56,10 +56,12 @@ This chapter details how to define powerful data models.
   - Environment-based configuration (dev / test / prod)
   - Reading credentials from environment variables
   - Test isolation with in-memory SQLite
-- **[Read-Only Analytics Models](readonly_models.md)**
-  - Defining read-only model classes for analytics / read replicas
-  - Combining with the shared field mixin pattern
-  - Derived / computed fields with `@property`
+- **[Read-Only Models](readonly_models.md)**
+  - `ReadOnlyMixin` and `ReadOnlyError` for analytics / read replicas
+  - Which write paths are refused, and why reads are unaffected
+- **[Keyless Models](keyless_models.md)**
+  - `__primary_key__ = None` as a declared shape
+  - `UnaddressableRecordError` and the `where(...).one()` alternative
 - **[Batch Data Processing](batch_processing.md)**
   - Chunked reading to avoid OOM
   - Bulk inserts and avoiding the N+1 write trap

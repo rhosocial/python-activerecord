@@ -56,10 +56,12 @@
   - 按环境切换配置（dev / test / prod）
   - 从环境变量读取凭据
   - 使用内存 SQLite 实现测试隔离
-- **[只读分析模型](readonly_models.md)**
-  - 为分析场景 / 只读副本定义只读模型类
-  - 与共享字段 Mixin 模式结合使用
-  - 使用 `@property` 定义派生 / 计算字段
+- **[只读模型](readonly_models.md)**
+  - `ReadOnlyMixin` 与 `ReadOnlyError`，适用于分析场景 / 只读副本
+  - 哪些写路径会被拒绝，以及读操作为何不受影响
+- **[无主键模型](keyless_models.md)**
+  - 把 `__primary_key__ = None` 作为显式声明
+  - `UnaddressableRecordError` 与 `where(...).one()` 替代方案
 - **[大批量数据处理](batch_processing.md)**
   - 分块读取避免 OOM
   - 批量写入与避免 N+1 写入陷阱

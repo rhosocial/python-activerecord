@@ -387,9 +387,13 @@ class ActiveQuery(
         Returns:
             Number of affected rows.
 
+        Raises:
+            ReadOnlyError: If the model is read-only.
+
         Example:
             User.query().where(User.c.status == 'inactive').update_all({User.c.status: 'archived'})
         """
+        self.model_class.refuse_read_only("update_all")
         from ..backend.expression import ColumnBase
         from ..backend.options import UpdateOptions
 
@@ -427,9 +431,13 @@ class ActiveQuery(
         Returns:
             Number of affected rows.
 
+        Raises:
+            ReadOnlyError: If the model is read-only.
+
         Example:
             User.query().where(User.c.last_login < cutoff_date).delete_all()
         """
+        self.model_class.refuse_read_only("delete_all")
         from ..backend.options import DeleteOptions
 
         backend = self.backend()
@@ -762,7 +770,11 @@ class AsyncActiveQuery(
 
         Returns:
             Number of affected rows.
+
+        Raises:
+            ReadOnlyError: If the model is read-only.
         """
+        self.model_class.refuse_read_only("update_all")
         from ..backend.expression import ColumnBase
         from ..backend.options import UpdateOptions
 
@@ -799,7 +811,11 @@ class AsyncActiveQuery(
 
         Returns:
             Number of affected rows.
+
+        Raises:
+            ReadOnlyError: If the model is read-only.
         """
+        self.model_class.refuse_read_only("delete_all")
         from ..backend.options import DeleteOptions
 
         backend = self.backend()
