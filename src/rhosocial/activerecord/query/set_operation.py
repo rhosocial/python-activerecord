@@ -5,6 +5,7 @@ from typing import Union, List, Dict, Any, Optional
 
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.expression import SetOperation, bases
+from ..backend.options import LogContext
 from ..interface import IQuery, IAsyncQuery, ISetOperationQuery, IAsyncSetOperationQuery
 from ..logging.defaults import _LOGGER_QUERY
 from ..logging.mixin import BackendLoggingMixin
@@ -33,6 +34,28 @@ def _to_op_word(operation: str) -> str:
             f"operation must be one of {sorted(set(_OPERATION_TO_OP.values()))} "
             f"(or its SQL symbol spelling), got {operation!r}"
         ) from None
+
+
+def _set_operation_log_context(query) -> LogContext:
+    """Describe a set operation for the backend execution logger."""
+    model_class = getattr(query.left, "model_class", None)
+    object_name = None
+    schema = None
+    if model_class is not None:
+        table_name = getattr(model_class, "table_name", None)
+        if callable(table_name):
+            object_name = table_name()
+        schema_name = getattr(model_class, "schema_name", None)
+        if callable(schema_name):
+            schema = schema_name()
+    operation = _to_op_word(getattr(query, "operation", "union"))
+    return LogContext(
+        model=model_class,
+        operation=operation,
+        object_name=object_name,
+        schema=schema,
+        source="set_operation",
+    )
 
 
 class SetOperationQuery(ISetOperationQuery):
@@ -205,7 +228,6 @@ class SetOperationQuery(ISetOperationQuery):
             3. With explain enabled
             plan = query1.union(query2).explain().aggregate()
         """
-        import logging
 
         # Handle explain if enabled
         if self._explain_enabled:
@@ -223,21 +245,25 @@ class SetOperationQuery(ISetOperationQuery):
             # Generate SQL for the EXPLAIN statement
             explain_sql, explain_params = explain_expr.to_sql()
 
-            self._log(logging.DEBUG, f"Executing EXPLAIN set operation: {explain_sql}, parameters: {explain_params}")
-
             # Execute the EXPLAIN query using the backend
-            result = backend.fetch_all(explain_sql, explain_params)
+            result = backend.fetch_all(
+                explain_sql,
+                explain_params,
+                log_context=_set_operation_log_context(self),
+            )
 
             return result
 
         # Get SQL and parameters using the existing to_sql method
         sql, params = self.to_sql()
 
-        self._log(logging.DEBUG, f"Executing set operation: {sql}, parameters: {params}")
-
         # Execute the aggregate query
         backend = self.backend()
-        result = backend.fetch_all(sql, params)
+        result = backend.fetch_all(
+            sql,
+            params,
+            log_context=_set_operation_log_context(self),
+        )
 
         # Always return a list, even if empty
         return result
@@ -435,7 +461,6 @@ class AsyncSetOperationQuery(IAsyncSetOperationQuery):
             3. With explain enabled
             plan = await query1.union(query2).explain().aggregate()
         """
-        import logging
 
         # Handle explain if enabled
         if self._explain_enabled:
@@ -453,23 +478,25 @@ class AsyncSetOperationQuery(IAsyncSetOperationQuery):
             # Generate SQL for the EXPLAIN statement
             explain_sql, explain_params = explain_expr.to_sql()
 
-            self._log(
-                logging.DEBUG, f"Executing async EXPLAIN set operation: {explain_sql}, parameters: {explain_params}"
-            )
-
             # Execute the EXPLAIN query using the async backend
-            result = await backend.fetch_all(explain_sql, explain_params)
+            result = await backend.fetch_all(
+                explain_sql,
+                explain_params,
+                log_context=_set_operation_log_context(self),
+            )
 
             return result
 
         # Get SQL and parameters using the existing to_sql method
         sql, params = self.to_sql()
 
-        self._log(logging.DEBUG, f"Executing async set operation: {sql}, parameters: {params}")
-
         # Execute the aggregate query
         backend = self.backend()
-        result = await backend.fetch_all(sql, params)
+        result = await backend.fetch_all(
+            sql,
+            params,
+            log_context=_set_operation_log_context(self),
+        )
 
         # Always return a list, even if empty
         return result

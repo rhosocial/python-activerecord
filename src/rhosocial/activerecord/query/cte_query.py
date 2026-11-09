@@ -1,7 +1,6 @@
 # src/rhosocial/activerecord/query/cte_query.py
 """CTEQuery implementation."""
 
-import logging
 from typing import List, Union, Optional, Dict, Any, TYPE_CHECKING
 
 from .aggregate import AggregateQueryMixin, AsyncAggregateQueryMixin
@@ -296,15 +295,19 @@ class CTEQuery(
             explain_expr = statements.ExplainStatement(dialect, query_expr, explain_options)
 
             explain_sql, explain_params = explain_expr.to_sql()
-            self._log(
-                logging.INFO, f"Executing EXPLAIN CTE aggregate query: {explain_sql}, parameters: {explain_params}"
+            return self.backend().fetch_all(
+                explain_sql,
+                explain_params,
+                log_context=self._build_log_context("cte", "cte_query"),
             )
-            return self.backend().fetch_all(explain_sql, explain_params)
 
         sql, params = self.to_sql()
-        self._log(logging.INFO, f"Executing CTE aggregate query: {sql}, parameters: {params}")
 
-        return self.backend().fetch_all(sql, params)
+        return self.backend().fetch_all(
+            sql,
+            params,
+            log_context=self._build_log_context("cte", "cte_query"),
+        )
 
     def union(self, other: "IQuery") -> "SetOperationQuery":
         """Perform a UNION operation with another query.
@@ -617,16 +620,19 @@ class AsyncCTEQuery(
             explain_expr = statements.ExplainStatement(dialect, query_expr, explain_options)
 
             explain_sql, explain_params = explain_expr.to_sql()
-            self._log(
-                logging.INFO,
-                f"Executing EXPLAIN async CTE aggregate query: {explain_sql}, parameters: {explain_params}",
+            return await self.backend().fetch_all(
+                explain_sql,
+                explain_params,
+                log_context=self._build_log_context("cte", "cte_query"),
             )
-            return await self.backend().fetch_all(explain_sql, explain_params)
 
         sql, params = self.to_sql()
-        self._log(logging.INFO, f"Executing async CTE aggregate query: {sql}, parameters: {params}")
 
-        return await self.backend().fetch_all(sql, params)
+        return await self.backend().fetch_all(
+            sql,
+            params,
+            log_context=self._build_log_context("cte", "cte_query"),
+        )
 
     def union(self, other: "IAsyncQuery") -> "AsyncSetOperationQuery":
         """Perform a UNION operation with another query.

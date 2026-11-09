@@ -22,10 +22,25 @@ from ..options import (
     DeleteOptions,
     BulkInsertOptions,
     BulkUpdateOptions,
+    LogContext,
+    derive_log_context,
 )
 from ..result import QueryResult
 from ..schema import StatementType
 from ..type_adapter import SQLTypeAdapter
+
+
+def execution_log_context(
+    options,
+    operation: Optional[str] = None,
+) -> LogContext:
+    """Build the logging context for a high-level operation's options."""
+    return derive_log_context(
+        getattr(options, "log_context", None),
+        operation=operation,
+        object_name=getattr(options, "table", None),
+        schema=getattr(options, "schema_name", None),
+    )
 
 
 def is_sql_expression(obj) -> bool:
@@ -99,6 +114,7 @@ class SQLOperationsMixin:
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping,
             process_result_set=bool(options.returning_columns),  # Process result set if returning columns specified
+            log_context=execution_log_context(options, "insert"),
         )
 
         result = self.execute(sql, params, options=exec_options)
@@ -160,6 +176,7 @@ class SQLOperationsMixin:
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping,
             process_result_set=bool(options.returning_columns),  # Process result set if returning columns specified
+            log_context=execution_log_context(options, "update"),
         )
 
         result = self.execute(sql, params, options=exec_options)
@@ -207,6 +224,7 @@ class SQLOperationsMixin:
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping,
             process_result_set=bool(options.returning_columns),  # Process result set if returning columns specified
+            log_context=execution_log_context(options, "delete"),
         )
 
         result = self.execute(sql, params, options=exec_options)
@@ -222,6 +240,7 @@ class SQLOperationsMixin:
         params: Optional[Tuple] = None,
         column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
         column_mapping: Optional[Dict[str, str]] = None,
+        log_context: Optional[LogContext] = None,
     ) -> Optional[Dict]:
         """
         Fetches a single record from the database.
@@ -236,7 +255,10 @@ class SQLOperationsMixin:
             Optional[Dict]: A dictionary representing the fetched record, or None if no record found.
         """
         exec_options = ExecutionOptions(
-            stmt_type=StatementType.DQL, column_adapters=column_adapters, column_mapping=column_mapping
+            stmt_type=StatementType.DQL,
+            column_adapters=column_adapters,
+            column_mapping=column_mapping,
+            log_context=log_context,
         )
         result = self.execute(sql, params, options=exec_options)
         return result.data[0] if result and result.data else None
@@ -247,6 +269,7 @@ class SQLOperationsMixin:
         params: Optional[Tuple] = None,
         column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
         column_mapping: Optional[Dict[str, str]] = None,
+        log_context: Optional[LogContext] = None,
     ) -> List[Dict]:
         """
         Fetches all matching records from the database.
@@ -261,7 +284,10 @@ class SQLOperationsMixin:
             List[Dict]: A list of dictionaries, each representing a fetched record.
         """
         exec_options = ExecutionOptions(
-            stmt_type=StatementType.DQL, column_adapters=column_adapters, column_mapping=column_mapping
+            stmt_type=StatementType.DQL,
+            column_adapters=column_adapters,
+            column_mapping=column_mapping,
+            log_context=log_context,
         )
         result = self.execute(sql, params, options=exec_options)
         return result.data or []
@@ -315,6 +341,7 @@ class SQLOperationsMixin:
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping,
             process_result_set=bool(options.returning_columns),
+            log_context=execution_log_context(options, "bulk_insert"),
         )
 
         result = self.execute(sql, params, options=exec_options)
@@ -371,6 +398,7 @@ class SQLOperationsMixin:
             stmt_type=StatementType.DML,
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping,
+            log_context=execution_log_context(options, "bulk_update"),
         )
 
         result = self.execute(sql, params, options=exec_options)
@@ -434,6 +462,7 @@ class AsyncSQLOperationsMixin:
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping,
             process_result_set=bool(options.returning_columns),  # Process result set if returning columns specified
+            log_context=execution_log_context(options, "insert"),
         )
 
         result = await self.execute(sql, params, options=exec_options)
@@ -492,6 +521,7 @@ class AsyncSQLOperationsMixin:
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping,
             process_result_set=bool(options.returning_columns),  # Process result set if returning columns specified
+            log_context=execution_log_context(options, "update"),
         )
 
         result = await self.execute(sql, params, options=exec_options)
@@ -536,6 +566,7 @@ class AsyncSQLOperationsMixin:
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping,
             process_result_set=bool(options.returning_columns),  # Process result set if returning columns specified
+            log_context=execution_log_context(options, "delete"),
         )
 
         result = await self.execute(sql, params, options=exec_options)
@@ -551,6 +582,7 @@ class AsyncSQLOperationsMixin:
         params: Optional[Tuple] = None,
         column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
         column_mapping: Optional[Dict[str, str]] = None,
+        log_context: Optional[LogContext] = None,
     ) -> Optional[Dict]:
         """
         Fetches a single record from the database asynchronously.
@@ -565,7 +597,10 @@ class AsyncSQLOperationsMixin:
             Optional[Dict]: A dictionary representing the fetched record, or None if no record found.
         """
         exec_options = ExecutionOptions(
-            stmt_type=StatementType.DQL, column_adapters=column_adapters, column_mapping=column_mapping
+            stmt_type=StatementType.DQL,
+            column_adapters=column_adapters,
+            column_mapping=column_mapping,
+            log_context=log_context,
         )
         result = await self.execute(sql, params, options=exec_options)
         return result.data[0] if result and result.data else None
@@ -576,6 +611,7 @@ class AsyncSQLOperationsMixin:
         params: Optional[Tuple] = None,
         column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
         column_mapping: Optional[Dict[str, str]] = None,
+        log_context: Optional[LogContext] = None,
     ) -> List[Dict]:
         """
         Fetches all matching records from the database asynchronously.
@@ -590,7 +626,10 @@ class AsyncSQLOperationsMixin:
             List[Dict]: A list of dictionaries, each representing a fetched record.
         """
         exec_options = ExecutionOptions(
-            stmt_type=StatementType.DQL, column_adapters=column_adapters, column_mapping=column_mapping
+            stmt_type=StatementType.DQL,
+            column_adapters=column_adapters,
+            column_mapping=column_mapping,
+            log_context=log_context,
         )
         result = await self.execute(sql, params, options=exec_options)
         return result.data or []
@@ -642,6 +681,7 @@ class AsyncSQLOperationsMixin:
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping,
             process_result_set=bool(options.returning_columns),
+            log_context=execution_log_context(options, "bulk_insert"),
         )
 
         result = await self.execute(sql, params, options=exec_options)
@@ -692,6 +732,7 @@ class AsyncSQLOperationsMixin:
             stmt_type=StatementType.DML,
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping,
+            log_context=execution_log_context(options, "bulk_update"),
         )
 
         result = await self.execute(sql, params, options=exec_options)

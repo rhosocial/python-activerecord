@@ -355,6 +355,30 @@ dql.select model=User object_name=users object_type=table rows_returned=3 durati
 dml.batch model=User operation=insert_many parameter_sets=100 rows_affected=100 duration_ms=120.5
 ```
 
+### 传递执行上下文
+
+`ExecutionOptions.log_context` 以及 `fetch_all()`/`fetch_one()` 的
+`log_context` 关键字用于告诉 backend 这条语句的含义：
+
+```python
+from rhosocial.activerecord.backend.options import ExecutionOptions, LogContext
+from rhosocial.activerecord.backend.schema import StatementType
+
+backend.execute(
+    'INSERT INTO "users" ("name") VALUES (?)',
+    ("alice",),
+    options=ExecutionOptions(
+        stmt_type=StatementType.DML,
+        log_context=LogContext(model=User, operation="insert", object_name="users"),
+    ),
+)
+```
+
+当调用方知道位置参数与字段的对应关系时，可通过 `LogContext.param_meta`
+传入 `ParamMeta`；没有元数据时，`DEBUG` 只输出参数数量和 Python 类型。
+自定义 backend 若覆写 `fetch_all()`/`fetch_one()`，必须接受 `log_context`
+并把它继续传给 `ExecutionOptions`。
+
 ## 本地 ELK 验证
 
 本地 Elasticsearch + Logstash + Kibana 适合验证 JSON 事件格式，但它只是开发
@@ -385,6 +409,7 @@ model: "User" and rows_affected > 1
 | [06_structured_events.py](../../examples/chapter_09_logging/06_structured_events.py) | 事件 schema、`ActiveRecordEventFormatter` 与 `ActiveRecordJsonFormatter` |
 | [07_redaction_modes.py](../../examples/chapter_09_logging/07_redaction_modes.py) | 查询参数脱敏、`LogDataMode` 与 `SensitiveValue` |
 | [08_correlation_ids.py](../../examples/chapter_09_logging/08_correlation_ids.py) | JSON 日志中的 `contextvars` 关联 ID |
+| [09_execution_logging.py](../../examples/chapter_09_logging/09_execution_logging.py) | backend 的安静默认、INFO 摘要与 DEBUG SQL |
 
 ```bash
 cd python-activerecord

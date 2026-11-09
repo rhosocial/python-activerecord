@@ -119,33 +119,33 @@ class SQLiteBackendMixin:
         if isinstance(error, sqlite3.Error):
             if isinstance(error, sqlite3.OperationalError):
                 if "database is locked" in error_msg:
-                    self.log(logging.ERROR, f"Database lock error: {error_msg}")
+                    self.log(logging.DEBUG, f"Database lock error: {error_msg}")
                     raise OperationalError("Database is locked") from error
                 elif "no such table" in error_msg:
-                    self.log(logging.ERROR, f"Table not found: {error_msg}")
+                    self.log(logging.DEBUG, f"Table not found: {error_msg}")
                     raise QueryError(f"Table not found: {error_msg}") from error
-                self.log(logging.ERROR, f"SQLite operational error: {error_msg}")
+                self.log(logging.DEBUG, f"SQLite operational error: {error_msg}")
                 raise OperationalError(error_msg) from error
             elif isinstance(error, sqlite3.IntegrityError):
                 if "UNIQUE constraint failed" in error_msg:
-                    self.log(logging.ERROR, f"Unique constraint violation: {error_msg}")
+                    self.log(logging.DEBUG, f"Unique constraint violation: {error_msg}")
                     raise IntegrityError(f"Unique constraint violation: {error_msg}") from error
                 elif "FOREIGN KEY constraint failed" in error_msg:
-                    self.log(logging.ERROR, f"Foreign key constraint violation: {error_msg}")
+                    self.log(logging.DEBUG, f"Foreign key constraint violation: {error_msg}")
                     raise IntegrityError(f"Foreign key constraint violation: {error_msg}") from error
-                self.log(logging.ERROR, f"SQLite integrity error: {error_msg}")
+                self.log(logging.DEBUG, f"SQLite integrity error: {error_msg}")
                 raise IntegrityError(error_msg) from error
             elif "database is locked" in error_msg:
-                self.log(logging.ERROR, f"Database deadlock: {error_msg}")
+                self.log(logging.DEBUG, f"Database deadlock: {error_msg}")
                 raise DeadlockError(error_msg) from error
             elif isinstance(error, ProgrammingError):
-                self.log(logging.ERROR, f"SQLite programming error: {error_msg}")
+                self.log(logging.DEBUG, f"SQLite programming error: {error_msg}")
                 raise DatabaseError(error_msg) from error
             else:
-                self.log(logging.ERROR, f"Unhandled SQLite error: {error_msg}")
+                self.log(logging.DEBUG, f"Unhandled SQLite error: {error_msg}")
                 raise DatabaseError(f"Unhandled SQLite error: {error_msg}") from error
         else:
-            self.log(logging.ERROR, f"Unhandled non-SQLite error: {error_msg}")
+            self.log(logging.DEBUG, f"Unhandled non-SQLite error: {error_msg}")
             raise error
 
     def _is_select_statement(self, stmt_type: str) -> bool:

@@ -38,7 +38,7 @@ from ..backend.expression import (
 )
 from ..backend.expression.bases import QueryWithParams
 from ..backend.options import DeleteOptions, UpdateOptions
-from ..backend.options import InsertOptions
+from ..backend.options import InsertOptions, LogContext
 from ..backend.type_adapter import SQLTypeAdapter
 from ..interface import IActiveRecord, IAsyncActiveRecord, ModelEvent
 from ..interface.update import IDataPreparationBehavior, IDeleteBehavior, IUpdateBehavior
@@ -245,7 +245,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
                 k: v for k, v in prepared_data.items() if k not in generated
             }
         self.log_data(logging.DEBUG, "Data with database column names", prepared_data)
-        self.log(logging.INFO, f"Inserting new {self.__class__.__name__}")
+        self.log(logging.DEBUG, f"Inserting new {self.__class__.__name__}")
         column_mapping = self.__class__.get_column_to_field_map()
         self.log(logging.DEBUG, f"Column mapping for result processing: {column_mapping}")
         column_adapters = self.get_column_adapters()
@@ -263,6 +263,12 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             column_adapters=column_adapters,
             primary_key=self.primary_key(),
             returning_columns=returning_columns,
+            log_context=LogContext(
+                model=self.__class__,
+                operation="insert",
+                object_name=self.table_name(),
+                schema=self.schema_name(),
+            ),
         )
         result = self.backend().insert(insert_options)
         # A keyless model has nothing for the database to generate, so there is
@@ -336,7 +342,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         """
         self.refuse_read_only("update")
         self.log(
-            logging.INFO,
+            logging.DEBUG,
             f"Starting update operation for {self.__class__.__name__} record: "
             f"{self._get_pk_value()}",
         )
@@ -380,7 +386,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
                         f"Skipping {cls.__name__} (implements IUpdateBehavior but doesn't define methods directly)",
                     )
         self.log(
-            logging.INFO,
+            logging.DEBUG,
             f"Update operation: {len(update_conditions)} condition(s), "
             f"{len(update_expressions)} expression(s) collected from mixins",
         )
@@ -420,13 +426,18 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             column_adapters=column_adapters,
             returning_columns=returning_columns,
             primary_key=self.primary_key(),
+            log_context=LogContext(
+                model=self.__class__,
+                operation="update",
+                object_name=self.table_name(),
+                schema=self.schema_name(),
+            ),
         )
         self.log(
-            logging.INFO,
+            logging.DEBUG,
             f"Executing update operation on table '{self.table_name()}' with {len(data)} field(s) to update",
         )
         result = backend.update(update_options)
-        self.log(logging.INFO, f"Update operation completed. Affected rows: {result.affected_rows}")
         return result
 
     def _prepare_save_data(self) -> Dict[str, Any]:
@@ -606,7 +617,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
     ) -> "BaseActiveRecord":
         record = cls.find_one(condition, derived=derived, extra_derived=extra_derived)
         if record is None:
-            cls.log(logging.WARNING, f"Record not found for {cls.__name__} with find_one condition: {condition}")
+            cls.log(logging.DEBUG, f"Record not found for {cls.__name__} with find_one condition: {condition}")
             raise RecordNotFound(f"Record not found for {cls.__name__}")
         return record
 
@@ -840,7 +851,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         try:
             self.validate_fields()
         except Exception as e:
-            self.log(logging.ERROR, f"Validation error: {str(e)}")
+            self.log(logging.DEBUG, f"Validation error, exception will be re-raised: {str(e)}")
             raise DBValidationError(str(e)) from e
         if not self.is_new_record and not self.is_dirty:
             return 0
@@ -849,7 +860,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         except DatabaseError:
             raise
         except Exception as e:
-            self.log(logging.ERROR, f"Database error: {str(e)}")
+            self.log(logging.DEBUG, f"Database error, exception will be re-raised: {str(e)}")
             raise DatabaseError(str(e)) from e
 
     def delete(self) -> int:
@@ -886,14 +897,23 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         where_predicate = self._build_pk_where_predicate(pk_value)
         is_soft_delete = isinstance(self, IDeleteBehavior)
         if is_soft_delete:
-            self.log(logging.INFO, f"Soft deleting {self.__class__.__name__}#{pk_value}")
+            self.log(logging.DEBUG, f"Soft deleting {self.__class__.__name__}#{pk_value}")
             data = self.prepare_delete()
             update_opts = UpdateOptions(
-                table=self.table_name(), schema_name=self.schema_name(), data=data, where=where_predicate
+                table=self.table_name(),
+                schema_name=self.schema_name(),
+                data=data,
+                where=where_predicate,
+                log_context=LogContext(
+                    model=self.__class__,
+                    operation="soft_delete",
+                    object_name=self.table_name(),
+                    schema=self.schema_name(),
+                ),
             )
             result = backend.update(update_opts)
         else:
-            self.log(logging.INFO, f"Deleting {self.__class__.__name__}#{pk_value}")
+            self.log(logging.DEBUG, f"Deleting {self.__class__.__name__}#{pk_value}")
             supports_returning = backend.dialect.supports_returning_delete()
             returning_columns = None
             if supports_returning:
@@ -903,6 +923,12 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
                 schema_name=self.schema_name(),
                 where=where_predicate,
                 returning_columns=returning_columns,
+                log_context=LogContext(
+                    model=self.__class__,
+                    operation="delete",
+                    object_name=self.table_name(),
+                    schema=self.schema_name(),
+                ),
             )
             result = backend.delete(delete_opts)
         affected_rows = result.affected_rows
@@ -1165,7 +1191,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
                 k: v for k, v in prepared_data.items() if k not in generated
             }
         self.log_data(logging.DEBUG, "Data with database column names", prepared_data)
-        self.log(logging.INFO, f"Inserting new {self.__class__.__name__}")
+        self.log(logging.DEBUG, f"Inserting new {self.__class__.__name__}")
         column_mapping = self.__class__.get_column_to_field_map()
         self.log(logging.DEBUG, f"Column mapping for result processing: {column_mapping}")
         column_adapters = self.get_column_adapters()
@@ -1183,6 +1209,12 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             column_adapters=column_adapters,
             primary_key=self.primary_key(),
             returning_columns=returning_columns,
+            log_context=LogContext(
+                model=self.__class__,
+                operation="insert",
+                object_name=self.table_name(),
+                schema=self.schema_name(),
+            ),
         )
         result = await self.backend().insert(insert_options)
         # A keyless model has nothing for the database to generate, so there is
@@ -1256,7 +1288,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         """
         self.refuse_read_only("update")
         self.log(
-            logging.INFO,
+            logging.DEBUG,
             f"Starting update operation for {self.__class__.__name__} record: "
             f"{self._get_pk_value()}",
         )
@@ -1300,7 +1332,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
                         f"Skipping {cls.__name__} (implements IUpdateBehavior but doesn't define methods directly)",
                     )
         self.log(
-            logging.INFO,
+            logging.DEBUG,
             f"Update operation: {len(update_conditions)} condition(s), "
             f"{len(update_expressions)} expression(s) collected from mixins",
         )
@@ -1340,13 +1372,18 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             column_adapters=column_adapters,
             returning_columns=returning_columns,
             primary_key=self.primary_key(),
+            log_context=LogContext(
+                model=self.__class__,
+                operation="update",
+                object_name=self.table_name(),
+                schema=self.schema_name(),
+            ),
         )
         self.log(
-            logging.INFO,
+            logging.DEBUG,
             f"Executing update operation on table '{self.table_name()}' with {len(data)} field(s) to update",
         )
         result = await backend.update(update_options)
-        self.log(logging.INFO, f"Update operation completed. Affected rows: {result.affected_rows}")
         return result
 
     def _prepare_save_data(self) -> Dict[str, Any]:
@@ -1526,7 +1563,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
     ) -> "AsyncBaseActiveRecord":
         record = await cls.find_one(condition, derived=derived, extra_derived=extra_derived)
         if record is None:
-            cls.log(logging.WARNING, f"Record not found for {cls.__name__} with find_one condition: {condition}")
+            cls.log(logging.DEBUG, f"Record not found for {cls.__name__} with find_one condition: {condition}")
             raise RecordNotFound(f"Record not found for {cls.__name__}")
         return record
 
@@ -1760,7 +1797,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         try:
             await self.validate_fields()
         except Exception as e:
-            self.log(logging.ERROR, f"Validation error: {str(e)}")
+            self.log(logging.DEBUG, f"Validation error, exception will be re-raised: {str(e)}")
             raise DBValidationError(str(e)) from e
         if not self.is_new_record and not self.is_dirty:
             return 0
@@ -1769,7 +1806,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         except DatabaseError:
             raise
         except Exception as e:
-            self.log(logging.ERROR, f"Database error: {str(e)}")
+            self.log(logging.DEBUG, f"Database error, exception will be re-raised: {str(e)}")
             raise DatabaseError(str(e)) from e
 
     async def delete(self) -> int:
@@ -1806,14 +1843,23 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         where_predicate = self._build_pk_where_predicate(pk_value)
         is_soft_delete = isinstance(self, IDeleteBehavior)
         if is_soft_delete:
-            self.log(logging.INFO, f"Soft deleting {self.__class__.__name__}#{pk_value}")
+            self.log(logging.DEBUG, f"Soft deleting {self.__class__.__name__}#{pk_value}")
             data = self.prepare_delete()
             update_opts = UpdateOptions(
-                table=self.table_name(), schema_name=self.schema_name(), data=data, where=where_predicate
+                table=self.table_name(),
+                schema_name=self.schema_name(),
+                data=data,
+                where=where_predicate,
+                log_context=LogContext(
+                    model=self.__class__,
+                    operation="soft_delete",
+                    object_name=self.table_name(),
+                    schema=self.schema_name(),
+                ),
             )
             result = await backend.update(update_opts)
         else:
-            self.log(logging.INFO, f"Deleting {self.__class__.__name__}#{pk_value}")
+            self.log(logging.DEBUG, f"Deleting {self.__class__.__name__}#{pk_value}")
             supports_returning = backend.dialect.supports_returning_delete()
             returning_columns = None
             if supports_returning:
@@ -1823,6 +1869,12 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
                 schema_name=self.schema_name(),
                 where=where_predicate,
                 returning_columns=returning_columns,
+                log_context=LogContext(
+                    model=self.__class__,
+                    operation="delete",
+                    object_name=self.table_name(),
+                    schema=self.schema_name(),
+                ),
             )
             result = await backend.delete(delete_opts)
         affected_rows = result.affected_rows

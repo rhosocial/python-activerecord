@@ -30,9 +30,14 @@ class QueryCounter:
             backend.fetch_one = self._wrap(backend.fetch_one)
 
     def _wrap(self, original):
-        def wrapper(sql, params, column_adapters=None):
+        def wrapper(sql, params=None, column_adapters=None, **kwargs):
             self.count += 1
-            return original(sql, params, column_adapters)
+            return original(
+                sql,
+                params,
+                column_adapters=column_adapters,
+                **kwargs,
+            )
 
         return wrapper
 

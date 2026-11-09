@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import base64
 import json
-import logging
 import os
 import socket
 import time
@@ -20,11 +19,12 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional
 
 from ._protocol import CacheSerializer
+from ...logging.defaults import get_logger
 
 if TYPE_CHECKING:
     from ..cache import CacheConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

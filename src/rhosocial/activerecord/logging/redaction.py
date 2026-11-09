@@ -49,6 +49,8 @@ class LogPayload:
     param_names: Optional[Sequence[str]] = None
     sensitive_names: Optional[Sequence[str]] = None
     mode: Optional[Any] = None
+    param_meta: Optional[Sequence["ParamMeta"]] = None
+
 
 
 def default_mask(value: Any) -> str:
@@ -140,6 +142,21 @@ def _type_summary(values: Sequence[Any]) -> str:
     return f"<{len(values)} params: {types}>"
 
 
+def _meta_parameter_names(payload: LogPayload) -> tuple:
+    """Return names, sensitive names and explicit maskers from param metadata."""
+    names = []
+    sensitive_names = []
+    maskers = {}
+    for index, meta in enumerate(payload.param_meta or ()):
+        name = meta.field or f"param{index}"
+        names.append(name)
+        if meta.sensitive or meta.masker is not None:
+            sensitive_names.append(name)
+            if meta.masker is not None:
+                maskers[name] = meta.masker
+    return names, sensitive_names, maskers
+
+
 def _redact_query_params(
     config: Any,
     payload: LogPayload,
@@ -153,6 +170,21 @@ def _redact_query_params(
         return "<hidden>"
     if mode_value == "full":
         return data
+
+    if payload.param_meta is not None and isinstance(data, (list, tuple)):
+        names, sensitive_names, maskers = _meta_parameter_names(payload)
+        named = {name: value for name, value in zip(names, data)}
+        summarizer: DataSummarizer = config.get_summarizer(logger_name)
+        for name in sensitive_names:
+            masker = get_masker(maskers.get(name))
+            value = named[name]
+            named[name] = (
+                masker(value) if masker is not None
+                else summarizer.mask_value(name, value)
+            )
+        if mode_value == "keys_only":
+            return {name: f"<{type(value).__name__}>" for name, value in named.items()}
+        return config.summarize_data(named, logger_name)
 
     if payload.param_names is not None and isinstance(data, (list, tuple)):
         named = {

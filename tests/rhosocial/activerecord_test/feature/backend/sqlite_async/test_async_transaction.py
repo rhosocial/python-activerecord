@@ -20,6 +20,16 @@ from rhosocial.activerecord.backend.impl.sqlite.async_transaction import AsyncSQ
 from rhosocial.activerecord.backend.transaction import IsolationLevel
 
 
+def _assert_event(mock_log, level: int, event: str) -> None:
+    """Assert the structured event was written at the given level."""
+    assert any(
+        call.args
+        and call.args[0] == level
+        and str(call.args[1]).startswith(event)
+        for call in mock_log.call_args_list
+    ), f"{event} not logged at {logging.getLevelName(level)}"
+
+
 @pytest_asyncio.fixture
 async def async_backend():
     """Create in-memory async SQLite backend."""
@@ -42,8 +52,12 @@ def logger():
 
 @pytest_asyncio.fixture
 async def transaction_manager(async_backend):
-    """Get transaction manager from backend."""
-    return async_backend.transaction_manager
+    """Get transaction manager from backend with event logging enabled."""
+    manager = async_backend.transaction_manager
+    original_level = manager._logger.level
+    manager._logger.setLevel(logging.DEBUG)
+    yield manager
+    manager._logger.setLevel(original_level)
 
 
 @pytest.mark.asyncio
@@ -75,7 +89,7 @@ class TestAsyncSQLiteTransactionBasics:
 
     async def test_begin_transaction(self, transaction_manager):
         """Test async begin transaction."""
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             await transaction_manager.begin()
             assert transaction_manager.is_active is True
             assert transaction_manager._transaction_level == 1
@@ -83,13 +97,11 @@ class TestAsyncSQLiteTransactionBasics:
             # Verify log records
             assert mock_log.call_count >= 2
             mock_log.assert_any_call(logging.DEBUG, "Beginning transaction (level 0)")
-            mock_log.assert_any_call(
-                logging.INFO, "Starting new transaction with isolation level IsolationLevel.SERIALIZABLE"
-            )
+            _assert_event(mock_log, logging.INFO, "transaction.begin")
 
     async def test_commit_transaction(self, transaction_manager, async_backend):
         """Test async commit transaction."""
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             await transaction_manager.begin()
             # Use raw connection to execute SQL within transaction
             await async_backend._connection.execute("INSERT INTO test (id, value) VALUES (1, 'test')")
@@ -100,7 +112,7 @@ class TestAsyncSQLiteTransactionBasics:
 
             # Verify log records
             mock_log.assert_any_call(logging.DEBUG, "Committing transaction (level 1)")
-            mock_log.assert_any_call(logging.INFO, "Committing outermost transaction")
+            _assert_event(mock_log, logging.INFO, "transaction.commit")
 
             # Verify commit was successful using raw connection
             cursor = await async_backend._connection.execute("SELECT * FROM test WHERE id = 1")
@@ -111,7 +123,7 @@ class TestAsyncSQLiteTransactionBasics:
 
     async def test_rollback_transaction(self, transaction_manager, async_backend):
         """Test async rollback transaction."""
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             await transaction_manager.begin()
             # Use raw connection to execute SQL within transaction
             await async_backend._connection.execute("INSERT INTO test (id, value) VALUES (1, 'test')")
@@ -122,7 +134,7 @@ class TestAsyncSQLiteTransactionBasics:
 
             # Verify log records
             mock_log.assert_any_call(logging.DEBUG, "Rolling back transaction (level 1)")
-            mock_log.assert_any_call(logging.INFO, "Rolling back outermost transaction")
+            _assert_event(mock_log, logging.INFO, "transaction.rollback")
 
             # Verify rollback was successful using raw connection
             cursor = await async_backend._connection.execute("SELECT * FROM test WHERE id = 1")
@@ -135,15 +147,14 @@ class TestAsyncSQLiteNestedTransactions:
 
     async def test_nested_transactions(self, transaction_manager, async_backend):
         """Test async nested transactions using savepoints."""
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             # First level transaction
             await transaction_manager.begin()
             await async_backend._connection.execute("INSERT INTO test (id, value) VALUES (1, 'level1')")
 
             # Verify first level transaction log
-            mock_log.assert_any_call(
-                logging.INFO, "Starting new transaction with isolation level IsolationLevel.SERIALIZABLE"
-            )
+            # Verify first level transaction log
+            _assert_event(mock_log, logging.INFO, "transaction.begin")
             mock_log.reset_mock()
 
             # Second level transaction (savepoint)
@@ -151,7 +162,7 @@ class TestAsyncSQLiteNestedTransactions:
             await async_backend._connection.execute("INSERT INTO test (id, value) VALUES (2, 'level2')")
 
             # Verify second level transaction log
-            mock_log.assert_any_call(logging.INFO, "Creating savepoint SP_1 for nested transaction")
+            mock_log.assert_any_call(logging.DEBUG, "Creating savepoint SP_1 for nested transaction")
             mock_log.reset_mock()
 
             # Rollback to second level savepoint
@@ -159,7 +170,7 @@ class TestAsyncSQLiteNestedTransactions:
 
             # Verify rollback log
             mock_log.assert_any_call(logging.DEBUG, "Rolling back transaction (level 2)")
-            mock_log.assert_any_call(logging.INFO, "Rolling back to savepoint SP_1 for nested transaction")
+            mock_log.assert_any_call(logging.DEBUG, "Rolling back to savepoint SP_1 for nested transaction")
 
             # Verify second level transaction rolled back, but first level data remains
             cursor = await async_backend._connection.execute("SELECT * FROM test ORDER BY id")
@@ -266,7 +277,7 @@ class TestAsyncSQLiteSavepointOperations:
 
     async def test_savepoint_operations(self, transaction_manager, async_backend):
         """Test async savepoint operations."""
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             # Begin main transaction
             await transaction_manager.begin()
             await async_backend._connection.execute("INSERT INTO test (id, value) VALUES (1, 'base')")
@@ -278,7 +289,7 @@ class TestAsyncSQLiteSavepointOperations:
 
             # Verify savepoint creation log
             mock_log.assert_any_call(logging.DEBUG, "Creating savepoint (name: sp1)")
-            mock_log.assert_any_call(logging.INFO, "Creating savepoint: sp1")
+            mock_log.assert_any_call(logging.DEBUG, "Creating savepoint: sp1")
             mock_log.reset_mock()
 
             # Rollback to savepoint
@@ -286,7 +297,7 @@ class TestAsyncSQLiteSavepointOperations:
 
             # Verify rollback to savepoint log
             mock_log.assert_any_call(logging.DEBUG, "Rolling back to savepoint: sp1")
-            mock_log.assert_any_call(logging.INFO, "Rolling back to savepoint: sp1")
+            mock_log.assert_any_call(logging.DEBUG, "Rolling back to savepoint: sp1")
 
             # Verify rollback to sp1 savepoint
             cursor = await async_backend._connection.execute("SELECT * FROM test ORDER BY id")
@@ -304,7 +315,7 @@ class TestAsyncSQLiteSavepointOperations:
 
             # Verify release savepoint log
             mock_log.assert_any_call(logging.DEBUG, "Releasing savepoint: sp1")
-            mock_log.assert_any_call(logging.INFO, "Releasing savepoint: sp1")
+            mock_log.assert_any_call(logging.DEBUG, "Releasing savepoint: sp1")
             mock_log.reset_mock()
 
             # Commit main transaction
@@ -350,42 +361,42 @@ class TestAsyncSQLiteTransactionErrors:
 
     async def test_commit_without_active_transaction(self, transaction_manager):
         """Test async commit without active transaction."""
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             with pytest.raises(TransactionError) as exc_info:
                 await transaction_manager.commit()
 
             assert "No active transaction to commit" in str(exc_info.value)
-            mock_log.assert_any_call(logging.ERROR, "No active transaction to commit")
+            mock_log.assert_any_call(logging.DEBUG, "No active transaction to commit")
 
     async def test_rollback_without_active_transaction(self, transaction_manager):
         """Test async rollback without active transaction."""
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             with pytest.raises(TransactionError) as exc_info:
                 await transaction_manager.rollback()
 
             assert "No active transaction to rollback" in str(exc_info.value)
-            mock_log.assert_any_call(logging.ERROR, "No active transaction to rollback")
+            mock_log.assert_any_call(logging.DEBUG, "No active transaction to rollback")
 
     async def test_savepoint_without_active_transaction(self, transaction_manager):
         """Test async creating savepoint without active transaction."""
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             with pytest.raises(TransactionError) as exc_info:
                 await transaction_manager.savepoint("sp1")
 
             assert "Cannot create savepoint: no active transaction" in str(exc_info.value)
-            mock_log.assert_any_call(logging.ERROR, "Cannot create savepoint: no active transaction")
+            mock_log.assert_any_call(logging.DEBUG, "Cannot create savepoint: no active transaction")
 
     async def test_release_invalid_savepoint(self, transaction_manager):
         """Test async releasing non-existent savepoint."""
         # Begin transaction
         await transaction_manager.begin()
 
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             with pytest.raises(TransactionError) as exc_info:
                 await transaction_manager.release("nonexistent")
 
             assert "Invalid savepoint name: nonexistent" in str(exc_info.value)
-            mock_log.assert_any_call(logging.ERROR, "Invalid savepoint name: nonexistent")
+            mock_log.assert_any_call(logging.DEBUG, "Invalid savepoint name: nonexistent")
 
         # Cleanup
         await transaction_manager.rollback()
@@ -395,12 +406,12 @@ class TestAsyncSQLiteTransactionErrors:
         # Begin transaction
         await transaction_manager.begin()
 
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             with pytest.raises(TransactionError) as exc_info:
                 await transaction_manager.rollback_to("nonexistent")
 
             assert "Invalid savepoint name: nonexistent" in str(exc_info.value)
-            mock_log.assert_any_call(logging.ERROR, "Invalid savepoint name: nonexistent")
+            mock_log.assert_any_call(logging.DEBUG, "Invalid savepoint name: nonexistent")
 
         # Cleanup
         await transaction_manager.rollback()
@@ -601,7 +612,7 @@ class TestAsyncSQLiteTransactionErrorHandling:
 
                 assert "Failed to begin transaction" in str(exc_info.value)
                 assert "Mock error" in str(exc_info.value)
-                mock_log.assert_any_call(logging.ERROR, "Failed to begin transaction: Mock error")
+                mock_log.assert_any_call(logging.DEBUG, "Failed to begin transaction: Mock error")
 
         # Test commit failure (manually set transaction level)
         manager._transaction_level = 1
@@ -613,7 +624,7 @@ class TestAsyncSQLiteTransactionErrorHandling:
 
                 assert "Failed to commit transaction" in str(exc_info.value)
                 assert "Mock error" in str(exc_info.value)
-                mock_log.assert_any_call(logging.ERROR, "Failed to commit transaction: Mock error")
+                mock_log.assert_any_call(logging.DEBUG, "Failed to commit transaction: Mock error")
 
                 # Ensure transaction_level restored on failure
                 assert manager._transaction_level == 1
@@ -626,7 +637,7 @@ class TestAsyncSQLiteTransactionErrorHandling:
 
                 assert "Failed to rollback transaction" in str(exc_info.value)
                 assert "Mock error" in str(exc_info.value)
-                mock_log.assert_any_call(logging.ERROR, "Failed to rollback transaction: Mock error")
+                mock_log.assert_any_call(logging.DEBUG, "Failed to rollback transaction: Mock error")
 
                 # Ensure transaction_level restored on failure
                 assert manager._transaction_level == 1
@@ -642,7 +653,7 @@ class TestAsyncSQLiteTransactionErrorHandling:
                 assert any(
                     "Failed to create savepoint" in str(call)
                     for call in mock_log.call_args_list
-                    if call[0][0] == logging.ERROR
+                    if call[0][0] == logging.DEBUG
                 )
 
         # Manually add savepoint to active list to test subsequent operations
@@ -655,7 +666,7 @@ class TestAsyncSQLiteTransactionErrorHandling:
                     await manager.release("sp1")
 
                 assert "Failed to release savepoint" in str(exc_info.value)
-                mock_log.assert_any_call(logging.ERROR, "Failed to release savepoint sp1: Mock error")
+                mock_log.assert_any_call(logging.DEBUG, "Failed to release savepoint sp1: Mock error")
 
         # Test rollback_to failure
         manager._active_savepoints.append("sp1")  # Re-add for test
@@ -665,7 +676,7 @@ class TestAsyncSQLiteTransactionErrorHandling:
                     await manager.rollback_to("sp1")
 
                 assert "Failed to rollback to savepoint" in str(exc_info.value)
-                mock_log.assert_any_call(logging.ERROR, "Failed to rollback to savepoint sp1: Mock error")
+                mock_log.assert_any_call(logging.DEBUG, "Failed to rollback to savepoint sp1: Mock error")
 
         # Cleanup
         await backend.disconnect()

@@ -14,6 +14,16 @@ from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 
 
+def _assert_event(mock_log, level: int, event: str) -> None:
+    """Assert the structured event was written at the given level."""
+    assert any(
+        call.args
+        and call.args[0] == level
+        and str(call.args[1]).startswith(event)
+        for call in mock_log.call_args_list
+    ), f"{event} not logged at {logging.getLevelName(level)}"
+
+
 class TestSQLiteTransactionManager:
     @pytest.fixture
     def backend(self):
@@ -38,8 +48,12 @@ class TestSQLiteTransactionManager:
 
     @pytest.fixture
     def transaction_manager(self, backend):
-        """Get transaction manager from backend"""
-        return backend.transaction_manager
+        """Get transaction manager from backend with event logging enabled."""
+        manager = backend.transaction_manager
+        original_level = manager._logger.level
+        manager._logger.setLevel(logging.DEBUG)
+        yield manager
+        manager._logger.setLevel(original_level)
 
     def _execute_dml(self, backend, sql):
         """Helper to execute DML SQL within transaction."""
@@ -100,7 +114,7 @@ class TestSQLiteTransactionManager:
 
     def test_begin_transaction(self, transaction_manager):
         """Test begin transaction"""
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             transaction_manager.begin()
             assert transaction_manager.is_active is True
             assert transaction_manager._transaction_level == 1
@@ -108,13 +122,11 @@ class TestSQLiteTransactionManager:
             # Verify log records
             assert mock_log.call_count >= 2
             mock_log.assert_any_call(logging.DEBUG, "Beginning transaction (level 0)")
-            mock_log.assert_any_call(
-                logging.INFO, "Starting new transaction with isolation level IsolationLevel.SERIALIZABLE"
-            )
+            _assert_event(mock_log, logging.INFO, "transaction.begin")
 
     def test_commit_transaction(self, transaction_manager, backend):
         """Test commit transaction"""
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             transaction_manager.begin()
             # Use raw connection to execute SQL within transaction
             cursor = backend._connection.cursor()
@@ -127,7 +139,7 @@ class TestSQLiteTransactionManager:
 
             # Verify log records
             mock_log.assert_any_call(logging.DEBUG, "Committing transaction (level 1)")
-            mock_log.assert_any_call(logging.INFO, "Committing outermost transaction")
+            _assert_event(mock_log, logging.INFO, "transaction.commit")
 
             # Verify commit was successful using raw connection
             cursor = backend._connection.execute("SELECT * FROM test WHERE id = 1")
@@ -138,7 +150,7 @@ class TestSQLiteTransactionManager:
 
     def test_rollback_transaction(self, transaction_manager, backend):
         """Test rollback transaction"""
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             transaction_manager.begin()
             # Use raw connection to execute SQL within transaction
             cursor = backend._connection.cursor()
@@ -151,7 +163,7 @@ class TestSQLiteTransactionManager:
 
             # Verify log records
             mock_log.assert_any_call(logging.DEBUG, "Rolling back transaction (level 1)")
-            mock_log.assert_any_call(logging.INFO, "Rolling back outermost transaction")
+            _assert_event(mock_log, logging.INFO, "transaction.rollback")
 
             # Verify rollback was successful using raw connection
             cursor = backend._connection.execute("SELECT * FROM test WHERE id = 1")
@@ -159,7 +171,7 @@ class TestSQLiteTransactionManager:
 
     def test_nested_transactions(self, transaction_manager, backend):
         """Test nested transactions (using savepoints)"""
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             # First level transaction
             transaction_manager.begin()
             cursor = backend._connection.cursor()
@@ -167,9 +179,7 @@ class TestSQLiteTransactionManager:
             cursor.close()
 
             # Verify first level transaction log
-            mock_log.assert_any_call(
-                logging.INFO, "Starting new transaction with isolation level IsolationLevel.SERIALIZABLE"
-            )
+            _assert_event(mock_log, logging.INFO, "transaction.begin")
             mock_log.reset_mock()
 
             # Second level transaction (savepoint)
@@ -179,7 +189,7 @@ class TestSQLiteTransactionManager:
             cursor.close()
 
             # Verify second level transaction log
-            mock_log.assert_any_call(logging.INFO, "Creating savepoint SP_1 for nested transaction")
+            mock_log.assert_any_call(logging.DEBUG, "Creating savepoint SP_1 for nested transaction")
             mock_log.reset_mock()
 
             # Rollback to second level savepoint
@@ -187,7 +197,7 @@ class TestSQLiteTransactionManager:
 
             # Verify rollback log
             mock_log.assert_any_call(logging.DEBUG, "Rolling back transaction (level 2)")
-            mock_log.assert_any_call(logging.INFO, "Rolling back to savepoint SP_1 for nested transaction")
+            mock_log.assert_any_call(logging.DEBUG, "Rolling back to savepoint SP_1 for nested transaction")
 
             # Verify second level transaction rolled back, but first level data remains
             cursor = backend._connection.execute("SELECT * FROM test ORDER BY id")
@@ -291,7 +301,7 @@ class TestSQLiteTransactionManager:
 
     def test_unsupported_isolation_level(self, transaction_manager):
         """Test unsupported isolation level"""
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             # SQLite does not support READ_COMMITTED
             with pytest.raises(TransactionError) as exc_info:
                 transaction_manager.isolation_level = IsolationLevel.READ_COMMITTED
@@ -300,14 +310,14 @@ class TestSQLiteTransactionManager:
 
             # Verify log records
             mock_log.assert_any_call(logging.DEBUG, "Setting isolation level to IsolationLevel.READ_COMMITTED")
-            mock_log.assert_any_call(logging.ERROR, "Unsupported isolation level: IsolationLevel.READ_COMMITTED")
+            mock_log.assert_any_call(logging.DEBUG, "Unsupported isolation level: IsolationLevel.READ_COMMITTED")
 
     def test_set_isolation_level_during_transaction(self, transaction_manager):
         """Test setting isolation level during transaction"""
         # Begin transaction
         transaction_manager.begin()
 
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             # Try to change isolation level
             with pytest.raises(TransactionError) as exc_info:
                 transaction_manager.isolation_level = IsolationLevel.SERIALIZABLE
@@ -316,7 +326,7 @@ class TestSQLiteTransactionManager:
 
             # Verify log records
             mock_log.assert_any_call(logging.DEBUG, "Setting isolation level to IsolationLevel.SERIALIZABLE")
-            mock_log.assert_any_call(logging.ERROR, "Cannot change isolation level during active transaction")
+            mock_log.assert_any_call(logging.DEBUG, "Cannot change isolation level during active transaction")
 
         # Cleanup
         transaction_manager.rollback()
@@ -325,7 +335,7 @@ class TestSQLiteTransactionManager:
         """Test savepoint operations"""
         cursor = backend._connection.cursor()
 
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             # Begin main transaction
             transaction_manager.begin()
             cursor.execute("INSERT INTO test (id, value) VALUES (1, 'base')")
@@ -337,7 +347,7 @@ class TestSQLiteTransactionManager:
 
             # Verify savepoint creation log
             mock_log.assert_any_call(logging.DEBUG, "Creating savepoint (name: sp1)")
-            mock_log.assert_any_call(logging.INFO, "Creating savepoint: sp1")
+            mock_log.assert_any_call(logging.DEBUG, "Creating savepoint: sp1")
             mock_log.reset_mock()
 
             # Create second savepoint
@@ -346,7 +356,7 @@ class TestSQLiteTransactionManager:
 
             # Verify savepoint creation log
             mock_log.assert_any_call(logging.DEBUG, "Creating savepoint (name: sp2)")
-            mock_log.assert_any_call(logging.INFO, "Creating savepoint: sp2")
+            mock_log.assert_any_call(logging.DEBUG, "Creating savepoint: sp2")
             mock_log.reset_mock()
 
             # Rollback to first savepoint
@@ -354,7 +364,7 @@ class TestSQLiteTransactionManager:
 
             # Verify rollback to savepoint log
             mock_log.assert_any_call(logging.DEBUG, "Rolling back to savepoint: sp1")
-            mock_log.assert_any_call(logging.INFO, "Rolling back to savepoint: sp1")
+            mock_log.assert_any_call(logging.DEBUG, "Rolling back to savepoint: sp1")
 
             # Verify rollback to sp1 savepoint
             cursor = backend._connection.execute("SELECT * FROM test ORDER BY id")
@@ -372,7 +382,7 @@ class TestSQLiteTransactionManager:
 
             # Verify release savepoint log
             mock_log.assert_any_call(logging.DEBUG, "Releasing savepoint: sp1")
-            mock_log.assert_any_call(logging.INFO, "Releasing savepoint: sp1")
+            mock_log.assert_any_call(logging.DEBUG, "Releasing savepoint: sp1")
             mock_log.reset_mock()
 
             # Commit main transaction
@@ -380,7 +390,7 @@ class TestSQLiteTransactionManager:
 
             # Verify commit log
             mock_log.assert_any_call(logging.DEBUG, "Committing transaction (level 1)")
-            mock_log.assert_any_call(logging.INFO, "Committing outermost transaction")
+            _assert_event(mock_log, logging.INFO, "transaction.commit")
 
             # Verify final result
             cursor = backend._connection.execute("SELECT * FROM test ORDER BY id")
@@ -435,7 +445,7 @@ class TestSQLiteTransactionManager:
 
                 assert "Failed to begin transaction" in str(exc_info.value)
                 assert "Mock error" in str(exc_info.value)
-                mock_log.assert_any_call(logging.ERROR, "Failed to begin transaction: Mock error")
+                mock_log.assert_any_call(logging.DEBUG, "Failed to begin transaction: Mock error")
 
         # Test commit failure (manually set transaction level)
         manager._transaction_level = 1
@@ -447,7 +457,7 @@ class TestSQLiteTransactionManager:
 
                 assert "Failed to commit transaction" in str(exc_info.value)
                 assert "Mock error" in str(exc_info.value)
-                mock_log.assert_any_call(logging.ERROR, "Failed to commit transaction: Mock error")
+                mock_log.assert_any_call(logging.DEBUG, "Failed to commit transaction: Mock error")
 
                 # Ensure transaction_level restored on failure
                 assert manager._transaction_level == 1
@@ -460,7 +470,7 @@ class TestSQLiteTransactionManager:
 
                 assert "Failed to rollback transaction" in str(exc_info.value)
                 assert "Mock error" in str(exc_info.value)
-                mock_log.assert_any_call(logging.ERROR, "Failed to rollback transaction: Mock error")
+                mock_log.assert_any_call(logging.DEBUG, "Failed to rollback transaction: Mock error")
 
                 # Ensure transaction_level restored on failure
                 assert manager._transaction_level == 1
@@ -476,7 +486,7 @@ class TestSQLiteTransactionManager:
                 assert any(
                     "Failed to create savepoint" in str(call)
                     for call in mock_log.call_args_list
-                    if call[0][0] == logging.ERROR
+                    if call[0][0] == logging.DEBUG
                 )
 
         # Manually add savepoint to active list to test subsequent operations
@@ -489,7 +499,7 @@ class TestSQLiteTransactionManager:
                     manager.release("sp1")
 
                 assert "Failed to release savepoint" in str(exc_info.value)
-                mock_log.assert_any_call(logging.ERROR, "Failed to release savepoint sp1: Mock error")
+                mock_log.assert_any_call(logging.DEBUG, "Failed to release savepoint sp1: Mock error")
 
         # Test rollback_to failure
         manager._active_savepoints.append("sp1")  # Re-add for test
@@ -499,49 +509,49 @@ class TestSQLiteTransactionManager:
                     manager.rollback_to("sp1")
 
                 assert "Failed to rollback to savepoint" in str(exc_info.value)
-                mock_log.assert_any_call(logging.ERROR, "Failed to rollback to savepoint sp1: Mock error")
+                mock_log.assert_any_call(logging.DEBUG, "Failed to rollback to savepoint sp1: Mock error")
 
         # Cleanup
         backend.disconnect()
 
     def test_commit_without_active_transaction(self, transaction_manager):
         """Test commit without active transaction"""
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             with pytest.raises(TransactionError) as exc_info:
                 transaction_manager.commit()
 
             assert "No active transaction to commit" in str(exc_info.value)
-            mock_log.assert_any_call(logging.ERROR, "No active transaction to commit")
+            mock_log.assert_any_call(logging.DEBUG, "No active transaction to commit")
 
     def test_rollback_without_active_transaction(self, transaction_manager):
         """Test rollback without active transaction"""
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             with pytest.raises(TransactionError) as exc_info:
                 transaction_manager.rollback()
 
             assert "No active transaction to rollback" in str(exc_info.value)
-            mock_log.assert_any_call(logging.ERROR, "No active transaction to rollback")
+            mock_log.assert_any_call(logging.DEBUG, "No active transaction to rollback")
 
     def test_savepoint_without_active_transaction(self, transaction_manager):
         """Test creating savepoint without active transaction"""
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             with pytest.raises(TransactionError) as exc_info:
                 transaction_manager.savepoint("sp1")
 
             assert "Cannot create savepoint: no active transaction" in str(exc_info.value)
-            mock_log.assert_any_call(logging.ERROR, "Cannot create savepoint: no active transaction")
+            mock_log.assert_any_call(logging.DEBUG, "Cannot create savepoint: no active transaction")
 
     def test_release_invalid_savepoint(self, transaction_manager):
         """Test releasing non-existent savepoint"""
         # Begin transaction
         transaction_manager.begin()
 
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             with pytest.raises(TransactionError) as exc_info:
                 transaction_manager.release("nonexistent")
 
             assert "Invalid savepoint name: nonexistent" in str(exc_info.value)
-            mock_log.assert_any_call(logging.ERROR, "Invalid savepoint name: nonexistent")
+            mock_log.assert_any_call(logging.DEBUG, "Invalid savepoint name: nonexistent")
 
         # Cleanup
         transaction_manager.rollback()
@@ -551,12 +561,12 @@ class TestSQLiteTransactionManager:
         # Begin transaction
         transaction_manager.begin()
 
-        with patch.object(transaction_manager, "log") as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             with pytest.raises(TransactionError) as exc_info:
                 transaction_manager.rollback_to("nonexistent")
 
             assert "Invalid savepoint name: nonexistent" in str(exc_info.value)
-            mock_log.assert_any_call(logging.ERROR, "Invalid savepoint name: nonexistent")
+            mock_log.assert_any_call(logging.DEBUG, "Invalid savepoint name: nonexistent")
 
         # Cleanup
         transaction_manager.rollback()
