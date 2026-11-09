@@ -3,9 +3,21 @@
 
 import logging
 import inspect
-from collections.abc import Mapping
+from collections.abc import Mapping as MappingABC
 from pydantic.fields import FieldInfo
-from typing import Any, Callable, Dict, List, Optional, Type, Union, get_origin, get_args, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Type,
+    Union,
+    get_origin,
+    get_args,
+    Tuple,
+)
 
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
@@ -602,7 +614,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             )
         if defaults is None:
             default_values: Dict[str, Any] = {}
-        elif isinstance(defaults, Mapping):
+        elif isinstance(defaults, MappingABC):
             default_values = dict(defaults)
         else:
             raise TypeError(
@@ -1499,7 +1511,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             )
         if defaults is None:
             default_values: Dict[str, Any] = {}
-        elif isinstance(defaults, Mapping):
+        elif isinstance(defaults, MappingABC):
             default_values = dict(defaults)
         else:
             raise TypeError(
