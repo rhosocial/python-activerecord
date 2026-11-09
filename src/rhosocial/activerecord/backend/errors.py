@@ -1,5 +1,5 @@
 # src/rhosocial/activerecord/backend/errors.py
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from typing import List, Tuple
@@ -51,6 +51,40 @@ class IntegrityError(DatabaseError):
     """Integrity constraint error"""
 
     pass
+
+
+class StaleRecordError(DatabaseError):
+    """The record was changed by another process before this update.
+
+    Raised by optimistic locking when the UPDATE affects no rows because the
+    stored version no longer matches the value the record was loaded with.
+    It is a :class:`DatabaseError` subclass, so existing ``except
+    DatabaseError`` handlers keep catching it, while callers can opt into
+    :class:`StaleRecordError` to tell a normal concurrency conflict apart
+    from connection failures, constraint violations and other database
+    errors.
+
+    Attributes:
+        model: The model class whose row is stale.
+        primary_key: Primary key value of the stale row (a dict for composite
+            primary keys).
+        expected_version: The version the UPDATE tried to match.
+        operation: The operation that failed (currently ``"update"``).
+    """
+
+    def __init__(
+        self,
+        model: type,
+        primary_key: Any,
+        expected_version: int,
+        operation: str = "update",
+        message: str = "Record was updated by another process",
+    ) -> None:
+        self.model = model
+        self.primary_key = primary_key
+        self.expected_version = expected_version
+        self.operation = operation
+        super().__init__(message)
 
 
 class TypeConversionError(DatabaseError):

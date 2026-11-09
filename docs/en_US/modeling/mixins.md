@@ -225,7 +225,7 @@ class Post(DefaultOptimisticLockMixin, ActiveRecord):
 # Usage example
 post = Post.find_one(1)
 post.title = "New Title"
-post.save()  # If other updates occurred, raises DatabaseError
+post.save()  # If other updates occurred, raises StaleRecordError
 ```
 
 #### Custom field names: OptimisticLockMixin
@@ -253,6 +253,7 @@ class Article(OptimisticLockMixin, ActiveRecord):
 - The UPDATE WHERE clause uses `_version_snapshot` (the last value committed to the database), so in-memory tampering cannot break the lock condition
 - The UPDATE SET clause is a column-arithmetic expression (`col = col + step`), applied after merging dirty-field data, overriding any user-assigned value
 - A user-assigned value that differs from the snapshot raises `DatabaseError` at `BEFORE_UPDATE` time
+- An UPDATE that matches no row raises `StaleRecordError` (a `DatabaseError` subclass) with the model, primary key and expected version, so the caller can reload and retry
 
 **When customizing field names**:
 

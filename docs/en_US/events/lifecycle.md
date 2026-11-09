@@ -305,7 +305,7 @@ class User(UUIDMixin, ActiveRecord):
 ```python
 from rhosocial.activerecord.field.version import OptimisticLockMixin
 from rhosocial.activerecord.interface.base import ModelEvent
-from rhosocial.activerecord.backend.errors import DatabaseError
+from rhosocial.activerecord.backend.errors import StaleRecordError
 
 class Product(OptimisticLockMixin, ActiveRecord):
     name: str
@@ -314,7 +314,8 @@ class Product(OptimisticLockMixin, ActiveRecord):
 
 # The OptimisticLockMixin uses AFTER_UPDATE to verify the update:
 # - Checks result.affected_rows > 0
-# - Raises DatabaseError if record was updated by another process
+# - Raises StaleRecordError (a DatabaseError subclass) if the record
+#   was updated by another process
 ```
 
 ## Migration Guide

@@ -225,7 +225,7 @@ class Post(DefaultOptimisticLockMixin, ActiveRecord):
 # 使用示例
 post = Post.find_one(1)
 post.title = "New Title"
-post.save()  # 如果期间有其他更新，会抛出 DatabaseError
+post.save()  # 如果期间有其他更新，会抛出 StaleRecordError
 ```
 
 #### 自定义字段名：OptimisticLockMixin
@@ -253,6 +253,7 @@ class Article(OptimisticLockMixin, ActiveRecord):
 - UPDATE 的 WHERE 子句使用 `_version_snapshot`（最后一次提交到数据库的值），因此内存中的篡改无法破坏锁条件
 - UPDATE 的 SET 子句是列算术表达式（`col = col + 步长`），在合并脏字段数据之后应用，覆盖任何用户赋值
 - 用户手动赋值且与快照不一致时，会在 `BEFORE_UPDATE` 阶段直接抛出 `DatabaseError`
+- UPDATE 没有匹配到任何行时抛出 `StaleRecordError`（`DatabaseError` 的子类），携带模型、主键与期望版本，便于调用方重新读取后重试
 
 **自定义字段名时**：
 

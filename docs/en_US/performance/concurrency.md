@@ -16,15 +16,22 @@ class Post(DefaultOptimisticLockMixin, ActiveRecord):
 **How it works**:
 1.  When reading data, fetch the current `version` (e.g., 1).
 2.  When updating, the SQL adds a condition `WHERE id = ... AND version = 1`.
-3.  If the number of updated rows is 0, it means the `version` has changed in the meantime (modified by someone else), and a `StaleObjectError` is raised.
+3.  If the number of updated rows is 0, it means the `version` has changed in the meantime (modified by someone else), and a `StaleRecordError` is raised.
 
 ```python
+from rhosocial.activerecord.backend.errors import StaleRecordError
+
 try:
     post.title = "New Title"
     post.save()
-except StaleObjectError:
-    print("Data has been modified, please refresh and try again")
+except StaleRecordError as exc:
+    print(f"Data has been modified, please refresh and try again ({exc.primary_key})")
 ```
+
+`StaleRecordError` carries the `model`, `primary_key`, `expected_version` and `operation`
+that failed, so the caller can reload the record instead of parsing the message. It is a
+subclass of `DatabaseError`: existing `except DatabaseError` handlers keep catching it,
+while new code can opt into the narrower type.
 
 ## Pessimistic Locking
 

@@ -16,15 +16,21 @@ class Post(DefaultOptimisticLockMixin, ActiveRecord):
 **工作原理**:
 1.  读取数据时，获取当前 `version` (如 1)。
 2.  更新时，SQL 附加条件 `WHERE id = ... AND version = 1`。
-3.  如果更新行数为 0，说明期间 `version` 已变（被别人改了），抛出 `StaleObjectError`。
+3.  如果更新行数为 0，说明期间 `version` 已变（被别人改了），抛出 `StaleRecordError`。
 
 ```python
+from rhosocial.activerecord.backend.errors import StaleRecordError
+
 try:
     post.title = "New Title"
     post.save()
-except StaleObjectError:
-    print("数据已被修改，请刷新重试")
+except StaleRecordError as exc:
+    print(f"数据已被修改，请刷新重试（主键 {exc.primary_key}）")
 ```
+
+`StaleRecordError` 携带失败时的 `model`、`primary_key`、`expected_version` 与 `operation`，
+调用方可以直接按主键重新读取记录，而不必匹配消息文本。它是 `DatabaseError` 的子类：
+现有的 `except DatabaseError` 仍然能捕获它，新代码则可以只捕获更精确的类型。
 
 ## 悲观锁 (Pessimistic Locking)
 

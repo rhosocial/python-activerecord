@@ -17,7 +17,7 @@ from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
-from rhosocial.activerecord.backend.errors import StaleObjectError
+from rhosocial.activerecord.backend.errors import StaleRecordError
 
 # --- Models ---
 
@@ -129,8 +129,9 @@ def main():
     try:
         post_user2.title = "Title by User 2"
         post_user2.save()
-    except StaleObjectError:
-        print("Success! StaleObjectError caught. User 2's update was prevented.")
+    except StaleRecordError as exc:
+        print(f"Success! StaleRecordError caught for #{exc.primary_key}. "
+              "User 2's update was prevented.")
         print("User 2 should refresh the data.")
 
     print("\n--- 3. Caching ---")

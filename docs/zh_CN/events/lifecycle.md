@@ -304,7 +304,7 @@ class User(UUIDMixin, ActiveRecord):
 ```python
 from rhosocial.activerecord.field.version import OptimisticLockMixin
 from rhosocial.activerecord.interface.base import ModelEvent
-from rhosocial.activerecord.backend.errors import DatabaseError
+from rhosocial.activerecord.backend.errors import StaleRecordError
 
 class Product(OptimisticLockMixin, ActiveRecord):
     name: str
@@ -313,7 +313,7 @@ class Product(OptimisticLockMixin, ActiveRecord):
 
 # OptimisticLockMixin 使用 AFTER_UPDATE 来验证更新：
 # - 检查 result.affected_rows > 0
-# - 如果记录被其他进程更新则抛出 DatabaseError
+# - 如果记录被其他进程更新则抛出 StaleRecordError（DatabaseError 的子类）
 ```
 
 ## 迁移指南
