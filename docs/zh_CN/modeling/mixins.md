@@ -161,6 +161,32 @@ class LegacyPost(TimestampMixin, ActiveRecord):
 - 插入操作（`BEFORE_INSERT`）同时设置 `created_at` 和 `updated_at`
 - 更新操作（`BEFORE_UPDATE`）仅更新 `updated_at`，`created_at` 保持不变
 
+#### 调用方传入的时间：UtcTimestampMixin
+
+时间戳混入生成的始终是 UTC 值，但它不校验调用方赋给字段的值。读取到 naive 值后再与生成的 aware 值比较会抛 `TypeError`。加入可选的 `UtcTimestampMixin`，把所有 naive `datetime` 按 UTC 处理：
+
+```python
+from datetime import datetime, timezone
+from rhosocial.activerecord.field import DefaultTimestampMixin, UtcTimestampMixin
+
+class Event(UtcTimestampMixin, DefaultTimestampMixin, ActiveRecord):
+    __table_name__ = "events"
+    occurred_at: datetime
+
+event = Event(occurred_at=datetime(2026, 1, 1, 12))
+assert event.occurred_at.tzinfo is timezone.utc
+
+# naive 字符串先被 Pydantic 解析，随后同样补上 UTC
+event = Event(occurred_at="2026-01-01 12:00:00")
+assert event.occurred_at.tzinfo is timezone.utc
+```
+
+该校验器会遍历所有字段，但只处理没有 `tzinfo` 的 `datetime` 值；字符串、数字及其它字段类型原样通过。aware 值保留其原有偏移——混入只补齐缺失的时区，不重写已有偏移。
+
+> **读取值的时区**：从数据库读出的值时区由后端与驱动决定。该混入会规范化 naive
+> `datetime`（包括 Pydantic 从字符串解析出的值）；后端返回 aware 值时保留其偏移。
+> 需要精确时区时，请查看对应后端的时间戳行为。
+
 ### SoftDeleteMixin / DefaultSoftDeleteMixin
 
 标记删除而不是物理删除。

@@ -161,6 +161,39 @@ The timestamp mixin uses **Python-side timestamp generation** instead of relying
 - INSERT operations (`BEFORE_INSERT`) set both `created_at` and `updated_at`
 - UPDATE operations (`BEFORE_UPDATE`) only update `updated_at`; `created_at` remains unchanged
 
+#### Caller-supplied datetimes: UtcTimestampMixin
+
+The timestamp mixin generates UTC values, but it does not validate a value a
+caller assigns. Reading a naive value back and comparing it with a generated
+aware value raises `TypeError`. Add the optional `UtcTimestampMixin` to read
+every naive `datetime` as UTC:
+
+```python
+from datetime import datetime, timezone
+from rhosocial.activerecord.field import DefaultTimestampMixin, UtcTimestampMixin
+
+class Event(UtcTimestampMixin, DefaultTimestampMixin, ActiveRecord):
+    __table_name__ = "events"
+    occurred_at: datetime
+
+event = Event(occurred_at=datetime(2026, 1, 1, 12))
+assert event.occurred_at.tzinfo is timezone.utc
+
+# A naive string is parsed first, then normalized as well.
+event = Event(occurred_at="2026-01-01 12:00:00")
+assert event.occurred_at.tzinfo is timezone.utc
+```
+
+The mixin validates every field but only touches `datetime` values without a
+`tzinfo`; strings, numbers and all other field types pass through unchanged.
+An aware datetime keeps the offset it arrived with — the mixin fills in a
+missing zone, it does not rewrite an existing one.
+
+> **Reading values**: the zone on a value loaded from the database is decided by
+> the backend and driver. This mixin normalizes naive `datetime` values (including
+> ones Pydantic parses from strings); a backend that returns an aware value keeps
+> its offset. Check the backend's timestamp behaviour when exact zones matter.
+
 ### SoftDeleteMixin / DefaultSoftDeleteMixin
 
 Marks records as deleted instead of physically removing them.
