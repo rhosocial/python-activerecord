@@ -34,9 +34,9 @@ class TestLoggingDefaults:
     def test_default_configuration(self):
         config = get_default_logging_config()
 
-        assert config.default_level == logging.DEBUG
-        assert config.propagate is False
-        assert config.auto_setup is True
+        assert config.default_level == logging.WARNING
+        assert config.propagate is True
+        assert config.auto_setup is False
 
     def test_configure_logging_level(self):
         configure_logging(level=logging.INFO)
@@ -61,8 +61,8 @@ class TestLoggingDefaults:
 
         reset_default_logging_config()
 
-        assert get_default_logging_config().default_level == logging.DEBUG
-        assert get_default_logging_config().propagate is False
+        assert get_default_logging_config().default_level == logging.WARNING
+        assert get_default_logging_config().propagate is True
 
     def test_logging_manager_public_api_removed(self):
         import rhosocial.activerecord.logging as logging_module
@@ -91,18 +91,20 @@ class TestLoggingConfig:
     def test_default_values(self):
         config = LoggingConfig()
 
-        assert config.default_level == logging.DEBUG
-        assert config.propagate is False
-        assert config.auto_setup is True
+        assert config.default_level == logging.WARNING
+        assert config.propagate is True
+        assert config.auto_setup is False
         assert config.loggers == {}
 
     def test_get_logger_creates_logger(self):
         config = LoggingConfig()
-        logger = config.get_logger("test")
+        logger = config.get_logger(f"test_defaults_{uuid.uuid4()}")
 
-        assert logger.name == "test"
-        assert logger.level == logging.DEBUG
-        assert logger.propagate is False
+        assert logger.name.startswith("test_defaults_")
+        # No explicit WARNING: the quiet default is inherited from root.
+        assert logger.level == logging.NOTSET
+        assert logger.propagate is True
+        assert logger.handlers == []
 
     def test_get_logger_propagate_setting(self):
         config = LoggingConfig(propagate=True)
@@ -123,7 +125,7 @@ class TestLoggingConfig:
         config = LoggingConfig(auto_setup=False)
         logger = config.get_logger(unique_name)
 
-        assert logger.propagate is False
+        assert logger.propagate is True
         assert logger.handlers == []
 
 

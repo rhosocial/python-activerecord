@@ -77,9 +77,9 @@ class TestConfigureLoggingAllParams:
         """Passing None for all params should not change defaults."""
         configure_logging(level=None, formatter=None, propagate=None, auto_setup=None)
         config = get_default_logging_config()
-        assert config.default_level == logging.DEBUG
-        assert config.propagate is False
-        assert config.auto_setup is True
+        assert config.default_level == logging.WARNING
+        assert config.propagate is True
+        assert config.auto_setup is False
 
 
 class TestResetDefaultLoggingConfig:
@@ -103,9 +103,9 @@ class TestResetDefaultLoggingConfig:
         reset_default_logging_config()
 
         config = get_default_logging_config()
-        assert config.default_level == logging.DEBUG
-        assert config.propagate is False
-        assert config.auto_setup is True
+        assert config.default_level == logging.WARNING
+        assert config.propagate is True
+        assert config.auto_setup is False
         assert config.formatter is not formatter
 
 
@@ -119,10 +119,10 @@ class TestGetLoggerFromDefaults:
         reset_default_logging_config()
 
     def test_get_logger_returns_configured_logger(self):
-        configure_logging(level=logging.WARNING)
+        configure_logging(level=logging.INFO)
         logger = get_logger("test_defaults_logger")
         assert logger.name == "test_defaults_logger"
-        assert logger.level == logging.WARNING
+        assert logger.level == logging.INFO
 
     def test_get_logger_with_custom_formatter(self):
         formatter = ActiveRecordFormatter("CUSTOM: %(message)s")

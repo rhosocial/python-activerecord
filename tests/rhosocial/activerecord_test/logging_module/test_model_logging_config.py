@@ -235,7 +235,7 @@ class TestClassVarIsolation:
 
         AlphaModel.__logging_config__.default_level = logging.ERROR
 
-        assert BetaModel.__logging_config__.default_level == logging.DEBUG
+        assert BetaModel.__logging_config__.default_level == logging.WARNING
 
     def test_explicit_config_override_preserved(self):
         """Subclasses with explicit __logging_config__ should keep their custom config."""
@@ -276,4 +276,4 @@ class TestClassVarIsolation:
         assert BackendA.__logging_config__ is not BackendB.__logging_config__
 
         BackendA.__logging_config__.default_level = logging.ERROR
-        assert BackendB.__logging_config__.default_level == logging.DEBUG
+        assert BackendB.__logging_config__.default_level == logging.WARNING

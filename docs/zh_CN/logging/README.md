@@ -34,6 +34,30 @@ flowchart TB
     FrameworkDefault --> WorkerLog
 ```
 
+## 默认保持安静
+
+日志由应用掌控。ActiveRecord 不安装 handler、导入时不向 stderr 输出、也不修改根日志器：
+
+| 配置 | 默认值 | 含义 |
+| ---- | ------ | ---- |
+| `LoggingConfig.default_level` | `logging.WARNING` | 应用主动开启之前，`DEBUG` / `INFO` 记录保持静默 |
+| `LoggingConfig.auto_setup` | `False` | 库不会自行挂载 `StreamHandler` |
+| `LoggingConfig.propagate` | `True` | 库日志器把记录交给应用的根日志器 handler |
+
+导入 `rhosocial.activerecord` 只创建配置对象和日志器名称，不输出任何记录。
+需要更多细节时，提高库的日志级别或配置根日志器：
+
+```python
+import logging
+
+logging.basicConfig(level=logging.DEBUG)          # 应用侧 handler
+logging.getLogger("rhosocial.activerecord").setLevel(logging.DEBUG)
+```
+
+应用显式设置的级别不会被覆盖。当 `default_level` 为安静的 `WARNING` 时，
+日志器保持 `NOTSET`，从而继承应用的根日志器级别；非默认级别或 per-logger
+`LoggerConfig` 才会显式写入。
+
 ## 快速开始
 
 ```python
@@ -70,7 +94,7 @@ class AuditUser(ActiveRecord):
 import logging
 from rhosocial.activerecord.logging import configure_logging, get_logger
 
-configure_logging(level=logging.INFO, propagate=False)
+configure_logging(level=logging.INFO)  # propagate 保持 True，由根日志器决定
 logger = get_logger("rhosocial.activerecord.worker")
 ```
 
@@ -137,9 +161,215 @@ def setup_logging(log_dir="logs", log_filename="app", level="INFO", when="d", ba
 
 3. **整合进 FastAPI lifespan**：应用启动时调用一次，之后 ORM 内部日志（SQL 执行、模型操作）与应用日志、uvicorn 访问日志共用同一套格式。
 
-> **与框架 `LoggingConfig` 的关系**：框架的模型/后端日志器由各自的 `LoggingConfig` 管理，默认 `propagate=False`（不污染根日志器）。上面的落地方式是**应用层**将 handler 挂到 root，并显式让 uvicorn 转发——两者不冲突：框架日志由 `LoggingConfig` 控制格式与敏感信息屏蔽，应用日志由 root logger 统一输出。
+> **与框架 `LoggingConfig` 的关系**：框架的模型/后端日志器由各自的 `LoggingConfig` 管理，默认向根日志器传播且不安装 handler。上面的落地方式是**应用层**将 handler 挂到 root，并显式让 uvicorn 转发——两者不冲突：框架日志沿用 root 的 handler（敏感信息屏蔽仍由 `LoggingConfig` 负责），应用日志也由这些 handler 统一输出。
 
 完整的可运行示例见 [FastAPI 集成场景](../scenarios/fastapi.md#7-日志配置)（`docs/examples/chapter_14_scenarios/fastapi_blog/app/logging_conf.py`）。
+
+## 结构化事件
+
+`log_event()` 写入稳定的事件名和结构化 payload：
+
+```python
+import logging
+from rhosocial.activerecord.logging import LogEvent, log_event
+
+logger = logging.getLogger("rhosocial.activerecord.model.User")
+
+log_event(
+    logger,
+    LogEvent.DML_INSERT,
+    model="User",
+    model_fqn="app.models.User",
+    object_name="users",
+    object_type="table",
+    schema="public",
+    rows_affected=1,
+    duration_ms=12.4,
+)
+```
+
+记录会携带：
+
+```python
+record.event == "dml.insert"
+record.activerecord == {
+    "model": "User",
+    "model_fqn": "app.models.User",
+    "object_name": "users",
+    "object_type": "table",
+    "schema": "public",
+    "rows_affected": 1,
+    "duration_ms": 12.4,
+}
+```
+
+事件名按语句类型分组：
+
+```text
+dml.insert / dml.update / dml.delete / dml.batch
+dql.select / dql.aggregate / dql.cte / dql.set_operation
+ddl.create / ddl.alter / ddl.drop
+transaction.begin / transaction.commit / transaction.rollback / transaction.savepoint
+model.find_one / model.find_one_or_create
+relation.batch_load
+worker.exit
+```
+
+建议字段：
+
+| 字段 | 含义 |
+| ---- | ---- |
+| `model` | 模型简单类名，如 `User` |
+| `model_fqn` | 模型完全限定名，如 `app.models.User` |
+| `operation` | `select`、`insert`、`update`、`delete`、`batch` 等 |
+| `object_name` | 逻辑表名/视图名，如 `users` |
+| `object_type` | `table`、`view`、`materialized_view` |
+| `schema` | schema 名，可为空 |
+| `database` | database/catalog 名，可为空 |
+| `rows_affected` | DML 影响行数 |
+| `rows_returned` | DQL 返回行数 |
+| `parameter_sets` | 批量参数组数 |
+| `param_count` | 参数数量，不是参数值 |
+| `duration_ms` | 耗时 |
+| `relation` | 关系名 |
+| `cache_hit` | 关系缓存命中标记 |
+| `error_type` | 异常类型 |
+
+不要用单个 `table` 字段表示“完全限定表名”。逻辑名配合 `schema`、
+`database` 和 `object_type`，才能无歧义地区分表和视图。
+
+## 事件格式化器
+
+`ActiveRecordEventFormatter` 使用事件模板，并保留可读前缀：
+
+```python
+from rhosocial.activerecord.logging import ActiveRecordEventFormatter
+
+handler.setFormatter(
+    ActiveRecordEventFormatter(
+        templates={"dml.insert": "insert {model} into {object_name}"}
+    )
+)
+```
+
+`ActiveRecordJsonFormatter` 输出每行一个 JSON：
+
+```python
+from rhosocial.activerecord.logging import ActiveRecordJsonFormatter
+
+handler.setFormatter(ActiveRecordJsonFormatter())
+```
+
+```json
+{
+  "@timestamp": "2026-11-10T10:15:30.123Z",
+  "level": "INFO",
+  "logger": "rhosocial.activerecord.model.User",
+  "message": "dml.insert model=User object_name=users object_type=table rows_affected=1 duration_ms=12.4",
+  "event": "dml.insert",
+  "model": "User",
+  "model_fqn": "app.models.User",
+  "object_name": "users",
+  "object_type": "table",
+  "schema": "public",
+  "rows_affected": 1,
+  "duration_ms": 12.4
+}
+```
+
+## 查询参数脱敏
+
+`LoggingConfig.redact()` 接收 `LogPayload`，按配置的数据模式处理：
+
+```python
+from rhosocial.activerecord.logging import LogDataKind, LogPayload
+
+payload = LogPayload(
+    ("alice", "secret"),
+    LogDataKind.QUERY_PARAMS,
+    param_names=("name", "password"),
+    sensitive_names=("password",),
+)
+redacted = ActiveRecord.__logging_config__.redact(payload)
+# {"name": "alice", "password": "***MASKED***"}
+```
+
+无名称的位置参数默认不输出值：
+
+```python
+LogPayload(("alice", "secret"), LogDataKind.QUERY_PARAMS)
+# "<2 params: str, str>"
+```
+
+临时值可以使用 `SensitiveValue`：
+
+```python
+from rhosocial.activerecord.logging import SensitiveValue, unwrap_sensitive
+
+lookup_value = SensitiveValue("secret", masker="default")
+# SQL 装配必须使用 unwrap_sensitive(lookup_value)
+```
+
+`unwrap_sensitive()` 会递归解包列表、元组、集合和字典。数据库必须收到原值，
+只有日志 payload 使用掩码后的表示。
+
+默认敏感字段包括 `password`、`token`、`secret`、`api_key`、`private_key`
+等常见凭据名。`LogDataMode.FULL` 仅用于受控调试，它会主动关闭掩码。
+
+## JSON 日志中的关联 ID
+
+当 logging filter 在 record 上设置 `request_id`、`trace_id`、`span_id` 时，
+`ActiveRecordJsonFormatter` 会自动包含这些字段。Web 应用通常使用
+`contextvars` + filter：
+
+```python
+import contextvars
+import logging
+
+request_id_var = contextvars.ContextVar("request_id", default=None)
+
+class RequestIdFilter(logging.Filter):
+    def filter(self, record):
+        record.request_id = request_id_var.get()
+        return True
+```
+
+之后所有传播到同一 handler 的库日志都会带上 request ID。
+使用 OpenTelemetry 时，可以从当前 span 读取 `trace_id` / `span_id`；
+JSON formatter 不强制依赖 OpenTelemetry。
+
+## 执行日志契约
+
+SQL 文本和参数值只属于 backend execution 层：
+
+- `DEBUG`：SQL + 脱敏后的参数
+- `INFO`：DML/DQL/DDL/TCL 摘要，不含 SQL 和参数值
+- Query 对象把 model/operation/参数元数据传给 backend，不再重复记录 SQL
+- 会抛出的异常不再重复记录 `ERROR`
+
+摘要示例：
+
+```text
+dml.insert model=User object_name=users object_type=table rows_affected=1 duration_ms=12.4
+dql.select model=User object_name=users object_type=table rows_returned=3 duration_ms=12.4
+dml.batch model=User operation=insert_many parameter_sets=100 rows_affected=100 duration_ms=120.5
+```
+
+## 本地 ELK 验证
+
+本地 Elasticsearch + Logstash + Kibana 适合验证 JSON 事件格式，但它只是开发
+工具，不属于本仓库代码。使用 `ActiveRecordJsonFormatter` 输出日志后，将
+`event`、`model`、`object_name`、`object_type`、`request_id`、`trace_id`、
+`span_id` 映射为 `keyword`，将 `rows_affected`、`duration_ms` 等映射为数值。
+
+Kibana 查询：
+
+```text
+event: "dml.insert"
+event: "dql.select" and duration_ms > 100
+request_id: "req-..."
+model: "User" and rows_affected > 1
+```
 
 ## 示例代码
 
@@ -151,6 +381,10 @@ def setup_logging(log_dir="logs", log_filename="app", level="INFO", when="d", ba
 | [02_data_summarization.py](../../examples/chapter_09_logging/02_data_summarization.py) | `LogDataMode` 与 `SummarizerConfig` |
 | [03_per_logger_config.py](../../examples/chapter_09_logging/03_per_logger_config.py) | 所属 `LoggingConfig` 内的 per-logger 规则 |
 | [04_advanced_scenarios.py](../../examples/chapter_09_logging/04_advanced_scenarios.py) | 生产/开发配置与 `BackendGroup` |
+| [05_logging_levels.py](../../examples/chapter_09_logging/05_logging_levels.py) | 默认安静行为与显式 INFO/DEBUG 级别 |
+| [06_structured_events.py](../../examples/chapter_09_logging/06_structured_events.py) | 事件 schema、`ActiveRecordEventFormatter` 与 `ActiveRecordJsonFormatter` |
+| [07_redaction_modes.py](../../examples/chapter_09_logging/07_redaction_modes.py) | 查询参数脱敏、`LogDataMode` 与 `SensitiveValue` |
+| [08_correlation_ids.py](../../examples/chapter_09_logging/08_correlation_ids.py) | JSON 日志中的 `contextvars` 关联 ID |
 
 ```bash
 cd python-activerecord
