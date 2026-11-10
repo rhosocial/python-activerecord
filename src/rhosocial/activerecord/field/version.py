@@ -237,7 +237,8 @@ class OptimisticLockMixin(IUpdateBehavior):
 
         Raises:
             StaleRecordError: If the optimistic-lock check fails because the
-                record was updated by another process. It is also a
+                stored version no longer matches; the row may have been
+                updated or deleted by another process. It is also a
                 :class:`DatabaseError`, so existing handlers keep working.
         """
         if result.affected_rows == 0:

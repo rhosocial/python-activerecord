@@ -72,10 +72,15 @@ class IntegrityError(DatabaseError):
 
 
 class StaleRecordError(DatabaseError):
-    """The record was changed by another process before this update.
+    """The record version no longer matches the stored row.
 
     Raised by optimistic locking when the UPDATE affects no rows because the
     stored version no longer matches the value the record was loaded with.
+    Zero rows has two possible causes: another process updated the row, or the
+    row was deleted. The message names both possibilities instead of asserting
+    only the first, because distinguishing them would need another query and
+    would still race with concurrent writers.
+
     It is a :class:`DatabaseError` subclass, so existing ``except
     DatabaseError`` handlers keep catching it, while callers can opt into
     :class:`StaleRecordError` to tell a normal concurrency conflict apart
@@ -96,7 +101,10 @@ class StaleRecordError(DatabaseError):
         primary_key: Any,
         expected_version: int,
         operation: str = "update",
-        message: str = "Record was updated by another process",
+        message: str = (
+            "Record version does not match; the row may have been updated or "
+            "deleted by another process"
+        ),
     ) -> None:
         self.model = model
         self.primary_key = primary_key

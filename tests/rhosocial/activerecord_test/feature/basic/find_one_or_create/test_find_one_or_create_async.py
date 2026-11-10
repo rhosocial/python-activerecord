@@ -1,10 +1,11 @@
 # tests/rhosocial/activerecord_test/feature/basic/find_one_or_create/test_find_one_or_create_async.py
 """Unit tests for ``AsyncBaseActiveRecord.find_one_or_create``."""
+import logging
 from typing import ClassVar, Optional
 
 import pytest
 
-from rhosocial.activerecord.backend.errors import IntegrityError
+from rhosocial.activerecord.backend.errors import IntegrityError, OperationalError
 from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Literal
 from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import AsyncSQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
@@ -151,6 +152,81 @@ class TestAsyncFindOneOrCreate:
     ):
         with pytest.raises(ValueError, match="generates its primary key"):
             await async_item_model.find_one_or_create(code="a", defaults={"id": 1})
+
+    async def test_conflict_reread_failure_keeps_the_cause(
+        self, async_item_model, monkeypatch
+    ):
+        original_lookup = async_item_model._find_one_by_lookup
+        reads = []
+
+        async def failing_lookup(cls, lookup):
+            reads.append(dict(lookup))
+            if len(reads) == 1:
+                return await original_lookup(lookup)
+            raise OperationalError("reread connection lost")
+
+        monkeypatch.setattr(
+            async_item_model, "_find_one_by_lookup", classmethod(failing_lookup)
+        )
+
+        async def racing_save(self):
+            raise IntegrityError("simulated concurrent insert")
+
+        monkeypatch.setattr(async_item_model, "save", racing_save)
+
+        with pytest.raises(IntegrityError) as info:
+            await async_item_model.find_one_or_create(
+                code="race", defaults={"alt_code": "race-alt"}
+            )
+
+        assert isinstance(info.value.__cause__, OperationalError)
+        assert "reread connection lost" in str(info.value.__cause__)
+        assert await async_item_model.query().count() == 0
+
+    async def test_savepoint_probe_failure_logs_error(
+        self, async_item_model, monkeypatch
+    ):
+        manager = async_item_model.backend().transaction_manager
+        records = []
+
+        def spy_log(cls, level, msg, *args, **kwargs):
+            records.append((level, msg))
+
+        monkeypatch.setattr(async_item_model, "log", classmethod(spy_log))
+
+        async def broken_probe():
+            raise RuntimeError("capability probe exploded")
+
+        monkeypatch.setattr(manager, "supports_savepoint", broken_probe)
+
+        row, created = await async_item_model.find_one_or_create(code="a")
+
+        assert created is True
+        assert row.code == "a"
+        error_records = [item for item in records if item[0] == logging.ERROR]
+        assert error_records, "a broken probe must be reported at ERROR level"
+        assert "savepoint" in error_records[0][1].lower()
+
+    async def test_savepoint_unsupported_does_not_log_error(
+        self, async_item_model, monkeypatch
+    ):
+        manager = async_item_model.backend().transaction_manager
+        records = []
+
+        def spy_log(cls, level, msg, *args, **kwargs):
+            records.append((level, msg))
+
+        monkeypatch.setattr(async_item_model, "log", classmethod(spy_log))
+
+        async def unsupported():
+            return False
+
+        monkeypatch.setattr(manager, "supports_savepoint", unsupported)
+
+        row, created = await async_item_model.find_one_or_create(code="a")
+
+        assert created is True
+        assert not [item for item in records if item[0] == logging.ERROR]
 
     async def test_conflict_rereads_the_winner_once(self, async_item_model, monkeypatch):
         calls = []
