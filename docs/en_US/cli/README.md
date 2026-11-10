@@ -40,42 +40,55 @@ importing the model. The model class must be an `ActiveRecord` or
 
 ## Backend and connection
 
-Resolution order:
+The core package does not keep a list of backends. It does not need to know
+which backend packages are installed, and it gives no backend a built-in
+shortcut. Name the classes your project actually uses:
 
-1. `--connection module:callable` — the callable returns a `ConnectionConfig`.
-2. `--backend` plus connection flags (`--database`, `--host`, `--port`,
-   `--user`, `--password`, `--option KEY=VALUE`).
-3. The model module's own `configure()` call, when no CLI connection is given.
+- Backend class: `--backend-class MODULE:CLASS`, otherwise the model module's
+  own `configure()` call.
+- Connection config: `--connection MODULE:CALLABLE`, or
+  `--config-class MODULE:CLASS` together with `--config KEY=VALUE`, otherwise
+  the model module's own `configure()` call.
 
-Built-in backend names: `sqlite`, `mysql`, `mariadb`, `postgres`, `sqlserver`,
-`oracle`, `firebird`, `snowflake`, `clickhouse`, `bigquery`. SQLite ships in the
-core package; the others are installed separately, for example:
+The two halves are resolved independently, so a named connection can supply
+credentials while the model supplies its backend class.
+
+Class references accept either `module:Class` or the dotted `module.Class`
+spelling. For an asynchronous model, name the asynchronous backend class.
+
+Examples with SQLite, which ships with the core package:
 
 ```bash
-pip install rhosocial-activerecord-postgres
-```
-
-A missing backend package exits with code 4 and prints that install command.
-
-Examples:
-
-```bash
-# SQLite file
+# SQLite file, synchronous model
 rhosocial-activerecord crud list \
   --model app.models:User \
-  --backend sqlite --database app.db \
+  --backend-class rhosocial.activerecord.backend.impl.sqlite.backend:SQLiteBackend \
+  --config-class rhosocial.activerecord.backend.impl.sqlite.config:SQLiteConnectionConfig \
+  --config database=app.db \
   --where "status=active" --order-by "created_at desc" --limit 20
 
-# Named connection, backend inferred from the config type
+# Named connection with an explicit backend class
 rhosocial-activerecord crud list \
   --model app.models:User \
+  --backend-class rhosocial.activerecord.backend.impl.sqlite.backend:SQLiteBackend \
   --connection app.connections:prod_db \
   -o json
 ```
 
-`--option KEY=VALUE` sets a config field when the field exists, otherwise it is
-placed in `config.options`. Passwords are never written to logs; prefer a named
-connection or environment variables for production credentials.
+An asynchronous model uses the asynchronous class, for example
+`rhosocial.activerecord.backend.impl.sqlite.backend:AsyncSQLiteBackend`.
+
+If the model module already calls `configure()`, both `--backend-class` and
+`--connection` / `--config-class` may be omitted. Any `--config` values then
+override the model's existing configuration.
+
+`--config KEY=VALUE` may be repeated. A key that names a field of the config
+class is converted to that field's type; an unknown key, or an
+`options.KEY=VALUE` entry, is placed in `config.options`. A completely missing
+module, class, or extra package cannot be hinted from a registry, so the CLI
+reports the failed reference and exits with code 4. Passwords are never written
+to logs; prefer a named connection or environment variables for production
+credentials.
 
 ## CRUD semantics
 
@@ -135,13 +148,15 @@ diagnosing a connection or model problem. Logs always go to stderr.
 | 1 | Model, connection, validation, or database error |
 | 2 | Command-line usage error (argparse) |
 | 3 | Record not found |
-| 4 | Backend package missing or unknown backend |
+| 4 | A backend or connection config class cannot be imported |
 
 ## Sync and async models
 
 The CLI detects the model type automatically. `ActiveRecord` uses the synchronous
 backend; `AsyncActiveRecord` uses the asynchronous backend and an event loop
-inside the CLI. There is no `--async` flag.
+inside the CLI. There is no `--async` flag, but `--backend-class` must name a
+class that matches the model: an `AsyncStorageBackend` subclass for an
+asynchronous model, a `StorageBackend` subclass otherwise.
 
 ## Python module form
 

@@ -38,41 +38,49 @@ rhosocial-activerecord crud list --model app.models:User
 
 ## 后端与连接
 
-解析优先级：
+核心包不维护后端清单，也不需要知道安装了哪些后端包，更不会给任何内置后端
+特权。用户直接指定项目实际使用的类：
 
-1. `--connection module:callable`：调用返回一个 `ConnectionConfig`；
-2. `--backend` 加连接参数（`--database`、`--host`、`--port`、`--user`、
-   `--password`、`--option KEY=VALUE`）；
-3. 模型模块自身的 `configure()`，当 CLI 没有给出连接时使用。
+- 后端类：`--backend-class MODULE:CLASS`；省略时沿用模型模块自身的
+  `configure()`。
+- 连接配置：`--connection MODULE:CALLABLE`，或者
+  `--config-class MODULE:CLASS` 配合 `--config KEY=VALUE`；省略时沿用模型
+  模块自身的 `configure()`。
 
-内置后端名：`sqlite`、`mysql`、`mariadb`、`postgres`、`sqlserver`、`oracle`、
-`firebird`、`snowflake`、`clickhouse`、`bigquery`。SQLite 随核心包提供，其余需
-单独安装，例如：
+后端类和连接配置独立解析，因此命名连接可以提供凭据，而模型可以提供后端类。
 
-```bash
-pip install rhosocial-activerecord-postgres
-```
+类引用既接受 `module:Class`，也接受点号形式 `module.Class`。异步模型需要指定
+异步后端类。
 
-后端包未安装时退出码为 4，并在 stderr 打印上述安装命令。
-
-示例：
+以随核心包提供的 SQLite 为例：
 
 ```bash
-# SQLite 文件
+# SQLite 文件，同步模型
 rhosocial-activerecord crud list \
   --model app.models:User \
-  --backend sqlite --database app.db \
+  --backend-class rhosocial.activerecord.backend.impl.sqlite.backend:SQLiteBackend \
+  --config-class rhosocial.activerecord.backend.impl.sqlite.config:SQLiteConnectionConfig \
+  --config database=app.db \
   --where "status=active" --order-by "created_at desc" --limit 20
 
-# 命名连接，后端由 config 类型推断
+# 命名连接 + 显式后端类
 rhosocial-activerecord crud list \
   --model app.models:User \
+  --backend-class rhosocial.activerecord.backend.impl.sqlite.backend:SQLiteBackend \
   --connection app.connections:prod_db \
   -o json
 ```
 
-`--option KEY=VALUE` 在 config 中存在同名字段时设置该字段，否则写入
-`config.options`。密码不会写入日志；生产环境建议使用命名连接或环境变量。
+异步模型使用异步类，例如
+`rhosocial.activerecord.backend.impl.sqlite.backend:AsyncSQLiteBackend`。
+
+如果模型模块已经调用 `configure()`，可以同时省略 `--backend-class` 和
+`--connection` / `--config-class`。此时 `--config` 会覆盖模型已有的配置。
+
+`--config KEY=VALUE` 可重复使用。键名是配置类字段时按该字段类型转换；未知键或
+`options.KEY=VALUE` 会写入 `config.options`。由于 CLI 不使用后端清单，缺少模块、
+类或额外依赖时无法给出安装提示，只会报告失败的引用并以退出码 4 结束。密码不会
+写入日志；生产环境建议使用命名连接或环境变量。
 
 ## CRUD 语义
 
@@ -129,12 +137,14 @@ rhosocial-activerecord crud list \
 | 1 | 模型、连接、校验或数据库错误 |
 | 2 | 命令行用法错误（argparse） |
 | 3 | 记录未找到 |
-| 4 | 后端包缺失或后端名未知 |
+| 4 | 后端类或连接配置类无法导入 |
 
 ## 同步与异步模型
 
 CLI 会自动识别模型类型。`ActiveRecord` 使用同步后端；`AsyncActiveRecord` 使用
-异步后端，并在 CLI 内部运行事件循环。用户不需要额外传入 `--async`。
+异步后端，并在 CLI 内部运行事件循环。用户不需要额外传入 `--async`，但
+`--backend-class` 必须与模型匹配：异步模型使用 `AsyncStorageBackend` 子类，
+同步模型使用 `StorageBackend` 子类。
 
 ## Python 模块方式
 
