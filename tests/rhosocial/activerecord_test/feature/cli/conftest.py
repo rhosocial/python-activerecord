@@ -12,6 +12,8 @@ import pytest
 
 from rhosocial.activerecord.cli import main
 
+from logging_isolation import preserve_logging
+
 SQLITE_BACKEND = "rhosocial.activerecord.backend.impl.sqlite.backend:SQLiteBackend"
 ASYNC_SQLITE_BACKEND = (
     "rhosocial.activerecord.backend.impl.sqlite.backend:AsyncSQLiteBackend"
@@ -35,19 +37,20 @@ def connection_args(database, backend=SQLITE_BACKEND):
 
 def run_cli(argv, capture=True):
     """Run the CLI in-process and return (exit_code, stdout, stderr)."""
-    if not capture:
-        try:
-            return main(argv), "", ""
-        except SystemExit as exc:
-            return (exc.code if exc.code is not None else 0), "", ""
-    out, err = io.StringIO(), io.StringIO()
-    code = 0
-    with redirect_stdout(out), redirect_stderr(err):
-        try:
-            code = main(argv)
-        except SystemExit as exc:
-            code = exc.code if exc.code is not None else 0
-    return code, out.getvalue(), err.getvalue()
+    with preserve_logging():
+        if not capture:
+            try:
+                return main(argv), "", ""
+            except SystemExit as exc:
+                return (exc.code if exc.code is not None else 0), "", ""
+        out, err = io.StringIO(), io.StringIO()
+        code = 0
+        with redirect_stdout(out), redirect_stderr(err):
+            try:
+                code = main(argv)
+            except SystemExit as exc:
+                code = exc.code if exc.code is not None else 0
+        return code, out.getvalue(), err.getvalue()
 
 
 def write_module(path, module_name, body):
