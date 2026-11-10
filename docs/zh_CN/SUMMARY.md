@@ -149,6 +149,17 @@
 * [FTS5](backend/sqlite/backend_specific_features/fts5.md)
 * [扩展](backend/sqlite/backend_specific_features/extension.md)
 
+## 命令行工具
+
+* [模型命令行接口](cli/README.md)
+    * [DML](cli/dml.md)
+    * [批量 DML](cli/bulk.md)
+    * [DQL](cli/dql.md)
+    * [集合操作与 CTE](cli/set-cte.md)
+    * [连接与模型引用](cli/connections.md)
+    * [输出与管道](cli/output.md)
+    * [错误](cli/errors.md)
+
 ## 测试指南
 
 * [概述](testing/README.md)

@@ -1,10 +1,11 @@
 # tests/rhosocial/activerecord_test/feature/basic/find_one_or_create/test_find_one_or_create.py
 """Unit tests for ``BaseActiveRecord.find_one_or_create`` (synchronous)."""
+import logging
 from typing import ClassVar, Optional
 
 import pytest
 
-from rhosocial.activerecord.backend.errors import IntegrityError
+from rhosocial.activerecord.backend.errors import IntegrityError, OperationalError
 from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Literal
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
@@ -148,6 +149,73 @@ class TestFindOneOrCreate:
         with pytest.raises(ValueError, match="generates its primary key"):
             item_model.find_one_or_create(code="a", defaults={"id": 1})
 
+    def test_conflict_reread_failure_keeps_the_cause(self, item_model, monkeypatch):
+        original_lookup = item_model._find_one_by_lookup
+        reads = []
+
+        def failing_lookup(cls, lookup):
+            reads.append(dict(lookup))
+            if len(reads) == 1:
+                return original_lookup(lookup)
+            raise OperationalError("reread connection lost")
+
+        monkeypatch.setattr(
+            item_model, "_find_one_by_lookup", classmethod(failing_lookup)
+        )
+
+        def racing_save(self):
+            raise IntegrityError("simulated concurrent insert")
+
+        monkeypatch.setattr(item_model, "save", racing_save)
+
+        with pytest.raises(IntegrityError) as info:
+            item_model.find_one_or_create(
+                code="race", defaults={"alt_code": "race-alt"}
+            )
+
+        assert isinstance(info.value.__cause__, OperationalError)
+        assert "reread connection lost" in str(info.value.__cause__)
+        assert item_model.query().count() == 0
+
+    def test_savepoint_probe_failure_logs_error(self, item_model, monkeypatch):
+
+        manager = item_model.backend().transaction_manager
+        records = []
+
+        def spy_log(cls, level, msg, *args, **kwargs):
+            records.append((level, msg))
+
+        monkeypatch.setattr(item_model, "log", classmethod(spy_log))
+
+        def broken_probe():
+            raise RuntimeError("capability probe exploded")
+
+        monkeypatch.setattr(manager, "supports_savepoint", broken_probe)
+
+        row, created = item_model.find_one_or_create(code="a")
+
+        assert created is True
+        assert row.code == "a"
+        error_records = [item for item in records if item[0] == logging.ERROR]
+        assert error_records, "a broken probe must be reported at ERROR level"
+        assert "savepoint" in error_records[0][1].lower()
+
+    def test_savepoint_unsupported_does_not_log_error(self, item_model, monkeypatch):
+
+        manager = item_model.backend().transaction_manager
+        records = []
+
+        def spy_log(cls, level, msg, *args, **kwargs):
+            records.append((level, msg))
+
+        monkeypatch.setattr(item_model, "log", classmethod(spy_log))
+        monkeypatch.setattr(manager, "supports_savepoint", lambda: False)
+
+        row, created = item_model.find_one_or_create(code="a")
+
+        assert created is True
+        assert not [item for item in records if item[0] == logging.ERROR]
+
     def test_conflict_rereads_the_winner_once(self, item_model, monkeypatch):
         calls = []
         original_lookup = item_model._find_one_by_lookup
@@ -271,3 +339,4 @@ class TestFindOneOrCreate:
             assert rollbacks, "the failed insert must roll back to its savepoint"
             assert manager.is_active is True
             assert item_model.query().count() == 1, "the outer transaction is still usable"
+

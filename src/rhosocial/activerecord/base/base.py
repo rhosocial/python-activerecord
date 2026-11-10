@@ -645,6 +645,13 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         ``lookup`` is the natural key and must name at least one model field.
         ``defaults`` fill the remaining fields on creation only, so ``lookup``
         wins when both name the same field.
+
+        Raises:
+            ValueError: The lookup is empty; a lookup value is ``None``; or
+                ``lookup`` / ``defaults`` name a database-generated primary
+                key field.
+            TypeError: A key is not a model field, a value is an expression, or
+                ``defaults`` is neither a mapping nor ``None``.
         """
         if not lookup:
             raise ValueError(
@@ -716,16 +723,21 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         if backend is None:
             return None
         manager = backend.transaction_manager
+        if not callable(getattr(manager, "supports_savepoint", None)):
+            return None
         try:
-            if not callable(getattr(manager, "supports_savepoint", None)):
-                return None
             if not manager.supports_savepoint():
                 return None
             if not getattr(manager, "is_active", False):
                 return None
             return manager.savepoint()
-        except Exception as exc:  # capability probing must not break the write path
-            cls.log(logging.WARNING, f"Could not open savepoint for find_one_or_create: {exc}")
+        except Exception:
+            cls.log(
+                logging.ERROR,
+                "Could not probe savepoint support for find_one_or_create; "
+                "continuing without one",
+                exc_info=True,
+            )
             return None
 
     @classmethod
@@ -771,6 +783,11 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         supports savepoints, a savepoint is used to recover from a failed
         insert; it is a recovery point, not a transaction boundary.
 
+        The lookup is matched with ``query.one()``. The caller must ensure the
+        lookup columns carry a unique constraint: without one several rows can
+        match, and which row is returned is undefined. The method neither
+        inspects nor validates database constraints.
+
         Args:
             defaults: Values used only when the row is created. When a key also
                 appears in ``lookup``, the lookup value wins because it defines
@@ -806,8 +823,8 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             cls._rollback_to_savepoint(savepoint)
             try:
                 winner = cls._find_one_by_lookup(lookup_values)
-            except Exception:
-                winner = None
+            except Exception as read_failure:
+                raise exc from read_failure
             if winner is not None:
                 return winner, False
             raise exc
@@ -1591,6 +1608,13 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         ``lookup`` is the natural key and must name at least one model field.
         ``defaults`` fill the remaining fields on creation only, so ``lookup``
         wins when both name the same field.
+
+        Raises:
+            ValueError: The lookup is empty; a lookup value is ``None``; or
+                ``lookup`` / ``defaults`` name a database-generated primary
+                key field.
+            TypeError: A key is not a model field, a value is an expression, or
+                ``defaults`` is neither a mapping nor ``None``.
         """
         if not lookup:
             raise ValueError(
@@ -1662,16 +1686,21 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         if backend is None:
             return None
         manager = backend.transaction_manager
+        if not callable(getattr(manager, "supports_savepoint", None)):
+            return None
         try:
-            if not callable(getattr(manager, "supports_savepoint", None)):
-                return None
             if not await manager.supports_savepoint():
                 return None
             if not getattr(manager, "is_active", False):
                 return None
             return await manager.savepoint()
-        except Exception as exc:  # capability probing must not break the write path
-            cls.log(logging.WARNING, f"Could not open savepoint for find_one_or_create: {exc}")
+        except Exception:
+            cls.log(
+                logging.ERROR,
+                "Could not probe savepoint support for find_one_or_create; "
+                "continuing without one",
+                exc_info=True,
+            )
             return None
 
     @classmethod
@@ -1717,6 +1746,11 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         supports savepoints, a savepoint is used to recover from a failed
         insert; it is a recovery point, not a transaction boundary.
 
+        The lookup is matched with ``query.one()``. The caller must ensure the
+        lookup columns carry a unique constraint: without one several rows can
+        match, and which row is returned is undefined. The method neither
+        inspects nor validates database constraints.
+
         Args:
             defaults: Values used only when the row is created. When a key also
                 appears in ``lookup``, the lookup value wins because it defines
@@ -1752,8 +1786,8 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             await cls._rollback_to_savepoint(savepoint)
             try:
                 winner = await cls._find_one_by_lookup(lookup_values)
-            except Exception:
-                winner = None
+            except Exception as read_failure:
+                raise exc from read_failure
             if winner is not None:
                 return winner, False
             raise exc

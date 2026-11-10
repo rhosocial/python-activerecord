@@ -26,6 +26,10 @@ can check protocol implementation before execution.
 """
 
 from rhosocial.activerecord.testsuite.core.registry import ProviderRegistry
+from rhosocial.activerecord.testsuite.feature.cli.providers import (
+    GenericAsyncCLIProvider,
+    GenericSyncCLIProvider,
+)
 from . import pooling  # noqa: F401  (registers the pool reset handler on import)
 from .basic import BasicSyncProvider, BasicAsyncProvider
 from .events import EventsSyncProvider, EventsAsyncProvider
@@ -81,6 +85,10 @@ provider_registry.register("feature.query.connection.IQueryConnectionProvider", 
 provider_registry.register("feature.relation.IRelationProvider", RelationSyncProvider)
 provider_registry.register("feature.relation.IRelationSyncProvider", RelationSyncProvider)
 provider_registry.register("feature.relation.IRelationAsyncProvider", RelationAsyncProvider)
+
+# Register CLI providers, assembled from the basic and mixins providers above.
+provider_registry.register("feature.cli.ICLISyncProvider", GenericSyncCLIProvider)
+provider_registry.register("feature.cli.ICLIAsyncProvider", GenericAsyncCLIProvider)
 
 # Register benchmark providers.
 provider_registry.register("benchmark.crud.ICrudBenchmarkProvider", CrudBenchmarkProvider)

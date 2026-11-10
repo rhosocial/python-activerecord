@@ -87,8 +87,13 @@ dependencies = [
 # requiring `python -m rhosocial.activerecord.backend.impl.sqlite`.
 [project.scripts]
 rhosocial-activerecord-sqlite = "rhosocial.activerecord.backend.impl.sqlite.__main__:main"
+rhosocial-activerecord = "rhosocial.activerecord.cli:main"
 
 [project.optional-dependencies]
+# Optional Rich rendering for `crud ... -o table`. Without it, table output
+# falls back to JSON, exactly like the backend CLIs.
+cli = ["rich>=13.0"]
+
 # Async support for SQLite backend
 # These are required only when using AsyncSQLiteBackend
 async = [

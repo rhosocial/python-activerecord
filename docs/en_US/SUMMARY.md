@@ -149,6 +149,17 @@
 * [FTS5](backend/sqlite/backend_specific_features/fts5.md)
 * [Extension](backend/sqlite/backend_specific_features/extension.md)
 
+## Command-Line Interface
+
+* [Model Command-Line Interface](cli/README.md)
+    * [DML](cli/dml.md)
+    * [Bulk DML](cli/bulk.md)
+    * [DQL](cli/dql.md)
+    * [Set operations and CTEs](cli/set-cte.md)
+    * [Connections](cli/connections.md)
+    * [Output and pipes](cli/output.md)
+    * [Errors](cli/errors.md)
+
 ## Testing
 
 * [Overview](testing/README.md)
