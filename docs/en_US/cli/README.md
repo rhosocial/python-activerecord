@@ -1,9 +1,10 @@
-# Model CRUD Command-Line Interface
+# Model Command-Line Interface
 
-`rhosocial-activerecord` is the model CRUD entry point. It is **not** the same
+`rhosocial-activerecord` is the **model** entry point. It is not the same
 command as `rhosocial-activerecord-<backend>` (for example
-`rhosocial-activerecord-sqlite`): the backend command executes SQL and introspects
-the database, while this command operates on an ActiveRecord model class.
+`rhosocial-activerecord-sqlite`): the backend command executes SQL and
+introspects the database, while this command operates on ActiveRecord model
+classes through the framework APIs.
 
 ## Installation
 
@@ -20,29 +21,51 @@ Without `rich`, `-o table` falls back to JSON instead of failing.
 
 ```text
 rhosocial-activerecord
-└── crud
-    ├── get      --model ... --pk ...
-    ├── list     --model ... [--where ...] [--order-by ...] [--limit N] [--offset N]
-    ├── create   --model ... --data JSON|@file|@-
-    ├── update   --model ... --pk ... --data JSON|@file|@-
-    └── delete   --model ... --pk ...
+├── dml
+│   ├── create
+│   ├── update
+│   ├── delete
+│   └── bulk
+│       ├── create
+│       ├── update
+│       └── delete
+├── dql
+│   ├── get
+│   ├── list
+│   ├── count
+│   ├── exists
+│   ├── aggregate
+│   └── run
+├── set
+│   ├── union
+│   ├── union-all
+│   ├── intersect
+│   ├── except
+│   └── run
+└── cte
+    └── run
 ```
+
+The CLI is a thin adapter: DML calls ActiveRecord methods, DQL calls
+`ActiveQuery`, and `set` / `cte` execute user-supplied `SetOperationQuery` /
+`CTEQuery` objects. It never builds SQL strings.
+
+## Model references
 
 A model reference is `module:Class`, not `module.Class`:
 
 ```bash
-rhosocial-activerecord crud list --model app.models:User
+rhosocial-activerecord dql list --model app.models:User
 ```
 
 The CLI adds the current directory and every `--path DIR` to `sys.path` before
-importing the model. The model class must be an `ActiveRecord` or
+importing the model. The class must be an `ActiveRecord` or
 `AsyncActiveRecord` subclass.
 
 ## Backend and connection
 
-The core package does not keep a list of backends. It does not need to know
-which backend packages are installed, and it gives no backend a built-in
-shortcut. Name the classes your project actually uses:
+The core package does not keep a registry of backends. Name the classes your
+project actually uses:
 
 - Backend class: `--backend-class MODULE:CLASS`, otherwise the model module's
   own `configure()` call.
@@ -50,17 +73,12 @@ shortcut. Name the classes your project actually uses:
   `--config-class MODULE:CLASS` together with `--config KEY=VALUE`, otherwise
   the model module's own `configure()` call.
 
-The two halves are resolved independently, so a named connection can supply
-credentials while the model supplies its backend class.
-
 Class references accept either `module:Class` or the dotted `module.Class`
 spelling. For an asynchronous model, name the asynchronous backend class.
 
-Examples with SQLite, which ships with the core package:
-
 ```bash
 # SQLite file, synchronous model
-rhosocial-activerecord crud list \
+rhosocial-activerecord dql list \
   --model app.models:User \
   --backend-class rhosocial.activerecord.backend.impl.sqlite.backend:SQLiteBackend \
   --config-class rhosocial.activerecord.backend.impl.sqlite.config:SQLiteConnectionConfig \
@@ -68,72 +86,171 @@ rhosocial-activerecord crud list \
   --where "status=active" --order-by "created_at desc" --limit 20
 
 # Named connection with an explicit backend class
-rhosocial-activerecord crud list \
+rhosocial-activerecord dql list \
   --model app.models:User \
   --backend-class rhosocial.activerecord.backend.impl.sqlite.backend:SQLiteBackend \
   --connection app.connections:prod_db \
   -o json
 ```
 
-An asynchronous model uses the asynchronous class, for example
-`rhosocial.activerecord.backend.impl.sqlite.backend:AsyncSQLiteBackend`.
-
 If the model module already calls `configure()`, both `--backend-class` and
 `--connection` / `--config-class` may be omitted. Any `--config` values then
 override the model's existing configuration.
 
-`--config KEY=VALUE` may be repeated. A key that names a field of the config
-class is converted to that field's type; an unknown key, or an
-`options.KEY=VALUE` entry, is placed in `config.options`. A completely missing
-module, class, or extra package cannot be hinted from a registry, so the CLI
-reports the failed reference and exits with code 4. Passwords are never written
-to logs; prefer a named connection or environment variables for production
-credentials.
-
-## CRUD semantics
-
-| Command | Required | Behaviour |
-|---------|----------|-----------|
-| `get` | `--pk` | Fetch one record by primary key. Missing record exits with 3. |
-| `list` | — | Equality filters, sorting, limit, offset. Default limit is 100; `--limit 0` means unlimited. |
-| `create` | `--data` | Build and save a record; Pydantic validates the data. |
-| `update` | `--pk`, `--data` | Load the record, apply only the given fields, save. Primary-key fields are rejected. |
-| `delete` | `--pk` | Load and delete the record; soft-delete mixins still apply. |
-
-`update` and `delete` only work by primary key. There is no bulk update or delete
-mode in v1.
-
-`--data` accepts inline JSON, `@file.json`, or `@-` for stdin. It must be a JSON
-object.
-
-Primary keys:
+## DML
 
 ```bash
-# Single column
---pk 42
+# Create one record
+rhosocial-activerecord dml create --model app.models:User \
+  --data '{"username": "alice", "email": "alice@example.com", "age": 30}'
 
-# Composite key
---pk '{"order_id": 1, "product_id": 101}'
+# Update one record by primary key
+rhosocial-activerecord dml update --model app.models:User --pk 42 \
+  --data '{"age": 31}'
+
+# Delete one record; non-interactive use needs --yes
+rhosocial-activerecord dml delete --model app.models:User --pk 42 --yes
 ```
 
-`--where` accepts equality only and may be repeated; repeated clauses are ANDed.
-`--order-by` accepts `field` or `field asc|desc` and may be repeated.
+`--data` accepts inline JSON, `@file.json`, `@-` (stdin), or `-` (stdin).
+`create` and `update` accept one JSON object; primary-key fields cannot be
+updated through `update`.
+
+Deletion asks for confirmation on a TTY. When stdin/stdout is not a terminal,
+pass `--yes`; otherwise the command exits with code 5. If the model mixes in a
+soft-delete behaviour, the output action is `soft_delete` instead of `delete`.
+`--dry-run` reports what would happen without writing.
+
+Read-only models (`ReadOnlyMixin`, `__read_only__ = True`) reject every DML
+command before connecting, with exit code 6. DQL remains available.
+
+### Bulk DML
+
+```bash
+# Create records from a JSON array
+rhosocial-activerecord dml bulk create --model app.models:User \
+  --data '[{"username": "a", "email": "a@example.com", "age": 20}, {"username": "b", "email": "b@example.com", "age": 30}]'
+
+# JSONL from stdin
+cat users.jsonl | rhosocial-activerecord dml bulk create --model app.models:User --data @-
+
+# Update records; each object carries its primary key plus update fields
+rhosocial-activerecord dml bulk update --model app.models:User \
+  --data '[{"id": 1, "age": 21}, {"id": 2, "age": 31}]'
+
+# Delete records by primary keys
+rhosocial-activerecord dml bulk delete --model app.models:User \
+  --data '[1, 2]' --yes
+```
+
+Bulk commands call `Model.bulk_create()` / `bulk_update()` / `bulk_delete()`,
+so validation, events, transactions and soft delete keep their framework
+semantics. `bulk update` requires every object to contain the same update field
+set; `--update-fields` selects them explicitly. `--batch-size` splits create and
+update work. `bulk delete` asks for the same confirmation as single delete.
+
+## DQL
+
+```bash
+# Fetch by primary key
+rhosocial-activerecord dql get --model app.models:User --pk 42
+
+# Equality filters, sorting, pagination
+rhosocial-activerecord dql list --model app.models:User \
+  --where "status=active" --order-by "created_at desc" --limit 20 --offset 0
+
+# Count and existence
+rhosocial-activerecord dql count --model app.models:User --where "status=active" -o value
+rhosocial-activerecord dql exists --model app.models:User --where "status=active" -o value
+
+# Aggregate (grouped or scalar)
+rhosocial-activerecord dql aggregate --model app.models:User \
+  --fn count --field '*' --group-by status -o json
+```
+
+`dql list` injects a default limit of 100 when no limit is given and prints a
+note on stderr. Use `--no-limit`, `--limit N`, `--offset N`, or
+`--page N --page-size M` to control it.
+
+`--select id,name` limits selected columns. `--include-deleted` and
+`--only-deleted` call `query_with_deleted()` / `query_only_deleted()` when the
+model supports soft delete.
+
+`dql run` executes any `ActiveQuery` or derived query returned by a
+`module:callable` or `module:Class.method` reference:
+
+```python
+# app/queries.py
+from app.models import User
+
+def active_users():
+    return User.query().where(User.c.status == "active")
+```
+
+```bash
+rhosocial-activerecord dql run --model app.models:User \
+  --query app.queries:active_users -o json
+
+# Or a model classmethod
+rhosocial-activerecord dql run --model app.models:User \
+  --query app.models:User.active_users -o json
+```
+
+`--mode list|one|count|exists|aggregate` chooses how the query is executed.
+DQL is recognised by return type: `ActiveQuery` and subclasses, including
+business wrappers and custom `__query_class__` methods that return `self`.
+
+## Set operations and CTEs
+
+Simple set operations use two model queries:
+
+```bash
+rhosocial-activerecord set union \
+  --left-model app.models:User --right-model app.models:Admin \
+  --left-where "status=active" --right-where "status=active" -o json
+```
+
+For composed queries, pass a factory returning an existing
+`SetOperationQuery` / `CTEQuery`:
+
+```bash
+rhosocial-activerecord set run --model app.models:User \
+  --query app.queries:active_users_union -o json
+
+rhosocial-activerecord cte run --model app.models:User \
+  --query app.queries:org_tree -o json
+```
+
+`SetOperationQuery` and `CTEQuery` return rows as dictionaries. The CLI calls
+`aggregate()`; these types do not support `all()` or `limit()`.
 
 ## Output formats
 
-`-o table|json|csv|tsv`:
+`-o table|json|jsonl|csv|tsv|value`:
 
-| Format | `list` | `get` / `create` / `update` | `delete` |
-|--------|--------|------------------------------|----------|
-| `json` | array | object | `{"deleted": N, "pk": ...}` |
-| `csv` / `tsv` | header + rows | header + one row | one summary row |
-| `table` | Rich table | Rich vertical table | Rich panel |
+- `json`: array for lists, object for one record.
+- `jsonl`: one JSON object per line, suitable for pipes.
+- `csv` / `tsv`: rows with a header; `--no-header` omits it.
+- `value`: a bare scalar for `count`, `exists`, or scalar aggregate.
+- `table`: human Rich table; falls back to JSON when Rich is unavailable.
 
-`--fields id,name` limits the output columns. `--rich-ascii` switches table
-borders to ASCII.
+When stdout is not a TTY and `-o` is omitted, the default is `json`. Machine
+formats write only data to stdout. `--quiet` suppresses informational stderr
+messages such as the default-pagination note. `--fields id,name` limits output
+columns.
 
-Machine formats write **only data** to stdout. Logs and errors go to stderr, so
-`-o json` output can be piped straight into `jq`.
+## Pipes
+
+```bash
+cat user.json | rhosocial-activerecord dml create --model app.models:User --data @-
+
+rhosocial-activerecord dql list --model app.models:User -o jsonl | jq -c 'select(.status == "active")'
+
+rhosocial-activerecord dql count --model app.models:User -o value
+```
+
+A downstream pipe closing early (`| head`) is handled without a traceback and
+exits with code 141.
 
 ## Logging
 
@@ -149,19 +266,20 @@ diagnosing a connection or model problem. Logs always go to stderr.
 | 2 | Command-line usage error (argparse) |
 | 3 | Record not found |
 | 4 | A backend or connection config class cannot be imported |
+| 5 | Destructive command needs `--yes` in a non-interactive context |
+| 6 | DML refused on a read-only model |
+| 141 | Downstream pipe closed |
 
 ## Sync and async models
 
-The CLI detects the model type automatically. `ActiveRecord` uses the synchronous
-backend; `AsyncActiveRecord` uses the asynchronous backend and an event loop
-inside the CLI. There is no `--async` flag, but `--backend-class` must name a
-class that matches the model: an `AsyncStorageBackend` subclass for an
-asynchronous model, a `StorageBackend` subclass otherwise.
+The CLI detects the model type automatically. `ActiveRecord` uses the
+synchronous backend; `AsyncActiveRecord` uses the asynchronous backend and an
+event loop inside the CLI. There is no `--async` flag, but `--backend-class`
+must name a class that matches the model: an `AsyncStorageBackend` subclass for
+an asynchronous model, a `StorageBackend` subclass otherwise.
 
 ## Python module form
 
-The same entry point is available without installing a console script:
-
 ```bash
-python -m rhosocial.activerecord.cli crud list --model app.models:User -o json
+python -m rhosocial.activerecord.cli dql list --model app.models:User -o json
 ```
