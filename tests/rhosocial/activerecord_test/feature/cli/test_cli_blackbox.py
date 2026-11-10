@@ -23,6 +23,26 @@ import pytest
 from rhosocial.activerecord.cli import main
 from rhosocial.activerecord.cli import output as cli_output
 
+SQLITE_BACKEND = "rhosocial.activerecord.backend.impl.sqlite.backend:SQLiteBackend"
+ASYNC_SQLITE_BACKEND = (
+    "rhosocial.activerecord.backend.impl.sqlite.backend:AsyncSQLiteBackend"
+)
+SQLITE_CONFIG = (
+    "rhosocial.activerecord.backend.impl.sqlite.config:SQLiteConnectionConfig"
+)
+
+
+def connection_args(database, backend=SQLITE_BACKEND):
+    """Build the explicit backend, config class, and database arguments."""
+    return [
+        "--backend-class",
+        backend,
+        "--config-class",
+        SQLITE_CONFIG,
+        "--config",
+        f"database={database}",
+    ]
+
 
 def run_cli(argv):
     """Run the CLI in-process and return (exit_code, stdout, stderr)."""
@@ -114,13 +134,11 @@ def cli_env(tmp_path):
     create_users_table(database, rows=rows)
     create_order_items_table(database)
     write_module(tmp_path, module_name, MODEL_BODY)
-    base = [
+    base = ["--path", str(tmp_path), *connection_args(database)]
+    async_base = [
         "--path",
         str(tmp_path),
-        "--backend",
-        "sqlite",
-        "--database",
-        str(database),
+        *connection_args(database, backend=ASYNC_SQLITE_BACKEND),
     ]
     return SimpleNamespace(
         tmp_path=tmp_path,
@@ -130,6 +148,7 @@ def cli_env(tmp_path):
         async_model=f"{module_name}:AsyncUser",
         order_model=f"{module_name}:OrderItem",
         base=base,
+        async_base=async_base,
     )
 
 
@@ -243,10 +262,7 @@ class TestModelLoading:
                 str(cli_env.tmp_path),
                 "--model",
                 f"no_such_module_{uuid.uuid4().hex}:User",
-                "--backend",
-                "sqlite",
-                "--database",
-                str(cli_env.database),
+                *connection_args(cli_env.database),
                 "-o",
                 "json",
             ]
@@ -277,12 +293,12 @@ class TestModelLoading:
         assert code == 1
         assert "module:Class" in err
 
-    def test_missing_connection_config_returns_one(self, cli_env):
+    def test_missing_backend_and_config_returns_one(self, cli_env):
         code, _, err = run_cli(
             ["crud", "list", "--path", str(cli_env.tmp_path), "--model", cli_env.user_model, "-o", "json"]
         )
         assert code == 1
-        assert "no database configuration" in err
+        assert "no backend class" in err
 
     def test_path_option_makes_import_work(self, cli_env):
         code, out, _ = run_cli(
@@ -302,10 +318,7 @@ class TestModelLoading:
                 str(configured_env.tmp_path),
                 "--model",
                 configured_env.model,
-                "--backend",
-                "sqlite",
-                "--database",
-                str(override_db),
+                *connection_args(override_db),
                 "-o",
                 "json",
             ]
@@ -322,14 +335,54 @@ class TestModelLoading:
 
 
 class TestConnectionResolution:
-    def test_sqlite_flags_connect(self, cli_env):
+    def test_explicit_classes_connect(self, cli_env):
         code, out, _ = run_cli(
             ["crud", "list", *cli_env.base, "--model", cli_env.user_model, "-o", "json"]
         )
         assert code == 0
         assert len(json.loads(out)) == 3
 
-    def test_named_connection(self, cli_env, named_connection_env):
+    def test_dotted_class_references(self, cli_env):
+        code, out, _ = run_cli(
+            [
+                "crud",
+                "list",
+                "--path",
+                str(cli_env.tmp_path),
+                "--model",
+                cli_env.user_model,
+                "--backend-class",
+                "rhosocial.activerecord.backend.impl.sqlite.backend.SQLiteBackend",
+                "--config-class",
+                "rhosocial.activerecord.backend.impl.sqlite.config.SQLiteConnectionConfig",
+                "--config",
+                f"database={cli_env.database}",
+                "-o",
+                "json",
+            ]
+        )
+        assert code == 0
+        assert len(json.loads(out)) == 3
+
+    def test_invalid_config_pair_returns_one(self, cli_env):
+        code, out, err = run_cli(
+            [
+                "crud",
+                "list",
+                *cli_env.base,
+                "--model",
+                cli_env.user_model,
+                "--config",
+                "not-a-pair",
+                "-o",
+                "json",
+            ]
+        )
+        assert code == 1
+        assert out == ""
+        assert "expected KEY=VALUE" in err
+
+    def test_named_connection_with_explicit_backend(self, cli_env, named_connection_env):
         code, out, _ = run_cli(
             [
                 "crud",
@@ -338,6 +391,8 @@ class TestConnectionResolution:
                 str(named_connection_env.tmp_path),
                 "--model",
                 cli_env.user_model,
+                "--backend-class",
+                SQLITE_BACKEND,
                 "--connection",
                 named_connection_env.connection,
                 "-o",
@@ -347,7 +402,7 @@ class TestConnectionResolution:
         assert code == 0
         assert [row["id"] for row in json.loads(out)] == [8]
 
-    def test_named_connection_infers_backend(self, configured_env, named_connection_env):
+    def test_named_connection_uses_module_backend(self, configured_env, named_connection_env):
         code, out, _ = run_cli(
             [
                 "crud",
@@ -365,7 +420,27 @@ class TestConnectionResolution:
         assert code == 0
         assert [row["id"] for row in json.loads(out)] == [8]
 
-    def test_explicit_backend_conflicts_with_named_connection(self, configured_env, named_connection_env):
+    def test_named_connection_requires_backend_class(self, cli_env, named_connection_env):
+        code, _, err = run_cli(
+            [
+                "crud",
+                "list",
+                "--path",
+                str(named_connection_env.tmp_path),
+                "--model",
+                cli_env.user_model,
+                "--connection",
+                named_connection_env.connection,
+                "-o",
+                "json",
+            ]
+        )
+        assert code == 1
+        assert "no backend class" in err
+
+    def test_named_connection_conflicts_with_config_class(
+        self, configured_env, named_connection_env
+    ):
         code, _, err = run_cli(
             [
                 "crud",
@@ -376,19 +451,16 @@ class TestConnectionResolution:
                 configured_env.model,
                 "--connection",
                 named_connection_env.connection,
-                "--backend",
-                "postgres",
+                "--config-class",
+                SQLITE_CONFIG,
                 "-o",
                 "json",
             ]
         )
         assert code == 1
-        assert "conflicts" in err
+        assert "not both" in err
 
-    def test_missing_backend_package_gives_install_hint(self, cli_env, monkeypatch):
-        from rhosocial.activerecord.cli import backends
-
-        monkeypatch.setattr(backends, "_module_available", lambda _path: False)
+    def test_missing_backend_module_returns_four(self, cli_env):
         code, out, err = run_cli(
             [
                 "crud",
@@ -397,19 +469,17 @@ class TestConnectionResolution:
                 str(cli_env.tmp_path),
                 "--model",
                 cli_env.user_model,
-                "--backend",
-                "mysql",
-                "--database",
-                "unused",
+                "--backend-class",
+                f"no_such_backend_{uuid.uuid4().hex}:Backend",
                 "-o",
                 "json",
             ]
         )
         assert code == 4
         assert out == ""
-        assert "pip install rhosocial-activerecord-mysql" in err
+        assert "Cannot import the backend class" in err
 
-    def test_unknown_backend_returns_four(self, cli_env):
+    def test_non_backend_class_returns_one(self, cli_env):
         code, out, err = run_cli(
             [
                 "crud",
@@ -418,19 +488,38 @@ class TestConnectionResolution:
                 str(cli_env.tmp_path),
                 "--model",
                 cli_env.user_model,
-                "--backend",
-                "not-a-backend",
-                "--database",
-                "unused",
+                "--backend-class",
+                "collections:OrderedDict",
                 "-o",
                 "json",
             ]
         )
-        assert code == 4
+        assert code == 1
         assert out == ""
-        assert "Known backends" in err
+        assert "not a synchronous backend" in err
 
-    def test_sqlite_requires_database(self, cli_env):
+    def test_non_config_class_returns_one(self, cli_env):
+        code, out, err = run_cli(
+            [
+                "crud",
+                "list",
+                "--path",
+                str(cli_env.tmp_path),
+                "--model",
+                cli_env.user_model,
+                "--backend-class",
+                SQLITE_BACKEND,
+                "--config-class",
+                "collections:OrderedDict",
+                "-o",
+                "json",
+            ]
+        )
+        assert code == 1
+        assert out == ""
+        assert "not a ConnectionConfig subclass" in err
+
+    def test_backend_without_config_returns_one(self, cli_env):
         code, _, err = run_cli(
             [
                 "crud",
@@ -439,16 +528,16 @@ class TestConnectionResolution:
                 str(cli_env.tmp_path),
                 "--model",
                 cli_env.user_model,
-                "--backend",
-                "sqlite",
+                "--backend-class",
+                SQLITE_BACKEND,
                 "-o",
                 "json",
             ]
         )
         assert code == 1
-        assert "--database" in err
+        assert "--config-class" in err
 
-    def test_option_sets_config_field(self, cli_env):
+    def test_config_sets_config_field(self, cli_env):
         code, out, _ = run_cli(
             [
                 "crud",
@@ -456,8 +545,44 @@ class TestConnectionResolution:
                 *cli_env.base,
                 "--model",
                 cli_env.user_model,
-                "--option",
+                "--config",
                 "timeout=7",
+                "-o",
+                "json",
+            ]
+        )
+        assert code == 0
+        assert len(json.loads(out)) == 3
+
+    def test_unknown_config_key_goes_to_options(self, cli_env):
+        code, out, _ = run_cli(
+            [
+                "crud",
+                "list",
+                *cli_env.base,
+                "--model",
+                cli_env.user_model,
+                "--config",
+                "custom_flag=on",
+                "-o",
+                "json",
+            ]
+        )
+        assert code == 0
+        assert len(json.loads(out)) == 3
+
+    def test_classvar_is_not_a_config_field(self, cli_env):
+        # DEFAULT_PRAGMAS is a ClassVar on SQLiteConnectionConfig. It must not be
+        # forwarded to the constructor as a keyword argument.
+        code, out, _ = run_cli(
+            [
+                "crud",
+                "list",
+                *cli_env.base,
+                "--model",
+                cli_env.user_model,
+                "--config",
+                "DEFAULT_PRAGMAS=ignored",
                 "-o",
                 "json",
             ]
@@ -906,14 +1031,24 @@ class TestOutput:
 class TestAsync:
     def test_async_list(self, cli_env):
         code, out, _ = run_cli(
-            ["crud", "list", *cli_env.base, "--model", cli_env.async_model, "-o", "json"]
+            ["crud", "list", *cli_env.async_base, "--model", cli_env.async_model, "-o", "json"]
         )
         assert code == 0
         assert len(json.loads(out)) == 3
 
     def test_async_get(self, cli_env):
         code, out, _ = run_cli(
-            ["crud", "get", *cli_env.base, "--model", cli_env.async_model, "--pk", "1", "-o", "json"]
+            [
+                "crud",
+                "get",
+                *cli_env.async_base,
+                "--model",
+                cli_env.async_model,
+                "--pk",
+                "1",
+                "-o",
+                "json",
+            ]
         )
         assert code == 0
         assert json.loads(out)["name"] == "Alice"
@@ -923,7 +1058,7 @@ class TestAsync:
             [
                 "crud",
                 "create",
-                *cli_env.base,
+                *cli_env.async_base,
                 "--model",
                 cli_env.async_model,
                 "--data",
@@ -939,7 +1074,7 @@ class TestAsync:
             [
                 "crud",
                 "update",
-                *cli_env.base,
+                *cli_env.async_base,
                 "--model",
                 cli_env.async_model,
                 "--pk",
@@ -954,14 +1089,42 @@ class TestAsync:
         assert json.loads(out)["age"] == 23
 
         code, out, _ = run_cli(
-            ["crud", "delete", *cli_env.base, "--model", cli_env.async_model, "--pk", "4", "-o", "json"]
+            [
+                "crud",
+                "delete",
+                *cli_env.async_base,
+                "--model",
+                cli_env.async_model,
+                "--pk",
+                "4",
+                "-o",
+                "json",
+            ]
         )
         assert code == 0
         assert json.loads(out)["deleted"] == 1
 
     def test_async_not_found_returns_three(self, cli_env):
         code, out, _ = run_cli(
-            ["crud", "get", *cli_env.base, "--model", cli_env.async_model, "--pk", "999", "-o", "json"]
+            [
+                "crud",
+                "get",
+                *cli_env.async_base,
+                "--model",
+                cli_env.async_model,
+                "--pk",
+                "999",
+                "-o",
+                "json",
+            ]
         )
         assert code == 3
         assert out == ""
+
+    def test_async_model_rejects_sync_backend(self, cli_env):
+        code, out, err = run_cli(
+            ["crud", "list", *cli_env.base, "--model", cli_env.async_model, "-o", "json"]
+        )
+        assert code == 1
+        assert out == ""
+        assert "not an asynchronous backend" in err
