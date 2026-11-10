@@ -16,7 +16,6 @@ Example:
 """
 
 import argparse
-import asyncio
 import logging
 import sys
 from typing import List, Optional
@@ -47,7 +46,7 @@ from .errors import (
 )
 from .interaction import ensure_writable
 from .model_loader import load_model, prepare_sys_path
-from .runtime import RuntimeContext
+from .runtime import RuntimeContext, run_coroutine
 
 
 COMMAND_NAMES = {
@@ -239,7 +238,7 @@ def _configure_async(model, args, runner):
                 except Exception:
                     pass
 
-    return asyncio.run(execute())
+    return run_coroutine(execute())
 
 
 def _run_dml(model_ref, args, operation):
@@ -306,7 +305,7 @@ def _run_set_simple(args):
         args.model = None
     ctx = RuntimeContext(args, left_ref.model, left_ref.is_async)
     if left_ref.is_async:
-        return asyncio.run(
+        return run_coroutine(
             _configure_pair_async(
                 left_ref.model,
                 right_ref.model,

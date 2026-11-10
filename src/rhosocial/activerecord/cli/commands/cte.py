@@ -3,6 +3,7 @@
 
 from ..output import render_list
 from ..runtime import (
+    run_coroutine,
     ASYNC_CTE_QUERY_TYPES,
     CTE_QUERY_TYPES,
     context_fields,
@@ -47,14 +48,12 @@ async def execute_async(ctx) -> int:
 
 def execute_auto(ctx) -> int:
     """Execute ``cte run`` when no model/backend is configured up front."""
-    import asyncio
-
     query = resolve_query_reference(ctx.args.query, "cte query")
     is_async = validate_query(
         query, CTE_QUERY_TYPES, ASYNC_CTE_QUERY_TYPES, label="--query"
     )
     if is_async:
-        return asyncio.run(_render_async(query, ctx))
+        return run_coroutine(_render_async(query, ctx))
     rows = query.aggregate()
     _render_rows(rows, ctx)
     return 0

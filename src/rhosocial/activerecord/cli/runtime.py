@@ -1,8 +1,10 @@
 # src/rhosocial/activerecord/cli/runtime.py
 """Shared runtime helpers: model fields, query construction, and query factories."""
 
+import asyncio
 import inspect
 import json
+import sys
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Type
 
 from ..backend.expression import Column, ComparisonPredicate, Literal
@@ -18,6 +20,25 @@ from .backends import import_symbol
 from .errors import CLIError
 from .input import coerce_filter_value, coerce_pk_value
 from .output import selected_fields
+
+
+def run_coroutine(coro):
+    """Run one coroutine, using a selector loop on Windows.
+
+    psycopg (and other async drivers) cannot use Windows' default
+    ProactorEventLoop.  The CLI owns its loop, so it must choose a compatible
+    one instead of relying on the interpreter default.
+    """
+    if sys.platform == "win32":
+        import selectors
+
+        loop = asyncio.SelectorEventLoop(selectors.SelectSelector())
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.run_until_complete(loop.shutdown_asyncgens())
+            loop.close()
+    return asyncio.run(coro)
 
 
 def context_fields(model, args, rows=None) -> List[str]:

@@ -6,6 +6,7 @@ from ...query import AsyncSetOperationQuery, SetOperationQuery
 from ..interaction import apply_pagination
 from ..output import render_list
 from ..runtime import (
+    run_coroutine,
     ASYNC_SET_QUERY_TYPES,
     SET_QUERY_TYPES,
     apply_filters,
@@ -110,14 +111,12 @@ async def execute_async(ctx, left_model=None, right_model=None) -> int:
 
 def execute_auto(ctx) -> int:
     """Execute ``set run`` when no model/backend is configured up front."""
-    import asyncio
-
     query = resolve_query_reference(ctx.args.query, "set query")
     is_async = validate_query(
         query, SET_QUERY_TYPES, ASYNC_SET_QUERY_TYPES, label="--query"
     )
     if is_async:
-        return asyncio.run(_render_async(query, ctx))
+        return run_coroutine(_render_async(query, ctx))
     rows = query.aggregate()
     _render_rows(rows, ctx)
     return 0
