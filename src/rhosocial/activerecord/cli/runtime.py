@@ -21,6 +21,9 @@ from .errors import CLIError
 from .input import coerce_filter_value, coerce_pk_value
 from .output import selected_fields
 
+#: Default label used by query factory helpers.
+DEFAULT_QUERY_LABEL = "query"
+
 
 def run_coroutine(coro):
     """Run one coroutine, using a selector loop on Windows.
@@ -221,7 +224,7 @@ def apply_filters(query, model, args):
     return query
 
 
-def resolve_query_reference(reference: str, label: str = "query") -> Any:
+def resolve_query_reference(reference: str, label: str = DEFAULT_QUERY_LABEL) -> Any:
     """Import and call a user query factory without arguments."""
     target = import_symbol(reference, label)
     if not callable(target):
@@ -235,7 +238,7 @@ def resolve_query_reference(reference: str, label: str = "query") -> Any:
         raise CLIError(f'Query factory "{reference}" failed: {exc}') from None
 
 
-async def resolve_query_reference_async(reference: str, label: str = "query") -> Any:
+async def resolve_query_reference_async(reference: str, label: str = DEFAULT_QUERY_LABEL) -> Any:
     """Like :func:`resolve_query_reference`, but awaits an async factory."""
     result = resolve_query_reference(reference, label)
     if inspect.isawaitable(result):
@@ -249,7 +252,7 @@ def validate_query(
     async_types: Tuple[Type, ...],
     *,
     is_async: Optional[bool] = None,
-    label: str = "query",
+    label: str = DEFAULT_QUERY_LABEL,
 ) -> bool:
     """Validate a user-supplied query and return whether it is asynchronous."""
     if is_async is True:

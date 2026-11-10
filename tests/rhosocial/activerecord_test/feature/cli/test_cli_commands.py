@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/cli/test_cli_blackbox.py
+# tests/rhosocial/activerecord_test/feature/cli/test_cli_commands.py
 """Black-box tests for the model DML/DQL command-line interface.
 
 The CLI is run in-process through ``main(argv)``. Machine formats are parsed
@@ -22,6 +22,7 @@ import pytest
 
 from rhosocial.activerecord.cli import main
 from rhosocial.activerecord.cli import output as cli_output
+from rhosocial.activerecord.cli.args import OUTPUT_FORMATS
 
 SQLITE_BACKEND = "rhosocial.activerecord.backend.impl.sqlite.backend:SQLiteBackend"
 ASYNC_SQLITE_BACKEND = (
@@ -216,6 +217,9 @@ class TestCommandSurface:
         pyproject = Path(__file__).resolve().parents[5] / "pyproject.toml"
         text = pyproject.read_text(encoding="utf-8")
         assert 'cli = ["rich>=13.0"]' in text
+
+    def test_output_formats_are_pinned(self):
+        assert OUTPUT_FORMATS == ("table", "json", "jsonl", "csv", "tsv", "value")
 
     def test_root_help_lists_command_groups(self):
         code, out, _ = run_cli(["--help"])

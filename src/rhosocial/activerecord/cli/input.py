@@ -14,6 +14,9 @@ from pydantic import TypeAdapter, ValidationError
 
 from .errors import CLIError
 
+#: Default label used by ``--data`` parsing helpers.
+DEFAULT_DATA_LABEL = "--data"
+
 
 def _read_text(argument: str) -> str:
     """Read ``--data`` as inline text, ``@FILE``, ``@-``, or ``-``."""
@@ -29,14 +32,14 @@ def _read_text(argument: str) -> str:
     return argument
 
 
-def _json_error(text: str, exc: Exception, label: str = "--data") -> CLIError:
+def _json_error(text: str, exc: Exception, label: str = DEFAULT_DATA_LABEL) -> CLIError:
     line = getattr(exc, "lineno", None)
     column = getattr(exc, "colno", None)
     location = f" at line {line}, column {column}" if line and column else ""
     return CLIError(f"{label} is not valid JSON{location}: {exc}")
 
 
-def read_object(argument: str, label: str = "--data") -> Dict[str, Any]:
+def read_object(argument: str, label: str = DEFAULT_DATA_LABEL) -> Dict[str, Any]:
     """Read a single JSON object from inline, file, or stdin."""
     text = _read_text(argument)
     try:
@@ -65,7 +68,7 @@ def _parse_jsonl(text: str, label: str) -> List[Any]:
 def read_records(
     argument: str,
     input_format: Optional[str] = None,
-    label: str = "--data",
+    label: str = DEFAULT_DATA_LABEL,
 ) -> List[Dict[str, Any]]:
     """Read one or more JSON objects from inline, file, stdin, JSON array, or JSONL."""
     text = _read_text(argument)
@@ -110,7 +113,7 @@ def read_records(
 def read_values(
     argument: str,
     input_format: Optional[str] = None,
-    label: str = "--data",
+    label: str = DEFAULT_DATA_LABEL,
 ) -> List[Any]:
     """Read values for bulk delete: scalars, arrays, objects, or JSONL."""
     text = _read_text(argument)
