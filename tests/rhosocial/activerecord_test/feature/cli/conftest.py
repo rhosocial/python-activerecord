@@ -95,6 +95,8 @@ MODEL_BODY = """
 from datetime import datetime
 from typing import ClassVar, Optional
 
+from pydantic import Field, field_validator, model_validator
+
 from rhosocial.activerecord.base.field_proxy import FieldProxy
 from rhosocial.activerecord.field import (
     AsyncSoftDeleteMixin,
@@ -161,6 +163,60 @@ class AsyncSoftUser(AsyncSoftDeleteMixin, AsyncActiveRecord):
     deleted_at: Optional[datetime] = None
 
 
+class ValidatedUser(ActiveRecord):
+    __table_name__ = "users"
+    c: ClassVar[FieldProxy] = FieldProxy()
+    id: Optional[int] = None
+    name: str = Field(min_length=2)
+    email: Optional[str] = None
+    age: int = Field(default=0, ge=0, le=100)
+
+    @field_validator("name")
+    @classmethod
+    def reject_admin_name(cls, value):
+        if value.lower() == "admin":
+            raise ValueError("name must not be 'admin'")
+        return value
+
+    @model_validator(mode="after")
+    def check_senior_age(self):
+        if self.name == "senior" and self.age < 60:
+            raise ValueError("senior users need age >= 60")
+        return self
+
+
+class AsyncValidatedUser(AsyncActiveRecord):
+    __table_name__ = "users"
+    c: ClassVar[FieldProxy] = FieldProxy()
+    id: Optional[int] = None
+    name: str = Field(min_length=2)
+    email: Optional[str] = None
+    age: int = Field(default=0, ge=0, le=100)
+
+    @field_validator("name")
+    @classmethod
+    def reject_admin_name(cls, value):
+        if value.lower() == "admin":
+            raise ValueError("name must not be 'admin'")
+        return value
+
+    @model_validator(mode="after")
+    def check_senior_age(self):
+        if self.name == "senior" and self.age < 60:
+            raise ValueError("senior users need age >= 60")
+        return self
+
+
+class KeylessUser(ActiveRecord):
+    __table_name__ = "users"
+    __primary_key__ = None
+    c: ClassVar[FieldProxy] = FieldProxy()
+    id: Optional[int] = None
+    name: str
+    email: Optional[str] = None
+    age: int = 0
+
+
 class OrderItem(ActiveRecord):
     __table_name__ = "order_items"
     __primary_key__ = ("order_id", "product_id")
@@ -199,6 +255,10 @@ def async_user_cte():
     cte = AsyncCTEQuery(AsyncUser.backend())
     cte.with_cte("older_users", AsyncUser.query().where(AsyncUser.c.age >= 30))
     return cte.from_cte("older_users")
+
+
+def broken_connection():
+    raise RuntimeError("connection resolver exploded")
 """
 
 
@@ -225,6 +285,9 @@ def cli_env(tmp_path):
         async_read_only_model=f"{module_name}:AsyncReadOnlyUser",
         soft_model=f"{module_name}:SoftUser",
         async_soft_model=f"{module_name}:AsyncSoftUser",
+        validated_model=f"{module_name}:ValidatedUser",
+        async_validated_model=f"{module_name}:AsyncValidatedUser",
+        keyless_model=f"{module_name}:KeylessUser",
         order_model=f"{module_name}:OrderItem",
         active_users=f"{module_name}:active_users",
         user_union=f"{module_name}:user_union",

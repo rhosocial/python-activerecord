@@ -34,15 +34,25 @@ def _available_fields(model, rows=None) -> List[str]:
 def selected_fields(model, fields_argument: Optional[str], rows=None) -> List[str]:
     """Return the field names to render, validating ``--fields``."""
     available = _available_fields(model, rows)
-    if not available:
-        if rows is not None:
-            return []
-        raise CLIError("Cannot determine output fields without a model or row data")
-    if not fields_argument:
-        return available
-    requested = [part.strip() for part in fields_argument.split(",") if part.strip()]
-    if not requested:
+    requested = (
+        [part.strip() for part in fields_argument.split(",") if part.strip()]
+        if fields_argument
+        else []
+    )
+    if fields_argument and not requested:
         raise CLIError("--fields must name at least one field")
+    if not available:
+        if requested:
+            # No rows means no column names to check against; trust the request.
+            return requested
+        if rows is not None:
+            raise CLIError(
+                "The query returned no rows, so output fields cannot be inferred. "
+                "Pass --fields explicitly."
+            )
+        raise CLIError("Cannot determine output fields without a model or row data")
+    if not requested:
+        return available
     unknown = [name for name in requested if name not in available]
     if unknown:
         owner = model.__name__ if model is not None else "row data"
@@ -107,6 +117,16 @@ def _write_delimited(rows: Iterable[Dict[str, Any]], fields: List[str], delimite
         writer.writerow(fields)
     for row in rows:
         writer.writerow([_format_cell(row.get(field)) for field in fields])
+
+
+def _write_payload_delimited(payload: Dict[str, Any], output_format: str, no_header: bool):
+    """Write one result object as a CSV/TSV header plus a single row."""
+    delimiter = "," if output_format == "csv" else "\t"
+    fields = list(payload)
+    writer = csv.writer(sys.stdout, delimiter=delimiter)
+    if not no_header:
+        writer.writerow(fields)
+    writer.writerow([_format_cell(payload[field]) for field in fields])
 
 
 def _rich_modules():
@@ -224,7 +244,13 @@ def render_scalar(value: Any, output_format: str) -> None:
     raise CLIError(f"Unsupported output format: {output_format}")
 
 
-def render_affected(action: str, affected: int, output_format: str, **extra) -> None:
+def render_affected(
+    action: str,
+    affected: int,
+    output_format: str,
+    no_header: bool = False,
+    **extra,
+) -> None:
     """Render the result of a bulk update/delete."""
     payload = {"action": action, "affected": affected}
     payload.update(extra)
@@ -238,7 +264,7 @@ def render_affected(action: str, affected: int, output_format: str, **extra) -> 
         sys.stdout.write(f"{affected}\n")
         return
     if output_format in ("csv", "tsv"):
-        _write_json(payload)
+        _write_payload_delimited(payload, output_format, no_header)
         return
     _write_json(payload)
 
@@ -252,6 +278,7 @@ def render_delete(
     action: str = "delete",
     deleted_at_field: Optional[str] = None,
     dry_run: bool = False,
+    no_header: bool = False,
 ) -> None:
     """Render a single delete result or dry-run plan."""
     payload = {"action": action, "pk": pk, "affected": affected}
@@ -262,7 +289,7 @@ def render_delete(
     if output_format == "value":
         sys.stdout.write(f"{affected}\n")
         return
-    if output_format in ("json", "jsonl", "table"):
-        _write_json(payload)
+    if output_format in ("csv", "tsv"):
+        _write_payload_delimited(payload, output_format, no_header)
         return
     _write_json(payload)

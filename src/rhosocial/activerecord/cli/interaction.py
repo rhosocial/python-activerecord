@@ -6,7 +6,12 @@ from typing import Optional
 
 from ..interface.update import IDeleteBehavior
 from .args import DEFAULT_LIST_LIMIT
-from .errors import CLIError, ConfirmationRequiredError, ReadOnlyModelError
+from .errors import (
+    CancelledError,
+    CLIError,
+    ConfirmationRequiredError,
+    ReadOnlyModelError,
+)
 
 
 def is_tty() -> bool:
@@ -38,6 +43,11 @@ def apply_pagination(query, args, *, default: bool = True, label: str = "result"
     no_limit = getattr(args, "no_limit", False)
     page = getattr(args, "page", None)
     page_size = getattr(args, "page_size", None)
+
+    if limit is not None and limit < 0:
+        raise CLIError("--limit must be greater than or equal to 0")
+    if offset is not None and offset < 0:
+        raise CLIError("--offset must be greater than or equal to 0")
 
     if page is not None or page_size is not None:
         if page is None or page_size is None:
@@ -105,4 +115,4 @@ def confirm(prompt: str, args) -> None:
         )
     answer = input(f"{prompt} [y/N] ")
     if answer.strip().lower() not in ("y", "yes"):
-        raise CLIError("Operation cancelled.", exit_code=0)
+        raise CancelledError()

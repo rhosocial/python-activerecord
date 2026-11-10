@@ -277,6 +277,27 @@ diagnosing a connection or model problem. Logs always go to stderr.
 | 6 | DML refused on a read-only model |
 | 141 | Downstream pipe closed |
 
+## Errors
+
+Command failures are translated from model and backend exceptions:
+
+| Situation | Message starts with | Exit code |
+|---|---|---|
+| Invalid record data | `Invalid data for Model ...` | 1 |
+| Constraint conflict | `Integrity constraint failed ...` | 1 |
+| Record not found | `Model with pk=... was not found` | 3 |
+| Read-only model | `... is read-only ...` | 6 |
+| Confirmation required | `... Pass --yes ...` | 5 |
+| Version conflict | `Record version mismatch ...` | 1 |
+| Lock or deadlock | `Record is locked ...` / `Deadlock detected ...` | 1 |
+| Connection or query failure | `Database connection failed ...` | 1 |
+| Missing backend or config class | `Cannot import the ...` | 4 |
+| Unknown failure | `Unexpected error (TypeName): ...` | 1 |
+
+The model layer raises `RecordNotFound`; the CLI raises its own
+`CliNotFoundError` and maps it to exit code 3. Declining a confirmation prints
+`Operation cancelled.` without the `Error:` prefix and exits 0.
+
 ## Sync and async models
 
 The CLI detects the model type automatically. `ActiveRecord` uses the

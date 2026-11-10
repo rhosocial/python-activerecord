@@ -5,7 +5,8 @@ from typing import Any, Dict, List
 
 from pydantic import ValidationError
 
-from ..errors import CLIError, NotFoundError
+from ...backend.errors import BulkValidationError, ValidationError as DBValidationError
+from ..errors import CLIError, CliNotFoundError
 from ..input import check_fields, convert_field, read_object, read_records, read_values
 from ..interaction import confirm, ensure_writable, soft_delete_action, soft_delete_field
 from ..output import render_affected, render_delete, render_list, render_record
@@ -16,12 +17,34 @@ def _read_record_data(args) -> Dict[str, Any]:
     return read_object(args.data)
 
 
-def _make_record(model, data: Dict[str, Any]):
+def _make_record(model, data: Dict[str, Any], index: int = None):
     check_fields(model, data)
     try:
         return model(**data)
     except ValidationError as exc:
-        raise CLIError(f"Invalid data for {model.__name__}: {exc}") from None
+        suffix = f" (item {index})" if index is not None else ""
+        raise CLIError(f"Invalid data for {model.__name__}{suffix}: {exc}") from exc
+
+
+def _invalid_data_message(model, exc: Exception, pk=None) -> str:
+    target = model.__name__ if pk is None else f"{model.__name__} pk={pk!r}"
+    return f"Invalid data for {target}: {exc}"
+
+
+def _save_sync(record, model, pk=None) -> int:
+    """Save one record, translating model validation failures."""
+    try:
+        return record.save()
+    except (ValidationError, DBValidationError) as exc:
+        raise CLIError(_invalid_data_message(model, exc, pk)) from exc
+
+
+async def _save_async(record, model, pk=None) -> int:
+    """Save one record asynchronously, translating validation failures."""
+    try:
+        return await record.save()
+    except (ValidationError, DBValidationError) as exc:
+        raise CLIError(_invalid_data_message(model, exc, pk)) from exc
 
 
 def _update_values(model, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -45,13 +68,13 @@ async def _load_async(model, pk):
 
 
 def _not_found(model, pk):
-    return NotFoundError(f"{model.__name__} with pk={pk!r} was not found")
+    return CliNotFoundError(f"{model.__name__} with pk={pk!r} was not found")
 
 
 def _create_sync(ctx):
     ensure_writable(ctx.model, "dml create")
     record = _make_record(ctx.model, _read_record_data(ctx.args))
-    record.save()
+    _save_sync(record, ctx.model)
     render_record(record, ctx.model, ctx.fields, ctx.output, ctx.rich_ascii)
     return 0
 
@@ -59,7 +82,7 @@ def _create_sync(ctx):
 async def _create_async(ctx):
     ensure_writable(ctx.model, "dml create")
     record = _make_record(ctx.model, _read_record_data(ctx.args))
-    await record.save()
+    await _save_async(record, ctx.model)
     render_record(record, ctx.model, ctx.fields, ctx.output, ctx.rich_ascii)
     return 0
 
@@ -72,7 +95,7 @@ def _update_sync(ctx):
         raise _not_found(ctx.model, pk)
     for name, value in _update_values(ctx.model, _read_record_data(ctx.args)).items():
         setattr(record, name, value)
-    record.save()
+    _save_sync(record, ctx.model, pk)
     render_record(record, ctx.model, ctx.fields, ctx.output, ctx.rich_ascii)
     return 0
 
@@ -85,7 +108,7 @@ async def _update_async(ctx):
         raise _not_found(ctx.model, pk)
     for name, value in _update_values(ctx.model, _read_record_data(ctx.args)).items():
         setattr(record, name, value)
-    await record.save()
+    await _save_async(record, ctx.model, pk)
     render_record(record, ctx.model, ctx.fields, ctx.output, ctx.rich_ascii)
     return 0
 
@@ -99,13 +122,32 @@ def _delete_sync(ctx):
     action = soft_delete_action(ctx.model)
     field_name = soft_delete_field(ctx.model)
     if ctx.args.dry_run:
-        render_delete(pk, 1, ctx.model, ctx.output, ctx.rich_ascii, action, field_name, True)
+        render_delete(
+            pk,
+            1,
+            ctx.model,
+            ctx.output,
+            ctx.rich_ascii,
+            action,
+            field_name,
+            True,
+            ctx.args.no_header,
+        )
         return 0
     confirm(
         f"Delete {ctx.model.__name__} pk={pk!r} ({action})?", ctx.args
     )
     affected = record.delete()
-    render_delete(pk, affected, ctx.model, ctx.output, ctx.rich_ascii, action, field_name)
+    render_delete(
+        pk,
+        affected,
+        ctx.model,
+        ctx.output,
+        ctx.rich_ascii,
+        action,
+        field_name,
+        no_header=ctx.args.no_header,
+    )
     return 0
 
 
@@ -118,7 +160,17 @@ async def _delete_async(ctx):
     action = soft_delete_action(ctx.model)
     field_name = soft_delete_field(ctx.model)
     if ctx.args.dry_run:
-        render_delete(pk, 1, ctx.model, ctx.output, ctx.rich_ascii, action, field_name, True)
+        render_delete(
+            pk,
+            1,
+            ctx.model,
+            ctx.output,
+            ctx.rich_ascii,
+            action,
+            field_name,
+            True,
+            ctx.args.no_header,
+        )
         return 0
     confirm(
         f"Delete {ctx.model.__name__} pk={pk!r} ({action})?", ctx.args
@@ -134,9 +186,14 @@ def _bulk_records(ctx) -> List[Dict[str, Any]]:
 
 def _bulk_create_sync(ctx):
     ensure_writable(ctx.model, "dml bulk create")
-    records = [_make_record(ctx.model, data) for data in _bulk_records(ctx)]
+    data = _bulk_records(ctx)
+    records = [
+        _make_record(ctx.model, item, index + 1) for index, item in enumerate(data)
+    ]
     if ctx.args.dry_run:
-        render_affected("create", len(records), ctx.output, dry_run=True)
+        render_affected(
+            "create", len(records), ctx.output, no_header=ctx.args.no_header, dry_run=True
+        )
         return 0
     result = ctx.model.bulk_create(records, batch_size=ctx.args.batch_size)
     render_list(result, ctx.model, ctx.fields, ctx.output, ctx.rich_ascii)
@@ -145,9 +202,14 @@ def _bulk_create_sync(ctx):
 
 async def _bulk_create_async(ctx):
     ensure_writable(ctx.model, "dml bulk create")
-    records = [_make_record(ctx.model, data) for data in _bulk_records(ctx)]
+    data = _bulk_records(ctx)
+    records = [
+        _make_record(ctx.model, item, index + 1) for index, item in enumerate(data)
+    ]
     if ctx.args.dry_run:
-        render_affected("create", len(records), ctx.output, dry_run=True)
+        render_affected(
+            "create", len(records), ctx.output, no_header=ctx.args.no_header, dry_run=True
+        )
         return 0
     result = await ctx.model.bulk_create(records, batch_size=ctx.args.batch_size)
     render_list(result, ctx.model, ctx.fields, ctx.output, ctx.rich_ascii)
@@ -156,6 +218,7 @@ async def _bulk_create_async(ctx):
 
 def _bulk_update_parts(model, data):
     """Return ``(pk, values)`` for one bulk-update object."""
+    check_fields(model, data)
     pk_fields = set(model.primary_key_fields())
     pk = parse_pk_mapping(model, data)
     values = {name: value for name, value in data.items() if name not in pk_fields}
@@ -168,6 +231,12 @@ def _select_update_fields(ctx, parts) -> List[str]:
         names = [part.strip() for part in explicit.split(",") if part.strip()]
         if not names:
             raise CLIError("--update-fields must name at least one field")
+        unknown = [name for name in names if name not in ctx.model.model_fields]
+        if unknown:
+            raise CLIError(
+                f"Unknown --update-fields field(s): {', '.join(unknown)}. "
+                f"Available fields: {', '.join(ctx.model.model_fields)}"
+            )
     else:
         sets = [set(values) for _, values in parts]
         if not sets or not sets[0]:
@@ -178,6 +247,12 @@ def _select_update_fields(ctx, parts) -> List[str]:
                 "pass --update-fields to choose them explicitly"
             )
         names = list(sets[0])
+        unknown = [name for name in names if name not in ctx.model.model_fields]
+        if unknown:
+            raise CLIError(
+                f"Unknown field(s) for {ctx.model.__name__}: {', '.join(unknown)}. "
+                f"Available fields: {', '.join(ctx.model.model_fields)}"
+            )
     for index, (_, values) in enumerate(parts):
         missing = [name for name in names if name not in values]
         if missing:
@@ -185,6 +260,14 @@ def _select_update_fields(ctx, parts) -> List[str]:
                 f"bulk update item {index + 1} is missing field(s): {', '.join(missing)}"
             )
     return names
+
+
+def _first_bulk_error(exc):
+    """Return ``(index, message)`` for a BulkValidationError, 0-based."""
+    details = getattr(exc, "errors", None) or []
+    if details:
+        return details[0]
+    return 0, str(exc)
 
 
 def _bulk_update_sync(ctx):
@@ -195,7 +278,7 @@ def _bulk_update_sync(ctx):
     for index, (pk, values) in enumerate(parts):
         record = _load_sync(ctx.model, pk)
         if record is None:
-            raise NotFoundError(
+            raise CliNotFoundError(
                 f"{ctx.model.__name__} bulk update item {index + 1} with pk={pk!r} "
                 "was not found"
             )
@@ -203,12 +286,21 @@ def _bulk_update_sync(ctx):
             setattr(record, name, convert_field(ctx.model, name, values[name]))
         records.append(record)
     if ctx.args.dry_run:
-        render_affected("update", len(records), ctx.output, dry_run=True)
+        render_affected(
+            "update", len(records), ctx.output, no_header=ctx.args.no_header, dry_run=True
+        )
         return 0
-    affected = ctx.model.bulk_update(
-        records, names, batch_size=ctx.args.batch_size
-    )
-    render_affected("update", affected, ctx.output)
+    try:
+        affected = ctx.model.bulk_update(
+            records, names, batch_size=ctx.args.batch_size
+        )
+    except BulkValidationError as exc:
+        index, message = _first_bulk_error(exc)
+        pk = parts[index][0] if index < len(parts) else None
+        raise CLIError(
+            f"Bulk update failed at item {index + 1} (pk={pk!r}): {message}"
+        ) from exc
+    render_affected("update", affected, ctx.output, no_header=ctx.args.no_header)
     return 0
 
 
@@ -220,7 +312,7 @@ async def _bulk_update_async(ctx):
     for index, (pk, values) in enumerate(parts):
         record = await _load_async(ctx.model, pk)
         if record is None:
-            raise NotFoundError(
+            raise CliNotFoundError(
                 f"{ctx.model.__name__} bulk update item {index + 1} with pk={pk!r} "
                 "was not found"
             )
@@ -228,12 +320,21 @@ async def _bulk_update_async(ctx):
             setattr(record, name, convert_field(ctx.model, name, values[name]))
         records.append(record)
     if ctx.args.dry_run:
-        render_affected("update", len(records), ctx.output, dry_run=True)
+        render_affected(
+            "update", len(records), ctx.output, no_header=ctx.args.no_header, dry_run=True
+        )
         return 0
-    affected = await ctx.model.bulk_update(
-        records, names, batch_size=ctx.args.batch_size
-    )
-    render_affected("update", affected, ctx.output)
+    try:
+        affected = await ctx.model.bulk_update(
+            records, names, batch_size=ctx.args.batch_size
+        )
+    except BulkValidationError as exc:
+        index, message = _first_bulk_error(exc)
+        pk = parts[index][0] if index < len(parts) else None
+        raise CLIError(
+            f"Bulk update failed at item {index + 1} (pk={pk!r}): {message}"
+        ) from exc
+    render_affected("update", affected, ctx.output, no_header=ctx.args.no_header)
     return 0
 
 
@@ -264,18 +365,20 @@ def _bulk_delete_sync(ctx):
     for index, pk in enumerate(pks):
         record = _load_sync(ctx.model, pk)
         if record is None:
-            raise NotFoundError(
+            raise CliNotFoundError(
                 f"{ctx.model.__name__} bulk delete item {index + 1} with pk={pk!r} "
                 "was not found"
             )
         records.append(record)
     action = soft_delete_action(ctx.model)
     if ctx.args.dry_run:
-        render_affected(action, len(records), ctx.output, dry_run=True)
+        render_affected(
+            action, len(records), ctx.output, no_header=ctx.args.no_header, dry_run=True
+        )
         return 0
     confirm(f"Delete {len(records)} {ctx.model.__name__} records ({action})?", ctx.args)
     affected = ctx.model.bulk_delete(records)
-    render_affected(action, affected, ctx.output)
+    render_affected(action, affected, ctx.output, no_header=ctx.args.no_header)
     return 0
 
 
@@ -286,18 +389,20 @@ async def _bulk_delete_async(ctx):
     for index, pk in enumerate(pks):
         record = await _load_async(ctx.model, pk)
         if record is None:
-            raise NotFoundError(
+            raise CliNotFoundError(
                 f"{ctx.model.__name__} bulk delete item {index + 1} with pk={pk!r} "
                 "was not found"
             )
         records.append(record)
     action = soft_delete_action(ctx.model)
     if ctx.args.dry_run:
-        render_affected(action, len(records), ctx.output, dry_run=True)
+        render_affected(
+            action, len(records), ctx.output, no_header=ctx.args.no_header, dry_run=True
+        )
         return 0
     confirm(f"Delete {len(records)} {ctx.model.__name__} records ({action})?", ctx.args)
     affected = await ctx.model.bulk_delete(records)
-    render_affected(action, affected, ctx.output)
+    render_affected(action, affected, ctx.output, no_header=ctx.args.no_header)
     return 0
 
 

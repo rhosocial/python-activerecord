@@ -1,8 +1,11 @@
 # src/rhosocial/activerecord/cli/errors.py
 """Exit codes and user-facing errors for the ActiveRecord model CLI."""
 
+import logging
 import sys
 from typing import Optional
+
+logger = logging.getLogger("rhosocial.activerecord.cli")
 
 #: Successful command.
 EXIT_OK = 0
@@ -38,6 +41,9 @@ class CLIError(Exception):
         hint: Optional follow-up line, such as an install command.
     """
 
+    #: Whether the message describes a failure. ``CancelledError`` is not one.
+    is_error = True
+
     def __init__(self, message: str, exit_code: int = EXIT_ERROR, hint: Optional[str] = None):
         super().__init__(message)
         self.message = message
@@ -45,11 +51,33 @@ class CLIError(Exception):
         self.hint = hint
 
 
-class NotFoundError(CLIError):
-    """The requested record does not exist."""
+class CliNotFoundError(CLIError):
+    """The record addressed by the command does not exist.
+
+    This is the CLI-layer error and always carries exit code 3. The model layer
+    raises ``backend.errors.RecordNotFound`` instead; command handlers translate
+    it with ``raise ... from exc`` so the original exception stays in the chain.
+    """
 
     def __init__(self, message: str):
         super().__init__(message, exit_code=EXIT_NOT_FOUND)
+
+
+#: Backwards-compatible alias; the class is CLI-specific, so prefer the new name.
+NotFoundError = CliNotFoundError
+
+
+class CancelledError(CLIError):
+    """The user declined a destructive action.
+
+    Cancelling is not a failure: the process exits successfully and the message
+    is printed without the ``Error:`` prefix.
+    """
+
+    is_error = False
+
+    def __init__(self, message: str = "Operation cancelled."):
+        super().__init__(message, exit_code=EXIT_OK)
 
 
 class BackendUnavailableError(CLIError):
@@ -79,11 +107,17 @@ class ReadOnlyModelError(CLIError):
 
 def report_error(error: CLIError) -> None:
     """Write an error, and an optional hint, to stderr."""
-    print(f"Error: {error.message}", file=sys.stderr)
+    prefix = "Error: " if error.is_error else ""
+    print(f"{prefix}{error.message}", file=sys.stderr)
     if error.hint:
         print(error.hint, file=sys.stderr)
 
 
 def report_unexpected(error: Exception) -> None:
-    """Write an unexpected failure to stderr without polluting stdout."""
-    print(f"Error: {error}", file=sys.stderr)
+    """Write an unexpected failure to stderr without polluting stdout.
+
+    The message names the exception type so a report can be matched to a bug;
+    the traceback goes to the debug log instead of the terminal.
+    """
+    print(f"Unexpected error ({type(error).__name__}): {error}", file=sys.stderr)
+    logger.debug("Unexpected CLI failure", exc_info=True)

@@ -327,7 +327,7 @@ def _load_named_connection(qualified_name: str) -> ConnectionConfig:
         resolver = NamedConnectionResolver(resolver_name).load()
         config = resolver.resolve()
     except Exception as exc:
-        raise CLIError(f'Cannot resolve --connection "{qualified_name}": {exc}') from None
+        raise CLIError(f'Cannot resolve --connection "{qualified_name}": {exc}') from exc
     if not isinstance(config, ConnectionConfig):
         raise CLIError(
             f'--connection "{qualified_name}" returned {type(config).__name__}, '

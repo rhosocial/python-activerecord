@@ -4,7 +4,7 @@
 
 from ...backend.expression import Column
 from ...backend.expression import functions
-from ..errors import CLIError, NotFoundError
+from ..errors import CLIError, CliNotFoundError
 from ..interaction import apply_pagination
 from ..output import render_list, render_record, render_scalar
 from ..runtime import (
@@ -46,7 +46,7 @@ def _get_sync(ctx):
     pk = parse_pk(ctx.model, ctx.args)
     record = ctx.model.find_one(pk)
     if record is None:
-        raise NotFoundError(f"{ctx.model.__name__} with pk={pk!r} was not found")
+        raise CliNotFoundError(f"{ctx.model.__name__} with pk={pk!r} was not found")
     render_record(record, ctx.model, ctx.fields, ctx.output, ctx.rich_ascii)
     return 0
 
@@ -55,7 +55,7 @@ async def _get_async(ctx):
     pk = parse_pk(ctx.model, ctx.args)
     record = await ctx.model.find_one(pk)
     if record is None:
-        raise NotFoundError(f"{ctx.model.__name__} with pk={pk!r} was not found")
+        raise CliNotFoundError(f"{ctx.model.__name__} with pk={pk!r} was not found")
     render_record(record, ctx.model, ctx.fields, ctx.output, ctx.rich_ascii)
     return 0
 
@@ -82,6 +82,21 @@ async def _exists_async(ctx):
     exists = await _query(ctx).exists()
     render_scalar(exists, ctx.output)
     return 0
+
+
+def _validate_aggregate_field(ctx) -> None:
+    """Reject unknown or incompatible ``--field`` values before any SQL runs."""
+    field = ctx.args.field
+    available = list(ctx.model.model_fields)
+    if field == "*":
+        if ctx.args.fn != "count":
+            raise CLIError(f"--fn {ctx.args.fn} requires a concrete --field, not *")
+        return
+    if field not in available:
+        raise CLIError(
+            f'Unknown aggregate field "{field}". '
+            f"Available fields: {', '.join(available)}"
+        )
 
 
 def _aggregate_expression(ctx, field):
@@ -174,6 +189,7 @@ async def _scalar_aggregate_async(ctx, query):
 
 
 def _aggregate_sync(ctx):
+    _validate_aggregate_field(ctx)
     group_columns, query = _aggregate_query(ctx)
     if group_columns is None:
         _scalar_aggregate(ctx, apply_filters(base_query(ctx.model, ctx.args), ctx.model, ctx.args))
@@ -186,6 +202,7 @@ def _aggregate_sync(ctx):
 
 
 async def _aggregate_async(ctx):
+    _validate_aggregate_field(ctx)
     group_columns, query = _aggregate_query(ctx)
     if group_columns is None:
         await _scalar_aggregate_async(
@@ -216,7 +233,7 @@ def _run_query_sync(ctx, reference):
     elif mode == "one":
         record = query.one()
         if record is None:
-            raise NotFoundError("Query returned no record")
+            raise CliNotFoundError("Query returned no record")
         render_record(record, ctx.model, ctx.fields, ctx.output, ctx.rich_ascii)
     elif mode == "count":
         render_scalar(query.count(), ctx.output)
@@ -246,7 +263,7 @@ async def _run_query_async(ctx, reference):
     elif mode == "one":
         record = await query.one()
         if record is None:
-            raise NotFoundError("Query returned no record")
+            raise CliNotFoundError("Query returned no record")
         render_record(record, ctx.model, ctx.fields, ctx.output, ctx.rich_ascii)
     elif mode == "count":
         render_scalar(await query.count(), ctx.output)

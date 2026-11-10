@@ -262,6 +262,26 @@ rhosocial-activerecord dql count --model app.models:User -o value
 | 6 | 只读模型拒绝 DML |
 | 141 | 下游管道关闭 |
 
+## 错误
+
+命令失败时会把模型层和后端异常翻译成统一消息：
+
+| 场景 | 消息开头 | 退出码 |
+|---|---|---|
+| 记录数据不合法 | `Invalid data for Model ...` | 1 |
+| 约束冲突 | `Integrity constraint failed ...` | 1 |
+| 记录不存在 | `Model with pk=... was not found` | 3 |
+| 只读模型 | `... is read-only ...` | 6 |
+| 需要确认 | `... Pass --yes ...` | 5 |
+| 版本冲突 | `Record version mismatch ...` | 1 |
+| 锁或死锁 | `Record is locked ...` / `Deadlock detected ...` | 1 |
+| 连接或查询失败 | `Database connection failed ...` | 1 |
+| 后端或配置类缺失 | `Cannot import the ...` | 4 |
+| 未知异常 | `Unexpected error (TypeName): ...` | 1 |
+
+模型层抛出 `RecordNotFound`；CLI 层抛出自己的 `CliNotFoundError` 并映射到退出码 3。
+取消确认时输出 `Operation cancelled.`，不带 `Error:` 前缀，退出码 0。
+
 ## 同步与异步模型
 
 CLI 自动识别模型类型。`ActiveRecord` 使用同步后端；`AsyncActiveRecord`

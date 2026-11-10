@@ -37,6 +37,7 @@ from .args import (
 )
 from .backends import resolve_connection
 from .commands import cte, dml, dql, setop
+from .error_mapping import operation_label, translate_error
 from .errors import (
     CLIError,
     EXIT_BROKEN_PIPE,
@@ -401,6 +402,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     except BrokenPipeError:
         return EXIT_BROKEN_PIPE
     except Exception as exc:  # Keep stdout clean for machine-readable formats.
+        translated = translate_error(exc, operation=operation_label(args))
+        if translated is not None:
+            report_error(translated)
+            return translated.exit_code
         report_unexpected(exc)
         return EXIT_ERROR
 
