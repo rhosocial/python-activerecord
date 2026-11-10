@@ -252,6 +252,13 @@ rhosocial-activerecord dql count --model app.models:User -o value
 A downstream pipe closing early (`| head`) is handled without a traceback and
 exits with code 141.
 
+## Examples
+
+Runnable scripts for every command group live in
+[`docs/examples/chapter_13_cli`](../../examples/chapter_13_cli/README.md).
+They seed a temporary SQLite database and print the command, its stdout,
+stderr, and exit code.
+
 ## Logging
 
 The default framework log level is `WARNING`. Use `--log-level DEBUG` when

@@ -151,7 +151,7 @@
 
 ## 命令行工具
 
-* [模型 CRUD CLI](cli/README.md)
+* [模型命令行接口](cli/README.md)
 
 ## 测试指南
 

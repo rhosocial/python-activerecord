@@ -151,7 +151,7 @@
 
 ## Command-Line Interface
 
-* [Model CRUD CLI](cli/README.md)
+* [Model Command-Line Interface](cli/README.md)
 
 ## Testing
 

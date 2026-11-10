@@ -238,6 +238,12 @@ rhosocial-activerecord dql count --model app.models:User -o value
 
 下游管道提前关闭（如 `| head`）时不打印 traceback，以退出码 141 结束。
 
+## 示例
+
+每个命令组的可运行脚本在
+[`docs/examples/chapter_13_cli`](../../examples/chapter_13_cli/README.md)。
+脚本会创建临时 SQLite 数据库，并打印命令、stdout、stderr 和退出码。
+
 ## 日志
 
 框架默认日志级别为 `WARNING`。排查连接或模型问题时使用
