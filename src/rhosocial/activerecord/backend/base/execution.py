@@ -7,13 +7,20 @@ database operations. It handles the complete execution pipeline including parame
 preparation, SQL preparation, query execution, and result processing.
 """
 
-import logging
 import time
 from typing import Optional, Tuple, List, Union, Dict
 
+from ...logging.redaction import unwrap_sensitive
 from ..options import ExecutionOptions
 from ..result import QueryResult
 from ..schema import StatementType
+from .execution_logging import (
+    log_batch_start,
+    log_batch_summary,
+    log_execution_error,
+    log_execution_start,
+    log_execution_summary,
+)
 
 
 class ExecutionMixin:
@@ -68,14 +75,14 @@ class ExecutionMixin:
             ConnectionError: If there are connection-related issues
         """
         start_time = time.perf_counter()
-        self.log(logging.DEBUG, f"Executing SQL: {sql}, parameters: {self.summarize_log_data(params)}")
+        if options is None:
+            options = ExecutionOptions(stmt_type=StatementType.DDL)
+
+        params = unwrap_sensitive(params)
+        log_execution_start(self, sql, params, options)
         try:
             if not self._connection:
                 self.connect()
-
-            # Handle default options for simplified execution (e.g., transaction control)
-            if options is None:
-                options = ExecutionOptions(stmt_type=StatementType.DDL)
 
             stmt_type = options.stmt_type
             # Determine if result set should be processed based on statement type and process_result_set flag
@@ -113,15 +120,21 @@ class ExecutionMixin:
             cursor = self._execute_query(cursor, final_sql, final_params)
             data = self._process_result_set(cursor, is_select, options.column_adapters, options.column_mapping)
             duration = time.perf_counter() - start_time
-            self._log_query_completion(stmt_type, cursor, data, duration)
+            log_execution_summary(self, stmt_type, sql, cursor, data, duration, options)
             result = self._build_query_result(cursor, data, duration)
             self._handle_auto_commit_if_needed()
             return result
         except Exception as e:
-            self.log(logging.ERROR, f"Error executing query: {str(e)}")
+            log_execution_error(self, e, options)
             return self._handle_execution_error(e)
 
-    def execute_many(self, sql: str, params_list: List[Tuple]) -> Optional[QueryResult]:
+    def execute_many(
+        self,
+        sql: str,
+        params_list: List[Tuple],
+        *,
+        options: Optional[ExecutionOptions] = None,
+    ) -> Optional[QueryResult]:
         """
         Execute a SQL statement multiple times with different parameter sets (batch operation).
 
@@ -134,6 +147,7 @@ class ExecutionMixin:
         Args:
             sql: The SQL statement to execute multiple times
             params_list: List of parameter tuples, each containing values for one execution
+            options: Optional ExecutionOptions carrying the logging context
 
         Returns:
             QueryResult object containing total affected rows and execution duration,
@@ -144,7 +158,10 @@ class ExecutionMixin:
             It does not perform individual type conversion for each parameter set.
             The caller is responsible for ensuring parameters are properly formatted.
         """
-        self.log(logging.INFO, f"Executing batch operation: {sql} with {len(params_list)} parameter sets")
+        if options is None:
+            options = ExecutionOptions(stmt_type=StatementType.DML)
+        params_list = [unwrap_sensitive(params) for params in params_list]
+        log_batch_start(self, sql, params_list, options)
         start_time = time.perf_counter()
         try:
             if not self._connection:
@@ -153,10 +170,11 @@ class ExecutionMixin:
             final_sql, _ = self._prepare_sql_and_params(sql, None)
             cursor.executemany(final_sql, params_list)
             duration = time.perf_counter() - start_time
+            log_batch_summary(self, sql, params_list, cursor.rowcount, duration, options)
             self._handle_auto_commit_if_needed()
             return QueryResult(affected_rows=cursor.rowcount, duration=duration)
         except Exception as e:
-            self.log(logging.ERROR, f"Error in batch operation: {str(e)}")
+            log_execution_error(self, e, options)
             return self._handle_execution_error(e)
 
 
@@ -212,14 +230,14 @@ class AsyncExecutionMixin:
             ConnectionError: If there are connection-related issues
         """
         start_time = time.perf_counter()
-        self.log(logging.DEBUG, f"Executing SQL: {sql}, parameters: {self.summarize_log_data(params)}")
+        if options is None:
+            options = ExecutionOptions(stmt_type=StatementType.DDL)
+
+        params = unwrap_sensitive(params)
+        log_execution_start(self, sql, params, options)
         try:
             if not self._connection:
                 await self.connect()
-
-            # Handle default options for simplified execution (e.g., transaction control)
-            if options is None:
-                options = ExecutionOptions(stmt_type=StatementType.DDL)
 
             stmt_type = options.stmt_type
             # Determine if result set should be processed based on statement type and process_result_set flag
@@ -257,15 +275,21 @@ class AsyncExecutionMixin:
             cursor = await self._execute_query(cursor, final_sql, final_params)
             data = await self._process_result_set(cursor, is_select, options.column_adapters, options.column_mapping)
             duration = time.perf_counter() - start_time
-            self._log_query_completion(stmt_type, cursor, data, duration)
+            log_execution_summary(self, stmt_type, sql, cursor, data, duration, options)
             result = self._build_query_result(cursor, data, duration)
             await self._handle_auto_commit_if_needed()
             return result
         except Exception as e:
-            self.log(logging.ERROR, f"Error executing query: {str(e)}")
+            log_execution_error(self, e, options)
             return await self._handle_execution_error(e)
 
-    async def execute_many(self, sql: str, params_list: List[Union[Tuple, Dict]]) -> Optional[QueryResult]:
+    async def execute_many(
+        self,
+        sql: str,
+        params_list: List[Union[Tuple, Dict]],
+        *,
+        options: Optional[ExecutionOptions] = None,
+    ) -> Optional[QueryResult]:
         """
         Execute a SQL statement multiple times with different parameter sets asynchronously (batch operation).
 
@@ -276,6 +300,7 @@ class AsyncExecutionMixin:
         Args:
             sql: The SQL statement to execute multiple times
             params_list: List of parameter tuples or dicts, each containing values for one execution
+            options: Optional ExecutionOptions carrying the logging context
 
         Returns:
             QueryResult object containing total affected rows and execution duration,
@@ -286,7 +311,10 @@ class AsyncExecutionMixin:
             It does not perform individual type conversion for each parameter set.
             The caller is responsible for ensuring parameters are properly formatted.
         """
-        self.log(logging.DEBUG, f"Executing many SQL: {sql}")
+        if options is None:
+            options = ExecutionOptions(stmt_type=StatementType.DML)
+        params_list = [unwrap_sensitive(params) for params in params_list]
+        log_batch_start(self, sql, params_list, options)
         start_time = time.perf_counter()
         try:
             if not self._connection:
@@ -295,7 +323,8 @@ class AsyncExecutionMixin:
             await cursor.executemany(sql, params_list)
             await self._handle_auto_commit_if_needed()
             duration = time.perf_counter() - start_time
+            log_batch_summary(self, sql, params_list, cursor.rowcount, duration, options)
             return QueryResult(affected_rows=cursor.rowcount, duration=duration)
         except Exception as e:
-            self.log(logging.ERROR, f"Error executing many: {str(e)}")
+            log_execution_error(self, e, options)
             return await self._handle_execution_error(e)

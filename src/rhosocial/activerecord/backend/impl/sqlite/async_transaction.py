@@ -71,13 +71,13 @@ class AsyncSQLiteTransactionManager(AsyncTransactionManager):
         self.log(logging.DEBUG, f"Setting isolation level to {level}")
 
         if self.is_active:
-            self.log(logging.ERROR, "Cannot change isolation level during active transaction")
+            self.log(logging.DEBUG, "Cannot change isolation level during active transaction")
             raise IsolationLevelError("Cannot change isolation level during active transaction")
 
         # Check if the isolation level is supported by SQLite
         if level is not None and level not in self._SUPPORTED_LEVELS:
             error_msg = f"Unsupported isolation level: {level}"
-            self.log(logging.ERROR, error_msg)
+            self.log(logging.DEBUG, error_msg)
             raise IsolationLevelError(error_msg)
 
         self._isolation_level = level

@@ -16,6 +16,7 @@ from ..backend.expression import (
     ForUpdateClause,
 )
 from ..backend.expression.query_parts import SortDirection
+from ..backend.options import LogContext
 from ..interface import IQueryBuilding
 from ..logging.defaults import _LOGGER_QUERY
 from ..logging.mixin import BackendLoggingMixin
@@ -73,6 +74,30 @@ class BaseQueryMixin(IQueryBuilding):
         config = getattr(backend, "_logging_config", None) or BackendLoggingMixin.__logging_config__
         logger = config.get_logger(logger_name)
         logger.log(level, msg, *args, **kwargs)
+
+    def _build_log_context(
+        self,
+        operation: str = "select",
+        source: Optional[str] = None,
+    ) -> LogContext:
+        """Describe the query's intent for the backend execution logger."""
+        model_class = getattr(self, "model_class", None)
+        object_name = None
+        schema = None
+        if model_class is not None:
+            table_name = getattr(model_class, "table_name", None)
+            if callable(table_name):
+                object_name = table_name()
+            schema_name = getattr(model_class, "schema_name", None)
+            if callable(schema_name):
+                schema = schema_name()
+        return LogContext(
+            model=model_class,
+            operation=operation,
+            object_name=object_name,
+            schema=schema,
+            source=source,
+        )
 
     # region Basic Query Methods
     @overload

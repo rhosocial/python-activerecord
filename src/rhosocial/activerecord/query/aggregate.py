@@ -1,7 +1,6 @@
 # src/rhosocial/activerecord/query/aggregate.py
 """AggregateQueryMixin implementation for aggregation operations."""
 
-import logging
 from typing import List, Union, Any, Optional, Dict
 
 from ..backend.expression import (
@@ -377,20 +376,25 @@ class AggregateQueryMixin:
             # Generate SQL for the EXPLAIN statement
             explain_sql, explain_params = explain_expr.to_sql()
 
-            self._log(logging.INFO, f"Executing EXPLAIN aggregate query: {explain_sql}")
-
             # Execute the EXPLAIN query using the backend
-            result = backend.fetch_all(explain_sql, explain_params)
+            result = backend.fetch_all(
+                explain_sql,
+                explain_params,
+                log_context=self._build_log_context("aggregate", "aggregate"),
+            )
 
             return result
 
         # Get SQL and parameters using the existing to_sql method
         sql, params = self.to_sql()
-        self._log(logging.INFO, f"Executing aggregate query: {sql}")
 
         # Execute the aggregate query
         backend = self.model_class.backend()
-        result = backend.fetch_all(sql, params)
+        result = backend.fetch_all(
+            sql,
+            params,
+            log_context=self._build_log_context("aggregate", "aggregate"),
+        )
 
         # Always return a list, even if empty
         return result
@@ -771,20 +775,25 @@ class AsyncAggregateQueryMixin:
             # Generate SQL for the EXPLAIN statement
             explain_sql, explain_params = explain_expr.to_sql()
 
-            self._log(logging.INFO, f"Executing EXPLAIN aggregate query: {explain_sql}")
-
             # Execute the EXPLAIN query using the backend
-            result = await backend.fetch_all(explain_sql, explain_params)
+            result = await backend.fetch_all(
+                explain_sql,
+                explain_params,
+                log_context=self._build_log_context("aggregate", "aggregate"),
+            )
 
             return result
 
         # Get SQL and parameters using the existing to_sql method
         sql, params = self.to_sql()
-        self._log(logging.INFO, f"Executing async aggregate query: {sql}")
 
         # Execute the aggregate query
         backend = self.model_class.backend()
-        result = await backend.fetch_all(sql, params)
+        result = await backend.fetch_all(
+            sql,
+            params,
+            log_context=self._build_log_context("aggregate", "aggregate"),
+        )
 
         # Always return a list, even if empty
         return result

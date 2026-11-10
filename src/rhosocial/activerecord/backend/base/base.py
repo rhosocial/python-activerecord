@@ -53,7 +53,7 @@ class StorageBackendBase(ABC):
         # It maps (Python Type, DBAPI Type) to a SQLTypeAdapter.
         self.adapter_registry = TypeRegistry()
         self._register_default_adapters()
-        self.logger.info("Initialized TypeAdaptionMixin with SQLTypeAdapter registry.")
+        self.logger.debug("Initialized TypeAdaptionMixin with SQLTypeAdapter registry.")
 
     def _register_default_adapters(self) -> None:
         """Register default type adapters."""

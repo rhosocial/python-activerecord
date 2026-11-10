@@ -172,15 +172,18 @@ class ActiveQuery(
         # Get SQL and parameters
         sql, params = self.to_sql()
 
-        self._log(logging.INFO, f"Executing query: {sql}, parameters: {params}")
-
         # Step 1: Get column adapters for processing output (DB -> Python).
         # This map specifies how database results should be converted back to Python objects.
         column_adapters = self.model_class.get_column_adapters()
         self._log(logging.DEBUG, f"Column adapters map: {column_adapters}")
 
         # Step 2: Fetch all records, passing the column adapters to the backend.
-        rows = self.backend().fetch_all(sql, params, column_adapters=column_adapters)
+        rows = self.backend().fetch_all(
+            sql,
+            params,
+            column_adapters=column_adapters,
+            log_context=self._build_log_context("select", "active_query"),
+        )
 
         # Convert database column names back to Python field names before creating model instances
         field_data_rows = [self.model_class._map_columns_to_fields(row) for row in rows]
@@ -250,15 +253,18 @@ class ActiveQuery(
         # Generate SQL using the temporary QueryStatement
         sql, params = query_expr.to_sql()
 
-        self._log(logging.INFO, f"Executing query: {sql}, parameters: {params}")
-
         # Step 1: Get column adapters for processing output (DB -> Python).
         # This map specifies how database results should be converted back to Python objects.
         column_adapters = self.model_class.get_column_adapters()
         self._log(logging.DEBUG, f"Column adapters map: {column_adapters}")
 
         # Step 2: Fetch a single record, passing the column adapters to the backend.
-        row = self.backend().fetch_one(sql, params, column_adapters=column_adapters)
+        row = self.backend().fetch_one(
+            sql,
+            params,
+            column_adapters=column_adapters,
+            log_context=self._build_log_context("select", "active_query"),
+        )
 
         if not row:
             return None
@@ -572,15 +578,18 @@ class AsyncActiveQuery(
         # Get SQL and parameters
         sql, params = self.to_sql()
 
-        self._log(logging.INFO, f"Executing async query: {sql}, parameters: {params}")
-
         # Step 1: Get column adapters for processing output (DB -> Python).
         # This map specifies how database results should be converted back to Python objects.
         column_adapters = self.model_class.get_column_adapters()
         self._log(logging.DEBUG, f"Column adapters map: {column_adapters}")
 
         # Step 2: Fetch all records, passing the column adapters to the backend.
-        rows = await self.backend().fetch_all(sql, params, column_adapters=column_adapters)
+        rows = await self.backend().fetch_all(
+            sql,
+            params,
+            column_adapters=column_adapters,
+            log_context=self._build_log_context("select", "active_query"),
+        )
 
         # Convert database column names back to Python field names before creating model instances
         field_data_rows = [self.model_class._map_columns_to_fields(row) for row in rows]
@@ -650,15 +659,18 @@ class AsyncActiveQuery(
         # Generate SQL using the temporary QueryStatement
         sql, params = query_expr.to_sql()
 
-        self._log(logging.INFO, f"Executing async query: {sql}, parameters: {params}")
-
         # Step 1: Get column adapters for processing output (DB -> Python).
         # This map specifies how database results should be converted back to Python objects.
         column_adapters = self.model_class.get_column_adapters()
         self._log(logging.DEBUG, f"Column adapters map: {column_adapters}")
 
         # Step 2: Fetch a single record, passing the column adapters to the backend.
-        row = await self.backend().fetch_one(sql, params, column_adapters=column_adapters)
+        row = await self.backend().fetch_one(
+            sql,
+            params,
+            column_adapters=column_adapters,
+            log_context=self._build_log_context("select", "active_query"),
+        )
 
         if not row:
             return None

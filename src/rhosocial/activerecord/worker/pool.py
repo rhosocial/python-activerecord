@@ -208,7 +208,7 @@ class TaskContext:
             level: Log level (default: INFO)
         """
         if logger is None:
-            logger = logging.getLogger(__name__)
+            logger = get_logger("rhosocial.activerecord.worker")
 
         status = "SUCCESS" if self.success else "FAILED"
         msg = f"Task[{self.task_id[:8]}] {status} | fn={self.fn_name}, duration={self.duration:.3f}s"

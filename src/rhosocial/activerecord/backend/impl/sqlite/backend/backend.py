@@ -24,7 +24,19 @@ from rhosocial.activerecord.backend.config import ConnectionConfig
 from rhosocial.activerecord.backend.errors import ConnectionError
 from rhosocial.activerecord.backend.explain import SyncExplainBackendMixin
 from rhosocial.activerecord.backend.introspection.backend_mixin import IntrospectorBackendMixin
-from rhosocial.activerecord.backend.options import DeleteOptions, InsertOptions, UpdateOptions
+from rhosocial.activerecord.backend.base.execution_logging import (
+    log_batch_start,
+    log_batch_summary,
+    log_execution_error,
+)
+from rhosocial.activerecord.logging.redaction import unwrap_sensitive
+from rhosocial.activerecord.backend.options import (
+    DeleteOptions,
+    ExecutionOptions,
+    InsertOptions,
+    UpdateOptions,
+)
+from rhosocial.activerecord.backend.schema import StatementType
 from rhosocial.activerecord.backend.result import QueryResult
 from ..explain import (
     SQLiteExplainRow,
@@ -309,7 +321,7 @@ class SQLiteBackend(
 
     def executescript(self, sql_script: str) -> None:
         """Execute a multi-statement SQL script."""
-        self.log(logging.INFO, "Executing SQL script.")
+        self.log(logging.DEBUG, "Executing SQL script.")
         start_time = time.perf_counter()
         try:
             if not self._connection:
@@ -322,12 +334,21 @@ class SQLiteBackend(
             self.log(logging.INFO, f"SQL script executed successfully, duration={duration:.3f}s")
             self._handle_auto_commit()
         except Exception as e:
-            self.log(logging.ERROR, f"Error executing SQL script: {str(e)}")
+            self.log(logging.DEBUG, f"Error executing SQL script, exception will be re-raised: {str(e)}")
             self._handle_error(e)
 
-    def execute_many(self, sql: str, params_list: List[Tuple]) -> Optional[QueryResult]:
+    def execute_many(
+        self,
+        sql: str,
+        params_list: List[Tuple],
+        *,
+        options: Optional[ExecutionOptions] = None,
+    ) -> Optional[QueryResult]:
         """Execute batch operations with the same SQL statement and multiple parameter sets."""
-        self.log(logging.INFO, f"Executing batch operation: {sql} with {len(params_list)} parameter sets")
+        if options is None:
+            options = ExecutionOptions(stmt_type=StatementType.DML)
+        params_list = [unwrap_sensitive(params) for params in params_list]
+        log_batch_start(self, sql, params_list, options)
         start_time = time.perf_counter()
         try:
             if not self._connection:
@@ -338,14 +359,12 @@ class SQLiteBackend(
             cursor.executemany(sql, params_list)
             duration = time.perf_counter() - start_time
 
-            self.log(
-                logging.INFO, f"Batch operation completed, affected {cursor.rowcount} rows, duration={duration:.3f}s"
-            )
+            log_batch_summary(self, sql, params_list, cursor.rowcount, duration, options)
             self._handle_auto_commit_if_needed()
 
             return QueryResult(affected_rows=cursor.rowcount, duration=duration)
         except Exception as e:
-            self.log(logging.ERROR, f"Error in batch operation: {str(e)}")
+            log_execution_error(self, e, options)
             self._handle_error(e)
             return None
 

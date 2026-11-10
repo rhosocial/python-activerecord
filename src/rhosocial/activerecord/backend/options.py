@@ -5,8 +5,8 @@ Using the Options pattern keeps method signatures clean and makes the API
 extensible without introducing breaking changes.
 """
 
-from dataclasses import dataclass
-from typing import Optional, Dict, Tuple, Type, List, TYPE_CHECKING
+from dataclasses import dataclass, replace
+from typing import Optional, Dict, Tuple, Type, List, Any, TYPE_CHECKING
 
 from .expression import SQLPredicate
 from .schema import StatementType
@@ -14,6 +14,62 @@ from .type_adapter import SQLTypeAdapter
 
 if TYPE_CHECKING:
     from .expression import BaseExpression
+    from ..logging.redaction import ParamMeta
+
+
+@dataclass(frozen=True)
+class LogContext:
+    """Semantic context attached to one backend execution for logging.
+
+    The backend owns the SQL text and the parameter values; this object tells
+    it what the statement means without asking the caller to log the SQL a
+    second time.
+
+    Attributes:
+        model: Model class (or its name) responsible for the execution.
+        model_fqn: Optional fully qualified model name override.
+        operation: Operation name such as ``select``, ``insert`` or ``count``.
+        object_name: Logical table, view or procedure name.
+        object_type: ``table``, ``view``, ``materialized_view`` or ``unknown``.
+        schema: Schema name, when the backend knows it.
+        database: Database or catalog name, when the backend knows it.
+        param_meta: Metadata for positional query parameters.
+        source: Query layer that produced the statement, such as
+            ``active_query``, ``cte_query`` or ``set_operation``.
+    """
+
+    model: Optional[Any] = None
+    model_fqn: Optional[str] = None
+    operation: Optional[str] = None
+    object_name: Optional[str] = None
+    object_type: str = "table"
+    schema: Optional[str] = None
+    database: Optional[str] = None
+    param_meta: Optional[Tuple["ParamMeta", ...]] = None
+    source: Optional[str] = None
+
+
+def derive_log_context(
+    log_context: Optional[LogContext],
+    *,
+    operation: Optional[str] = None,
+    object_name: Optional[str] = None,
+    schema: Optional[str] = None,
+) -> LogContext:
+    """Fill in execution-time defaults without losing caller context."""
+    if log_context is None:
+        return LogContext(
+            operation=operation,
+            object_name=object_name,
+            schema=schema,
+        )
+
+    return replace(
+        log_context,
+        operation=log_context.operation or operation,
+        object_name=log_context.object_name or object_name,
+        schema=log_context.schema or schema,
+    )
 
 
 @dataclass
@@ -41,6 +97,10 @@ class ExecutionOptions:
     # This is useful for DML statements with RETURNING clauses
     process_result_set: Optional[bool] = None
 
+    # Structured logging context; SQL text and parameters remain the backend's
+    # responsibility, the context only explains what the statement means.
+    log_context: Optional[LogContext] = None
+
 
 @dataclass
 class InsertOptions:
@@ -63,6 +123,8 @@ class InsertOptions:
     returning_columns: Optional[List[str]] = None
     # Schema name for schema-qualified table references (e.g., schema_name.table).
     schema_name: Optional[str] = None
+    # Structured logging context for the execution the backend will perform.
+    log_context: Optional[LogContext] = None
 
 
 @dataclass
@@ -89,6 +151,8 @@ class UpdateOptions:
     # The name of the primary key column. (Used by backends that need to
     # exclude the PK from SET assignments, e.g. ClickHouse).
     primary_key: Optional[str] = None
+    # Structured logging context for the execution the backend will perform.
+    log_context: Optional[LogContext] = None
 
 
 @dataclass
@@ -114,6 +178,8 @@ class BulkInsertOptions:
     schema_name: Optional[str] = None
     # The name of the primary key column. (Used by backends that generate ids).
     primary_key: Optional[str] = None
+    # Structured logging context for the execution the backend will perform.
+    log_context: Optional[LogContext] = None
 
 
 @dataclass
@@ -137,6 +203,8 @@ class BulkUpdateOptions:
     auto_commit: bool = True
     # Schema name for schema-qualified table references.
     schema_name: Optional[str] = None
+    # Structured logging context for the execution the backend will perform.
+    log_context: Optional[LogContext] = None
 
 
 @dataclass
@@ -158,3 +226,5 @@ class DeleteOptions:
     returning_columns: Optional[List[str]] = None
     # Schema name for schema-qualified table references (e.g., schema_name.table).
     schema_name: Optional[str] = None
+    # Structured logging context for the execution the backend will perform.
+    log_context: Optional[LogContext] = None

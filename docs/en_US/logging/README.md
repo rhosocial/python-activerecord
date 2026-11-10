@@ -364,6 +364,31 @@ dql.select model=User object_name=users object_type=table rows_returned=3 durati
 dml.batch model=User operation=insert_many parameter_sets=100 rows_affected=100 duration_ms=120.5
 ```
 
+### Passing execution context
+
+`ExecutionOptions.log_context` and the `log_context` keyword on
+`fetch_all()`/`fetch_one()` tell the backend what a statement means:
+
+```python
+from rhosocial.activerecord.backend.options import ExecutionOptions, LogContext
+from rhosocial.activerecord.backend.schema import StatementType
+
+backend.execute(
+    'INSERT INTO "users" ("name") VALUES (?)',
+    ("alice",),
+    options=ExecutionOptions(
+        stmt_type=StatementType.DML,
+        log_context=LogContext(model=User, operation="insert", object_name="users"),
+    ),
+)
+```
+
+`LogContext.param_meta` accepts `ParamMeta` entries when a caller knows which
+positional parameter belongs to which field; without metadata the `DEBUG`
+record shows only the parameter count and Python types. Custom backends that
+override `fetch_all()`/`fetch_one()` must accept `log_context` and forward it
+to their `ExecutionOptions`.
+
 ## Local ELK Verification
 
 A local Elasticsearch + Logstash + Kibana stack is useful for validating the
@@ -396,6 +421,7 @@ Complete examples are in `docs/examples/chapter_09_logging/`:
 | [06_structured_events.py](../../examples/chapter_09_logging/06_structured_events.py) | Event schema, `ActiveRecordEventFormatter` and `ActiveRecordJsonFormatter` |
 | [07_redaction_modes.py](../../examples/chapter_09_logging/07_redaction_modes.py) | Query-parameter redaction, `LogDataMode` and `SensitiveValue` |
 | [08_correlation_ids.py](../../examples/chapter_09_logging/08_correlation_ids.py) | `contextvars` correlation IDs in JSON logs |
+| [09_execution_logging.py](../../examples/chapter_09_logging/09_execution_logging.py) | Quiet default, INFO summaries and DEBUG SQL from the backend |
 
 ```bash
 cd python-activerecord
