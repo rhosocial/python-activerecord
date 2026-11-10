@@ -1,5 +1,5 @@
 # tests/rhosocial/activerecord_test/feature/cli/test_cli_blackbox.py
-"""Black-box tests for the model CRUD command-line interface.
+"""Black-box tests for the model DML/DQL command-line interface.
 
 The CLI is run in-process through ``main(argv)``. Machine formats are parsed
 from stdout, while errors and logs are asserted on stderr. Each test gets a
@@ -217,27 +217,33 @@ class TestCommandSurface:
         text = pyproject.read_text(encoding="utf-8")
         assert 'cli = ["rich>=13.0"]' in text
 
-    def test_root_help_lists_crud(self):
+    def test_root_help_lists_command_groups(self):
         code, out, _ = run_cli(["--help"])
         assert code == 0
-        assert "crud" in out
+        assert "dml" in out
 
-    def test_crud_help_lists_all_commands(self):
-        code, out, _ = run_cli(["crud", "--help"])
+    def test_dml_help_lists_all_commands(self):
+        code, out, _ = run_cli(["dml", "--help"])
         assert code == 0
-        for command in ("get", "list", "create", "update", "delete"):
+        for command in ("create", "update", "delete", "bulk"):
+            assert command in out
+
+    def test_dql_help_lists_all_commands(self):
+        code, out, _ = run_cli(["dql", "--help"])
+        assert code == 0
+        for command in ("get", "list", "count", "exists", "aggregate", "run"):
             assert command in out
 
     def test_missing_command_returns_one(self):
         code, out, err = run_cli([])
         assert code == 1
         assert out == ""
-        assert "crud" in err
+        assert "dml" in err
 
     def test_missing_subcommand_returns_one(self):
-        code, _, err = run_cli(["crud"])
+        code, _, err = run_cli(["dml"])
         assert code == 1
-        assert "get" in err
+        assert "DML" in err
 
     def test_unknown_command_is_usage_error(self):
         code, out, err = run_cli(["nonexistent"])
@@ -248,7 +254,7 @@ class TestCommandSurface:
 class TestModelLoading:
     def test_loads_model(self, cli_env):
         code, out, _ = run_cli(
-            ["crud", "list", *cli_env.base, "--model", cli_env.user_model, "-o", "json"]
+            ["dql", "list", *cli_env.base, "--model", cli_env.user_model, "-o", "json"]
         )
         assert code == 0
         assert json.loads(out)[0]["name"] == "Alice"
@@ -256,7 +262,7 @@ class TestModelLoading:
     def test_missing_module_returns_one(self, cli_env):
         code, out, err = run_cli(
             [
-                "crud",
+                "dql",
                 "list",
                 "--path",
                 str(cli_env.tmp_path),
@@ -273,14 +279,14 @@ class TestModelLoading:
 
     def test_missing_class_returns_one(self, cli_env):
         code, _, err = run_cli(
-            ["crud", "list", *cli_env.base, "--model", f"{cli_env.module_name}:Missing", "-o", "json"]
+            ["dql", "list", *cli_env.base, "--model", f"{cli_env.module_name}:Missing", "-o", "json"]
         )
         assert code == 1
         assert "has no class" in err
 
     def test_non_model_class_returns_one(self, cli_env):
         code, out, err = run_cli(
-            ["crud", "list", *cli_env.base, "--model", f"{cli_env.module_name}:NotAModel", "-o", "json"]
+            ["dql", "list", *cli_env.base, "--model", f"{cli_env.module_name}:NotAModel", "-o", "json"]
         )
         assert code == 1
         assert out == ""
@@ -288,21 +294,21 @@ class TestModelLoading:
 
     def test_model_without_colon_returns_one(self, cli_env):
         code, _, err = run_cli(
-            ["crud", "list", *cli_env.base, "--model", f"{cli_env.module_name}.User", "-o", "json"]
+            ["dql", "list", *cli_env.base, "--model", f"{cli_env.module_name}.User", "-o", "json"]
         )
         assert code == 1
         assert "module:Class" in err
 
     def test_missing_backend_and_config_returns_one(self, cli_env):
         code, _, err = run_cli(
-            ["crud", "list", "--path", str(cli_env.tmp_path), "--model", cli_env.user_model, "-o", "json"]
+            ["dql", "list", "--path", str(cli_env.tmp_path), "--model", cli_env.user_model, "-o", "json"]
         )
         assert code == 1
         assert "no backend class" in err
 
     def test_path_option_makes_import_work(self, cli_env):
         code, out, _ = run_cli(
-            ["crud", "get", *cli_env.base, "--model", cli_env.user_model, "--pk", "1", "-o", "json"]
+            ["dql", "get", *cli_env.base, "--model", cli_env.user_model, "--pk", "1", "-o", "json"]
         )
         assert code == 0
         assert json.loads(out)["id"] == 1
@@ -312,7 +318,7 @@ class TestModelLoading:
         create_users_table(override_db, rows=((99, "Override", "o@example.com", 50),))
         code, out, _ = run_cli(
             [
-                "crud",
+                "dql",
                 "list",
                 "--path",
                 str(configured_env.tmp_path),
@@ -328,7 +334,7 @@ class TestModelLoading:
 
     def test_module_configuration_is_used_without_flags(self, configured_env):
         code, out, _ = run_cli(
-            ["crud", "list", "--path", str(configured_env.tmp_path), "--model", configured_env.model, "-o", "json"]
+            ["dql", "list", "--path", str(configured_env.tmp_path), "--model", configured_env.model, "-o", "json"]
         )
         assert code == 0
         assert json.loads(out)[0]["id"] == 7
@@ -337,7 +343,7 @@ class TestModelLoading:
 class TestConnectionResolution:
     def test_explicit_classes_connect(self, cli_env):
         code, out, _ = run_cli(
-            ["crud", "list", *cli_env.base, "--model", cli_env.user_model, "-o", "json"]
+            ["dql", "list", *cli_env.base, "--model", cli_env.user_model, "-o", "json"]
         )
         assert code == 0
         assert len(json.loads(out)) == 3
@@ -345,7 +351,7 @@ class TestConnectionResolution:
     def test_dotted_class_references(self, cli_env):
         code, out, _ = run_cli(
             [
-                "crud",
+                "dql",
                 "list",
                 "--path",
                 str(cli_env.tmp_path),
@@ -367,7 +373,7 @@ class TestConnectionResolution:
     def test_invalid_config_pair_returns_one(self, cli_env):
         code, out, err = run_cli(
             [
-                "crud",
+                "dql",
                 "list",
                 *cli_env.base,
                 "--model",
@@ -385,7 +391,7 @@ class TestConnectionResolution:
     def test_named_connection_with_explicit_backend(self, cli_env, named_connection_env):
         code, out, _ = run_cli(
             [
-                "crud",
+                "dql",
                 "list",
                 "--path",
                 str(named_connection_env.tmp_path),
@@ -405,7 +411,7 @@ class TestConnectionResolution:
     def test_named_connection_uses_module_backend(self, configured_env, named_connection_env):
         code, out, _ = run_cli(
             [
-                "crud",
+                "dql",
                 "list",
                 "--path",
                 str(configured_env.tmp_path),
@@ -423,7 +429,7 @@ class TestConnectionResolution:
     def test_named_connection_requires_backend_class(self, cli_env, named_connection_env):
         code, _, err = run_cli(
             [
-                "crud",
+                "dql",
                 "list",
                 "--path",
                 str(named_connection_env.tmp_path),
@@ -443,7 +449,7 @@ class TestConnectionResolution:
     ):
         code, _, err = run_cli(
             [
-                "crud",
+                "dql",
                 "list",
                 "--path",
                 str(named_connection_env.tmp_path),
@@ -463,7 +469,7 @@ class TestConnectionResolution:
     def test_missing_backend_module_returns_four(self, cli_env):
         code, out, err = run_cli(
             [
-                "crud",
+                "dql",
                 "list",
                 "--path",
                 str(cli_env.tmp_path),
@@ -482,7 +488,7 @@ class TestConnectionResolution:
     def test_non_backend_class_returns_one(self, cli_env):
         code, out, err = run_cli(
             [
-                "crud",
+                "dql",
                 "list",
                 "--path",
                 str(cli_env.tmp_path),
@@ -501,7 +507,7 @@ class TestConnectionResolution:
     def test_non_config_class_returns_one(self, cli_env):
         code, out, err = run_cli(
             [
-                "crud",
+                "dql",
                 "list",
                 "--path",
                 str(cli_env.tmp_path),
@@ -522,7 +528,7 @@ class TestConnectionResolution:
     def test_backend_without_config_returns_one(self, cli_env):
         code, _, err = run_cli(
             [
-                "crud",
+                "dql",
                 "list",
                 "--path",
                 str(cli_env.tmp_path),
@@ -540,7 +546,7 @@ class TestConnectionResolution:
     def test_config_sets_config_field(self, cli_env):
         code, out, _ = run_cli(
             [
-                "crud",
+                "dql",
                 "list",
                 *cli_env.base,
                 "--model",
@@ -557,7 +563,7 @@ class TestConnectionResolution:
     def test_unknown_config_key_goes_to_options(self, cli_env):
         code, out, _ = run_cli(
             [
-                "crud",
+                "dql",
                 "list",
                 *cli_env.base,
                 "--model",
@@ -576,7 +582,7 @@ class TestConnectionResolution:
         # forwarded to the constructor as a keyword argument.
         code, out, _ = run_cli(
             [
-                "crud",
+                "dql",
                 "list",
                 *cli_env.base,
                 "--model",
@@ -591,17 +597,17 @@ class TestConnectionResolution:
         assert len(json.loads(out)) == 3
 
 
-class TestCrud:
+class TestDmlDql:
     def test_get_by_pk(self, cli_env):
         code, out, _ = run_cli(
-            ["crud", "get", *cli_env.base, "--model", cli_env.user_model, "--pk", "1", "-o", "json"]
+            ["dql", "get", *cli_env.base, "--model", cli_env.user_model, "--pk", "1", "-o", "json"]
         )
         assert code == 0
         assert json.loads(out)["name"] == "Alice"
 
     def test_get_missing_returns_three(self, cli_env):
         code, out, _ = run_cli(
-            ["crud", "get", *cli_env.base, "--model", cli_env.user_model, "--pk", "999", "-o", "json"]
+            ["dql", "get", *cli_env.base, "--model", cli_env.user_model, "--pk", "999", "-o", "json"]
         )
         assert code == 3
         assert out == ""
@@ -609,7 +615,7 @@ class TestCrud:
     def test_create(self, cli_env):
         code, out, _ = run_cli(
             [
-                "crud",
+                "dml",
                 "create",
                 *cli_env.base,
                 "--model",
@@ -625,7 +631,7 @@ class TestCrud:
 
     def test_create_invalid_json_returns_one(self, cli_env):
         code, out, err = run_cli(
-            ["crud", "create", *cli_env.base, "--model", cli_env.user_model, "--data", "{", "-o", "json"]
+            ["dml", "create", *cli_env.base, "--model", cli_env.user_model, "--data", "{", "-o", "json"]
         )
         assert code == 1
         assert out == ""
@@ -633,7 +639,7 @@ class TestCrud:
 
     def test_create_non_object_returns_one(self, cli_env):
         code, _, err = run_cli(
-            ["crud", "create", *cli_env.base, "--model", cli_env.user_model, "--data", "[1, 2]", "-o", "json"]
+            ["dml", "create", *cli_env.base, "--model", cli_env.user_model, "--data", "[1, 2]", "-o", "json"]
         )
         assert code == 1
         assert "JSON object" in err
@@ -641,7 +647,7 @@ class TestCrud:
     def test_update_only_given_fields(self, cli_env):
         code, out, _ = run_cli(
             [
-                "crud",
+                "dml",
                 "update",
                 *cli_env.base,
                 "--model",
@@ -662,7 +668,7 @@ class TestCrud:
     def test_update_rejects_primary_key(self, cli_env):
         code, out, err = run_cli(
             [
-                "crud",
+                "dml",
                 "update",
                 *cli_env.base,
                 "--model",
@@ -682,7 +688,7 @@ class TestCrud:
     def test_update_without_pk_returns_one(self, cli_env):
         code, _, err = run_cli(
             [
-                "crud",
+                "dml",
                 "update",
                 *cli_env.base,
                 "--model",
@@ -699,7 +705,7 @@ class TestCrud:
     def test_update_missing_record_returns_three(self, cli_env):
         code, out, _ = run_cli(
             [
-                "crud",
+                "dml",
                 "update",
                 *cli_env.base,
                 "--model",
@@ -717,14 +723,14 @@ class TestCrud:
 
     def test_delete(self, cli_env):
         code, out, _ = run_cli(
-            ["crud", "delete", *cli_env.base, "--model", cli_env.user_model, "--pk", "2", "-o", "json"]
+            ["dml", "delete", *cli_env.base, "--model", cli_env.user_model, "--pk", "2", "--yes", "-o", "json"]
         )
         assert code == 0
-        assert json.loads(out) == {"deleted": 1, "pk": 2}
+        assert json.loads(out) == {"action": "delete", "pk": 2, "affected": 1}
 
     def test_delete_missing_returns_three(self, cli_env):
         code, out, _ = run_cli(
-            ["crud", "delete", *cli_env.base, "--model", cli_env.user_model, "--pk", "999", "-o", "json"]
+            ["dml", "delete", *cli_env.base, "--model", cli_env.user_model, "--pk", "999", "-o", "json"]
         )
         assert code == 3
         assert out == ""
@@ -732,7 +738,7 @@ class TestCrud:
     def test_list_where_order_limit_offset(self, cli_env):
         code, out, _ = run_cli(
             [
-                "crud",
+                "dql",
                 "list",
                 *cli_env.base,
                 "--model",
@@ -757,7 +763,7 @@ class TestCrud:
     def test_list_multiple_where_is_and(self, cli_env):
         code, out, _ = run_cli(
             [
-                "crud",
+                "dql",
                 "list",
                 *cli_env.base,
                 "--model",
@@ -775,7 +781,7 @@ class TestCrud:
 
     def test_list_limit_zero_means_unlimited(self, cli_env):
         code, out, _ = run_cli(
-            ["crud", "list", *cli_env.base, "--model", cli_env.user_model, "--limit", "0", "-o", "json"]
+            ["dql", "list", *cli_env.base, "--model", cli_env.user_model, "--limit", "0", "-o", "json"]
         )
         assert code == 0
         assert len(json.loads(out)) == 3
@@ -783,7 +789,7 @@ class TestCrud:
     def test_list_empty_returns_empty_array(self, cli_env):
         code, out, _ = run_cli(
             [
-                "crud",
+                "dql",
                 "list",
                 *cli_env.base,
                 "--model",
@@ -802,7 +808,7 @@ class TestCrud:
         data_file.write_text('{"id": 4, "name": "FromFile"}', encoding="utf-8")
         code, out, _ = run_cli(
             [
-                "crud",
+                "dml",
                 "create",
                 *cli_env.base,
                 "--model",
@@ -820,7 +826,7 @@ class TestCrud:
         monkeypatch.setattr(sys, "stdin", io.StringIO('{"id": 4, "name": "FromStdin"}'))
         code, out, _ = run_cli(
             [
-                "crud",
+                "dml",
                 "create",
                 *cli_env.base,
                 "--model",
@@ -837,7 +843,7 @@ class TestCrud:
     def test_composite_pk_get(self, cli_env):
         code, out, _ = run_cli(
             [
-                "crud",
+                "dql",
                 "get",
                 *cli_env.base,
                 "--model",
@@ -854,7 +860,7 @@ class TestCrud:
     def test_composite_pk_update(self, cli_env):
         code, out, _ = run_cli(
             [
-                "crud",
+                "dml",
                 "update",
                 *cli_env.base,
                 "--model",
@@ -873,23 +879,24 @@ class TestCrud:
     def test_composite_pk_delete(self, cli_env):
         code, out, _ = run_cli(
             [
-                "crud",
+                "dml",
                 "delete",
                 *cli_env.base,
                 "--model",
                 cli_env.order_model,
                 "--pk",
                 '{"order_id": 1, "product_id": 101}',
+                "--yes",
                 "-o",
                 "json",
             ]
         )
         assert code == 0
-        assert json.loads(out)["deleted"] == 1
+        assert json.loads(out)["affected"] == 1
 
     def test_composite_pk_scalar_returns_one(self, cli_env):
         code, _, err = run_cli(
-            ["crud", "get", *cli_env.base, "--model", cli_env.order_model, "--pk", "1", "-o", "json"]
+            ["dql", "get", *cli_env.base, "--model", cli_env.order_model, "--pk", "1", "-o", "json"]
         )
         assert code == 1
         assert "composite primary key" in err
@@ -897,7 +904,7 @@ class TestCrud:
     def test_composite_pk_wrong_keys_returns_one(self, cli_env):
         code, _, err = run_cli(
             [
-                "crud",
+                "dql",
                 "get",
                 *cli_env.base,
                 "--model",
@@ -915,25 +922,25 @@ class TestCrud:
 class TestOutput:
     def test_json_list_is_array(self, cli_env):
         _, out, _ = run_cli(
-            ["crud", "list", *cli_env.base, "--model", cli_env.user_model, "-o", "json"]
+            ["dql", "list", *cli_env.base, "--model", cli_env.user_model, "-o", "json"]
         )
         assert isinstance(json.loads(out), list)
 
     def test_json_get_is_object(self, cli_env):
         _, out, _ = run_cli(
-            ["crud", "get", *cli_env.base, "--model", cli_env.user_model, "--pk", "1", "-o", "json"]
+            ["dql", "get", *cli_env.base, "--model", cli_env.user_model, "--pk", "1", "-o", "json"]
         )
         assert isinstance(json.loads(out), dict)
 
     def test_delete_summary_shape(self, cli_env):
         _, out, _ = run_cli(
-            ["crud", "delete", *cli_env.base, "--model", cli_env.user_model, "--pk", "1", "-o", "json"]
+            ["dml", "delete", *cli_env.base, "--model", cli_env.user_model, "--pk", "1", "--yes", "-o", "json"]
         )
-        assert json.loads(out) == {"deleted": 1, "pk": 1}
+        assert json.loads(out) == {"action": "delete", "pk": 1, "affected": 1}
 
     def test_csv_is_readable(self, cli_env):
         _, out, _ = run_cli(
-            ["crud", "list", *cli_env.base, "--model", cli_env.user_model, "-o", "csv"]
+            ["dql", "list", *cli_env.base, "--model", cli_env.user_model, "-o", "csv"]
         )
         rows = list(csv.reader(io.StringIO(out)))
         assert rows[0] == ["id", "name", "email", "age"]
@@ -941,7 +948,7 @@ class TestOutput:
 
     def test_tsv_is_readable(self, cli_env):
         _, out, _ = run_cli(
-            ["crud", "list", *cli_env.base, "--model", cli_env.user_model, "-o", "tsv"]
+            ["dql", "list", *cli_env.base, "--model", cli_env.user_model, "-o", "tsv"]
         )
         rows = list(csv.reader(io.StringIO(out), delimiter="\t"))
         assert rows[0] == ["id", "name", "email", "age"]
@@ -950,7 +957,7 @@ class TestOutput:
     def test_fields_limits_json(self, cli_env):
         _, out, _ = run_cli(
             [
-                "crud",
+                "dql",
                 "get",
                 *cli_env.base,
                 "--model",
@@ -968,7 +975,7 @@ class TestOutput:
     def test_fields_limits_csv_header(self, cli_env):
         _, out, _ = run_cli(
             [
-                "crud",
+                "dql",
                 "list",
                 *cli_env.base,
                 "--model",
@@ -984,7 +991,7 @@ class TestOutput:
     def test_unknown_field_returns_one(self, cli_env):
         code, _, err = run_cli(
             [
-                "crud",
+                "dql",
                 "get",
                 *cli_env.base,
                 "--model",
@@ -1003,14 +1010,14 @@ class TestOutput:
     def test_table_falls_back_to_json_without_rich(self, cli_env, monkeypatch):
         monkeypatch.setattr(cli_output, "RICH_AVAILABLE", False)
         _, out, _ = run_cli(
-            ["crud", "get", *cli_env.base, "--model", cli_env.user_model, "--pk", "1", "-o", "table"]
+            ["dql", "get", *cli_env.base, "--model", cli_env.user_model, "--pk", "1", "-o", "table"]
         )
         assert json.loads(out)["id"] == 1
 
     def test_machine_output_stays_clean_with_debug_logs(self, cli_env):
         code, out, err = run_cli(
             [
-                "crud",
+                "dql",
                 "get",
                 *cli_env.base,
                 "--model",
@@ -1031,7 +1038,7 @@ class TestOutput:
 class TestAsync:
     def test_async_list(self, cli_env):
         code, out, _ = run_cli(
-            ["crud", "list", *cli_env.async_base, "--model", cli_env.async_model, "-o", "json"]
+            ["dql", "list", *cli_env.async_base, "--model", cli_env.async_model, "-o", "json"]
         )
         assert code == 0
         assert len(json.loads(out)) == 3
@@ -1039,7 +1046,7 @@ class TestAsync:
     def test_async_get(self, cli_env):
         code, out, _ = run_cli(
             [
-                "crud",
+                "dql",
                 "get",
                 *cli_env.async_base,
                 "--model",
@@ -1056,7 +1063,7 @@ class TestAsync:
     def test_async_create_update_delete(self, cli_env):
         code, out, _ = run_cli(
             [
-                "crud",
+                "dml",
                 "create",
                 *cli_env.async_base,
                 "--model",
@@ -1072,7 +1079,7 @@ class TestAsync:
 
         code, out, _ = run_cli(
             [
-                "crud",
+                "dml",
                 "update",
                 *cli_env.async_base,
                 "--model",
@@ -1090,24 +1097,25 @@ class TestAsync:
 
         code, out, _ = run_cli(
             [
-                "crud",
+                "dml",
                 "delete",
                 *cli_env.async_base,
                 "--model",
                 cli_env.async_model,
                 "--pk",
                 "4",
+                "--yes",
                 "-o",
                 "json",
             ]
         )
         assert code == 0
-        assert json.loads(out)["deleted"] == 1
+        assert json.loads(out)["affected"] == 1
 
     def test_async_not_found_returns_three(self, cli_env):
         code, out, _ = run_cli(
             [
-                "crud",
+                "dql",
                 "get",
                 *cli_env.async_base,
                 "--model",
@@ -1123,7 +1131,7 @@ class TestAsync:
 
     def test_async_model_rejects_sync_backend(self, cli_env):
         code, out, err = run_cli(
-            ["crud", "list", *cli_env.base, "--model", cli_env.async_model, "-o", "json"]
+            ["dql", "list", *cli_env.base, "--model", cli_env.async_model, "-o", "json"]
         )
         assert code == 1
         assert out == ""
