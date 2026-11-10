@@ -7,7 +7,9 @@ rearranging this one.
 
 Example:
     rhosocial-activerecord crud list --model app.models:User \\
-        --backend sqlite --database app.db -o json
+        --backend-class mypkg.backend:MyBackend \\
+        --config-class mypkg.config:MyConnectionConfig \\
+        --config database=app.db -o json
 """
 
 import argparse
@@ -186,7 +188,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     try:
         model_ref = load_model(args.model)
-        config, backend_class, _spec = resolve_connection(model_ref.model, model_ref.is_async, args)
+        config, backend_class = resolve_connection(model_ref.model, model_ref.is_async, args)
         if model_ref.is_async:
             return _configure_and_run_async(
                 model_ref.model, config, backend_class, args, args.log_level

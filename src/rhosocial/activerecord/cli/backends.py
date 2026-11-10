@@ -1,9 +1,17 @@
 # src/rhosocial/activerecord/cli/backends.py
-"""Built-in backend registry and connection resolution for the model CLI."""
+"""Backend and connection resolution for the model CLI.
+
+The CLI is part of the core package and therefore knows nothing about the
+packages that happen to ship a backend. A caller names the backend class and
+the connection config class by their fully qualified Python names, and passes
+connection configuration values as ``KEY=VALUE`` pairs.
+"""
 
 import dataclasses
 import importlib
-import importlib.util
+import inspect
+import json
+import types
 import typing
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -13,245 +21,159 @@ from ..backend.named_connection import NamedConnectionResolver
 from .errors import CLIError, BackendUnavailableError
 
 
-class BackendSpec:
-    """Everything needed to import and construct one built-in backend.
+#: Annotation wrapper used by ``typing.Annotated``; absent on Python 3.8.
+_ANNOTATED = getattr(typing, "Annotated", None)
 
-    Attributes:
-        name: The value accepted by ``--backend``.
-        package: Distribution that provides the backend, or None when it ships
-            inside the core package.
-        module: Import path for the sync and async backend classes.
-        sync_class: Class name of the synchronous backend.
-        async_class: Class name of the asynchronous backend, if one exists.
-        config_module: Import path for the connection config class.
-        config_class: Class name of the connection config.
-    """
-
-    def __init__(
-        self,
-        name: str,
-        package: Optional[str],
-        module: str,
-        sync_class: str,
-        async_class: Optional[str],
-        config_module: str,
-        config_class: str,
-    ):
-        self.name = name
-        self.package = package
-        self.module = module
-        self.sync_class = sync_class
-        self.async_class = async_class
-        self.config_module = config_module
-        self.config_class = config_class
+#: Union origins understood by the config value coercion helper.
+_UNION_ORIGINS = {typing.Union}
+if getattr(types, "UnionType", None) is not None:  # Python 3.10+
+    _UNION_ORIGINS.add(types.UnionType)
 
 
-_IMPL = "rhosocial.activerecord.backend.impl."
-
-#: The v1 registry. It is explicit on purpose: scanning the package layout
-#: would turn the directory structure into an undocumented plugin protocol.
-BACKENDS: Dict[str, BackendSpec] = {
-    "sqlite": BackendSpec(
-        "sqlite",
-        None,
-        _IMPL + "sqlite.backend",
-        "SQLiteBackend",
-        "AsyncSQLiteBackend",
-        _IMPL + "sqlite.config",
-        "SQLiteConnectionConfig",
-    ),
-    "mysql": BackendSpec(
-        "mysql",
-        "rhosocial-activerecord-mysql",
-        _IMPL + "mysql.backend",
-        "MySQLBackend",
-        "AsyncMySQLBackend",
-        _IMPL + "mysql.config",
-        "MySQLConnectionConfig",
-    ),
-    "mariadb": BackendSpec(
-        "mariadb",
-        "rhosocial-activerecord-mariadb",
-        _IMPL + "mariadb.backend",
-        "MariaDBBackend",
-        "AsyncMariaDBBackend",
-        _IMPL + "mariadb.config",
-        "MariaDBConnectionConfig",
-    ),
-    "postgres": BackendSpec(
-        "postgres",
-        "rhosocial-activerecord-postgres",
-        _IMPL + "postgres.backend",
-        "PostgresBackend",
-        "AsyncPostgresBackend",
-        _IMPL + "postgres.config",
-        "PostgresConnectionConfig",
-    ),
-    "sqlserver": BackendSpec(
-        "sqlserver",
-        "rhosocial-activerecord-sqlserver",
-        _IMPL + "sqlserver.backend",
-        "SQLServerBackend",
-        "AsyncSQLServerBackend",
-        _IMPL + "sqlserver.config",
-        "SQLServerConnectionConfig",
-    ),
-    "oracle": BackendSpec(
-        "oracle",
-        "rhosocial-activerecord-oracle",
-        _IMPL + "oracle.backend",
-        "OracleBackend",
-        "AsyncOracleBackend",
-        _IMPL + "oracle.config",
-        "OracleConnectionConfig",
-    ),
-    "firebird": BackendSpec(
-        "firebird",
-        "rhosocial-activerecord-firebird",
-        _IMPL + "firebird.backend",
-        "FirebirdBackend",
-        "AsyncFirebirdBackend",
-        _IMPL + "firebird.config",
-        "FirebirdConnectionConfig",
-    ),
-    "snowflake": BackendSpec(
-        "snowflake",
-        "rhosocial-activerecord-snowflake",
-        _IMPL + "snowflake.backend",
-        "SnowflakeBackend",
-        "AsyncSnowflakeBackend",
-        _IMPL + "snowflake.config",
-        "SnowflakeConnectionConfig",
-    ),
-    "clickhouse": BackendSpec(
-        "clickhouse",
-        "rhosocial-activerecord-clickhouse",
-        _IMPL + "clickhouse.backend",
-        "ClickHouseBackend",
-        "AsyncClickHouseBackend",
-        _IMPL + "clickhouse.config",
-        "ClickHouseConnectionConfig",
-    ),
-    "bigquery": BackendSpec(
-        "bigquery",
-        "rhosocial-activerecord-bigquery",
-        _IMPL + "bigquery.backend",
-        "BigQueryBackend",
-        "AsyncBigQueryBackend",
-        _IMPL + "bigquery.config",
-        "BigQueryConnectionConfig",
-    ),
-}
-
-_CONFIG_TO_BACKEND = {
-    spec.config_class: name for name, spec in BACKENDS.items()
-}
-
-_CONNECTION_FLAGS = ("database", "host", "port", "user", "password")
-
-try:
-    _ANNOTATED = typing.Annotated
-except AttributeError:  # Python 3.8
-    _ANNOTATED = None
-
-
-def install_hint(spec: BackendSpec) -> str:
-    """Return the pip command that installs a backend package."""
-    if spec.package is None:
-        return "The SQLite backend ships with rhosocial-activerecord."
-    return f"pip install {spec.package}"
-
-
-def find_backend(name: str) -> BackendSpec:
-    """Look up a backend by ``--backend`` name.
-
-    Args:
-        name: Backend name, case-insensitive.
-
-    Returns:
-        The matching registry entry.
-
-    Raises:
-        BackendUnavailableError: When the name is not in the registry.
-    """
-    spec = BACKENDS.get((name or "").lower())
-    if spec is None:
-        known = ", ".join(sorted(BACKENDS))
-        raise BackendUnavailableError(
-            f'Unsupported backend "{name}". Known backends: {known}'
-        )
-    return spec
-
-
-def _module_available(module_path: str) -> bool:
+def _load_attribute(module_path: str, attribute: str, reference: str, label: str) -> Any:
+    """Import a module and walk a dotted attribute path inside it."""
     try:
-        return importlib.util.find_spec(module_path) is not None
-    except (ImportError, AttributeError, ValueError):
-        return False
-
-
-def ensure_backend_available(spec: BackendSpec) -> None:
-    """Check that a backend package is installed before importing it."""
-    if spec.package is not None and not _module_available(spec.module):
-        raise BackendUnavailableError(
-            f'Backend "{spec.name}" needs the {spec.package} package.',
-            hint=install_hint(spec),
-        )
-
-
-def load_backend_class(spec: BackendSpec, is_async: bool):
-    """Import the sync or async backend class from the registry."""
-    ensure_backend_available(spec)
-    class_name = spec.async_class if is_async else spec.sync_class
-    if is_async and not class_name:
-        raise BackendUnavailableError(
-            f'Backend "{spec.name}" does not provide an asynchronous backend.'
-        )
-    try:
-        module = importlib.import_module(spec.module)
-        backend_class = getattr(module, class_name)
+        module = importlib.import_module(module_path)
     except ImportError as exc:
         raise BackendUnavailableError(
-            f'Cannot import backend "{spec.name}" ({class_name}): {exc}',
-            hint=install_hint(spec),
+            f'Cannot import the {label} "{reference}": {exc}',
+            hint="Install the package that provides it and check the module path.",
         ) from None
+
+    target = module
+    try:
+        for part in attribute.split("."):
+            target = getattr(target, part)
     except AttributeError:
         raise BackendUnavailableError(
-            f'Backend module "{spec.module}" has no class "{class_name}".'
+            f'The {label} module "{module_path}" has no attribute "{attribute}".'
         ) from None
+    except ImportError as exc:
+        raise BackendUnavailableError(
+            f'Cannot import the {label} "{reference}": {exc}',
+            hint="Install the optional package that provides it.",
+        ) from None
+    return target
+
+
+def import_symbol(reference: str, label: str = "class") -> Any:
+    """Import a class named as ``module:Class`` or as a dotted name.
+
+    Both spellings are accepted: ``mypkg.backend:MyBackend`` (the same shape
+    used by ``--model`` and ``--connection``) and ``mypkg.backend.MyBackend``.
+    The dotted form is resolved by trying progressively shorter module paths,
+    so a class may be nested several packages deep without the caller having
+    to know where the module ends and the attribute begins.
+
+    Args:
+        reference: Fully qualified class name.
+        label: What the value names, used in error messages.
+
+    Returns:
+        The imported object.
+
+    Raises:
+        BackendUnavailableError: When the module or attribute cannot be found.
+    """
+    reference = (reference or "").strip()
+    if not reference:
+        raise CLIError(f"The {label} reference is empty")
+
+    if ":" in reference:
+        module_path, attribute = reference.rsplit(":", 1)
+        if not module_path or not attribute:
+            raise CLIError(
+                f'Invalid {label} "{reference}": expected the form module:Class'
+            )
+        return _load_attribute(module_path, attribute, reference, label)
+
+    parts = reference.split(".")
+    if len(parts) < 2:
+        raise CLIError(
+            f'Invalid {label} "{reference}": expected the form module:Class'
+        )
+
+    # A dotted name has no delimiter between the module and the attribute,
+    # so try the longest importable module prefix first.
+    for index in range(len(parts) - 1, 0, -1):
+        module_path = ".".join(parts[:index])
+        attribute = ".".join(parts[index:])
+        try:
+            target = importlib.import_module(module_path)
+        except ImportError:
+            continue
+
+        try:
+            for part in attribute.split("."):
+                target = getattr(target, part)
+        except AttributeError:
+            raise BackendUnavailableError(
+                f'The {label} module "{module_path}" has no attribute "{attribute}".'
+            ) from None
+        except ImportError as exc:
+            raise BackendUnavailableError(
+                f'Cannot import the {label} "{reference}": {exc}',
+                hint="Install the optional package that provides it.",
+            ) from None
+        return target
+
+    raise BackendUnavailableError(
+        f'Cannot import the {label} "{reference}".',
+        hint="Install the package that provides it and check the class path.",
+    )
+
+
+def load_backend_class(reference: str, is_async: bool):
+    """Import and validate a backend class.
+
+    Args:
+        reference: Fully qualified backend class name.
+        is_async: Whether the model uses the asynchronous API. The caller is
+            expected to name the class that matches this mode.
+
+    Returns:
+        The backend class.
+
+    Raises:
+        CLIError: When the reference does not name a backend of the right kind.
+        BackendUnavailableError: When the reference cannot be imported.
+    """
+    backend_class = import_symbol(reference, "backend class")
+    if not isinstance(backend_class, type):
+        raise CLIError(f'The backend reference "{reference}" does not name a class')
+
+    expected = AsyncStorageBackend if is_async else StorageBackend
+    if not issubclass(backend_class, expected):
+        article = "an" if is_async else "a"
+        kind = "asynchronous" if is_async else "synchronous"
+        raise CLIError(
+            f'The backend class "{reference}" is not {article} {kind} backend'
+        )
     return backend_class
 
 
-def load_config_class(spec: BackendSpec):
-    """Import the connection config class from the registry."""
-    ensure_backend_available(spec)
-    try:
-        module = importlib.import_module(spec.config_module)
-        return getattr(module, spec.config_class)
-    except ImportError as exc:
-        raise BackendUnavailableError(
-            f'Cannot import connection config for "{spec.name}": {exc}',
-            hint=install_hint(spec),
-        ) from None
-    except AttributeError:
-        raise BackendUnavailableError(
-            f'Backend module "{spec.config_module}" has no class "{spec.config_class}".'
-        ) from None
-
-
-def infer_backend_name(config: ConnectionConfig) -> Optional[str]:
-    """Infer the backend from a named connection's config type."""
-    return _CONFIG_TO_BACKEND.get(type(config).__name__)
+def load_config_class(reference: str):
+    """Import and validate a connection config class."""
+    config_class = import_symbol(reference, "connection config class")
+    if not isinstance(config_class, type):
+        raise CLIError(
+            f'The connection config reference "{reference}" does not name a class'
+        )
+    if not issubclass(config_class, ConnectionConfig):
+        raise CLIError(
+            f'The connection config class "{reference}" is not a ConnectionConfig subclass'
+        )
+    return config_class
 
 
 def _parse_options(option_values: Optional[List[str]]) -> List[Tuple[str, str]]:
     parsed = []
     for item in option_values or []:
         if "=" not in item:
-            raise CLIError(f'Invalid --option "{item}": expected KEY=VALUE')
+            raise CLIError(f'Invalid --config "{item}": expected KEY=VALUE')
         key, value = item.split("=", 1)
         if not key:
-            raise CLIError(f'Invalid --option "{item}": key is empty')
+            raise CLIError(f'Invalid --config "{item}": key is empty')
         parsed.append((key, value))
     return parsed
 
@@ -262,9 +184,9 @@ def _scalar_type(annotation) -> type:
     args = typing.get_args(annotation)
     if _ANNOTATED is not None and origin is _ANNOTATED and args:
         return _scalar_type(args[0])
-    if origin is typing.Union:
+    if origin in _UNION_ORIGINS:
         candidates = [arg for arg in args if arg is not type(None)]
-        return candidates[0] if candidates and isinstance(candidates[0], type) else str
+        return _scalar_type(candidates[0]) if candidates else str
     if origin is not None:
         return str
     return annotation if isinstance(annotation, type) else str
@@ -287,81 +209,111 @@ def _coerce(value: str, annotation) -> Any:
     return value
 
 
-def _field_names(config_class) -> Dict[str, Any]:
+def _field_types(config_class) -> Dict[str, Any]:
+    """Return the constructor's field names and their annotations."""
     try:
-        fields = dataclasses.fields(config_class)
+        dataclass_fields = dataclasses.fields(config_class)
     except TypeError:
-        return {}
+        dataclass_fields = None
+
+    if dataclass_fields is not None:
+        try:
+            hints = typing.get_type_hints(config_class)
+        except (NameError, TypeError):
+            hints = {}
+        return {
+            field.name: hints.get(field.name, field.type)
+            for field in dataclass_fields
+        }
+
     try:
-        hints = typing.get_type_hints(config_class)
-    except (NameError, TypeError):
-        hints = {}
-    return {field.name: hints.get(field.name, field.type) for field in fields}
+        signature = inspect.signature(config_class)
+        hints = typing.get_type_hints(config_class.__init__)
+    except (TypeError, ValueError, NameError):
+        return {}
+
+    fields: Dict[str, Any] = {}
+    for name, parameter in signature.parameters.items():
+        if name == "self" or parameter.kind in (
+            inspect.Parameter.VAR_POSITIONAL,
+            inspect.Parameter.VAR_KEYWORD,
+        ):
+            continue
+        fields[name] = hints.get(name, parameter.annotation)
+    return fields
 
 
-def _collect_overrides(args, config_class) -> Dict[str, Any]:
-    fields = _field_names(config_class)
+def _collect_config_updates(args, config_class) -> Dict[str, Any]:
+    """Turn repeated ``--config KEY=VALUE`` options into constructor kwargs.
+
+    A key that names a constructor field is coerced to that field's type.
+    ``options.KEY=value`` and unknown keys are collected into ``config.options``,
+    so a backend may accept driver-specific values without the CLI knowing them.
+    """
+    fields = _field_types(config_class)
     updates: Dict[str, Any] = {}
-    mapping = {
-        "database": getattr(args, "database", None),
-        "host": getattr(args, "host", None),
-        "port": getattr(args, "port", None),
-        "username": getattr(args, "user", None),
-        "password": getattr(args, "password", None),
-    }
-    for field_name, value in mapping.items():
-        if value is not None and field_name in fields:
-            updates[field_name] = _coerce(value, fields[field_name])
+    extra_options: Dict[str, Any] = {}
 
-    extra_options = {}
-    for key, value in _parse_options(getattr(args, "option", None)):
-        if key in fields and key != "options":
+    for key, value in _parse_options(getattr(args, "config", None)):
+        if key == "options":
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError:
+                raise CLIError(
+                    '--config options must be a JSON object; '
+                    "use options.KEY=VALUE for individual entries"
+                ) from None
+            if not isinstance(parsed, dict):
+                raise CLIError("--config options must be a JSON object")
+            extra_options.update(parsed)
+        elif key.startswith("options."):
+            extra_options[key[len("options."):]] = value
+        elif key in fields and key != "options":
             updates[key] = _coerce(value, fields[key])
         else:
             extra_options[key] = value
+
     if extra_options:
         updates["options"] = extra_options
     return updates
 
 
+def _build_config(args, config_class) -> ConnectionConfig:
+    values = _collect_config_updates(args, config_class)
+    try:
+        config = config_class(**values)
+    except TypeError as exc:
+        raise CLIError(f"Cannot build connection config: {exc}") from None
+    if not isinstance(config, ConnectionConfig):
+        raise CLIError(
+            f'"{config_class.__name__}" produced {type(config).__name__}, '
+            "not a ConnectionConfig"
+        )
+    return config
+
+
 def _apply_overrides(config: ConnectionConfig, args) -> ConnectionConfig:
-    updates = _collect_overrides(args, type(config))
+    updates = _collect_config_updates(args, type(config))
     if not updates:
         return config
     if "options" in updates:
         merged = dict(getattr(config, "options", {}) or {})
         merged.update(updates["options"])
         updates["options"] = merged
-    return config.clone(**updates)
 
-
-def _build_config(args, config_class) -> ConnectionConfig:
-    fields = _field_names(config_class)
-    values: Dict[str, Any] = {}
-    mapping = {
-        "database": getattr(args, "database", None),
-        "host": getattr(args, "host", None),
-        "port": getattr(args, "port", None),
-        "username": getattr(args, "user", None),
-        "password": getattr(args, "password", None),
-    }
-    for field_name, value in mapping.items():
-        if value is not None and field_name in fields:
-            values[field_name] = _coerce(value, fields[field_name])
-
-    extra_options = {}
-    for key, value in _parse_options(getattr(args, "option", None)):
-        if key in fields and key != "options":
-            values[key] = _coerce(value, fields[key])
-        else:
-            extra_options[key] = value
-    if extra_options:
-        values["options"] = extra_options
+    clone = getattr(config, "clone", None)
+    if callable(clone):
+        return clone(**updates)
 
     try:
-        return config_class(**values)
+        base = config.to_dict()
+    except (AttributeError, TypeError):
+        base = {}
+    base.update(updates)
+    try:
+        return type(config)(**base)
     except TypeError as exc:
-        raise CLIError(f"Cannot build connection config: {exc}") from None
+        raise CLIError(f"Cannot override connection config: {exc}") from None
 
 
 def _load_named_connection(qualified_name: str) -> ConnectionConfig:
@@ -384,70 +336,67 @@ def _load_named_connection(qualified_name: str) -> ConnectionConfig:
     return config
 
 
-def _has_new_connection(args) -> bool:
-    if getattr(args, "backend", None) or getattr(args, "connection", None):
-        return True
-    return any(getattr(args, flag, None) is not None for flag in _CONNECTION_FLAGS)
-
-
 def _validate_backend_class(backend_class, is_async: bool, source: str) -> None:
     expected = AsyncStorageBackend if is_async else StorageBackend
     if not issubclass(backend_class, expected):
+        article = "an" if is_async else "a"
         kind = "asynchronous" if is_async else "synchronous"
         raise CLIError(
-            f"{source} selected {backend_class.__name__}, which is not a {kind} backend"
+            f"{source} selected {backend_class.__name__}, which is not "
+            f"{article} {kind} backend"
         )
 
 
 def resolve_connection(model, is_async: bool, args):
     """Resolve the connection config and backend class for one command.
 
-    Priority: explicit ``--connection``, explicit ``--backend`` or connection
-    flags, then the model module's own configuration.
+    Each half is resolved independently:
+
+    * backend class: ``--backend-class``, otherwise the model's own
+      ``configure()``.
+    * connection config: ``--connection``, ``--config-class`` with ``--config``
+      values, otherwise the model's own ``configure()``.
+
+    The two halves may come from different sources, so a named connection can
+    supply credentials while the model supplies its backend class.
 
     Returns:
-        Tuple of (config, backend_class, spec) where ``spec`` is None when the
-        model's existing configuration is reused.
+        Tuple of (config, backend_class).
+
+    Raises:
+        CLIError: When a required half is missing or the two inputs conflict.
     """
-    if getattr(args, "connection", None):
-        config = _load_named_connection(args.connection)
-        inferred = infer_backend_name(config)
-        explicit = getattr(args, "backend", None)
-        if explicit and inferred and explicit.lower() != inferred:
+    backend_reference = getattr(args, "backend_class", None)
+    if backend_reference:
+        backend_class = load_backend_class(backend_reference, is_async)
+    else:
+        backend_class = getattr(model, "__backend_class__", None)
+        if backend_class is None:
             raise CLIError(
-                f'--backend "{explicit}" conflicts with the config returned by '
-                f'--connection, which belongs to "{inferred}"'
+                f"{model.__name__} has no backend class. Pass --backend-class "
+                "MODULE:CLASS, or call configure() in the model module."
             )
-        name = explicit.lower() if explicit else inferred
-        if not name:
-            raise BackendUnavailableError(
-                "Cannot infer the backend from --connection; add --backend"
-            )
-        spec = find_backend(name)
-        backend_class = load_backend_class(spec, is_async)
-        _validate_backend_class(backend_class, is_async, f'Backend "{name}"')
-        return _apply_overrides(config, args), backend_class, spec
+        _validate_backend_class(backend_class, is_async, f"{model.__name__}'s configuration")
 
-    if _has_new_connection(args):
-        name = (getattr(args, "backend", None) or "sqlite").lower()
-        spec = find_backend(name)
-        config_class = load_config_class(spec)
-        if name == "sqlite" and getattr(args, "database", None) is None:
+    connection_reference = getattr(args, "connection", None)
+    config_reference = getattr(args, "config_class", None)
+    if connection_reference and config_reference:
+        raise CLIError("Use --connection or --config-class, not both")
+
+    if connection_reference:
+        config = _apply_overrides(_load_named_connection(connection_reference), args)
+    elif config_reference:
+        config = _build_config(args, load_config_class(config_reference))
+    else:
+        config = getattr(model, "__connection_config__", None)
+        if config is None:
             raise CLIError(
-                "The sqlite backend needs --database (a file path or :memory:)"
+                f"{model.__name__} has no connection config. Pass --config-class "
+                "MODULE:CLASS with --config KEY=VALUE, pass --connection, or call "
+                "configure() in the model module."
             )
-        backend_class = load_backend_class(spec, is_async)
-        _validate_backend_class(backend_class, is_async, f'Backend "{name}"')
-        return _build_config(args, config_class), backend_class, spec
+        if not isinstance(config, ConnectionConfig):
+            raise CLIError(f"{model.__name__} has an invalid connection configuration")
+        config = _apply_overrides(config, args)
 
-    config = getattr(model, "__connection_config__", None)
-    backend_class = getattr(model, "__backend_class__", None)
-    if config is None or backend_class is None:
-        raise CLIError(
-            f'{model.__name__} has no database configuration. Pass --backend and '
-            "connection flags, or --connection, or call configure() in the model module."
-        )
-    if not isinstance(config, ConnectionConfig):
-        raise CLIError(f"{model.__name__} has an invalid connection configuration")
-    _validate_backend_class(backend_class, is_async, f"{model.__name__}'s configuration")
-    return _apply_overrides(config, args), backend_class, None
+    return config, backend_class

@@ -45,11 +45,12 @@ def _add_connection_arguments(parser):
         help="Extra directory to add to sys.path; may be repeated",
     )
     parser.add_argument(
-        "--backend",
+        "--backend-class",
         default=None,
-        metavar="NAME",
-        help="Database backend: sqlite, mysql, mariadb, postgres, sqlserver, "
-        "oracle, firebird, snowflake, clickhouse, bigquery",
+        metavar="MODULE:CLASS",
+        help="Fully qualified backend class to use, for example "
+        "mypkg.backend:MyBackend. For an asynchronous model, name the "
+        "asynchronous class.",
     )
     parser.add_argument(
         "--connection",
@@ -57,17 +58,20 @@ def _add_connection_arguments(parser):
         metavar="MODULE:CALLABLE",
         help="Named connection callable returning a ConnectionConfig",
     )
-    parser.add_argument("--database", default=None, help="Database name or SQLite file path")
-    parser.add_argument("--host", default=None, help="Database host")
-    parser.add_argument("--port", default=None, help="Database port")
-    parser.add_argument("--user", default=None, help="Database user name")
-    parser.add_argument("--password", default=None, help="Database password (not logged)")
     parser.add_argument(
-        "--option",
+        "--config-class",
+        default=None,
+        metavar="MODULE:CLASS",
+        help="Fully qualified connection config class, for example "
+        "mypkg.config:MyConnectionConfig",
+    )
+    parser.add_argument(
+        "--config",
         action="append",
         default=None,
         metavar="KEY=VALUE",
-        help="Set a config field, or add KEY=VALUE to config.options",
+        help="Set a connection config field; may be repeated. Unknown keys and "
+        "options.KEY entries go into config.options",
     )
     parser.add_argument(
         "-o",
