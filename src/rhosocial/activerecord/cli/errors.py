@@ -19,6 +19,15 @@ EXIT_NOT_FOUND = 3
 #: The selected backend package is not installed or is unknown.
 EXIT_BACKEND_UNAVAILABLE = 4
 
+#: A destructive command needs --yes in a non-interactive context.
+EXIT_CONFIRMATION_REQUIRED = 5
+
+#: A DML command was attempted on a model that declares itself read-only.
+EXIT_READ_ONLY = 6
+
+#: A downstream pipe closed before the CLI finished writing.
+EXIT_BROKEN_PIPE = 141
+
 
 class CLIError(Exception):
     """A recoverable CLI failure with its process exit code.
@@ -48,6 +57,24 @@ class BackendUnavailableError(CLIError):
 
     def __init__(self, message: str, hint: Optional[str] = None):
         super().__init__(message, exit_code=EXIT_BACKEND_UNAVAILABLE, hint=hint)
+
+
+class ConfirmationRequiredError(CLIError):
+    """A destructive command needs --yes because stdin/stdout is not a TTY."""
+
+    def __init__(self, message: str):
+        super().__init__(message, exit_code=EXIT_CONFIRMATION_REQUIRED)
+
+
+class ReadOnlyModelError(CLIError):
+    """DML was refused because the model declares itself read-only."""
+
+    def __init__(self, model_name: str, operation: str):
+        super().__init__(
+            f"{model_name} is read-only (__read_only__ = True); "
+            f"'{operation}' is not allowed.",
+            exit_code=EXIT_READ_ONLY,
+        )
 
 
 def report_error(error: CLIError) -> None:
