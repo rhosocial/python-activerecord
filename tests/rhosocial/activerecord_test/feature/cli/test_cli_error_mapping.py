@@ -10,6 +10,7 @@ from rhosocial.activerecord.backend.errors import (
     RecordNotFound,
     StaleRecordError,
     UnaddressableRecordError,
+    TransactionError,
 )
 from rhosocial.activerecord.cli import build_parser
 from rhosocial.activerecord.cli.error_mapping import operation_label, translate_error
@@ -105,6 +106,13 @@ class TestErrorMapping:
         translated = translate_error(IntegrityError("duplicate key"), operation="dml create")
         assert translated.exit_code == EXIT_ERROR
         assert "Integrity constraint failed during dml create" in translated.message
+
+    def test_transaction_error_is_exit_one_with_context(self):
+        translated = translate_error(
+            TransactionError("Auto-commit failed"), operation="dml create"
+        )
+        assert translated.exit_code == EXIT_ERROR
+        assert "Database transaction failed during dml create" in translated.message
 
     def test_unknown_error_returns_none(self):
         assert translate_error(ValueError("unexpected")) is None

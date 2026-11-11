@@ -5,11 +5,11 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.field import UUIDMixin, TimestampMixin
+from rhosocial.activerecord.field import UUIDMixin, DefaultTimestampMixin
 from rhosocial.activerecord.relation import BelongsTo, HasMany
 
 
-class User(UUIDMixin, TimestampMixin, ActiveRecord):
+class User(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     username: str
     email: str
 
@@ -25,7 +25,7 @@ class User(UUIDMixin, TimestampMixin, ActiveRecord):
         return "users"
 
 
-class Post(UUIDMixin, TimestampMixin, ActiveRecord):
+class Post(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     user_id: uuid.UUID
     title: str
     content: str
@@ -42,7 +42,7 @@ class Post(UUIDMixin, TimestampMixin, ActiveRecord):
         return "posts"
 
 
-class Comment(UUIDMixin, TimestampMixin, ActiveRecord):
+class Comment(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     user_id: uuid.UUID
     post_id: uuid.UUID
     content: str
@@ -62,7 +62,7 @@ class Comment(UUIDMixin, TimestampMixin, ActiveRecord):
 def setup_database():
     """Initialize the database and create tables."""
     backend = SQLiteBackend(
-        connection_config=SQLiteConnectionConfig(database="graphql_example.db", options={"check_same_thread": False})
+        connection_config=SQLiteConnectionConfig(database="graphql_example.db", check_same_thread=False)
     )
     # Share the backend across models
     User.__backend__ = backend
@@ -107,7 +107,7 @@ def setup_database():
 
 def seed_data():
     """Seed some initial data."""
-    if User.count() > 0:
+    if User.query().count() > 0:
         return
 
     alice = User(username="alice", email="alice@example.com")

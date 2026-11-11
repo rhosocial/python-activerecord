@@ -16,9 +16,9 @@ from rhosocial.activerecord.connection.pool import (
     PoolConfig,
     AsyncBackendPool,
     get_current_async_pool,
-    get_current_transaction_backend,
-    get_current_connection_backend,
-    get_current_backend,
+    get_current_async_transaction_backend,
+    get_current_async_connection_backend,
+    get_current_async_backend,
 )
 from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import AsyncSQLiteBackend
 from rhosocial.activerecord.backend.options import ExecutionOptions
@@ -28,9 +28,9 @@ from rhosocial.activerecord.backend.schema import StatementType
 async def print_context_state(label: str):
     """Helper to print current context state."""
     pool = get_current_async_pool()
-    tx_backend = get_current_transaction_backend()
-    conn_backend = get_current_connection_backend()
-    current_backend = get_current_backend()
+    tx_backend = get_current_async_transaction_backend()
+    conn_backend = get_current_async_connection_backend()
+    current_backend = get_current_async_backend()
 
     print(f"\n{label}:")
     print(f"  Async Pool: {pool is not None}")
@@ -54,7 +54,7 @@ class AsyncItemRepository:
 
     async def create(self, name: str, worker_id: int) -> int:
         """Create a new item."""
-        backend = get_current_backend()
+        backend = get_current_async_backend()
         if backend is None:
             raise RuntimeError("No connection in current context")
 
@@ -67,7 +67,7 @@ class AsyncItemRepository:
 
     async def count(self) -> int:
         """Count all items."""
-        backend = get_current_backend()
+        backend = get_current_async_backend()
         if backend is None:
             raise RuntimeError("No connection in current context")
 
@@ -152,8 +152,8 @@ async def main():
                 await print_context_state("In async transaction context")
 
                 # Both transaction and connection are set
-                tx = get_current_transaction_backend()
-                conn = get_current_connection_backend()
+                tx = get_current_async_transaction_backend()
+                conn = get_current_async_connection_backend()
                 assert tx is backend
                 assert conn is backend
 

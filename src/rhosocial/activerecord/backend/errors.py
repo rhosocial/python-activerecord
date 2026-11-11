@@ -1,17 +1,93 @@
-# src/rhosocial/activerecord/backend/errors.py
-from typing import Any, TYPE_CHECKING
+"""Database error hierarchy with semantic categories.
+
+Concrete error classes keep their names and raise sites. Semantic base classes
+let an application catch by intent (data problem, missing record, policy,
+concurrency, infrastructure) without checking each concrete class.
+
+Every concrete class is still a :class:`DatabaseError`, so existing
+``except DatabaseError`` handlers keep working.
+"""
+
+from typing import Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from typing import List, Tuple
 
 
 class DatabaseError(Exception):
-    """Base class for database errors"""
+    """Base class for database errors.
 
-    pass
+    Attributes:
+        retryable: Advisory hint. ``True`` means a retry may succeed; it is not
+            an automatic retry policy. Concrete classes and backends override it.
+        transient: ``True`` for infrastructure failures that are expected to pass
+            on retry (timeouts, lost connections); ``None`` when unknown.
+        operation: Optional operation label attached by a backend.
+        sqlstate: Optional SQLSTATE attached by a backend.
+        driver_code: Optional driver error code attached by a backend.
+        backend: Optional backend name attached by a backend.
+    """
+
+    retryable = False
+    transient = None
+    operation: Optional[str] = None
+    sqlstate: Optional[str] = None
+    driver_code: Optional[Any] = None
+    backend: Optional[str] = None
 
 
-class ConnectionError(DatabaseError):
+# ---------------------------------------------------------------------------
+# Semantic categories
+# ---------------------------------------------------------------------------
+
+
+class DataError(DatabaseError):
+    """The data itself is invalid or violates a constraint."""
+
+    retryable = False
+
+
+class RecordError(DatabaseError):
+    """The record does not exist or cannot be addressed by primary key."""
+
+    retryable = False
+
+
+class PolicyError(DatabaseError):
+    """The framework refused the operation for policy reasons.
+
+    Attributes:
+        model_name: Model the policy applies to, when known.
+        operation: Refused operation, when known.
+    """
+
+    retryable = False
+    model_name: Optional[str] = None
+
+
+class ConcurrencyError(DatabaseError):
+    """A concurrent writer caused the operation to lose a race."""
+
+    retryable = True
+
+
+class InfrastructureError(DatabaseError):
+    """The connection or runtime environment failed the operation.
+
+    ``retryable`` stays False by default: authentication and permission
+    failures do not improve on retry. Backends mark transient failures with
+    ``attach_diagnostics(..., transient=True)``.
+    """
+
+    retryable = False
+
+
+# ---------------------------------------------------------------------------
+# Concrete errors
+# ---------------------------------------------------------------------------
+
+
+class ConnectionError(InfrastructureError):
     """Connection error"""
 
     pass
@@ -29,13 +105,13 @@ class QueryError(DatabaseError):
     pass
 
 
-class ValidationError(DatabaseError):
+class ValidationError(DataError):
     """Data validation error"""
 
     pass
 
 
-class ReadOnlyError(DatabaseError):
+class ReadOnlyError(PolicyError):
     """A write was attempted on a read-only model.
 
     Raised before any statement is issued, so a refused write leaves the
@@ -53,7 +129,7 @@ class ReadOnlyError(DatabaseError):
         )
 
 
-class LockError(DatabaseError):
+class LockError(ConcurrencyError):
     """Lock error"""
 
     pass
@@ -65,13 +141,13 @@ class DeadlockError(LockError):
     pass
 
 
-class IntegrityError(DatabaseError):
+class IntegrityError(DataError):
     """Integrity constraint error"""
 
     pass
 
 
-class StaleRecordError(DatabaseError):
+class StaleRecordError(ConcurrencyError):
     """The record version no longer matches the stored row.
 
     Raised by optimistic locking when the UPDATE affects no rows because the
@@ -113,25 +189,25 @@ class StaleRecordError(DatabaseError):
         super().__init__(message)
 
 
-class TypeConversionError(DatabaseError):
+class TypeConversionError(DataError):
     """Type conversion error"""
 
     pass
 
 
-class OperationalError(DatabaseError):
+class OperationalError(InfrastructureError):
     """Operational error (timeout, connection lost, etc.)"""
 
     pass
 
 
-class RecordNotFound(DatabaseError):
+class RecordNotFound(RecordError):
     """Record not found"""
 
     pass
 
 
-class UnaddressableRecordError(DatabaseError):
+class UnaddressableRecordError(RecordError):
     """A keyless model was asked for single-row access by primary key.
 
     ``__primary_key__ = None`` declares a relation with no single-row identity,
@@ -161,8 +237,12 @@ class BulkOperationError(DatabaseError):
     pass
 
 
-class BulkValidationError(BulkOperationError):
-    """Bulk validation failed, contains indices and error messages of failed records"""
+class BulkValidationError(BulkOperationError, DataError):
+    """Bulk validation failed, contains indices and error messages of failed records.
+
+    Inherits both :class:`BulkOperationError` (bulk semantics) and
+    :class:`DataError` (invalid data), so either catch group works.
+    """
 
     def __init__(self, errors: "List[Tuple[int, str]]", message: str = "Bulk validation failed"):
         self.errors = errors
@@ -186,7 +266,7 @@ class UnsupportedTransactionModeError(TransactionError):
     """Raised when requesting an unsupported transaction mode.
 
     This error is raised when a transaction mode (e.g., READ ONLY) is
-    requested but the database backend does not support it.
+    requested and the database backend does not support it.
 
     Attributes:
         feature: The unsupported feature name.
@@ -205,7 +285,7 @@ class UnsupportedTransactionModeError(TransactionError):
 class UnsupportedIsolationLevelError(TransactionError):
     """Raised when requesting an unsupported isolation level.
 
-    This error is raised when an isolation level is requested but the
+    This error is raised when an isolation level is requested and the
     database backend does not support it.
 
     Attributes:
@@ -220,3 +300,44 @@ class UnsupportedIsolationLevelError(TransactionError):
         if message:
             error_msg = f"{error_msg}. {message}"
         super().__init__(error_msg)
+
+
+def attach_diagnostics(
+    error: DatabaseError,
+    *,
+    operation: Optional[str] = None,
+    sqlstate: Optional[str] = None,
+    driver_code: Optional[Any] = None,
+    backend: Optional[str] = None,
+    transient: Optional[bool] = None,
+) -> DatabaseError:
+    """Attach driver context to an error without changing its type or message.
+
+    Backends call this right before raising, so callers and logs can tell
+    which operation, SQLSTATE, or driver code produced the failure.
+
+    Args:
+        error: The error instance to annotate; returned unchanged.
+        operation: Operation label such as ``"insert"`` or ``"connect"``.
+        sqlstate: Driver SQLSTATE, when the driver exposes one.
+        driver_code: Driver-specific numeric or string error code.
+        backend: Backend name such as ``"mysql"``.
+        transient: Whether an infrastructure failure is expected to pass on
+            retry. A transient infrastructure error becomes ``retryable``.
+
+    Returns:
+        The same error instance, annotated.
+    """
+    if operation is not None:
+        error.operation = operation
+    if sqlstate is not None:
+        error.sqlstate = sqlstate
+    if driver_code is not None:
+        error.driver_code = driver_code
+    if backend is not None:
+        error.backend = backend
+    if transient is not None:
+        error.transient = transient
+        if transient and isinstance(error, InfrastructureError):
+            error.retryable = True
+    return error
