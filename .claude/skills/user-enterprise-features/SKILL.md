@@ -45,7 +45,9 @@ from rhosocial.activerecord.field import (
 from rhosocial.activerecord.base import FieldProxy
 
 class Inventory(VersionMixin, ActiveRecord):
-    __table_name__ = 'inventory'
+    @classmethod
+    def table_name(cls):
+        return 'inventory'
     
     product_name: str
     quantity: int
@@ -114,7 +116,9 @@ from rhosocial.activerecord.field import SoftDeleteMixin
 from rhosocial.activerecord.base import FieldProxy
 
 class Comment(SoftDeleteMixin, ActiveRecord):
-    __table_name__ = 'comments'
+    @classmethod
+    def table_name(cls):
+        return 'comments'
     
     content: str
     author: str
@@ -191,7 +195,9 @@ from rhosocial.activerecord.field import TimestampMixin
 from rhosocial.activerecord.base import FieldProxy
 
 class Article(TimestampMixin, ActiveRecord):
-    __table_name__ = 'articles'
+    @classmethod
+    def table_name(cls):
+        return 'articles'
     
     title: str
     content: str
@@ -239,7 +245,9 @@ from rhosocial.activerecord.field import TimestampMixin
 from rhosocial.activerecord.base import FieldProxy
 
 class File(UUIDMixin, ActiveRecord):
-    __table_name__ = 'files'
+    @classmethod
+    def table_name(cls):
+        return 'files'
     
     filename: str
     size: int
@@ -271,7 +279,9 @@ from rhosocial.activerecord.field import UUIDMixin
 import uuid
 
 class CustomFile(UUIDMixin, ActiveRecord):
-    __table_name__ = 'files'
+    @classmethod
+    def table_name(cls):
+        return 'files'
     
     @classmethod
     def _generate_uuid(cls):
@@ -305,7 +315,9 @@ from rhosocial.activerecord.field import TimestampMixin
 from rhosocial.activerecord.base import FieldProxy
 
 class Order(TimestampMixin, ActiveRecord):
-    __table_name__ = 'orders'
+    @classmethod
+    def table_name(cls):
+        return 'orders'
     
     amount: float
     status: str = 'pending'
@@ -326,7 +338,9 @@ Order.configure(backend)
 
 ```python
 class AuditLog(ActiveRecord):
-    __table_name__ = 'audit_logs'
+    @classmethod
+    def table_name(cls):
+        return 'audit_logs'
     
     action: str
     details: str
@@ -334,7 +348,9 @@ class AuditLog(ActiveRecord):
     c: ClassVar = FieldProxy()
 
 class User(TimestampMixin, ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
     
     name: str
     email: str
@@ -370,7 +386,9 @@ class User(TimestampMixin, ActiveRecord):
 import asyncio
 
 class Notification(TimestampMixin, ActiveRecord):
-    __table_name__ = 'notifications'
+    @classmethod
+    def table_name(cls):
+        return 'notifications'
     
     user_id: int
     message: str
@@ -404,7 +422,9 @@ class Product(
     VersionMixin,       # version for concurrency
     ActiveRecord
 ):
-    __table_name__ = 'products'
+    @classmethod
+    def table_name(cls):
+        return 'products'
     
     name: str
     price: float

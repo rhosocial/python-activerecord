@@ -30,7 +30,9 @@ from rhosocial.activerecord.connection.manager import BackendManager, AsyncBacke
 class CallableUser(IntegerPKMixin, ActiveRecord):
     """Test User model for callable config tests."""
 
-    __table_name__ = "callable_users"
+    @classmethod
+    def table_name(cls):
+        return "callable_users"
 
     id: Optional[int] = None
     name: str
@@ -39,7 +41,9 @@ class CallableUser(IntegerPKMixin, ActiveRecord):
 class AsyncCallableUser(IntegerPKMixin, AsyncActiveRecord):
     """Test async User model for callable config tests."""
 
-    __table_name__ = "callable_users"
+    @classmethod
+    def table_name(cls):
+        return "callable_users"
 
     id: Optional[int] = None
     name: str

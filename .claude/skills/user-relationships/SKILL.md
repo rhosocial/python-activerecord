@@ -37,7 +37,9 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.relation import BelongsTo
 
 class Comment(ActiveRecord):
-    __table_name__ = 'comments'
+    @classmethod
+    def table_name(cls):
+        return 'comments'
     
     content: str
     user_id: int  # Foreign key
@@ -62,7 +64,9 @@ class Comment(ActiveRecord):
 
 ```python
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
     
     name: str
     c: ClassVar = FieldProxy()
@@ -74,7 +78,9 @@ class User(ActiveRecord):
     )
 
 class Profile(ActiveRecord):
-    __table_name__ = 'profiles'
+    @classmethod
+    def table_name(cls):
+        return 'profiles'
     
     bio: str
     user_id: int  # Foreign key
@@ -91,7 +97,9 @@ class Profile(ActiveRecord):
 
 ```python
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
     
     name: str
     c: ClassVar = FieldProxy()
@@ -109,7 +117,9 @@ class User(ActiveRecord):
     )
 
 class Post(ActiveRecord):
-    __table_name__ = 'posts'
+    @classmethod
+    def table_name(cls):
+        return 'posts'
     
     title: str
     user_id: int
@@ -126,7 +136,9 @@ class Post(ActiveRecord):
 
 ```python
 class Student(ActiveRecord):
-    __table_name__ = 'students'
+    @classmethod
+    def table_name(cls):
+        return 'students'
     
     name: str
     c: ClassVar = FieldProxy()
@@ -139,7 +151,9 @@ class Student(ActiveRecord):
     )
 
 class Course(ActiveRecord):
-    __table_name__ = 'courses'
+    @classmethod
+    def table_name(cls):
+        return 'courses'
     
     name: str
     c: ClassVar = FieldProxy()
@@ -152,7 +166,9 @@ class Course(ActiveRecord):
     )
 
 class Enrollment(ActiveRecord):
-    __table_name__ = 'enrollments'
+    @classmethod
+    def table_name(cls):
+        return 'enrollments'
     
     student_id: int
     course_id: int

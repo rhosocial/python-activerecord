@@ -597,7 +597,9 @@ class SQLiteBackend(StorageBackend):
 
 ```python
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
 
     name: str
     email: str
@@ -660,7 +662,10 @@ class SoftDeleteMixin:     # hooks BEFORE_DELETE -> _mark_as_deleted
 
 # Composition
 class Article(TimestampMixin, SoftDeleteMixin, ActiveRecord):
-    __table_name__ = "articles"
+    @classmethod
+    def table_name(cls):
+        return "articles"
+
     title: str
     content: str
 
@@ -837,7 +842,10 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     name: str
 
 # 2. Configure backend

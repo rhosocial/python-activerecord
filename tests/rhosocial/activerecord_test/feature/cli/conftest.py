@@ -108,7 +108,9 @@ from rhosocial.activerecord.query import AsyncCTEQuery, CTEQuery
 
 
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
     c: ClassVar[FieldProxy] = FieldProxy()
     id: int
     name: str
@@ -117,7 +119,9 @@ class User(ActiveRecord):
 
 
 class AsyncUser(AsyncActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
     c: ClassVar[FieldProxy] = FieldProxy()
     id: int
     name: str
@@ -126,7 +130,9 @@ class AsyncUser(AsyncActiveRecord):
 
 
 class ReadOnlyUser(ActiveRecord, ReadOnlyMixin):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
     c: ClassVar[FieldProxy] = FieldProxy()
     id: int
     name: str
@@ -135,7 +141,9 @@ class ReadOnlyUser(ActiveRecord, ReadOnlyMixin):
 
 
 class AsyncReadOnlyUser(AsyncActiveRecord, ReadOnlyMixin):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
     c: ClassVar[FieldProxy] = FieldProxy()
     id: int
     name: str
@@ -144,7 +152,9 @@ class AsyncReadOnlyUser(AsyncActiveRecord, ReadOnlyMixin):
 
 
 class SoftUser(SoftDeleteMixin, ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
     c: ClassVar[FieldProxy] = FieldProxy()
     id: int
     name: str
@@ -154,7 +164,9 @@ class SoftUser(SoftDeleteMixin, ActiveRecord):
 
 
 class AsyncSoftUser(AsyncSoftDeleteMixin, AsyncActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
     c: ClassVar[FieldProxy] = FieldProxy()
     id: int
     name: str
@@ -164,7 +176,9 @@ class AsyncSoftUser(AsyncSoftDeleteMixin, AsyncActiveRecord):
 
 
 class ValidatedUser(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
     c: ClassVar[FieldProxy] = FieldProxy()
     id: Optional[int] = None
     name: str = Field(min_length=2)
@@ -186,7 +200,9 @@ class ValidatedUser(ActiveRecord):
 
 
 class AsyncValidatedUser(AsyncActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
     c: ClassVar[FieldProxy] = FieldProxy()
     id: Optional[int] = None
     name: str = Field(min_length=2)
@@ -208,8 +224,12 @@ class AsyncValidatedUser(AsyncActiveRecord):
 
 
 class KeylessUser(ActiveRecord):
-    __table_name__ = "users"
-    __primary_key__ = None
+    @classmethod
+    def table_name(cls):
+        return "users"
+    @classmethod
+    def primary_key(cls):
+        return None
     c: ClassVar[FieldProxy] = FieldProxy()
     id: Optional[int] = None
     name: str
@@ -218,8 +238,12 @@ class KeylessUser(ActiveRecord):
 
 
 class OrderItem(ActiveRecord):
-    __table_name__ = "order_items"
-    __primary_key__ = ("order_id", "product_id")
+    @classmethod
+    def table_name(cls):
+        return "order_items"
+    @classmethod
+    def primary_key(cls):
+        return ("order_id", "product_id")
     order_id: int
     product_id: int
     note: str = ""

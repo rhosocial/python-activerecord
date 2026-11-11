@@ -27,8 +27,13 @@ from rhosocial.activerecord.base import FieldProxy
 from rhosocial.activerecord.field import TimestampMixin  # if selected
 
 class User(ActiveRecord):  # or AsyncActiveRecord
-    __table_name__ = 'users'
-    __primary_key__ = 'id'  # if not default
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
+    @classmethod
+    def primary_key(cls):
+        return 'id'  # if not default
     
     # Fields
     name: str = Field(..., max_length=100)

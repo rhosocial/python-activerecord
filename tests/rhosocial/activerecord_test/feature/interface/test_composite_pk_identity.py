@@ -34,8 +34,13 @@ GeneratedId = Annotated[Optional[int], UseColumnAttributes(IdentityAttribute())]
 class PartitionedLog(CompositePKMixin, ActiveRecord):
     """One key field the database generates, one the caller supplies."""
 
-    __table_name__ = "ct_partitioned_log"
-    __primary_key__ = ("id", "bucket")
+    @classmethod
+    def table_name(cls):
+        return "ct_partitioned_log"
+
+    @classmethod
+    def primary_key(cls):
+        return ("id", "bucket")
 
     id: GeneratedId = None
     # A supplied key field is optional at declaration and required at save time:
@@ -47,8 +52,13 @@ class PartitionedLog(CompositePKMixin, ActiveRecord):
 class AsyncPartitionedLog(CompositePKMixin, AsyncActiveRecord):
     """The asynchronous twin, so both _prepare_save_data paths are covered."""
 
-    __table_name__ = "ct_partitioned_log"
-    __primary_key__ = ("id", "bucket")
+    @classmethod
+    def table_name(cls):
+        return "ct_partitioned_log"
+
+    @classmethod
+    def primary_key(cls):
+        return ("id", "bucket")
 
     id: GeneratedId = None
     bucket: Optional[str] = None
@@ -58,8 +68,13 @@ class AsyncPartitionedLog(CompositePKMixin, AsyncActiveRecord):
 class PlainComposite(CompositePKMixin, ActiveRecord):
     """A composite key with no generated member: every field is the caller's."""
 
-    __table_name__ = "ct_plain_composite"
-    __primary_key__ = ("order_id", "product_id")
+    @classmethod
+    def table_name(cls):
+        return "ct_plain_composite"
+
+    @classmethod
+    def primary_key(cls):
+        return ("order_id", "product_id")
 
     order_id: int = 0
     product_id: int = 0
@@ -69,7 +84,9 @@ class PlainComposite(CompositePKMixin, ActiveRecord):
 class SingleKey(ActiveRecord):
     """The ordinary model this change must not disturb."""
 
-    __table_name__ = "ct_single_key"
+    @classmethod
+    def table_name(cls):
+        return "ct_single_key"
 
     id: Optional[int] = None
     name: str = ""

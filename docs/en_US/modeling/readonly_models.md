@@ -34,7 +34,10 @@ from rhosocial.activerecord.field import ReadOnlyMixin
 
 class UserAnalytics(ActiveRecord, ReadOnlyMixin):
     """Read-only view of the users table on the analytics replica."""
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     id: Optional[int] = None
     name: str
     email: str
@@ -101,8 +104,14 @@ An explicit `__read_only__ = False` turns the gate back off:
 
 ```python
 class SometimesWritable(ActiveRecord, ReadOnlyMixin):
-    __table_name__ = "records"
-    __read_only__ = False
+    @classmethod
+    def table_name(cls):
+        return "records"
+
+    @classmethod
+    def read_only(cls):
+        return False
+
 ```
 
 The gate reads the **value** returned by `read_only()`, not the type of the
@@ -133,7 +142,10 @@ object kind on the DDL source:
 from rhosocial.activerecord.base import ObjectDeclaration
 
 class UserAnalytics(ActiveRecord, ReadOnlyMixin):
-    __table_name__ = "user_analytics_view"
+    @classmethod
+    def table_name(cls):
+        return "user_analytics_view"
+
     id: Optional[int] = None
     name: str
 

@@ -12,7 +12,10 @@ When you build a query on a model that has not been configured with any backend,
 from rhosocial.activerecord.model import ActiveRecord
 
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     id: int
     username: str
     email: str

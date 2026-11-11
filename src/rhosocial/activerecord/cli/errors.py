@@ -99,7 +99,7 @@ class ReadOnlyModelError(CLIError):
 
     def __init__(self, model_name: str, operation: str):
         super().__init__(
-            f"{model_name} is read-only (__read_only__ = True); "
+            f"{model_name} is read-only (read_only() returns True); "
             f"'{operation}' is not allowed.",
             exit_code=EXIT_READ_ONLY,
         )

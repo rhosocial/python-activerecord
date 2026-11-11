@@ -20,14 +20,20 @@ from rhosocial.activerecord.model import AsyncActiveRecord
 
 
 class AsyncReadOnlyRecord(AsyncActiveRecord, ReadOnlyMixin):
-    __table_name__ = "ro_readonly_records"
+    @classmethod
+    def table_name(cls):
+        return "ro_readonly_records"
+
     c: ClassVar[FieldProxy] = FieldProxy()
     id: Optional[int] = None
     label: str = ""
 
 
 class AsyncWritableRecord(AsyncActiveRecord):
-    __table_name__ = "ro_writable_records"
+    @classmethod
+    def table_name(cls):
+        return "ro_writable_records"
+
     c: ClassVar[FieldProxy] = FieldProxy()
     id: Optional[int] = None
     label: str = ""
@@ -63,10 +69,15 @@ class TestAsyncDeclaration:
 
     def test_interface_implementor_reporting_false_writes(self):
         class AsyncImplementsButWritable(AsyncActiveRecord, ReadOnlyMixin):
-            __table_name__ = "ro_async_implements"
+            @classmethod
+            def table_name(cls):
+                return "ro_async_implements"
+
             c: ClassVar[FieldProxy] = FieldProxy()
             id: Optional[int] = None
-            __read_only__ = False
+            @classmethod
+            def read_only(cls):
+                return False
 
         assert AsyncImplementsButWritable.read_only() is False
         AsyncImplementsButWritable.refuse_read_only("save")
@@ -150,7 +161,10 @@ class TestAsyncMixinConflicts:
         with pytest.raises(TypeError, match="read-only but also implements"):
 
             class Conflict(AsyncActiveRecord, ReadOnlyMixin, SoftDeleteMixin):
-                __table_name__ = "ro_async_conflict_soft"
+                @classmethod
+                def table_name(cls):
+                    return "ro_async_conflict_soft"
+
                 c: ClassVar[FieldProxy] = FieldProxy()
                 id: Optional[int] = None
                 deleted_at: Optional[datetime] = None
@@ -159,7 +173,10 @@ class TestAsyncMixinConflicts:
         with pytest.raises(TypeError, match="read-only but also implements"):
 
             class Conflict(AsyncActiveRecord, ReadOnlyMixin, TimestampMixin):
-                __table_name__ = "ro_async_conflict_ts"
+                @classmethod
+                def table_name(cls):
+                    return "ro_async_conflict_ts"
+
                 c: ClassVar[FieldProxy] = FieldProxy()
                 id: Optional[int] = None
                 created_at: Optional[datetime] = None

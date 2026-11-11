@@ -25,7 +25,9 @@ class Employee(ActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "employees"
+    @classmethod
+    def table_name(cls):
+        return "employees"
 
     id: int | None = None
     username: str
@@ -48,7 +50,9 @@ class Department(ActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "departments"
+    @classmethod
+    def table_name(cls):
+        return "departments"
 
     id: int | None = None
     name: str
@@ -71,7 +75,9 @@ class Author(ActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "authors"
+    @classmethod
+    def table_name(cls):
+        return "authors"
 
     id: int | None = None
     name: str
@@ -97,7 +103,9 @@ class Book(ActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "books"
+    @classmethod
+    def table_name(cls):
+        return "books"
 
     id: int | None = None
     title: str
@@ -124,7 +132,9 @@ class Chapter(ActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "chapters"
+    @classmethod
+    def table_name(cls):
+        return "chapters"
 
     id: int | None = None
     title: str
@@ -147,7 +157,9 @@ class Profile(ActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "profiles"
+    @classmethod
+    def table_name(cls):
+        return "profiles"
 
     id: int | None = None
     bio: str

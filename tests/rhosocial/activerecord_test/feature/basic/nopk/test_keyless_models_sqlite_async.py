@@ -21,22 +21,37 @@ from rhosocial.activerecord.model import AsyncActiveRecord
 
 
 class AsyncKeylessLog(AsyncActiveRecord):
-    __table_name__ = "ro_keyless_log"
+    @classmethod
+    def table_name(cls):
+        return "ro_keyless_log"
+
     c: ClassVar[FieldProxy] = FieldProxy()
-    __primary_key__ = None
+    @classmethod
+    def primary_key(cls):
+        return None
+
     event: str = ""
     level: str = ""
 
 
 class AsyncKeylessReadOnly(AsyncActiveRecord, ReadOnlyMixin):
-    __table_name__ = "ro_keyless_readonly"
+    @classmethod
+    def table_name(cls):
+        return "ro_keyless_readonly"
+
     c: ClassVar[FieldProxy] = FieldProxy()
-    __primary_key__ = None
+    @classmethod
+    def primary_key(cls):
+        return None
+
     event: str = ""
 
 
 class AsyncNormalModel(AsyncActiveRecord):
-    __table_name__ = "ro_normal_model"
+    @classmethod
+    def table_name(cls):
+        return "ro_normal_model"
+
     c: ClassVar[FieldProxy] = FieldProxy()
     id: Optional[int] = None
     event: str = ""

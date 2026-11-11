@@ -32,7 +32,10 @@ from rhosocial.activerecord.field import ReadOnlyMixin
 
 class UserAnalytics(ActiveRecord, ReadOnlyMixin):
     """只读视图——连接分析副本上的 users 表。"""
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     id: Optional[int] = None
     name: str
     email: str
@@ -94,8 +97,14 @@ UserAnalytics.find_one({"email": "alice@example.com"})
 
 ```python
 class SometimesWritable(ActiveRecord, ReadOnlyMixin):
-    __table_name__ = "records"
-    __read_only__ = False
+    @classmethod
+    def table_name(cls):
+        return "records"
+
+    @classmethod
+    def read_only(cls):
+        return False
+
 ```
 
 门禁读取的是 `read_only()` 的**返回值**，而不是接收者的类型。模型可以实现
@@ -125,7 +134,10 @@ PolicyDriven.refuse_read_only("save")  # 允许
 from rhosocial.activerecord.base import ObjectDeclaration
 
 class UserAnalytics(ActiveRecord, ReadOnlyMixin):
-    __table_name__ = "user_analytics_view"
+    @classmethod
+    def table_name(cls):
+        return "user_analytics_view"
+
     id: Optional[int] = None
     name: str
 

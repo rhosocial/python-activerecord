@@ -43,7 +43,10 @@ Check the following aspects of the model:
 ```python
 # WRONG
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
     name: str
     
     def find_by_name(self, name):
@@ -51,7 +54,10 @@ class User(ActiveRecord):
 
 # CORRECT
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
     name: str
     c: ClassVar[FieldProxy] = FieldProxy()
     

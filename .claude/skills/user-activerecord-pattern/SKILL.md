@@ -45,7 +45,9 @@ from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.base import FieldProxy
 
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
     
     name: str = Field(..., max_length=100)
     email: str
@@ -72,7 +74,10 @@ from typing import ClassVar
 from rhosocial.activerecord.base import FieldProxy
 
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
     name: str
     email: str
     age: int = 0
@@ -113,7 +118,10 @@ from typing import ClassVar
 from rhosocial.activerecord.base import FieldProxy
 
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
     name: str
     age: int
     status: str
@@ -209,7 +217,10 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.relation import HasMany
 
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
     name: str
     
     # Define relationship with string reference
@@ -219,7 +230,10 @@ class User(ActiveRecord):
     )
 
 class Post(ActiveRecord):
-    __table_name__ = 'posts'
+    @classmethod
+    def table_name(cls):
+        return 'posts'
+
     title: str
     user_id: int
     

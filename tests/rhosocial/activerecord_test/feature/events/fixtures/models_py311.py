@@ -29,7 +29,9 @@ class EventTestModel(IntegerPKMixin, TimestampMixin, ActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "event_tests"
+    @classmethod
+    def table_name(cls):
+        return "event_tests"
 
     id: int | None = None
     name: str
@@ -70,7 +72,9 @@ class EventTrackingModel(IntegerPKMixin, ActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "event_tracking_models"
+    @classmethod
+    def table_name(cls):
+        return "event_tracking_models"
 
     title: str
     content: str

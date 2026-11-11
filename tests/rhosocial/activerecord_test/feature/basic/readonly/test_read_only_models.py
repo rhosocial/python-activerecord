@@ -27,14 +27,20 @@ from rhosocial.activerecord.model import ActiveRecord
 
 class ReadOnlyRecord(ActiveRecord, ReadOnlyMixin):
     c: ClassVar[FieldProxy] = FieldProxy()
-    __table_name__ = "ro_readonly_records"
+    @classmethod
+    def table_name(cls):
+        return "ro_readonly_records"
+
     id: Optional[int] = None
     label: str = ""
 
 
 class WritableRecord(ActiveRecord):
     c: ClassVar[FieldProxy] = FieldProxy()
-    __table_name__ = "ro_writable_records"
+    @classmethod
+    def table_name(cls):
+        return "ro_writable_records"
+
     id: Optional[int] = None
     label: str = ""
 
@@ -42,10 +48,15 @@ class WritableRecord(ActiveRecord):
 class OptedOutRecord(ActiveRecord, ReadOnlyMixin):
     """Declares the mixin but turns the flag off explicitly."""
     c: ClassVar[FieldProxy] = FieldProxy()
-    __table_name__ = "ro_optedout_records"
+    @classmethod
+    def table_name(cls):
+        return "ro_optedout_records"
+
     id: Optional[int] = None
     label: str = ""
-    __read_only__ = False
+    @classmethod
+    def read_only(cls):
+        return False
 
 
 class ImplementsButWritable(ActiveRecord, IReadOnlyBehavior):
@@ -57,7 +68,10 @@ class ImplementsButWritable(ActiveRecord, IReadOnlyBehavior):
     """
 
     c: ClassVar[FieldProxy] = FieldProxy()
-    __table_name__ = "ro_implements_writable"
+    @classmethod
+    def table_name(cls):
+        return "ro_implements_writable"
+
     id: Optional[int] = None
     label: str = ""
 
@@ -66,7 +80,10 @@ class ReadOnlyViewRecord(ActiveRecord, ReadOnlyMixin):
     """A read-only model that declares it maps a view."""
 
     c: ClassVar[FieldProxy] = FieldProxy()
-    __table_name__ = "ro_readonly_view"
+    @classmethod
+    def table_name(cls):
+        return "ro_readonly_view"
+
     id: Optional[int] = None
     label: str = ""
 
@@ -332,7 +349,10 @@ class TestMixinConflicts:
 
             class Conflict(ActiveRecord, ReadOnlyMixin, SoftDeleteMixin):
                 c: ClassVar[FieldProxy] = FieldProxy()
-                __table_name__ = "ro_conflict_soft"
+                @classmethod
+                def table_name(cls):
+                    return "ro_conflict_soft"
+
                 id: Optional[int] = None
                 deleted_at: Optional[datetime] = None
                 label: str = ""
@@ -342,7 +362,10 @@ class TestMixinConflicts:
 
             class Conflict(ActiveRecord, ReadOnlyMixin, TimestampMixin):
                 c: ClassVar[FieldProxy] = FieldProxy()
-                __table_name__ = "ro_conflict_ts"
+                @classmethod
+                def table_name(cls):
+                    return "ro_conflict_ts"
+
                 id: Optional[int] = None
                 created_at: Optional[datetime] = None
                 updated_at: Optional[datetime] = None
@@ -354,7 +377,10 @@ class TestMixinConflicts:
 
         class Fine(ActiveRecord, DefaultTimestampMixin):
             c: ClassVar[FieldProxy] = FieldProxy()
-            __table_name__ = "ro_conflict_ok"
+            @classmethod
+            def table_name(cls):
+                return "ro_conflict_ok"
+
             id: Optional[int] = None
 
         Fine(id=1)

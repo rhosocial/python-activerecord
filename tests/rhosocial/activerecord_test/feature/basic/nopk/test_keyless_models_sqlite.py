@@ -34,24 +34,39 @@ from rhosocial.activerecord.model import ActiveRecord
 
 class KeylessLog(ActiveRecord):
     """Insert-only table: no primary key at all."""
-    __table_name__ = "ro_keyless_log"
+    @classmethod
+    def table_name(cls):
+        return "ro_keyless_log"
+
     c: ClassVar[FieldProxy] = FieldProxy()
-    __primary_key__ = None
+    @classmethod
+    def primary_key(cls):
+        return None
+
     event: str = ""
     level: str = ""
 
 
 class KeylessReadOnly(ActiveRecord, ReadOnlyMixin):
     """Keyless *and* read-only -- the two dimensions do not interact."""
-    __table_name__ = "ro_keyless_readonly"
+    @classmethod
+    def table_name(cls):
+        return "ro_keyless_readonly"
+
     c: ClassVar[FieldProxy] = FieldProxy()
-    __primary_key__ = None
+    @classmethod
+    def primary_key(cls):
+        return None
+
     event: str = ""
 
 
 class ReadOnlyWithKey(ActiveRecord, ReadOnlyMixin):
     """Read-only but addressable -- the other direction."""
-    __table_name__ = "ro_readonly_with_key"
+    @classmethod
+    def table_name(cls):
+        return "ro_readonly_with_key"
+
     c: ClassVar[FieldProxy] = FieldProxy()
     id: Optional[int] = None
     event: str = ""
@@ -59,7 +74,10 @@ class ReadOnlyWithKey(ActiveRecord, ReadOnlyMixin):
 
 class NormalModel(ActiveRecord):
     """Control: an ordinary addressable, writable model."""
-    __table_name__ = "ro_normal_model"
+    @classmethod
+    def table_name(cls):
+        return "ro_normal_model"
+
     c: ClassVar[FieldProxy] = FieldProxy()
     id: Optional[int] = None
     event: str = ""

@@ -51,7 +51,7 @@ from ..backend.expression import SQLPredicate, SQLValue
 from ..backend.errors import DatabaseError, StaleRecordError
 from ..base.fields import UseConstraint
 from pydantic import Field
-from typing import Any, ClassVar, Dict, List, Union
+from typing import Any, Dict, List, Union
 
 
 if sys.version_info >= (3, 9):
@@ -63,9 +63,9 @@ else:  # pragma: no cover - 3.8 compatibility
 class OptimisticLockMixin(IUpdateBehavior):
     """Optimistic-lock *semantics* — declares no field.
 
-    Subclasses (or the model) must declare an integer field and announce
-    it via ``__version_field__``; the column name follows the standard
-    resolution (``UseColumn`` on the declared field).  The mixin
+    Subclasses (or the model) must declare an integer field and point at it
+    by overriding :meth:`version_field`; the column name follows the
+    standard resolution (``UseColumn`` on the declared field).  The mixin
     contributes the lock semantics on UPDATE:
 
     * WHERE ``<version column> == <last known DB value>``
@@ -76,10 +76,17 @@ class OptimisticLockMixin(IUpdateBehavior):
     :class:`StaleRecordError` is raised.
     """
 
-    __version_field__: ClassVar[str] = "version"
-    __version_increment_by__: ClassVar[int] = 1
-
     _feature_handlers = [FieldConfigValidationHandler]
+
+    @classmethod
+    def version_field(cls) -> str:
+        """The version field -- declared by overriding this method."""
+        return "version"
+
+    @classmethod
+    def version_increment_by(cls) -> int:
+        """How far the version steps per UPDATE -- override to change it."""
+        return 1
 
     # Framework bookkeeping — deliberately private and invisible: the last
     # version value known to be committed to the database.  It must never
@@ -106,45 +113,57 @@ class OptimisticLockMixin(IUpdateBehavior):
     # ------------------------------------------------------------------
     @classmethod
     def _validate_model_config(cls) -> None:
-        """Fail fast when ``__version_field__`` does not name a real field.
+        """Fail fast when ``version_field()`` does not name a real field.
 
         Invoked by :class:`FieldConfigValidationHandler` from the metaclass,
         so it runs once at class definition — see that module for why this
         cannot live in ``__init__``.
         """
-        field_name = cls.__version_field__
+        field_name = cls.version_field()
         if field_name not in cls.model_fields:
             raise TypeError(
-                f"{cls.__name__}: __version_field__ = {field_name!r} does not "
+                f"{cls.__name__}: version_field() = {field_name!r} does not "
                 f"name a model field. Declare the version field (e.g. "
                 f"`{field_name}: int = Field(default=1, ge=1)`) or use "
                 f"DefaultOptimisticLockMixin."
             )
-        if cls.__version_increment_by__ <= 0:
+        increment = cls.version_increment_by()
+        if increment is None or increment <= 0:
             raise ValueError(
-                f"{cls.__name__}: __version_increment_by__ must be positive, "
-                f"got {cls.__version_increment_by__!r}"
+                f"{cls.__name__}: version_increment_by() must be positive, "
+                f"got {increment!r}"
             )
 
     @classmethod
     def _version_field_name(cls) -> str:
-        """The Python field name carrying the version (``__version_field__``)."""
-        return cls.__version_field__
+        """The Python field name carrying the version."""
+        return cls.version_field()
 
     @classmethod
     def _version_column_name(cls) -> str:
         """The database column name for the version field (UseColumn-aware)."""
-        return cls.get_column_name(cls.__version_field__)
+        return cls.get_column_name(cls.version_field())
 
     @classmethod
     def _version_increment(cls) -> int:
         """The configured increment applied on each UPDATE."""
-        return cls.__version_increment_by__
+        return cls.version_increment_by()
 
     @property
     def version_value(self) -> int:
         """Current in-memory version value (of the configured field)."""
         return getattr(self, self._version_field_name())
+
+    def refresh_lock_state(self) -> None:
+        """Re-read the committed version after an instance-level re-read.
+
+        Called by ``reload()``: the instance has just been overwritten with
+        the stored row, so the value it holds *is* the committed one, and
+        the snapshot must follow it -- otherwise the next UPDATE would
+        compare against the pre-reload version and report a stale record
+        that is not stale.
+        """
+        self._version_snapshot = self.version_value
 
     # ------------------------------------------------------------------
     # Lock semantics (IUpdateBehavior)

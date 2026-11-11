@@ -220,7 +220,10 @@ class SQLiteProvider:
         """Setup basic CRUD models."""
         
         class User(ActiveRecord):
-            __table_name__ = 'users'
+            @classmethod
+            def table_name(cls):
+                return 'users'
+
             __backend__ = backend
             
             id: int = Field(primary_key=True)
@@ -234,7 +237,10 @@ class SQLiteProvider:
             }
         
         class Profile(ActiveRecord):
-            __table_name__ = 'profiles'
+            @classmethod
+            def table_name(cls):
+                return 'profiles'
+
             __backend__ = backend
             
             id: int = Field(primary_key=True)
@@ -256,7 +262,10 @@ class SQLiteProvider:
         """Setup query testing models."""
         
         class Order(ActiveRecord):
-            __table_name__ = 'orders'
+            @classmethod
+            def table_name(cls):
+                return 'orders'
+
             __backend__ = backend
             
             id: int = Field(primary_key=True)
@@ -274,7 +283,10 @@ class SQLiteProvider:
             }
         
         class OrderItem(ActiveRecord):
-            __table_name__ = 'order_items'
+            @classmethod
+            def table_name(cls):
+                return 'order_items'
+
             __backend__ = backend
             
             id: int = Field(primary_key=True)
@@ -300,7 +312,10 @@ class SQLiteProvider:
         """Setup relation testing models."""
         
         class Author(ActiveRecord):
-            __table_name__ = 'authors'
+            @classmethod
+            def table_name(cls):
+                return 'authors'
+
             __backend__ = backend
             
             id: int = Field(primary_key=True)
@@ -314,7 +329,10 @@ class SQLiteProvider:
             }
         
         class Book(ActiveRecord):
-            __table_name__ = 'books'
+            @classmethod
+            def table_name(cls):
+                return 'books'
+
             __backend__ = backend
             
             id: int = Field(primary_key=True)
@@ -330,7 +348,10 @@ class SQLiteProvider:
             }
         
         class BookCategory(ActiveRecord):
-            __table_name__ = 'book_categories'
+            @classmethod
+            def table_name(cls):
+                return 'book_categories'
+
             __backend__ = backend
             
             id: int = Field(primary_key=True)

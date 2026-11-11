@@ -17,7 +17,7 @@ database backends.
 """
 
 from datetime import datetime, timezone
-from typing import Any, ClassVar, Dict, Union
+from typing import Any, Dict, Union
 
 from pydantic import Field, field_validator
 
@@ -31,12 +31,11 @@ class TimestampMixin(IUpdateBehavior):
     """Timestamp *maintenance semantics* — declares no fields.
 
     The model (or a subclass like :class:`DefaultTimestampMixin`) declares
-    two datetime fields and announces them via ``__created_at_field__`` /
-    ``__updated_at_field__``; both must exist or instantiation fails fast.
+    two datetime fields; the defaults are the conventional ``created_at``
+    and ``updated_at``, and a model with other names overrides
+    :meth:`created_at_field` / :meth:`updated_at_field`. An overriding
+    answer that names no field fails at class definition.
     """
-
-    __created_at_field__: ClassVar[str] = "created_at"
-    __updated_at_field__: ClassVar[str] = "updated_at"
 
     _feature_handlers = [FieldConfigValidationHandler]
 
@@ -47,6 +46,16 @@ class TimestampMixin(IUpdateBehavior):
         self.on(ModelEvent.BEFORE_UPDATE, self._set_updated_at)
 
     @classmethod
+    def created_at_field(cls) -> str:
+        """The created-at field -- declared by overriding this method."""
+        return "created_at"
+
+    @classmethod
+    def updated_at_field(cls) -> str:
+        """The updated-at field -- declared by overriding this method."""
+        return "updated_at"
+
+    @classmethod
     def _validate_model_config(cls) -> None:
         """Fail fast when the configured field names do not exist.
 
@@ -54,8 +63,10 @@ class TimestampMixin(IUpdateBehavior):
         so it runs once at class definition — see that module for why this
         cannot live in ``__init__``.
         """
-        for knob in ("__created_at_field__", "__updated_at_field__"):
-            field_name = getattr(cls, knob)
+        for knob, field_name in (
+            ("created_at_field()", cls.created_at_field()),
+            ("updated_at_field()", cls.updated_at_field()),
+        ):
             if field_name not in cls.model_fields:
                 raise TypeError(
                     f"{cls.__name__}: {knob} = {field_name!r} does not name a "
@@ -72,8 +83,7 @@ class TimestampMixin(IUpdateBehavior):
         Both timestamps are set to the same UTC value to ensure consistency.
         """
         now = datetime.now(timezone.utc)
-        for knob in ("__created_at_field__", "__updated_at_field__"):
-            field_name = getattr(self, knob)
+        for field_name in (self.created_at_field(), self.updated_at_field()):
             setattr(instance, field_name, now)
             if data is not None:
                 data[field_name] = now
@@ -83,7 +93,7 @@ class TimestampMixin(IUpdateBehavior):
     ) -> None:
         """Set the configured updated-at field for UPDATE operations."""
         now = datetime.now(timezone.utc)
-        field_name = self.__updated_at_field__
+        field_name = self.updated_at_field()
         setattr(instance, field_name, now)
         if data is not None:
             data[field_name] = now

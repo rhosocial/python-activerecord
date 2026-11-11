@@ -27,7 +27,9 @@ from rhosocial.activerecord.logging import (
 class Article(ActiveRecord):
     """Test model with long text fields for summarization testing."""
 
-    __table_name__ = "articles"
+    @classmethod
+    def table_name(cls):
+        return "articles"
 
     id: Optional[int] = None
     title: str = ""

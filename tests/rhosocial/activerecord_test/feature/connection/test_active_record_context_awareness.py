@@ -39,7 +39,9 @@ async def async_execute_sql(backend, sql: str, params=None):
 class ContextTestUser(IntegerPKMixin, ActiveRecord):
     """Test User model for context awareness tests."""
 
-    __table_name__ = "ctx_test_users"
+    @classmethod
+    def table_name(cls):
+        return "ctx_test_users"
 
     id: Optional[int] = None
     name: str
@@ -50,7 +52,9 @@ class ContextTestUser(IntegerPKMixin, ActiveRecord):
 class AsyncContextTestUser(IntegerPKMixin, AsyncActiveRecord):
     """Test Async User model for context awareness tests."""
 
-    __table_name__ = "async_ctx_test_users"
+    @classmethod
+    def table_name(cls):
+        return "async_ctx_test_users"
 
     id: Optional[int] = None
     name: str

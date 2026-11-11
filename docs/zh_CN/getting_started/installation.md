@@ -143,7 +143,10 @@ from typing import ClassVar
 
 # 定义简单模型测试
 class TestModel(ActiveRecord):
-    __table_name__ = "test_table"
+    @classmethod
+    def table_name(cls):
+        return "test_table"
+
     name: str
     c: ClassVar[FieldProxy] = FieldProxy()
 

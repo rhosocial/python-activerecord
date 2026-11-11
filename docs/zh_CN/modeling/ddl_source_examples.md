@@ -48,7 +48,9 @@ from rhosocial.activerecord.model import ActiveRecord
 
 
 class PlainAccount(ActiveRecord):
-    __table_name__ = "plain_accounts"
+    @classmethod
+    def table_name(cls):
+        return "plain_accounts"
 
     id: int
     name: str
@@ -151,7 +153,9 @@ from rhosocial.activerecord.model import ActiveRecord
 
 
 class CoreDeclared(ActiveRecord):
-    __table_name__ = "core_declared"
+    @classmethod
+    def table_name(cls):
+        return "core_declared"
 
     id: Annotated[int, UseColumn("record_id")]
     name: Annotated[
@@ -504,7 +508,9 @@ selected = bind(selected, dialect)
 
 ```python
 class ForeignOnly(ActiveRecord):
-    __table_name__ = "foreign_only"
+    @classmethod
+    def table_name(cls):
+        return "foreign_only"
 
     id: int
     value: Annotated[str, UseSqlType(ForeignType())]

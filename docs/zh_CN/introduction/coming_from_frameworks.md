@@ -116,7 +116,10 @@ class User(models.Model):
 **rhosocial-activerecord：**
 ```python
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     username: str = Field(max_length=50)
     email: str
 ```

@@ -25,7 +25,9 @@ def _create_test_model_class(base_class, class_name: str):
 
     # Create a new class that inherits from the base
     class TestModel(base_class):
-        __table_name__ = "test_users"
+        @classmethod
+        def table_name(cls):
+            return "test_users"
 
     TestModel.__name__ = class_name
     return TestModel
@@ -34,7 +36,10 @@ def _create_test_model_class(base_class, class_name: str):
 class SyncTestUser(ActiveRecord):
     """Sync test user model for connection pool tests."""
 
-    __table_name__ = "test_users"
+    @classmethod
+    def table_name(cls):
+        return "test_users"
+
     id: Optional[int] = None
     name: str
     email: str
@@ -43,7 +48,10 @@ class SyncTestUser(ActiveRecord):
 class AsyncTestUser(AsyncActiveRecord):
     """Async test user model for connection pool tests."""
 
-    __table_name__ = "test_users"
+    @classmethod
+    def table_name(cls):
+        return "test_users"
+
     id: Optional[int] = None
     name: str
     email: str

@@ -19,7 +19,10 @@ from rhosocial.activerecord.model import ActiveRecord
 
 class User(ActiveRecord):
     __logger_name__ = "myapp.models.user"
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
 ```
 
 Changing `__logger_name__` changes the logger target. Data visibility still comes from the model's `LoggingConfig`.
@@ -46,7 +49,10 @@ A concrete model can own a completely separate config:
 
 ```python
 class AuditUser(ActiveRecord):
-    __table_name__ = "audit_users"
+    @classmethod
+    def table_name(cls):
+        return "audit_users"
+
     __logging_config__ = LoggingConfig(log_data_mode=LogDataMode.HIDDEN)
 ```
 

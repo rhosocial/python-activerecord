@@ -83,7 +83,9 @@ Ensure your database has appropriate indexes for frequently queried columns.
 
 ```python
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
     
     id: int = Field(primary_key=True)
     email: str = Field(max_length=255)
@@ -285,7 +287,9 @@ Cache frequently accessed model instances by their primary key.
 
 ```python
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
     
     id: int = Field(primary_key=True)
     name: str = Field()
@@ -324,7 +328,9 @@ Implement proper cache invalidation strategies.
 
 ```python
 class Product(ActiveRecord):
-    __table_name__ = 'products'
+    @classmethod
+    def table_name(cls):
+        return 'products'
     
     id: int = Field(primary_key=True)
     name: str = Field()
@@ -429,7 +435,9 @@ Use prepared statements for frequently executed queries.
 
 ```python
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
     
     id: int = Field(primary_key=True)
     email: str = Field(max_length=255)

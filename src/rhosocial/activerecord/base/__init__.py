@@ -18,6 +18,7 @@ from .fields import (
     UseConstraint,
     UseGeneratedColumn,
     UseIndex,
+    UsePartitionKey,
     UseSqlType,
     UseColumnType,
 )
@@ -61,6 +62,7 @@ __all__ = [
     "UseConstraint",
     "UseGeneratedColumn",
     "UseIndex",
+    "UsePartitionKey",
     "UseSqlType",
     "UseColumnType",
     "DerivedField",

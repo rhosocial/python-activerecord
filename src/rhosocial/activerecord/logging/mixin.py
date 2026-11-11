@@ -80,6 +80,16 @@ class LoggingMixin:
         return cls.get_logging_config().get_logger(logger_name)
 
     @classmethod
+    def logger_name(cls) -> Optional[str]:
+        """The custom logger name this model declares, or ``None``.
+
+        The accessor form of ``__logger_name__``: consumers read here, so
+        a subclass that derives its logger name dynamically overrides the
+        method instead of maintaining an attribute in step with it.
+        """
+        return cls.__logger_name__
+
+    @classmethod
     def _get_logger_name(cls) -> str:
         """Determine the appropriate logger name for this class.
 
@@ -96,8 +106,9 @@ class LoggingMixin:
             str: The logger name.
         """
         # If custom logger name is set, use it
-        if cls.__logger_name__:
-            return cls.__logger_name__
+        custom_name = cls.logger_name()
+        if custom_name:
+            return custom_name
 
         # Check if this is a library class or user-defined class
         module = cls.__module__

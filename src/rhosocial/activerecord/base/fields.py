@@ -3,7 +3,7 @@
 This module provides classes and functions related to field definitions and annotations.
 """
 
-from typing import Any, Callable, List, Optional, Type, Union, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union, TYPE_CHECKING
 
 from ..backend.expression.statements.ddl_table import (
     ColumnConstraint,
@@ -11,7 +11,11 @@ from ..backend.expression.statements.ddl_table import (
     ColumnForeignKeyConstraint,
     ColumnGeneratedConstraint,
     ColumnPrimaryKeyConstraint,
+    ColumnUniqueConstraint,
     IndexDefinition,
+    TableConstraint,
+    TableForeignKeyConstraint,
+    TableUniqueConstraint,
 )
 from ..backend.type_adapter import SQLTypeAdapter
 
@@ -298,23 +302,41 @@ class UseColumnType:
 class UseIndex(DDLAnnotation):
     """Marker for ``Annotated[T, UseIndex(name, ...)]``.
 
-    Declares a single-column index that the DDL generator will emit inline
-    with the CREATE TABLE statement (or as a separate CREATE INDEX for backends
-    that do not support inline indexes).
+    Declares an index anchored on the annotated field: single-column by
+    default, composite when ``columns`` is given. The DDL generator will emit
+    it inline with the CREATE TABLE statement (or as a separate CREATE INDEX
+    for backends that do not support inline indexes).
 
-    For multi-column (composite) indexes, declare ``__table_indexes__`` on the model
-    class instead.
+    ``columns`` (optional) is the authoritative column list for a composite
+    index, given as **database column names** (see :class:`UseColumn` for how
+    a field may rename its column). The anchor must be the leftmost prefix:
+
+    - the annotated field's column must equal ``columns[0]`` — an anchor
+      outside the list, or not first, is a contradiction and raises
+      ``TypeError`` at class creation;
+    - every column in ``columns`` must name an existing column of the model;
+      an unknown name raises ``TypeError`` at class creation;
+    - ``columns`` must list at least two names; for a single-column index
+      omit it (the anchor alone is the column).
+
+    ``include_columns`` (covering columns, an index-level option) is a
+    separate parameter and does not participate in the column list above.
+
+    Legacy composite declarations on ``__table_indexes__`` remain readable
+    for now; new composite indexes should be declared here.
 
     Example::
 
         email:    Annotated[str, UseIndex("idx_email", unique=True)]
-        country:  Annotated[str, UseIndex("idx_country")]
+        country:  Annotated[str, UseIndex("idx_email_country",
+                                          columns=["email", "country"])]
     """
 
     def __init__(
         self,
         name: str,
         *,
+        columns: Optional[Sequence[str]] = None,
         unique: bool = False,
         type: Optional[str] = None,
         partial_condition: Optional[Union["SQLPredicate", "Callable"]] = None,
@@ -327,6 +349,12 @@ class UseIndex(DDLAnnotation):
         if not name:
             raise ValueError("UseIndex requires a non-empty index name.")
         self.name = name
+        # Composite form: the explicit ``columns`` list is authoritative, and
+        # the anchor (the annotated field) must be ``columns[0]`` — the
+        # leftmost prefix.  Model membership and the anchor position are
+        # validated at class creation (see DDLAnnotationHandler), where the
+        # full field set is known.
+        self.columns: Optional[Tuple[str, ...]] = self._normalize_columns(columns)
         self.unique = unique
         self.type = type
         # May be a ready SQLPredicate or a lazy ``(dialect) -> SQLPredicate``
@@ -342,14 +370,53 @@ class UseIndex(DDLAnnotation):
         self.if_exists = if_exists
         self.concurrent = concurrent
 
+    @staticmethod
+    def _normalize_columns(columns: Optional[Sequence[str]]) -> Optional[Tuple[str, ...]]:
+        """Normalize the explicit ``columns`` list; validate it in isolation.
+
+        The anchor position and model membership need the class, so they are
+        checked at class creation instead.
+        """
+        if columns is None:
+            return None
+        names = tuple(columns)
+        if len(names) < 2:
+            raise TypeError(
+                "UseIndex columns must list at least two column names; a "
+                "single-column index omits the parameter and uses the "
+                "annotated field alone."
+            )
+        for column in names:
+            if not isinstance(column, str) or not column:
+                raise TypeError(
+                    f"UseIndex columns entries must be non-empty strings, "
+                    f"got {column!r}."
+                )
+        if len(set(names)) != len(names):
+            raise TypeError(
+                f"UseIndex columns repeats a column: {names!r}. An index "
+                f"over the same column twice is not expressible in SQL."
+            )
+        return names
+
     def to_index_definition(self, column_name: str, dialect: "SQLDialectBase") -> "IndexDefinition":
         """Build an IndexDefinition that references *column_name*.
 
-        The dialect is supplied by the DDL generator at build time.
+        The dialect is supplied by the DDL generator at build time. When an
+        explicit ``columns`` list is declared it is authoritative: the anchor
+        must be ``columns[0]`` (the class-creation check has already run, so
+        this guard catches direct misuse of the method).
         """
+        if self.columns is not None and self.columns[0] != column_name:
+            raise TypeError(
+                f"UseIndex {self.name!r} anchors column {column_name!r}, but "
+                f"its columns list starts with {self.columns[0]!r}: the "
+                f"anchor must be the first column of the index."
+            )
+        columns = list(self.columns) if self.columns is not None else [column_name]
         return IndexDefinition(dialect,
             name=self.name,
-            columns=[column_name],
+            columns=columns,
             unique=self.unique,
             type=self.type,
             partial_condition=self.partial_condition,
@@ -362,7 +429,8 @@ class UseIndex(DDLAnnotation):
 
     def __repr__(self) -> str:
         return (
-            f"UseIndex({self.name!r}, unique={self.unique!r}, type={self.type!r})"
+            f"UseIndex({self.name!r}, columns={self.columns!r}, "
+            f"unique={self.unique!r}, type={self.type!r})"
         )
 
 
@@ -383,13 +451,24 @@ class UseConstraint(DDLAnnotation):
 
     - ``ColumnPrimaryKeyConstraint`` — the **only** branch the marker refuses
       on semantic grounds: the primary key has a single source, the
-      ``__primary_key__`` constant (accessed through ``primary_key()``); a
+      ``primary_key()`` accessor, which has a single source; a
       single-column PK lands on the column, a composite PK becomes a
       table-level constraint.
 
-    For table-level constraints (CHECK spanning multiple columns, composite
-    UNIQUE, composite FOREIGN KEY), declare ``__table_constraints__`` on the
-    model class instead.
+    Composite (multi-column) form: ``columns`` (optional) lists the source
+    columns -- **database column names** -- of a constraint that spans more
+    than one column. Only the branches that have a table-level counterpart
+    accept it (``ColumnUniqueConstraint`` becomes ``TableUniqueConstraint``,
+    ``ColumnForeignKeyConstraint`` becomes ``TableForeignKeyConstraint``);
+    other branches are column-level by nature and refuse ``columns``. The
+    anchor must be ``columns[0]`` (the leftmost prefix), every column must
+    name an existing column of the model, and violations raise ``TypeError``
+    at class creation. A multi-column declaration surfaces through
+    ``table_constraints()``, not ``column_constraints()``.
+
+    For table-level constraints declared outright (CHECK spanning multiple
+    columns, composite UNIQUE, composite FOREIGN KEY), ``__table_constraints__``
+    on the model class also remains readable for now.
 
     Example::
 
@@ -407,11 +486,17 @@ class UseConstraint(DDLAnnotation):
         )]
     """
 
+    _TABLE_LEVEL_BRANCHES = {
+        ColumnUniqueConstraint: TableUniqueConstraint,
+        ColumnForeignKeyConstraint: TableForeignKeyConstraint,
+    }
+
     def __init__(
         self,
         branch: type,
         *,
         name: Optional[str] = None,
+        columns: Optional[Sequence[str]] = None,
         condition: Optional[Union["SQLPredicate", "Callable"]] = None,
         references: Optional[tuple] = None,
         value: Any = None,
@@ -435,11 +520,54 @@ class UseConstraint(DDLAnnotation):
         if branch is ColumnPrimaryKeyConstraint:
             raise ValueError(
                 "UseConstraint does not accept ColumnPrimaryKeyConstraint: the "
-                "primary key has a single source, the __primary_key__ constant "
+                "primary key has a single source, the primary_key() accessor "
                 "(or a primary_key() override). A single-column PK lands on the "
                 "column automatically; a composite PK becomes a table-level "
                 "constraint."
             )
+        # Multi-column form: a composite constraint is a table-level fact, so
+        # the marker builds the table-level branch node and stores it in
+        # ``table_constraint`` (``constraint`` stays None). The anchor
+        # position and model membership are validated at class creation,
+        # where the full field set is known.
+        self.columns: Optional[Tuple[str, ...]] = self._normalize_columns(columns)
+        self.table_constraint: Optional[TableConstraint] = None
+        if self.columns is not None:
+            table_branch = self._TABLE_LEVEL_BRANCHES.get(branch)
+            if table_branch is None:
+                raise TypeError(
+                    f"UseConstraint with columns requires a branch with a "
+                    f"table-level counterpart "
+                    f"({', '.join(b.__name__ for b in self._TABLE_LEVEL_BRANCHES)}), "
+                    f"got {branch.__name__}: a composite declaration of that "
+                    f"kind is not expressible at column level."
+                )
+            if branch is ColumnForeignKeyConstraint and not references:
+                raise ValueError(
+                    "A ColumnForeignKeyConstraint needs references: the tuple "
+                    "of (Table, [column names]) it points at."
+                )
+            branch_kwargs: Dict[str, Any] = {"columns": list(self.columns)}
+            if branch is ColumnForeignKeyConstraint:
+                branch_kwargs.update(
+                    references=references,
+                    on_delete=on_delete,
+                    on_update=on_update,
+                    match_type=match_type,
+                )
+            self.table_constraint = TableConstraint(
+                None,
+                branch=table_branch(None, **branch_kwargs),
+                name=name,
+                deferrable=deferrable is True,
+                not_deferrable=deferrable is False,
+                initially_deferred=initially_deferred is True,
+                initially_immediate=initially_deferred is False,
+                enforced=enforced is True,
+                not_enforced=enforced is False,
+            )
+            self.constraint: Optional[ColumnConstraint] = None
+            return
         branch_fields = {
             "condition": condition,
             "references": references,
@@ -474,7 +602,40 @@ class UseConstraint(DDLAnnotation):
             not_enforced=enforced is False,
         )
 
+    @staticmethod
+    def _normalize_columns(columns: Optional[Sequence[str]]) -> Optional[Tuple[str, ...]]:
+        """Normalize the explicit ``columns`` list; validate it in isolation.
+
+        The anchor position and model membership need the class, so they are
+        checked at class creation instead.
+        """
+        if columns is None:
+            return None
+        names = tuple(columns)
+        if len(names) < 2:
+            raise TypeError(
+                "UseConstraint columns must list at least two column names; "
+                "a single-column constraint omits the parameter and anchors "
+                "on the annotated field alone."
+            )
+        for column in names:
+            if not isinstance(column, str) or not column:
+                raise TypeError(
+                    f"UseConstraint columns entries must be non-empty "
+                    f"strings, got {column!r}."
+                )
+        if len(set(names)) != len(names):
+            raise TypeError(
+                f"UseConstraint columns repeats a column: {names!r}."
+            )
+        return names
+
     def __repr__(self) -> str:
+        if self.table_constraint is not None:
+            return (
+                f"UseConstraint({type(self.table_constraint.branch).__name__}, "
+                f"columns={self.columns!r})"
+            )
         return f"UseConstraint({type(self.constraint.branch).__name__})"
 
 
@@ -564,6 +725,35 @@ class UseGeneratedColumn(DDLAnnotation):
 
     def __repr__(self) -> str:
         return f"UseGeneratedColumn({self.expression!r})"
+
+
+class UsePartitionKey(DDLAnnotation):
+    """Marker for ``Annotated[T, UsePartitionKey()]``.
+
+    Declares the annotated field as a member of the table's partition key,
+    in field-declaration order -- the declarative counterpart of the
+    direct-write ``__partition_key__`` tuple. UseColumn-aware: a renamed
+    field contributes its *column* name, because a partition key is a
+    column-level fact.
+
+    Exactly one of the two faces may declare the key. A model that both
+    annotates fields and writes ``__partition_key__`` fails at class
+    creation with ``TypeError`` -- two sources for one fact is how the two
+    silently disagree.
+
+    The first round accepts plain column tuples only. An expression
+    partition key (ClickHouse ``toYYYYMM(...)``, BigQuery ``DATE(...)``)
+    is rejected: the expression would have to be carried and rendered by
+    the DDL layer, which is a later piece of work.
+
+    Example::
+
+        class JobLog(ActiveRecord):
+            @classmethod\n            def primary_key(cls):\n                return ("id", "bucket")
+
+            id: int
+            bucket: Annotated[str, UsePartitionKey()]
+    """
 
 
 class DerivedField:

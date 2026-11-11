@@ -79,7 +79,10 @@ def some_function():
 ```python
 # ❌ Error - no backend configured
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
     ...
 
 user = User(name="John")
@@ -98,7 +101,10 @@ User.configure(SQLiteBackend("sqlite:///app.db"))
 
 # Or set at class level
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
     __backend__ = SQLiteBackend("sqlite:///app.db")
     ...
 
@@ -141,11 +147,17 @@ else:
 ```python
 # ❌ Problematic - different backends
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
     __backend__ = backend1
 
 class Order(ActiveRecord):
-    __table_name__ = 'orders'
+    @classmethod
+    def table_name(cls):
+        return 'orders'
+
     __backend__ = backend2
 
 # User and Order can't be used together in queries
@@ -154,11 +166,17 @@ class Order(ActiveRecord):
 shared_backend = SQLiteBackend("sqlite:///app.db")
 
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
     __backend__ = shared_backend
 
 class Order(ActiveRecord):
-    __table_name__ = 'orders'
+    @classmethod
+    def table_name(cls):
+        return 'orders'
+
     __backend__ = shared_backend
 
 # Now User and Order can be joined
@@ -173,7 +191,10 @@ class Order(ActiveRecord):
 ```python
 # ❌ Error - 'email' field doesn't exist
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
     id: int = Field(primary_key=True)
     name: str = Field()
 
@@ -188,7 +209,10 @@ User.query().where(User.c.name == "John")
 
 # Or add the missing field
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
     id: int = Field(primary_key=True)
     name: str = Field()
     email: str = Field()  # Add email field
@@ -267,7 +291,10 @@ else:
 ```python
 # ❌ Error - string for integer field
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
     age: int = Field()
 
 User.query().where(User.c.age == "25")  # String instead of int
@@ -285,7 +312,10 @@ User.query().where(User.c.age == 25)   # Integer
 ```python
 # ❌ Error - no 'orders' relation defined
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
     ...
 
 user = User.find_one()
@@ -301,7 +331,10 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.relation import HasMany, BelongsTo
 
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
     id: int = Field(primary_key=True)
     name: str = Field()
     
@@ -312,7 +345,10 @@ class User(ActiveRecord):
     )
 
 class Order(ActiveRecord):
-    __table_name__ = 'orders'
+    @classmethod
+    def table_name(cls):
+        return 'orders'
+
     id: int = Field(primary_key=True)
     user_id: int = Field()
     total: float = Field()
@@ -341,7 +377,10 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.relation import BelongsTo, HasMany
 
 class Order(ActiveRecord):
-    __table_name__ = 'orders'
+    @classmethod
+    def table_name(cls):
+        return 'orders'
+
     user_id: int = Field()
     
     # Wrong: BelongsTo should reference the parent, not self
@@ -352,7 +391,10 @@ class Order(ActiveRecord):
 
 # ✅ Correct relation definition
 class Order(ActiveRecord):
-    __table_name__ = 'orders'
+    @classmethod
+    def table_name(cls):
+        return 'orders'
+
     id: int = Field(primary_key=True)
     user_id: int = Field()
     
@@ -392,7 +434,10 @@ User.query().includes({'orders': 'items'}).all()
 ```python
 # ❌ Error - validation failure
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
     name: str = Field(max_length=10)
     email: str = Field(max_length=255)
 
@@ -409,7 +454,10 @@ user.save()  # Works
 
 # Or adjust the constraint
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
     name: str = Field(max_length=100)  # Increased limit
 ```
 
@@ -420,7 +468,10 @@ class User(ActiveRecord):
 ```python
 # ❌ Error - duplicate email
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
     email: str = Field(unique=True)
 
 User.create(name="John", email="test@example.com")
@@ -483,7 +534,10 @@ user = await User.query()  # query() is sync
 from rhosocial.activerecord.model import AsyncActiveRecord
 
 class AsyncUser(AsyncActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
     id: int = Field(primary_key=True)
     name: str = Field()
     email: str = Field()

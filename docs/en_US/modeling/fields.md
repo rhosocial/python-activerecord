@@ -59,7 +59,9 @@ from rhosocial.activerecord.backend.expression.types import (
 )
 
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
 
     # Explicitly VARCHAR(100), instead of the default TEXT
     username: Annotated[str, UseSqlType(VarCharType(length=100))]
@@ -201,7 +203,10 @@ from typing import ClassVar, Optional
 from rhosocial.activerecord.base import FieldProxy
 
 class Employee(ActiveRecord):
-    __table_name__ = "employees"
+    @classmethod
+    def table_name(cls):
+        return "employees"
+
     id: int
     name: str
     manager_id: Optional[int]  # points to the same table's id

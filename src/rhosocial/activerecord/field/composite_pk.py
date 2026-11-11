@@ -1,5 +1,4 @@
 # src/rhosocial/activerecord/field/composite_pk.py
-from typing import ClassVar
 
 
 class CompositePKMixin:
@@ -12,7 +11,10 @@ class CompositePKMixin:
 
     Usage:
         class OrderItem(CompositePKMixin, BaseActiveRecord):
-            __primary_key__ = ("order_id", "product_id")
+            @classmethod
+            def primary_key(cls):
+                return ("order_id", "product_id")
+
             order_id: int
             product_id: int
             quantity: int
@@ -24,7 +26,11 @@ class CompositePKMixin:
     composite key mixing a generated surrogate with a caller-supplied partition
     key is exactly the case it exists for.
     """
-    __pk_auto_generated__: ClassVar[bool] = False
+
+    @classmethod
+    def pk_auto_generated(cls) -> bool:
+        """A composite key is the application's to give -- override to change."""
+        return False
 
     def __init__(self, **data):
         super().__init__(**data)

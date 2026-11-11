@@ -8,6 +8,7 @@ import sys
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Type
 
 from ..backend.expression import Column, ComparisonPredicate, Literal
+from ..backend.expression.collect_columns import referenced_columns
 from ..query import (
     ActiveQuery,
     AsyncActiveQuery,
@@ -213,8 +214,15 @@ def base_query(model, args):
 
 def apply_filters(query, model, args):
     """Apply the simple ``--where`` / ``--order-by`` / ``--select`` options."""
-    for predicate in parse_where(model, getattr(args, "where", None)):
+    referenced = set()
+    where_clauses = getattr(args, "where", None)
+    for predicate in parse_where(model, where_clauses):
         query = query.where(predicate)
+        referenced.update(referenced_columns(predicate))
+    if where_clauses:
+        # The hint answers a ``--where`` that misses the partition columns;
+        # a bare unfiltered list makes no partition-scope claim to correct.
+        _hint_partition_scope(query, model, referenced, args)
     order_clauses = parse_order_by(model, getattr(args, "order_by", None))
     if order_clauses:
         query = query.order_by(*order_clauses)
@@ -222,6 +230,31 @@ def apply_filters(query, model, args):
     if select_columns:
         query = query.select(*select_columns)
     return query
+
+
+def _hint_partition_scope(query, model, referenced, args) -> None:
+    """One stderr line when ``--where`` skips every partition column.
+
+    The query-side warning fires on execution for the record; this is the
+    same difference said out loud at filter time, before the reader waits
+    on a scan they did not mean to ask for. Suppressed by ``--quiet`` like
+    every other advisory line.
+    """
+    partitioned_by = getattr(model, "partition_key_columns", None)
+    if not callable(partitioned_by):
+        return
+    partition_columns = set(partitioned_by() or ())
+    if not partition_columns or partition_columns & referenced:
+        return
+    if getattr(args, "quiet", False):
+        return
+    print(
+        f"{model.__name__} is partitioned by "
+        f"{', '.join(sorted(partition_columns))}; the given --where does not "
+        f"constrain any of them, so the query reads every partition. Add "
+        f"the column(s) if that is not the intent.",
+        file=sys.stderr,
+    )
 
 
 def resolve_query_reference(reference: str, label: str = DEFAULT_QUERY_LABEL) -> Any:

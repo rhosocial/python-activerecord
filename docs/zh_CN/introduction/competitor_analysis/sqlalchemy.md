@@ -124,7 +124,10 @@ class User(Base):
 ```python
 # 原生 Pydantic 风格
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     id: Optional[int] = None  # 主键
     name: str = Field(max_length=50)  # Pydantic Field
 

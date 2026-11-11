@@ -375,7 +375,10 @@ results = User.query().distinct(User.c.country, User.c.city).all()
 from rhosocial.activerecord.field import CompositePKMixin
 
 class OrderItem(CompositePKMixin, ActiveRecord):
-    __primary_key__ = ("order_id", "product_id")
+    @classmethod
+    def primary_key(cls):
+        return ("order_id", "product_id")
+
     order_id: int
     product_id: int
     quantity: int

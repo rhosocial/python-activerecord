@@ -54,7 +54,10 @@ def log_model(tmp_path):
     """Configure an isolated SQLite model with a fresh table."""
 
     class LogUser(ActiveRecord):
-        __table_name__ = "log_users"
+        @classmethod
+        def table_name(cls):
+            return "log_users"
+
         id: Optional[int] = None
         name: str = ""
         secret: str = ""
@@ -325,7 +328,9 @@ async def test_async_execution_logs_same_events(tmp_path, caplog):
 class LogUserRef:
     """Stand-in model used where only the class name matters."""
 
-    __table_name__ = "log_users"
+    @classmethod
+    def table_name(cls):
+        return "log_users"
 
 
 def test_sync_and_async_backend_share_logger_name():

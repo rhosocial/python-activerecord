@@ -27,7 +27,9 @@ class TimestampedPost(IntegerPKMixin, TimestampMixin, ActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "timestamped_posts"
+    @classmethod
+    def table_name(cls):
+        return "timestamped_posts"
 
     id: int | None = None
     title: str
@@ -44,7 +46,9 @@ class VersionedProduct(IntegerPKMixin, OptimisticLockMixin, ActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "versioned_products"
+    @classmethod
+    def table_name(cls):
+        return "versioned_products"
 
     id: int | None = None
     name: str
@@ -61,7 +65,9 @@ class Task(IntegerPKMixin, SoftDeleteMixin, ActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "tasks"
+    @classmethod
+    def table_name(cls):
+        return "tasks"
 
     id: int | None = None
     title: str
@@ -83,7 +89,9 @@ class CombinedArticle(IntegerPKMixin, TimestampMixin, OptimisticLockMixin, SoftD
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "combined_articles"
+    @classmethod
+    def table_name(cls):
+        return "combined_articles"
 
     id: int | None = None
     title: str
