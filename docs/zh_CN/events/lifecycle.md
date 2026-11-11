@@ -313,7 +313,8 @@ class Product(OptimisticLockMixin, ActiveRecord):
 
 # OptimisticLockMixin 使用 AFTER_UPDATE 来验证更新：
 # - 检查 result.affected_rows > 0
-# - 如果记录被其他进程更新则抛出 StaleRecordError（DatabaseError 的子类）
+# - 如果没有行匹配该版本则抛出 StaleRecordError（DatabaseError 的子类）；
+#   记录可能已被其他进程更新或删除
 ```
 
 ## 迁移指南

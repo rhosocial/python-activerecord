@@ -16,7 +16,7 @@ class Post(DefaultOptimisticLockMixin, ActiveRecord):
 **工作原理**:
 1.  读取数据时，获取当前 `version` (如 1)。
 2.  更新时，SQL 附加条件 `WHERE id = ... AND version = 1`。
-3.  如果更新行数为 0，说明期间 `version` 已变（被别人改了），抛出 `StaleRecordError`。
+3.  如果更新行数为 0，说明 `version` 已不匹配：记录可能已被别人更新或删除，抛出 `StaleRecordError`。
 
 ```python
 from rhosocial.activerecord.backend.errors import StaleRecordError

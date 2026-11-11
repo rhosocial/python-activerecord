@@ -314,8 +314,8 @@ class Product(OptimisticLockMixin, ActiveRecord):
 
 # The OptimisticLockMixin uses AFTER_UPDATE to verify the update:
 # - Checks result.affected_rows > 0
-# - Raises StaleRecordError (a DatabaseError subclass) if the record
-#   was updated by another process
+# - Raises StaleRecordError (a DatabaseError subclass) if no row matched
+#   the version; the row may have been updated or deleted by another process
 ```
 
 ## Migration Guide

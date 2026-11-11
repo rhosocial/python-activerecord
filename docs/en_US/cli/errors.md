@@ -16,6 +16,7 @@ never changes framework semantics: models still validate when constructed, and
 | Version conflict | `Record version mismatch ...` | 1 |
 | Lock or deadlock | `Record is locked ...` / `Deadlock detected ...` | 1 |
 | Connection failure | `Database connection failed ...` | 1 |
+| Transaction failure (commit) | `Database transaction failed ...` | 1 |
 | Other database error | `Database error ...` | 1 |
 | Missing backend or config class | `Cannot import the ...` | 4 |
 | Unknown failure | `Unexpected error (TypeName): ...` | 1 |

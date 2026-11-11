@@ -15,6 +15,7 @@ CLI 把模型层和后端异常翻译成命令级错误，不改变框架语义�
 | 版本冲突 | `Record version mismatch ...` | 1 |
 | 锁或死锁 | `Record is locked ...` / `Deadlock detected ...` | 1 |
 | 连接失败 | `Database connection failed ...` | 1 |
+| 事务失败（提交） | `Database transaction failed ...` | 1 |
 | 其它数据库错误 | `Database error ...` | 1 |
 | 后端或配置类缺失 | `Cannot import the ...` | 4 |
 | 未知异常 | `Unexpected error (TypeName): ...` | 1 |

@@ -33,6 +33,7 @@ from ..backend.errors import (
     RecordError,
     RecordNotFound,
     StaleRecordError,
+    TransactionError,
     TypeConversionError,
     UnaddressableRecordError,
     ValidationError as DBValidationError,
@@ -120,6 +121,8 @@ def translate_error(
         return CLIError(f"Database operation failed{context}: {exc}")
     if isinstance(exc, QueryError):
         return CLIError(f"Query failed{context}: {exc}")
+    if isinstance(exc, TransactionError):
+        return CLIError(f"Database transaction failed{context}: {exc}")
     # Category fallbacks: backend-specific subclasses inherit these bases, so a
     # new driver-specific error still gets a sensible message and exit code.
     if isinstance(exc, PolicyError):
