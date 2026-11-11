@@ -22,6 +22,35 @@ never changes framework semantics: models still validate when constructed, and
 
 Please see [Output and pipes](output.md#exit-codes) for the complete code list.
 
+## Error taxonomy
+
+Model and backend errors carry semantic categories, so an application can catch
+by intent instead of listing concrete classes. Every concrete error is still a
+`DatabaseError`:
+
+```text
+DatabaseError
+├── DataError            ValidationError, IntegrityError, TypeConversionError
+├── RecordError          RecordNotFound, UnaddressableRecordError
+├── PolicyError          ReadOnlyError
+├── ConcurrencyError     StaleRecordError, LockError (DeadlockError)
+├── InfrastructureError  ConnectionError, OperationalError
+├── TransactionError     IsolationLevelError, Unsupported*Error
+├── QueryError
+└── BulkOperationError   BulkValidationError, BulkStateError
+```
+
+`BulkValidationError` inherits both `BulkOperationError` and `DataError`.
+
+`retryable` is an advisory hint: concurrency errors set it to `True`;
+infrastructure errors default to `False` and become retryable only when the
+backend marks the failure as transient. It never triggers an automatic retry.
+
+Backends attach `operation`, `sqlstate`, `driver_code`, `backend`, and
+`transient` with `attach_diagnostics()` before raising. Unknown subclasses still
+map to the right exit code because the CLI checks the category before the
+generic `DatabaseError` fallback.
+
 ## Model exceptions versus CLI errors
 
 The model layer raises `backend.errors.RecordNotFound` when a query returns no

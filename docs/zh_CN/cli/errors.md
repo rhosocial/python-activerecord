@@ -21,6 +21,32 @@ CLI 把模型层和后端异常翻译成命令级错误，不改变框架语义�
 
 完整退出码见[输出与管道](output.md#退出码)。
 
+## 错误分类
+
+模型层和后端错误带有语义分类，应用可以按意图捕获，而不必逐个列出具体类。
+所有具体错误仍然是 `DatabaseError`：
+
+```text
+DatabaseError
+├── DataError            ValidationError、IntegrityError、TypeConversionError
+├── RecordError          RecordNotFound、UnaddressableRecordError
+├── PolicyError          ReadOnlyError
+├── ConcurrencyError     StaleRecordError、LockError（DeadlockError）
+├── InfrastructureError  ConnectionError、OperationalError
+├── TransactionError     IsolationLevelError、Unsupported*Error
+├── QueryError
+└── BulkOperationError   BulkValidationError、BulkStateError
+```
+
+`BulkValidationError` 同时继承 `BulkOperationError` 和 `DataError`。
+
+`retryable` 只是提示：并发类为 `True`；基础设施类默认 `False`，只有后端标记为瞬态时
+才变为可重试。它不会触发自动重试。
+
+后端在抛出前通过 `attach_diagnostics()` 附加 `operation`、`sqlstate`、`driver_code`、
+`backend`、`transient`。即使是新的后端子类，CLI 也会先按类别匹配，再落到通用
+`DatabaseError`，退出码不会错。
+
 ## 模型异常与 CLI 错误
 
 查询无结果时模型层抛 `backend.errors.RecordNotFound`；CLI 层抛自己的

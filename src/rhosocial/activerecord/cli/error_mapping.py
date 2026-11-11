@@ -18,21 +18,26 @@ from pydantic import ValidationError as PydanticValidationError
 from ..backend.errors import (
     BulkStateError,
     BulkValidationError,
+    ConcurrencyError,
     ConnectionError as BackendConnectionError,
+    DataError,
     DatabaseError,
     DeadlockError,
+    InfrastructureError,
     IntegrityError,
     LockError,
     OperationalError,
+    PolicyError,
     QueryError,
     ReadOnlyError,
+    RecordError,
     RecordNotFound,
     StaleRecordError,
     TypeConversionError,
     UnaddressableRecordError,
     ValidationError as DBValidationError,
 )
-from .errors import CLIError, CliNotFoundError, ReadOnlyModelError
+from .errors import CLIError, CliNotFoundError, ReadOnlyModelError, EXIT_READ_ONLY
 
 
 def _pydantic_summary(error: PydanticValidationError) -> str:
@@ -115,6 +120,22 @@ def translate_error(
         return CLIError(f"Database operation failed{context}: {exc}")
     if isinstance(exc, QueryError):
         return CLIError(f"Query failed{context}: {exc}")
+    # Category fallbacks: backend-specific subclasses inherit these bases, so a
+    # new driver-specific error still gets a sensible message and exit code.
+    if isinstance(exc, PolicyError):
+        if exc.model_name and exc.operation:
+            return ReadOnlyModelError(exc.model_name, exc.operation)
+        return CLIError(f"Operation refused by policy{context}: {exc}", exit_code=EXIT_READ_ONLY)
+    if isinstance(exc, RecordError):
+        return CLIError(f"Record error{context}: {exc}")
+    if isinstance(exc, ConcurrencyError):
+        return CLIError(
+            f"Concurrency conflict{context}: {exc}. Reload the record and retry."
+        )
+    if isinstance(exc, InfrastructureError):
+        return CLIError(f"Database infrastructure error{context}: {exc}")
+    if isinstance(exc, DataError):
+        return CLIError(f"Invalid data{context}: {exc}")
     if isinstance(exc, DatabaseError):
         return CLIError(f"Database error{context}: {exc}")
     return None
