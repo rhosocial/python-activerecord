@@ -94,10 +94,12 @@ def run_cli(args, stdin=None, echo=True):
             shlex.quote(arg) for arg in _display_args(args)
         )
         print(f"$ {command}")
-        if completed.stdout.strip():
-            print(completed.stdout.rstrip())
-        if completed.stderr.strip():
-            print(f"[stderr] {completed.stderr.rstrip()}")
+        stdout_text = completed.stdout or ""
+        stderr_text = completed.stderr or ""
+        if stdout_text.strip():
+            print(stdout_text.rstrip())
+        if stderr_text.strip():
+            print(f"[stderr] {stderr_text.rstrip()}")
         print(f"[exit {completed.returncode}]")
         print()
     return completed

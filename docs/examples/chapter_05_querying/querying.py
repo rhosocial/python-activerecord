@@ -11,7 +11,7 @@ from typing import ClassVar
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy
 from rhosocial.activerecord.relation import BelongsTo, HasMany
-from rhosocial.activerecord.field import UUIDMixin, TimestampMixin
+from rhosocial.activerecord.field import UUIDMixin, DefaultTimestampMixin
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.options import ExecutionOptions
@@ -20,7 +20,7 @@ from rhosocial.activerecord.backend.schema import StatementType
 # --- Models ---
 
 
-class User(UUIDMixin, TimestampMixin, ActiveRecord):
+class User(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     username: str
     age: int
     is_active: bool = True
@@ -35,7 +35,7 @@ class User(UUIDMixin, TimestampMixin, ActiveRecord):
         return "users"
 
 
-class Post(UUIDMixin, TimestampMixin, ActiveRecord):
+class Post(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     user_id: uuid.UUID
     title: str
     views: int = 0
@@ -93,7 +93,7 @@ def main():
     # 4. Basic Filtering
     print("\n--- Basic Filtering ---")
     # Active users older than 20
-    users = User.query().where(User.c.is_active).where(User.c.age > 20).all()
+    users = User.query().where(User.c.is_active == True).where(User.c.age > 20).all()
     for u in users:
         print(f"Found User: {u.username}, Age: {u.age}")
 

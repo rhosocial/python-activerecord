@@ -13,6 +13,7 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.interface.base import ModelEvent
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.errors import DatabaseError
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 
@@ -70,7 +71,7 @@ class User(ActiveRecord):
         """Called before DELETE."""
         print(f"  [Hook] before_delete: About to delete user '{self.username}'")
 
-    def _after_delete_handler(self, instance, result, **kwargs):
+    def _after_delete_handler(self, instance, result=None, **kwargs):
         """Called after DELETE."""
         print(f"  [Hook] after_delete: User '{self.username}' deleted")
 
@@ -166,7 +167,7 @@ def main():
     try:
         admin = StrictUser(username="admin", email="admin@example.com")
         admin.save()
-    except ValueError as e:
+    except DatabaseError as e:
         print(f"  [Error] {e}")
         print("  Save operation was aborted by before_insert hook")
 

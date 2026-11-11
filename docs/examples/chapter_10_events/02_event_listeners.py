@@ -94,7 +94,7 @@ class AuditedModel(ActiveRecord):
         """Audit log for update operations."""
         print(f"  [Audit] UPDATE: {self.__class__.__name__} id={self.id}")
 
-    def _audit_delete(self, instance, result, **kwargs):
+    def _audit_delete(self, instance, result=None, **kwargs):
         """Audit log for delete operations."""
         print(f"  [Audit] DELETE: {self.__class__.__name__} id={self.id}")
 

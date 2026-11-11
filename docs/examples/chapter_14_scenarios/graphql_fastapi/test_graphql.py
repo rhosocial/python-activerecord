@@ -24,7 +24,7 @@ def test_query():
     # Setup DB
     # Let's manually setup backend to :memory: to be safe and clean
     backend = SQLiteBackend(
-        connection_config=SQLiteConnectionConfig(database=":memory:", options={"check_same_thread": False})
+        connection_config=SQLiteConnectionConfig(database=":memory:", check_same_thread=False)
     )
     User.__backend__ = backend
     Post.__backend__ = backend
@@ -79,12 +79,12 @@ def test_query():
     }
     """
 
-    # Mock context with loaders
-    context = {"loaders": Loaders()}
+    # Mock context with loaders; aiodataloader needs a running loop.
+    async def run_query():
+        context = {"loaders": Loaders()}
+        return await schema.execute_async(query, context_value=context)
 
-    # Run async query
-    loop = asyncio.get_event_loop()
-    result = loop.run_until_complete(schema.execute_async(query, context_value=context))
+    result = asyncio.run(run_query())
 
     if result.errors:
         print("Errors:", result.errors)

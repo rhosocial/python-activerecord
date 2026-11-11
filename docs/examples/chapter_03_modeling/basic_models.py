@@ -11,7 +11,7 @@ from typing import ClassVar, Annotated, Optional
 from pydantic import Field, field_validator
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy, UseColumn
-from rhosocial.activerecord.field import UUIDMixin, TimestampMixin
+from rhosocial.activerecord.field import UUIDMixin, DefaultTimestampMixin
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.options import ExecutionOptions
@@ -34,7 +34,7 @@ class ContentMixin(ActiveRecord):
 # --- Models ---
 
 
-class User(UUIDMixin, TimestampMixin, ActiveRecord):
+class User(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     """User Model"""
 
     username: str = Field(..., max_length=50)
@@ -59,7 +59,7 @@ class User(UUIDMixin, TimestampMixin, ActiveRecord):
         return "users"
 
 
-class Post(UUIDMixin, TimestampMixin, ContentMixin, ActiveRecord):
+class Post(UUIDMixin, DefaultTimestampMixin, ContentMixin, ActiveRecord):
     """Post Model"""
 
     user_id: uuid.UUID  # Foreign Key
