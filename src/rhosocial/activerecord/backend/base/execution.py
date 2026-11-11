@@ -11,6 +11,7 @@ import time
 from typing import Optional, Tuple, List, Union, Dict
 
 from ...logging.redaction import unwrap_sensitive
+from ..errors import DatabaseError
 from ..options import ExecutionOptions
 from ..result import QueryResult
 from ..schema import StatementType
@@ -71,8 +72,13 @@ class ExecutionMixin:
             duration, and optionally result data if process_result_set is True
 
         Raises:
-            DatabaseError: If the query execution fails
-            ConnectionError: If there are connection-related issues
+            TypeConversionError: A parameter adapter or result adapter failed.
+            ConnectionError: Connecting (explicitly or automatically) failed.
+            IntegrityError: A constraint was violated.
+            ConcurrencyError: A deadlock, lock wait, or serialization conflict won.
+            QueryError: The statement or its bindings are invalid.
+            TransactionError: The automatic commit failed after execution.
+            DatabaseError: A backend-specific failure without a narrower category.
         """
         start_time = time.perf_counter()
         if options is None:
@@ -126,7 +132,12 @@ class ExecutionMixin:
             return result
         except Exception as e:
             log_execution_error(self, e, options)
-            return self._handle_execution_error(e)
+            if isinstance(e, DatabaseError):
+                raise
+            self._handle_execution_error(e)
+            # _handle_error() is required to raise. Keep a defensive fallback so
+            # a backend that forgets cannot turn a failure into a None result.
+            raise DatabaseError(str(e)) from e
 
     def execute_many(
         self,
@@ -150,8 +161,16 @@ class ExecutionMixin:
             options: Optional ExecutionOptions carrying the logging context
 
         Returns:
-            QueryResult object containing total affected rows and execution duration,
-            or None if an error occurred
+            QueryResult object containing total affected rows and execution duration.
+
+        Raises:
+            TypeConversionError: A parameter adapter or result adapter failed.
+            ConnectionError: Connecting (explicitly or automatically) failed.
+            IntegrityError: A constraint was violated.
+            ConcurrencyError: A deadlock, lock wait, or serialization conflict won.
+            QueryError: The statement or its bindings are invalid.
+            TransactionError: The automatic commit failed after execution.
+            DatabaseError: A backend-specific failure without a narrower category.
 
         Note:
             This method expects all parameters in params_list to be already database-compatible.
@@ -175,7 +194,10 @@ class ExecutionMixin:
             return QueryResult(affected_rows=cursor.rowcount, duration=duration)
         except Exception as e:
             log_execution_error(self, e, options)
-            return self._handle_execution_error(e)
+            if isinstance(e, DatabaseError):
+                raise
+            self._handle_execution_error(e)
+            raise DatabaseError(str(e)) from e
 
 
 class AsyncExecutionMixin:
@@ -226,8 +248,13 @@ class AsyncExecutionMixin:
             duration, and optionally result data if process_result_set is True
 
         Raises:
-            DatabaseError: If the query execution fails
-            ConnectionError: If there are connection-related issues
+            TypeConversionError: A parameter adapter or result adapter failed.
+            ConnectionError: Connecting (explicitly or automatically) failed.
+            IntegrityError: A constraint was violated.
+            ConcurrencyError: A deadlock, lock wait, or serialization conflict won.
+            QueryError: The statement or its bindings are invalid.
+            TransactionError: The automatic commit failed after execution.
+            DatabaseError: A backend-specific failure without a narrower category.
         """
         start_time = time.perf_counter()
         if options is None:
@@ -281,7 +308,11 @@ class AsyncExecutionMixin:
             return result
         except Exception as e:
             log_execution_error(self, e, options)
-            return await self._handle_execution_error(e)
+            if isinstance(e, DatabaseError):
+                raise
+            await self._handle_execution_error(e)
+            # Same defensive contract as the synchronous execute.
+            raise DatabaseError(str(e)) from e
 
     async def execute_many(
         self,
@@ -303,8 +334,16 @@ class AsyncExecutionMixin:
             options: Optional ExecutionOptions carrying the logging context
 
         Returns:
-            QueryResult object containing total affected rows and execution duration,
-            or None if an error occurred
+            QueryResult object containing total affected rows and execution duration.
+
+        Raises:
+            TypeConversionError: A parameter adapter or result adapter failed.
+            ConnectionError: Connecting (explicitly or automatically) failed.
+            IntegrityError: A constraint was violated.
+            ConcurrencyError: A deadlock, lock wait, or serialization conflict won.
+            QueryError: The statement or its bindings are invalid.
+            TransactionError: The automatic commit failed after execution.
+            DatabaseError: A backend-specific failure without a narrower category.
 
         Note:
             This method expects all parameters in params_list to be already database-compatible.
@@ -327,4 +366,7 @@ class AsyncExecutionMixin:
             return QueryResult(affected_rows=cursor.rowcount, duration=duration)
         except Exception as e:
             log_execution_error(self, e, options)
-            return await self._handle_execution_error(e)
+            if isinstance(e, DatabaseError):
+                raise
+            await self._handle_execution_error(e)
+            raise DatabaseError(str(e)) from e
