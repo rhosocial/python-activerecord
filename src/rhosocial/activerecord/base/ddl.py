@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import typing
+import warnings
 from dataclasses import dataclass
 from enum import Enum
 from typing import (
@@ -33,12 +34,14 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from .fields import (
     DDLAnnotation,
+    UseColumn,
     UseColumnAttributes,
     UseComment,
     UseConstraint,
     UseColumnType,
     UseGeneratedColumn,
     UseIndex,
+    UsePartitionKey,
     UseSqlType,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
@@ -113,6 +116,7 @@ MARKER_REGISTRY: Dict[Type[Any], Tuple[str, bool]] = {
     UseColumnAttributes: ("column_attributes", False),
     UseComment: ("column_comment", True),
     UseGeneratedColumn: ("generated_column", True),
+    UsePartitionKey: ("partition_key", True),
 }
 
 
@@ -302,6 +306,7 @@ class DDLAnnotationHandler:
         UseColumnAttributes,
         UseComment,
         UseGeneratedColumn,
+        UsePartitionKey,
     )
 
     @classmethod
@@ -338,6 +343,255 @@ class DDLAnnotationHandler:
                 if isinstance(annotation, cls.annotation_types):
                     cls.apply(new_class, field_name, annotation, metadata)
                     metadata.mark_handled(annotation)
+        cls._validate_column_group_declarations(new_class, metadata_by_field)
+        cls._extract_partition_key(new_class, metadata_by_field)
+        cls._validate_natural_key(new_class)
+
+    @staticmethod
+    def _field_column_names(metadata_by_field: Dict[str, Any]) -> Dict[str, str]:
+        """Resolve each field's database column name at class creation.
+
+        Reads the ``UseColumn`` markers straight from the collected metadata,
+        so the mapping is complete regardless of handler ordering (the
+        column-name handler may run after this one).
+        """
+        resolved: Dict[str, str] = {}
+        for field_name, metadata in metadata_by_field.items():
+            column = None
+            for annotation in getattr(metadata, "annotations", ()) or ():
+                if isinstance(annotation, UseColumn):
+                    column = annotation.column_name
+                    break
+            resolved[field_name] = column or field_name
+        return resolved
+
+    @classmethod
+    def _validate_column_group_declarations(
+        cls,
+        new_class: Type[Any],
+        metadata_by_field: Dict[str, Any],
+    ) -> None:
+        """Validate composite ``UseIndex``/``UseConstraint`` declarations.
+
+        Three checks, all at class creation so a bad declaration fails loudly
+        instead of silently producing wrong DDL:
+
+        - the anchor of a ``columns`` list is its first element (the
+          leftmost prefix);
+        - every listed column names an existing column of the model;
+        - index names are unique across the field-level annotations and the
+          table-level ``__table_indexes__`` declarations -- two same-named
+          index declarations would each ask the DDL generator to build an
+          index of that name.
+        """
+        column_names = cls._field_column_names(metadata_by_field)
+        columns_set = set(column_names.values())
+        index_name_sources: List[Tuple[str, str]] = []
+        for field_name, metadata in metadata_by_field.items():
+            anchor_column = column_names[field_name]
+            for marker in getattr(metadata, "indexes", ()) or ():
+                if marker.columns is not None:
+                    cls._validate_columns_list(
+                        new_class, "UseIndex", field_name, marker.name,
+                        anchor_column, marker.columns, columns_set,
+                    )
+                index_name_sources.append(
+                    (marker.name, f"field-level index on '{field_name}'")
+                )
+            for marker in getattr(metadata, "constraints", ()) or ():
+                if marker.columns is not None:
+                    cls._validate_columns_list(
+                        new_class, "UseConstraint", field_name,
+                        marker.table_constraint.branch.__class__.__name__,
+                        anchor_column, marker.columns, columns_set,
+                    )
+        for index in getattr(new_class, "__table_indexes__", ()) or ():
+            name = getattr(index, "name", None)
+            if name is not None:
+                index_name_sources.append(
+                    (name, "table-level __table_indexes__ entry")
+                )
+        seen: Dict[str, str] = {}
+        for name, origin in index_name_sources:
+            if name in seen:
+                raise TypeError(
+                    f"{new_class.__name__}: duplicate index name {name!r} "
+                    f"declared by the {seen[name]} and the {origin}. An index "
+                    f"name must have a single source; declare the composite "
+                    f"index once, on its first (leftmost) column."
+                )
+            seen[name] = origin
+
+    @staticmethod
+    def _validate_columns_list(
+        new_class: Type[Any],
+        marker_kind: str,
+        field_name: str,
+        marker_label: str,
+        anchor_column: str,
+        columns: Sequence[str],
+        columns_set: Set[str],
+    ) -> None:
+        if columns[0] != anchor_column:
+            raise TypeError(
+                f"{new_class.__name__}: {marker_kind} {marker_label!r} on "
+                f"field '{field_name}' anchors column {anchor_column!r}, but "
+                f"its columns list starts with {columns[0]!r}: the anchor "
+                f"must be the first (leftmost) column of the declaration."
+            )
+        unknown = [column for column in columns if column not in columns_set]
+        if unknown:
+            raise TypeError(
+                f"{new_class.__name__}: {marker_kind} {marker_label!r} on "
+                f"field '{field_name}' lists column(s) {unknown!r} that the "
+                f"model does not define. The columns list may only name "
+                f"columns of this model."
+            )
+
+    @classmethod
+    def _extract_partition_key(
+        cls,
+        new_class: Type[Any],
+        metadata_by_field: Dict[str, Any],
+    ) -> None:
+        """Resolve the partition key from the annotation face or the dunder.
+
+        Four cases (§4 of the governance plan):
+
+        - annotations only: the annotated fields, in ``model_fields``
+          declaration order, become ``__partition_key__`` (column names,
+          UseColumn-aware);
+        - a direct ``__partition_key__`` declaration only: adopted as written,
+          after validating it is a plain tuple of existing column names --
+          introspection-generated models take this path;
+        - both: ``TypeError`` (R3) -- one fact, one source;
+        - neither: nothing is written, and the model is simply not a
+          partitioned one.
+
+        A partition key that the primary key does not contain is legal on
+        engines like ClickHouse but surprises a reader expecting a covering
+        key, so it is announced with a ``UserWarning`` -- a warning, not an
+        error, because the declaration is not wrong.
+        """
+        annotated: List[str] = []
+        column_names = None
+        for field_name, metadata in metadata_by_field.items():
+            for annotation in getattr(metadata, "annotations", ()) or ():
+                if isinstance(annotation, UsePartitionKey):
+                    if column_names is None:
+                        column_names = cls._field_column_names(metadata_by_field)
+                    annotated.append(column_names[field_name])
+                    break
+        declared = new_class.__dict__.get("__partition_key__")
+        if annotated and declared is not None:
+            raise TypeError(
+                f"{new_class.__name__} declares its partition key twice: "
+                f"UsePartitionKey annotations on {annotated!r} and a "
+                f"__partition_key__ of {declared!r}. One fact, one source -- "
+                f"keep the annotations and delete the dunder, or keep the "
+                f"dunder and drop the markers."
+            )
+        if declared is not None:
+            cls._validate_partition_key_declaration(new_class, declared)
+            cls._warn_partition_key_outside_primary_key(new_class, declared)
+            return
+        if not annotated:
+            return
+        cls._warn_partition_key_outside_primary_key(new_class, tuple(annotated))
+        new_class.__partition_key__ = tuple(annotated)
+
+    @staticmethod
+    def _validate_partition_key_declaration(
+        new_class: Type[Any],
+        declared: Any,
+    ) -> None:
+        """The first round accepts a plain tuple of existing column names."""
+        if not isinstance(declared, tuple):
+            raise TypeError(
+                f"{new_class.__name__}: __partition_key__ must be a tuple of "
+                f"column names, got {type(declared).__name__}. Expression "
+                f"partition keys (ClickHouse toYYYYMM, BigQuery DATE, ...) "
+                f"are not accepted yet; wrap the bare column in a tuple even "
+                f"for a single-column key."
+            )
+        for entry in declared:
+            if not isinstance(entry, str) or not entry:
+                raise TypeError(
+                    f"{new_class.__name__}: __partition_key__ entries must be "
+                    f"non-empty column-name strings, got {entry!r}. An "
+                    f"expression key is not accepted yet."
+                )
+        declared_columns = set(declared)
+        model_columns = set()
+        for field_name, metadata in (
+            getattr(new_class, "__table_ddl_fields__", {}) or {}
+        ).items():
+            model_columns.add(
+                DDLAnnotationHandler._resolve_field_column(field_name, metadata)
+            )
+        unknown = declared_columns - model_columns
+        if unknown:
+            raise TypeError(
+                f"{new_class.__name__}: __partition_key__ names column(s) "
+                f"{sorted(unknown)!r} that the model does not define. The "
+                f"partition key may only name columns of this model."
+            )
+
+    @staticmethod
+    def _resolve_field_column(field_name: str, metadata: Any) -> Optional[str]:
+        """One field's column name, UseColumn-aware, for ad-hoc checks."""
+        for annotation in getattr(metadata, "annotations", ()) or ():
+            if isinstance(annotation, UseColumn):
+                return annotation.column_name
+        return field_name
+
+    @staticmethod
+    def _warn_partition_key_outside_primary_key(
+        new_class: Type[Any],
+        partition_key: Tuple[str, ...],
+    ) -> None:
+        if not partition_key:
+            return
+        pk_source = getattr(new_class, "primary_key_columns", None)
+        pk_columns = set(pk_source()) if callable(pk_source) else set()
+        outside = [column for column in partition_key if column not in pk_columns]
+        if not outside:
+            return
+        warnings.warn(
+            f"{new_class.__name__} declares partition key "
+            f"{partition_key!r}, which the primary key does not contain "
+            f"(outside: {outside!r}). Legal on engines that partition "
+            f"independently of uniqueness (ClickHouse, BigQuery), but a "
+            f"primary-key lookup on such a model still touches every "
+            f"partition -- name the partition column(s) in lookups when "
+            f"that matters.",
+            UserWarning,
+            stacklevel=4,
+        )
+
+    @staticmethod
+    def _validate_natural_key(new_class: Type[Any]) -> None:
+        """A declared natural key must name fields the model actually has.
+
+        Runs at class creation alongside the DDL declarations: the natural
+        key is a declaration, and a misspelled member would otherwise
+        surface only when a lookup on it silently matched nothing.
+        """
+        declared = tuple(getattr(new_class, "natural_key", lambda: ())() or ())
+        if not declared:
+            return
+        fields = getattr(new_class, "model_fields", {}) or {}
+        unknown = [field for field in declared if field not in fields]
+        if unknown:
+            raise TypeError(
+                f"{new_class.__name__}: natural_key() names field(s) {unknown!r} "
+                f"that the model does not define. The natural key may only name "
+                f"model fields."
+            )
+        if len(set(declared)) != len(declared):
+            raise TypeError(
+                f"{new_class.__name__}: natural_key() repeats a field: {declared!r}."
+            )
 
 
 @runtime_checkable
@@ -375,6 +629,9 @@ class DDLSource(Protocol):
         ...
 
     def primary_key_columns(self) -> Tuple[str, ...]:
+        ...
+
+    def partition_key_columns(self) -> Tuple[str, ...]:
         ...
 
     def is_composite_pk(self) -> bool:
@@ -499,11 +756,34 @@ class DDLSourceMixin:
 
     @classmethod
     def table_indexes(cls) -> Sequence[IndexDefinition]:
+        cls._validate_ddl_annotations()
         return list(getattr(cls, "__table_indexes__", ()) or [])
 
     @classmethod
+    def partition_key_columns(cls) -> Tuple[str, ...]:
+        """Partition key column names, or ``()`` for a non-partitioned model.
+
+        Read from ``__partition_key__``, which the class-creation handler
+        extracts from ``UsePartitionKey`` annotations or adopts from a
+        direct declaration. A column-name tuple, mirroring
+        ``primary_key_columns()``, because partition scoping is decided
+        against WHERE trees.
+        """
+        return tuple(getattr(cls, "__partition_key__", ()) or ())
+
+    @classmethod
     def table_constraints(cls) -> Sequence[TableConstraint]:
-        declarations = list(getattr(cls, "__table_constraints__", ()) or [])
+        cls._validate_ddl_annotations()
+        # Multi-column ``UseConstraint`` markers declare table-level facts
+        # anchored on a field; they surface here, in field order, ahead of
+        # the direct-write ``__table_constraints__`` declarations.
+        declarations: List[TableConstraint] = []
+        for metadata in (getattr(cls, "__table_ddl_fields__", {}) or {}).values():
+            for marker in getattr(metadata, "constraints", ()) or ():
+                table_constraint = getattr(marker, "table_constraint", None)
+                if table_constraint is not None:
+                    declarations.append(table_constraint)
+        declarations.extend(list(getattr(cls, "__table_constraints__", ()) or []))
         source = cast(Any, cls)
         if source.is_composite_pk():
             primary_key_columns = list(source.primary_key_columns())
@@ -525,10 +805,11 @@ class DDLSourceMixin:
                     )
             else:
                 declarations.append(
-TableConstraint(
+                    TableConstraint(
                         cast(Any, None),
                         branch=TablePrimaryKeyConstraint(cast(Any, None), primary_key_columns),
-                    )                )
+                    )
+                )
         return declarations
 
     @classmethod
@@ -553,10 +834,23 @@ TableConstraint(
 
     @classmethod
     def index_definition(cls, marker: UseIndex, column_name: str) -> IndexDefinition:
+        """Build an IndexDefinition from a ``UseIndex`` marker.
+
+        An explicit ``columns`` list on the marker is authoritative and must
+        start with the anchor column (validated again here as a guard for
+        direct callers; the class-creation check is the primary one).
+        """
+        if marker.columns is not None and marker.columns[0] != column_name:
+            raise TypeError(
+                f"UseIndex {marker.name!r} anchors column {column_name!r}, but "
+                f"its columns list starts with {marker.columns[0]!r}: the "
+                f"anchor must be the first column of the index."
+            )
+        columns = list(marker.columns) if marker.columns is not None else [column_name]
         return IndexDefinition(
             cast(Any, None),
             name=marker.name,
-            columns=[column_name],
+            columns=columns,
             unique=marker.unique,
             type=marker.type,
             partial_condition=cast(Any, marker.partial_condition),
@@ -650,7 +944,14 @@ TableConstraint(
         metadata = cls._field_metadata(field)
         if metadata is None:
             return []
-        constraints = [marker.constraint for marker in metadata.constraints]
+        # Multi-column UseConstraint markers declare a table-level fact and
+        # surface through table_constraints(); they are not column-level
+        # clauses and must not render inside a column definition.
+        constraints = [
+            marker.constraint
+            for marker in metadata.constraints
+            if marker.constraint is not None
+        ]
         declared_types = {type(constraint.branch) for constraint in constraints}
         explicit_not_null = ColumnNotNullConstraint in declared_types
         explicit_nullable = ColumnNullableConstraint in declared_types

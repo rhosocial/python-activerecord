@@ -12,14 +12,20 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.relation import HasMany, BelongsTo
 
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     id: int
     name: str
 
     posts: ClassVar = HasMany('Post', inverse_of='user')
 
 class Post(ActiveRecord):
-    __table_name__ = "posts"
+    @classmethod
+    def table_name(cls):
+        return "posts"
+
     id: int
     title: str
     user_id: int

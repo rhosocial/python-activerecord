@@ -51,7 +51,9 @@ class User(UUIDMixin, TimestampMixin, SoftDeleteMixin, VersionMixin, ActiveRecor
     - SoftDeleteMixin: deleted_at for soft deletion
     - VersionMixin: version for optimistic locking
     """
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
     
     # Basic fields with validation
     username: str = Field(..., min_length=3, max_length=50)
@@ -83,7 +85,9 @@ from datetime import datetime, date, time
 from decimal import Decimal
 
 class Product(ActiveRecord):
-    __table_name__ = 'products'
+    @classmethod
+    def table_name(cls):
+        return 'products'
     
     # Strings
     name: str
@@ -112,7 +116,9 @@ class Product(ActiveRecord):
 from pydantic import Field, validator, root_validator
 
 class Order(ActiveRecord):
-    __table_name__ = 'orders'
+    @classmethod
+    def table_name(cls):
+        return 'orders'
     
     # Field constraints
     quantity: int = Field(..., ge=1, le=1000)
@@ -145,7 +151,10 @@ from typing import ClassVar
 from rhosocial.activerecord.base import FieldProxy
 
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
     name: str
     age: int
     
@@ -166,7 +175,10 @@ from rhosocial.activerecord.field import TimestampMixin
 
 class Post(TimestampMixin, ActiveRecord):
     """Adds created_at and updated_at automatically."""
-    __table_name__ = 'posts'
+    @classmethod
+    def table_name(cls):
+        return 'posts'
+
     title: str
     
     c: ClassVar[FieldProxy] = FieldProxy()
@@ -186,7 +198,10 @@ from rhosocial.activerecord.field import UUIDMixin
 
 class File(UUIDMixin, ActiveRecord):
     """Uses UUID as primary key instead of auto-increment int."""
-    __table_name__ = 'files'
+    @classmethod
+    def table_name(cls):
+        return 'files'
+
     filename: str
     
     c: ClassVar[FieldProxy] = FieldProxy()
@@ -205,7 +220,10 @@ from rhosocial.activerecord.field import SoftDeleteMixin
 
 class Comment(SoftDeleteMixin, ActiveRecord):
     """Soft deletion - records marked but not removed."""
-    __table_name__ = 'comments'
+    @classmethod
+    def table_name(cls):
+        return 'comments'
+
     content: str
     
     c: ClassVar[FieldProxy] = FieldProxy()
@@ -227,7 +245,10 @@ from rhosocial.activerecord.field import VersionMixin
 
 class Inventory(VersionMixin, ActiveRecord):
     """Prevents concurrent update conflicts."""
-    __table_name__ = 'inventory'
+    @classmethod
+    def table_name(cls):
+        return 'inventory'
+
     product_name: str
     quantity: int
     
@@ -246,14 +267,20 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.relation import HasMany, BelongsTo
 
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
     name: str
     
     c: ClassVar[FieldProxy] = FieldProxy()
     posts: ClassVar[HasMany['Post']] = HasMany(foreign_key='user_id', inverse_of='author')
 
 class Post(ActiveRecord):
-    __table_name__ = 'posts'
+    @classmethod
+    def table_name(cls):
+        return 'posts'
+
     title: str
     user_id: int
     
@@ -267,7 +294,10 @@ class Post(ActiveRecord):
 
 ```python
 class UserProfile(ActiveRecord):
-    __table_name__ = 'user_profiles'  # Snake case, plural
+    @classmethod
+    def table_name(cls):
+        return 'user_profiles'  # Snake case, plural
+
 ```
 
 ### Default Values
@@ -276,7 +306,9 @@ class UserProfile(ActiveRecord):
 from datetime import datetime
 
 class Article(ActiveRecord):
-    __table_name__ = 'articles'
+    @classmethod
+    def table_name(cls):
+        return 'articles'
     
     title: str
     status: str = "draft"  # Default value
@@ -288,7 +320,9 @@ class Article(ActiveRecord):
 
 ```python
 class Product(ActiveRecord):
-    __table_name__ = 'products'
+    @classmethod
+    def table_name(cls):
+        return 'products'
     
     # Required (no default)
     name: str

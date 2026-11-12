@@ -31,7 +31,9 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.relation import BelongsTo
 
 class Order(ActiveRecord):
-    __table_name__ = 'orders'
+    @classmethod
+    def table_name(cls):
+        return 'orders'
     
     user_id: int
     total: float
@@ -53,7 +55,9 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.relation import HasMany
 
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
     
     name: str
     email: str
@@ -75,7 +79,9 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.relation import HasOne
 
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
     
     name: str
     
@@ -103,7 +109,10 @@ Many-to-many relationships are implemented using two `has_many` relationships vi
 ```python
 # User model
 class User(ActiveRecord):
-    __table_name__ = 'users'
+    @classmethod
+    def table_name(cls):
+        return 'users'
+
     id: int
     name: str
     
@@ -119,7 +128,10 @@ class User(ActiveRecord):
 
 # UserRole join table model
 class UserRole(ActiveRecord):
-    __table_name__ = 'user_roles'
+    @classmethod
+    def table_name(cls):
+        return 'user_roles'
+
     user_id: int
     role_id: int
     
@@ -128,7 +140,10 @@ class UserRole(ActiveRecord):
 
 # Role model
 class Role(ActiveRecord):
-    __table_name__ = 'roles'
+    @classmethod
+    def table_name(cls):
+        return 'roles'
+
     id: int
     name: str
     

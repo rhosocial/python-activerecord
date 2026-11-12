@@ -91,7 +91,10 @@ def soft_delete_action(model) -> str:
 
 def soft_delete_field(model) -> Optional[str]:
     """Return the declared soft-delete field name, if any."""
-    return getattr(model, "__deleted_at_field__", None)
+    reader = getattr(model, "deleted_at_field", None)
+    if not callable(reader):
+        return None
+    return reader()
 
 
 def ensure_writable(model, operation: str) -> None:

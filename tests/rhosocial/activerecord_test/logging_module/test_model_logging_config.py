@@ -33,7 +33,10 @@ class TestModelLoggingConfig:
 
     def test_model_logging_config_overrides_global_default_for_log_data(self):
         class LocalModel(ActiveRecord):
-            __table_name__ = "local_model"
+            @classmethod
+            def table_name(cls):
+                return "local_model"
+
             id: Optional[int] = None
 
         stream = io.StringIO()
@@ -63,11 +66,17 @@ class TestModelLoggingConfig:
 
     def test_different_models_use_different_logging_configs(self):
         class HiddenModel(ActiveRecord):
-            __table_name__ = "hidden_model"
+            @classmethod
+            def table_name(cls):
+                return "hidden_model"
+
             id: Optional[int] = None
 
         class FullModel(ActiveRecord):
-            __table_name__ = "full_model"
+            @classmethod
+            def table_name(cls):
+                return "full_model"
+
             id: Optional[int] = None
 
         hidden_original = HiddenModel.__logging_config__
@@ -86,7 +95,10 @@ class TestModelLoggingConfig:
 
     def test_configure_binds_logging_config_to_model_and_backend(self):
         class ConfiguredModel(ActiveRecord):
-            __table_name__ = "configured_model"
+            @classmethod
+            def table_name(cls):
+                return "configured_model"
+
             id: Optional[int] = None
 
         logging_config = LoggingConfig(log_data_mode=LogDataMode.KEYS_ONLY)
@@ -109,7 +121,10 @@ class TestModelLoggingConfig:
     @pytest.mark.asyncio
     async def test_async_configure_binds_logging_config_to_model_and_backend(self):
         class AsyncConfiguredModel(AsyncActiveRecord):
-            __table_name__ = "async_configured_model"
+            @classmethod
+            def table_name(cls):
+                return "async_configured_model"
+
             id: Optional[int] = None
 
         logging_config = LoggingConfig(log_data_mode=LogDataMode.KEYS_ONLY)
@@ -131,11 +146,17 @@ class TestModelLoggingConfig:
 
     def test_backend_group_binds_logging_config_to_models_and_backend(self):
         class GroupUser(ActiveRecord):
-            __table_name__ = "group_users"
+            @classmethod
+            def table_name(cls):
+                return "group_users"
+
             id: Optional[int] = None
 
         class GroupPost(ActiveRecord):
-            __table_name__ = "group_posts"
+            @classmethod
+            def table_name(cls):
+                return "group_posts"
+
             id: Optional[int] = None
 
         logging_config = LoggingConfig(log_data_mode=LogDataMode.HIDDEN)
@@ -160,7 +181,10 @@ class TestModelLoggingConfig:
 
     def test_backend_group_without_logging_config_keeps_model_config(self):
         class GroupKeepModel(ActiveRecord):
-            __table_name__ = "group_keep_model"
+            @classmethod
+            def table_name(cls):
+                return "group_keep_model"
+
             id: Optional[int] = None
 
         model_config = LoggingConfig(log_data_mode=LogDataMode.FULL)
@@ -184,7 +208,10 @@ class TestModelLoggingConfig:
     @pytest.mark.asyncio
     async def test_async_backend_group_binds_logging_config_to_models_and_backend(self):
         class AsyncGroupUser(AsyncActiveRecord):
-            __table_name__ = "async_group_users"
+            @classmethod
+            def table_name(cls):
+                return "async_group_users"
+
             id: Optional[int] = None
 
         logging_config = LoggingConfig(log_data_mode=LogDataMode.HIDDEN)
@@ -213,11 +240,17 @@ class TestClassVarIsolation:
         """Different model subclasses should have independent __logging_config__ instances."""
 
         class UserModel(ActiveRecord):
-            __table_name__ = "users"
+            @classmethod
+            def table_name(cls):
+                return "users"
+
             id: Optional[int] = None
 
         class PostModel(ActiveRecord):
-            __table_name__ = "posts"
+            @classmethod
+            def table_name(cls):
+                return "posts"
+
             id: Optional[int] = None
 
         assert UserModel.__logging_config__ is not PostModel.__logging_config__
@@ -226,11 +259,17 @@ class TestClassVarIsolation:
         """Mutating one model's logging config should not affect another model."""
 
         class AlphaModel(ActiveRecord):
-            __table_name__ = "alpha"
+            @classmethod
+            def table_name(cls):
+                return "alpha"
+
             id: Optional[int] = None
 
         class BetaModel(ActiveRecord):
-            __table_name__ = "beta"
+            @classmethod
+            def table_name(cls):
+                return "beta"
+
             id: Optional[int] = None
 
         AlphaModel.__logging_config__.default_level = logging.ERROR
@@ -242,7 +281,10 @@ class TestClassVarIsolation:
         custom_config = LoggingConfig(default_level=logging.CRITICAL)
 
         class CustomModel(ActiveRecord):
-            __table_name__ = "custom"
+            @classmethod
+            def table_name(cls):
+                return "custom"
+
             id: Optional[int] = None
             __logging_config__ = custom_config
 
@@ -253,11 +295,17 @@ class TestClassVarIsolation:
         """Mutating one model's summarizer_config should not affect another model."""
 
         class ModelA(ActiveRecord):
-            __table_name__ = "model_a"
+            @classmethod
+            def table_name(cls):
+                return "model_a"
+
             id: Optional[int] = None
 
         class ModelB(ActiveRecord):
-            __table_name__ = "model_b"
+            @classmethod
+            def table_name(cls):
+                return "model_b"
+
             id: Optional[int] = None
 
         ModelA.__logging_config__.summarizer_config.max_string_length = 10

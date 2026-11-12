@@ -39,7 +39,7 @@ from typing import Any
 
 
 class FieldConfigValidationHandler:
-    """Runs every mixin-declared ``_validate_model_config`` on the new class.
+    """Runs the mixin-declared ``_validate_model_config`` on the new class.
 
     A mixin opts in by declaring this handler in ``_feature_handlers`` and
     exposing a ``_validate_model_config`` classmethod. The handler discovers
@@ -47,11 +47,16 @@ class FieldConfigValidationHandler:
     ``__dict__`` — it never infers anything from attribute names, so adding
     a mixin is a one-line declaration rather than a naming convention to
     remember.
+
+    Validators read the locator *accessors* (``deleted_at_field()`` and
+    friends), so an overriding answer is what gets validated -- which is
+    correct because D5 moved the declaration onto those methods, and an
+    accessor's answer is available the moment the class exists.
     """
 
     @classmethod
     def handle(cls, model_class: Any) -> None:
-        """Validate the configuration of every field mixin on *model_class*."""
+        """Validate field-mixin configs for *model_class*."""
         for klass in model_class.__mro__:
             validator = klass.__dict__.get("_validate_model_config")
             if validator is not None:

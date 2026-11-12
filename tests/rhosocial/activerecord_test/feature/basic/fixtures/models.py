@@ -31,7 +31,9 @@ except ImportError:
 
 class TypeCase(UUIDMixin, ActiveRecord):
     """A model with a wide variety of data types to test database type handling."""
-    __table_name__ = "type_cases"
+    @classmethod
+    def table_name(cls):
+        return "type_cases"
 
     username: str
     email: str
@@ -54,7 +56,10 @@ class TypeCase(UUIDMixin, ActiveRecord):
 
 class AsyncTypeCase(UUIDMixin, AsyncActiveRecord):
     """A model with a wide variety of data types to test database type handling."""
-    __table_name__ = "type_cases"
+    @classmethod
+    def table_name(cls):
+        return "type_cases"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     username: str
@@ -78,7 +83,9 @@ class AsyncTypeCase(UUIDMixin, AsyncActiveRecord):
 
 class TypeTestModel(UUIDMixin, ActiveRecord):
     """Model class for testing various field types"""
-    __table_name__ = "type_tests"
+    @classmethod
+    def table_name(cls):
+        return "type_tests"
 
     # UUID primary key provided by UUIDMixin
     string_field: str = Field(default="test string")
@@ -92,7 +99,10 @@ class TypeTestModel(UUIDMixin, ActiveRecord):
 
 class AsyncTypeTestModel(UUIDMixin, AsyncActiveRecord):
     """Model class for testing various field types"""
-    __table_name__ = "type_tests"
+    @classmethod
+    def table_name(cls):
+        return "type_tests"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     # UUID primary key provided by UUIDMixin
@@ -108,7 +118,10 @@ class AsyncTypeTestModel(UUIDMixin, AsyncActiveRecord):
 
 class User(IntegerPKMixin, TimestampMixin, ActiveRecord):
     """A standard User model for general CRUD operation testing."""
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     # The IntegerPKMixin is expected to handle the `id` field.
@@ -121,7 +134,10 @@ class User(IntegerPKMixin, TimestampMixin, ActiveRecord):
 
 class AsyncUser(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     """A standard User model for general CRUD operation testing."""
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     # The IntegerPKMixin is expected to handle the `id` field.
@@ -137,7 +153,10 @@ class ValidatedFieldUser(IntegerPKMixin, ActiveRecord):
     A User model with specific, custom field validators to test the framework's
     validation handling.
     """
-    __table_name__ = "validated_field_users"
+    @classmethod
+    def table_name(cls):
+        return "validated_field_users"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Optional[int] = None
@@ -170,7 +189,10 @@ class AsyncValidatedFieldUser(IntegerPKMixin, AsyncActiveRecord):
     A User model with specific, custom field validators to test the framework's
     validation handling.
     """
-    __table_name__ = "validated_field_users"
+    @classmethod
+    def table_name(cls):
+        return "validated_field_users"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Optional[int] = None
@@ -200,7 +222,9 @@ class AsyncValidatedFieldUser(IntegerPKMixin, AsyncActiveRecord):
 
 class ValidatedUser(IntegerPKMixin, ActiveRecord):
     """User model for validation testing"""
-    __table_name__ = "validated_users"
+    @classmethod
+    def table_name(cls):
+        return "validated_users"
 
     id: Optional[int] = None
     username: str = Field(..., min_length=3, max_length=50)
@@ -224,7 +248,10 @@ class ValidatedUser(IntegerPKMixin, ActiveRecord):
 
 class AsyncValidatedUser(IntegerPKMixin, AsyncActiveRecord):
     """User model for validation testing"""
-    __table_name__ = "validated_users"
+    @classmethod
+    def table_name(cls):
+        return "validated_users"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Optional[int] = None
@@ -283,14 +310,18 @@ class PydanticValidatedFieldsMixin:
 
 class PydanticValidatedModel(PydanticValidatedFieldsMixin, IntegerPKMixin, ActiveRecord):
     """Model for Pydantic native validation contract tests."""
-    __table_name__ = "pydantic_validated_models"
+    @classmethod
+    def table_name(cls):
+        return "pydantic_validated_models"
 
     id: Optional[int] = None
 
 
 class AsyncPydanticValidatedModel(PydanticValidatedFieldsMixin, IntegerPKMixin, AsyncActiveRecord):
     """Async model for Pydantic native validation contract tests."""
-    __table_name__ = "pydantic_validated_models"
+    @classmethod
+    def table_name(cls):
+        return "pydantic_validated_models"
 
     id: Optional[int] = None
 
@@ -312,7 +343,9 @@ class YesOrNoBooleanAdapter(BaseSQLTypeAdapter):
 
 class TypeAdapterTest(ActiveRecord):
     """Model for testing various type adapter scenarios."""
-    __table_name__ = 'type_adapter_tests'
+    @classmethod
+    def table_name(cls):
+        return 'type_adapter_tests'
 
     id: Optional[int] = None
     name: str
@@ -329,7 +362,10 @@ class TypeAdapterTest(ActiveRecord):
 
 class AsyncTypeAdapterTest(AsyncActiveRecord):
     """Model for testing various type adapter scenarios."""
-    __table_name__ = 'type_adapter_tests'
+    @classmethod
+    def table_name(cls):
+        return 'type_adapter_tests'
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Optional[int] = None
@@ -350,7 +386,9 @@ class AsyncTypeAdapterTest(AsyncActiveRecord):
 class MappedUser(IntegerPKMixin, TimestampMixin, ActiveRecord):
     """User model with custom column name mappings for testing in basic feature."""
 
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
 
     # Python field: user_id, Database column: id
     user_id: Annotated[Optional[int], UseColumn("id")] = None
@@ -368,7 +406,10 @@ class MappedUser(IntegerPKMixin, TimestampMixin, ActiveRecord):
 class AsyncMappedUser(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     """User model with custom column name mappings for testing in basic feature."""
 
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     # Python field: user_id, Database column: id
@@ -388,7 +429,9 @@ class AsyncMappedUser(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
 class MappedPost(IntegerPKMixin, TimestampMixin, ActiveRecord):
     """Post model with custom column name mappings for testing in basic feature."""
 
-    __table_name__ = "posts"
+    @classmethod
+    def table_name(cls):
+        return "posts"
 
     # Python field: post_id, Database column: id
     post_id: Annotated[Optional[int], UseColumn("id")] = None
@@ -411,7 +454,10 @@ class MappedPost(IntegerPKMixin, TimestampMixin, ActiveRecord):
 class AsyncMappedPost(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     """Post model with custom column name mappings for testing in basic feature."""
 
-    __table_name__ = "posts"
+    @classmethod
+    def table_name(cls):
+        return "posts"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     # Python field: post_id, Database column: id
@@ -436,7 +482,9 @@ class AsyncMappedPost(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
 class MappedComment(IntegerPKMixin, TimestampMixin, ActiveRecord):
     """Comment model with custom column name mappings for testing in basic feature."""
 
-    __table_name__ = "comments"
+    @classmethod
+    def table_name(cls):
+        return "comments"
 
     # Python field: comment_id, Database column: id
     comment_id: Annotated[Optional[int], UseColumn("id")] = None
@@ -460,7 +508,10 @@ class MappedComment(IntegerPKMixin, TimestampMixin, ActiveRecord):
 class AsyncMappedComment(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     """Comment model with custom column name mappings for testing in basic feature."""
 
-    __table_name__ = "comments"
+    @classmethod
+    def table_name(cls):
+        return "comments"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     # Python field: comment_id, Database column: id
@@ -504,7 +555,9 @@ class ColumnMappingModel(ActiveRecord):
     A model demonstrating various valid uses of UseColumn and UseAdapter,
     including mapping the primary key attribute.
     """
-    __table_name__ = 'column_mapping_items'
+    @classmethod
+    def table_name(cls):
+        return 'column_mapping_items'
 
     # Primary key defaults to 'id'. item_id attribute maps to this 'id' column.
     item_id: Annotated[Optional[int], UseColumn("id")] = Field(default=None)
@@ -517,7 +570,10 @@ class AsyncColumnMappingModel(AsyncActiveRecord):
     A model demonstrating various valid uses of UseColumn and UseAdapter,
     including mapping the primary key attribute.
     """
-    __table_name__ = 'column_mapping_items'
+    @classmethod
+    def table_name(cls):
+        return 'column_mapping_items'
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     # Primary key defaults to 'id'. item_id attribute maps to this 'id' column.
@@ -603,7 +659,9 @@ class JsonToStringAdapter(BaseSQLTypeAdapter):
 
 class MixedAnnotationModel(ActiveRecord):
     """A model with various combinations of annotations to test field mapping and adapters."""
-    __table_name__ = "mixed_annotation_items"
+    @classmethod
+    def table_name(cls):
+        return "mixed_annotation_items"
 
     # 1. Standard Python type
     name: str
@@ -626,7 +684,10 @@ class MixedAnnotationModel(ActiveRecord):
 
 class AsyncMixedAnnotationModel(AsyncActiveRecord):
     """A model with various combinations of annotations to test field mapping and adapters."""
-    __table_name__ = "mixed_annotation_items"
+    @classmethod
+    def table_name(cls):
+        return "mixed_annotation_items"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     # 1. Standard Python type
@@ -650,7 +711,10 @@ class AsyncMixedAnnotationModel(AsyncActiveRecord):
 
 
 class BulkUser(IntegerPKMixin, ActiveRecord):
-    __table_name__ = "bulk_users"
+    @classmethod
+    def table_name(cls):
+        return "bulk_users"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Optional[int] = None
@@ -660,7 +724,10 @@ class BulkUser(IntegerPKMixin, ActiveRecord):
 
 
 class AsyncBulkUser(IntegerPKMixin, AsyncActiveRecord):
-    __table_name__ = "bulk_users"
+    @classmethod
+    def table_name(cls):
+        return "bulk_users"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Optional[int] = None
@@ -675,8 +742,14 @@ class AsyncBulkUser(IntegerPKMixin, AsyncActiveRecord):
 
 class OrderItem(CompositePKMixin, ActiveRecord):
     """Composite PK (order_id, product_id), PK provided by application."""
-    __table_name__ = "order_items"
-    __primary_key__ = ("order_id", "product_id")
+    @classmethod
+    def table_name(cls):
+        return "order_items"
+
+    @classmethod
+    def primary_key(cls):
+        return ("order_id", "product_id")
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     order_id: int
@@ -687,8 +760,14 @@ class OrderItem(CompositePKMixin, ActiveRecord):
 
 class AsyncOrderItem(CompositePKMixin, AsyncActiveRecord):
     """Async variant of OrderItem."""
-    __table_name__ = "order_items"
-    __primary_key__ = ("order_id", "product_id")
+    @classmethod
+    def table_name(cls):
+        return "order_items"
+
+    @classmethod
+    def primary_key(cls):
+        return ("order_id", "product_id")
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     order_id: int
@@ -699,8 +778,14 @@ class AsyncOrderItem(CompositePKMixin, AsyncActiveRecord):
 
 class StoreInventory(CompositePKMixin, ActiveRecord):
     """Triple-column composite PK."""
-    __table_name__ = "store_inventory"
-    __primary_key__ = ("store_id", "product_id", "batch_id")
+    @classmethod
+    def table_name(cls):
+        return "store_inventory"
+
+    @classmethod
+    def primary_key(cls):
+        return ("store_id", "product_id", "batch_id")
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     store_id: int
@@ -711,8 +796,14 @@ class StoreInventory(CompositePKMixin, ActiveRecord):
 
 class AsyncStoreInventory(CompositePKMixin, AsyncActiveRecord):
     """Async variant of StoreInventory."""
-    __table_name__ = "store_inventory"
-    __primary_key__ = ("store_id", "product_id", "batch_id")
+    @classmethod
+    def table_name(cls):
+        return "store_inventory"
+
+    @classmethod
+    def primary_key(cls):
+        return ("store_id", "product_id", "batch_id")
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     store_id: int
@@ -723,7 +814,10 @@ class AsyncStoreInventory(CompositePKMixin, AsyncActiveRecord):
 
 class Order(IntegerPKMixin, TimestampMixin, ActiveRecord):
     """Single-column auto-increment PK — backward compatibility control group."""
-    __table_name__ = "orders"
+    @classmethod
+    def table_name(cls):
+        return "orders"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Optional[int] = None
@@ -732,7 +826,10 @@ class Order(IntegerPKMixin, TimestampMixin, ActiveRecord):
 
 class AsyncOrder(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     """Async variant of Order."""
-    __table_name__ = "orders"
+    @classmethod
+    def table_name(cls):
+        return "orders"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Optional[int] = None
@@ -741,8 +838,13 @@ class AsyncOrder(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
 
 class MappedOrderItem(CompositePKMixin, ActiveRecord):
     """Composite PK with UseColumn mapping — Python field names differ from DB column names."""
-    __table_name__ = "order_items"
-    __primary_key__ = ("order_id", "product_id")
+    @classmethod
+    def table_name(cls):
+        return "order_items"
+
+    @classmethod
+    def primary_key(cls):
+        return ("order_id", "product_id")
 
     order_ref: Annotated[int, UseColumn("order_id")]
     product_ref: Annotated[int, UseColumn("product_id")]
@@ -752,8 +854,14 @@ class MappedOrderItem(CompositePKMixin, ActiveRecord):
 
 class AsyncMappedOrderItem(CompositePKMixin, AsyncActiveRecord):
     """Async variant of MappedOrderItem."""
-    __table_name__ = "order_items"
-    __primary_key__ = ("order_id", "product_id")
+    @classmethod
+    def table_name(cls):
+        return "order_items"
+
+    @classmethod
+    def primary_key(cls):
+        return ("order_id", "product_id")
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     order_ref: Annotated[int, UseColumn("order_id")]
@@ -771,7 +879,9 @@ from rhosocial.activerecord.backend.expression import Literal, NumericColumn
 
 
 class Product(ActiveRecord):
-    __table_name__ = "product"
+    @classmethod
+    def table_name(cls):
+        return "product"
 
     id: Optional[int] = None
     name: str
@@ -788,7 +898,9 @@ class Product(ActiveRecord):
 
 
 class AsyncProduct(AsyncActiveRecord):
-    __table_name__ = "product"
+    @classmethod
+    def table_name(cls):
+        return "product"
 
     id: Optional[int] = None
     name: str
@@ -806,7 +918,9 @@ class AsyncProduct(AsyncActiveRecord):
 
 class ProductFormA(ActiveRecord):
     """Form A declaration: ClassVar[DerivedField] = DerivedField(...)."""
-    __table_name__ = "product"
+    @classmethod
+    def table_name(cls):
+        return "product"
 
     id: Optional[int] = None
     name: str
@@ -823,7 +937,9 @@ class ProductFormA(ActiveRecord):
 
 
 class AsyncProductFormA(AsyncActiveRecord):
-    __table_name__ = "product"
+    @classmethod
+    def table_name(cls):
+        return "product"
 
     id: Optional[int] = None
     name: str
@@ -855,7 +971,9 @@ class PriceToIntAdapter:
 
 class ProductWithProxy(ActiveRecord):
     """Product model using FieldProxy in DerivedField expressions."""
-    __table_name__ = "product"
+    @classmethod
+    def table_name(cls):
+        return "product"
 
     c: ClassVar[FieldProxy] = FieldProxy()
     id: Optional[int] = None
@@ -873,7 +991,9 @@ class ProductWithProxy(ActiveRecord):
 
 
 class AsyncProductWithProxy(AsyncActiveRecord):
-    __table_name__ = "product"
+    @classmethod
+    def table_name(cls):
+        return "product"
 
     c: ClassVar[FieldProxy] = FieldProxy()
     id: Optional[int] = None
@@ -892,7 +1012,9 @@ class AsyncProductWithProxy(AsyncActiveRecord):
 
 class ProductWithColumnAndAdapter(ActiveRecord):
     """Product model with UseColumn and UseAdapter on derived fields."""
-    __table_name__ = "product"
+    @classmethod
+    def table_name(cls):
+        return "product"
 
     id: Optional[int] = None
     name: str
@@ -909,7 +1031,9 @@ class ProductWithColumnAndAdapter(ActiveRecord):
 
 
 class AsyncProductWithColumnAndAdapter(AsyncActiveRecord):
-    __table_name__ = "product"
+    @classmethod
+    def table_name(cls):
+        return "product"
 
     id: Optional[int] = None
     name: str

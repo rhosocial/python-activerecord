@@ -18,8 +18,13 @@ from typing import Optional
 from rhosocial.activerecord.model import ActiveRecord
 
 class AuditLog(ActiveRecord):
-    __table_name__ = "audit_log"
-    __primary_key__ = None
+    @classmethod
+    def table_name(cls):
+        return "audit_log"
+
+    @classmethod
+    def primary_key(cls):
+        return None
 
     event: str
     level: str
@@ -114,15 +119,24 @@ The two dimensions do not interact:
 
 ```python
 class KeylessWritable(ActiveRecord):
-    __primary_key__ = None
+    @classmethod
+    def primary_key(cls):
+        return None
+
     ...
 
 class ReadOnlyWithKey(ActiveRecord, ReadOnlyMixin):
-    __table_name__ = "records"
+    @classmethod
+    def table_name(cls):
+        return "records"
+
     ...
 
 class KeylessReadOnly(ActiveRecord, ReadOnlyMixin):
-    __primary_key__ = None
+    @classmethod
+    def primary_key(cls):
+        return None
+
     ...
 ```
 

@@ -1,5 +1,10 @@
 # Constants: what a name in caps has to earn
 
+> Model declarations are not constants. A model declares its table name, key
+> and locators by overriding accessor methods — see
+> [declaration-surfaces.md](declaration-surfaces.md). A dunder assigned in a
+> class body is not a declaration and is not read by the framework.
+
 A module-level name written in capitals is a claim: that the value is a fact
 of the domain rather than a convenience of one call site, and that everyone
 who reads it sees the same one. The claim is either true or it is decoration,

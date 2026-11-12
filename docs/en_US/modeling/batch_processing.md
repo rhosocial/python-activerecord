@@ -20,7 +20,10 @@ from rhosocial.activerecord.model import ActiveRecord
 
 
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     c: ClassVar[FieldProxy] = FieldProxy()
     id: Optional[int] = None
     name: str

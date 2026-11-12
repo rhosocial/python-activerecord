@@ -45,7 +45,10 @@ from rhosocial.activerecord.relation import (
 class OrderingAuthor(ActiveRecord):
     """Author with an ordered HasMany whose sort field uses a custom column."""
 
-    __table_name__ = "ordering_authors"
+    @classmethod
+    def table_name(cls):
+        return "ordering_authors"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Optional[int] = None
@@ -61,7 +64,10 @@ class OrderingAuthor(ActiveRecord):
 class OrderingBook(ActiveRecord):
     """Book whose Python field ``title`` maps to the column ``book_title``."""
 
-    __table_name__ = "ordering_books"
+    @classmethod
+    def table_name(cls):
+        return "ordering_books"
+
     id: Optional[int] = None
     title: Annotated[str, UseColumn("book_title")]
     author_id: int
@@ -75,7 +81,10 @@ class OrderingBook(ActiveRecord):
 class PlainOrderingAuthor(ActiveRecord):
     """Author whose HasMany keeps the old un-ordered behaviour."""
 
-    __table_name__ = "ordering_authors"
+    @classmethod
+    def table_name(cls):
+        return "ordering_authors"
+
     id: Optional[int] = None
     name: str
 
@@ -89,7 +98,10 @@ class PlainOrderingAuthor(ActiveRecord):
 class BadOrderAuthor(ActiveRecord):
     """Author with a relation that names a field that does not exist."""
 
-    __table_name__ = "ordering_authors"
+    @classmethod
+    def table_name(cls):
+        return "ordering_authors"
+
     id: Optional[int] = None
     name: str
 
@@ -103,7 +115,10 @@ class BadOrderAuthor(ActiveRecord):
 class DerivedBook(ActiveRecord):
     """Book with a derived field that must not be accepted as an order key."""
 
-    __table_name__ = "ordering_books"
+    @classmethod
+    def table_name(cls):
+        return "ordering_books"
+
     id: Optional[int] = None
     title: str
     author_id: int
@@ -121,7 +136,10 @@ class DerivedBook(ActiveRecord):
 class DerivedAuthor(ActiveRecord):
     """Author ordering by a derived field (rejected on first query build)."""
 
-    __table_name__ = "ordering_authors"
+    @classmethod
+    def table_name(cls):
+        return "ordering_authors"
+
     id: Optional[int] = None
     name: str
 
@@ -135,8 +153,13 @@ class DerivedAuthor(ActiveRecord):
 class OrderingPart(CompositePKMixin, ActiveRecord):
     """Composite-primary-key child used for tie-breaker checks."""
 
-    __table_name__ = "ordering_parts"
-    __primary_key__ = ("order_id", "line_no")
+    @classmethod
+    def table_name(cls):
+        return "ordering_parts"
+
+    @classmethod
+    def primary_key(cls):
+        return ("order_id", "line_no")
 
     order_id: int
     line_no: int
@@ -147,7 +170,10 @@ class OrderingPart(CompositePKMixin, ActiveRecord):
 class OrderingOwner(ActiveRecord):
     """Owner of composite-key parts ordered by ``label``."""
 
-    __table_name__ = "ordering_owners"
+    @classmethod
+    def table_name(cls):
+        return "ordering_owners"
+
     id: Optional[int] = None
     name: str
 
@@ -165,7 +191,10 @@ class OrderingOwner(ActiveRecord):
 class AsyncOrderingAuthor(AsyncActiveRecord):
     """Async mirror of OrderingAuthor."""
 
-    __table_name__ = "ordering_authors"
+    @classmethod
+    def table_name(cls):
+        return "ordering_authors"
+
     id: Optional[int] = None
     name: str
 
@@ -179,7 +208,10 @@ class AsyncOrderingAuthor(AsyncActiveRecord):
 class AsyncOrderingBook(AsyncActiveRecord):
     """Async mirror of OrderingBook."""
 
-    __table_name__ = "ordering_books"
+    @classmethod
+    def table_name(cls):
+        return "ordering_books"
+
     id: Optional[int] = None
     title: str
     author_id: int

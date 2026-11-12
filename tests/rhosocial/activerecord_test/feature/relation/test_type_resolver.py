@@ -139,11 +139,17 @@ class TestRelatedModelTypeValidation:
         from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
 
         class AsyncTarget(AsyncActiveRecord):
-            __table_name__ = "async_target_check"
+            @classmethod
+            def table_name(cls):
+                return "async_target_check"
+
             id: Optional[int] = None
 
         class Owner(ActiveRecord):
-            __table_name__ = "owner_check"
+            @classmethod
+            def table_name(cls):
+                return "owner_check"
+
             id: Optional[int] = None
             ref_id: int
             bad: ClassVar[BelongsTo["AsyncTarget"]] = BelongsTo(foreign_key="ref_id", inverse_of=None)
@@ -159,11 +165,17 @@ class TestRelatedModelTypeValidation:
         from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
 
         class SyncTarget(ActiveRecord):
-            __table_name__ = "sync_target_check"
+            @classmethod
+            def table_name(cls):
+                return "sync_target_check"
+
             id: Optional[int] = None
 
         class Owner(AsyncActiveRecord):
-            __table_name__ = "owner_check2"
+            @classmethod
+            def table_name(cls):
+                return "owner_check2"
+
             id: Optional[int] = None
             ref_id: int
             bad: ClassVar[AsyncBelongsTo["SyncTarget"]] = AsyncBelongsTo(foreign_key="ref_id", inverse_of=None)
@@ -194,7 +206,10 @@ class TestRelatedModelTypeValidation:
         from rhosocial.activerecord.model import AsyncActiveRecord
 
         class Owner(AsyncActiveRecord):
-            __table_name__ = "owner_check3"
+            @classmethod
+            def table_name(cls):
+                return "owner_check3"
+
             id: Optional[int] = None
             ref_id: int
             rel: ClassVar[AsyncBelongsTo["PlainClass"]] = AsyncBelongsTo(foreign_key="ref_id", inverse_of=None)
@@ -207,11 +222,17 @@ class TestRelatedModelTypeValidation:
         from rhosocial.activerecord.model import ActiveRecord
 
         class SyncTarget(ActiveRecord):
-            __table_name__ = "sync_target3"
+            @classmethod
+            def table_name(cls):
+                return "sync_target3"
+
             id: Optional[int] = None
 
         class Owner(ActiveRecord):
-            __table_name__ = "owner_check4"
+            @classmethod
+            def table_name(cls):
+                return "owner_check4"
+
             id: Optional[int] = None
             ref_id: int
             good: ClassVar[BelongsTo["SyncTarget"]] = BelongsTo(foreign_key="ref_id", inverse_of=None)
@@ -226,11 +247,17 @@ class TestRelatedModelTypeValidation:
         from rhosocial.activerecord.model import AsyncActiveRecord
 
         class AsyncTarget(AsyncActiveRecord):
-            __table_name__ = "async_target3"
+            @classmethod
+            def table_name(cls):
+                return "async_target3"
+
             id: Optional[int] = None
 
         class Owner(AsyncActiveRecord):
-            __table_name__ = "owner_check5"
+            @classmethod
+            def table_name(cls):
+                return "owner_check5"
+
             id: Optional[int] = None
             ref_id: int
             good: ClassVar[AsyncBelongsTo["AsyncTarget"]] = AsyncBelongsTo(foreign_key="ref_id", inverse_of=None)

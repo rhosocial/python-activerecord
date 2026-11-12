@@ -370,7 +370,7 @@ def resolve_connection(model, is_async: bool, args):
     if backend_reference:
         backend_class = load_backend_class(backend_reference, is_async)
     else:
-        backend_class = getattr(model, "__backend_class__", None)
+        backend_class = model.backend_class()
         if backend_class is None:
             raise CLIError(
                 f"{model.__name__} has no backend class. Pass --backend-class "
@@ -388,7 +388,7 @@ def resolve_connection(model, is_async: bool, args):
     elif config_reference:
         config = _build_config(args, load_config_class(config_reference))
     else:
-        config = getattr(model, "__connection_config__", None)
+        config = model.connection_config()
         if config is None:
             raise CLIError(
                 f"{model.__name__} has no connection config. Pass --config-class "

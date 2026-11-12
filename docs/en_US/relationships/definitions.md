@@ -244,7 +244,9 @@ from rhosocial.activerecord.field import CompositePKMixin
 from rhosocial.activerecord.relation import BelongsTo, HasMany
 
 class Order(ActiveRecord):
-    __primary_key__ = ("order_id",)
+    @classmethod
+    def primary_key(cls):
+        return ("order_id",)
 
     order_id: int
     items: ClassVar[HasMany['OrderItem']] = HasMany(
@@ -253,7 +255,9 @@ class Order(ActiveRecord):
     )
 
 class OrderItem(CompositePKMixin, ActiveRecord):
-    __primary_key__ = ("order_id", "product_id")
+    @classmethod
+    def primary_key(cls):
+        return ("order_id", "product_id")
 
     order_id: int
     product_id: int

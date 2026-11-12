@@ -16,7 +16,7 @@ equal footing without mixing execution models.
 """
 
 from datetime import datetime, timezone
-from typing import ClassVar, Dict, Any, Optional
+from typing import Dict, Any, Optional
 
 from pydantic import Field
 
@@ -32,17 +32,27 @@ class SoftDeleteMixin(IDeleteBehavior):
     """Soft-delete *semantics* — declares no field.
 
     The model (or a subclass like :class:`DefaultSoftDeleteMixin`) declares
-    a datetime field and announces it via ``__deleted_at_field__``; it must
-    exist or the class is rejected at definition time.
+    a datetime field and points at it by overriding
+    :meth:`deleted_at_field`; it must exist or the class is rejected at
+    definition time.
     """
-
-    __deleted_at_field__: ClassVar[str] = "deleted_at"
 
     _feature_handlers = [FieldConfigValidationHandler]
 
     def __init__(self, **data):
         super().__init__(**data)
         self.on(ModelEvent.BEFORE_DELETE, self._mark_as_deleted)
+
+    @classmethod
+    def deleted_at_field(cls) -> str:
+        """The soft-delete field -- declared by overriding this method.
+
+        The default is the conventional ``deleted_at`` column. A model
+        whose soft-delete column has another name overrides the method; the
+        field-config validator then checks that overriding answer, so a
+        renamed column that does not exist fails at class definition.
+        """
+        return "deleted_at"
 
     @classmethod
     def _validate_model_config(cls) -> None:
@@ -52,10 +62,10 @@ class SoftDeleteMixin(IDeleteBehavior):
         so it runs once at class definition — see that module for why this
         cannot live in ``__init__``.
         """
-        field_name = cls.__deleted_at_field__
+        field_name = cls.deleted_at_field()
         if field_name not in cls.model_fields:
             raise TypeError(
-                f"{cls.__name__}: __deleted_at_field__ = {field_name!r} does "
+                f"{cls.__name__}: deleted_at_field() = {field_name!r} does "
                 f"not name a model field. Declare the soft-delete field (e.g. "
                 f"`{field_name}: Optional[datetime] = Field(default=None)`) or "
                 f"use DefaultSoftDeleteMixin."
@@ -64,15 +74,15 @@ class SoftDeleteMixin(IDeleteBehavior):
     @classmethod
     def _deleted_at_column(cls) -> str:
         """The database column name for the soft-delete field (UseColumn-aware)."""
-        return cls.get_column_name(cls.__deleted_at_field__)
+        return cls.get_column_name(cls.deleted_at_field())
 
     def _mark_as_deleted(self, instance: "SoftDeleteMixin", **kwargs):
         """Mark record as soft deleted by setting the configured field."""
-        setattr(instance, self.__deleted_at_field__, datetime.now(timezone.utc))
+        setattr(instance, self.deleted_at_field(), datetime.now(timezone.utc))
 
     def prepare_delete(self) -> Dict[str, Any]:
         """Prepare soft delete data (field name as key; mapped downstream)."""
-        field_name = self.__deleted_at_field__
+        field_name = self.deleted_at_field()
         value = getattr(self, field_name)
         if value is None:
             raise ValueError(
@@ -134,7 +144,7 @@ class SoftDeleteMixin(IDeleteBehavior):
 
     def restore(self) -> int:
         """Restore a soft-deleted record using expression system."""
-        field_name = self.__deleted_at_field__
+        field_name = self.deleted_at_field()
         if getattr(self, field_name) is None:
             return 0
 
@@ -166,7 +176,7 @@ class AsyncSoftDeleteMixin(SoftDeleteMixin):
 
     async def restore(self) -> int:
         """Restore a soft-deleted record asynchronously using expression system."""
-        field_name = self.__deleted_at_field__
+        field_name = self.deleted_at_field()
         if getattr(self, field_name) is None:
             return 0
 

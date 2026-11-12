@@ -30,7 +30,9 @@ from rhosocial.activerecord.backend.schema import StatementType
 class User(IntegerPKMixin, ActiveRecord):
     """Test User model."""
 
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
 
     id: Optional[int] = None
     name: str
@@ -40,7 +42,9 @@ class User(IntegerPKMixin, ActiveRecord):
 class Post(IntegerPKMixin, ActiveRecord):
     """Test Post model."""
 
-    __table_name__ = "posts"
+    @classmethod
+    def table_name(cls):
+        return "posts"
 
     id: Optional[int] = None
     title: str
@@ -50,7 +54,9 @@ class Post(IntegerPKMixin, ActiveRecord):
 class Comment(IntegerPKMixin, ActiveRecord):
     """Test Comment model."""
 
-    __table_name__ = "comments"
+    @classmethod
+    def table_name(cls):
+        return "comments"
 
     id: Optional[int] = None
     content: str
@@ -60,7 +66,9 @@ class Comment(IntegerPKMixin, ActiveRecord):
 class AsyncUser(IntegerPKMixin, AsyncActiveRecord):
     """Test Async User model."""
 
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
 
     id: Optional[int] = None
     name: str
@@ -70,7 +78,9 @@ class AsyncUser(IntegerPKMixin, AsyncActiveRecord):
 class AsyncPost(IntegerPKMixin, AsyncActiveRecord):
     """Test Async Post model."""
 
-    __table_name__ = "posts"
+    @classmethod
+    def table_name(cls):
+        return "posts"
 
     id: Optional[int] = None
     title: str
@@ -273,7 +283,9 @@ def session_aware_user_model() -> Type[ActiveRecord]:
     class SessionAwareUser(IntegerPKMixin, SessionAwareMixin, ActiveRecord):
         """Session-aware User model for pool testing."""
 
-        __table_name__ = "pool_users"
+        @classmethod
+        def table_name(cls):
+            return "pool_users"
 
         id: Optional[int] = None
         name: str
@@ -290,7 +302,9 @@ def session_aware_post_model() -> Type[ActiveRecord]:
     class SessionAwarePost(IntegerPKMixin, SessionAwareMixin, ActiveRecord):
         """Session-aware Post model for pool testing."""
 
-        __table_name__ = "pool_posts"
+        @classmethod
+        def table_name(cls):
+            return "pool_posts"
 
         id: Optional[int] = None
         title: str
@@ -307,7 +321,9 @@ async def async_session_aware_user_model() -> Type[AsyncActiveRecord]:
     class AsyncSessionAwareUser(IntegerPKMixin, AsyncSessionAwareMixin, AsyncActiveRecord):
         """Async session-aware User model for pool testing."""
 
-        __table_name__ = "pool_users"
+        @classmethod
+        def table_name(cls):
+            return "pool_users"
 
         id: Optional[int] = None
         name: str

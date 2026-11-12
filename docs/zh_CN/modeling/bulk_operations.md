@@ -12,7 +12,10 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base.bulk_operations import BulkOperationsMixin
 
 class User(BulkOperationsMixin, ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     id: int
     name: str
     email: str
@@ -84,7 +87,10 @@ User.bulk_create(users, batch_size=20, commit_mode=BatchCommitMode.PER_BATCH)
 from rhosocial.activerecord.base.bulk_operations import AsyncBulkOperationsMixin
 
 class AsyncUser(AsyncBulkOperationsMixin, ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     id: int
     name: str
     email: str

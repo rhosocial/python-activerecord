@@ -19,7 +19,10 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base.fields import DerivedField
 
 class Product(ActiveRecord):
-    __table_name__ = "products"
+    @classmethod
+    def table_name(cls):
+        return "products"
+
     id: int
     name: str
     price: Decimal
@@ -40,7 +43,10 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base.fields import DerivedField
 
 class Product(ActiveRecord):
-    __table_name__ = "products"
+    @classmethod
+    def table_name(cls):
+        return "products"
+
     id: int
     name: str
     price: Decimal

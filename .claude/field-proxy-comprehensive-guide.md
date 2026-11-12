@@ -46,7 +46,10 @@ class FieldProxy:
 
 ```python
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     __primary_key__: ClassVar[str] = "id"  # explicitly specify the primary key column name
 
     # Plain fields - field name and column name are the same

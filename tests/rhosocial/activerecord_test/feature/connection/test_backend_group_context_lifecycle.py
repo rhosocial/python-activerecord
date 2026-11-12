@@ -35,7 +35,9 @@ from rhosocial.activerecord.backend.errors import QueryError
 class ContextUser(IntegerPKMixin, ActiveRecord):
     """Test User model for context lifecycle tests."""
 
-    __table_name__ = "context_users"
+    @classmethod
+    def table_name(cls):
+        return "context_users"
 
     id: Optional[int] = None
     name: str
@@ -45,7 +47,9 @@ class ContextUser(IntegerPKMixin, ActiveRecord):
 class ContextPost(IntegerPKMixin, ActiveRecord):
     """Test Post model for context lifecycle tests."""
 
-    __table_name__ = "context_posts"
+    @classmethod
+    def table_name(cls):
+        return "context_posts"
 
     id: Optional[int] = None
     title: str
@@ -55,7 +59,9 @@ class ContextPost(IntegerPKMixin, ActiveRecord):
 class AsyncContextUser(IntegerPKMixin, AsyncActiveRecord):
     """Test async User model for context lifecycle tests."""
 
-    __table_name__ = "context_users"
+    @classmethod
+    def table_name(cls):
+        return "context_users"
 
     id: Optional[int] = None
     name: str
@@ -65,7 +71,9 @@ class AsyncContextUser(IntegerPKMixin, AsyncActiveRecord):
 class AsyncContextPost(IntegerPKMixin, AsyncActiveRecord):
     """Test async Post model for context lifecycle tests."""
 
-    __table_name__ = "context_posts"
+    @classmethod
+    def table_name(cls):
+        return "context_posts"
 
     id: Optional[int] = None
     title: str

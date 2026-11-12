@@ -29,20 +29,41 @@ publicly exported, so a caller can still build and execute an UPDATE by hand.
 The real guarantee is database credentials; this prevents accidents.
 """
 
-from typing import ClassVar
 
 from ..interface.update import IDeleteBehavior, IReadOnlyBehavior, IUpdateBehavior
+from .field_config import FieldConfigValidationHandler
 
 
 class ReadOnlyMixin(IReadOnlyBehavior):
     """Read-only *semantics* -- declares no fields.
 
-    Inheriting this mixin sets ``__read_only__`` to True and makes the
-    framework refuse INSERT / UPDATE / DELETE issued through the model API.
-    Set ``__read_only__ = False`` explicitly to opt back out.
+    Inheriting this mixin makes the framework refuse INSERT / UPDATE /
+    DELETE issued through the model API. A model that is genuinely
+    writable overrides :meth:`read_only` to answer ``False``.
     """
 
-    __read_only__: ClassVar[bool] = True
+    _feature_handlers = [FieldConfigValidationHandler]
+
+    @classmethod
+    def read_only(cls) -> bool:
+        """Whether writes through framework paths must be refused -- declared
+        by overriding this method; inheriting this mixin answers ``True``.
+
+        The single framework-wide decision point; every write gate reads this
+        value. Never queries the database -- read-only-ness is a static
+        declaration by the developer, not an introspection result, so a model
+        without a database connection still answers correctly.
+
+        A classmethod rather than an instance method because the gates are not
+        all instance-level: ``bulk_create`` and friends are classmethods, and
+        ``ActiveQuery.update_all()`` / ``delete_all()`` only hold the model
+        *class*. Reading it off an instance would make the model-level
+        behaviour depend on where it is asked from.
+
+        Returns:
+            bool: The declared read-only flag.
+        """
+        return True
 
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
@@ -84,26 +105,7 @@ class ReadOnlyMixin(IReadOnlyBehavior):
             raise TypeError(
                 f"{cls.__name__} is read-only but also implements {', '.join(conflicts)}. "
                 f"Those mixins register write event handlers that can never run, because "
-                f"every write is refused first. Remove read-only, or set "
-                f"__read_only__ = False if the model is genuinely writable."
+                f"every write is refused first. Remove read-only, or override "
+                f"read_only() to answer False if the model is genuinely "
+                f"writable."
             )
-
-    @classmethod
-    def read_only(cls) -> bool:
-        """Whether writes through framework paths must be refused.
-
-        The single framework-wide decision point; every write gate reads this
-        value. Never queries the database -- read-only-ness is a static
-        declaration by the developer, not an introspection result, so a model
-        without a database connection still answers correctly.
-
-        A classmethod rather than an instance method because the gates are not
-        all instance-level: ``bulk_create`` and friends are classmethods, and
-        ``ActiveQuery.update_all()`` / ``delete_all()`` only hold the model
-        *class*. Reading it off an instance would make the model-level
-        behaviour depend on where it is asked from.
-
-        Returns:
-            bool: The declared read-only flag.
-        """
-        return bool(getattr(cls, "__read_only__", False))

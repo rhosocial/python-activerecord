@@ -76,7 +76,9 @@ Supports composite (multi-column) primary keys.
 from rhosocial.activerecord.field import CompositePKMixin
 
 class OrderItem(CompositePKMixin, ActiveRecord):
-    __primary_key__ = ("order_id", "product_id")
+    @classmethod
+    def primary_key(cls):
+        return ("order_id", "product_id")
 
     order_id: int
     product_id: int
@@ -123,8 +125,13 @@ from datetime import datetime, timezone
 
 class LegacyPost(TimestampMixin, ActiveRecord):
     # The semantics base declares no fields; declare them here and point to them
-    __created_at_field__ = "creation_date"
-    __updated_at_field__ = "last_modified"
+    @classmethod
+    def created_at_field(cls):
+        return "creation_date"
+
+    @classmethod
+    def updated_at_field(cls):
+        return "last_modified"
 
     creation_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_modified: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -173,7 +180,10 @@ from datetime import datetime, timezone
 from rhosocial.activerecord.field import DefaultTimestampMixin, UtcTimestampMixin
 
 class Event(UtcTimestampMixin, DefaultTimestampMixin, ActiveRecord):
-    __table_name__ = "events"
+    @classmethod
+    def table_name(cls):
+        return "events"
+
     occurred_at: datetime
 
 event = Event(occurred_at=datetime(2026, 1, 1, 12))
@@ -227,7 +237,9 @@ from typing import Optional
 from pydantic import Field
 
 class LegacyComment(SoftDeleteMixin, ActiveRecord):
-    __deleted_at_field__ = "deleted"
+    @classmethod
+    def deleted_at_field(cls):
+        return "deleted"
 
     deleted: Optional[datetime] = Field(default=None)
     content: str
@@ -271,8 +283,13 @@ from rhosocial.activerecord.base.fields import UseColumn, UseConstraint
 
 
 class Article(OptimisticLockMixin, ActiveRecord):
-    __version_field__ = "row_version"
-    __version_increment_by__ = 2   # optional, default 1
+    @classmethod
+    def version_field(cls):
+        return "row_version"
+
+    @classmethod
+    def version_increment_by(cls):
+        return 2   # optional, default 1
 
     row_version: Annotated[
         int, UseColumn("row_ver"), UseConstraint(ColumnNotNullConstraint)

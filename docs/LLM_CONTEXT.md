@@ -138,7 +138,10 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy
 
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     name: str = Field(max_length=100)
     email: str
     age: int = 0
@@ -167,14 +170,20 @@ from typing import ClassVar
 from rhosocial.activerecord.relation import HasMany, BelongsTo
 
 class Author(ActiveRecord):
-    __table_name__ = "authors"
+    @classmethod
+    def table_name(cls):
+        return "authors"
+
     name: str
     c: ClassVar[FieldProxy] = FieldProxy()
     # Use ClassVar to prevent Pydantic from tracking as model fields
     posts: ClassVar[HasMany["Post"]] = HasMany(foreign_key="author_id")
 
 class Post(ActiveRecord):
-    __table_name__ = "posts"
+    @classmethod
+    def table_name(cls):
+        return "posts"
+
     title: str
     author_id: int
     c: ClassVar[FieldProxy] = FieldProxy()
@@ -198,7 +207,10 @@ await user.save()
 from rhosocial.activerecord.field import DefaultTimestampMixin, DefaultSoftDeleteMixin
 
 class Article(ActiveRecord, DefaultTimestampMixin, DefaultSoftDeleteMixin):
-    __table_name__ = "articles"
+    @classmethod
+    def table_name(cls):
+        return "articles"
+
     title: str
     body: str
     # Automatically has: created_at, updated_at, deleted_at

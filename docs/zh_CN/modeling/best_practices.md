@@ -584,7 +584,10 @@ from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     id: Optional[int] = None
     name: str
     email: str
@@ -646,11 +649,17 @@ class UserFieldsMixin:
     email: str
 
 class User(UserFieldsMixin, ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
 class UserMetric(UserFieldsMixin, ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 ```
 
@@ -665,10 +674,15 @@ class UserFieldsMixin(BaseModel):
     email: str
 
 class User(UserFieldsMixin, ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
 
 class UserMetric(UserFieldsMixin, ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
 ```
 
 两种写法的运行时行为完全相同。分别为各类配置独立连接：

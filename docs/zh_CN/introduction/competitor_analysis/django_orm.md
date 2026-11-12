@@ -32,7 +32,10 @@ from myapp.models import User  # 只能在 Django app 中定义
 from rhosocial.activerecord.model import ActiveRecord
 
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     id: Optional[int] = None
     name: str
 
@@ -251,14 +254,20 @@ author.post_set.all()  # 自动生成的反向名称
 ```python
 # 关系定义更灵活
 class Author(ActiveRecord):
-    __table_name__ = "authors"
+    @classmethod
+    def table_name(cls):
+        return "authors"
+
     id: Optional[int] = None
     name: str
     c: ClassVar[FieldProxy] = FieldProxy()
     posts: ClassVar[HasMany["Post"]] = HasMany(foreign_key="author_id")
 
 class Post(ActiveRecord):
-    __table_name__ = "posts"
+    @classmethod
+    def table_name(cls):
+        return "posts"
+
     id: Optional[int] = None
     title: str
     author_id: int

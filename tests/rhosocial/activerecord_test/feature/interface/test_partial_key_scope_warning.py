@@ -50,8 +50,14 @@ class _Capture(logging.Handler):
 class PartitionedLog(CompositePKMixin, ActiveRecord):
     """A partitioned log: surrogate generated, month supplied, job_id plain."""
 
-    __table_name__ = "ct_job_logs_scope"
-    __primary_key__ = ("id", "bucket")
+    @classmethod
+    def table_name(cls):
+        return "ct_job_logs_scope"
+
+    @classmethod
+    def primary_key(cls):
+        return ("id", "bucket")
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Annotated[Optional[int], UseColumnAttributes(IdentityAttribute())] = None
@@ -63,8 +69,14 @@ class PartitionedLog(CompositePKMixin, ActiveRecord):
 class AsyncPartitionedLog(CompositePKMixin, AsyncActiveRecord):
     """The async twin, so both query classes are covered."""
 
-    __table_name__ = "ct_job_logs_scope"
-    __primary_key__ = ("id", "bucket")
+    @classmethod
+    def table_name(cls):
+        return "ct_job_logs_scope"
+
+    @classmethod
+    def primary_key(cls):
+        return ("id", "bucket")
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Annotated[Optional[int], UseColumnAttributes(IdentityAttribute())] = None
@@ -75,7 +87,10 @@ class AsyncPartitionedLog(CompositePKMixin, AsyncActiveRecord):
 class PlainModel(ActiveRecord):
     """An ordinary single-key model: nothing here can be partial."""
 
-    __table_name__ = "ct_plain_scope"
+    @classmethod
+    def table_name(cls):
+        return "ct_plain_scope"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Optional[int] = None

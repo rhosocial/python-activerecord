@@ -7,7 +7,9 @@ from rhosocial.activerecord.base import DDLSource
 from rhosocial.activerecord.model import ActiveRecord
 
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
 
     id: int
     name: str
@@ -83,7 +85,10 @@ class BackendSettingHandler(DDLAnnotationHandler):
         metadata.add_column_options(annotation.option)
 
 class Report(ActiveRecord):
-    __table_name__ = "reports"
+    @classmethod
+    def table_name(cls):
+        return "reports"
+
     _feature_handlers = [BackendSettingHandler]
 
     id: int
@@ -231,9 +236,17 @@ from rhosocial.activerecord.model import ActiveRecord
 
 
 class Account(ActiveRecord):
-    __table_name__ = "accounts"
-    __schema_name__ = "app"
-    __primary_key__ = "account_id"
+    @classmethod
+    def table_name(cls):
+        return "accounts"
+
+    @classmethod
+    def schema_name(cls):
+        return "app"
+
+    @classmethod
+    def primary_key(cls):
+        return "account_id"
 
     account_id: Annotated[int, UseColumn("id")]
     display_name: Annotated[

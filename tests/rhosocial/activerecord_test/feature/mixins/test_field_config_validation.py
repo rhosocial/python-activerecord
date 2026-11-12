@@ -23,7 +23,7 @@ No database is involved, so no provider fixture is required.
 
 # tests/rhosocial/activerecord_test/feature/mixins/test_field_config_validation.py
 from datetime import datetime
-from typing import ClassVar, Optional
+from typing import Optional
 
 import pytest
 from pydantic import Field
@@ -48,73 +48,73 @@ def test_soft_delete_rejects_missing_field_with_active_record_first():
     statement succeeded and the model broke at query time instead.
     """
 
-    with pytest.raises(TypeError, match="__deleted_at_field__"):
+    with pytest.raises(TypeError, match="deleted_at_field\\(\\)"):
         type(  # noqa: F841  -- the statement itself is the assertion
             "Order",
             (ActiveRecord, SoftDeleteMixin),
             {
-                "__table_name__": "rej_soft_a",
-                "__primary_key__": "id",
+                "table_name": classmethod(lambda cls: "rej_soft_a"),
+                "primary_key": classmethod(lambda cls: "id"),
                 "__annotations__": {"id": Optional[int]},
-                "__deleted_at_field__": "no_such_field",
+                "deleted_at_field": classmethod(lambda cls: "no_such_field"),
             },
         )
 
 
 def test_soft_delete_rejects_missing_field_with_mixin_first():
     """The other base order must behave identically."""
-    with pytest.raises(TypeError, match="__deleted_at_field__"):
+    with pytest.raises(TypeError, match="deleted_at_field\\(\\)"):
         type(  # noqa: F841
             "Order",
             (SoftDeleteMixin, ActiveRecord),
             {
-                "__table_name__": "rej_soft_b",
-                "__primary_key__": "id",
+                "table_name": classmethod(lambda cls: "rej_soft_b"),
+                "primary_key": classmethod(lambda cls: "id"),
                 "__annotations__": {"id": Optional[int]},
-                "__deleted_at_field__": "no_such_field",
+                "deleted_at_field": classmethod(lambda cls: "no_such_field"),
             },
         )
 
 
 def test_timestamp_rejects_missing_field():
-    with pytest.raises(TypeError, match="__created_at_field__"):
+    with pytest.raises(TypeError, match="created_at_field\\(\\)"):
         type(  # noqa: F841
             "Article",
             (ActiveRecord, TimestampMixin),
             {
-                "__table_name__": "rej_ts",
-                "__primary_key__": "id",
+                "table_name": classmethod(lambda cls: "rej_ts"),
+                "primary_key": classmethod(lambda cls: "id"),
                 "__annotations__": {"id": Optional[int]},
-                "__created_at_field__": "no_such_field",
+                "created_at_field": classmethod(lambda cls: "no_such_field"),
             },
         )
 
 
 def test_optimistic_lock_rejects_missing_field():
-    with pytest.raises(TypeError, match="__version_field__"):
+    with pytest.raises(TypeError, match="version_field\\(\\)"):
         type(  # noqa: F841
             "Account",
             (ActiveRecord, OptimisticLockMixin),
             {
-                "__table_name__": "rej_lock",
-                "__primary_key__": "id",
+                "table_name": classmethod(lambda cls: "rej_lock"),
+                "primary_key": classmethod(lambda cls: "id"),
                 "__annotations__": {"id": Optional[int]},
-                "__version_field__": "no_such_field",
+                "version_field": classmethod(lambda cls: "no_such_field"),
             },
         )
 
 
 def test_optimistic_lock_rejects_non_positive_increment():
-    with pytest.raises(ValueError, match="__version_increment_by__"):
+    with pytest.raises(ValueError, match="version_increment_by\\(\\)"):
         type(  # noqa: F841
             "Account",
             (ActiveRecord, OptimisticLockMixin),
             {
-                "__table_name__": "rej_lock_inc",
-                "__primary_key__": "id",
+                "table_name": classmethod(lambda cls: "rej_lock_inc"),
+                "primary_key": classmethod(lambda cls: "id"),
                 "__annotations__": {"id": Optional[int], "version": int},
                 "version": 1,
-                "__version_increment_by__": 0,
+                "version_increment_by": classmethod(lambda cls: 0),
             },
         )
 
@@ -126,45 +126,65 @@ def test_optimistic_lock_rejects_non_positive_increment():
 
 def test_soft_delete_accepts_declared_field():
     class Doc(ActiveRecord, SoftDeleteMixin):
-        __table_name__ = "ok_soft"
-        __primary_key__: ClassVar[str] = "id"
+        @classmethod
+        def table_name(cls):
+            return "ok_soft"
+
+        @classmethod
+        def primary_key(cls):
+            return "id"
 
         id: Optional[int] = None
         deleted_at: Optional[datetime] = Field(default=None)
 
-    assert Doc.__deleted_at_field__ in Doc.model_fields
+    assert Doc.deleted_at_field() in Doc.model_fields
 
 
 def test_timestamp_accepts_declared_fields():
     class Post(ActiveRecord, TimestampMixin):
-        __table_name__ = "ok_ts"
-        __primary_key__: ClassVar[str] = "id"
+        @classmethod
+        def table_name(cls):
+            return "ok_ts"
+
+        @classmethod
+        def primary_key(cls):
+            return "id"
 
         id: Optional[int] = None
         created_at: datetime = Field(default_factory=datetime.now)
         updated_at: datetime = Field(default_factory=datetime.now)
 
-    assert Post.__created_at_field__ in Post.model_fields
-    assert Post.__updated_at_field__ in Post.model_fields
+    assert Post.created_at_field() in Post.model_fields
+    assert Post.updated_at_field() in Post.model_fields
 
 
 def test_optimistic_lock_accepts_declared_field():
     class Account(ActiveRecord, OptimisticLockMixin):
-        __table_name__ = "ok_lock"
-        __primary_key__: ClassVar[str] = "id"
+        @classmethod
+        def table_name(cls):
+            return "ok_lock"
+
+        @classmethod
+        def primary_key(cls):
+            return "id"
 
         id: Optional[int] = None
         version: int = 1
 
-    assert Account.__version_field__ in Account.model_fields
+    assert Account.version_field() in Account.model_fields
 
 
 def test_default_soft_delete_mixin_declares_its_own_field():
     """The ``Default*`` mixins ship the field, so they validate themselves."""
 
     class Doc(ActiveRecord, DefaultSoftDeleteMixin):
-        __table_name__ = "ok_default_soft"
-        __primary_key__: ClassVar[str] = "id"
+        @classmethod
+        def table_name(cls):
+            return "ok_default_soft"
+
+        @classmethod
+        def primary_key(cls):
+            return "id"
 
         id: Optional[int] = None
 
@@ -181,8 +201,13 @@ def test_validation_does_not_mask_other_feature_handlers():
     """
 
     class Doc(ActiveRecord, SoftDeleteMixin):
-        __table_name__ = "ok_handlers"
-        __primary_key__: ClassVar[str] = "id"
+        @classmethod
+        def table_name(cls):
+            return "ok_handlers"
+
+        @classmethod
+        def primary_key(cls):
+            return "id"
 
         id: Optional[int] = None
         deleted_at: Optional[datetime] = Field(default=None)

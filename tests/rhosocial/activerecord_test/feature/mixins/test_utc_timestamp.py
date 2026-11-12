@@ -25,7 +25,9 @@ from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
 class UtcEvent(UtcTimestampMixin, IntegerPKMixin, DefaultTimestampMixin, ActiveRecord):
     """Synchronous model exercising the optional UTC validator."""
 
-    __table_name__ = "utc_events"
+    @classmethod
+    def table_name(cls):
+        return "utc_events"
 
     id: Optional[int] = None
     name: str
@@ -37,7 +39,9 @@ class AsyncUtcEvent(
 ):
     """Asynchronous twin with the same fields as UtcEvent."""
 
-    __table_name__ = "utc_events"
+    @classmethod
+    def table_name(cls):
+        return "utc_events"
 
     id: Optional[int] = None
     name: str

@@ -541,7 +541,10 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
 
 class User(IntegerPKMixin, ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     id: Optional[int] = None
     name: str
     email: str
@@ -593,7 +596,10 @@ with pool.context():
 from rhosocial.activerecord.model import AsyncActiveRecord
 
 class AsyncUser(IntegerPKMixin, AsyncActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     id: Optional[int] = None
     name: str
     email: str

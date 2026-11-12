@@ -76,13 +76,19 @@ ActiveRecord.__logging_config__ = LoggingConfig(
 )
 
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     id: Optional[int] = None
     username: str
     password: str
 
 class AuditUser(ActiveRecord):
-    __table_name__ = "audit_users"
+    @classmethod
+    def table_name(cls):
+        return "audit_users"
+
     __logging_config__ = LoggingConfig(log_data_mode=LogDataMode.KEYS_ONLY)
     id: Optional[int] = None
     username: str

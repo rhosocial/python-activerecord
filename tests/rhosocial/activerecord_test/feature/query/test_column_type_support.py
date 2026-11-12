@@ -402,8 +402,14 @@ def _declared_model(dialect):
         pytest.skip("typing.Annotated requires Python 3.9+")
 
     class Declared(ActiveRecord):
-        __table_name__ = "declared_types"
-        __primary_key__: ClassVar[str] = "id"
+        @classmethod
+        def table_name(cls):
+            return "declared_types"
+
+        @classmethod
+        def primary_key(cls):
+            return "id"
+
         c: ClassVar[FieldProxy] = FieldProxy()
 
         id: int
@@ -430,8 +436,14 @@ def test_two_column_type_declarations_on_one_field_are_refused():
         pytest.skip("typing.Annotated requires Python 3.9+")
 
     class Bad(ActiveRecord):
-        __table_name__ = "bad_declarations"
-        __primary_key__: ClassVar[str] = "id"
+        @classmethod
+        def table_name(cls):
+            return "bad_declarations"
+
+        @classmethod
+        def primary_key(cls):
+            return "id"
+
         c: ClassVar[FieldProxy] = FieldProxy()
 
         id: int

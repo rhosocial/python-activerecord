@@ -311,7 +311,10 @@ class TestAsyncDerivedFieldColumnConflict:
         """UseColumn on derived field must not duplicate a regular field's column name."""
         with pytest.raises(TypeError, match="conflicts with a regular field's column name"):
             class ConflictModel(ActiveRecord):
-                __table_name__ = "conflict"
+                @classmethod
+                def table_name(cls):
+                    return "conflict"
+
                 id: Optional[int] = None
                 discount_rate: Annotated[float, UseColumn("disc")]
                 discounted: ClassVar[Annotated[float, DerivedField(
@@ -321,7 +324,10 @@ class TestAsyncDerivedFieldColumnConflict:
     async def test_use_column_no_conflict_different_names(self):
         """Different column names should not conflict."""
         class NoConflict(ActiveRecord):
-            __table_name__ = "no_conflict"
+            @classmethod
+            def table_name(cls):
+                return "no_conflict"
+
             id: Optional[int] = None
             discount_rate: Annotated[float, UseColumn("rate")]
             discounted: ClassVar[Annotated[float, DerivedField(

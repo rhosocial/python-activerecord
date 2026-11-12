@@ -17,7 +17,10 @@ from rhosocial.activerecord.model import AsyncActiveRecord
 class AsyncFindOrCreateItem(IntegerPKMixin, AsyncActiveRecord):
     """Natural-key model with a database-generated primary key."""
 
-    __table_name__ = "find_or_create_items"
+    @classmethod
+    def table_name(cls):
+        return "find_or_create_items"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Optional[int] = None

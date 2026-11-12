@@ -50,25 +50,48 @@ def _warn_partial_key_scope(query: "IQuery") -> None:
     thinks they wrote a row address is mistaken, and they are the one who
     needs the message. So the message names the table, names the columns, and
     says what the query will match.
+
+    Two independent checks share one tree walk. The primary-key check fires
+    when a keyed model's conditions leave part of the key unconstrained. The
+    partition-key check fires when a partitioned model's conditions mention
+    none of the partition columns at all -- and it must not be gated on the
+    primary-key answer, because a partition key the primary key does not
+    contain (or a keyless partitioned log) is exactly the case where the
+    early return would swallow the warning.
     """
     model = query.model_class
+    referenced = None
     wanted = set(model.required_pk_columns())
-    if not wanted:
+    if wanted:
         # No key column is the caller's to give, so no query can address a
         # row more completely than this one already does. Checking that first
         # also keeps the tree walk off the path of the ordinary single-key
         # model, which is every query this service runs.
+        referenced = referenced_columns(query.where_clause)
+        uncovered = wanted - referenced
+        if uncovered:
+            query._log(
+                logging.WARNING,
+                "query on %s leaves key column(s) %s unconstrained: it matches "
+                "every value those columns can hold, so it is not a row "
+                "lookup -- and on a table partitioned by one of them it scans "
+                "every partition. Add the column(s) to the query if that is "
+                "not the intent."
+                % (model.table_name(), ", ".join(uncovered)),
+            )
+    partitioned_by = set(model.partition_key_columns())
+    if not partitioned_by:
         return
-    uncovered = wanted - referenced_columns(query.where_clause)
-    if not uncovered:
+    if referenced is None:
+        referenced = referenced_columns(query.where_clause)
+    if partitioned_by & referenced:
         return
     query._log(
         logging.WARNING,
-        "query on %s leaves key column(s) %s unconstrained: it matches every "
-        "value those columns can hold, so it is not a row lookup -- and on a "
-        "table partitioned by one of them it scans every partition. Add the "
-        "column(s) to the query if that is not the intent."
-        % (model.table_name(), ", ".join(uncovered)),
+        "query on %s constrains none of its partition key column(s) %s: it "
+        "reads every partition instead of the one(s) those columns select. "
+        "Add the column(s) to the query if that is not the intent."
+        % (model.table_name(), ", ".join(sorted(partitioned_by))),
     )
 
 

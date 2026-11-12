@@ -157,8 +157,14 @@ User.query().where("name LIKE ?", ('%john%',))  # name LIKE '%john%'
 
 # Class attributes
 class User(ActiveRecord):
-    __table_name__ = "users"  # Magic attribute
-    __primary_key__ = "id"     # Magic attribute
+    @classmethod
+    def table_name(cls):
+        return "users"  # Magic attribute
+
+    @classmethod
+    def primary_key(cls):
+        return "id"     # Magic attribute
+
     _relations = {}            # Protected class attribute
     
 # Instance attributes

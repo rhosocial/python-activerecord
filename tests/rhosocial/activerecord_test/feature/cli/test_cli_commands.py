@@ -97,7 +97,9 @@ from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
 
 
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
     id: int
     name: str
     email: Optional[str] = None
@@ -105,7 +107,9 @@ class User(ActiveRecord):
 
 
 class AsyncUser(AsyncActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
     id: int
     name: str
     email: Optional[str] = None
@@ -113,8 +117,12 @@ class AsyncUser(AsyncActiveRecord):
 
 
 class OrderItem(ActiveRecord):
-    __table_name__ = "order_items"
-    __primary_key__ = ("order_id", "product_id")
+    @classmethod
+    def table_name(cls):
+        return "order_items"
+    @classmethod
+    def primary_key(cls):
+        return ("order_id", "product_id")
     order_id: int
     product_id: int
     note: str = ""
@@ -170,7 +178,9 @@ from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionCo
 
 
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
     id: int
     name: str
     email: Optional[str] = None

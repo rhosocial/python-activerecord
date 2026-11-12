@@ -33,7 +33,9 @@ from rhosocial.activerecord.backend.schema import StatementType
 class ManualUser(IntegerPKMixin, ActiveRecord):
     """Test User model for manual lifecycle tests."""
 
-    __table_name__ = "manual_users"
+    @classmethod
+    def table_name(cls):
+        return "manual_users"
 
     id: Optional[int] = None
     name: str
@@ -43,7 +45,9 @@ class ManualUser(IntegerPKMixin, ActiveRecord):
 class ManualPost(IntegerPKMixin, ActiveRecord):
     """Test Post model for manual lifecycle tests."""
 
-    __table_name__ = "manual_posts"
+    @classmethod
+    def table_name(cls):
+        return "manual_posts"
 
     id: Optional[int] = None
     title: str
@@ -53,7 +57,9 @@ class ManualPost(IntegerPKMixin, ActiveRecord):
 class AsyncManualUser(IntegerPKMixin, AsyncActiveRecord):
     """Test async User model for manual lifecycle tests."""
 
-    __table_name__ = "manual_users"
+    @classmethod
+    def table_name(cls):
+        return "manual_users"
 
     id: Optional[int] = None
     name: str
@@ -63,7 +69,9 @@ class AsyncManualUser(IntegerPKMixin, AsyncActiveRecord):
 class AsyncManualPost(IntegerPKMixin, AsyncActiveRecord):
     """Test async Post model for manual lifecycle tests."""
 
-    __table_name__ = "manual_posts"
+    @classmethod
+    def table_name(cls):
+        return "manual_posts"
 
     id: Optional[int] = None
     title: str

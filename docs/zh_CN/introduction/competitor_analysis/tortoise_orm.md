@@ -85,7 +85,10 @@ from rhosocial.activerecord.relation import HasMany, BelongsTo
 from typing import ClassVar, Optional
 
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     id: Optional[int] = None
     name: str = Field(max_length=100)
     age: int = 0
@@ -94,7 +97,10 @@ class User(ActiveRecord):
     posts: ClassVar[HasMany["Post"]] = HasMany(foreign_key="author_id")
 
 class Post(ActiveRecord):
-    __table_name__ = "posts"
+    @classmethod
+    def table_name(cls):
+        return "posts"
+
     id: Optional[int] = None
     title: str = Field(max_length=200)
     author_id: int

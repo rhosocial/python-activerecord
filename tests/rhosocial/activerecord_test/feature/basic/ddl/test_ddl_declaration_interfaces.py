@@ -1,3 +1,5 @@
+# tests/rhosocial/activerecord_test/feature/basic/ddl/test_ddl_declaration_interfaces.py
+"""Tests for the dialect-free ActiveRecord DDLSource declaration contract."""
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnNotNullConstraint,
     ColumnNullableConstraint,
@@ -15,11 +17,13 @@ from rhosocial.activerecord.base import (
     DDLFieldMetadata,
     DDLSource,
     IdentityAttribute,
+    ObjectDeclaration,
     UseColumnAttributes,
     UseComment,
     UseConstraint,
     UseGeneratedColumn,
     UseIndex,
+    UsePartitionKey,
     UseSqlType,
 )
 from rhosocial.activerecord.backend.expression.types import DataType, TextType
@@ -33,29 +37,34 @@ from rhosocial.activerecord.backend.expression.statements.ddl_partition import (
 )
 from rhosocial.activerecord.backend.expression.core import Column
 from typing import Optional
-# tests/rhosocial/activerecord_test/feature/basic/ddl/test_ddl_declaration_interfaces.py
-"""Tests for the dialect-free ActiveRecord DDLSource declaration contract."""
 
+import pytest
 
 try:
     from typing import Annotated
 except ImportError:
     from typing_extensions import Annotated
 
-import pytest
-
 
 
 class Plain(ActiveRecord):
-    __table_name__ = "plain"
+    @classmethod
+    def table_name(cls):
+        return "plain"
 
     id: int
     name: str
 
 
 class Composite(ActiveRecord):
-    __table_name__ = "composite"
-    __primary_key__ = ("order_id", "product_id")
+    @classmethod
+    def table_name(cls):
+        return "composite"
+
+    @classmethod
+    def primary_key(cls):
+        return ("order_id", "product_id")
+
     __table_indexes__ = [
         IndexDefinition(None, name="idx_pair", columns=["order_id", "product_id"]),
     ]
@@ -66,8 +75,14 @@ class Composite(ActiveRecord):
 
 
 class CompositeWithDeclaredPrimaryKey(ActiveRecord):
-    __table_name__ = "composite_with_declared_primary_key"
-    __primary_key__ = ("order_id", "product_id")
+    @classmethod
+    def table_name(cls):
+        return "composite_with_declared_primary_key"
+
+    @classmethod
+    def primary_key(cls):
+        return ("order_id", "product_id")
+
     __table_constraints__ = [
         TableConstraint(None, branch=TablePrimaryKeyConstraint(None, ["order_id", "product_id"])),
     ]
@@ -77,7 +92,10 @@ class CompositeWithDeclaredPrimaryKey(ActiveRecord):
 
 
 class WithTableConstraint(ActiveRecord):
-    __table_name__ = "with_table_constraint"
+    @classmethod
+    def table_name(cls):
+        return "with_table_constraint"
+
     __table_constraints__ = [
         TableConstraint(None, branch=TableUniqueConstraint(None, ["code", "status"]), name="uq_code_status"),
     ]
@@ -88,7 +106,10 @@ class WithTableConstraint(ActiveRecord):
 
 
 class WithFieldIndex(ActiveRecord):
-    __table_name__ = "with_field_index"
+    @classmethod
+    def table_name(cls):
+        return "with_field_index"
+
     __table_indexes__ = [
         IndexDefinition(None, name="idx_table_email", columns=["email"]),
     ]
@@ -98,7 +119,9 @@ class WithFieldIndex(ActiveRecord):
 
 
 class WithAttributes(ActiveRecord):
-    __table_name__ = "with_attributes"
+    @classmethod
+    def table_name(cls):
+        return "with_attributes"
 
     id: int
     name: Annotated[str, UseColumnAttributes(CollationAttribute(name="NOCASE"))]
@@ -110,7 +133,9 @@ class WithAttributes(ActiveRecord):
 
 
 class WithNullable(ActiveRecord):
-    __table_name__ = "with_nullable"
+    @classmethod
+    def table_name(cls):
+        return "with_nullable"
 
     id: int
     nickname: Annotated[Optional[str], UseConstraint(ColumnNullableConstraint)] = None
@@ -119,7 +144,9 @@ class WithNullable(ActiveRecord):
 
 
 class WithDerivedDeclarations(ActiveRecord):
-    __table_name__ = "with_derived_declarations"
+    @classmethod
+    def table_name(cls):
+        return "with_derived_declarations"
 
     id: int
     label: Annotated[str, UseComment("display label")]
@@ -136,6 +163,7 @@ _MARKER_FIELDS = {
     UseColumnAttributes: "attributed",
     UseComment: "commented",
     UseGeneratedColumn: "generated",
+    UsePartitionKey: "partition_keyed",
 }
 
 
@@ -143,7 +171,9 @@ class ForeignAttribute(ColumnAttribute):
     kind = "foreign_custom"
 
 class WithForeignAttribute(ActiveRecord):
-    __table_name__ = "with_foreign_attribute"
+    @classmethod
+    def table_name(cls):
+        return "with_foreign_attribute"
 
     id: int
     name: Annotated[str, UseColumnAttributes(ForeignAttribute())]
@@ -154,7 +184,9 @@ class ForeignPartitionClause(PartitionClause):
 
 
 class WithForeignPartition(ActiveRecord):
-    __table_name__ = "with_foreign_partition"
+    @classmethod
+    def table_name(cls):
+        return "with_foreign_partition"
 
     id: int
 
@@ -172,7 +204,9 @@ class UnhandledAnnotation(DDLAnnotation):
 
 
 class WithUnhandledAnnotation(ActiveRecord):
-    __table_name__ = "with_unhandled_annotation"
+    @classmethod
+    def table_name(cls):
+        return "with_unhandled_annotation"
 
     id: int
     value: Annotated[str, UnhandledAnnotation()]
@@ -181,7 +215,9 @@ class WithUnhandledAnnotation(ActiveRecord):
 class EveryRegisteredMarker(ActiveRecord):
     """One field per core marker, so the registry can be walked against them."""
 
-    __table_name__ = "every_registered_marker"
+    @classmethod
+    def table_name(cls):
+        return "every_registered_marker"
 
     id: int
     sql_typed: Annotated[str, UseSqlType(TextType())]
@@ -190,6 +226,7 @@ class EveryRegisteredMarker(ActiveRecord):
     attributed: Annotated[str, UseColumnAttributes(CollationAttribute(name="NOCASE"))]
     commented: Annotated[str, UseComment("a comment")]
     generated: Annotated[str, UseGeneratedColumn(lambda dialect: object())]
+    partition_keyed: Annotated[str, UsePartitionKey()]
 
 
 def test_activerecord_satisfies_ddl_source():
@@ -245,6 +282,7 @@ def test_the_marker_registry_is_what_the_declaration_interface_reads():
         UseColumnAttributes: ("column_attributes", False),
         UseComment: ("column_comment", True),
         UseGeneratedColumn: ("generated_column", True),
+        UsePartitionKey: ("partition_key", True),
     }
     assert MARKER_REGISTRY == expected, (
         f"the registry writes {sorted(attr for attr, _ in MARKER_REGISTRY.values())} "
@@ -395,6 +433,21 @@ def test_default_table_interfaces_are_empty_or_none():
     assert Plain.table_inherits() is None
     assert Plain.table_tablespace() is None
     assert Plain.create_table_statement_classes() is None
+    assert Plain.object_type() is ObjectDeclaration.TABLE
+
+
+def test_table_level_accessors_run_the_unhandled_annotation_gate():
+    """P1-3: the direct-write table faces answer to the same gate.
+
+    Field-level accessors all call ``_validate_ddl_annotations`` before
+    reading; ``table_indexes`` and ``table_constraints`` now do too, so a
+    model carrying an unconsumed annotation cannot slip a table-level read
+    past the check that every other accessor applies.
+    """
+    with pytest.raises(TypeError, match="explicit handler"):
+        WithUnhandledAnnotation.table_indexes()
+    with pytest.raises(TypeError, match="explicit handler"):
+        WithUnhandledAnnotation.table_constraints()
 
 
 def test_unhandled_annotation_requires_explicit_handler():

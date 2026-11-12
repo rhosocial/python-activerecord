@@ -325,8 +325,14 @@ def _model(dialect):
     Annotated = _annotated()
 
     class Widget(ActiveRecord):
-        __table_name__ = "typed_widget"
-        __primary_key__: ClassVar[str] = "id"
+        @classmethod
+        def table_name(cls):
+            return "typed_widget"
+
+        @classmethod
+        def primary_key(cls):
+            return "id"
+
         c: ClassVar[FieldProxy] = FieldProxy()
 
         id: int
@@ -376,8 +382,14 @@ def test_field_proxy_refuses_an_undeclared_any():
     """
 
     class Loose(ActiveRecord):
-        __table_name__ = "typed_loose"
-        __primary_key__: ClassVar[str] = "id"
+        @classmethod
+        def table_name(cls):
+            return "typed_loose"
+
+        @classmethod
+        def primary_key(cls):
+            return "id"
+
         c: ClassVar[FieldProxy] = FieldProxy()
 
         id: int

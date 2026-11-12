@@ -33,16 +33,15 @@ class ActiveRecordBase(BaseModel, ABC):
         __backend_class__ (Type[StorageBackend]): Backend implementation class
         __connection_config__ (ConnectionConfig): Connection configuration
         __logger__ (Logger): Logger instance
-        __column_types_cache__ (Dict[str, Any]): Column type cache
         _dirty_fields (Set[str]): Set of modified field names
         __no_track_fields__ (Set[str]): Fields excluded from change tracking
         _original_values (Dict): Original field values before modification
     """
 
-    __table_name__: ClassVar[Optional[str]] = None
-    __schema_name__: ClassVar[Optional[str]] = None
-    __primary_key__: ClassVar[PrimaryKeyDef] = "id"
-    __pk_auto_generated__: ClassVar[bool] = True
+    # Partition key column names, declared directly or extracted from
+    # UsePartitionKey annotations at class creation. Empty for a
+    # non-partitioned model.
+    __partition_key__: ClassVar[Tuple[str, ...]] = ()
     __backend__: Optional[Union[StorageBackend, AsyncStorageBackend]] = None
     __backend_class__: ClassVar[Type[Union[StorageBackend, AsyncStorageBackend]]] = None
     __connection_config__: ClassVar[Optional[ConnectionConfig]] = None
@@ -59,24 +58,36 @@ class ActiveRecordBase(BaseModel, ABC):
         self._event_handlers = {event: [] for event in ModelEvent}
 
     def __init_subclass__(cls) -> None:
-        """Initialize subclass by merging all non-tracking fields."""
+        """Initialize subclass by resetting per-class framework state."""
         super().__init_subclass__()
-        # Collect non-tracking fields from all parent classes
-        no_track_fields = set()
-        for base in cls.__mro__:
-            if hasattr(base, "__no_track_fields__"):
-                no_track_fields.update(base.__no_track_fields__)
-        cls.__no_track_fields__ = no_track_fields
-        cls.__column_types_cache__ = None
         # Initialize _dummy_backend to None for each subclass
         cls._dummy_backend = None
 
     @classmethod
-    def table_name(cls) -> str:
-        """Get the table name for this model.
+    def no_track_fields(cls) -> Set[str]:
+        """Fields excluded from change tracking, as the MRO union.
 
-        Returns the class's __table_name__ attribute by default. Subclasses can override
-        for dynamic table names.
+        The accessor form of ``__no_track_fields__``: the mixins that
+        declare fields nobody should track each declare their own set,
+        and a model's answer is the union over its MRO -- so a mixin
+        added anywhere in the inheritance chain contributes, and a
+        model never has to re-declare what its mixins already declared.
+        """
+        collected: Set[str] = set()
+        for base in cls.__mro__:
+            declared = base.__dict__.get("__no_track_fields__")
+            if declared:
+                collected.update(declared)
+        return collected
+
+    @classmethod
+    def table_name(cls) -> str:
+        """The table this model maps -- **declared by overriding this method**.
+
+        There is no default: a model with no ``table_name()`` override is a
+        declaration mistake, since nothing in the framework can guess which
+        table a model means, and the failure surfaces here, at the first
+        read, rather than as ``None`` somewhere deep in a statement.
 
         Qualifier binding:
             Column expressions built through ``Model.c.field`` capture this
@@ -94,25 +105,19 @@ class ActiveRecordBase(BaseModel, ABC):
             @classmethod
             def table_name(cls):
                 # Monthly partitioned table
-                return f"{cls.__table_name__}_{datetime.now():%Y%m}"
-
-            @classmethod
-            def table_name(cls):
-                # Add table prefix
-                return f"{cls.get_prefix()}{cls.__table_name__}"
+                return f"logs_{datetime.now():%Y%m}"
         """
-        if cls.__table_name__ is None:
-            raise ValueError(f"table_name not set for {cls.__name__}")
-        if type(cls.__table_name__) is not str:
-            raise ValueError(f"table_name must be str, not {cls.__table_name__}")
-        return cls.__table_name__
+        raise NotImplementedError(
+            f"{cls.__name__} does not declare a table name. Override "
+            "table_name() on the model class and return the table name."
+        )
 
     @classmethod
     def schema_name(cls) -> Optional[str]:
-        """Get the schema name for this model.
+        """The schema this model maps, or ``None`` to resolve through the connection.
 
-        Returns the class's __schema_name__ attribute by default. Subclasses can override
-        for dynamic schema names.
+        Declared by overriding this method; the default is no schema, which
+        lets the backend resolve through its default schema / search_path.
 
         Schema namespaces:
             On databases that support schemas (PostgreSQL, SQL Server, ...),
@@ -130,23 +135,8 @@ class ActiveRecordBase(BaseModel, ABC):
 
         Returns:
             Optional[str]: Schema name, or None if not set
-
-        Example:
-            @classmethod
-            def schema_name(cls):
-                # Dynamic schema based on tenant
-                return f"tenant_{cls.get_tenant_id()}"
-
-            Cross-schema join (each side keeps its own qualifiers):
-
-                Order.query().join(
-                    Customer,
-                    on=Order.c.customer_id == Customer.c.id,
-                ).select(Order.c.id, Customer.c.name)
-                # PostgreSQL: FROM "shop"."orders"
-                #             JOIN "crm"."customers" ON ...
         """
-        return cls.__schema_name__
+        return None
 
     @classmethod
     def primary_key(cls) -> PrimaryKeyDef:
@@ -159,9 +149,10 @@ class ActiveRecordBase(BaseModel, ABC):
         Example:
             @classmethod
             def primary_key(cls):
-                return f"{cls.__primary_key__}_{cls.get_shard()}"
+                # Sharded key: the shard is chosen per tenant
+                return f"{cls.__name__.lower()}_id"
         """
-        return cls.__primary_key__
+        return "id"
 
     @classmethod
     def addressable(cls) -> bool:
@@ -182,7 +173,7 @@ class ActiveRecordBase(BaseModel, ABC):
         Orthogonal to read-only-ness: a keyless table may be writable, and a
         read-only table may well have an auto-generated key.
         """
-        return cls.__primary_key__ is not None
+        return cls.primary_key() is not None
 
     @classmethod
     def refuse_read_only(cls, operation: str) -> None:
@@ -213,7 +204,7 @@ class ActiveRecordBase(BaseModel, ABC):
     @classmethod
     def is_composite_pk(cls) -> bool:
         """Check if the model uses a composite primary key."""
-        return isinstance(cls.__primary_key__, tuple)
+        return isinstance(cls.primary_key(), tuple)
 
     @classmethod
     def primary_key_columns(cls) -> Tuple[str, ...]:
@@ -222,10 +213,43 @@ class ActiveRecordBase(BaseModel, ABC):
         Empty for a keyless model (``__primary_key__ = None``). Never contains
         ``None``: callers can iterate the result unconditionally.
         """
-        pk = cls.__primary_key__
+        pk = cls.primary_key()
         if pk is None:
             return ()
         return pk if isinstance(pk, tuple) else (pk,)
+
+    @classmethod
+    def partition_key_columns(cls) -> Tuple[str, ...]:
+        """Partition key column names, as a tuple.
+
+        Empty for a non-partitioned model. Mirrors
+        :meth:`primary_key_columns` in spelling -- column names, because a
+        WHERE tree carries columns, and the query layer compares the two
+        to decide whether a lookup is partition-scoped.
+
+        The value comes from ``__partition_key__``, which is either
+        extracted from ``UsePartitionKey`` field annotations at class
+        creation or declared directly (an introspection-generated model
+        takes the direct path).
+        """
+        return tuple(getattr(cls, "__partition_key__", ()) or ())
+
+    @classmethod
+    def natural_key(cls) -> Tuple[str, ...]:
+        """Fields that identify a row when the primary key cannot, or ``()``.
+
+        Declared by overriding this method. The natural key is the
+        application-level identity -- the columns an upsert or a "find or
+        create" searches on, like a business code or (`tenant`,
+        `external_id`). Empty by default: a model that never declares one
+        keeps the caller-supplied lookup it had before, so declaring this
+        is a pure addition.
+
+        Field names, not column names, because the value is consumed where
+        model fields are addressed (``find_one_or_create``); the column
+        spelling comes out of :meth:`column_name` at that point.
+        """
+        return ()
 
     @classmethod
     def get_generated_columns(cls) -> Tuple[str, ...]:
@@ -351,7 +375,7 @@ class ActiveRecordBase(BaseModel, ABC):
         identity = set(cls.identity_pk_fields())
         if identity:
             return identity
-        if not cls.__pk_auto_generated__:
+        if not cls.pk_auto_generated():
             return set()
         return set(cls.primary_key_fields()) & set(cls.model_fields)
 
@@ -377,9 +401,48 @@ class ActiveRecordBase(BaseModel, ABC):
         identity = set(cls.identity_pk_fields())
         if identity:
             return tuple(f for f in cls.primary_key_fields() if f not in identity)
-        if not cls.__pk_auto_generated__:
+        if not cls.pk_auto_generated():
             return cls.primary_key_fields()
         return ()
+
+    @classmethod
+    def pk_auto_generated(cls) -> bool:
+        """Whether the primary key is database-generated.
+
+        Declared by overriding this method. The default is ``True``: the
+        conventional single-column ``id`` is the database's to supply,
+        which is what the insert paths assume. A model whose key the
+        application writes overrides it to ``False``.
+        """
+        return True
+
+    @classmethod
+    def backend_class(cls) -> Optional[Type[Union[StorageBackend, AsyncStorageBackend]]]:
+        """The backend implementation class this model is configured with.
+
+        The accessor form of ``__backend_class__``: ``configure()`` writes
+        the landing spot, consumers read here. ``None`` before configuration.
+        """
+        return cls.__backend_class__
+
+    @classmethod
+    def connection_config(cls) -> Optional[ConnectionConfig]:
+        """The connection configuration this model is configured with.
+
+        The accessor form of ``__connection_config__``: ``configure()``
+        resolves callable configurations before storing, so this reads the
+        instance it will connect with. ``None`` before configuration.
+        """
+        return cls.__connection_config__
+
+    @classmethod
+    def logging_config(cls) -> Optional[Any]:
+        """The logging configuration this model is configured with.
+
+        The accessor form of ``__logging_config__``: ``configure()`` writes
+        the landing spot, consumers read here. ``None`` before configuration.
+        """
+        return cls.__logging_config__
 
     @classmethod
     def backend(cls) -> Union[StorageBackend, AsyncStorageBackend]:
@@ -575,7 +638,7 @@ class ActiveRecordBase(BaseModel, ABC):
         should_track = (
             name in self.__class__.model_fields
             and hasattr(self, "_original_values")
-            and name not in self.__class__.__no_track_fields__
+            and name not in self.__class__.no_track_fields()
         )
         if should_track and name not in self._original_values:
             self._original_values[name] = getattr(self, name, None)
@@ -627,7 +690,6 @@ class IActiveRecord(ActiveRecordBase):
         __backend_class__ (Type[StorageBackend]): Backend implementation class
         __connection_config__ (ConnectionConfig): Connection configuration
         __logger__ (Logger): Logger instance
-        __column_types_cache__ (Dict[str, Any]): Column type cache
         _dirty_fields (Set[str]): Set of modified field names
         __no_track_fields__ (Set[str]): Fields excluded from change tracking
         _original_values (Dict): Original field values before modification
@@ -860,7 +922,6 @@ class IAsyncActiveRecord(ActiveRecordBase):
         __backend_class__ (Type[AsyncStorageBackend]): Backend implementation class
         __connection_config__ (ConnectionConfig): Connection configuration
         __logger__ (Logger): Logger instance
-        __column_types_cache__ (Dict[str, Any]): Column type cache
         _dirty_fields (Set[str]): Set of modified field names
         __no_track_fields__ (Set[str]): Fields excluded from change tracking
         _original_values (Dict): Original field values before modification

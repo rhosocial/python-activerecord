@@ -32,7 +32,10 @@ from myapp.models import User  # Can only define in Django apps
 from rhosocial.activerecord.model import ActiveRecord
 
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     id: Optional[int] = None
     name: str
 
@@ -251,14 +254,20 @@ author.post_set.all()  # Auto-generated reverse name
 ```python
 # More flexible relationship definition
 class Author(ActiveRecord):
-    __table_name__ = "authors"
+    @classmethod
+    def table_name(cls):
+        return "authors"
+
     id: Optional[int] = None
     name: str
     c: ClassVar[FieldProxy] = FieldProxy()
     posts: ClassVar[HasMany["Post"]] = HasMany(foreign_key="author_id")
 
 class Post(ActiveRecord):
-    __table_name__ = "posts"
+    @classmethod
+    def table_name(cls):
+        return "posts"
+
     id: Optional[int] = None
     title: str
     author_id: int

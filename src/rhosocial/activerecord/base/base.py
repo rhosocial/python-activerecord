@@ -274,7 +274,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         # A keyless model has nothing for the database to generate, so there is
         # nothing to read back either. Without the addressable() guard the loop
         # below iterates an empty column list and indexes it.
-        if self.__class__.__pk_auto_generated__ and self.__class__.addressable():
+        if self.__class__.pk_auto_generated() and self.__class__.addressable():
             pk_columns = self.primary_key_columns()
             pk_retrieved = False
             for col in pk_columns:
@@ -653,11 +653,6 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             TypeError: A key is not a model field, a value is an expression, or
                 ``defaults`` is neither a mapping nor ``None``.
         """
-        if not lookup:
-            raise ValueError(
-                f"{cls.__name__}.find_one_or_create needs at least one lookup field; "
-                "an empty lookup would return an arbitrary row"
-            )
         if defaults is None:
             default_values: Dict[str, Any] = {}
         elif isinstance(defaults, MappingABC):
@@ -665,6 +660,30 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         else:
             raise TypeError(
                 f"defaults must be a mapping or None, got {type(defaults).__name__}"
+            )
+
+        declared_key = tuple(cls.natural_key())
+        if not lookup and declared_key:
+            # Declared form: the model says which fields identify a row, and
+            # the caller supplies their values in ``defaults``. An explicit
+            # keyword lookup still wins -- declaring a natural key narrows
+            # what an empty lookup means, it never overrides what a caller
+            # asked for.
+            missing = [f for f in declared_key if f not in default_values]
+            if missing:
+                raise ValueError(
+                    f"{cls.__name__}.natural_key() names {missing!r}, which "
+                    f"{'is' if len(missing) == 1 else 'are'} absent from "
+                    f"defaults. A declared natural key needs every member's "
+                    f"value: pass them in defaults, or name the whole key as "
+                    f"keywords."
+                )
+            lookup = {f: default_values[f] for f in declared_key}
+
+        if not lookup:
+            raise ValueError(
+                f"{cls.__name__}.find_one_or_create needs at least one lookup "
+                f"field; an empty lookup would return an arbitrary row"
             )
 
         model_fields = cls.model_fields
@@ -686,7 +705,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
                 )
             cleaned_defaults[field] = value
 
-        if cls.__pk_auto_generated__:
+        if cls.pk_auto_generated():
             key_fields = [
                 field
                 for field in cls.primary_key_fields()
@@ -958,6 +977,65 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             self._is_from_db = False
             self._trigger_event(ModelEvent.AFTER_DELETE)
         return affected_rows
+
+    def reload(self) -> "BaseActiveRecord":
+        """Re-read this row from the database and overwrite the instance.
+
+        The counterpart of a refused write: after a stale-record conflict
+        the server's row is the newer truth, and the local copy has to catch
+        up before the caller can decide what to do -- retry with merged
+        values, or abandon the change. Doing that by hand means re-reading by
+        primary key and copying every column, which is what this does, plus
+        the bookkeeping: change tracking is reset to the stored values and,
+        for a model under optimistic locking, the committed version becomes
+        the new comparison point (``refresh_lock_state``), so the next UPDATE
+        is not reported stale against a value nobody holds any more.
+
+        A read, so it is allowed on a read-only model.
+
+        Returns:
+            The same instance, refreshed.
+
+        Raises:
+            UnaddressableRecordError: The model has no primary key to read by.
+            RecordNotFound: The row no longer exists.
+            ValueError: The instance holds no primary-key value to look it up with.
+
+        Example:
+            try:
+                record.save()
+            except StaleRecordError:
+                record.reload()      # take the server's values
+                record.save()        # retry the change
+        """
+        fields = self.__class__.primary_key_fields()
+        if not fields:
+            raise UnaddressableRecordError(self.__class__.__name__, "reload")
+        values = [getattr(self, field, None) for field in fields]
+        missing = [field for field, value in zip(fields, values) if value is None]
+        if missing:
+            raise ValueError(
+                f"{self.__class__.__name__}.reload() needs the primary key: "
+                f"{', '.join(missing)} is unset. A row that was never loaded "
+                f"has nothing to re-read."
+            )
+        lookup = values[0] if len(fields) == 1 else tuple(values)
+        record = self.__class__.find_one(lookup)
+        if record is None:
+            raise RecordNotFound(f"{self.__class__.__name__} {lookup!r}")
+        self._adopt_values(record)
+        return self
+
+    def _adopt_values(self, record: "BaseActiveRecord") -> None:
+        """Copy every column from *record* and reset the local bookkeeping."""
+        for field in self.__class__.model_fields:
+            if hasattr(record, field):
+                setattr(self, field, getattr(record, field))
+        self.reset_tracking()
+        self._is_from_db = True
+        refresh = getattr(self, "refresh_lock_state", None)
+        if callable(refresh):
+            refresh()
 
     def validate_custom(self) -> None:
         pass
@@ -1237,7 +1315,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         # A keyless model has nothing for the database to generate, so there is
         # nothing to read back either. Without the addressable() guard the loop
         # below iterates an empty column list and indexes it.
-        if self.__class__.__pk_auto_generated__ and self.__class__.addressable():
+        if self.__class__.pk_auto_generated() and self.__class__.addressable():
             pk_columns = self.primary_key_columns()
             pk_retrieved = False
             for col in pk_columns:
@@ -1616,11 +1694,6 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             TypeError: A key is not a model field, a value is an expression, or
                 ``defaults`` is neither a mapping nor ``None``.
         """
-        if not lookup:
-            raise ValueError(
-                f"{cls.__name__}.find_one_or_create needs at least one lookup field; "
-                "an empty lookup would return an arbitrary row"
-            )
         if defaults is None:
             default_values: Dict[str, Any] = {}
         elif isinstance(defaults, MappingABC):
@@ -1628,6 +1701,30 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         else:
             raise TypeError(
                 f"defaults must be a mapping or None, got {type(defaults).__name__}"
+            )
+
+        declared_key = tuple(cls.natural_key())
+        if not lookup and declared_key:
+            # Declared form: the model says which fields identify a row, and
+            # the caller supplies their values in ``defaults``. An explicit
+            # keyword lookup still wins -- declaring a natural key narrows
+            # what an empty lookup means, it never overrides what a caller
+            # asked for.
+            missing = [f for f in declared_key if f not in default_values]
+            if missing:
+                raise ValueError(
+                    f"{cls.__name__}.natural_key() names {missing!r}, which "
+                    f"{'is' if len(missing) == 1 else 'are'} absent from "
+                    f"defaults. A declared natural key needs every member's "
+                    f"value: pass them in defaults, or name the whole key as "
+                    f"keywords."
+                )
+            lookup = {f: default_values[f] for f in declared_key}
+
+        if not lookup:
+            raise ValueError(
+                f"{cls.__name__}.find_one_or_create needs at least one lookup "
+                f"field; an empty lookup would return an arbitrary row"
             )
 
         model_fields = cls.model_fields
@@ -1649,7 +1746,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
                 )
             cleaned_defaults[field] = value
 
-        if cls.__pk_auto_generated__:
+        if cls.pk_auto_generated():
             key_fields = [
                 field
                 for field in cls.primary_key_fields()
@@ -1921,6 +2018,65 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             self._is_from_db = False
             await self._trigger_event(ModelEvent.AFTER_DELETE)
         return affected_rows
+
+    async def reload(self) -> "AsyncBaseActiveRecord":
+        """Re-read this row from the database and overwrite the instance asynchronously.
+
+        The counterpart of a refused write: after a stale-record conflict
+        the server's row is the newer truth, and the local copy has to catch
+        up before the caller can decide what to do -- retry with merged
+        values, or abandon the change. Doing that by hand means re-reading by
+        primary key and copying every column, which is what this does, plus
+        the bookkeeping: change tracking is reset to the stored values and,
+        for a model under optimistic locking, the committed version becomes
+        the new comparison point (``refresh_lock_state``), so the next UPDATE
+        is not reported stale against a value nobody holds any more.
+
+        A read, so it is allowed on a read-only model.
+
+        Returns:
+            The same instance, refreshed.
+
+        Raises:
+            UnaddressableRecordError: The model has no primary key to read by.
+            RecordNotFound: The row no longer exists.
+            ValueError: The instance holds no primary-key value to look it up with.
+
+        Example:
+            try:
+                await record.save()
+            except StaleRecordError:
+                await record.reload()      # take the server's values
+                await record.save()        # retry the change
+        """
+        fields = self.__class__.primary_key_fields()
+        if not fields:
+            raise UnaddressableRecordError(self.__class__.__name__, "reload")
+        values = [getattr(self, field, None) for field in fields]
+        missing = [field for field, value in zip(fields, values) if value is None]
+        if missing:
+            raise ValueError(
+                f"{self.__class__.__name__}.reload() needs the primary key: "
+                f"{', '.join(missing)} is unset. A row that was never loaded "
+                f"has nothing to re-read."
+            )
+        lookup = values[0] if len(fields) == 1 else tuple(values)
+        record = await self.__class__.find_one(lookup)
+        if record is None:
+            raise RecordNotFound(f"{self.__class__.__name__} {lookup!r}")
+        self._adopt_values(record)
+        return self
+
+    def _adopt_values(self, record: "AsyncBaseActiveRecord") -> None:
+        """Copy every column from *record* and reset the local bookkeeping."""
+        for field in self.__class__.model_fields:
+            if hasattr(record, field):
+                setattr(self, field, getattr(record, field))
+        self.reset_tracking()
+        self._is_from_db = True
+        refresh = getattr(self, "refresh_lock_state", None)
+        if callable(refresh):
+            refresh()
 
     def validate_custom(self) -> None:
         pass

@@ -124,7 +124,10 @@ from rhosocial.activerecord.logging import LoggingConfig, LogDataMode
 from rhosocial.activerecord.model import ActiveRecord
 
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     __logging_config__ = LoggingConfig(log_data_mode=LogDataMode.SUMMARY)
     id: Optional[int] = None
     username: str

@@ -38,7 +38,9 @@ class TypeCase(UUIDMixin, ActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "type_cases"
+    @classmethod
+    def table_name(cls):
+        return "type_cases"
 
     username: str
     email: str
@@ -72,7 +74,10 @@ class AsyncTypeCase(UUIDMixin, AsyncActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "type_cases"
+    @classmethod
+    def table_name(cls):
+        return "type_cases"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     username: str
@@ -107,7 +112,9 @@ class TypeTestModel(UUIDMixin, ActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "type_tests"
+    @classmethod
+    def table_name(cls):
+        return "type_tests"
 
     # UUID primary key provided by UUIDMixin
     string_field: str = Field(default="test string")
@@ -125,7 +132,10 @@ class AsyncTypeTestModel(UUIDMixin, AsyncActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "type_tests"
+    @classmethod
+    def table_name(cls):
+        return "type_tests"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     # UUID primary key provided by UUIDMixin
@@ -144,7 +154,10 @@ class User(IntegerPKMixin, TimestampMixin, ActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: int | None = None
@@ -185,7 +198,10 @@ class AsyncUser(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: int | None = None
@@ -208,7 +224,10 @@ class ValidatedFieldUser(IntegerPKMixin, ActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "validated_field_users"
+    @classmethod
+    def table_name(cls):
+        return "validated_field_users"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: int | None = None
@@ -241,7 +260,10 @@ class AsyncValidatedFieldUser(IntegerPKMixin, AsyncActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "validated_field_users"
+    @classmethod
+    def table_name(cls):
+        return "validated_field_users"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: int | None = None
@@ -273,7 +295,9 @@ class ValidatedUser(IntegerPKMixin, ActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "validated_users"
+    @classmethod
+    def table_name(cls):
+        return "validated_users"
 
     id: int | None = None
     username: str = Field(..., min_length=3, max_length=50)
@@ -300,7 +324,10 @@ class AsyncValidatedUser(IntegerPKMixin, AsyncActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "validated_users"
+    @classmethod
+    def table_name(cls):
+        return "validated_users"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: int | None = None
@@ -358,14 +385,18 @@ class PydanticValidatedFieldsMixin:
 
 class PydanticValidatedModel(PydanticValidatedFieldsMixin, IntegerPKMixin, ActiveRecord):
     """Model for Pydantic native validation contract tests."""
-    __table_name__ = "pydantic_validated_models"
+    @classmethod
+    def table_name(cls):
+        return "pydantic_validated_models"
 
     id: int | None = None
 
 
 class AsyncPydanticValidatedModel(PydanticValidatedFieldsMixin, IntegerPKMixin, AsyncActiveRecord):
     """Async model for Pydantic native validation contract tests."""
-    __table_name__ = "pydantic_validated_models"
+    @classmethod
+    def table_name(cls):
+        return "pydantic_validated_models"
 
     id: int | None = None
 
@@ -384,7 +415,9 @@ class TypeAdapterTest(ActiveRecord):
 
     Python 3.11+ version using | syntax.
     """
-    __table_name__ = 'type_adapter_tests'
+    @classmethod
+    def table_name(cls):
+        return 'type_adapter_tests'
 
     id: int | None = None
     name: str
@@ -402,7 +435,10 @@ class AsyncTypeAdapterTest(AsyncActiveRecord):
 
     Python 3.11+ version using | syntax.
     """
-    __table_name__ = 'type_adapter_tests'
+    @classmethod
+    def table_name(cls):
+        return 'type_adapter_tests'
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: int | None = None
@@ -421,7 +457,9 @@ class MappedUser(IntegerPKMixin, TimestampMixin, ActiveRecord):
 
     Python 3.11+ version using | syntax and Self type.
     """
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
 
     user_id: Annotated[int | None, UseColumn("id")] = None
     user_name: Annotated[str, UseColumn("username")]
@@ -439,7 +477,10 @@ class AsyncMappedUser(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
 
     Python 3.11+ version using | syntax.
     """
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls):
+        return "users"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     user_id: Annotated[int | None, UseColumn("id")] = None
@@ -453,7 +494,9 @@ class MappedPost(IntegerPKMixin, TimestampMixin, ActiveRecord):
 
     Python 3.11+ version using | syntax.
     """
-    __table_name__ = "posts"
+    @classmethod
+    def table_name(cls):
+        return "posts"
 
     post_id: Annotated[int | None, UseColumn("id")] = None
     author_id: Annotated[int, UseColumn("author")]
@@ -468,7 +511,10 @@ class AsyncMappedPost(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
 
     Python 3.11+ version using | syntax.
     """
-    __table_name__ = "posts"
+    @classmethod
+    def table_name(cls):
+        return "posts"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     post_id: Annotated[int | None, UseColumn("id")] = None
@@ -484,7 +530,9 @@ class MappedComment(IntegerPKMixin, TimestampMixin, ActiveRecord):
 
     Python 3.11+ version using | syntax.
     """
-    __table_name__ = "comments"
+    @classmethod
+    def table_name(cls):
+        return "comments"
 
     comment_id: Annotated[int | None, UseColumn("id")] = None
     post_id: Annotated[int, UseColumn("post_ref")]
@@ -499,7 +547,10 @@ class AsyncMappedComment(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
 
     Python 3.11+ version using | syntax.
     """
-    __table_name__ = "comments"
+    @classmethod
+    def table_name(cls):
+        return "comments"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     comment_id: Annotated[int | None, UseColumn("id")] = None
@@ -529,7 +580,9 @@ class ColumnMappingModel(ActiveRecord):
 
     Python 3.11+ version using | syntax.
     """
-    __table_name__ = 'column_mapping_items'
+    @classmethod
+    def table_name(cls):
+        return 'column_mapping_items'
 
     item_id: Annotated[int | None, UseColumn("id")] = Field(default=None)
     name: str
@@ -542,7 +595,10 @@ class AsyncColumnMappingModel(AsyncActiveRecord):
 
     Python 3.11+ version using | syntax.
     """
-    __table_name__ = 'column_mapping_items'
+    @classmethod
+    def table_name(cls):
+        return 'column_mapping_items'
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     item_id: Annotated[int | None, UseColumn("id")] = Field(default=None)
@@ -620,7 +676,9 @@ class MixedAnnotationModel(ActiveRecord):
 
     Python 3.11+ version using | syntax.
     """
-    __table_name__ = "mixed_annotation_items"
+    @classmethod
+    def table_name(cls):
+        return "mixed_annotation_items"
 
     name: str
     item_id: Annotated[int, UseColumn("id")]
@@ -644,7 +702,10 @@ class AsyncMixedAnnotationModel(AsyncActiveRecord):
 
     Python 3.11+ version using | syntax.
     """
-    __table_name__ = "mixed_annotation_items"
+    @classmethod
+    def table_name(cls):
+        return "mixed_annotation_items"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     name: str
@@ -660,8 +721,14 @@ class AsyncMixedAnnotationModel(AsyncActiveRecord):
 
 class OrderItem(CompositePKMixin, ActiveRecord):
     """Composite PK (order_id, product_id), PK provided by application."""
-    __table_name__ = "order_items"
-    __primary_key__ = ("order_id", "product_id")
+    @classmethod
+    def table_name(cls):
+        return "order_items"
+
+    @classmethod
+    def primary_key(cls):
+        return ("order_id", "product_id")
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     order_id: int
@@ -672,8 +739,14 @@ class OrderItem(CompositePKMixin, ActiveRecord):
 
 class AsyncOrderItem(CompositePKMixin, AsyncActiveRecord):
     """Async variant of OrderItem."""
-    __table_name__ = "order_items"
-    __primary_key__ = ("order_id", "product_id")
+    @classmethod
+    def table_name(cls):
+        return "order_items"
+
+    @classmethod
+    def primary_key(cls):
+        return ("order_id", "product_id")
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     order_id: int
@@ -684,8 +757,14 @@ class AsyncOrderItem(CompositePKMixin, AsyncActiveRecord):
 
 class StoreInventory(CompositePKMixin, ActiveRecord):
     """Triple-column composite PK."""
-    __table_name__ = "store_inventory"
-    __primary_key__ = ("store_id", "product_id", "batch_id")
+    @classmethod
+    def table_name(cls):
+        return "store_inventory"
+
+    @classmethod
+    def primary_key(cls):
+        return ("store_id", "product_id", "batch_id")
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     store_id: int
@@ -696,8 +775,14 @@ class StoreInventory(CompositePKMixin, ActiveRecord):
 
 class AsyncStoreInventory(CompositePKMixin, AsyncActiveRecord):
     """Async variant of StoreInventory."""
-    __table_name__ = "store_inventory"
-    __primary_key__ = ("store_id", "product_id", "batch_id")
+    @classmethod
+    def table_name(cls):
+        return "store_inventory"
+
+    @classmethod
+    def primary_key(cls):
+        return ("store_id", "product_id", "batch_id")
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     store_id: int
@@ -708,7 +793,10 @@ class AsyncStoreInventory(CompositePKMixin, AsyncActiveRecord):
 
 class Order(IntegerPKMixin, TimestampMixin, ActiveRecord):
     """Single-column auto-increment PK -- backward compatibility control group."""
-    __table_name__ = "orders"
+    @classmethod
+    def table_name(cls):
+        return "orders"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Optional[int] = None
@@ -717,7 +805,10 @@ class Order(IntegerPKMixin, TimestampMixin, ActiveRecord):
 
 class AsyncOrder(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     """Async variant of Order."""
-    __table_name__ = "orders"
+    @classmethod
+    def table_name(cls):
+        return "orders"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Optional[int] = None
@@ -726,8 +817,13 @@ class AsyncOrder(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
 
 class MappedOrderItem(CompositePKMixin, ActiveRecord):
     """Composite PK with UseColumn mapping -- Python field names differ from DB column names."""
-    __table_name__ = "order_items"
-    __primary_key__ = ("order_id", "product_id")
+    @classmethod
+    def table_name(cls):
+        return "order_items"
+
+    @classmethod
+    def primary_key(cls):
+        return ("order_id", "product_id")
 
     order_ref: Annotated[int, UseColumn("order_id")]
     product_ref: Annotated[int, UseColumn("product_id")]
@@ -737,8 +833,14 @@ class MappedOrderItem(CompositePKMixin, ActiveRecord):
 
 class AsyncMappedOrderItem(CompositePKMixin, AsyncActiveRecord):
     """Async variant of MappedOrderItem."""
-    __table_name__ = "order_items"
-    __primary_key__ = ("order_id", "product_id")
+    @classmethod
+    def table_name(cls):
+        return "order_items"
+
+    @classmethod
+    def primary_key(cls):
+        return ("order_id", "product_id")
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     order_ref: Annotated[int, UseColumn("order_id")]
@@ -748,7 +850,10 @@ class AsyncMappedOrderItem(CompositePKMixin, AsyncActiveRecord):
 
 
 class BulkUser(IntegerPKMixin, ActiveRecord):
-    __table_name__ = "bulk_users"
+    @classmethod
+    def table_name(cls):
+        return "bulk_users"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: int | None = None
@@ -758,7 +863,10 @@ class BulkUser(IntegerPKMixin, ActiveRecord):
 
 
 class AsyncBulkUser(IntegerPKMixin, AsyncActiveRecord):
-    __table_name__ = "bulk_users"
+    @classmethod
+    def table_name(cls):
+        return "bulk_users"
+
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: int | None = None
