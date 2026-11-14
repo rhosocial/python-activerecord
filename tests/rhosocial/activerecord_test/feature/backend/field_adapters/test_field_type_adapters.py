@@ -3,7 +3,7 @@
 
 from datetime import date, datetime, time
 from decimal import Decimal
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
 from typing_extensions import Annotated
@@ -44,8 +44,8 @@ class DefaultModel(ActiveRecord):
     id: Optional[int] = None
     plain_text: str
     payload: dict
-    tags: list[str]
-    optional_tags: Optional[list[str]] = None
+    tags: List[str]
+    optional_tags: Optional[List[str]] = None
     created_at: datetime
     birthday: date
     alarm: time
