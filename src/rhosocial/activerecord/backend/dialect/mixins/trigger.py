@@ -9,6 +9,7 @@ probes to reflect their real feature set; the formatters raise
 
 from typing import Tuple, TYPE_CHECKING
 
+from ...expression.bases import BaseExpression
 from ...expression.objects import Function, Table, Trigger
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -116,11 +117,17 @@ class TriggerMixin:
 
         if not isinstance(expr.table, Table):
             raise TypeError(
-                f"CreateTriggerStatement.table must be a Table, "
-                f"got {type(expr.table).__name__}"
+                f"CreateTriggerStatement.table must be a Table, " f"got {type(expr.table).__name__}"
             )
 
-        if not isinstance(expr.function, Function):
+        if expr.body is not None:
+            for statement in expr.body:
+                if not isinstance(statement, BaseExpression):
+                    raise TypeError(
+                        f"CreateTriggerStatement.body items must be expressions, "
+                        f"got {type(statement).__name__}"
+                    )
+        elif not isinstance(expr.function, Function):
             raise TypeError(
                 f"CreateTriggerStatement.function must be a Function, "
                 f"got {type(expr.function).__name__}"
@@ -135,8 +142,9 @@ class TriggerMixin:
         if expr.if_not_exists:
             if not self.supports_trigger_if_not_exists():
                 raise UnsupportedFeatureError(
-                    self.name, "CREATE TRIGGER IF NOT EXISTS",
-                    f"{self.name} does not support CREATE TRIGGER IF NOT EXISTS."
+                    self.name,
+                    "CREATE TRIGGER IF NOT EXISTS",
+                    f"{self.name} does not support CREATE TRIGGER IF NOT EXISTS.",
                 )
             parts.append("IF NOT EXISTS")
 
@@ -157,8 +165,9 @@ class TriggerMixin:
         if expr.referencing:
             if not self.supports_trigger_referencing():
                 raise UnsupportedFeatureError(
-                    self.name, "CREATE TRIGGER REFERENCING",
-                    f"{self.name} does not support CREATE TRIGGER REFERENCING."
+                    self.name,
+                    "CREATE TRIGGER REFERENCING",
+                    f"{self.name} does not support CREATE TRIGGER REFERENCING.",
                 )
             parts.append(expr.referencing)
 
@@ -168,15 +177,24 @@ class TriggerMixin:
         if expr.condition:
             if not self.supports_trigger_when():
                 raise UnsupportedFeatureError(
-                    self.name, "CREATE TRIGGER WHEN",
-                    f"{self.name} does not support CREATE TRIGGER WHEN."
+                    self.name,
+                    "CREATE TRIGGER WHEN",
+                    f"{self.name} does not support CREATE TRIGGER WHEN.",
                 )
             cond_sql, cond_params = expr.condition.to_sql()
             parts.append(f"WHEN ({cond_sql})")
             all_params.extend(cond_params)
 
-        parts.append("EXECUTE")
-        parts.append(expr.function.to_sql()[0])
+        if expr.body is not None:
+            parts.append("BEGIN")
+            for statement in expr.body:
+                statement_sql, statement_params = statement.to_sql()
+                parts.append(f"{statement_sql};")
+                all_params.extend(statement_params)
+            parts.append("END")
+        else:
+            parts.append("EXECUTE")
+            parts.append(expr.function.to_sql()[0])
 
         return " ".join(parts), tuple(all_params)
 
@@ -205,8 +223,7 @@ class TriggerMixin:
 
         if expr.table is not None and not isinstance(expr.table, Table):
             raise TypeError(
-                f"DropTriggerStatement.table must be a Table, "
-                f"got {type(expr.table).__name__}"
+                f"DropTriggerStatement.table must be a Table, " f"got {type(expr.table).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError
 
@@ -218,8 +235,9 @@ class TriggerMixin:
         if expr.if_exists:
             if not self.supports_trigger_if_exists():
                 raise UnsupportedFeatureError(
-                    self.name, "DROP TRIGGER IF EXISTS",
-                    f"{self.name} does not support DROP TRIGGER IF EXISTS."
+                    self.name,
+                    "DROP TRIGGER IF EXISTS",
+                    f"{self.name} does not support DROP TRIGGER IF EXISTS.",
                 )
             parts.append("IF EXISTS")
 

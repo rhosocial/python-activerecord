@@ -2,9 +2,8 @@
 """L2 environment fixtures for the SQLite affinity tests.
 
 - ``database``: one database per directory (session scope, emptied at start);
-- ``schema``: the five affinity tables declared by ``NativeAffinityDefinition``,
-  dropped and recreated before every test (function scope), so each test starts
-  from empty tables;
+- ``schema``: the five affinity definition classes, dropped and recreated
+  before every test (function scope), so each test starts from empty tables;
 - ``affinity_models``: the five models configured against this directory's
   database.
 """
@@ -18,8 +17,8 @@ from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 
 from native_models import (
+    AFFINITY_DEFINITIONS,
     NativeAffinityBlob,
-    NativeAffinityDefinition,
     NativeAffinityInteger,
     NativeAffinityNumeric,
     NativeAffinityReal,
@@ -67,12 +66,12 @@ def database(database_config):
 @pytest.fixture(scope="function", autouse=True)
 def schema(database):
     """Drop and recreate the affinity tables this directory uses, before every test."""
-    definition = NativeAffinityDefinition(database.dialect)
-    for statement in definition.create_statements:
-        database.execute(statement, options=DDL)
+    fixtures = [definition(database.dialect) for definition in AFFINITY_DEFINITIONS]
+    for fixture in fixtures:
+        database.execute(*fixture.create_table.to_sql(), options=DDL)
     yield
-    for statement in definition.drop_statements:
-        database.execute(statement, options=DDL)
+    for fixture in reversed(fixtures):
+        database.execute(*fixture.drop_table.to_sql(), options=DDL)
 
 
 @pytest.fixture(name="affinity_models")

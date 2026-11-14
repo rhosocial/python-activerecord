@@ -83,7 +83,13 @@ class SQLiteTriggerMixin:
             all_params.extend(cond_params)
 
         parts.append("BEGIN")
-        parts.append(f"SELECT {expr.function.to_sql()[0]}();")
+        if expr.body is not None:
+            for statement in expr.body:
+                statement_sql, statement_params = statement.to_sql()
+                parts.append(f"{statement_sql};")
+                all_params.extend(statement_params)
+        else:
+            parts.append(f"SELECT {expr.function.to_sql()[0]}();")
         parts.append("END")
 
         return " ".join(parts), tuple(all_params)
@@ -103,4 +109,3 @@ class SQLiteTriggerMixin:
 # =============================================================================
 # SQLiteTransactionMixin — transaction control
 # =============================================================================
-

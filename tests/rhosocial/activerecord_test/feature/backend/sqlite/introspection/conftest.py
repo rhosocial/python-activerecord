@@ -13,6 +13,17 @@ from typing import Generator
 import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.schema import StatementType
+
+from support.fixtures import (
+    TABLE_DEFINITIONS,
+    TRIGGER_DEFINITION,
+    VIEW_DEFINITION,
+    IndexesDefinition,
+)
+
+DDL = ExecutionOptions(stmt_type=StatementType.DDL)
 
 
 @pytest.fixture(autouse=True)
@@ -87,49 +98,11 @@ def backend_with_tables(sqlite_backend: SQLiteBackend) -> SQLiteBackend:
     Returns:
         SQLiteBackend: Backend with test tables created.
     """
-    # Create users table
-    sqlite_backend.executescript("""
-        CREATE TABLE users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            age INTEGER,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE INDEX idx_users_email ON users(email);
-        CREATE INDEX idx_users_name_age ON users(name, age);
-
-        CREATE TABLE posts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            title TEXT NOT NULL,
-            content TEXT,
-            status TEXT DEFAULT 'draft',
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-                ON DELETE CASCADE
-                ON UPDATE NO ACTION
-        );
-
-        CREATE INDEX idx_posts_user_id ON posts(user_id);
-        CREATE INDEX idx_posts_status ON posts(status);
-
-        CREATE TABLE tags (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE
-        );
-
-        CREATE TABLE post_tags (
-            post_id INTEGER NOT NULL,
-            tag_id INTEGER NOT NULL,
-            PRIMARY KEY (post_id, tag_id),
-            FOREIGN KEY (post_id) REFERENCES posts(id)
-                ON DELETE CASCADE,
-            FOREIGN KEY (tag_id) REFERENCES tags(id)
-                ON DELETE CASCADE
-        );
-    """)
+    dialect = sqlite_backend.dialect
+    for definition in TABLE_DEFINITIONS:
+        sqlite_backend.execute(*definition(dialect).create_table.to_sql(), options=DDL)
+    for statement in IndexesDefinition(dialect).create_statements:
+        sqlite_backend.execute(*statement.to_sql(), options=DDL)
 
     return sqlite_backend
 
@@ -144,16 +117,8 @@ def backend_with_view(backend_with_tables: SQLiteBackend) -> SQLiteBackend:
     Returns:
         SQLiteBackend: Backend with test view created.
     """
-    backend_with_tables.executescript("""
-        CREATE VIEW user_posts_summary AS
-        SELECT
-            u.id AS user_id,
-            u.name AS user_name,
-            COUNT(p.id) AS post_count
-        FROM users u
-        LEFT JOIN posts p ON u.id = p.user_id
-        GROUP BY u.id;
-    """)
+    view = VIEW_DEFINITION(backend_with_tables.dialect)
+    backend_with_tables.execute(*view.create_view.to_sql(), options=DDL)
 
     return backend_with_tables
 
@@ -168,17 +133,11 @@ def backend_with_trigger(backend_with_tables: SQLiteBackend) -> SQLiteBackend:
     Returns:
         SQLiteBackend: Backend with test trigger created.
     """
-    backend_with_tables.executescript("""
-        CREATE TRIGGER update_user_timestamp
-        AFTER UPDATE ON users
-        FOR EACH ROW
-        BEGIN
-            UPDATE users SET created_at = CURRENT_TIMESTAMP
-            WHERE id = NEW.id;
-        END;
-    """)
+    trigger = TRIGGER_DEFINITION(backend_with_tables.dialect)
+    backend_with_tables.execute(*trigger.create_trigger.to_sql(), options=DDL)
 
     return backend_with_tables
+
 
 GROUP = "sqlite:introspection"
 

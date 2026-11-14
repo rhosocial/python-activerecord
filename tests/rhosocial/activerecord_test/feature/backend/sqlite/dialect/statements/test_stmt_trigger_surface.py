@@ -1,7 +1,10 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite/dialect/statements/test_stmt_trigger_surface.py
-"""SQLite trigger DDL: row-level only, WHEN, UPDATE OF and IF [NOT] EXISTS."""
+"""SQLite trigger DDL: row-level only, WHEN, UPDATE OF, IF [NOT] EXISTS and bodies."""
+
+import pytest
 
 from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression.datetime import CurrentTimestampFunction
 from rhosocial.activerecord.backend.expression.objects import Function, Table, Trigger
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.expression.statements import (
@@ -10,6 +13,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     TriggerEvent,
     TriggerLevel,
     TriggerTiming,
+    UpdateStatement,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
@@ -95,3 +99,55 @@ def test_drop_trigger_with_and_without_if_exists():
 
     plain = DropTriggerStatement(DIALECT, trigger=Trigger(DIALECT, "keep_status"))
     assert plain.to_sql() == ('DROP TRIGGER "keep_status"', ())
+
+
+def test_trigger_body_carries_statements_instead_of_a_function():
+    body = UpdateStatement(
+        DIALECT,
+        table=Table(DIALECT, "users"),
+        assignments={"created_at": CurrentTimestampFunction(DIALECT)},
+        where=ComparisonPredicate(
+            DIALECT,
+            "=",
+            Column(DIALECT, "id"),
+            Column(
+                DIALECT,
+                "id",
+                table="NEW",
+                table_need_quote=False,
+                name_need_quote=False,
+            ),
+        ),
+    )
+    sql, params = CreateTriggerStatement(
+        DIALECT,
+        trigger=Trigger(DIALECT, "update_user_timestamp"),
+        table=Table(DIALECT, "users"),
+        timing=TriggerTiming.AFTER,
+        events=[TriggerEvent.UPDATE],
+        body=[body],
+    ).to_sql()
+    assert sql == (
+        'CREATE TRIGGER "update_user_timestamp" AFTER UPDATE ON "users" '
+        'FOR EACH ROW BEGIN UPDATE "users" SET "created_at" = '
+        'CURRENT_TIMESTAMP WHERE "id" = NEW.id; END'
+    )
+    assert params == ()
+
+
+def test_trigger_needs_exactly_one_of_function_and_body():
+    common = dict(
+        trigger=Trigger(DIALECT, "t"),
+        table=Table(DIALECT, "users"),
+        timing=TriggerTiming.AFTER,
+        events=[TriggerEvent.UPDATE],
+    )
+    with pytest.raises(ValueError):
+        CreateTriggerStatement(DIALECT, **common)
+    with pytest.raises(ValueError):
+        CreateTriggerStatement(
+            DIALECT,
+            function=Function(DIALECT, "f"),
+            body=[Literal(DIALECT, 1)],
+            **common,
+        )

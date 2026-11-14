@@ -79,19 +79,26 @@ class CreateTriggerStatement(BaseExpression):
         table: "Table",
         timing: TriggerTiming,
         events: List[TriggerEvent],
-        function: "Function",
+        function: Optional["Function"] = None,
         level: TriggerLevel = TriggerLevel.ROW,
         condition: Optional["SQLPredicate"] = None,
         update_columns: Optional[List[str]] = None,
         referencing: Optional[str] = None,
         if_not_exists: bool = False,
+        body: Optional[List[BaseExpression]] = None,
     ):
         super().__init__(dialect)
+        if (function is None) == (body is None):
+            raise ValueError(
+                "CreateTriggerStatement needs exactly one of function or body: "
+                "a trigger either executes a function or carries own statements."
+            )
         self.trigger = trigger
         self.table = table
         self.timing = timing
         self.events = events
         self.function = function
+        self.body = tuple(body) if body is not None else None
         self.level = level
         self.condition = condition
         self.update_columns = update_columns
