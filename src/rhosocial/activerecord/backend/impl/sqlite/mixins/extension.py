@@ -133,11 +133,9 @@ _EXTENSION_METADATA: Dict[str, Dict[str, Any]] = {
 class SQLiteExtensionMixin:
     """Mixin for SQLite extension support.
 
-    Provides methods for extension detection and feature checking
-    via version-based analysis and compile option inspection.
+    Provides methods for extension detection and feature checking via
+    version-based analysis and compile option inspection.
     """
-
-    _runtime_params: Dict[str, Any] = {}
 
     @staticmethod
     def _validate_safe_identifier(name: str) -> None:
@@ -147,12 +145,17 @@ class SQLiteExtensionMixin:
             raise ValueError(f"Unsafe identifier: '{name}'")
 
     def set_runtime_param(self, key: str, value: Any) -> None:
-        """Set a runtime parameter (detected after connection)."""
-        self._runtime_params[key] = value
+        """Set a runtime parameter (detected after connection).
+
+        Stored on the instance, never on the class: one dialect instance stands
+        for one connection's facts, and a class-level mapping would leak a
+        compile option detected by one connection into every other one.
+        """
+        self.__dict__.setdefault("_runtime_params", {})[key] = value
 
     def get_runtime_param(self, key: str, default: Any = None) -> Any:
         """Get a runtime parameter."""
-        return self._runtime_params.get(key, default)
+        return self.__dict__.get("_runtime_params", {}).get(key, default)
 
     def _is_extension_enabled_in_build(self, ext_name: str) -> bool:
         """Check compile options for extension availability."""

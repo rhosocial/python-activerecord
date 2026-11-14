@@ -23,7 +23,7 @@ import pytest
 from rhosocial.activerecord.cli import main
 from rhosocial.activerecord.cli import output as cli_output
 from rhosocial.activerecord.cli.args import OUTPUT_FORMATS
-from logging_isolation import preserve_logging
+from support.logging import preserve_logging
 
 SQLITE_BACKEND = "rhosocial.activerecord.backend.impl.sqlite.backend:SQLiteBackend"
 ASYNC_SQLITE_BACKEND = (

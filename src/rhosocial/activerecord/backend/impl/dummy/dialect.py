@@ -169,6 +169,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     AlterTableModifierSupport,
     ConstraintSupport,
     TruncateSupport,
+    TransactionalDDLSupport,
     CreateSchemaSupport,
     DropSchemaSupport,
     GeneratedColumnSupport,
@@ -468,6 +469,7 @@ class DummyDialect(
     AlterTableModifierSupport,
     ConstraintSupport,
     TruncateSupport,
+    TransactionalDDLSupport,
     GeneratedColumnSupport,
     AutoIncrementColumnSupport,
     IdentityColumnSupport,
@@ -1153,6 +1155,9 @@ class DummyDialect(
         return True
 
     def supports_if_exists_table(self) -> bool:
+        return True
+
+    def supports_transactional_ddl(self) -> bool:
         return True
 
     # The generic TableMixin provides reusable renderings for the CREATE

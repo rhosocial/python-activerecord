@@ -19,8 +19,15 @@ database backends.
 from datetime import datetime, timezone
 from typing import Any, Dict, Union
 
+try:
+    from typing import Annotated
+except ImportError:  # Python 3.8
+    from typing_extensions import Annotated
+
 from pydantic import Field, field_validator
 
+from ..base.fields import UseSqlType
+from ..backend.expression.types import TimestampType
 from ..interface import ModelEvent
 from ..interface.update import IUpdateBehavior
 from ..interface.model import IActiveRecord, IAsyncActiveRecord
@@ -116,8 +123,12 @@ class DefaultTimestampMixin(TimestampMixin):
     different Python names or columns.
     """
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: Annotated[datetime, UseSqlType(TimestampType())] = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Annotated[datetime, UseSqlType(TimestampType())] = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
 
 
 class UtcTimestampMixin:

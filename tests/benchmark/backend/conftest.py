@@ -16,7 +16,7 @@ from rhosocial.activerecord.testsuite.benchmark.crud.fixtures.data import (
     payload_count_for_size,
 )
 
-from providers.scenarios import get_enabled_scenarios, get_scenario
+from support.scenarios import get_enabled_scenarios, get_scenario
 
 
 @dataclass
@@ -145,7 +145,7 @@ def _make_config(scenario, original_config):
     return (
         SQLiteConnectionConfig(
             database=database_path,
-            delete_on_close=original_config.delete_on_close,
+            delete_on_close=False,
             pragmas=original_config.pragmas,
         ),
         database_path,

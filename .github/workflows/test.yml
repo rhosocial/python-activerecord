@@ -55,7 +55,7 @@ jobs:
         pip install -r requirements-dev.txt
         pip install codecov build
 
-        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev17"
+        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@feature/activerecord-ddl"
 
     - name: Run tests with coverage
       env:
@@ -64,7 +64,25 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/ -n auto --dist=loadgroup -p rhosocial.activerecord.testsuite.conftest --cov=rhosocial --cov-branch --cov-report=xml
+        python -m pytest tests/ -n 8 --dist=loadgroup --cov=rhosocial --cov-branch --cov-report=xml
+
+    - name: SQLite expression-dialect coverage gate
+      env:
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+        REDIS_DB: 0
+      run: |
+        # dialect/expression/mixins is the layer whose output is SQL text:
+        # every branch is a spelling, and an untested one is a spelling nobody
+        # checked. Hold it at 100% line+branch; the rest of the backend is not
+        # gated. This writes no coverage.xml, so the report above is untouched.
+        export PYTHONPATH=src:tests
+        python -m pytest tests/rhosocial/activerecord_test/feature/backend/sqlite \
+          -q -p no:warnings \
+          --cov=rhosocial.activerecord.backend.impl.sqlite.dialect \
+          --cov=rhosocial.activerecord.backend.impl.sqlite.expression \
+          --cov=rhosocial.activerecord.backend.impl.sqlite.mixins \
+          --cov-branch --cov-fail-under=100 --cov-report=term-missing
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
@@ -112,7 +130,7 @@ jobs:
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
 
-        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev17"
+        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@feature/activerecord-ddl"
 
     - name: Run benchmark suite
       env:
@@ -137,14 +155,14 @@ jobs:
         python -m pytest \
           --rootdir=. \
           --confcutdir=. \
-          "$TESTSUITE_DIR/benchmark/crud/test_delete_async.py" \
-          "$TESTSUITE_DIR/benchmark/crud/test_delete.py" \
-          "$TESTSUITE_DIR/benchmark/crud/test_insert_async.py" \
-          "$TESTSUITE_DIR/benchmark/crud/test_insert.py" \
-          "$TESTSUITE_DIR/benchmark/crud/test_query_async.py" \
-          "$TESTSUITE_DIR/benchmark/crud/test_query.py" \
-          "$TESTSUITE_DIR/benchmark/crud/test_update_async.py" \
-          "$TESTSUITE_DIR/benchmark/crud/test_update.py" \
+          "$TESTSUITE_DIR/benchmark/crud/core/test_delete_async.py" \
+          "$TESTSUITE_DIR/benchmark/crud/core/test_delete.py" \
+          "$TESTSUITE_DIR/benchmark/crud/core/test_insert_async.py" \
+          "$TESTSUITE_DIR/benchmark/crud/core/test_insert.py" \
+          "$TESTSUITE_DIR/benchmark/crud/core/test_query_async.py" \
+          "$TESTSUITE_DIR/benchmark/crud/core/test_query.py" \
+          "$TESTSUITE_DIR/benchmark/crud/core/test_update_async.py" \
+          "$TESTSUITE_DIR/benchmark/crud/core/test_update.py" \
           "$TESTSUITE_DIR/benchmark/query" \
           "$TESTSUITE_DIR/benchmark/transaction" \
           "$TESTSUITE_DIR/benchmark/mixin" \
@@ -223,7 +241,7 @@ jobs:
 
   test-other-versions:
     name: Run tests with Python ${{ matrix.python-version }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
     strategy:
@@ -232,16 +250,22 @@ jobs:
         include:
           - python-version: "3.8"
             redis-version: "6.2"
+            os: ubuntu-22.04
           - python-version: "3.9"
             redis-version: "7.0"
+            os: ubuntu-22.04
           - python-version: "3.10"
             redis-version: "7.2"
+            os: ubuntu-latest
           - python-version: "3.11"
             redis-version: "7.4"
+            os: ubuntu-latest
           - python-version: "3.12"
             redis-version: "8.0"
+            os: ubuntu-latest
           - python-version: "3.13"
             redis-version: "8.2"
+            os: ubuntu-latest
 
     services:
       redis:
@@ -279,7 +303,7 @@ jobs:
           pip install -r requirements-dev.txt
         fi
 
-        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev17"
+        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@feature/activerecord-ddl"
 
     - name: Run tests
       env:
@@ -288,7 +312,7 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/ -n auto --dist=loadgroup -p rhosocial.activerecord.testsuite.conftest
+        python -m pytest tests/ -n 8 --dist=loadgroup
 
   test-free-threaded:
     name: Run tests with Python ${{ matrix.python-version }} free-threaded
@@ -340,7 +364,7 @@ jobs:
           pip install -r requirements-dev.txt
         fi
 
-        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev17"
+        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@feature/activerecord-ddl"
 
     - name: Run tests
       env:
@@ -349,7 +373,7 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/ -n auto --dist=loadgroup -p rhosocial.activerecord.testsuite.conftest
+        python -m pytest tests/ -n 8 --dist=loadgroup
 
   test-python-315:
     name: Run tests with Python ${{ matrix.python-version }}${{ matrix.freethreaded && 't free-threaded' || '' }}
@@ -397,7 +421,7 @@ jobs:
       run: |
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
-        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev17"
+        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@feature/activerecord-ddl"
 
     - name: Run tests
       env:
@@ -406,4 +430,4 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/ -n auto --dist=loadgroup -p rhosocial.activerecord.testsuite.conftest
+        python -m pytest tests/ -n 8 --dist=loadgroup

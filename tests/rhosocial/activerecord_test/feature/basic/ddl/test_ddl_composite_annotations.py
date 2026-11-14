@@ -99,15 +99,22 @@ class TestCompositeUseIndex:
         assert definitions[0].columns == ["email"]
         assert definitions[0].unique is True
 
-    def test_columns_shorter_than_two_is_rejected(self):
-        with pytest.raises(TypeError):
-            class TooShort(ActiveRecord):
-                @classmethod
-                def table_name(cls):
-                    return "too_short"
+    def test_single_name_columns_declares_a_table_level_entry(self):
+        # A one-name ``columns`` list is not an error: it declares the
+        # table-level entry explicitly. How many columns a table-level entry
+        # covers is the caller's decision, not something this layer polices.
+        class WithOneNameColumns(ActiveRecord):
+            @classmethod
+            def table_name(cls):
+                return "with_one_name_columns"
 
-                id: int
-                email: Annotated[str, UseIndex("idx_email", columns=["email"])]
+            id: int
+            email: Annotated[str, UseIndex("idx_email_one", columns=["email"])]
+
+        definitions = WithOneNameColumns.column_indexes("email")
+        assert len(definitions) == 1
+        assert definitions[0].name == "idx_email_one"
+        assert definitions[0].columns == ["email"]
 
     def test_anchor_not_first_is_rejected_at_class_creation(self):
         with pytest.raises(TypeError, match="leftmost"):
@@ -298,6 +305,36 @@ class TestCompositeUseConstraint:
         assert all(
             not isinstance(constraint.branch, TableUniqueConstraint)
             for constraint in WithColumnUnique.table_constraints()
+        )
+
+    def test_single_name_columns_declares_a_table_level_unique(self):
+        # A one-name ``columns`` list declares a table-level fact explicitly;
+        # the framework does not police how many columns such an entry covers.
+        class WithTableLevelUnique(ActiveRecord):
+            @classmethod
+            def table_name(cls):
+                return "with_table_level_unique"
+
+            id: int
+            code: Annotated[
+                str,
+                UseConstraint(
+                    ColumnUniqueConstraint,
+                    columns=["code"],
+                    name="uq_code_table",
+                ),
+            ]
+
+        table_level = [
+            constraint
+            for constraint in WithTableLevelUnique.table_constraints()
+            if isinstance(constraint.branch, TableUniqueConstraint)
+        ]
+        assert len(table_level) == 1
+        assert list(table_level[0].branch.columns) == ["code"]
+        assert all(
+            not isinstance(constraint.branch, ColumnUniqueConstraint)
+            for constraint in WithTableLevelUnique.column_constraints("code")
         )
 
     def test_anchor_not_first_is_rejected_at_class_creation(self):

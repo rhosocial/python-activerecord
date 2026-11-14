@@ -166,7 +166,7 @@ from rhosocial.activerecord.backend.schema import StatementType
 # Import AsyncSQLiteBackend from test module
 # Note: This is an async backend implementation for testing purposes
 sys.path.insert(0, 'tests')
-from rhosocial.activerecord_test.feature.backend.sqlite_async.async_backend import AsyncSQLiteBackend
+from rhosocial.activerecord_test.feature.backend.sqlite.core.async_backend import AsyncSQLiteBackend
 
 
 class Database:

@@ -166,7 +166,7 @@ from rhosocial.activerecord.backend.schema import StatementType
 # 从测试模块导入 AsyncSQLiteBackend
 # 注意：这是用于测试的异步后端实现
 sys.path.insert(0, 'tests')
-from rhosocial.activerecord_test.feature.backend.sqlite_async.async_backend import AsyncSQLiteBackend
+from rhosocial.activerecord_test.feature.backend.sqlite.core.async_backend import AsyncSQLiteBackend
 
 
 class Database:

@@ -144,7 +144,7 @@ pytest tests/rhosocial/activerecord_test/feature/
 pytest tests/rhosocial/activerecord_test/feature/backend/
 
 # Run SQLite introspection tests only
-pytest tests/rhosocial/activerecord_test/feature/backend/sqlite4/
+pytest tests/rhosocial/activerecord_test/feature/backend/sqlite/introspection/
 ```
 
 ### Run Single Test File

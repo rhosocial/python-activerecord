@@ -28,6 +28,12 @@ EXIT_CONFIRMATION_REQUIRED = 5
 #: A DML command was attempted on a model that declares itself read-only.
 EXIT_READ_ONLY = 6
 
+#: A migration's dependency, application state, or version ownership is wrong.
+EXIT_MIGRATION_STATE = 7
+
+#: A migration function raised while the group was running.
+EXIT_MIGRATION_FAILED = 8
+
 #: A downstream pipe closed before the CLI finished writing.
 EXIT_BROKEN_PIPE = 141
 

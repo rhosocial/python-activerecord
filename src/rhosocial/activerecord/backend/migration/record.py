@@ -17,8 +17,6 @@ class MigrationRecord:
     applied_at: datetime
     success: bool
     error_message: str | None = None
-    snapshot_before: dict | None = None
-    snapshot_after: dict | None = None
 
 
 class MigrationRecordStore(ABC):
@@ -83,7 +81,6 @@ class MigrationResult:
     success: bool
     dry_run: bool = False
     dry_run_sql: list[tuple[str, str, tuple]] | None = None
-    snapshot_diff: Any = None
 
 
 def _json_default(obj: Any) -> str:

@@ -925,3 +925,51 @@ class TestResolveConcurrency:
 
         result = _resolve_concurrency(None, None)
         assert result is None
+
+
+class TestProcedureRunnerDryRun:
+    """ProcedureRunner dry-run captures rendered SQL and never executes."""
+
+    QUERY = (
+        "tests.rhosocial.activerecord_test.feature.backend.named_expression"
+        ".example_queries.get_all_users"
+    )
+
+    def _procedure(self, count: int):
+        def run(proc, ctx):
+            for _ in range(proc.count):
+                ctx.execute(self.QUERY)
+
+        cls = type(
+            "DryRunProcedure",
+            (Procedure,),
+            {"run": run, "__annotations__": {"count": int}, "count": count},
+        )
+        return cls
+
+    def test_dry_run_records_sql_and_returns_no_rows(self):
+        from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+
+        backend = SQLiteBackend(database=":memory:")
+        cls = self._procedure(1)
+        runner = ProcedureRunner(procedure_class=cls)
+        result = runner.run(backend, dry_run=True)
+
+        assert result.aborted is False
+        assert result.dry_run is True
+        assert result.dry_run_total == 1
+        assert len(result.dry_run_sql) == 1
+        assert "users" in result.dry_run_sql[0][1]
+        assert result.dry_run_sql[0][2] == (100,)
+
+    def test_dry_run_truncates_display_but_counts_everything(self):
+        from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+
+        backend = SQLiteBackend(database=":memory:")
+        cls = self._procedure(105)
+        runner = ProcedureRunner(procedure_class=cls)
+        result = runner.run(backend, dry_run=True)
+
+        assert result.aborted is False
+        assert result.dry_run_total == 105
+        assert len(result.dry_run_sql) == 100

@@ -316,8 +316,10 @@ class UseIndex(DDLAnnotation):
       ``TypeError`` at class creation;
     - every column in ``columns`` must name an existing column of the model;
       an unknown name raises ``TypeError`` at class creation;
-    - ``columns`` must list at least two names; for a single-column index
-      omit it (the anchor alone is the column).
+    - ``columns`` may list one or more names. A one-name list declares a
+      table-level entry explicitly; whether a table-level entry covers one
+      column or several is the caller's decision, not something this layer
+      polices. Omitting ``columns`` keeps the anchor alone as the column.
 
     ``include_columns`` (covering columns, an index-level option) is a
     separate parameter and does not participate in the column list above.
@@ -380,11 +382,10 @@ class UseIndex(DDLAnnotation):
         if columns is None:
             return None
         names = tuple(columns)
-        if len(names) < 2:
+        if not names:
             raise TypeError(
-                "UseIndex columns must list at least two column names; a "
-                "single-column index omits the parameter and uses the "
-                "annotated field alone."
+                "UseIndex columns must not be empty; omit the parameter to "
+                "declare a single-column index on the annotated field."
             )
         for column in names:
             if not isinstance(column, str) or not column:
@@ -455,16 +456,18 @@ class UseConstraint(DDLAnnotation):
       single-column PK lands on the column, a composite PK becomes a
       table-level constraint.
 
-    Composite (multi-column) form: ``columns`` (optional) lists the source
-    columns -- **database column names** -- of a constraint that spans more
-    than one column. Only the branches that have a table-level counterpart
-    accept it (``ColumnUniqueConstraint`` becomes ``TableUniqueConstraint``,
+    Composite (table-level) form: ``columns`` (optional) lists the source
+    columns -- **database column names** -- of a constraint declared at table
+    level. Only the branches that have a table-level counterpart accept it
+    (``ColumnUniqueConstraint`` becomes ``TableUniqueConstraint``,
     ``ColumnForeignKeyConstraint`` becomes ``TableForeignKeyConstraint``);
     other branches are column-level by nature and refuse ``columns``. The
     anchor must be ``columns[0]`` (the leftmost prefix), every column must
     name an existing column of the model, and violations raise ``TypeError``
-    at class creation. A multi-column declaration surfaces through
-    ``table_constraints()``, not ``column_constraints()``.
+    at class creation. A declaration with ``columns`` surfaces through
+    ``table_constraints()``, not ``column_constraints()`` -- including one
+    that names a single column, which is a table-level fact by declaration,
+    not an error.
 
     For table-level constraints declared outright (CHECK spanning multiple
     columns, composite UNIQUE, composite FOREIGN KEY), ``__table_constraints__``
@@ -612,11 +615,10 @@ class UseConstraint(DDLAnnotation):
         if columns is None:
             return None
         names = tuple(columns)
-        if len(names) < 2:
+        if not names:
             raise TypeError(
-                "UseConstraint columns must list at least two column names; "
-                "a single-column constraint omits the parameter and anchors "
-                "on the annotated field alone."
+                "UseConstraint columns must not be empty; omit the parameter "
+                "to declare a column-level constraint on the annotated field."
             )
         for column in names:
             if not isinstance(column, str) or not column:

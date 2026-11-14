@@ -53,6 +53,7 @@ from .ddl.index.create_index import CreateIndexSupport
 from .ddl.index.drop_index import DropIndexSupport
 from .ddl.index.fulltext import FulltextIndexSupport
 from .ddl.partition import PartitionSupport
+from .ddl.transactional_ddl import TransactionalDDLSupport
 from .ddl.routine.create_function import CreateRoutineSupport
 from .ddl.routine.drop_function import DropRoutineSupport
 from .ddl.schema.create_schema import CreateSchemaSupport
@@ -207,6 +208,7 @@ __all__ = [
     "TableObjectSupport",
     "TemporalTableSupport",
     "TransactionControlSupport",
+    "TransactionalDDLSupport",
     "TriggerObjectSupport",
     "TruncateSupport",
     "TypeObjectSupport",

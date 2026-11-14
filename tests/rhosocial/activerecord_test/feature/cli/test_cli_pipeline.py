@@ -5,7 +5,7 @@ import io
 import json
 import sys
 
-from conftest import run_cli
+from support.cli import run_cli
 
 
 class _BrokenPipe:

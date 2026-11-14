@@ -231,6 +231,7 @@ class TestNaturalKeyConsumption:
         # connection, while this one is already wired to the test loop.
         backend = async_user_class.backend()
         AsyncNamedAccount.__backend__ = backend
+        await backend.execute('DROP TABLE IF EXISTS "a2_named_accounts_async"')
         await backend.executescript(NAMED_DDL.format(table="a2_named_accounts_async"))
 
         row, created = await AsyncNamedAccount.find_one_or_create(

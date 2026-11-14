@@ -51,6 +51,7 @@ from .comment import CommentSupport
 from .constraint import ConstraintSupport
 from .generated_column import GeneratedColumnSupport
 from .partition import PartitionSupport
+from .transactional_ddl import TransactionalDDLSupport
 from .truncate import TruncateSupport
 
 __all__ = [
@@ -93,5 +94,6 @@ __all__ = [
     "IdentityColumnSupport",
     "MaterializedViewSupport",
     "PartitionSupport",
+    "TransactionalDDLSupport",
     "TruncateSupport",
 ]

@@ -215,6 +215,7 @@ class TestDummyProtocolSupport:
         assert dialect.supports_temporary_table() is True
         assert dialect.supports_if_not_exists_table() is True
         assert dialect.supports_if_exists_table() is True
+        assert dialect.supports_transactional_ddl() is True
         assert dialect.supports_table_partitioning() is False
         assert dialect.supports_partitioned_table_creation() is False
         assert dialect.supports_partition_metadata_introspection() is False

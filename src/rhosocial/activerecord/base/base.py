@@ -1786,7 +1786,10 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         if not callable(getattr(manager, "supports_savepoint", None)):
             return None
         try:
-            if not await manager.supports_savepoint():
+            supported = manager.supports_savepoint()
+            if inspect.isawaitable(supported):
+                supported = await supported
+            if not supported:
                 return None
             if not getattr(manager, "is_active", False):
                 return None

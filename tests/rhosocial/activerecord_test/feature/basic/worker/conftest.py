@@ -1,8 +1,3 @@
 # tests/rhosocial/activerecord_test/feature/basic/worker/conftest.py
-"""
-Pytest configuration for basic worker tests.
-
-This file imports fixtures from the corresponding testsuite, making them
-available to the tests in this directory.
-"""
-from rhosocial.activerecord.testsuite.feature.basic.worker.conftest import *  # noqa: F403
+"""Use the shared ``basic/worker`` minimal test set."""
+from rhosocial.activerecord.testsuite.feature.basic.worker.conftest import *  # noqa: F401,F403

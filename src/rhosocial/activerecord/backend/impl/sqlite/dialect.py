@@ -34,6 +34,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     # DDL statement protocols
     ConstraintSupport,
     TruncateSupport,
+    TransactionalDDLSupport,
     CreateSchemaSupport,
     DropSchemaSupport,
     GeneratedColumnSupport,
@@ -330,6 +331,7 @@ class SQLiteDialect(
     # DDL statement protocols
     ConstraintSupport,
     TruncateSupport,
+    TransactionalDDLSupport,
     GeneratedColumnSupport,
     AutoIncrementColumnSupport,
     IdentityColumnSupport,
@@ -385,14 +387,6 @@ class SQLiteDialect(
         if version is not None:
             self.version = version
         self._runtime_params: Dict[str, Any] = {}
-
-    def set_runtime_param(self, key: str, value: Any) -> None:
-        """Set a runtime parameter (detected after connection)."""
-        self._runtime_params[key] = value
-
-    def get_runtime_param(self, key: str, default: Any = None) -> Any:
-        """Get a runtime parameter."""
-        return self._runtime_params.get(key, default)
 
     def get_server_version(self) -> Tuple[int, int, int]:
         """Return the SQLite version this dialect is configured for."""
@@ -829,6 +823,10 @@ class SQLiteDialect(
 
     def supports_if_exists_table(self) -> bool:
         """Whether DROP TABLE IF EXISTS is supported."""
+        return True
+
+    def supports_transactional_ddl(self) -> bool:
+        """SQLite DDL participates in transactions."""
         return True
 
     def supports_drop_table_cascade(self) -> bool:

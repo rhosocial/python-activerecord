@@ -57,13 +57,12 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, AsyncIterator, Callable, Dict, Iterator, List, Optional, Union
 
-from .resolver import resolve_named_expression
-
 from .defaults import (
     DEFAULT_DIAGRAM_KIND,
     DEFAULT_LOG_LEVEL,
     DEFAULT_PROCEDURE_NAME,
 )
+from .resolver import resolve_named_expression
 
 
 def _coerce_param_value(value: Any, annotation: Any) -> Any:
@@ -130,7 +129,8 @@ def _build_execute_callback(backend: Any) -> Callable[[str, Any, Dict[str, Any]]
             stmt_type = getattr(expr, "statement_type", None)
             if stmt_type:
                 raw = backend_execute(
-                    sql, params_sql,
+                    sql,
+                    params_sql,
                     options=ExecutionOptions(stmt_type=stmt_type),
                 )
             else:
@@ -200,6 +200,10 @@ class ProcedureResult:
     logs: List[LogEntry] = field(default_factory=list)
     aborted: bool = False
     abort_reason: Optional[str] = None
+
+    dry_run: bool = False
+    dry_run_sql: List[tuple] = field(default_factory=list)
+    dry_run_total: int = 0
 
     static_trace: List[TraceEntry] = field(default_factory=list)
     instance_trace: List[TraceEntry] = field(default_factory=list)
@@ -318,11 +322,16 @@ class ProcedureContext:
         execute_callback: Any,
         transaction_mode: TransactionMode = TransactionMode.AUTO,
         backend: Any = None,
+        dry_run: bool = False,
     ):
         self._dialect = dialect
         self._execute_callback = execute_callback
         self._transaction_mode = transaction_mode
         self._backend = backend
+        self.dry_run = dry_run
+        self.dry_run_sql: List[tuple] = []
+        self.dry_run_total: int = 0
+        self.dry_run_limit: int = 100
         self._bindings: Dict[str, Dict[str, Any]] = {}
         self._logs: List[LogEntry] = []
         self._in_transaction: bool = False
@@ -338,6 +347,21 @@ class ProcedureContext:
     def bindings(self) -> Dict[str, Dict[str, Any]]:
         """Get all bindings."""
         return self._bindings
+
+    @property
+    def backend(self) -> Any:
+        """Return the backend this procedure runs against, if any."""
+        return self._backend
+
+    def _record_dry_run(self, label: str, sql: str, params: Any) -> None:
+        """Keep the first ``dry_run_limit`` statements and count the rest."""
+        self.dry_run_total += 1
+        if len(self.dry_run_sql) < self.dry_run_limit:
+            self.dry_run_sql.append((label, sql, params))
+
+    def _dry_run_label(self, label: str) -> str:
+        version = getattr(self, "version", None)
+        return f"{version}:{label}" if version else label
 
     def execute(
         self,
@@ -374,7 +398,9 @@ class ProcedureContext:
         import time as time_module
 
         if self._transaction_mode == TransactionMode.STEP:
-            if hasattr(self, "_begin_transaction") and callable(getattr(self, "_begin_transaction", None)):
+            if hasattr(self, "_begin_transaction") and callable(
+                getattr(self, "_begin_transaction", None)
+            ):
                 self._begin_transaction()
 
         params = params or {}
@@ -403,7 +429,9 @@ class ProcedureContext:
 
         if self._transaction_mode == TransactionMode.STEP:
             if hasattr(self, "_in_transaction") and self._in_transaction:
-                if hasattr(self, "_commit_transaction") and callable(getattr(self, "_commit_transaction", None)):
+                if hasattr(self, "_commit_transaction") and callable(
+                    getattr(self, "_commit_transaction", None)
+                ):
                     self._commit_transaction()
 
         result_data = {
@@ -419,6 +447,13 @@ class ProcedureContext:
 
         if bind:
             self._bindings[bind] = result_data
+
+        if self.dry_run:
+            self._record_dry_run(
+                self._dry_run_label(qualified_name),
+                result_data["sql"],
+                result_data["params_sql"],
+            )
 
         return result_data
 
@@ -708,11 +743,16 @@ class AsyncProcedureContext:
         execute_callback: Any,
         transaction_mode: TransactionMode = TransactionMode.AUTO,
         backend: Any = None,
+        dry_run: bool = False,
     ):
         self._dialect = dialect
         self._execute_callback = execute_callback
         self._transaction_mode = transaction_mode
         self._backend = backend
+        self.dry_run = dry_run
+        self.dry_run_sql: List[tuple] = []
+        self.dry_run_total: int = 0
+        self.dry_run_limit: int = 100
         self._bindings: Dict[str, Dict[str, Any]] = {}
         self._logs: List[LogEntry] = []
         self._in_transaction: bool = False
@@ -727,6 +767,21 @@ class AsyncProcedureContext:
     def bindings(self) -> Dict[str, Dict[str, Any]]:
         return self._bindings
 
+    @property
+    def backend(self) -> Any:
+        """Return the backend this procedure runs against, if any."""
+        return self._backend
+
+    def _record_dry_run(self, label: str, sql: str, params: Any) -> None:
+        """Keep the first ``dry_run_limit`` statements and count the rest."""
+        self.dry_run_total += 1
+        if len(self.dry_run_sql) < self.dry_run_limit:
+            self.dry_run_sql.append((label, sql, params))
+
+    def _dry_run_label(self, label: str) -> str:
+        version = getattr(self, "version", None)
+        return f"{version}:{label}" if version else label
+
     async def execute(
         self,
         qualified_name: str,
@@ -738,7 +793,9 @@ class AsyncProcedureContext:
         import time as time_module
 
         if self._transaction_mode == TransactionMode.STEP:
-            if hasattr(self, "_begin_transaction") and callable(getattr(self, "_begin_transaction", None)):
+            if hasattr(self, "_begin_transaction") and callable(
+                getattr(self, "_begin_transaction", None)
+            ):
                 await self._begin_transaction()
 
         params = params or {}
@@ -768,7 +825,9 @@ class AsyncProcedureContext:
         if self._transaction_mode == TransactionMode.STEP:
             in_transaction = getattr(self, "_in_transaction", False)
             if in_transaction:
-                if hasattr(self, "_commit_transaction") and callable(getattr(self, "_commit_transaction", None)):
+                if hasattr(self, "_commit_transaction") and callable(
+                    getattr(self, "_commit_transaction", None)
+                ):
                     await self._commit_transaction()
 
         result_data = {
@@ -784,6 +843,13 @@ class AsyncProcedureContext:
 
         if bind:
             self._bindings[bind] = result_data
+
+        if self.dry_run:
+            self._record_dry_run(
+                self._dry_run_label(qualified_name),
+                result_data["sql"],
+                result_data["params_sql"],
+            )
 
         return result_data
 
@@ -1051,9 +1117,26 @@ class _BaseProcedureRunner:
     Not part of the public API. Subclasses must implement load() and run().
     """
 
-    def __init__(self, qualified_name: str, *, allowed_modules=None) -> None:
-        self._qualified_name = qualified_name
+    def __init__(
+        self,
+        qualified_name: Optional[str] = None,
+        *,
+        procedure_class: Optional[type] = None,
+        allowed_modules=None,
+    ) -> None:
         self._allowed_modules = list(allowed_modules) if allowed_modules else None
+        if procedure_class is not None:
+            # Used by callers that already hold a procedure class, such as a
+            # migration group built from functions.  No import is needed.
+            self._procedure_class = procedure_class
+            self._params_info = procedure_class.get_parameters()
+            self._qualified_name = getattr(procedure_class, "__qualname__", "<anonymous>")
+            self._module_name = getattr(procedure_class, "__module__", "")
+            self._class_name = getattr(procedure_class, "__name__", "<anonymous>")
+            return
+        if not qualified_name:
+            raise ValueError("qualified_name is required when procedure_class is omitted")
+        self._qualified_name = qualified_name
         self._procedure_class: Optional[type] = None
         self._params_info: Dict[str, Any] = {}
         self._module_name, self._class_name = self._parse_qualified_name(qualified_name)
@@ -1085,15 +1168,20 @@ class _BaseProcedureRunner:
     def _import_class(self) -> type:
         """Import the class from the module. No type validation performed here."""
         import importlib
+
         from .exceptions import NamedExpressionError, NamedExpressionModuleNotFoundError
 
         try:
             module = importlib.import_module(self._module_name)
         except ModuleNotFoundError as e:
-            raise NamedExpressionModuleNotFoundError(self._module_name, f"Module not found: {e}") from None
+            raise NamedExpressionModuleNotFoundError(
+                self._module_name, f"Module not found: {e}"
+            ) from None
 
         if not hasattr(module, self._class_name):
-            raise NamedExpressionError(f"Procedure '{self._class_name}' not found in module '{self._module_name}'")
+            raise NamedExpressionError(
+                f"Procedure '{self._class_name}' not found in module '{self._module_name}'"
+            )
         return getattr(module, self._class_name)
 
     def describe(self) -> Dict[str, Any]:
@@ -1175,6 +1263,8 @@ class ProcedureRunner(_BaseProcedureRunner):
             NamedExpressionModuleNotFoundError: If module cannot be imported.
             NamedQueryNotFoundError: If class doesn't exist or inherit Procedure.
         """
+        if self._procedure_class is not None:
+            return self
         cls = self._import_class()
 
         if not isinstance(cls, type) or not issubclass(cls, Procedure):
@@ -1193,6 +1283,8 @@ class ProcedureRunner(_BaseProcedureRunner):
         backend: Any,
         user_params: Optional[Dict[str, Any]] = None,
         transaction_mode: TransactionMode = TransactionMode.AUTO,
+        dry_run: bool = False,
+        context_factory: Any = None,
     ) -> ProcedureResult:
         """Execute the procedure.
 
@@ -1200,6 +1292,8 @@ class ProcedureRunner(_BaseProcedureRunner):
             backend: The database backend (required). Must be a sync backend.
             user_params: User-provided parameters.
             transaction_mode: Transaction mode (auto, step, none).
+            dry_run: Render statements without executing them.
+            context_factory: Optional callable building the procedure context.
 
         Returns:
             ProcedureResult with outputs and logs.
@@ -1240,8 +1334,8 @@ class ProcedureRunner(_BaseProcedureRunner):
                 f"Use AsyncProcedureRunner with async backend instead."
             )
 
-        from .exceptions import ProcedureAbortedError
         from .diagram import _DryRunContext
+        from .exceptions import ProcedureAbortedError
 
         proc_instance = self._procedure_class()
         user_params = user_params or {}
@@ -1256,7 +1350,29 @@ class ProcedureRunner(_BaseProcedureRunner):
         except Exception:
             pass
 
-        ctx = ProcedureContext(dialect, _build_execute_callback(backend), transaction_mode, backend)
+        if dry_run:
+            from .resolver import resolve_named_expression
+
+            def execute_callback(fqn: str, dial: Any, params: Dict[str, Any]) -> Dict[str, Any]:
+                expr = resolve_named_expression(fqn, dial, params or {})
+                sql, params_sql = expr.to_sql()
+                return {"sql": sql, "params_sql": params_sql}
+
+        else:
+            execute_callback = _build_execute_callback(backend)
+
+        context_kwargs = dict(
+            dialect=dialect,
+            execute_callback=execute_callback,
+            transaction_mode=transaction_mode,
+            backend=backend,
+            dry_run=dry_run,
+        )
+        ctx = (
+            context_factory(**context_kwargs)
+            if context_factory is not None
+            else ProcedureContext(**context_kwargs)
+        )
         result = ProcedureResult()
         in_transaction = False
 
@@ -1287,7 +1403,7 @@ class ProcedureRunner(_BaseProcedureRunner):
         ctx._rollback_transaction = rollback_transaction
 
         try:
-            if transaction_mode == TransactionMode.AUTO:
+            if transaction_mode == TransactionMode.AUTO and not dry_run:
                 begin_transaction()
             proc_instance.run(ctx)
             if in_transaction and transaction_mode == TransactionMode.AUTO:
@@ -1305,6 +1421,9 @@ class ProcedureRunner(_BaseProcedureRunner):
 
         result.logs = ctx._logs
         result.outputs = [v for v in ctx.bindings.values() if v.get("output")]
+        result.dry_run = dry_run
+        result.dry_run_sql = list(ctx.dry_run_sql)
+        result.dry_run_total = ctx.dry_run_total
         result.static_trace = list(static_ctx._trace)
         result.instance_trace = list(ctx._trace)
         result.dialect_name = type(dialect).__name__ if dialect else None
@@ -1330,6 +1449,8 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
             NamedExpressionModuleNotFoundError: If module cannot be imported.
             NamedQueryNotFoundError: If class doesn't exist or inherit AsyncProcedure.
         """
+        if self._procedure_class is not None:
+            return self
         cls = self._import_class()
 
         if not isinstance(cls, type) or not issubclass(cls, AsyncProcedure):
@@ -1348,6 +1469,8 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
         backend: Any,
         user_params: Optional[Dict[str, Any]] = None,
         transaction_mode: TransactionMode = TransactionMode.AUTO,
+        dry_run: bool = False,
+        context_factory: Any = None,
     ) -> ProcedureResult:
         """Execute the procedure asynchronously.
 
@@ -1355,6 +1478,8 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
             backend: The database backend (required). Must be an async backend.
             user_params: User-provided parameters.
             transaction_mode: Transaction mode (auto, step, none).
+            dry_run: Render statements without executing them.
+            context_factory: Optional callable building the procedure context.
 
         Returns:
             ProcedureResult with outputs and logs.
@@ -1395,8 +1520,8 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
                 f"Use ProcedureRunner with sync backend instead."
             )
 
-        from .exceptions import ProcedureAbortedError
         from .diagram import _AsyncDryRunContext
+        from .exceptions import ProcedureAbortedError
 
         proc_instance = self._procedure_class()
         user_params = user_params or {}
@@ -1411,30 +1536,56 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
         except Exception:
             pass
 
-        async def execute_callback(fqn: str, dial: Any, params: Dict[str, Any]) -> Dict[str, Any]:
-            expr = resolve_named_expression(fqn, dial, params)
-            sql, params_sql = expr.to_sql()
-            data, affected_rows = [], 0
-            if backend_execute and sql:
-                stmt_type = getattr(expr, "statement_type", None)
-                if stmt_type:
-                    from rhosocial.activerecord.backend.options import ExecutionOptions
+        if dry_run:
 
-                    raw = await backend_execute(sql, params_sql, options=ExecutionOptions(stmt_type=stmt_type))
-                else:
-                    raw = await backend_execute(sql, params_sql)
-                if raw and raw.data:
-                    data = raw.data
-                if raw:
-                    affected_rows = raw.affected_rows or 0
-            return {
-                "sql": sql,
-                "params_sql": params_sql,
-                "data": data,
-                "affected_rows": affected_rows,
-            }
+            async def execute_callback(
+                fqn: str, dial: Any, params: Dict[str, Any]
+            ) -> Dict[str, Any]:
+                expr = resolve_named_expression(fqn, dial, params or {})
+                sql, params_sql = expr.to_sql()
+                return {"sql": sql, "params_sql": params_sql}
 
-        ctx = AsyncProcedureContext(dialect, execute_callback, transaction_mode, backend)
+        else:
+
+            async def execute_callback(
+                fqn: str, dial: Any, params: Dict[str, Any]
+            ) -> Dict[str, Any]:
+                expr = resolve_named_expression(fqn, dial, params)
+                sql, params_sql = expr.to_sql()
+                data, affected_rows = [], 0
+                if backend_execute and sql:
+                    stmt_type = getattr(expr, "statement_type", None)
+                    if stmt_type:
+                        from rhosocial.activerecord.backend.options import ExecutionOptions
+
+                        raw = await backend_execute(
+                            sql, params_sql, options=ExecutionOptions(stmt_type=stmt_type)
+                        )
+                    else:
+                        raw = await backend_execute(sql, params_sql)
+                    if raw and raw.data:
+                        data = raw.data
+                    if raw:
+                        affected_rows = raw.affected_rows or 0
+                return {
+                    "sql": sql,
+                    "params_sql": params_sql,
+                    "data": data,
+                    "affected_rows": affected_rows,
+                }
+
+        context_kwargs = dict(
+            dialect=dialect,
+            execute_callback=execute_callback,
+            transaction_mode=transaction_mode,
+            backend=backend,
+            dry_run=dry_run,
+        )
+        ctx = (
+            context_factory(**context_kwargs)
+            if context_factory is not None
+            else AsyncProcedureContext(**context_kwargs)
+        )
         result = ProcedureResult()
         in_transaction = False
 
@@ -1465,7 +1616,7 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
         ctx._rollback_transaction = rollback_transaction
 
         try:
-            if transaction_mode == TransactionMode.AUTO:
+            if transaction_mode == TransactionMode.AUTO and not dry_run:
                 await begin_transaction()
             await proc_instance.run(ctx)
             if in_transaction and transaction_mode == TransactionMode.AUTO:
@@ -1483,6 +1634,9 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
 
         result.logs = ctx._logs
         result.outputs = [v for v in ctx.bindings.values() if v.get("output")]
+        result.dry_run = dry_run
+        result.dry_run_sql = list(ctx.dry_run_sql)
+        result.dry_run_total = ctx.dry_run_total
         result.static_trace = list(static_ctx._trace)
         result.instance_trace = list(ctx._trace)
         result.dialect_name = type(dialect).__name__ if dialect else None

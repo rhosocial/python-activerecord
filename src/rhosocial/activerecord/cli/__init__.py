@@ -7,6 +7,7 @@ The command tree is split by responsibility:
 * ``dql``: ActiveQuery reads and user-defined query execution.
 * ``set``: SetOperationQuery combinations.
 * ``cte``: CTEQuery execution.
+* ``migrate``: ``@migration`` functions run as one transactional group.
 
 Example:
     rhosocial-activerecord dql list --model app.models:User \\
@@ -36,25 +37,26 @@ from .args import (
     write_parent,
 )
 from .backends import resolve_connection
-from .commands import cte, dml, dql, setop
+from .commands import cte, dml, dql, migrate, setop
 from .error_mapping import operation_label, translate_error
 from .errors import (
-    CLIError,
     EXIT_BROKEN_PIPE,
     EXIT_ERROR,
+    EXIT_USAGE,
+    CLIError,
     report_error,
     report_unexpected,
 )
 from .interaction import ensure_writable
-from .model_loader import load_model, prepare_sys_path
+from .model_loader import ModelRef, load_model, prepare_sys_path
 from .runtime import RuntimeContext, run_coroutine
-
 
 COMMAND_NAMES = {
     "dml": ("create", "update", "delete", "bulk"),
     "dql": ("get", "list", "count", "exists", "aggregate", "run"),
     "set": ("union", "union-all", "intersect", "except", "run"),
     "cte": ("run",),
+    "migrate": (),
 }
 
 
@@ -153,7 +155,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     dql_sub.add_parser(
         "run",
-        parents=[connection_parent, model_parent, output_parent, query_parent, mode_parent, pagination_parent],
+        parents=[
+            connection_parent,
+            model_parent,
+            output_parent,
+            query_parent,
+            mode_parent,
+            pagination_parent,
+        ],
         help="Execute a user-supplied ActiveQuery",
     )
 
@@ -185,6 +194,68 @@ def build_parser() -> argparse.ArgumentParser:
         "run",
         parents=[connection_parent, optional_model_parent, output_parent, query_parent],
         help="Execute a user-supplied CTEQuery",
+    )
+
+    # migrate
+    migrate_parser = groups.add_parser(
+        "migrate",
+        parents=[connection_parent],
+        help="Run @migration functions as one transactional group",
+    )
+    migrate_parser.add_argument(
+        "functions",
+        nargs="+",
+        metavar="FQN",
+        help="Migration function FQNs, in the order they should run",
+    )
+    migrate_parser.add_argument(
+        "--direction",
+        choices=("up", "down"),
+        default="up",
+        help="Run forwards (up) or reverse the order and run backwards (down)",
+    )
+    migrate_parser.add_argument(
+        "--record-store",
+        default=None,
+        metavar="PATH|MODULE:CLASS",
+        help="JSON file or MigrationRecordStore class for version records",
+    )
+    migrate_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Render and report the statements without writing",
+    )
+    migrate_parser.add_argument(
+        "--list",
+        action="store_true",
+        dest="list_functions",
+        help="List the migration functions, versions and dependencies, then stop",
+    )
+    migrate_parser.add_argument(
+        "--plan",
+        action="store_true",
+        dest="plan_functions",
+        help="Show the execution order for the selected direction, then stop",
+    )
+    migrate_parser.add_argument(
+        "--async",
+        action="store_true",
+        dest="force_async",
+        help="Use the async variant declared by each function",
+    )
+    migrate_parser.add_argument(
+        "-o",
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Output format (default: text)",
+    )
+    migrate_parser.add_argument(
+        "--model",
+        default=None,
+        metavar="MODULE:CLASS",
+        help="Optional model supplying the connection; module-level functions "
+        "may use explicit backend/config options instead",
     )
 
     return parser
@@ -327,14 +398,200 @@ def _run_query_group(args, module):
         model_ref = load_model(args.model)
         ctx = RuntimeContext(args, model_ref.model, model_ref.is_async)
         if model_ref.is_async:
-            return _configure_async(
-                model_ref.model, args, lambda: module.execute_async(ctx)
-            )
-        return _configure_sync(
-            model_ref.model, args, lambda: module.execute_sync(ctx)
-        )
+            return _configure_async(model_ref.model, args, lambda: module.execute_async(ctx))
+        return _configure_sync(model_ref.model, args, lambda: module.execute_sync(ctx))
     ctx = RuntimeContext(args, None, False)
     return module.execute_auto(ctx)
+
+
+def _model_kind(model) -> bool:
+    """Return True when *model* is an asynchronous ActiveRecord model."""
+    from ..interface import IAsyncActiveRecord
+
+    return issubclass(model, IAsyncActiveRecord)
+
+
+def _run_migrate(args):
+    """Resolve migration functions, configure the connection, then run."""
+    from ..backend.migration.core import MigrationDirection
+    from ..logging import LoggingConfig
+    from .backends import resolve_connection_without_model
+
+    functions = migrate.load_functions(args.functions)
+    if getattr(args, "force_async", False):
+        from ..backend.migration.group import select_async_functions
+
+        functions = select_async_functions(functions)
+    direction = MigrationDirection(args.direction)
+
+    if getattr(args, "list_functions", False) or getattr(args, "plan_functions", False):
+        migrate.print_functions(
+            functions,
+            direction,
+            plan=bool(getattr(args, "plan_functions", False)),
+            output=args.output,
+        )
+        return 0
+
+    record_store = migrate.resolve_record_store(args.record_store)
+
+    is_async = functions[0].is_async
+    owner_models = {function.owner for function in functions if function.owner}
+    for model in owner_models:
+        if _model_kind(model) != is_async:
+            raise CLIError(
+                f"{model.__name__} is an asynchronous model but the migration "
+                "functions are synchronous, or the reverse; align the function "
+                "kind with its model"
+            )
+
+    model_ref = load_model(args.model) if args.model else None
+    if model_ref is not None and model_ref.is_async != is_async:
+        raise CLIError(
+            "The --model must be asynchronous when the migration functions "
+            "are asynchronous, and synchronous otherwise",
+            exit_code=EXIT_USAGE,
+        )
+    if model_ref is None and owner_models:
+        model_ref = ModelRef(next(iter(owner_models)), is_async)
+
+    if model_ref is None:
+        # Module-level functions never touch a model.  Accept an explicit
+        # backend/config instead of asking for a model that has no role.
+        if not getattr(args, "backend_class", None):
+            raise CLIError(
+                "Module-level migration functions have no model to supply a "
+                "connection; pass --backend-class with --config-class/--config "
+                "or --connection, or pass --model MODULE:CLASS",
+                exit_code=EXIT_USAGE,
+            )
+        config, backend_class = resolve_connection_without_model(is_async, args)
+        logging_config = LoggingConfig(default_level=args.log_level)
+        backend_class.__logging_config__ = logging_config
+
+        if is_async:
+
+            async def execute():
+                backend = backend_class(connection_config=config, logging_config=logging_config)
+                try:
+                    await backend.introspect_and_adapt()
+                    await migrate.execute_async(
+                        functions,
+                        direction,
+                        backend,
+                        record_store,
+                        dry_run=args.dry_run,
+                        output=args.output,
+                    )
+                finally:
+                    try:
+                        await backend.disconnect()
+                    except Exception:
+                        pass
+                return 0
+
+            return run_coroutine(execute())
+
+        backend = backend_class(connection_config=config, logging_config=logging_config)
+        try:
+            backend.introspect_and_adapt()
+            migrate.execute_sync(
+                functions,
+                direction,
+                backend,
+                record_store,
+                dry_run=args.dry_run,
+                output=args.output,
+            )
+        finally:
+            try:
+                backend.disconnect()
+            except Exception:
+                pass
+        return 0
+
+    models = list(owner_models | {model_ref.model})
+    for model in models:
+        if _model_kind(model) != is_async:
+            raise CLIError(
+                f"{model.__name__} is not an {('async' if is_async else 'sync')} "
+                "ActiveRecord model"
+            )
+
+    config, backend_class = resolve_connection(model_ref.model, is_async, args)
+    logging_config = _prepare_model_logging(model_ref.model, backend_class, args.log_level)
+
+    if is_async:
+
+        async def execute():
+            for model in models:
+                await model.configure(config, backend_class, logging_config=logging_config)
+            try:
+                await migrate.execute_async(
+                    functions,
+                    direction,
+                    model_ref.model.backend(),
+                    record_store,
+                    dry_run=args.dry_run,
+                    output=args.output,
+                )
+            finally:
+                for model in models:
+                    backend = model.backend()
+                    if backend is not None:
+                        try:
+                            await backend.disconnect()
+                        except Exception:
+                            pass
+            return 0
+
+        return run_coroutine(execute())
+
+    for model in models:
+        model.configure(config, backend_class, logging_config=logging_config)
+    try:
+        migrate.execute_sync(
+            functions,
+            direction,
+            model_ref.model.backend(),
+            record_store,
+            dry_run=args.dry_run,
+            output=args.output,
+        )
+    finally:
+        for model in models:
+            backend = model.backend()
+            if backend is not None:
+                try:
+                    backend.disconnect()
+                except Exception:
+                    pass
+    return 0
+
+
+def _emit_migrate_error(error, exit_code: int, *, unexpected: bool = False) -> None:
+    """Write a migration failure as one JSON object on stdout."""
+    payload = {
+        "command": "migrate",
+        "success": False,
+        "exit_code": exit_code,
+        "error": getattr(error, "message", None) or str(error),
+    }
+    if unexpected:
+        payload["error_type"] = type(error).__name__
+    for attribute in (
+        "migration_version",
+        "migration_fqn",
+        "executed",
+        "transactional_ddl",
+        "rolled_back",
+    ):
+        value = getattr(error, attribute, None)
+        if value is not None:
+            payload[attribute] = value
+    from .commands.migrate import _emit_json
+
+    _emit_json(payload)
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -343,18 +600,25 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     if args.section is None:
-        print("Error: Please specify a command group: dml, dql, set, or cte", file=sys.stderr)
+        print(
+            "Error: Please specify a command group: dml, dql, set, cte, or migrate", file=sys.stderr
+        )
         print("Use --help for more information.", file=sys.stderr)
         return EXIT_ERROR
 
     if args.section == "dml" and args.command == "bulk":
         if args.bulk_command is None:
-            print("Error: Please specify a bulk command: create, update, or delete", file=sys.stderr)
+            print(
+                "Error: Please specify a bulk command: create, update, or delete", file=sys.stderr
+            )
             return EXIT_ERROR
         operation = "bulk_" + args.bulk_command
     elif args.section == "dml":
         if args.command is None:
-            print("Error: Please specify a DML command: create, update, delete, or bulk", file=sys.stderr)
+            print(
+                "Error: Please specify a DML command: create, update, delete, or bulk",
+                file=sys.stderr,
+            )
             return EXIT_ERROR
         operation = args.command
     elif args.section == "dql" and args.command is None:
@@ -373,6 +637,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     prepare_sys_path(getattr(args, "path", None))
 
     try:
+        if args.section == "migrate":
+            return _run_migrate(args)
         if args.section == "dml":
             if operation is None:
                 print("Error: Please specify a DML command", file=sys.stderr)
@@ -397,16 +663,25 @@ def main(argv: Optional[List[str]] = None) -> int:
         print("Error: Unknown command group", file=sys.stderr)
         return EXIT_ERROR
     except CLIError as exc:
-        report_error(exc)
+        if args.section == "migrate" and getattr(args, "output", "text") == "json":
+            _emit_migrate_error(exc, exc.exit_code)
+        else:
+            report_error(exc)
         return exc.exit_code
     except BrokenPipeError:
         return EXIT_BROKEN_PIPE
     except Exception as exc:  # Keep stdout clean for machine-readable formats.
         translated = translate_error(exc, operation=operation_label(args))
         if translated is not None:
-            report_error(translated)
+            if args.section == "migrate" and getattr(args, "output", "text") == "json":
+                _emit_migrate_error(translated, translated.exit_code)
+            else:
+                report_error(translated)
             return translated.exit_code
-        report_unexpected(exc)
+        if args.section == "migrate" and getattr(args, "output", "text") == "json":
+            _emit_migrate_error(exc, EXIT_ERROR, unexpected=True)
+        else:
+            report_unexpected(exc)
         return EXIT_ERROR
 
 

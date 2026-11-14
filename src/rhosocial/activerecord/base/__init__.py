@@ -39,6 +39,7 @@ from .ddl import (
     ObjectDeclaration,
 )
 from .metaclass import MetaclassMixin, ActiveRecordMetaclass
+from .migration_mixin import MigrationMixin, AsyncMigrationMixin
 
 __all__ = [
     "BaseActiveRecord",
@@ -82,4 +83,6 @@ __all__ = [
     "MARKER_REGISTRY",
     "MetaclassMixin",
     "ActiveRecordMetaclass",
+    "MigrationMixin",
+    "AsyncMigrationMixin",
 ]

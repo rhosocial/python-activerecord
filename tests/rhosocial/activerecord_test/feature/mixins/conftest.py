@@ -2,9 +2,9 @@
 """
 Pytest configuration for mixins feature tests.
 
-This file sets up the environment for running the testsuite's mixins tests
-against this backend implementation.
+This file imports fixtures (and the directory's prepare/teardown contract)
+from the corresponding testsuite, making them available to the tests in this
+directory.
 """
 
-# Import the fixtures from the testsuite to make them available
 from rhosocial.activerecord.testsuite.feature.mixins.conftest import *  # noqa: F403

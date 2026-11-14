@@ -6,20 +6,36 @@ from .cli import (
     handle_named_migration,
     list_named_migrations_in_module,
 )
-from .context import MigrationContext, AsyncMigrationContext
+from .context import AsyncMigrationContext, MigrationContext
 from .core import AsyncNamedMigration, MigrationDirection, NamedMigration
 from .exceptions import (
-    MigrationError,
-    MigrationDependencyError,
     MigrationAlreadyAppliedError,
+    MigrationDependencyError,
+    MigrationDialectError,
+    MigrationError,
+    MigrationFunctionExecutionError,
     MigrationNotAppliedError,
     MigrationVersionConflictError,
-    MigrationDialectError,
+)
+from .functions import (
+    MigrationFunctionError,
+    MigrationFunctionRef,
+    MigrationInfo,
+    migration,
+    resolve_migration_function,
+)
+from .group import (
+    AsyncDryRunBackend,
+    DryRunBackend,
+    MigrationGroupResult,
+    run_migration_group,
+    run_migration_group_async,
+    select_async_functions,
 )
 from .record import (
+    JSONFileMigrationRecordStore,
     MigrationRecord,
     MigrationRecordStore,
-    JSONFileMigrationRecordStore,
     MigrationResult,
 )
 from .resolver import AsyncNamedMigrationResolver, NamedMigrationResolver
@@ -37,6 +53,18 @@ __all__ = [
     "MigrationNotAppliedError",
     "MigrationVersionConflictError",
     "MigrationDialectError",
+    "MigrationFunctionExecutionError",
+    "MigrationInfo",
+    "MigrationFunctionRef",
+    "MigrationFunctionError",
+    "migration",
+    "resolve_migration_function",
+    "MigrationGroupResult",
+    "DryRunBackend",
+    "AsyncDryRunBackend",
+    "select_async_functions",
+    "run_migration_group",
+    "run_migration_group_async",
     "MigrationRecord",
     "MigrationRecordStore",
     "JSONFileMigrationRecordStore",

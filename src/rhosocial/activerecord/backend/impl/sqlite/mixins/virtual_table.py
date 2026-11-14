@@ -17,14 +17,15 @@ if TYPE_CHECKING:
 class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
     """Mixin for SQLite virtual table support.
 
-    Provides methods for creating and managing virtual tables
-    including R-Tree, FTS5, Geopoly, and other virtual table modules.
+    Provides the statements that create and drop a virtual table, and the
+    probes that are about the virtual-table mechanism itself. The module-
+    specific probes are declared here because the protocol declares them, but
+    the answers are computed by the module that owns each feature --
+    ``SQLiteFTS5Mixin``, ``SQLiteRTreeMixin`` and ``SQLiteGeopolyMixin`` -- so
+    there is one copy of each check rather than one per class.
 
     Version requirements:
     - Virtual tables (CREATE VIRTUAL TABLE): SQLite 3.8.8+
-    - R-Tree: SQLite 3.6.0+
-    - FTS5: SQLite 3.9.0+
-    - Geopoly: SQLite 3.26.0+
     """
 
     # ========== Capability Detection ==========
@@ -36,35 +37,24 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
     def supports_rtree(self) -> bool:
         """Whether R-Tree virtual table is supported.
 
-        Requires SQLITE_ENABLE_RTREE compile option.
-        Falls back to version-based check if compile options not available.
+        The compile-option check belongs to :class:`SQLiteRTreeMixin`; this
+        answers the protocol's question by asking it rather than repeating it.
         """
-        compile_options = self.get_runtime_param("compile_options", {})
-        if compile_options:
-            return "ENABLE_RTREE" in compile_options
-        return self.version_at_least((3, 6, 0))
+        from .rtree import SQLiteRTreeMixin
+
+        return SQLiteRTreeMixin.supports_rtree(self)
 
     def supports_fts5(self) -> bool:
-        """Whether FTS5 virtual table is supported.
+        """Whether FTS5 virtual table is supported."""
+        from .fts5 import SQLiteFTS5Mixin
 
-        Requires SQLITE_ENABLE_FTS5 compile option.
-        Falls back to version-based check if compile options not available.
-        """
-        compile_options = self.get_runtime_param("compile_options", {})
-        if compile_options:
-            return "ENABLE_FTS5" in compile_options
-        return self.version_at_least((3, 9, 0))
+        return SQLiteFTS5Mixin.supports_fts5(self)
 
     def supports_geopoly(self) -> bool:
-        """Whether Geopoly virtual table is supported.
+        """Whether Geopoly virtual table is supported."""
+        from .geopoly import SQLiteGeopolyMixin
 
-        Requires SQLITE_ENABLE_GEOPOLY compile option.
-        Falls back to version-based check if compile options not available.
-        """
-        compile_options = self.get_runtime_param("compile_options", {})
-        if compile_options:
-            return "ENABLE_GEOPOLY" in compile_options
-        return self.version_at_least((3, 26, 0))
+        return SQLiteGeopolyMixin.supports_geopoly(self)
 
     def supports_math_functions(self) -> bool:
         """Whether built-in math functions are supported.

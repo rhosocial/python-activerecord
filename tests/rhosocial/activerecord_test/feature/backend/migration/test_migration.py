@@ -271,8 +271,6 @@ class TestMigrationRecord:
         assert rec.applied_at is now
         assert rec.success is True
         assert rec.error_message is None
-        assert rec.snapshot_before is None
-        assert rec.snapshot_after is None
 
     def test_create_with_all_fields(self):
         from datetime import datetime, timezone
@@ -284,12 +282,9 @@ class TestMigrationRecord:
             applied_at=now,
             success=False,
             error_message="oops",
-            snapshot_before={"tables": {}},
-            snapshot_after={"tables": {"users": {}}},
         )
         assert rec.success is False
         assert rec.error_message == "oops"
-        assert rec.snapshot_before == {"tables": {}}
 
 
 class TestMigrationResult:
@@ -302,7 +297,6 @@ class TestMigrationResult:
         assert result.version == "v001"
         assert result.applied_at is now
         assert result.success is True
-        assert result.snapshot_diff is None
 
 
 class TestMigrationRecordStoreABC:

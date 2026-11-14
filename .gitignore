@@ -200,3 +200,4 @@ gha-creds-*.json
 # build directory and the test artifacts -- and the directory disappears when the
 # branch merges, so the history would keep a second copy of the source tree.
 .worktree/
+tests/.databases/
