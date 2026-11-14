@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/adapters/test_json_codec.py
+# tests/rhosocial/activerecord_test/feature/backend/adapters/test_neutral_json_codec.py
 """
 Tests for the neutral-adapter JSON codec.
 
