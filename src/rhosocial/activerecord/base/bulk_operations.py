@@ -79,10 +79,10 @@ class BulkOperationsMixin:
         if not all_data:
             return records
 
-        columns = list(cls._map_fields_to_columns(all_data[0]).keys())
+        columns = list(cls._map_fields_to_columns(cls._adapt_fields_for_write(all_data[0])).keys())
         rows = []
         for data in all_data:
-            mapped = cls._map_fields_to_columns(data)
+            mapped = cls._map_fields_to_columns(cls._adapt_fields_for_write(data))
             rows.append([mapped.get(col) for col in columns])
 
         supports_returning = backend.dialect.supports_returning_insert()
@@ -91,8 +91,6 @@ class BulkOperationsMixin:
         # A keyless model has no column to read back, so ask the backend for
         # no returning columns and skip the identity bookkeeping below.
         returning_columns = list(cls.primary_key_columns()) if supports_returning and addressable else None
-        column_mapping = cls.get_column_to_field_map()
-        column_adapters = cls.get_column_adapters()
 
         def _do_batch(batch_rows, batch_records):
             opts = BulkInsertOptions(
@@ -100,13 +98,12 @@ class BulkOperationsMixin:
                 schema_name=cls.schema_name(),
                 columns=columns,
                 rows=batch_rows,
-                column_adapters=column_adapters,
-                column_mapping=column_mapping,
                 returning_columns=returning_columns,
                 auto_commit=False,
                 primary_key=cls.primary_key() if not is_composite else None,
             )
             result = backend.bulk_insert(opts)
+            cls._adapt_result_rows(result)
 
             if supports_returning and addressable and result.data:
                 if not is_composite:
@@ -421,10 +418,10 @@ class AsyncBulkOperationsMixin:
         if not all_data:
             return records
 
-        columns = list(cls._map_fields_to_columns(all_data[0]).keys())
+        columns = list(cls._map_fields_to_columns(cls._adapt_fields_for_write(all_data[0])).keys())
         rows = []
         for data in all_data:
-            mapped = cls._map_fields_to_columns(data)
+            mapped = cls._map_fields_to_columns(cls._adapt_fields_for_write(data))
             rows.append([mapped.get(col) for col in columns])
 
         supports_returning = backend.dialect.supports_returning_insert()
@@ -433,8 +430,6 @@ class AsyncBulkOperationsMixin:
         # A keyless model has no column to read back, so ask the backend for
         # no returning columns and skip the identity bookkeeping below.
         returning_columns = list(cls.primary_key_columns()) if supports_returning and addressable else None
-        column_mapping = cls.get_column_to_field_map()
-        column_adapters = cls.get_column_adapters()
 
         async def _do_batch(batch_rows, batch_records):
             opts = BulkInsertOptions(
@@ -442,13 +437,12 @@ class AsyncBulkOperationsMixin:
                 schema_name=cls.schema_name(),
                 columns=columns,
                 rows=batch_rows,
-                column_adapters=column_adapters,
-                column_mapping=column_mapping,
                 returning_columns=returning_columns,
                 auto_commit=False,
                 primary_key=cls.primary_key() if not is_composite else None,
             )
             result = await backend.bulk_insert(opts)
+            cls._adapt_result_rows(result)
 
             if supports_returning and addressable and result.data:
                 if not is_composite:

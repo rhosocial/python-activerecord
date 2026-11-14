@@ -7,6 +7,7 @@ import pytest
 from rhosocial.activerecord.backend.impl.dummy.backend import DummyBackend, AsyncDummyBackend
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.errors import DatabaseError
+from rhosocial.activerecord.backend.base.type_adaption import CORE_DEFAULT_TYPE_MAPPINGS
 
 
 class TestDummyBackendRemainingCoverage:
@@ -67,9 +68,13 @@ class TestAsyncDummyBackendRemainingCoverage:
         """Test all async methods to ensure coverage."""
         backend = AsyncDummyBackend()
 
-        # Test get_default_adapter_suggestions (covers related line)
+        # Test get_default_adapter_suggestions: no own adapters, core defaults remain
         suggestions = backend.get_default_adapter_suggestions()
-        assert suggestions == {}
+        assert backend.get_type_adapters() == []
+        assert suggestions
+        assert set(suggestions) <= {
+            py_type for py_type, _ in CORE_DEFAULT_TYPE_MAPPINGS
+        }
 
         # Test dialect property
         dialect = backend.dialect

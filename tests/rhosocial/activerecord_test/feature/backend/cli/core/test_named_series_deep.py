@@ -18,7 +18,9 @@ SQLite db file and verifies each layer reaches its documented design goal:
 
 import io
 import json
+import os
 import sqlite3
+import tempfile
 from contextlib import redirect_stderr, redirect_stdout
 
 import pytest
@@ -26,6 +28,10 @@ import pytest
 from rhosocial.activerecord.backend.impl.sqlite.__main__ import main
 
 NS = "rhosocial.activerecord_test.feature.backend.cli.named_series"
+
+#: A path no test reads from; ``--dry-run`` must not depend on it being absent
+#: or present, and the temporary directory exists on every platform.
+UNUSED_DB = os.path.join(tempfile.gettempdir(), "activerecord_unused.db")
 
 # This module relies on module/class-scoped fixtures that build up shared
 # database state incrementally (up V001 -> up V002 -> down V002 ...).  Under
@@ -307,7 +313,7 @@ class TestNamedProcedure:
         out, _, exc = run_cli(
             [
                 "named-procedure", f"{NS}.procedures.SeedUsersProcedure",
-                "--db-file", "/tmp/unused.db", "--dry-run",
+                "--db-file", UNUSED_DB, "--dry-run",
             ]
         )
         assert exc is None, out
@@ -371,7 +377,7 @@ class TestNamedProcedureGraph:
         out, _, exc = run_cli(
             [
                 "named-procedure-graph", f"{NS}.graphs.seed_and_report_graph",
-                "--db-file", "/tmp/unused.db", "--dry-run",
+                "--db-file", UNUSED_DB, "--dry-run",
                 "--params", '{"user_name": "bob"}',
             ]
         )

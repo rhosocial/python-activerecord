@@ -74,8 +74,33 @@ def _dialects():
     return out
 
 
+_OWN_IMPL_PACKAGES = (
+    "rhosocial.activerecord.backend.impl.dummy",
+    "rhosocial.activerecord.backend.impl.sqlite",
+)
+
+
+def _is_owned(klass):
+    """Whether *klass* belongs to this repository's own type tree.
+
+    Sibling backend distributions add their data types to the same
+    process-wide ``DataType.__subclasses__`` tree as soon as any test imports
+    them -- the MRO precedence test imports all nine.  They are not this
+    suite's subject: it only enumerates the dialects it can construct, so
+    counting a sibling's type as an orphan would report a hole that belongs to
+    that sibling's own suite (and flip with test order).
+    """
+    module = getattr(klass, "__module__", "")
+    if not module.startswith("rhosocial.activerecord.backend.impl."):
+        return True
+    return any(
+        module == package or module.startswith(package + ".")
+        for package in _OWN_IMPL_PACKAGES
+    )
+
+
 def _all_concepts():
-    """Every concrete ``DataType`` subclass reachable from the base."""
+    """Every concrete ``DataType`` subclass this repository owns."""
     seen, stack, found = set(), [DataType], []
     while stack:
         klass = stack.pop()
@@ -83,7 +108,7 @@ def _all_concepts():
             continue
         seen.add(klass)
         stack.extend(klass.__subclasses__())
-        if klass is not DataType and not inspect.isabstract(klass):
+        if klass is not DataType and not inspect.isabstract(klass) and _is_owned(klass):
             found.append(klass)
     return found
 

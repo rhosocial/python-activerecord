@@ -24,8 +24,10 @@ from datetime import datetime, date, time
 from enum import Enum
 from typing import (
     Any,
+    ClassVar,
     Dict,
     List,
+    NoReturn,
     Optional,
     Protocol,
     Set,
@@ -64,6 +66,19 @@ class SQLTypeAdapter(Protocol):
         ...
 
 
+@runtime_checkable
+class TypeAdapterCatalogProtocol(Protocol):
+    """A backend's plain inventory of the adapters it provides."""
+
+    def get_type_adapters(self) -> List["SQLTypeAdapter"]:
+        """Return the adapter instances this backend provides.
+
+        This is a plain inventory: it says which adapters exist for this backend.
+        It carries no suggestion/default/priority semantics; the caller decides.
+        """
+        ...
+
+
 class BatchConversionMixin:
     """
     Mixin providing batch conversion capabilities.
@@ -96,6 +111,35 @@ class BaseSQLTypeAdapter(ABC, BatchConversionMixin):
     Base class for SQL type adapters.
     Handles None values and provides a helper for registering supported types.
     """
+
+    #: Optional class this adapter produces/accepts; used only in error messages.
+    neutral_type: ClassVar[Optional[type]] = None
+
+    def _conversion_error(
+        self, value: Any, reason: str, target: Optional[type] = None
+    ) -> NoReturn:
+        """Raise the framework's conversion error with a consistent message."""
+        from .errors import TypeConversionError
+
+        resolved = target or self.neutral_type or type(value)
+        raise TypeConversionError(
+            f"Cannot convert {type(value).__name__} to "
+            f"{getattr(resolved, '__name__', repr(resolved))}: {reason}"
+        )
+
+    @staticmethod
+    def _require_text(value: Any) -> str:
+        """Return ``value`` when it is text, otherwise raise ``TypeError``."""
+        if not isinstance(value, str):
+            raise TypeError(f"value must be str, got {type(value).__name__}")
+        return value
+
+    @staticmethod
+    def _require_bytes(value: Any) -> bytes:
+        """Return ``value`` as ``bytes``, otherwise raise ``TypeError``."""
+        if not isinstance(value, (bytes, bytearray)):
+            raise TypeError(f"value must be bytes, got {type(value).__name__}")
+        return bytes(value)
 
     def __init__(self):
         self._supported_types: Dict[Type, Set[Type]] = {}
@@ -163,9 +207,16 @@ class DateTimeAdapter(BaseSQLTypeAdapter):
         self.register_type(datetime, str)
         self.register_type(datetime, int)
         self.register_type(datetime, float)
+        # Identity pairs: a backend that binds the driver-native object may
+        # keep it (``datetime -> datetime``), the same way it does for
+        # ``str``/``int``.  Overriding a framework default must not force a
+        # conversion the driver does not need.
+        self.register_type(datetime, datetime)
         self.register_type(date, str)
         self.register_type(date, int)
+        self.register_type(date, date)
         self.register_type(time, str)
+        self.register_type(time, time)
 
     def _do_to_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
         if isinstance(value, datetime):
@@ -173,14 +224,20 @@ class DateTimeAdapter(BaseSQLTypeAdapter):
                 return value.isoformat()
             elif target_type in (int, float):
                 return value.timestamp()
+            elif target_type is datetime:
+                return value
         elif isinstance(value, date):
             if target_type is str:
                 return value.isoformat()
             elif target_type is int:
                 return int(datetime.combine(value, time.min).timestamp())
+            elif target_type is date:
+                return value
         elif isinstance(value, time):
             if target_type is str:
                 return value.isoformat()
+            elif target_type is time:
+                return value
         raise TypeError(
             f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
         )
@@ -211,16 +268,24 @@ class DateTimeAdapter(BaseSQLTypeAdapter):
 
 
 class JSONAdapter(BaseSQLTypeAdapter):
-    """Converts between Python dict/list and SQL JSON (usually string)."""
+    """Converts between Python dict/list and SQL JSON (usually string).
 
-    def __init__(self):
+    ``default`` / ``object_hook`` are forwarded to ``json.dumps`` / ``json.loads``
+    so callers can plug in neutral-type codecs (see
+    ``rhosocial.activerecord.backend.adapters.json_codec``) without changing the
+    default behaviour.
+    """
+
+    def __init__(self, default=None, object_hook=None):
         super().__init__()
+        self._json_default = default
+        self._json_object_hook = object_hook
         self.register_type(dict, str)
         self.register_type(list, str)
 
     def _do_to_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
         if target_type is str:
-            return json.dumps(value)
+            return json.dumps(value, default=self._json_default)
         raise TypeError(
             f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
         )
@@ -232,7 +297,7 @@ class JSONAdapter(BaseSQLTypeAdapter):
         if isinstance(value, list):
             return value
         if isinstance(value, str):
-            return json.loads(value)
+            return json.loads(value, object_hook=self._json_object_hook)
         raise TypeError(
             f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
         )
@@ -244,10 +309,13 @@ class UUIDAdapter(BaseSQLTypeAdapter):
     def __init__(self):
         super().__init__()
         self.register_type(UUID, str)
+        self.register_type(UUID, UUID)
 
     def _do_to_database(self, value: UUID, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
         if target_type is str:
             return str(value)
+        if target_type is UUID:
+            return value
         raise TypeError(
             f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
         )
@@ -270,27 +338,42 @@ class UUIDAdapter(BaseSQLTypeAdapter):
 
 
 class EnumAdapter(BaseSQLTypeAdapter):
-    """Converts between Python Enum and SQL types (str, int)."""
+    """Converts between Python Enum and SQL types (str, int).
+
+    The database label is always the member's ``.value`` (not its ``.name``),
+    which keeps the stored representation identical to what the application
+    sees: ``Colour.RED`` (value ``"red"``) is stored as ``"red"``. Reading
+    accepts the value first and falls back to the legacy member-name form, so
+    databases written before this rule keep working.
+    """
 
     def __init__(self):
         super().__init__()
-        # This adapter is generic; registration happens in the backend
-        # based on the actual Enum type. We can't know the specific Enum class here.
 
     def _do_to_database(self, value: Enum, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
+        label = value.value
         if target_type is str:
-            return value.name
+            return label if isinstance(label, str) else str(label)
         if target_type is int:
-            return value.value
+            return label if isinstance(label, int) else int(label)
         raise TypeError(
             f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
         )
 
     def _do_from_database(self, value: Any, target_type: Type[Enum], options: Optional[Dict[str, Any]]) -> Any:
-        # The target_type is the actual Enum class
+        # The target_type is the actual Enum class.
         if isinstance(value, str):
+            try:
+                return target_type(value)
+            except ValueError:
+                pass
+            try:
+                return target_type(int(value))
+            except (ValueError, KeyError, TypeError):
+                pass
+            # Legacy form: databases written before enums used ``.value``.
             return target_type[value]
-        if isinstance(value, int):
+        if isinstance(value, int) and not isinstance(value, bool):
             return target_type(value)
         raise TypeError(
             f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
@@ -304,12 +387,15 @@ class BooleanAdapter(BaseSQLTypeAdapter):
         super().__init__()
         self.register_type(bool, int)
         self.register_type(bool, str)
+        self.register_type(bool, bool)
 
     def _do_to_database(self, value: bool, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
         if target_type is int:
             return 1 if value else 0
         if target_type is str:
             return str(value).lower()  # 'true' or 'false'
+        if target_type is bool:
+            return value
         raise TypeError(
             f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
         )
@@ -345,12 +431,15 @@ class DecimalAdapter(BaseSQLTypeAdapter):
         super().__init__()
         self.register_type(Decimal, str)
         self.register_type(Decimal, float)
+        self.register_type(Decimal, Decimal)
 
     def _do_to_database(self, value: Decimal, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
         if target_type is str:
             return str(value)
         if target_type is float:
             return float(value)
+        if target_type is Decimal:
+            return value
         raise TypeError(
             f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
         )
@@ -380,17 +469,22 @@ class ArrayAdapter(BaseSQLTypeAdapter):
     Converts between Python list and SQL string (JSON representation).
     Does not register default types to avoid conflict with JSONAdapter;
     intended for explicit use via column_adapters or custom registration.
+
+    ``default`` / ``object_hook`` are forwarded to ``json.dumps`` / ``json.loads``
+    for neutral-type codecs, matching :class:`JSONAdapter`.
     """
 
-    def __init__(self):
+    def __init__(self, default=None, object_hook=None):
         super().__init__()
+        self._json_default = default
+        self._json_object_hook = object_hook
         # Removed default registration to avoid conflict with JSONAdapter
         # self.register_type(list, str)
 
     def _do_to_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
         if target_type is str:
             if isinstance(value, (list, tuple, set)):  # Explicitly check for array-like types
-                return json.dumps(list(value))  # Convert sets to list for JSON
+                return json.dumps(list(value), default=self._json_default)
             raise TypeError(f"Cannot convert {type(value).__name__} to JSON array string.")
         raise TypeError(
             f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
@@ -398,7 +492,7 @@ class ArrayAdapter(BaseSQLTypeAdapter):
 
     def _do_from_database(self, value: str, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
         if target_type is list:
-            return json.loads(value)
+            return json.loads(value, object_hook=self._json_object_hook)
         raise TypeError(
             f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
         )

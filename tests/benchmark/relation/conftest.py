@@ -9,31 +9,56 @@ from typing import Any
 
 import pytest
 
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.schema import StatementType
 from rhosocial.activerecord.relation.cache import CacheConfig, InstanceCache
 from rhosocial.activerecord.relation.cache_backends import InMemoryCache
 from rhosocial.activerecord.testsuite.feature.relation.conftest import (  # noqa: F401
     user_post_comment_classes,
 )
-from rhosocial.activerecord.testsuite.feature.relation.fixtures import tables
+from rhosocial.activerecord.testsuite.feature.relation.fixtures.definitions import (
+    CommentDefinition,
+    PostDefinition,
+    UserDefinition,
+)
 
-GROUP_TABLES = ("users", "posts", "comments")
+DDL = ExecutionOptions(stmt_type=StatementType.DDL)
 
-
-def ensure_database(environment):
-    """Create this benchmark directory's database, or clear it."""
-    environment.reset_database()
-
-
-def prepare(environment):
-    """Create the relation benchmark's tables before each test."""
-    for name in GROUP_TABLES:
-        environment.execute(tables.RELATION_TABLES[name](environment.dialect))
+DEFINITIONS = (UserDefinition, PostDefinition, CommentDefinition)
 
 
-def teardown(environment):
-    """Drop the relation benchmark's tables after each test."""
-    for name in reversed(GROUP_TABLES):
-        environment.execute(tables.drop_table(environment.dialect, name))
+@pytest.fixture(scope="session")
+def database_config(backend_scenario):
+    """The scenario, its connection configuration, and the database name."""
+    name = "test_benchmark_relation"
+    return backend_scenario, backend_scenario.make_config(name), name
+
+
+@pytest.fixture(scope="session")
+def database(database_config):
+    """The benchmark directory's database, prepared once."""
+    scenario, config, name = database_config
+    scenario.reset_database(name)
+    backend = scenario.backend_class(connection_config=config)
+    backend.connect()
+    backend.introspect_and_adapt()
+    yield backend
+    backend.disconnect()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def schema(database):
+    """Create the relation tables once per module.
+
+    Benchmarks measure query cost, not per-test isolation, so the exception to
+    the per-test drop+create rule applies here.
+    """
+    fixtures = [definition(database.dialect) for definition in DEFINITIONS]
+    for fixture in fixtures:
+        database.execute(*fixture.create_table.to_sql(), options=DDL)
+    yield
+    for fixture in reversed(fixtures):
+        database.execute(*fixture.drop_table.to_sql(), options=DDL)
 
 # Not introduced in this release; keep snippets for follow-up external cache design.
 # from rhosocial.activerecord.relation.cache_backends import CacheSerializer, RedisCache

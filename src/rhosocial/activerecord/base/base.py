@@ -4,7 +4,6 @@
 import logging
 import inspect
 from collections.abc import Mapping as MappingABC
-from pydantic.fields import FieldInfo
 from typing import (
     Any,
     Callable,
@@ -39,11 +38,37 @@ from ..backend.expression import (
 from ..backend.expression.bases import QueryWithParams
 from ..backend.options import DeleteOptions, UpdateOptions
 from ..backend.options import InsertOptions, LogContext
-from ..backend.type_adapter import SQLTypeAdapter
 from ..interface import IActiveRecord, IAsyncActiveRecord, ModelEvent
 from ..interface.update import IDataPreparationBehavior, IDeleteBehavior, IUpdateBehavior
 from ..logging import LoggingConfig, LoggingMixin
 from .bulk_operations import BulkOperationsMixin, AsyncBulkOperationsMixin
+
+
+
+def collect_field_values(instance, exclude=None):
+    """Return the model's raw Python field values.
+
+    ``model_dump()`` serializes stdlib dataclasses -- the neutral value types
+    (``Geometry``, ``Vector``, ``BitString``, ``Range``, ``MacAddress``) -- into
+    plain dicts, and an adapter cannot rebuild an object from that dict.  The
+    ORM wants the Python value itself; serializing it is the adapter's job.
+    ``model_dump`` also applies pydantic's aliases/serializers, which the write
+    path does not want.
+
+    Args:
+        instance: The model instance.
+        exclude: Field names to leave out (for example insert-time primary
+            keys).
+
+    Returns:
+        A new dict mapping field names to their raw attribute values.
+    """
+    excluded = set(exclude or ())
+    return {
+        name: getattr(instance, name)
+        for name in instance.model_fields
+        if name not in excluded
+    }
 
 
 class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
@@ -238,7 +263,8 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         self.refuse_read_only("insert")
         self.__class__._missing_key_fields_on_insert(self)
         self.log_data(logging.DEBUG, "Raw data for insert", data)
-        prepared_data = self.__class__._map_fields_to_columns(data)
+        adapted_data = self.__class__._adapt_fields_for_write(data)
+        prepared_data = self.__class__._map_fields_to_columns(adapted_data)
         generated = self.__class__.get_generated_columns()
         if generated:
             prepared_data = {
@@ -246,10 +272,6 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             }
         self.log_data(logging.DEBUG, "Data with database column names", prepared_data)
         self.log(logging.DEBUG, f"Inserting new {self.__class__.__name__}")
-        column_mapping = self.__class__.get_column_to_field_map()
-        self.log(logging.DEBUG, f"Column mapping for result processing: {column_mapping}")
-        column_adapters = self.get_column_adapters()
-        self.log(logging.DEBUG, f"Column adapters map: {column_adapters}")
         supports_returning = self.backend().dialect.supports_returning_insert()
         returning_columns = None
         if supports_returning:
@@ -259,8 +281,6 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             table=self.table_name(),
             schema_name=self.schema_name(),
             data=prepared_data,
-            column_mapping=column_mapping,
-            column_adapters=column_adapters,
             primary_key=self.primary_key(),
             returning_columns=returning_columns,
             log_context=LogContext(
@@ -271,6 +291,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             ),
         )
         result = self.backend().insert(insert_options)
+        self.__class__._adapt_result_rows(result)
         # A keyless model has nothing for the database to generate, so there is
         # nothing to read back either. Without the addressable() guard the loop
         # below iterates an empty column list and indexes it.
@@ -392,12 +413,10 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         )
         self.log(logging.DEBUG, f"Final update conditions: {len(update_conditions)} total")
         self.log(logging.DEBUG, f"Final update expressions: {list(update_expressions.keys())}")
-        complete_data = {**data, **update_expressions}
+        complete_data = {**self.__class__._adapt_fields_for_write(data), **update_expressions}
         self.log(logging.DEBUG, f"Complete data for SET clause: {list(complete_data.keys())}")
         mapped_data = self.__class__._map_fields_to_columns(complete_data)
         self.log(logging.DEBUG, f"Mapped data for SET clause: {list(mapped_data.keys())}")
-        column_mapping = self.__class__.get_column_to_field_map()
-        column_adapters = self.get_column_adapters()
         backend = self.backend()
         pk_value = self._get_pk_value()
         self.log(logging.DEBUG, f"Primary key value: {pk_value}")
@@ -422,8 +441,6 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             schema_name=self.schema_name(),
             data=mapped_data,
             where=where_predicate,
-            column_mapping=column_mapping,
-            column_adapters=column_adapters,
             returning_columns=returning_columns,
             primary_key=self.primary_key(),
             log_context=LogContext(
@@ -438,6 +455,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             f"Executing update operation on table '{self.table_name()}' with {len(data)} field(s) to update",
         )
         result = backend.update(update_options)
+        self.__class__._adapt_result_rows(result)
         return result
 
     def _prepare_save_data(self) -> Dict[str, Any]:
@@ -445,9 +463,9 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         pk_fields = set(self.__class__.primary_key_fields())
         generated = set(self.__class__.get_generated_columns())
         if is_new:
-            data = self.model_dump(exclude=self.__class__._insert_pk_exclusions())
+            data = collect_field_values(self, exclude=self.__class__._insert_pk_exclusions())
         else:
-            all_data = self.model_dump()
+            all_data = collect_field_values(self)
             data = {field: all_data[field] for field in self._dirty_fields if field not in pk_fields}
         # Generated columns are database-computed: never insert/update them.
         if generated:
@@ -1046,36 +1064,6 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             raise DatabaseError("No backend configured")
         return cls.backend().transaction()
 
-    @classmethod
-    def get_column_adapters(cls) -> Dict[str, Tuple["SQLTypeAdapter", Type]]:
-        adapters_map: Dict[str, Tuple["SQLTypeAdapter", Type]] = {}
-        model_fields: Dict[str, FieldInfo] = dict(cls.model_fields)
-        all_suggestions = cls.backend().get_default_adapter_suggestions()
-        for field_name, field_info in model_fields.items():
-            column_name = cls.get_column_name(field_name)
-            field_py_type = field_info.annotation
-            original_type = field_py_type
-            origin = get_origin(field_py_type)
-            # Support both Optional (Python 3.8+) and UnionType (Python 3.10+)
-            import types
-
-            is_union_type = origin in (Union, Optional) or (hasattr(types, "UnionType") and origin is types.UnionType)
-            if is_union_type:
-                args = [arg for arg in get_args(field_py_type) if arg is not type(None)]
-                if len(args) == 1:
-                    field_py_type = args[0]
-                else:
-                    continue
-            custom_adapter_tuple = cls._get_adapter_for_field(field_name)
-            if custom_adapter_tuple:
-                adapter_instance, _ = custom_adapter_tuple
-                adapters_map[column_name] = (adapter_instance, original_type)
-                continue
-            suggestion = all_suggestions.get(field_py_type)
-            if suggestion:
-                adapter_instance, _ = suggestion
-                adapters_map[column_name] = (adapter_instance, original_type)
-        return adapters_map
 
 
 class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActiveRecord):
@@ -1279,7 +1267,8 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         self.refuse_read_only("insert")
         self.__class__._missing_key_fields_on_insert(self)
         self.log_data(logging.DEBUG, "Raw data for insert", data)
-        prepared_data = self.__class__._map_fields_to_columns(data)
+        adapted_data = self.__class__._adapt_fields_for_write(data)
+        prepared_data = self.__class__._map_fields_to_columns(adapted_data)
         generated = self.__class__.get_generated_columns()
         if generated:
             prepared_data = {
@@ -1287,10 +1276,6 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             }
         self.log_data(logging.DEBUG, "Data with database column names", prepared_data)
         self.log(logging.DEBUG, f"Inserting new {self.__class__.__name__}")
-        column_mapping = self.__class__.get_column_to_field_map()
-        self.log(logging.DEBUG, f"Column mapping for result processing: {column_mapping}")
-        column_adapters = self.get_column_adapters()
-        self.log(logging.DEBUG, f"Column adapters map: {column_adapters}")
         supports_returning = self.backend().dialect.supports_returning_insert()
         returning_columns = None
         if supports_returning:
@@ -1300,8 +1285,6 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             table=self.table_name(),
             schema_name=self.schema_name(),
             data=prepared_data,
-            column_mapping=column_mapping,
-            column_adapters=column_adapters,
             primary_key=self.primary_key(),
             returning_columns=returning_columns,
             log_context=LogContext(
@@ -1312,6 +1295,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             ),
         )
         result = await self.backend().insert(insert_options)
+        self.__class__._adapt_result_rows(result)
         # A keyless model has nothing for the database to generate, so there is
         # nothing to read back either. Without the addressable() guard the loop
         # below iterates an empty column list and indexes it.
@@ -1433,12 +1417,10 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         )
         self.log(logging.DEBUG, f"Final update conditions: {len(update_conditions)} total")
         self.log(logging.DEBUG, f"Final update expressions: {list(update_expressions.keys())}")
-        complete_data = {**data, **update_expressions}
+        complete_data = {**self.__class__._adapt_fields_for_write(data), **update_expressions}
         self.log(logging.DEBUG, f"Complete data for SET clause: {list(complete_data.keys())}")
         mapped_data = self.__class__._map_fields_to_columns(complete_data)
         self.log(logging.DEBUG, f"Mapped data for SET clause: {list(mapped_data.keys())}")
-        column_mapping = self.__class__.get_column_to_field_map()
-        column_adapters = self.get_column_adapters()
         backend = self.backend()
         pk_value = self._get_pk_value()
         self.log(logging.DEBUG, f"Primary key value: {pk_value}")
@@ -1463,8 +1445,6 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             schema_name=self.schema_name(),
             data=mapped_data,
             where=where_predicate,
-            column_mapping=column_mapping,
-            column_adapters=column_adapters,
             returning_columns=returning_columns,
             primary_key=self.primary_key(),
             log_context=LogContext(
@@ -1479,6 +1459,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             f"Executing update operation on table '{self.table_name()}' with {len(data)} field(s) to update",
         )
         result = await backend.update(update_options)
+        self.__class__._adapt_result_rows(result)
         return result
 
     def _prepare_save_data(self) -> Dict[str, Any]:
@@ -1486,9 +1467,9 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         pk_fields = set(self.__class__.primary_key_fields())
         generated = set(self.__class__.get_generated_columns())
         if is_new:
-            data = self.model_dump(exclude=self.__class__._insert_pk_exclusions())
+            data = collect_field_values(self, exclude=self.__class__._insert_pk_exclusions())
         else:
-            all_data = self.model_dump()
+            all_data = collect_field_values(self)
             data = {field: all_data[field] for field in self._dirty_fields if field not in pk_fields}
         # Generated columns are database-computed: never insert/update them.
         if generated:
@@ -2090,33 +2071,4 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             raise DatabaseError("No backend configured")
         return cls.backend().transaction()
 
-    @classmethod
-    def get_column_adapters(cls) -> Dict[str, Tuple["SQLTypeAdapter", Type]]:
-        adapters_map: Dict[str, Tuple["SQLTypeAdapter", Type]] = {}
-        model_fields: Dict[str, FieldInfo] = dict(cls.model_fields)
-        all_suggestions = cls.backend().get_default_adapter_suggestions()
-        for field_name, field_info in model_fields.items():
-            column_name = cls.get_column_name(field_name)
-            field_py_type = field_info.annotation
-            original_type = field_py_type
-            origin = get_origin(field_py_type)
-            # Support both Optional (Python 3.8+) and UnionType (Python 3.10+)
-            import types
 
-            is_union_type = origin in (Union, Optional) or (hasattr(types, "UnionType") and origin is types.UnionType)
-            if is_union_type:
-                args = [arg for arg in get_args(field_py_type) if arg is not type(None)]
-                if len(args) == 1:
-                    field_py_type = args[0]
-                else:
-                    continue
-            custom_adapter_tuple = cls._get_adapter_for_field(field_name)
-            if custom_adapter_tuple:
-                adapter_instance, _ = custom_adapter_tuple
-                adapters_map[column_name] = (adapter_instance, original_type)
-                continue
-            suggestion = all_suggestions.get(field_py_type)
-            if suggestion:
-                adapter_instance, _ = suggestion
-                adapters_map[column_name] = (adapter_instance, original_type)
-        return adapters_map

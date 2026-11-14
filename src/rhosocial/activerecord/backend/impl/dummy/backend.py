@@ -4,7 +4,7 @@ Dummy Backend for SQL generation without a real database connection.
 """
 
 import logging
-from typing import Any, Dict, Optional, Tuple, Type
+from typing import Any, List, Optional, Tuple
 
 from rhosocial.activerecord.backend.base import StorageBackend, AsyncStorageBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig
@@ -38,11 +38,9 @@ class DummyBackend(StorageBackend):
         super().__init__(connection_config=connection_config or ConnectionConfig(), **kwargs)
         self._dialect = DummyDialect()
 
-    def get_default_adapter_suggestions(self) -> Dict[Type, Tuple[SQLTypeAdapter, Type]]:
-        """
-        Provides empty adapter suggestions as this backend does not perform real type conversion.
-        """
-        return {}
+    def get_type_adapters(self) -> List[SQLTypeAdapter]:
+        """Dummy backends provide no adapters: the catalogue is explicitly empty."""
+        return []
 
     @property
     def dialect(self) -> SQLDialectBase:
@@ -104,8 +102,9 @@ class AsyncDummyBackend(AsyncStorageBackend):
         super().__init__(connection_config=connection_config or ConnectionConfig(), **kwargs)
         self._dialect = DummyDialect()
 
-    def get_default_adapter_suggestions(self) -> Dict[Type, Tuple[SQLTypeAdapter, Type]]:
-        return {}
+    def get_type_adapters(self) -> List[SQLTypeAdapter]:
+        """Dummy backends provide no adapters: the catalogue is explicitly empty."""
+        return []
 
     @property
     def dialect(self) -> SQLDialectBase:

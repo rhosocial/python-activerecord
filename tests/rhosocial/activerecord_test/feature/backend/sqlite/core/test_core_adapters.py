@@ -222,19 +222,27 @@ class TestEnumAdapter:
         COMPLETED = 2
         FAILED = 3
 
+    class Colour(str, PyEnum):
+        RED = "red"
+        GREEN = "green"
+
     @pytest.fixture
     def adapter(self):
         return EnumAdapter()
 
     def test_to_database(self, adapter):
-        """Test converting Enum members to database values."""
+        """Test that the database label is always the member's ``.value``."""
         assert adapter.to_database(self.Status.COMPLETED, int) == 2
-        assert adapter.to_database(self.Status.COMPLETED, str) == "COMPLETED"
+        assert adapter.to_database(self.Status.COMPLETED, str) == "2"
+        assert adapter.to_database(self.Colour.GREEN, str) == "green"
 
     def test_from_database(self, adapter):
         """Test converting database values to Enum members."""
         assert adapter.from_database(2, self.Status) == self.Status.COMPLETED
+        assert adapter.from_database("2", self.Status) == self.Status.COMPLETED
+        # Legacy databases stored the member name; reading keeps working.
         assert adapter.from_database("COMPLETED", self.Status) == self.Status.COMPLETED
+        assert adapter.from_database("green", self.Colour) == self.Colour.GREEN
 
     def test_invalid_conversions(self, adapter):
         """Test invalid conversions for EnumAdapter raise errors."""
