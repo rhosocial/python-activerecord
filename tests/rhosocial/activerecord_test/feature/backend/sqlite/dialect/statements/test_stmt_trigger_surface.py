@@ -125,6 +125,7 @@ def test_trigger_body_carries_statements_instead_of_a_function():
         table=Table(DIALECT, "users"),
         timing=TriggerTiming.AFTER,
         events=[TriggerEvent.UPDATE],
+        function=None,
         body=[body],
     ).to_sql()
     assert sql == (
@@ -143,7 +144,7 @@ def test_trigger_needs_exactly_one_of_function_and_body():
         events=[TriggerEvent.UPDATE],
     )
     with pytest.raises(ValueError):
-        CreateTriggerStatement(DIALECT, **common)
+        CreateTriggerStatement(DIALECT, function=None, **common)
     with pytest.raises(ValueError):
         CreateTriggerStatement(
             DIALECT,

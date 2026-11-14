@@ -58,6 +58,20 @@ class CreateTriggerStatement(BaseExpression):
             function=Function(dialect, "update_updated_at_column")
         )
 
+        # Trigger with a statement body (SQLite / MySQL / SQL Server style).
+        # ``function`` is required positionally, so a body-only trigger says
+        # ``function=None`` instead of omitting it.
+        create_trigger = CreateTriggerStatement(
+            dialect,
+            trigger=Trigger(dialect, "update_user_timestamp"),
+            table=Table(dialect, "users"),
+            timing=TriggerTiming.AFTER,
+            events=[TriggerEvent.UPDATE],
+            function=None,
+            body=[UpdateStatement(dialect, table=Table(dialect, "users"),
+                                  assignments={"created_at": CurrentTimestampFunction(dialect)})]
+        )
+
         # Trigger with condition
         create_trigger = CreateTriggerStatement(
             dialect,
@@ -79,7 +93,7 @@ class CreateTriggerStatement(BaseExpression):
         table: "Table",
         timing: TriggerTiming,
         events: List[TriggerEvent],
-        function: Optional["Function"] = None,
+        function: Optional["Function"],
         level: TriggerLevel = TriggerLevel.ROW,
         condition: Optional["SQLPredicate"] = None,
         update_columns: Optional[List[str]] = None,

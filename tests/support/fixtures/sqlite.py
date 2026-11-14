@@ -260,6 +260,7 @@ class TriggerDefinition:
             table=Table(dialect, "users"),
             timing=TriggerTiming.AFTER,
             events=[TriggerEvent.UPDATE],
+            function=None,
             body=[
                 UpdateStatement(
                     dialect,
