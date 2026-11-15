@@ -8,7 +8,6 @@ from SQLOperationsMixin with returning_columns parameter.
 
 import logging
 import pytest
-import sqlite3
 
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.options import InsertOptions, UpdateOptions, DeleteOptions
@@ -50,12 +49,14 @@ def returning_backend():
     backend.disconnect()
 
 
-@pytest.mark.skipif(sqlite3.sqlite_version_info < (3, 35), reason="RETURNING clause requires SQLite 3.35+")
 def test_insert_with_returning_columns(returning_backend):
     """
     Tests the insert method with returning_columns parameter.
     """
     backend = returning_backend
+
+    if not backend.dialect.supports_returning_insert():
+        pytest.skip("RETURNING clause requires SQLite 3.35+")
 
     # Create InsertOptions with returning_columns
     insert_options = InsertOptions(
@@ -80,12 +81,14 @@ def test_insert_with_returning_columns(returning_backend):
     assert returned_row["user_id"] > 0  # Should be the auto-generated ID
 
 
-@pytest.mark.skipif(sqlite3.sqlite_version_info < (3, 35), reason="RETURNING clause requires SQLite 3.35+")
 def test_update_with_returning_columns(returning_backend):
     """
     Tests the update method with returning_columns parameter.
     """
     backend = returning_backend
+
+    if not backend.dialect.supports_returning_update():
+        pytest.skip("RETURNING clause requires SQLite 3.35+")
 
     # First, insert a record to update
     insert_options = InsertOptions(
@@ -123,12 +126,14 @@ def test_update_with_returning_columns(returning_backend):
     assert returned_row["user_id"] == user_id
 
 
-@pytest.mark.skipif(sqlite3.sqlite_version_info < (3, 35), reason="RETURNING clause requires SQLite 3.35+")
 def test_delete_with_returning_columns(returning_backend):
     """
     Tests the delete method with returning_columns parameter.
     """
     backend = returning_backend
+
+    if not backend.dialect.supports_returning_delete():
+        pytest.skip("RETURNING clause requires SQLite 3.35+")
 
     # First, insert a record to delete
     insert_options = InsertOptions(
@@ -172,12 +177,16 @@ def test_delete_with_returning_columns(returning_backend):
     assert check_result is None
 
 
-@pytest.mark.skipif(sqlite3.sqlite_version_info < (3, 35), reason="RETURNING clause requires SQLite 3.35+")
 def test_operations_without_returning_columns(returning_backend):
     """
     Tests that operations work correctly when returning_columns is not specified.
     """
     backend = returning_backend
+
+    # Same gate the returning tests carry: the fixture family is set up for
+    # RETURNING, so an engine without the clause runs none of this group.
+    if not backend.dialect.supports_returning_insert():
+        pytest.skip("RETURNING clause requires SQLite 3.35+")
 
     # Test insert without returning columns
     insert_options = InsertOptions(
@@ -222,12 +231,14 @@ def test_operations_without_returning_columns(returning_backend):
     assert result.affected_rows >= 0
 
 
-@pytest.mark.skipif(sqlite3.sqlite_version_info < (3, 35), reason="RETURNING clause requires SQLite 3.35+")
 def test_multiple_returning_columns(returning_backend):
     """
     Tests operations with multiple returning columns.
     """
     backend = returning_backend
+
+    if not backend.dialect.supports_returning_insert():
+        pytest.skip("RETURNING clause requires SQLite 3.35+")
 
     # Insert with multiple returning columns
     insert_options = InsertOptions(

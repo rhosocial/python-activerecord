@@ -9,7 +9,6 @@ from AsyncSQLOperationsMixin with returning_columns parameter.
 import logging
 import pytest
 import pytest_asyncio
-import sqlite3
 
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import AsyncSQLiteBackend
@@ -54,13 +53,15 @@ async def async_returning_backend():
     await backend.disconnect()
 
 
-@pytest.mark.skipif(sqlite3.sqlite_version_info < (3, 35), reason="RETURNING clause requires SQLite 3.35+")
 @pytest.mark.asyncio
 async def test_async_insert_with_returning_columns(async_returning_backend):
     """
     Tests the async insert method with returning_columns parameter.
     """
     backend = async_returning_backend
+
+    if not backend.dialect.supports_returning_insert():
+        pytest.skip("RETURNING clause requires SQLite 3.35+")
 
     # Create InsertOptions with returning_columns
     insert_options = InsertOptions(
@@ -85,13 +86,15 @@ async def test_async_insert_with_returning_columns(async_returning_backend):
     assert returned_row["user_id"] > 0  # Should be the auto-generated ID
 
 
-@pytest.mark.skipif(sqlite3.sqlite_version_info < (3, 35), reason="RETURNING clause requires SQLite 3.35+")
 @pytest.mark.asyncio
 async def test_async_update_with_returning_columns(async_returning_backend):
     """
     Tests the async update method with returning_columns parameter.
     """
     backend = async_returning_backend
+
+    if not backend.dialect.supports_returning_update():
+        pytest.skip("RETURNING clause requires SQLite 3.35+")
 
     # First, insert a record to update
     insert_options = InsertOptions(
@@ -129,13 +132,15 @@ async def test_async_update_with_returning_columns(async_returning_backend):
     assert returned_row["user_id"] == user_id
 
 
-@pytest.mark.skipif(sqlite3.sqlite_version_info < (3, 35), reason="RETURNING clause requires SQLite 3.35+")
 @pytest.mark.asyncio
 async def test_async_delete_with_returning_columns(async_returning_backend):
     """
     Tests the async delete method with returning_columns parameter.
     """
     backend = async_returning_backend
+
+    if not backend.dialect.supports_returning_delete():
+        pytest.skip("RETURNING clause requires SQLite 3.35+")
 
     # First, insert a record to delete
     insert_options = InsertOptions(
@@ -179,13 +184,17 @@ async def test_async_delete_with_returning_columns(async_returning_backend):
     assert check_result is None
 
 
-@pytest.mark.skipif(sqlite3.sqlite_version_info < (3, 35), reason="RETURNING clause requires SQLite 3.35+")
 @pytest.mark.asyncio
 async def test_async_operations_without_returning_columns(async_returning_backend):
     """
     Tests that async operations work correctly when returning_columns is not specified.
     """
     backend = async_returning_backend
+
+    # Same gate the returning tests carry: the fixture family is set up for
+    # RETURNING, so an engine without the clause runs none of this group.
+    if not backend.dialect.supports_returning_insert():
+        pytest.skip("RETURNING clause requires SQLite 3.35+")
 
     # Test insert without returning columns
     insert_options = InsertOptions(
@@ -230,13 +239,15 @@ async def test_async_operations_without_returning_columns(async_returning_backen
     assert result.affected_rows >= 0
 
 
-@pytest.mark.skipif(sqlite3.sqlite_version_info < (3, 35), reason="RETURNING clause requires SQLite 3.35+")
 @pytest.mark.asyncio
 async def test_async_multiple_returning_columns(async_returning_backend):
     """
     Tests async operations with multiple returning columns.
     """
     backend = async_returning_backend
+
+    if not backend.dialect.supports_returning_insert():
+        pytest.skip("RETURNING clause requires SQLite 3.35+")
 
     # Insert with multiple returning columns
     insert_options = InsertOptions(
@@ -263,13 +274,15 @@ async def test_async_multiple_returning_columns(async_returning_backend):
     assert returned_row["user_id"] > 0
 
 
-@pytest.mark.skipif(sqlite3.sqlite_version_info < (3, 35), reason="RETURNING clause requires SQLite 3.35+")
 @pytest.mark.asyncio
 async def test_async_returning_with_transaction(async_returning_backend):
     """
     Tests async operations with returning columns inside a transaction.
     """
     backend = async_returning_backend
+
+    if not backend.dialect.supports_returning_insert():
+        pytest.skip("RETURNING clause requires SQLite 3.35+")
 
     # Begin transaction
     await backend.transaction_manager.begin()

@@ -88,6 +88,7 @@ class SQLiteIntrospectionCapabilityMixin:
     - PRAGMA table_xinfo: SQLite 3.26.0+ (includes hidden columns)
     - PRAGMA table_info: All versions
     - PRAGMA index_list/index_info: All versions
+    - PRAGMA index_xinfo: SQLite 3.9.0+ (extended index column info)
     - PRAGMA foreign_key_list: SQLite 3.6.19+
     """
 
@@ -267,6 +268,15 @@ class SQLiteIntrospectionCapabilityMixin:
             If False, use PRAGMA table_info instead.
         """
         return self.version_at_least((3, 26, 0))
+
+    def supports_index_xinfo_pragma(self) -> bool:
+        """PRAGMA index_xinfo (extended index column info) requires SQLite 3.9.0+.
+
+        Returns:
+            True if PRAGMA index_xinfo is available.
+            If False, use PRAGMA index_info instead.
+        """
+        return self.version_at_least((3, 9, 0))
 
     def get_supported_introspection_scopes(self) -> List["IntrospectionScope"]:
         """Get list of supported introspection scopes."""

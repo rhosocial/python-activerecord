@@ -6,8 +6,6 @@ This module tests the PragmaIntrospector class which provides
 direct access to SQLite's PRAGMA interface.
 """
 
-import sqlite3
-
 import pytest
 
 
@@ -90,7 +88,7 @@ class TestPragmaIntrospectorTableInfo:
         """Test table_xinfo returns column information with hidden columns."""
         pragma = backend_with_tables.introspector.pragma
 
-        if sqlite3.sqlite_version_info < (3, 26, 0):
+        if not backend_with_tables.dialect.supports_table_xinfo_pragma():
             pytest.skip("table_xinfo requires SQLite 3.26.0+")
 
         result = pragma.table_xinfo("users")
@@ -153,7 +151,7 @@ class TestPragmaIntrospectorIndexInfo:
         """Test index_xinfo returns extended index information."""
         pragma = backend_with_tables.introspector.pragma
 
-        if sqlite3.sqlite_version_info < (3, 9, 0):
+        if not backend_with_tables.dialect.supports_index_xinfo_pragma():
             pytest.skip("index_xinfo requires SQLite 3.9.0+")
 
         result = pragma.index_xinfo("idx_users_email")
@@ -205,7 +203,7 @@ class TestPragmaIntrospectorTableList:
         """Test table_list returns all tables."""
         pragma = backend_with_tables.introspector.pragma
 
-        if sqlite3.sqlite_version_info < (3, 37, 0):
+        if not backend_with_tables.dialect.supports_table_list_pragma():
             pytest.skip("table_list requires SQLite 3.37.0+")
 
         result = pragma.table_list()
@@ -221,7 +219,7 @@ class TestPragmaIntrospectorTableList:
         """Test table_list with schema parameter."""
         pragma = backend_with_tables.introspector.pragma
 
-        if sqlite3.sqlite_version_info < (3, 37, 0):
+        if not backend_with_tables.dialect.supports_table_list_pragma():
             pytest.skip("table_list requires SQLite 3.37.0+")
 
         result = pragma.table_list(schema="main")

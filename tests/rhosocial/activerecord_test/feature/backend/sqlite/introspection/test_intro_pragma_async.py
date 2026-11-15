@@ -6,8 +6,6 @@ This module tests the AsyncPragmaIntrospector class which provides
 asynchronous access to SQLite's PRAGMA interface.
 """
 
-import sqlite3
-
 import pytest
 
 
@@ -98,7 +96,7 @@ class TestAsyncPragmaIntrospectorTableInfo:
         """Test async table_xinfo returns column information with hidden columns."""
         pragma = async_backend_with_tables.introspector.pragma
 
-        if sqlite3.sqlite_version_info < (3, 26, 0):
+        if not async_backend_with_tables.dialect.supports_table_xinfo_pragma():
             pytest.skip("table_xinfo requires SQLite 3.26.0+")
 
         result = await pragma.table_xinfo("users")
@@ -166,7 +164,7 @@ class TestAsyncPragmaIntrospectorIndexInfo:
         """Test async index_xinfo returns extended index information."""
         pragma = async_backend_with_tables.introspector.pragma
 
-        if sqlite3.sqlite_version_info < (3, 9, 0):
+        if not async_backend_with_tables.dialect.supports_index_xinfo_pragma():
             pytest.skip("index_xinfo requires SQLite 3.9.0+")
 
         result = await pragma.index_xinfo("idx_users_email")
@@ -212,7 +210,7 @@ class TestAsyncPragmaIntrospectorTableList:
         """Test async table_list returns all tables."""
         pragma = async_backend_with_tables.introspector.pragma
 
-        if sqlite3.sqlite_version_info < (3, 37, 0):
+        if not async_backend_with_tables.dialect.supports_table_list_pragma():
             pytest.skip("table_list requires SQLite 3.37.0+")
 
         result = await pragma.table_list()
@@ -229,7 +227,7 @@ class TestAsyncPragmaIntrospectorTableList:
         """Test async table_list with schema parameter."""
         pragma = async_backend_with_tables.introspector.pragma
 
-        if sqlite3.sqlite_version_info < (3, 37, 0):
+        if not async_backend_with_tables.dialect.supports_table_list_pragma():
             pytest.skip("table_list requires SQLite 3.37.0+")
 
         result = await pragma.table_list(schema="main")

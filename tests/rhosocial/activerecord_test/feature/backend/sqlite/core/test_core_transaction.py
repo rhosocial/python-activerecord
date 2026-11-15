@@ -575,9 +575,11 @@ class TestSQLiteTransactionManager:
         """Test savepoint support check"""
         assert transaction_manager.supports_savepoint() is True
 
-    @pytest.mark.skipif(sqlite3.sqlite_version_info < (3, 6, 8), reason="SQLite 3.6.8+ required for savepoint")
     def test_multiple_savepoints(self, transaction_manager, backend):
         """Test multiple savepoints"""
+        if not backend.dialect.supports_savepoint():
+            pytest.skip("SQLite 3.6.8+ required for savepoint")
+
         cursor = backend._connection.cursor()
 
         # Begin transaction

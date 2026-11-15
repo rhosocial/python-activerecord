@@ -1,7 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite/core/test_core_column_mapping.py
 import logging
 import pytest
-import sqlite3
 import uuid
 from datetime import datetime
 
@@ -268,7 +267,6 @@ def test_insert_with_returning_columns_sql_construction(mapped_table_backend):
     print(f"Parameters: {params}")
 
 
-@pytest.mark.skipif(sqlite3.sqlite_version_info < (3, 35), reason="RETURNING clause requires SQLite 3.35+")
 def test_insert_with_returning_columns_execution(mapped_table_backend):
     """
     Tests that the insert operation with returning_columns executes correctly.
@@ -279,6 +277,9 @@ def test_insert_with_returning_columns_execution(mapped_table_backend):
     from rhosocial.activerecord.backend.options import ExecutionOptions
 
     backend = mapped_table_backend
+    if not backend.dialect.supports_returning_insert():
+        pytest.skip("RETURNING clause requires SQLite 3.35+")
+
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
     # Directly execute SQL with RETURNING clause
@@ -373,7 +374,6 @@ def test_update_with_returning_columns_sql_construction(mapped_table_backend):
     print(f"Parameters: {params}")
 
 
-@pytest.mark.skipif(sqlite3.sqlite_version_info < (3, 35), reason="RETURNING clause requires SQLite 3.35+")
 def test_update_with_returning_columns_execution(mapped_table_backend):
     """
     Tests that the update operation with returning_columns executes correctly.
@@ -384,6 +384,9 @@ def test_update_with_returning_columns_execution(mapped_table_backend):
     from rhosocial.activerecord.backend.options import ExecutionOptions
 
     backend = mapped_table_backend
+    if not backend.dialect.supports_returning_update():
+        pytest.skip("RETURNING clause requires SQLite 3.35+")
+
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
     # First, insert a record to update
@@ -476,7 +479,6 @@ def test_delete_with_returning_columns_sql_construction(mapped_table_backend):
     print(f"Parameters: {params}")
 
 
-@pytest.mark.skipif(sqlite3.sqlite_version_info < (3, 35), reason="RETURNING clause requires SQLite 3.35+")
 def test_delete_with_returning_columns_execution(mapped_table_backend):
     """
     Tests that the delete operation with returning_columns executes correctly.
@@ -487,6 +489,9 @@ def test_delete_with_returning_columns_execution(mapped_table_backend):
     from rhosocial.activerecord.backend.options import ExecutionOptions
 
     backend = mapped_table_backend
+    if not backend.dialect.supports_returning_delete():
+        pytest.skip("RETURNING clause requires SQLite 3.35+")
+
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
     # First, insert a record to delete

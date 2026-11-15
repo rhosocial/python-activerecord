@@ -4,7 +4,6 @@ Sudoku solver SQL example test using SQLite dialect
 """
 
 import pytest
-import sqlite3
 import sys
 
 from rhosocial.activerecord.backend.expression.types import CustomType
@@ -26,16 +25,16 @@ def sqlite_backend():
     backend.disconnect()
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 8) or sqlite3.sqlite_version_info < (3, 8, 3),
-    reason="Recursive CTEs require Python 3.8+ and SQLite 3.8.3+",
-)
 def test_sudoku_solver_raw_sql(sqlite_backend):
     """
     Test Sudoku solver using raw SQL.
     This test executes the complete Sudoku solving SQL query to verify it produces the correct result.
     """
+    if sys.version_info < (3, 8):
+        pytest.skip("Recursive CTEs require Python 3.8+")
     backend = sqlite_backend
+    if not backend.dialect.supports_recursive_cte():
+        pytest.skip("Recursive CTEs require SQLite 3.8.3+")
 
     # Create a test table to ensure the backend is working
     backend.execute(
@@ -113,15 +112,15 @@ SELECT s FROM x WHERE ind=0;
 
 
 @pytest.mark.benchmark
-@pytest.mark.skipif(
-    sys.version_info < (3, 8) or sqlite3.sqlite_version_info < (3, 8, 3),
-    reason="Recursive CTEs require Python 3.8+ and SQLite 3.8.3+",
-)
 def test_sudoku_solver_with_different_puzzle(sqlite_backend):
     """
     Test Sudoku solver with a different puzzle
     """
+    if sys.version_info < (3, 8):
+        pytest.skip("Recursive CTEs require Python 3.8+")
     backend = sqlite_backend
+    if not backend.dialect.supports_recursive_cte():
+        pytest.skip("Recursive CTEs require SQLite 3.8.3+")
 
     # Another Sudoku input (more challenging puzzle)
     sudoku_input = "8..........36......7..9.2...5...7.......457.....1...3...1....68..85...1..9....4.."
@@ -173,15 +172,15 @@ SELECT s FROM x WHERE ind=0;
     print(f"Second Sudoku solution: {solution}")
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 8) or sqlite3.sqlite_version_info < (3, 8, 3),
-    reason="Recursive CTEs require Python 3.8+ and SQLite 3.8.3+",
-)
 def test_sudoku_solver_validates_solution(sqlite_backend):
     """
     Test that the Sudoku solver generates a valid solution
     """
+    if sys.version_info < (3, 8):
+        pytest.skip("Recursive CTEs require Python 3.8+")
     backend = sqlite_backend
+    if not backend.dialect.supports_recursive_cte():
+        pytest.skip("Recursive CTEs require SQLite 3.8.3+")
 
     # Simple Sudoku input
     sudoku_input = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
@@ -694,16 +693,16 @@ def test_sudoku_full_cte_expression(sqlite_backend):
 class TestMandelbrotSet:
     """Tests for Mandelbrot Set generation using recursive CTEs."""
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 8) or sqlite3.sqlite_version_info < (3, 8, 3),
-        reason="Recursive CTEs require Python 3.8+ and SQLite 3.8.3+",
-    )
     def test_mandelbrot_set_raw_sql(self, sqlite_backend):
         """
         Test Mandelbrot Set generation using raw SQL.
         This test executes the complete Mandelbrot Set SQL query to verify it produces the correct visualization.
         """
+        if sys.version_info < (3, 8):
+            pytest.skip("Recursive CTEs require Python 3.8+")
         backend = sqlite_backend
+        if not backend.dialect.supports_recursive_cte():
+            pytest.skip("Recursive CTEs require SQLite 3.8.3+")
 
         # Create a test table to ensure the backend is working
         backend.execute(
@@ -764,10 +763,6 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
 
         print("✓ Mandelbrot Set visualization generated successfully")
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 8) or sqlite3.sqlite_version_info < (3, 8, 3),
-        reason="Recursive CTEs require Python 3.8+ and SQLite 3.8.3+",
-    )
     def test_mandelbrot_set_expression_system(self, sqlite_backend):
         """
         Test Mandelbrot Set generation using expression system.
@@ -787,7 +782,11 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         )
         from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
+        if sys.version_info < (3, 8):
+            pytest.skip("Recursive CTEs require Python 3.8+")
         backend = sqlite_backend
+        if not backend.dialect.supports_recursive_cte():
+            pytest.skip("Recursive CTEs require SQLite 3.8.3+")
 
         # Create a test table to ensure the backend is working
         backend.execute(

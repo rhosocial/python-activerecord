@@ -9,7 +9,6 @@ autocommit issues with aiosqlite's execute method.
 """
 
 import logging
-import sqlite3
 import pytest
 import pytest_asyncio
 from unittest.mock import patch
@@ -496,9 +495,11 @@ class TestAsyncSQLiteSupportsSavepoint:
 class TestAsyncSQLiteMultipleSavepoints:
     """Tests for async multiple savepoints."""
 
-    @pytest.mark.skipif(sqlite3.sqlite_version_info < (3, 6, 8), reason="SQLite 3.6.8+ required for savepoint")
     async def test_multiple_savepoints(self, transaction_manager, async_backend):
         """Test multiple savepoints."""
+        if not async_backend.dialect.supports_savepoint():
+            pytest.skip("SQLite 3.6.8+ required for savepoint")
+
         # Begin transaction
         await transaction_manager.begin()
 
