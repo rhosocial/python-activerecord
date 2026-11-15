@@ -722,7 +722,7 @@ class SQLiteDialect(
         left_sql, left_params = expr.left.to_sql()
         right_sql, right_params = expr.right.to_sql()
         not_str = " NOT" if expr.is_not else ""
-        return self._with_alias(
+        return self._with_predicate_alias(
             f"{left_sql} IS{not_str} DISTINCT FROM {right_sql}", expr
         ), left_params + right_params
 
