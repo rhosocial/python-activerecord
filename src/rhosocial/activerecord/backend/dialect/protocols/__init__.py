@@ -38,6 +38,7 @@ from .object.type_ import TypeObjectSupport
 # --- Data definition ---
 from .ddl.alter_table_modifier import AlterTableModifierSupport
 from .ddl.auto_increment import AutoIncrementColumnSupport
+from .ddl.database_assigned_column import DatabaseAssignedColumnSupport
 from .ddl.identity_column import IdentityColumnSupport
 from .ddl.column_attribute import ColumnAttributeSupport
 from .ddl.comment import CommentSupport
@@ -155,6 +156,7 @@ __all__ = [
     "CreateTriggerSupport",
     "CreateTypeSupport",
     "CreateViewSupport",
+    "DatabaseAssignedColumnSupport",
     "DDLTypeSupport",
     "ColumnTypeSupport",
     "DataTypeSupport",

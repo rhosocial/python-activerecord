@@ -1582,6 +1582,9 @@ class DummyDialect(
     def supports_auto_increment_column(self) -> bool:
         return True
 
+    def supports_database_assigned_integer_column(self) -> bool:
+        return True
+
     # endregion
 
     # region Database DDL Support

@@ -215,6 +215,9 @@ SQLITE_PROTOCOLS = [
     dialect_protocols.AutoIncrementColumnSupport,
 
 
+    dialect_protocols.DatabaseAssignedColumnSupport,
+
+
     dialect_protocols.IdentityColumnSupport,
 
 

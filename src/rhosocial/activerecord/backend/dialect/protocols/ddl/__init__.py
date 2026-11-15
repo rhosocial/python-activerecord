@@ -45,6 +45,7 @@ from .schema.create_schema import CreateSchemaSupport
 from .schema.drop_schema import DropSchemaSupport
 from .alter_table_modifier import AlterTableModifierSupport
 from .auto_increment import AutoIncrementColumnSupport
+from .database_assigned_column import DatabaseAssignedColumnSupport
 from .identity_column import IdentityColumnSupport
 from .column_attribute import ColumnAttributeSupport
 from .comment import CommentSupport
@@ -79,6 +80,7 @@ __all__ = [
     "CreateTriggerSupport",
     "CreateTypeSupport",
     "CreateViewSupport",
+    "DatabaseAssignedColumnSupport",
     "DropDatabaseSupport",
     "DropDomainSupport",
     "DropIndexSupport",

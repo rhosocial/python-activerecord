@@ -829,6 +829,17 @@ class SQLiteDialect(
         """SQLite DDL participates in transactions."""
         return True
 
+    def supports_database_assigned_integer_column(self) -> bool:
+        """An ``INTEGER PRIMARY KEY`` is numbered by the engine when omitted.
+
+        SQLite has no ``AUTO_INCREMENT`` token and no identity clause, so
+        ``supports_auto_increment_column`` stays ``False``; the value is still
+        assigned, through the rowid alias the ``is_auto_increment`` column path
+        already renders. The two questions therefore answer differently on the
+        same dialect, which is why they are separate probes.
+        """
+        return True
+
     def supports_drop_table_cascade(self) -> bool:
         """SQLite does not recognize the CASCADE keyword on DROP TABLE.
 
