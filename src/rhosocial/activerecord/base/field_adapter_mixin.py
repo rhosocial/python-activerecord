@@ -227,6 +227,12 @@ class FieldAdapterMixin:
         the ActiveRecord half of the contract, the exact mirror of
         :meth:`_adapt_fields_for_write`.
 
+        The field's declared annotation is passed as ``original_type`` in
+        addition to the unwrapped Python type: a driver can store one database
+        value for two Python types (Oracle cannot tell ``''`` from ``NULL``), so
+        an adapter's ``_on_none_from_database`` has to know whether the field
+        admits ``None`` to decide between the payload and the default.
+
         Args:
             row: Mapping of column names to raw driver values.
 
@@ -244,7 +250,13 @@ class FieldAdapterMixin:
                 converted[field_name] = value
                 continue
             adapter, _ = adapter_info
-            converted[field_name] = adapter.from_database(value, target)
+            field_info = cls.model_fields.get(field_name)
+            if field_info is None:
+                converted[field_name] = adapter.from_database(value, target)
+            else:
+                converted[field_name] = adapter.from_database(
+                    value, target, original_type=field_info.annotation
+                )
         return converted
 
     @classmethod
