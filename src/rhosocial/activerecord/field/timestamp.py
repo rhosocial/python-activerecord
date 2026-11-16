@@ -121,12 +121,22 @@ class DefaultTimestampMixin(TimestampMixin):
     factory) so models can simply mix it in.  Use
     :class:`TimestampMixin` directly when the fields should carry
     different Python names or columns.
+
+    The declared precision is **milliseconds**, and that is a decision about
+    what every backend can honour rather than the finest thing any of them can
+    do: PostgreSQL's ``TIMESTAMP`` is microseconds, but MySQL's bare
+    ``TIMESTAMP`` is seconds and rounds a second half up, and
+    ClickHouse's ``DateTime`` is seconds, so second-precision would silently
+    move ``updated_at`` past the events it records.  Milliseconds are
+    preserved everywhere, so the shared default is the largest precision that
+    is never a lie.  A model that needs microseconds declares
+    ``TimestampType(precision=6)`` itself.
     """
 
-    created_at: Annotated[datetime, UseSqlType(TimestampType())] = Field(
+    created_at: Annotated[datetime, UseSqlType(TimestampType(precision=3))] = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
-    updated_at: Annotated[datetime, UseSqlType(TimestampType())] = Field(
+    updated_at: Annotated[datetime, UseSqlType(TimestampType(precision=3))] = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
 
