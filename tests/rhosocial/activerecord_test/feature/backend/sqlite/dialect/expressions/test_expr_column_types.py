@@ -5,7 +5,7 @@ The protocol tests assert that the *rules* hold; this file asserts SQLite's
 *answers*, so that a change to them has to be a deliberate edit with its reason
 written down rather than a drift nobody notices:
 
-1. all eighteen common entries resolve, and to SQLite's classes;
+1. all twenty-four common entries resolve, and to SQLite's classes;
 2. the table differs from the portable dummy baseline in exactly the places the
    evidence says it does -- the four sequence entries -- and nowhere else;
 3. the dummy dialect is *not* this table: it states the portable baseline.
@@ -21,18 +21,32 @@ import uuid
 
 import pytest
 
-from rhosocial.activerecord.backend.expression import BooleanColumn, NumericColumn, StringColumn, TimestampColumn
+from rhosocial.activerecord.backend.adapters import (
+    BitString,
+    Geometry,
+    MacAddress,
+    Multirange,
+    Range,
+    Vector,
+)
 from rhosocial.activerecord.backend.expression.column_types import (
     ArrayColumn,
     BinaryColumn,
+    BitStringColumn,
     BooleanColumn,
     ColumnBase,
-    TimestampColumn,
+    GeometryColumn,
     IntegerColumn,
+    IntervalColumn,
     JSONColumn,
+    MacAddressColumn,
+    MultirangeColumn,
     NumericColumn,
+    RangeColumn,
     StringColumn,
+    TimestampColumn,
     UUIDColumn,
+    VectorColumn,
 )
 from rhosocial.activerecord.backend.impl.dummy.column_type import DUMMY_COLUMN_TYPES
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -72,7 +86,7 @@ _SQLITE_ANSWERS = [
     (datetime.date, TimestampColumn),
     (datetime.time, TimestampColumn),
     (datetime.datetime, TimestampColumn),
-    (datetime.timedelta, NumericColumn),
+    (datetime.timedelta, IntervalColumn),
     (uuid.UUID, UUIDColumn),
     (dict, JSONColumn),
     (list, JSONColumn),
@@ -80,6 +94,12 @@ _SQLITE_ANSWERS = [
     (set, JSONColumn),
     (frozenset, JSONColumn),
     (enum.Enum, StringColumn),
+    (Geometry, GeometryColumn),
+    (Vector, VectorColumn),
+    (BitString, BitStringColumn),
+    (Range, RangeColumn),
+    (Multirange, MultirangeColumn),
+    (MacAddress, MacAddressColumn),
 ]
 
 _ENTRY_IDS = [getattr(entry, "__name__", str(entry)) for entry, _ in _SQLITE_ANSWERS]
@@ -88,7 +108,7 @@ _ENTRY_IDS = [getattr(entry, "__name__", str(entry)) for entry, _ in _SQLITE_ANS
 def test_the_table_answers_every_entry_of_the_contract():
     """Completeness is the contract; a hole is a test failure, not a silent gap.
 
-    SQLite is not special here -- every backend owes the same eighteen answers,
+    SQLite is not special here -- every backend owes the same twenty-four answers,
     and the ten backends are held to it in their own CI. Core can enforce it
     for the backend it ships, so it does.
     """
@@ -107,7 +127,7 @@ def test_the_table_has_no_entry_beyond_the_contract():
 
 
 def test_no_entry_is_answered_with_none():
-    """The probe found a working pairing for all eighteen, so none is refused.
+    """The probe found a working pairing for all twenty-four, so none is refused.
 
     ``None`` would mean "this backend has no column for this value", and SQLite
     demonstrably does: a date is a TEXT column ``strftime`` reads, a dict is a
@@ -146,18 +166,19 @@ def test_the_sequences_are_documents_because_sqlite_has_no_array_type():
 
 
 def test_the_numeric_entries_take_the_one_numeric_class():
-    """float / Decimal / timedelta all answer NumericColumn.
+    """float and Decimal answer NumericColumn; a duration answers IntervalColumn.
 
     The numeric family is one class by decision: the operations are the same
     whatever the value was declared as, and the difference between a
     ``NUMERIC(18,4)`` and a ``DOUBLE PRECISION`` belongs to the DDL layer's
-    ``DataType``. A duration is a number of seconds here, so it answers the
-    same class as the other numbers.
+    ``DataType``. A duration is not a number of its own family, though: it is
+    stored here as a count of seconds, but the value is a span, so the class
+    that names it says so and promises no numeric arithmetic.
     """
     dialect = sqlite_dialect()
     assert resolve_column_class(dialect, float) is NumericColumn
     assert resolve_column_class(dialect, decimal.Decimal) is NumericColumn
-    assert resolve_column_class(dialect, datetime.timedelta) is NumericColumn
+    assert resolve_column_class(dialect, datetime.timedelta) is IntervalColumn
 
 
 def test_the_dummy_dialect_states_the_portable_baseline():

@@ -288,12 +288,32 @@ def test_the_mixin_withholds_the_common_table():
 
 
 def test_sqlite_answers_exactly_the_framework_types():
-    """Its table is complete; the six complex families are its only refusals."""
+    """Its table is complete, and none of the twenty-four entries is refused.
+
+    The six complex families used to be ``None`` for a real reason -- SQLite
+    has no spatial or vector operation -- but the core classes they now name
+    promise only the column surface (alias, null tests, casting, collation),
+    which SQLite does execute on a value it stores as text or JSON.
+    """
+    from rhosocial.activerecord.backend.expression.column_types import (
+        BitStringColumn,
+        GeometryColumn,
+        IntervalColumn,
+        MacAddressColumn,
+        MultirangeColumn,
+        RangeColumn,
+        VectorColumn,
+    )
+
     assert set(SQLITE_COLUMN_TYPES) == set(COMMON_TYPES)
-    refused = {key for key, value in SQLITE_COLUMN_TYPES.items() if value is None}
-    assert refused == {
-        Geometry, Vector, BitString, Range, Multirange, MacAddress
-    }
+    assert all(value is not None for value in SQLITE_COLUMN_TYPES.values())
+    assert resolve(sqlite_dialect(), Geometry) is GeometryColumn
+    assert resolve(sqlite_dialect(), Vector) is VectorColumn
+    assert resolve(sqlite_dialect(), BitString) is BitStringColumn
+    assert resolve(sqlite_dialect(), Range) is RangeColumn
+    assert resolve(sqlite_dialect(), Multirange) is MultirangeColumn
+    assert resolve(sqlite_dialect(), MacAddress) is MacAddressColumn
+    assert resolve(sqlite_dialect(), datetime.timedelta) is IntervalColumn
 
 
 def test_the_dummy_dialect_states_its_own_baseline():
@@ -716,9 +736,9 @@ def test_two_dialects_differ_only_where_stated():
 
     SQLite has no array type, so its four sequence entries are JSON documents;
     the dummy keeps the portable ``ArrayColumn``. Every other entry agrees —
-    including ``float``/``Decimal``/``timedelta``, all ``NumericColumn`` on
-    both sides since the numeric merge. A backend that deviated anywhere else
-    would be changing an answer no decision asked it to change.
+    ``float`` and ``Decimal`` are ``NumericColumn`` on both sides, and
+    ``timedelta`` is ``IntervalColumn`` on both. A backend that deviated
+    anywhere else would be changing an answer no decision asked it to change.
     """
     dummy, sqlite = dummy_dialect(), sqlite_dialect()
     deviated = {list, tuple, set, frozenset}

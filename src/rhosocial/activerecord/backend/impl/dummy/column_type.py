@@ -27,21 +27,29 @@ from rhosocial.activerecord.backend.dialect.mixins.column_type import ColumnType
 from rhosocial.activerecord.backend.expression.column_types import (
     ArrayColumn,
     BinaryColumn,
+    BitStringColumn,
     BooleanColumn,
     ColumnBase,
-    TimestampColumn,
+    GeometryColumn,
     IntegerColumn,
+    IntervalColumn,
     JSONColumn,
+    MacAddressColumn,
+    MultirangeColumn,
     NumericColumn,
+    RangeColumn,
     StringColumn,
+    TimestampColumn,
     UUIDColumn,
+    VectorColumn,
 )
 
 #: The portable baseline: ``{framework-modelled Python type: ColumnBase subclass}``.
 #:
-#: The complex families answer ``None``: the dummy stands for no server, so it
-#: states no backend's operation surface. A backend that carries geometry
-#: values states its own class in its own table; the baseline does not pretend.
+#: The complex families name the core classes, because those classes carry only
+#: the surface every column already has (alias, null tests, casting) and promise
+#: no operation the dummy cannot answer. A backend that does have family
+#: operations states its own class in its own table.
 DUMMY_COLUMN_TYPES: Dict[Any, Optional[Type[ColumnBase]]] = {
     bool: BooleanColumn,
     int: IntegerColumn,
@@ -53,7 +61,7 @@ DUMMY_COLUMN_TYPES: Dict[Any, Optional[Type[ColumnBase]]] = {
     datetime.date: TimestampColumn,
     datetime.time: TimestampColumn,
     datetime.datetime: TimestampColumn,
-    datetime.timedelta: NumericColumn,
+    datetime.timedelta: IntervalColumn,
     uuid.UUID: UUIDColumn,
     dict: JSONColumn,
     list: ArrayColumn,
@@ -61,12 +69,12 @@ DUMMY_COLUMN_TYPES: Dict[Any, Optional[Type[ColumnBase]]] = {
     set: ArrayColumn,
     frozenset: ArrayColumn,
     enum.Enum: StringColumn,
-    Geometry: None,
-    Vector: None,
-    BitString: None,
-    Range: None,
-    Multirange: None,
-    MacAddress: None,
+    Geometry: GeometryColumn,
+    Vector: VectorColumn,
+    BitString: BitStringColumn,
+    Range: RangeColumn,
+    Multirange: MultirangeColumn,
+    MacAddress: MacAddressColumn,
 }
 
 

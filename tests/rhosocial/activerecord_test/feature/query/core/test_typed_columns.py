@@ -27,6 +27,7 @@ from rhosocial.activerecord.backend.expression import (
     ColumnBase,
     TimestampColumn,
     IntegerColumn,
+    IntervalColumn,
     JSONColumn,
     NumericColumn,
     StringColumn,
@@ -93,7 +94,7 @@ _DISPATCH = [
     (decimal.Decimal, NumericColumn),
     (datetime.datetime, TimestampColumn),
     (datetime.date, TimestampColumn),
-    (datetime.timedelta, NumericColumn),
+    (datetime.timedelta, IntervalColumn),
     (uuid.UUID, UUIDColumn),
 ]
 
