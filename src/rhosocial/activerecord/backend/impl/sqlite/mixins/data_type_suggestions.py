@@ -1,5 +1,5 @@
-# src/rhosocial/activerecord/backend/impl/sqlite/mixins/storage_type.py
-"""SQLite's **suggested storage types**: the declaration a bare field gets here.
+# src/rhosocial/activerecord/backend/impl/sqlite/mixins/data_type_suggestions.py
+"""SQLite's **suggested data types**: the declaration a bare field gets here.
 
 This is the DDL half of SQLite's type answer, and it is deliberately separate
 from :mod:`.column_type`: that table says which *operations* a value has here,
@@ -20,9 +20,12 @@ SQL-standard family:
 * numbers, booleans, temporal values -> ``INTEGER``/``REAL``/``NUMERIC``, as
   the formatters render them.
 
-Every value is a fresh copy (see ``StorageTypeMixin.storage_type_copies``):
-a ``DataType``'s dialect is a mutable rendering attribute, so the table must
-hand out objects a caller may bind.
+Every call returns a **fresh dict** whose values are this module's read-only
+templates. A ``DataType``'s dialect is a mutable rendering attribute, so a
+caller binds the dialect on a **copy of the one entry it uses** -- the table
+itself is never rebound. Copying the whole table per call was measured at
+~100 us (``copy.copy`` costs more than constructing a fresh instance), and the
+derivation path copies the single entry anyway.
 """
 import datetime
 import decimal
@@ -38,7 +41,6 @@ from rhosocial.activerecord.backend.adapters import (
     Range,
     Vector,
 )
-from rhosocial.activerecord.backend.dialect.mixins.storage_type import StorageTypeMixin
 from rhosocial.activerecord.backend.expression.types import (
     BlobType,
     BooleanType,
@@ -56,7 +58,7 @@ from rhosocial.activerecord.backend.expression.types import (
 from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteTextType
 
 #: SQLite's suggested storage declaration per framework-modelled Python type.
-SQLITE_STORAGE_TYPES: Dict[Any, Optional[Any]] = {
+SQLITE_DATA_TYPE_SUGGESTIONS: Dict[Any, Optional[Any]] = {
     bool: BooleanType(),
     int: IntegerType(),
     float: DoubleType(),
@@ -90,11 +92,11 @@ SQLITE_STORAGE_TYPES: Dict[Any, Optional[Any]] = {
 }
 
 
-class SQLiteStorageTypeMixin(StorageTypeMixin):
+class SQLiteDataTypeSuggestionsMixin:
     """SQLite's answer to "what declaration does a bare field get here"."""
 
-    def suggested_storage_types(self) -> Dict[Any, Optional[Any]]:
-        return self.storage_type_copies(SQLITE_STORAGE_TYPES)
+    def suggested_data_types(self) -> Dict[Any, Optional[Any]]:
+        return dict(SQLITE_DATA_TYPE_SUGGESTIONS)
 
 
-__all__ = ["SQLITE_STORAGE_TYPES", "SQLiteStorageTypeMixin"]
+__all__ = ["SQLITE_DATA_TYPE_SUGGESTIONS", "SQLiteDataTypeSuggestionsMixin"]

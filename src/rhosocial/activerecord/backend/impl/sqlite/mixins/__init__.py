@@ -25,7 +25,7 @@ from .geopoly import SQLiteGeopolyMixin
 from .types import SQLiteTypeSupportMixin
 from .literal import LiteralValueMixin
 from .column_type import SQLiteColumnTypeMixin
-from .storage_type import SQLiteStorageTypeMixin
+from .data_type_suggestions import SQLiteDataTypeSuggestionsMixin
 from .object_name import SQLiteObjectNameMixin
 
 __all__ = [
@@ -49,5 +49,5 @@ __all__ = [
     'SQLiteObjectNameMixin',
     'LiteralValueMixin',
     'SQLiteColumnTypeMixin',
-    'SQLiteStorageTypeMixin',
+    'SQLiteDataTypeSuggestionsMixin',
 ]

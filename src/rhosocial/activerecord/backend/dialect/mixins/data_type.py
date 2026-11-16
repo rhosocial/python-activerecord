@@ -240,6 +240,40 @@ class DataTypeMixin:
                 return klass
         return None
 
+    def suggested_data_types(self) -> Dict[type, Optional["DataType"]]:
+        """The declaration this dialect suggests for each framework-modelled type.
+
+        This is the DDL half of the type answer: a field that writes only a
+        Python type (no ``UseSqlType``) is declared with the ``DataType`` this
+        table names. Every entry of ``FRAMEWORK_PYTHON_TYPES`` has to be
+        answered -- the framework's promise is that a bare field always has a
+        declaration, so ``None`` is not an answer here and there is no
+        inherited default.
+
+        The choices are the backend's own: a timestamp's precision, a text
+        column's width, whether a vector is the server's native type or a JSON
+        document. A suggestion the server cannot store is worse than none,
+        which is why this is a table per dialect and not a core-wide constant.
+
+        Each call returns a **fresh dict** whose values are read-only
+        templates. A caller that wants to render binds the dialect on a copy
+        of the single entry it uses, never on the template itself.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} does not answer the suggested data-type "
+            f"table. Implement suggested_data_types() with a DataType instance "
+            f"for every framework-modelled Python type; there is no inherited "
+            f"default."
+        )
+
+    def suggested_extra_data_types(self) -> Dict[type, "DataType"]:
+        """Suggestions for this dialect's own Python types, if it has any.
+
+        Empty by default: a backend with nothing of its own has nothing to
+        report, and a type it does not offer is simply absent from the table.
+        """
+        return {}
+
     def substitute_data_types(self) -> Dict[str, type]:
         """Return cross-backend type suggestions, empty by default.
 

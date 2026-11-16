@@ -69,7 +69,6 @@ from .dml import DMLMixin
 from .ddl_column import DDLColumnMixin
 from .data_type import DataTypeMixin
 from .column_type import ColumnTypeMixin
-from .storage_type import StorageTypeMixin
 from .ddl_type import DDLTypeMixin
 from .user_defined_type import UserDefinedTypeMixin
 from .ddl_domain import DomainMixin
@@ -141,7 +140,6 @@ __all__ = [
     "DDLColumnMixin",
     "DataTypeMixin",
     "ColumnTypeMixin",
-    "StorageTypeMixin",
     "DDLTypeMixin",
     "UserDefinedTypeMixin",
     "DomainMixin",
