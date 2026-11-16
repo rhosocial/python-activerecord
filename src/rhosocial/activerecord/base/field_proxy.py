@@ -17,13 +17,11 @@ presents the field's column-type declaration, and the accessor picks the class
 that fits the active backend.
 """
 
-import enum
-import types
-import typing
 from typing import Any, Type, TYPE_CHECKING
 
 from ..backend.expression.column_types import ColumnBase
 from ..backend.expression.core import Column
+from .annotation_lookup import describe_annotation, entry_name, strip_annotation, table_entry_for
 from .fields import UseColumnType
 
 if TYPE_CHECKING:
@@ -348,53 +346,12 @@ class FieldAccessor:
     @classmethod
     def _strip_annotation(cls, annotation: Any) -> Any:
         """Peel ``Annotated`` and ``Optional`` off *annotation*."""
-        # `typing.get_origin(Annotated[...])` returns the `Annotated` special
-        # form on 3.9+, but on 3.8 `typing` has no `Annotated` attribute, so
-        # the identity check raises AttributeError. The presence of
-        # `__metadata__` marks an annotated alias on every supported version.
-        while hasattr(annotation, "__metadata__"):
-            annotation = typing.get_args(annotation)[0]
-
-        origin = typing.get_origin(annotation)
-        if origin is typing.Union or origin is getattr(types, "UnionType", None):
-            members = [a for a in typing.get_args(annotation) if a is not type(None)]
-            if len(members) == 1:
-                return cls._strip_annotation(members[0])
-        return annotation
+        return strip_annotation(annotation)
 
     @classmethod
     def _table_entry_for(cls, annotation: Any, keys: Any) -> Any:
-        """The table key *annotation* normalises to, or ``None``.
-
-        Three rules and the pydantic bridge: exact key match, ``enum.Enum``
-        subclass, then a subclass walk in *keys* order (``class MyStr(str)``
-        -> ``str``). The bridge is consulted last, so it can turn a failure
-        into an answer and can never change an answer that already existed;
-        its result is re-checked against the same keys.
-        """
-        peeled = cls._strip_annotation(annotation)
-        if peeled in keys:
-            return peeled
-
-        if isinstance(peeled, type):
-            if issubclass(peeled, enum.Enum):
-                # Checked before the walk: an enum that also subclasses
-                # something else (`class Weekday(int, Enum)`) stays an enum.
-                return enum.Enum
-            for key in keys:
-                if (
-                    isinstance(key, type)
-                    and key is not peeled
-                    and issubclass(peeled, key)
-                ):
-                    return key
-
-        from .pydantic_fields import normalize_pydantic_annotation
-
-        bridged = normalize_pydantic_annotation(peeled)
-        if bridged is not None and bridged in keys:
-            return bridged
-        return None
+        """The table key *annotation* normalises to, or ``None``."""
+        return table_entry_for(annotation, keys)
 
     @classmethod
     def _require_column_class(
@@ -409,13 +366,8 @@ class FieldAccessor:
 
     @staticmethod
     def _entry_name(entry: Any) -> str:
-        module = getattr(entry, "__module__", None)
-        name = getattr(entry, "__name__", None) or repr(entry)
-        if module and module not in ("builtins",):
-            return f"{module}.{name}"
-        return name
+        return entry_name(entry)
 
     @staticmethod
     def _describe_annotation(annotation: Any) -> str:
-        name = getattr(annotation, "__name__", None) or repr(annotation)
-        return f"{name!r} (the annotation {annotation!r})"
+        return describe_annotation(annotation)
