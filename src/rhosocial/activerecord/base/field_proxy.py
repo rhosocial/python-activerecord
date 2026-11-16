@@ -271,9 +271,9 @@ class FieldAccessor:
                 raise ColumnTypeResolutionError(
                     f"{type(dialect).__name__}.suggested_column_types() does "
                     f"not answer for {cls._entry_name(entry)}, which is one "
-                    f"of the common types. Every entry must be answered -- "
-                    f"with a column class, or with None when the backend "
-                    f"genuinely has no workaround."
+                    f"of the framework-modelled types. Every entry must be "
+                    f"answered -- with a column class, or with None when the "
+                    f"backend genuinely has no workaround."
                 )
             suggested = table[entry]
             if suggested is None:

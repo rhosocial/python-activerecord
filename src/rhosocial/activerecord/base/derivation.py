@@ -35,6 +35,7 @@ from ..backend.expression.statements.ddl_index import (
     DropIndexStatement,
 )
 from ..backend.expression.types import DataType
+from .annotation_lookup import describe_annotation, strip_annotation, table_entry_for
 from .ddl import DDLSource, IdentityAttribute
 from .fields import UseSqlType
 
@@ -56,6 +57,13 @@ def build_create_table_statement(
     include_comments: bool = False,
 ) -> CreateTableStatement:
     """Build a CREATE TABLE statement from *source*.
+
+    A field with no SQL declaration of its own takes the dialect's **suggested**
+    storage declaration (``suggested_storage_types``), which is a default and
+    never overrides a declaration. A single-column integer primary key the
+    model says the database generates gets an identity declaration, so the DDL
+    agrees with the write path (``required_pk_fields`` asks the caller for
+    nothing there).
 
     ``column_order`` names database columns; it must cover every column
     exactly once (an incomplete list would silently append the rest).
@@ -230,7 +238,7 @@ def _column_constraints(
     dialect: Any,
 ) -> List[ColumnConstraint]:
     constraints = list(source.column_constraints(field))
-    if not _has_identity(source, field):
+    if not _has_identity(source, field, data_type):
         return constraints
     for position, constraint in enumerate(constraints):
         if isinstance(constraint.branch, ColumnPrimaryKeyConstraint):
@@ -247,7 +255,41 @@ def _column_constraints(
     )
 
 
-def _has_identity(source: DDLSource, field: str) -> bool:
+#: The integer concepts a database can generate as a key.  The width classes are
+#: siblings rather than subclasses (``BigIntType`` is not an ``IntegerType``),
+#: so the concept name is what identifies the family.
+_INTEGER_CONCEPTS = frozenset({"integer", "bigint", "smallint", "tinyint"})
+
+
+def _has_identity(source: DDLSource, field: str, data_type: DataType) -> bool:
+    """Whether this column is declared -- or implied -- to be database-generated.
+
+    An explicit ``IdentityAttribute`` is the declaration.  Absent one, a
+    single-column integer primary key is *implied* to be generated when the
+    model says so (``pk_auto_generated()``, default ``True``): the write path
+    already promises the database supplies it -- ``required_pk_fields()`` asks
+    the caller for nothing -- so a DDL that declares a plain, non-incrementing
+    column would make that promise false on MySQL and PostgreSQL, where INSERT
+    without the key then has no value to use.
+
+    Not implied: a composite key (no sequence can fill one member while others
+    are the caller's), a model whose key the application writes
+    (``pk_auto_generated()`` overridden to ``False``), or a non-integer column.
+    """
+    if _has_declared_identity(source, field):
+        return True
+    if data_type.name not in _INTEGER_CONCEPTS:
+        return False
+    if source.is_composite_pk():
+        return False
+    pk_columns = tuple(source.primary_key_columns())
+    if len(pk_columns) != 1 or pk_columns[0] != source.column_name(field):
+        return False
+    generator = getattr(source, "pk_auto_generated", None)
+    return bool(generator()) if callable(generator) else False
+
+
+def _has_declared_identity(source: DDLSource, field: str) -> bool:
     return any(
         isinstance(attribute, IdentityAttribute)
         for attribute in source.column_attributes(field)
@@ -340,6 +382,11 @@ def _resolve_type(source: DDLSource, field: str, dialect: Any) -> Optional[DataT
     wrong the moment one model is derived for two backends -- sequentially it is
     merely surprising, concurrently it is a race.
 
+    A field that declares nothing falls back to the dialect's **suggested**
+    storage declaration, per Python type.  The suggestion is a default, never a
+    replacement: an explicit ``UseSqlType`` is always tried first and a declared
+    candidate that no dialect can render is still reported as such.
+
     Only an *answer* moves on to the next candidate: the dialect has no
     rendering for the concept, or it renders the concept but refuses this
     particular declaration (a precision its server cannot honour, say).  Any
@@ -349,6 +396,9 @@ def _resolve_type(source: DDLSource, field: str, dialect: Any) -> Optional[DataT
     wrong thing.
     """
     candidates = _declared_types(source, field)
+    if not candidates:
+        return _suggested_storage_type(source, field, dialect)
+
     for candidate in candidates:
         bound = copy.copy(candidate)
         _bind(bound, dialect)
@@ -357,12 +407,50 @@ def _resolve_type(source: DDLSource, field: str, dialect: Any) -> Optional[DataT
         except (UnsupportedDataTypeError, UnsupportedFeatureError):
             continue
         return bound
-    if not candidates:
-        return None
     raise ValueError(
         f"{source.table_name()}.{field}: no declared type is supported by "
         f"{type(dialect).__name__}"
     )
+
+
+def _suggested_storage_type(
+    source: DDLSource, field: str, dialect: Any
+) -> DataType:
+    """The dialect's suggested declaration for a field that declares none.
+
+    Lookup order matches the column-class tables: the suggested table first,
+    resolved through the framework-modelled key list (so a ``Point`` reaches
+    the ``Geometry`` entry through the subclass walk), then the backend's own
+    vocabulary by exact key.  An answer of ``None`` -- or no answer at all --
+    is an error naming the model, the column and the Python type, never a
+    silent fallback to text.
+    """
+    python_type = source.field_python_type(field)
+    table = dialect.suggested_storage_types()
+    entry = table_entry_for(python_type, table)
+    suggested = table.get(entry) if entry is not None else None
+    if suggested is None:
+        extras = dialect.suggested_extra_storage_types()
+        suggested = extras.get(strip_annotation(python_type))
+    if suggested is None:
+        raise ValueError(
+            f"{source.table_name()}.{field} declares no SQL type, and "
+            f"{type(dialect).__name__} suggests none for "
+            f"{describe_annotation(python_type)}. Declare the field with "
+            f"UseSqlType(...), or add this Python type to the dialect's "
+            f"suggested_storage_types()."
+        )
+    bound = copy.copy(suggested)
+    _bind(bound, dialect)
+    try:
+        bound.to_sql()
+    except (UnsupportedDataTypeError, UnsupportedFeatureError) as error:
+        raise ValueError(
+            f"{source.table_name()}.{field}: {type(dialect).__name__} suggests "
+            f"{suggested!r} for {describe_annotation(python_type)}, but cannot "
+            f"render it ({error}). Declare the field with UseSqlType(...)."
+        ) from error
+    return bound
 
 
 def _table_options(source: DDLSource) -> Optional[CreateTableOptions]:

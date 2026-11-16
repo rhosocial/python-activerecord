@@ -13,8 +13,16 @@ import datetime
 import decimal
 import enum
 import uuid
-from typing import Any, Dict, Type
+from typing import Any, Dict, Optional, Type
 
+from rhosocial.activerecord.backend.adapters import (
+    BitString,
+    Geometry,
+    MacAddress,
+    Multirange,
+    Range,
+    Vector,
+)
 from rhosocial.activerecord.backend.dialect.mixins.column_type import ColumnTypeMixin
 from rhosocial.activerecord.backend.expression.column_types import (
     ArrayColumn,
@@ -29,8 +37,12 @@ from rhosocial.activerecord.backend.expression.column_types import (
     UUIDColumn,
 )
 
-#: The portable baseline: ``{common Python type: ColumnBase subclass}``.
-DUMMY_COLUMN_TYPES: Dict[Any, Type[ColumnBase]] = {
+#: The portable baseline: ``{framework-modelled Python type: ColumnBase subclass}``.
+#:
+#: The complex families answer ``None``: the dummy stands for no server, so it
+#: states no backend's operation surface. A backend that carries geometry
+#: values states its own class in its own table; the baseline does not pretend.
+DUMMY_COLUMN_TYPES: Dict[Any, Optional[Type[ColumnBase]]] = {
     bool: BooleanColumn,
     int: IntegerColumn,
     float: NumericColumn,
@@ -49,13 +61,19 @@ DUMMY_COLUMN_TYPES: Dict[Any, Type[ColumnBase]] = {
     set: ArrayColumn,
     frozenset: ArrayColumn,
     enum.Enum: StringColumn,
+    Geometry: None,
+    Vector: None,
+    BitString: None,
+    Range: None,
+    Multirange: None,
+    MacAddress: None,
 }
 
 
 class DummyColumnTypeMixin(ColumnTypeMixin):
     """The dialect-less baseline table, for tests to read."""
 
-    def suggested_column_types(self) -> Dict[Any, Type[ColumnBase]]:
+    def suggested_column_types(self) -> Dict[Any, Optional[Type[ColumnBase]]]:
         return dict(DUMMY_COLUMN_TYPES)
 
 

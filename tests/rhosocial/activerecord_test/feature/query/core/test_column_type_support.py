@@ -31,6 +31,14 @@ from typing import Any, ClassVar, Dict, List, Optional, Union
 
 import pytest
 
+from rhosocial.activerecord.backend.adapters import (
+    BitString,
+    Geometry,
+    MacAddress,
+    Multirange,
+    Range,
+    Vector,
+)
 from rhosocial.activerecord.backend.dialect.mixins import ColumnTypeMixin
 from rhosocial.activerecord.backend.dialect.protocols import ColumnTypeSupport
 from rhosocial.activerecord.backend.expression.column_types import (
@@ -95,11 +103,12 @@ _ENTRY_IDS = [getattr(entry, "__name__", str(entry)) for entry in COMMON_TYPES]
 
 
 def test_the_canonical_entry_list_is_the_declared_order():
-    """Order is the protocol's reading order, and the tests are where it lives.
+    """Order is the protocol's reading order, and the list lives in the framework.
 
-    The framework resolves by walking whatever keys a backend declares, so the
-    canonical list is not a runtime constant: it is this contract, stated once
-    and held against every backend's table.
+    Both dialect tables are keyed by ``FRAMEWORK_PYTHON_TYPES``, so the order
+    stated here is the one both lookups walk. The six complex families come last
+    because the subclass walk must meet ``bool`` before ``int`` and must meet
+    ``Geometry`` only for a geometry annotation.
     """
     assert _ENTRY_IDS == [
         "bool",
@@ -120,6 +129,12 @@ def test_the_canonical_entry_list_is_the_declared_order():
         "set",
         "frozenset",
         "Enum",
+        "Geometry",
+        "Vector",
+        "BitString",
+        "Range",
+        "Multirange",
+        "MacAddress",
     ]
 
 
@@ -136,14 +151,28 @@ def test_the_protocol_is_structural():
     assert callable(dialect.suggested_extra_column_types)
 
 
-@pytest.mark.parametrize("entry", COMMON_TYPES, ids=_ENTRY_IDS)
-def test_every_entry_resolves_through_sqlite(entry):
-    assert issubclass(resolve(sqlite_dialect(), entry), ColumnBase)
+def _assert_answered_or_refused(dialect, entry):
+    """Every framework type is either answered with a class or refused with None.
+
+    ``None`` is the protocol's stated answer for "no column class for this value
+    family", so the resolution must fail with that message rather than fall
+    through to another table or pick a class anyway.
+    """
+    if dialect.suggested_column_types()[entry] is None:
+        with pytest.raises(ColumnTypeResolutionError, match="has no column class"):
+            resolve(dialect, entry)
+    else:
+        assert issubclass(resolve(dialect, entry), ColumnBase)
 
 
 @pytest.mark.parametrize("entry", COMMON_TYPES, ids=_ENTRY_IDS)
-def test_every_entry_resolves_through_the_dummy_baseline(entry):
-    assert issubclass(resolve(dummy_dialect(), entry), ColumnBase)
+def test_every_entry_resolves_or_is_refused_by_sqlite(entry):
+    _assert_answered_or_refused(sqlite_dialect(), entry)
+
+
+@pytest.mark.parametrize("entry", COMMON_TYPES, ids=_ENTRY_IDS)
+def test_every_entry_resolves_or_is_refused_by_the_dummy_baseline(entry):
+    _assert_answered_or_refused(dummy_dialect(), entry)
 
 
 def test_boolean_is_its_own_entry_not_an_integer():
@@ -225,7 +254,8 @@ def test_backend_override_changes_only_its_own_entry():
     for entry in COMMON_TYPES:
         if entry is str:
             continue
-        assert resolve(dialect, entry) is resolve(sqlite_dialect(), entry)
+        _assert_answered_or_refused(dialect, entry)
+        _assert_answered_or_refused(sqlite_dialect(), entry)
 
 
 def test_a_backend_may_extend_with_an_entry_of_its_own():
@@ -257,10 +287,13 @@ def test_the_mixin_withholds_the_common_table():
     assert Bare().suggested_extra_column_types() == {}
 
 
-def test_sqlite_answers_exactly_the_common_types():
-    """Its table is complete and has nothing beyond the contract (for now)."""
+def test_sqlite_answers_exactly_the_framework_types():
+    """Its table is complete; the six complex families are its only refusals."""
     assert set(SQLITE_COLUMN_TYPES) == set(COMMON_TYPES)
-    assert None not in SQLITE_COLUMN_TYPES.values()
+    refused = {key for key, value in SQLITE_COLUMN_TYPES.items() if value is None}
+    assert refused == {
+        Geometry, Vector, BitString, Range, Multirange, MacAddress
+    }
 
 
 def test_the_dummy_dialect_states_its_own_baseline():
@@ -691,6 +724,9 @@ def test_two_dialects_differ_only_where_stated():
     deviated = {list, tuple, set, frozenset}
     for entry in COMMON_TYPES:
         if entry in deviated:
+            continue
+        if sqlite.suggested_column_types()[entry] is None:
+            assert dummy.suggested_column_types()[entry] is None
             continue
         assert resolve(dummy, entry) is resolve(sqlite, entry)
     assert resolve(sqlite, list) is JSONColumn

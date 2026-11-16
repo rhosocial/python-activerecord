@@ -231,6 +231,10 @@ SQLITE_PROTOCOLS = [
     # answers how it is stored.
     dialect_protocols.ColumnTypeSupport,
 
+    # Suggested storage declarations: the DDL half of the same answer -- what a
+    # field with no SQL type of its own becomes here.
+    dialect_protocols.StorageTypeSupport,
+
 
     dialect_protocols.PartitionSupport,
 

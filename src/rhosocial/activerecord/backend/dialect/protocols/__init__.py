@@ -87,6 +87,7 @@ from .query.advanced_grouping import AdvancedGroupingSupport
 from .query.array import ArraySupport
 from .query.collation import CollationSupport
 from .query.column_type import ColumnTypeSupport
+from .query.storage_type import StorageTypeSupport
 from .query.cte import CTESupport
 from .query.data_type import DataTypeSupport
 from .query.explain import ExplainSupport
@@ -159,6 +160,7 @@ __all__ = [
     "DatabaseAssignedColumnSupport",
     "DDLTypeSupport",
     "ColumnTypeSupport",
+    "StorageTypeSupport",
     "DataTypeSupport",
     "TimestampSupport",
     "DqlOrderSupport",

@@ -175,6 +175,8 @@ from .mixins import (
     # take JSONColumn (there is no array type here) and float/Decimal both take
     # NumericColumn. There is no generic table in core to compose.
     SQLiteColumnTypeMixin,
+    # Suggested storage declarations: the DDL half, also answered in full here.
+    SQLiteStorageTypeMixin,
 )
 from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression
 
@@ -298,6 +300,8 @@ class SQLiteDialect(
     # take JSONColumn (there is no array type here), and float/Decimal both take
     # NumericColumn.
     SQLiteColumnTypeMixin,
+    # Suggested storage declarations: the DDL half of the same answer.
+    SQLiteStorageTypeMixin,
     # Generic mixins (fallback for methods not overridden by SQLite)
     DateTimeMixin,
     DDLColumnMixin,

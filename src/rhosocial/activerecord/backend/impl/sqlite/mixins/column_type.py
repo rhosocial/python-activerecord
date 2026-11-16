@@ -75,9 +75,17 @@ import datetime
 import decimal
 import enum
 import uuid
-from typing import Any, Dict, Type
+from typing import Any, Dict, Optional, Type
 
 from rhosocial.activerecord.backend.dialect.mixins.column_type import ColumnTypeMixin
+from rhosocial.activerecord.backend.adapters import (
+    BitString,
+    Geometry,
+    MacAddress,
+    Multirange,
+    Range,
+    Vector,
+)
 from rhosocial.activerecord.backend.expression.column_types import (
     BinaryColumn,
     BooleanColumn,
@@ -90,12 +98,19 @@ from rhosocial.activerecord.backend.expression.column_types import (
     UUIDColumn,
 )
 
-#: SQLite's full table: ``{common Python type: ColumnBase subclass}``.
+#: SQLite's full table: ``{framework-modelled Python type: ColumnBase subclass}``.
 #:
-#: No entry is ``None``: the probe found a working pairing for all eighteen on
-#: 3.50.4, and an entry answered with ``None`` would be a claim that this
-#: backend has no column for a value it demonstrably carries.
-SQLITE_COLUMN_TYPES: Dict[Any, Type[ColumnBase]] = {
+#: No common scalar is ``None``: the probe found a working pairing for all
+#: eighteen on 3.50.4, and an entry answered with ``None`` would be a claim that
+#: this backend has no column for a value it demonstrably carries.
+#:
+#: The six complex families **are** ``None``, deliberately: SQLite carries their
+#: values (the adapters in ``impl/sqlite/adapters`` render them as text or
+#: JSON), but it offers no spatial or vector operations, and naming a column
+#: class would promise operations the engine cannot execute. ``None`` says
+#: "store it, but there is no operation surface here" -- which is the protocol's
+#: last resort used for its stated reason, not as a shorthand for "not done yet".
+SQLITE_COLUMN_TYPES: Dict[Any, Optional[Type[ColumnBase]]] = {
     bool: BooleanColumn,
     int: IntegerColumn,
     float: NumericColumn,
@@ -116,6 +131,13 @@ SQLITE_COLUMN_TYPES: Dict[Any, Type[ColumnBase]] = {
     set: JSONColumn,
     frozenset: JSONColumn,
     enum.Enum: StringColumn,
+    # Complex families: carried as text/JSON, no operation class.
+    Geometry: None,
+    Vector: None,
+    BitString: None,
+    Range: None,
+    Multirange: None,
+    MacAddress: None,
 }
 
 

@@ -23,11 +23,16 @@ class ColumnTypeSupport(Protocol):
 
     ``suggested_column_types()``
         The table the model layer reads when a field does not declare its own
-        column class. Keys are the common Python types the framework defines:
-        ``bool``, ``int``, ``float``, ``decimal.Decimal``, ``str``, ``bytes``,
-        ``bytearray``, ``datetime.date``, ``datetime.time``,
+        column class. Keys are the Python types the framework models
+        (:data:`...base.framework_types.FRAMEWORK_PYTHON_TYPES`): the common
+        scalars -- ``bool``, ``int``, ``float``, ``decimal.Decimal``, ``str``,
+        ``bytes``, ``bytearray``, ``datetime.date``, ``datetime.time``,
         ``datetime.datetime``, ``datetime.timedelta``, ``uuid.UUID``,
-        ``dict``, ``list``, ``tuple``, ``set``, ``frozenset``, ``enum.Enum``.
+        ``dict``, ``list``, ``tuple``, ``set``, ``frozenset``, ``enum.Enum`` --
+        followed by the complex families the framework defines as its own value
+        classes: ``Geometry``, ``Vector``, ``BitString``, ``Range``,
+        ``Multirange``, ``MacAddress``. ``Geometry`` is one key for the whole
+        family because the lookup walks subclasses in key order.
         **Every key must be answered.** A value is a
         :class:`~...expression.column_types.ColumnBase` subclass, or ``None``
         for "this backend genuinely has no column class for it" — the last
@@ -36,8 +41,10 @@ class ColumnTypeSupport(Protocol):
 
     ``suggested_extra_column_types()``
         The backend's own vocabulary. Keys are Python types the framework does
-        not model (a ``Point``, a ``complex``); values are ``ColumnBase``
-        subclasses. A type the backend does not offer is simply absent.
+        not model (a backend's own value class, such as a ``MarketTick``);
+        values are ``ColumnBase`` subclasses. A type the backend does not offer
+        is simply absent, and the key set is disjoint from the framework-modelled
+        keys above: the two name different populations, not two spellings of one.
 
     Both are methods, not class attributes, so the answer may depend on the
     server version or build; both return fresh dicts so a caller cannot mutate

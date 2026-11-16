@@ -136,6 +136,8 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     DataTypeSupport,
     # Column Class Support Protocol
     ColumnTypeSupport,
+    # Suggested storage types (the DDL half)
+    StorageTypeSupport,
     SQLXMLSupport,
     SQLXMLParsingSupport,
     SQLXMLSerializationSupport,
@@ -219,6 +221,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     PivotSupport,
 )
 from .column_type import DummyColumnTypeMixin
+from .storage_type import DummyStorageTypeMixin
 from .expression import _DummyTypeAlterAction, _DummyTypeDefinition
 from rhosocial.activerecord.backend.expression.statements.ddl_type import (
     TypeAlterAction,
@@ -429,10 +432,12 @@ class DummyDialect(
     # dialect has no backend-specific spelling to add on top of it.
     DataTypeMixin,
     DummyColumnTypeMixin,
+    DummyStorageTypeMixin,
     UserDefinedTypeMixin,
     DomainMixin,
     DataTypeSupport,
     ColumnTypeSupport,
+    StorageTypeSupport,
     DDLColumnMixin,
     TransactionControlMixin,
     # Protocols for type checking
