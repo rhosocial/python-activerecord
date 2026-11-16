@@ -325,12 +325,20 @@ class UUIDAdapter(BaseSQLTypeAdapter):
             if isinstance(value, UUID):
                 return value
             # Only allow conversion from str and bytes, which are unambiguous.
-            if isinstance(value, (str, bytes)):
+            # ``bytes`` is the BLOB spelling and must go in as ``bytes=``: the
+            # positional form of ``UUID()`` expects a hex *string*, so passing
+            # raw bytes there fails inside the stdlib, not as ours.
+            if isinstance(value, bytes):
+                try:
+                    return UUID(bytes=value)
+                except ValueError as e:
+                    raise TypeError(f"Cannot convert bytes to UUID: {e}") from e
+            if isinstance(value, str):
                 try:
                     return UUID(value)
                 except ValueError as e:
                     # Catch cases like "not-a-uuid"
-                    raise TypeError(f"Cannot convert {type(value).__name__} to UUID: {e}") from e
+                    raise TypeError(f"Cannot convert str to UUID: {e}") from e
         # For any other type (like int), fall through and raise the TypeError.
         raise TypeError(
             f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
@@ -345,10 +353,19 @@ class EnumAdapter(BaseSQLTypeAdapter):
     sees: ``Colour.RED`` (value ``"red"``) is stored as ``"red"``. Reading
     accepts the value first and falls back to the legacy member-name form, so
     databases written before this rule keep working.
+
+    Both pairs are registered here because the framework already declares them
+    (``CORE_DEFAULT_TYPE_MAPPINGS`` lists ``(Enum, str)``): a declared row that
+    resolves to no adapter is a dead declaration, not a policy. A backend whose
+    server spells enums differently supplies its own adapter and overrides
+    these pairs (PostgreSQL, MySQL, MariaDB, Oracle and ClickHouse all do), so
+    registering the generic pair costs them nothing.
     """
 
     def __init__(self):
         super().__init__()
+        self.register_type(Enum, str)
+        self.register_type(Enum, int)
 
     def _do_to_database(self, value: Enum, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
         label = value.value
