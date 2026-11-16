@@ -333,6 +333,13 @@ def _declared_types(source: DDLSource, field: str) -> tuple:
 def _resolve_type(source: DDLSource, field: str, dialect: Any) -> Optional[DataType]:
     """Pick the first declared candidate this dialect can actually render.
 
+    Each candidate is bound on a **copy**: a ``DataType`` is a value object whose
+    dialect is a mutable rendering attribute, and the declaration belongs to the
+    model, not to this derivation.  Binding the declared instance would leave the
+    model's own type pointing at whichever backend derived it last, which goes
+    wrong the moment one model is derived for two backends -- sequentially it is
+    merely surprising, concurrently it is a race.
+
     Only an *answer* moves on to the next candidate: the dialect has no
     rendering for the concept, or it renders the concept but refuses this
     particular declaration (a precision its server cannot honour, say).  Any
@@ -343,12 +350,13 @@ def _resolve_type(source: DDLSource, field: str, dialect: Any) -> Optional[DataT
     """
     candidates = _declared_types(source, field)
     for candidate in candidates:
-        _bind(candidate, dialect)
+        bound = copy.copy(candidate)
+        _bind(bound, dialect)
         try:
-            candidate.to_sql()
+            bound.to_sql()
         except (UnsupportedDataTypeError, UnsupportedFeatureError):
             continue
-        return candidate
+        return bound
     if not candidates:
         return None
     raise ValueError(

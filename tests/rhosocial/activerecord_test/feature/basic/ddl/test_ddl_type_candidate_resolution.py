@@ -25,7 +25,7 @@ import pytest
 from rhosocial.activerecord.base import UseSqlType
 from rhosocial.activerecord.base.derivation import build_create_table_statement
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression.types import IntegerType, UUIDType
+from rhosocial.activerecord.backend.expression.types import IntegerType, UUIDType, VarCharType
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.model import ActiveRecord
 
@@ -78,6 +78,15 @@ class Unrendered(ActiveRecord):
     token: Annotated[Optional[str], UseSqlType(UUIDType())] = None
 
 
+class DeclaredPart(ActiveRecord):
+    @classmethod
+    def table_name(cls):
+        return "declared_part"
+
+    id: Annotated[Optional[int], UseSqlType(IntegerType())] = None
+    name: Annotated[str, UseSqlType(VarCharType(length=64))]
+
+
 def test_a_refused_candidate_falls_through_to_the_next():
     """A refusal is an answer, so the loop keeps looking."""
     statement = build_create_table_statement(RefusedFirst, AnsweringDialect())
@@ -111,3 +120,19 @@ def test_the_unrendered_concept_keeps_its_own_diagnosis():
     dialect = SQLiteDialect()
     with pytest.raises(TypeError, match="does not support the generic type 'uuid'"):
         dialect.format_data_type(UUIDType())
+
+
+def test_derivation_binds_a_copy_not_the_model_declaration():
+    """The model's own DataType must not end up pointing at a backend.
+
+    A DataType is a value object whose dialect is a rendering attribute. Binding
+    the declared instance would leave the model carrying whichever backend
+    derived it last, so a second derivation would read a stale binding.
+    """
+    for _ in range(2):
+        build_create_table_statement(DeclaredPart, SQLiteDialect()).to_sql()
+
+    declared = DeclaredPart.column_data_type("name")
+    prototype = declared.data_type
+    with pytest.raises(ValueError, match="has no dialect bound"):
+        _ = prototype.dialect
