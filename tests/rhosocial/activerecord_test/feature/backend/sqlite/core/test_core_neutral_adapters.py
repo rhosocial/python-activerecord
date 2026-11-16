@@ -316,3 +316,28 @@ def test_neutral_adapters_derive_from_family_bases():
     assert issubclass(SQLiteBitStringAdapter, BitStringAdapterBase)
     assert issubclass(SQLiteRangeAdapter, RangeAdapterBase)
     assert issubclass(SQLiteMacAddressAdapter, MacAddressAdapterBase)
+
+
+def test_the_geometry_adapter_refuses_an_unusable_srid():
+    """An SRID travels as the ``SRID=...;`` prefix of the stored EWKT, so a
+    value that cannot be written into that prefix is refused rather than
+    silently dropped. The refusal arrives as a conversion error: the backend
+    hook's own exception type never escapes."""
+    adapter = SQLiteGeometryAdapter()
+
+    with pytest.raises(TypeConversionError, match="srid must be int or None"):
+        adapter.to_database(Point(1, 2), str, {"srid": "epsg:4326"})
+    with pytest.raises(TypeConversionError, match="srid must be non-negative"):
+        adapter.to_database(Point(1, 2), str, {"srid": -1})
+
+
+def test_the_document_adapter_refuses_a_value_that_is_not_a_document():
+    with pytest.raises(TypeConversionError, match="expected dict or list"):
+        SQLiteJSONAdapter().to_database(42, str)
+
+
+def test_the_range_adapter_refuses_json_that_is_neither_object_nor_array():
+    """A stored range is a JSON object (one range) or array (a multirange);
+    any other JSON shape is wrapped into a conversion error."""
+    with pytest.raises(TypeConversionError, match="must be an object or an array"):
+        SQLiteRangeAdapter().from_database("42", str)
