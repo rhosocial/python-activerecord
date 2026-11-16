@@ -421,7 +421,7 @@ class SQLiteDialect(
 
         return SQLiteSchemaDiffer()
 
-    def suggested_data_types(self) -> Dict[str, type]:
+    def substitute_data_types(self) -> Dict[str, type]:
         """Cross-backend type-consistency suggestions for SQLite.
 
         Values are the suggested replacement DataType **classes** (same

@@ -17,7 +17,7 @@ class XmlType(DataType):
     A *semantic* type: the value means "an XML document" on every backend that
     has one, while the storage is each backend's own choice. Backends that can
     render it implement ``format_data_type_xml``; the rest declare a substitute
-    through ``suggested_data_types()`` — for most of them ``TextType``, which
+    through ``substitute_data_types()`` — for most of them ``TextType``, which
     is not a compromise but an accurate description of what they store.
 
     Not to be confused with :class:`~...types.json_.JsonType`. Both are
@@ -67,7 +67,7 @@ class XmlType(DataType):
                      Note the bare word ``XML`` is not MariaDB's keyword on any
                      version
     SQLite          ``TEXT`` — no native type; XML gets TEXT affinity
-    Snowflake       ``OBJECT`` (via ``suggested_data_types``) — ``PARSE_XML()``
+    Snowflake       ``OBJECT`` (via ``substitute_data_types``) — ``PARSE_XML()``
                      returns ``OBJECT``, which is Snowflake's name for a
                      ``VARIANT``; there is no XML type
     BigQuery        ``STRING`` — no XML type; its type list is closed and

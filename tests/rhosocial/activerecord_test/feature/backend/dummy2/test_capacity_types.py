@@ -83,7 +83,7 @@ def test_a_substituted_concept_names_its_substitute():
     the caller's to write, as a text type, once they have heard the answer.
     """
     dialect = _sqlite_dialect()
-    substitute = dialect.suggested_data_types()["xml"]
+    substitute = dialect.substitute_data_types()["xml"]
 
     assert substitute is not None
     with pytest.raises(UnsupportedDataTypeError):

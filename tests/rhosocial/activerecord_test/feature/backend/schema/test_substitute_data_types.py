@@ -1,5 +1,5 @@
-# tests/rhosocial/activerecord_test/feature/backend/schema/test_suggested_data_types.py
-"""Tests for the suggested_data_types() type-consistency suggestion map.
+# tests/rhosocial/activerecord_test/feature/backend/schema/test_substitute_data_types.py
+"""Tests for the substitute_data_types() type-consistency suggestion map.
 
 Covers:
 - Values are DataType **classes** (same value type as supports_data_types —
@@ -53,11 +53,11 @@ _GENERIC_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 class TestSQLiteSuggestions:
-    """SQLiteDialect.suggested_data_types() reflects SQLite's real storage."""
+    """SQLiteDialect.substitute_data_types() reflects SQLite's real storage."""
 
     @pytest.fixture
     def suggestions(self):
-        return _sqlite_dialect().suggested_data_types()
+        return _sqlite_dialect().substitute_data_types()
 
     def test_values_are_data_type_classes(self, suggestions):
         assert suggestions
@@ -100,7 +100,7 @@ class TestSQLiteSuggestions:
         """Contract invariant: a type the dialect renders needs no suggestion."""
         dialect = _sqlite_dialect()
         supported = set(dialect.supports_data_types())
-        suggested = set(dialect.suggested_data_types())
+        suggested = set(dialect.substitute_data_types())
         overlap = supported & suggested
         assert not overlap, f"keys appear in both maps: {sorted(overlap)}"
 
@@ -109,8 +109,8 @@ class TestDummyHonesty:
     """A dialect that formats everything it knows has nothing to suggest."""
 
     def test_dummy_suggests_nothing(self):
-        assert _dummy_dialect().suggested_data_types() == {}
+        assert _dummy_dialect().substitute_data_types() == {}
 
     def test_mixin_default_is_empty(self):
         from rhosocial.activerecord.backend.dialect.mixins.data_type import DataTypeMixin
-        assert DataTypeMixin().suggested_data_types() == {}
+        assert DataTypeMixin().substitute_data_types() == {}

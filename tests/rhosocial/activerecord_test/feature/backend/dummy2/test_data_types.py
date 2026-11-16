@@ -480,7 +480,7 @@ class TestXmlType:
 
         sqlite = SQLiteDialect()
         assert "xml" not in sqlite.supports_data_types()
-        assert "xml" in sqlite.suggested_data_types()
+        assert "xml" in sqlite.substitute_data_types()
 
 
 # ---------------------------------------------------------------------------

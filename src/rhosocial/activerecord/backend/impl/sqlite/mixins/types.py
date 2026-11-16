@@ -332,7 +332,7 @@ class SQLiteTypeSupportMixin(DataTypeMixin, DataTypeSupport):
     # above is the whole support declaration — the formatter *is* the
     # "supported" answer. Anything this mixin does not render (e.g. enum,
     # uuid, binary) is honestly absent, and covered by
-    # ``suggested_data_types()`` instead.
+    # ``substitute_data_types()`` instead.
     # ------------------------------------------------------------------
 
 

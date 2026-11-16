@@ -94,7 +94,7 @@ class DataTypeSupport(Protocol):
       the dialect models but cannot express every declaration of; that is
       a refusal answer, not an absence.)
     * the concept is **substituted** — an entry in
-      :meth:`suggested_data_types` names the class this dialect really
+      :meth:`substitute_data_types` names the class this dialect really
       stores for it, so the caller reads the substitution instead of a
       bare ``TypeError``.
 
@@ -172,7 +172,7 @@ class DataTypeSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def suggested_data_types(self) -> "Dict[str, type]":
+    def substitute_data_types(self) -> "Dict[str, type]":
         """Cross-backend type-consistency suggestion map.
 
         Keys: generic type name — same namespace as ``format_data_type_*`` /

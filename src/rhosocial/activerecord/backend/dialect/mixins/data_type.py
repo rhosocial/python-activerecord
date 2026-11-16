@@ -39,14 +39,14 @@ class DataTypeMixin:
       probe may answer ``False`` there to opt a rendered name out (a
       version-gated feature); without such a probe, rendering *is* support.
 
-    * substituted — ``suggested_data_types()[name]`` names what this backend
+    * substituted — ``substitute_data_types()[name]`` names what this backend
       stores instead, for concepts it genuinely cannot spell (XML on SQLite,
       arrays on Snowflake, …).
 
     Silence is the one answer that is not allowed: a caller who asks for an
     undeclared concept is told "unsupported" and nothing more, which is
     indistinguishable from the concept never having been considered. The
-    ``suggested_data_types`` hook exists so that a backend *can* answer without
+    ``substitute_data_types`` hook exists so that a backend *can* answer without
     faking a type it does not have, and the error text in
     :meth:`_suggested_type_advice` puts the answer in front of the caller.
 
@@ -83,7 +83,7 @@ class DataTypeMixin:
         raise appends :meth:`substitute_advice`'s text, so a concept this
         dialect does not render still comes back as a ``TypeError`` that
         tells the caller what to declare instead — provided the dialect
-        listed the concept in :meth:`suggested_data_types`.  A concept
+        listed the concept in :meth:`substitute_data_types`.  A concept
         that is neither rendered nor suggested raises with **no advice**:
         that silent hole is exactly what the concept-coverage rule (D9,
         see the protocol) forbids, which is why the suggested map is a
@@ -132,7 +132,7 @@ class DataTypeMixin:
         """Name this dialect's substitute for *name*, if it declares one.
 
         A backend that cannot render a generic type says what to use instead
-        through ``suggested_data_types()``, and that is where the answer is
+        through ``substitute_data_types()``, and that is where the answer is
         written down. Without it in the message the caller is told the type is
         unsupported and nothing else, which is the same as not knowing.
 
@@ -143,7 +143,7 @@ class DataTypeMixin:
         looking. A backend with something to add says it through
         :meth:`substitute_advice`, which lands in the same error.
         """
-        substitute = self.suggested_data_types().get(name)
+        substitute = self.substitute_data_types().get(name)
         if substitute is None:
             return " Use a type this backend supports."
         caveat = self.substitute_advice(name).strip()
@@ -240,7 +240,7 @@ class DataTypeMixin:
                 return klass
         return None
 
-    def suggested_data_types(self) -> Dict[str, type]:
+    def substitute_data_types(self) -> Dict[str, type]:
         """Return cross-backend type suggestions, empty by default.
 
         One half of the **concept coverage** rule (D9 — see

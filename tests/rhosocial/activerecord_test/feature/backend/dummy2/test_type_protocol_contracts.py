@@ -27,7 +27,7 @@ to be total, and in one of two ways:
 * **Rendered** — the dialect implements ``format_data_type_<name>``,
   which is the support declaration itself. This is the normal case.
 * **Substituted** — the dialect cannot spell the concept, but it can say what
-  it stores instead, via ``suggested_data_types()[name] = SomeType``. This is
+  it stores instead, via ``substitute_data_types()[name] = SomeType``. This is
   the honest answer for e.g. XML on SQLite (stored as text) and is *not* a
   failure to implement.
 
@@ -180,7 +180,7 @@ def test_every_core_type_is_rendered_or_suggested(dialect_id, dialect_class):
     """
     dialect = dialect_class()
     rendered = set(dialect.supports_data_types())
-    suggested = dialect.suggested_data_types()
+    suggested = dialect.substitute_data_types()
     undeclared = [
         klass.name for klass in _core_type_classes()
         if klass.name not in rendered and klass.name not in suggested
@@ -268,7 +268,7 @@ def test_suggested_types_are_declared_and_disjoint(dialect_id, dialect_class):
     """
     dialect = dialect_class()
     supported = dialect.supports_data_types()
-    suggested = dialect.suggested_data_types()
+    suggested = dialect.substitute_data_types()
 
     overlap = set(supported) & set(suggested)
     assert not overlap, (

@@ -94,14 +94,14 @@ class Narrow(DataTypeMixin):
     def format_data_type_varchar(self, data_type):
         return f"VARCHAR({data_type.length})", ()
 
-    def suggested_data_types(self):
+    def substitute_data_types(self):
         return {}
 
 
 class Suggester(Narrow):
     """A dialect that cannot render it but knows what it stores instead."""
 
-    def suggested_data_types(self):
+    def substitute_data_types(self):
         from rhosocial.activerecord.backend.expression.types import VarCharType
 
         return {"enum": VarCharType}

@@ -148,7 +148,7 @@ def test_declared_version_and_backend_helpers():
     assert _dialect()._declared_version() == tuple(__import__("sqlite3").sqlite_version_info[:3])
     differ = _dialect().create_schema_differ()
     assert differ.__class__.__name__ == "SQLiteSchemaDiffer"
-    suggested = _dialect().suggested_data_types()
+    suggested = _dialect().substitute_data_types()
     assert set(suggested) == {"uuid", "enum", "xml", "array", "binary", "varbinary"}
     assert _dialect().get_json_access_operator() == "->"
 
