@@ -317,7 +317,8 @@ class FieldAccessor:
         subclass, or a sequence of subclasses. A sequence longer than one is
         refused for now: choosing among candidates means asking a dialect
         whether it covers every operation of a class, and there is no answer
-        to read yet.
+        to read yet. The data-type capability tables (supports/suggested/
+        substitute) answer storage questions and do not provide it.
         """
         if isinstance(declared, UseColumnType):
             return declared.column_class

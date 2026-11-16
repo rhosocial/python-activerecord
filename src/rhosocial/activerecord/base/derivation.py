@@ -394,22 +394,32 @@ def _resolve_type(source: DDLSource, field: str, dialect: Any) -> Optional[DataT
     surface -- swallowing it here would report a bug as "no declared type is
     supported", which reads like a capability and sends the reader after the
     wrong thing.
+
+    The refusals are kept. A backend that cannot render a concept already puts
+    its substitute and any loss caveat into the error it raises; discarding
+    that text here would turn advice into a bare "unsupported". The caller is
+    told why each candidate failed, and can then declare a type the backend
+    really renders instead of guessing.
     """
     candidates = _declared_types(source, field)
     if not candidates:
         return _suggested_storage_type(source, field, dialect)
 
+    refusals: List[str] = []
     for candidate in candidates:
         bound = copy.copy(candidate)
         _bind(bound, dialect)
         try:
             bound.to_sql()
-        except (UnsupportedDataTypeError, UnsupportedFeatureError):
+        except (UnsupportedDataTypeError, UnsupportedFeatureError) as error:
+            refusals.append(f"{candidate!r}: {error}")
             continue
         return bound
+    detail = "\n".join(f"  - {refusal}" for refusal in refusals)
     raise ValueError(
         f"{source.table_name()}.{field}: no declared type is supported by "
-        f"{type(dialect).__name__}"
+        f"{type(dialect).__name__}. Each candidate was refused:\n{detail}\n"
+        f"Declare a type this backend renders (UseSqlType(...))."
     )
 
 

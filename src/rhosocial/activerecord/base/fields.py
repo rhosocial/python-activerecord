@@ -225,7 +225,9 @@ class UseColumnType:
     class", which does not exist yet -- so rather than silently taking the first
     candidate and pretending the negotiation happened, a multi-candidate
     declaration is refused here, at the point of the mistake, and says what it
-    is waiting for.
+    is waiting for. The data-type capability tables are a different axis: they
+    say how a value is *stored*, not which operations its column class offers,
+    and completing them does not unblock this negotiation.
 
     Examples::
 
@@ -279,14 +281,15 @@ class UseColumnType:
             raise TypeError(
                 f"UseColumnType was given {len(column_classes)} column "
                 f"classes ({', '.join(c.__name__ for c in column_classes)}), "
-                f"but multi-candidate resolution needs the capability "
-                f"declaration mechanism, which does not exist yet: choosing "
-                f"among candidates means asking the dialect whether it covers "
-                f"every operation of a class, and there is no answer to read "
-                f"yet. Declare a single column class for now; when the "
-                f"capability declaration lands, this signature keeps its "
-                f"variadic shape and the candidates will be ordered by "
-                f"declaration order as UseSqlType's are."
+                f"but multi-candidate resolution needs an *operation* capability "
+                f"declaration: choosing among candidates means asking whether a "
+                f"dialect covers every operation of a ColumnBase class, and no "
+                f"such declaration exists. The data-type capability tables "
+                f"(supports_data_types / suggested_data_types / "
+                f"substitute_data_types) answer storage questions, not "
+                f"operation ones, and cannot substitute for it. Declare a "
+                f"single column class for now; the signature stays variadic so "
+                f"declaration order can be honoured when that mechanism lands."
             )
         self.column_classes: tuple = tuple(column_classes)
         #: The declared class — a convenience alias, since only one may be
