@@ -8,6 +8,8 @@ import typing
 from functools import lru_cache
 from typing import Any, Callable, cast, Dict, Optional, Tuple, TYPE_CHECKING
 
+from ..exceptions import UnsupportedDataTypeError
+
 if TYPE_CHECKING:
     from ...expression.types._base import DataType
 
@@ -102,7 +104,7 @@ class DataTypeMixin:
         name = data_type.name
         formatter = getattr(self, f"format_data_type_{name}", None)
         if formatter is None:
-            raise TypeError(
+            raise UnsupportedDataTypeError(
                 f"{type(self).__name__} does not support the generic type "
                 f"{name!r} (no format_data_type_{name})."
                 + self._suggested_type_advice(name)

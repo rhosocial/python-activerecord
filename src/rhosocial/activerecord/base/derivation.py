@@ -12,6 +12,10 @@ from __future__ import annotations
 import copy
 from typing import Any, List, Optional, Sequence, Tuple
 
+from ..backend.dialect.exceptions import (
+    UnsupportedDataTypeError,
+    UnsupportedFeatureError,
+)
 from ..backend.expression.bases import BaseExpression
 from ..backend.expression.objects import Index, Table
 from ..backend.expression.statements import (
@@ -327,12 +331,22 @@ def _declared_types(source: DDLSource, field: str) -> tuple:
 
 
 def _resolve_type(source: DDLSource, field: str, dialect: Any) -> Optional[DataType]:
+    """Pick the first declared candidate this dialect can actually render.
+
+    Only an *answer* moves on to the next candidate: the dialect has no
+    rendering for the concept, or it renders the concept but refuses this
+    particular declaration (a precision its server cannot honour, say).  Any
+    other exception is a defect in the formatter and is deliberately allowed to
+    surface -- swallowing it here would report a bug as "no declared type is
+    supported", which reads like a capability and sends the reader after the
+    wrong thing.
+    """
     candidates = _declared_types(source, field)
     for candidate in candidates:
         _bind(candidate, dialect)
         try:
             candidate.to_sql()
-        except Exception:
+        except (UnsupportedDataTypeError, UnsupportedFeatureError):
             continue
         return candidate
     if not candidates:
