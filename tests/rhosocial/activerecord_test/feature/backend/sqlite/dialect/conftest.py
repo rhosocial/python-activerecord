@@ -4,6 +4,11 @@ Conftest for SQLite backend tests.
 
 This test suite for the 'expression-dialect' system tests SQLite dialects with different versions
 to verify version-specific feature support.
+
+Convention: whenever SQLite gains a significant feature at a version boundary, add a dialect
+version fixture here (both a parameter in ``sqlite_dialect`` and a named fixture), and write a
+before/after comparison test for the affected capability. A named fixture with no test is dead
+weight -- either wire it into a comparison or leave it out.
 """
 
 import pytest
@@ -77,12 +82,6 @@ def sqlite_dialect_3_25_0():
 
 
 @pytest.fixture
-def sqlite_dialect_3_28_0():
-    """Provides a SQLiteDialect instance for version 3.28.0 (enhanced window functions)."""
-    return SQLiteDialect(version=(3, 28, 0))
-
-
-@pytest.fixture
 def sqlite_dialect_3_30_0():
     """Provides a SQLiteDialect instance for version 3.30.0 (with FILTER clause and NULLS FIRST/LAST)."""
     return SQLiteDialect(version=(3, 30, 0))
@@ -101,21 +100,9 @@ def sqlite_dialect_3_35_0():
 
 
 @pytest.fixture
-def sqlite_dialect_3_35_4():
-    """Provides a SQLiteDialect instance for version 3.35.4 (with fixed RETURNING clause)."""
-    return SQLiteDialect(version=(3, 35, 4))
-
-
-@pytest.fixture
 def sqlite_dialect_3_38_0():
     """Provides a SQLiteDialect instance for version 3.38.0 (with built-in JSON support and -> operators)."""
     return SQLiteDialect(version=(3, 38, 0))
-
-
-@pytest.fixture
-def sqlite_dialect_3_41_0():
-    """Provides a SQLiteDialect instance for version 3.41.0 (with JSON5 extensions)."""
-    return SQLiteDialect(version=(3, 41, 0))
 
 
 @pytest.fixture
@@ -128,12 +115,6 @@ def sqlite_dialect_3_44_0():
 def sqlite_dialect_3_45_0():
     """Provides a SQLiteDialect instance for version 3.45.0 (with JSONB format)."""
     return SQLiteDialect(version=(3, 45, 0))
-
-
-@pytest.fixture
-def sqlite_dialect_3_51_0():
-    """Provides a SQLiteDialect instance for version 3.51.0 (with enhanced JSONB functions)."""
-    return SQLiteDialect(version=(3, 51, 0))
 
 
 @pytest.fixture

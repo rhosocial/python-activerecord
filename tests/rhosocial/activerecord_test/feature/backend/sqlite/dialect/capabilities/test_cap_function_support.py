@@ -80,15 +80,14 @@ class TestSQLiteFunctionSupportVersionDependent:
         result_new = dialect_new.supports_functions()
         assert result_new.get("iif") is True
 
-    def test_json_array_insert_requires_version_3_53(self):
+    def test_json_array_insert_requires_version_3_53(self, sqlite_dialect_3_53_0):
         """Test that json_array_insert requires SQLite 3.53+."""
         dialect_old = SQLiteDialect(version=(3, 52, 0))
         result_old = dialect_old.supports_functions()
         assert result_old.get("json_array_insert") is False
         assert result_old.get("jsonb_array_insert") is False
 
-        dialect_new = SQLiteDialect(version=(3, 53, 0))
-        result_new = dialect_new.supports_functions()
+        result_new = sqlite_dialect_3_53_0.supports_functions()
         assert result_new.get("json_array_insert") is True
         assert result_new.get("jsonb_array_insert") is True
 

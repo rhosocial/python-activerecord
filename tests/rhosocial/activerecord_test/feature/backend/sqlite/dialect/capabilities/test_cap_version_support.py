@@ -47,9 +47,9 @@ class TestSQLiteDialectVersionSupport:
         assert not dialect.supports_json_type()
         assert not dialect.supports_upsert()
 
-    def test_version_3_24_0_features(self):
+    def test_version_3_24_0_features(self, sqlite_dialect_3_24_0):
         """Test feature support for version 3.24.0 (UPSERT)"""
-        dialect = SQLiteDialect((3, 24, 0))
+        dialect = sqlite_dialect_3_24_0
         assert dialect.supports_upsert()
         assert dialect.get_upsert_syntax_type() == "ON CONFLICT"
         assert not dialect.supports_window_functions()

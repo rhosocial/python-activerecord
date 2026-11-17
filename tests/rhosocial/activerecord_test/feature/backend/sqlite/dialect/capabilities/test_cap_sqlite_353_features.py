@@ -29,9 +29,9 @@ class TestSQLite353ConstraintSupport:
         dialect = SQLiteDialect(version=(3, 52, 0))
         assert dialect.supports_add_constraint() is False
 
-    def test_supports_add_constraint_at_353(self):
+    def test_supports_add_constraint_at_353(self, sqlite_dialect_3_53_0):
         """Test that ADD CONSTRAINT is supported at 3.53.0."""
-        dialect = SQLiteDialect(version=(3, 53, 0))
+        dialect = sqlite_dialect_3_53_0
         assert dialect.supports_add_constraint() is True
 
     def test_supports_add_constraint_above_353(self):
@@ -44,9 +44,9 @@ class TestSQLite353ConstraintSupport:
         dialect = SQLiteDialect(version=(3, 52, 0))
         assert dialect.supports_drop_constraint() is False
 
-    def test_supports_drop_constraint_at_353(self):
+    def test_supports_drop_constraint_at_353(self, sqlite_dialect_3_53_0):
         """Test that DROP CONSTRAINT is supported at 3.53.0."""
-        dialect = SQLiteDialect(version=(3, 53, 0))
+        dialect = sqlite_dialect_3_53_0
         assert dialect.supports_drop_constraint() is True
 
     def test_supports_drop_constraint_above_353(self):
@@ -82,9 +82,9 @@ class TestSQLiteReindexExpression:
         assert sql == 'REINDEX "idx_users_email"'
         assert params == ()
 
-    def test_reindex_expressions_supported(self):
+    def test_reindex_expressions_supported(self, sqlite_dialect_3_53_0):
         """Test REINDEX EXPRESSIONS on supported version."""
-        dialect = SQLiteDialect(version=(3, 53, 0))
+        dialect = sqlite_dialect_3_53_0
         expr = SQLiteReindexStatement(dialect, expressions=True)
         sql, params = expr.to_sql()
         assert sql == "REINDEX EXPRESSIONS"
@@ -100,23 +100,23 @@ class TestSQLiteReindexExpression:
             expr.to_sql()
         assert "REINDEX EXPRESSIONS" in str(exc_info.value)
 
-    def test_reindex_mutually_exclusive_index_and_expressions(self):
+    def test_reindex_mutually_exclusive_index_and_expressions(self, sqlite_dialect_3_53_0):
         """Test that index_name and expressions are mutually exclusive."""
-        dialect = SQLiteDialect(version=(3, 53, 0))
+        dialect = sqlite_dialect_3_53_0
         with pytest.raises(ValueError) as exc_info:
             SQLiteReindexStatement(dialect, index=Index(dialect, "idx"), expressions=True)
         assert "cannot be combined" in str(exc_info.value)
 
-    def test_reindex_mutually_exclusive_table_and_expressions(self):
+    def test_reindex_mutually_exclusive_table_and_expressions(self, sqlite_dialect_3_53_0):
         """Test that table_name and expressions are mutually exclusive."""
-        dialect = SQLiteDialect(version=(3, 53, 0))
+        dialect = sqlite_dialect_3_53_0
         with pytest.raises(ValueError) as exc_info:
             SQLiteReindexStatement(dialect, table=Table(dialect, "users"), expressions=True)
         assert "cannot be combined" in str(exc_info.value)
 
-    def test_reindex_mutually_exclusive_index_and_table(self):
+    def test_reindex_mutually_exclusive_index_and_table(self, sqlite_dialect_3_53_0):
         """Test that index_name and table_name are mutually exclusive."""
-        dialect = SQLiteDialect(version=(3, 53, 0))
+        dialect = sqlite_dialect_3_53_0
         with pytest.raises(ValueError) as exc_info:
             SQLiteReindexStatement(dialect, index=Index(dialect, "idx"), table=Table(dialect, "users"))
         assert "Cannot specify both" in str(exc_info.value)
@@ -126,10 +126,10 @@ class TestSQLiteReindexExpression:
         dialect = SQLiteDialect(version=(3, 0, 0))
         assert dialect.supports_reindex() is True
 
-    def test_supports_reindex_expressions_version_check(self):
+    def test_supports_reindex_expressions_version_check(self, sqlite_dialect_3_53_0):
         """Test supports_reindex_expressions version check."""
         dialect_old = SQLiteDialect(version=(3, 52, 0))
-        dialect_new = SQLiteDialect(version=(3, 53, 0))
+        dialect_new = sqlite_dialect_3_53_0
 
         assert dialect_old.supports_reindex_expressions() is False
         assert dialect_new.supports_reindex_expressions() is True
@@ -138,25 +138,25 @@ class TestSQLiteReindexExpression:
 class TestJsonArrayInsertFunction:
     """Tests for json_array_insert() function factory."""
 
-    def test_json_array_insert_basic(self):
+    def test_json_array_insert_basic(self, sqlite_dialect_3_53_0):
         """Test basic json_array_insert function call."""
-        dialect = SQLiteDialect(version=(3, 53, 0))
+        dialect = sqlite_dialect_3_53_0
         expr = json_array_insert(dialect, Literal(dialect, "data"), Literal(dialect, "new_value"))
         sql, params = expr.to_sql()
         assert "JSON_ARRAY_INSERT" in sql
         assert len(params) == 3  # json_array, default path '$', and value are parameterized
 
-    def test_json_array_insert_with_position(self):
+    def test_json_array_insert_with_position(self, sqlite_dialect_3_53_0):
         """Test json_array_insert with position parameter."""
-        dialect = SQLiteDialect(version=(3, 53, 0))
+        dialect = sqlite_dialect_3_53_0
         expr = json_array_insert(dialect, Literal(dialect, "data"), Literal(dialect, "new_value"), position=0)
         sql, params = expr.to_sql()
         assert "JSON_ARRAY_INSERT" in sql
         assert len(params) == 3  # json_array, value, and position are parameterized
 
-    def test_json_array_insert_with_column(self):
+    def test_json_array_insert_with_column(self, sqlite_dialect_3_53_0):
         """Test json_array_insert with Column expression."""
-        dialect = SQLiteDialect(version=(3, 53, 0))
+        dialect = sqlite_dialect_3_53_0
         expr = json_array_insert(dialect, Column(dialect, "items"), Literal(dialect, "item"))
         sql, params = expr.to_sql()
         assert "JSON_ARRAY_INSERT" in sql
@@ -179,25 +179,25 @@ class TestJsonArrayInsertFunction:
 class TestJsonbArrayInsertFunction:
     """Tests for jsonb_array_insert() function factory."""
 
-    def test_jsonb_array_insert_basic(self):
+    def test_jsonb_array_insert_basic(self, sqlite_dialect_3_53_0):
         """Test basic jsonb_array_insert function call."""
-        dialect = SQLiteDialect(version=(3, 53, 0))
+        dialect = sqlite_dialect_3_53_0
         expr = jsonb_array_insert(dialect, Literal(dialect, "data"), Literal(dialect, "new_value"))
         sql, params = expr.to_sql()
         assert "JSONB_ARRAY_INSERT" in sql
         assert len(params) == 3  # jsonb_array, default path '$', and value are parameterized
 
-    def test_jsonb_array_insert_with_position(self):
+    def test_jsonb_array_insert_with_position(self, sqlite_dialect_3_53_0):
         """Test jsonb_array_insert with position parameter."""
-        dialect = SQLiteDialect(version=(3, 53, 0))
+        dialect = sqlite_dialect_3_53_0
         expr = jsonb_array_insert(dialect, Literal(dialect, "data"), Literal(dialect, "new_value"), position=2)
         sql, params = expr.to_sql()
         assert "JSONB_ARRAY_INSERT" in sql
         assert len(params) == 3  # jsonb_array, value, and position are parameterized
 
-    def test_jsonb_array_insert_with_column(self):
+    def test_jsonb_array_insert_with_column(self, sqlite_dialect_3_53_0):
         """Test jsonb_array_insert with Column expression."""
-        dialect = SQLiteDialect(version=(3, 53, 0))
+        dialect = sqlite_dialect_3_53_0
         expr = jsonb_array_insert(dialect, Column(dialect, "items"), Literal(dialect, "item"))
         sql, params = expr.to_sql()
         assert "JSONB_ARRAY_INSERT" in sql
