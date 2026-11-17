@@ -4,6 +4,15 @@ Supplementary tests for SQLiteDialect version support functionality
 """
 
 import pytest
+
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.statements import (
+    DefaultValuesSource,
+    InsertStatement,
+    ReturningClause,
+)
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 
@@ -75,6 +84,28 @@ class TestSQLiteDialectVersionSupport:
         assert dialect.supports_returning_update()
         assert dialect.supports_returning_delete()
         assert not dialect.supports_json_type()
+
+    def test_returning_boundary_at_3_35(self, sqlite_dialect_3_34_0, sqlite_dialect_3_35_0):
+        """The 3.35 boundary is a rendering gate, not just a capability answer."""
+        old = sqlite_dialect_3_34_0
+        new = sqlite_dialect_3_35_0
+
+        assert old.supports_returning_insert() is False
+        assert new.supports_returning_insert() is True
+
+        def insert(dialect):
+            return InsertStatement(
+                dialect,
+                into=Table(dialect, "users"),
+                source=DefaultValuesSource(dialect),
+                returning=ReturningClause(dialect, expressions=[Column(dialect, "id")]),
+            ).to_sql()
+
+        with pytest.raises(UnsupportedFeatureError, match="RETURNING clause in INSERT"):
+            insert(old)
+        sql, params = insert(new)
+        assert "RETURNING" in sql
+        assert params == ()
 
     def test_version_3_38_0_features(self):
         """Test feature support for version 3.38.0 (JSON)"""
