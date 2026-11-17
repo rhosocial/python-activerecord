@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/ddl/test_column_clauses.py
+# tests/rhosocial/activerecord_test/feature/backend/sqlite/dialect/ddl/test_ddl_column_clauses.py
 """Column-definition clauses are expression nodes, not AR-layer objects.
 
 ``COLLATE`` and ``CHARACTER SET`` used to be reachable only by putting an

@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_create_drop_schema.py
+# tests/rhosocial/activerecord_test/feature/backend/dummy/ddl/test_statements_create_drop_schema.py
 import pytest
 from rhosocial.activerecord.backend.expression.statements import CreateSchemaStatement, DropSchemaStatement
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect

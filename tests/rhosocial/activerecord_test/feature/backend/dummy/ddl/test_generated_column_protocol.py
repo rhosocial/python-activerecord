@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/feature/backend/dummy/ddl/test_generated_column_protocol.py
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnGeneratedConstraint,
     ColumnNotNullConstraint,

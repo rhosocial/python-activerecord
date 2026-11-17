@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_dialect_ddl_capability_surface.py
+# tests/rhosocial/activerecord_test/feature/backend/dummy/ddl/test_dialect_ddl_capability_surface.py
 """Explicit DDL capability-surface assertions for the reference dialect."""
 
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect

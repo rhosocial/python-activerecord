@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_type_domain_ddl.py
+# tests/rhosocial/activerecord_test/feature/backend/dummy/ddl/test_type_domain_ddl.py
 """Tests for the generic TYPE and DOMAIN DDL protocols."""
 
 import pytest

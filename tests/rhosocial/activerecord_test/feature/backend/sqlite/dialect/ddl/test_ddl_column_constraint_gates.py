@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/ddl/test_column_constraint_gates.py
+# tests/rhosocial/activerecord_test/feature/backend/sqlite/dialect/ddl/test_ddl_column_constraint_gates.py
 """Capability gates on column-constraint rendering.
 
 A column constraint clause is rendered only when the dialect declares it can

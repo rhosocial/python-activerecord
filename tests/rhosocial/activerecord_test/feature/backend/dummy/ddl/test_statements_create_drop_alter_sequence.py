@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_create_drop_alter_sequence.py
+# tests/rhosocial/activerecord_test/feature/backend/dummy/ddl/test_statements_create_drop_alter_sequence.py
 import pytest
 from unittest.mock import patch
 from rhosocial.activerecord.backend.expression.statements import (

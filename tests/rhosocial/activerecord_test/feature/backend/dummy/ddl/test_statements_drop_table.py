@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_drop_table.py
+# tests/rhosocial/activerecord_test/feature/backend/dummy/ddl/test_statements_drop_table.py
 import pytest
 from rhosocial.activerecord.backend.expression import DropTableStatement
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect

@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/ddl/test_type_name_positions.py
+# tests/rhosocial/activerecord_test/feature/backend/sqlite/dialect/ddl/test_ddl_type_name_positions.py
 """A type position holds a type, and a name is a name.
 
 Three positions take a type: XMLSERIALIZE's target type, an XMLTABLE

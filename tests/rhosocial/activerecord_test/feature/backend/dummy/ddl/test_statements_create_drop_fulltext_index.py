@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_create_drop_fulltext_index.py
+# tests/rhosocial/activerecord_test/feature/backend/dummy/ddl/test_statements_create_drop_fulltext_index.py
 """Tests for CREATE FULLTEXT INDEX and DROP FULLTEXT INDEX statements."""
 
 import pytest

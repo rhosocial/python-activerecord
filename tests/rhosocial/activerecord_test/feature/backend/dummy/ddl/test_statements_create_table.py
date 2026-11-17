@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_create_table.py
+# tests/rhosocial/activerecord_test/feature/backend/dummy/ddl/test_statements_create_table.py
 import inspect
 
 import pytest

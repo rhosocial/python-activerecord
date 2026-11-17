@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/ddl/test_ddl_bind_parameters.py
+# tests/rhosocial/activerecord_test/feature/backend/sqlite/dialect/ddl/test_ddl_bind_parameters.py
 """A DDL statement's body carries no bind parameters unless the dialect says so.
 
 Three statements have a *query* as their body -- ``CREATE TABLE ... AS``,

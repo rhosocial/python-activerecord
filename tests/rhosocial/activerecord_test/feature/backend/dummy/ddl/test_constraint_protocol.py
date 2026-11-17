@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_constraint_protocol.py
+# tests/rhosocial/activerecord_test/feature/backend/dummy/ddl/test_constraint_protocol.py
 """Tests for ConstraintSupport protocol and ConstraintMixin."""
 
 import pytest

@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/ddl/test_sqlite_column_constraints.py
+# tests/rhosocial/activerecord_test/feature/backend/sqlite/dialect/ddl/test_sqlite_column_constraints.py
 """What SQLite's column-constraint grammar actually accepts.
 
 Everything here was measured against a live SQLite rather than read off the

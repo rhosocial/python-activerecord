@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_materialized_view.py
+# tests/rhosocial/activerecord_test/feature/backend/dummy/ddl/test_statements_materialized_view.py
 import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,

@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/ddl/test_sqlite_auto_increment.py
+# tests/rhosocial/activerecord_test/feature/backend/sqlite/dialect/ddl/test_sqlite_auto_increment.py
 """SQLite spells AUTOINCREMENT as part of INTEGER PRIMARY KEY, and nowhere else.
 
 It used to be a flag on any column constraint, read only by a private SQLite

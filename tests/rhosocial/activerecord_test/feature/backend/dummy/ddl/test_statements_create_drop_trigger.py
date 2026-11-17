@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_create_drop_trigger.py
+# tests/rhosocial/activerecord_test/feature/backend/dummy/ddl/test_statements_create_drop_trigger.py
 from rhosocial.activerecord.backend.expression.statements import (
     CreateTriggerStatement,
     DropTriggerStatement,

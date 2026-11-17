@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_create_drop_function.py
+# tests/rhosocial/activerecord_test/feature/backend/dummy/ddl/test_statements_create_drop_function.py
 from rhosocial.activerecord.backend.expression.statements import CreateFunctionStatement, DropFunctionStatement
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.objects import Function

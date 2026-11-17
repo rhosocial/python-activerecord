@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_ddl_improvements.py
+# tests/rhosocial/activerecord_test/feature/backend/dummy/ddl/test_ddl_improvements.py
 """Tests for DDL improvements: capability gating, UnsupportedFeatureError, parentheses fix."""
 import pytest
 from unittest.mock import patch

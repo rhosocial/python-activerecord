@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_constraint_sql_baseline.py
+# tests/rhosocial/activerecord_test/feature/backend/dummy/ddl/test_constraint_sql_baseline.py
 """The SQL every constraint form renders, byte for byte.
 
 This is the baseline the two-level constraint nodes (S3) must not move, and

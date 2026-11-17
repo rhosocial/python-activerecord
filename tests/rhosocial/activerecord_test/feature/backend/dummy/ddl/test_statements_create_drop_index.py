@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_create_drop_index.py
+# tests/rhosocial/activerecord_test/feature/backend/dummy/ddl/test_statements_create_drop_index.py
 import pytest
 from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Literal
 from rhosocial.activerecord.backend.expression.statements import CreateIndexStatement, DropIndexStatement

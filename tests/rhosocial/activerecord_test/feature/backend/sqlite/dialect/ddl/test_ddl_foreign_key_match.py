@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/ddl/test_foreign_key_match.py
+# tests/rhosocial/activerecord_test/feature/backend/sqlite/dialect/ddl/test_ddl_foreign_key_match.py
 """MATCH is a typed field on every constraint that can carry it.
 
 It used to be three different shapes: a bare ``str`` on ``ReferencesClause``,
