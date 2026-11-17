@@ -34,7 +34,7 @@ The test environment of backend projects (e.g., `python-activerecord`) relies on
 To avoid import issues, related fixture classes (such as test models and their dependent custom type adapters) should be placed within the same file.
 
 -   **DO NOT**: Disperse multiple fixture classes required for a test scenario (e.g., `MyModel` and `MyAdapter`) across multiple files within the `fixtures` directory.
--   **CONSEQUENCE**: Due to the fact that test directories (especially the `fixtures` directory) are not treated as standard Python packages (**IT IS FORBIDDEN TO ADD `__init__.py` TO NEW FIXTURE DIRECTORIES** (note: the testsuite already has `feature/basic/fixtures/__init__.py` and `feature/ddl/fixtures/__init__.py`)), relative or absolute imports between files will fail during `pytest`'s test collection phase.
+-   **CONSEQUENCE**: Due to the fact that test directories (especially the `fixtures` directory) are not treated as standard Python packages (**IT IS FORBIDDEN TO ADD `__init__.py` TO NEW FIXTURE DIRECTORIES** (note: the testsuite already has `feature/basic/fixtures/__init__.py`)), relative or absolute imports between files will fail during `pytest`'s test collection phase.
 -   **DO**: Place the definitions of `MyModel` and `MyAdapter` within the same `.../fixtures/my_feature_models.py` file.
 
 ### 4. Provider Import Pattern Principle
