@@ -8,7 +8,7 @@ Tests cover:
   - Column adapter and column mapping processing
   - DQLExpression type coverage: QueryStatement, WithStatement, SetOperation
 
-For async tests, see sqlite_async/test_batch_dql.py.
+For async tests, see test_core_batch_dql_async.py in this directory.
 """
 
 import pytest

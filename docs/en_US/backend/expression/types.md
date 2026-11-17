@@ -204,7 +204,7 @@ class Product(ActiveRecord):
 
 When a dialect implements `parse_type(raw)` (the `DataTypeSupport` protocol), it can parse a raw type string returned by the database back into a `DataType` object for schema introspection and comparison. Dialects without this interface fall back to `CustomType(raw=raw)`. The former names `DDLTypeSupport` and `DDLTypeMixin` remain deprecated compatibility aliases for `DataTypeSupport` and `DataTypeMixin`.
 
-A `parse_type` answer has to be **canonical**, and both halves of that are enforced by `tests/.../dummy2/test_type_spelling_parse.py`:
+A `parse_type` answer has to be **canonical**, and both halves of that are enforced by `tests/.../dummy/types/test_type_spelling_parse.py`:
 
 - **Coverage** — every entry of every core `SPELLINGS` tuple reaches a type. `CustomType` is the honest answer only for a name the framework has no concept for; used on `INT1`, `CHARACTER`, `DEC` or `BOOL` it would report a type the framework itself declares as a vendor-specific one, and write the raw text back.
 - **One concept in, one class out** — all spellings of one concept reach the same class, and `character varying` (variable length) never reaches the fixed-length `CharType`. Two classes per synonym is what the `spelling` parameter exists to prevent, and a parser that conflated the two would report a schema change that is not there.

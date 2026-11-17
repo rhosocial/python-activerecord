@@ -51,25 +51,28 @@ The Provider pattern is the core mechanism for achieving backend-agnostic testin
 
 #### 2.1 Backend Tests (`backend/`)
 
-Backend-related tests are organized by functionality module and backend type:
+Backend tests are split into a generic layer and two concrete backends (dummy, sqlite).
+Directories are named by **test focus** — numeric suffixes are gone.
 
 | Subdirectory | Content |
 | ------------ | ------- |
-| `base/` | Base backend protocol, transaction management, hook function tests |
-| `dialect/` | SQL dialect protocol tests (CTE, window functions, arrays, JSON, etc.) |
-| `dummy/` | Dummy backend basic functionality tests (no real database connection) |
-| `dummy2/` | Dummy backend advanced functionality tests (window functions, advanced mixins) |
-| `sqlite/` | SQLite backend core functionality tests |
-| `sqlite2/` | SQLite batch operation tests (batch DML/DQL, transactions) |
-| `sqlite3/` | SQLite column mapping and RETURNING clause tests |
-| `sqlite4/` | SQLite introspection tests (table, column, index info queries) |
-| `sqlite_async/` | Async backend functionality tests |
-| `sqlite_pragma_extension/` | SQLite PRAGMA extension functionality tests |
+| `core/` | Framework-level backend contracts (MRO/dispatch, cast, transaction base, partition, schema, named expressions) |
+| `adapters/` | Type adapter contracts and round-trips |
+| `errors/` | Error taxonomy / execute contract |
+| `dialect/` | Backend-agnostic SQL dialect protocols (CTE, window, arrays, JSON, quoting, …) |
+| `dummy/` | Concrete backend with **no database**: `capability/`, `expression/`, `statements/`, `ddl/`, `dialect/`, `types/`, `mixin/` |
+| `sqlite/` | Concrete backend with a real database: `core/`, `cli/`, `dialect/{capabilities,ddl,execution,expressions,functions,statements}`, `extensions/`, `introspection/`, `native/`, `migration/`, `named_connection/` |
 
-**Directory Numbering Explanation**:
+**Naming rules**:
 
-- Unnumbered directories (e.g., `sqlite/`): Core functionality tests
-- Numbered directories (e.g., `sqlite2/`, `sqlite3/`): Specialized functionality tests, numbered by development order
+- No numbered directories (`dummy2/`, `sqlite2/`, `sqlite4/`, `sqlite_async/` no longer exist).
+- Sync/async tests for the same IO behaviour live in the **same directory**: `test_X.py` ↔
+  `test_X_async.py`; only the `_async` suffix differs.
+- Non-IO tests (expression construction, `to_sql`, dialect formatting, `supports_*`, protocol
+  completeness) are written once — no `_async` copy. Dummy's backend "IO" is placeholder-only,
+  so dummy is never split.
+- `dummy/` is the SQL-standard reference baseline; `sqlite/` carries the per-backend diff plus
+  everything that requires a live connection.
 
 #### 2.2 Basic Tests (`basic/`)
 

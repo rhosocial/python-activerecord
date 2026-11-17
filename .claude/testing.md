@@ -73,10 +73,13 @@ pytest tests/rhosocial/activerecord_test/feature/relation/
 pytest tests/rhosocial/activerecord_test/feature/events/
 pytest tests/rhosocial/activerecord_test/feature/mixins/
 
-# Backend-specific + dialect/interface tests
-pytest tests/rhosocial/activerecord_test/feature/backend/sqlite/
-pytest tests/rhosocial/activerecord_test/feature/backend/sqlite2/
+# Backend tests: generic layer, dummy baseline, and SQLite focus areas
+pytest tests/rhosocial/activerecord_test/feature/backend/core/
 pytest tests/rhosocial/activerecord_test/feature/backend/dialect/
+pytest tests/rhosocial/activerecord_test/feature/backend/dummy/
+pytest tests/rhosocial/activerecord_test/feature/backend/sqlite/core/
+pytest tests/rhosocial/activerecord_test/feature/backend/sqlite/dialect/
+pytest tests/rhosocial/activerecord_test/feature/backend/sqlite/introspection/
 
 # Real-world scenarios and benchmarks
 pytest tests/rhosocial/activerecord_test/feature/basic/

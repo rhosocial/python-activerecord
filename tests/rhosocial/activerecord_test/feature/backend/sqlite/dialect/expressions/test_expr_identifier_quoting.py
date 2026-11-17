@@ -1,0 +1,525 @@
+# tests/rhosocial/activerecord_test/feature/backend/sqlite/dialect/expressions/test_expr_identifier_quoting.py
+"""
+Test for identifier quoting feature.
+
+Covers:
+- IdentifierQuotingWarning class
+- SQLDialectBase.format_identifier (quoting, escaping, need_quote)
+- SQLDialectBase.is_reserved_word (case-insensitive)
+- Reserved word warning emission
+- Per-role need_quote properties on Column, NamedRelationRef,
+  QualifiedIdentifier, Identifier
+- Format methods (format_column, format_table, format_wildcard,
+  format_identifier_expression, format_qualified_identifier)
+"""
+
+import warnings
+
+import pytest
+
+from rhosocial.activerecord.backend.warnings import IdentifierQuotingWarning
+from rhosocial.activerecord.backend.expression import (
+    Column,
+    QualifiedIdentifier,
+)
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression.literals import Identifier
+from rhosocial.activerecord.backend.impl.dummy.backend import DummyDialect
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
+
+class TestIdentifierQuotingWarning:
+    """Test IdentifierQuotingWarning class."""
+
+    def test_is_user_warning_subclass(self):
+        assert issubclass(IdentifierQuotingWarning, UserWarning)
+
+    def test_can_be_raised(self):
+        with pytest.warns(IdentifierQuotingWarning):
+            warnings.warn("test", IdentifierQuotingWarning)
+
+
+class SchemaDialect(DummyDialect):
+    """A dialect that has a schema namespace, for the qualified-name cases.
+
+    Neither ``Dummy`` nor ``SQLite`` declares one, so a qualified name there is
+    refused rather than rendered -- which the refusal test below covers. These
+    cases are about how a qualified name is *spelled* once the engine has agreed
+    to spell one.
+    """
+
+    def supports_schema_qualification(self) -> bool:
+        return True
+
+
+class TestSQLDialectBaseIdentifierQuoting:
+    """Test base dialect format_identifier and reserved words."""
+
+    def test_format_identifier_default_quotes(self):
+        d = SQLiteDialect()
+        assert d.format_identifier("users") == '"users"'
+
+    def test_format_identifier_need_quote_false_returns_raw(self):
+        d = SQLiteDialect()
+        assert d.format_identifier("users", need_quote=False) == "users"
+
+    def test_format_identifier_escapes_internal_quotes(self):
+        d = SQLiteDialect()
+        assert d.format_identifier('my"table') == '"my""table"'
+
+    def test_format_identifier_need_quote_false_no_escaping(self):
+        d = SQLiteDialect()
+        assert d.format_identifier('my"table', need_quote=False) == 'my"table'
+
+    def test_reserved_words_is_frozenset(self):
+        d = SQLiteDialect()
+        assert isinstance(d.reserved_words, frozenset)
+
+    def test_reserved_words_not_empty(self):
+        d = SQLiteDialect()
+        assert len(d.reserved_words) > 0
+
+    def test_the_dialect_answers_from_the_word_set_the_module_publishes(self):
+        """The dialect's copy is the module's table, and the copy answers.
+
+        ``SQLITE_RESERVED_WORDS`` is loaded once, into ``self._reserved_words``,
+        and everything afterwards reads the attribute -- so the name itself is
+        read once while the value it holds is read on every identifier the
+        dialect quotes. Counting reads counts names, not values, and this is the
+        shape that under-counts: what has to be guaranteed is that the dialect's
+        own set is the published one and that it answers for the words in it.
+        """
+        from rhosocial.activerecord.backend.impl.sqlite.reserved_words import (
+            SQLITE_RESERVED_WORDS,
+        )
+
+        d = SQLiteDialect()
+        assert d.reserved_words == SQLITE_RESERVED_WORDS
+        assert "select" in SQLITE_RESERVED_WORDS
+        assert d.is_reserved_word("SELECT") is True
+
+    def test_every_published_word_answers_through_the_dialects_copy(self):
+        """A word in the table the dialect would not refuse is not reserved.
+
+        The set is what decides whether an identifier gets quoted, so an entry
+        the copy does not answer for is an entry that silently stops protecting
+        the identifier spelled with it.
+        """
+        from rhosocial.activerecord.backend.impl.sqlite.reserved_words import (
+            SQLITE_RESERVED_WORDS,
+        )
+
+        d = SQLiteDialect()
+        assert d.reserved_words, "the reserved word set is empty"
+        unanswerable = sorted(
+            word for word in SQLITE_RESERVED_WORDS if not d.is_reserved_word(word)
+        )
+        assert not unanswerable, (
+            f"published as reserved but not answered by the dialect's own set: "
+            f"{unanswerable}"
+        )
+
+    def test_is_reserved_word_case_insensitive(self):
+        d = SQLiteDialect()
+        assert d.is_reserved_word("SELECT") is True
+        assert d.is_reserved_word("select") is True
+        assert d.is_reserved_word("Select") is True
+
+    def test_is_reserved_word_non_reserved(self):
+        d = SQLiteDialect()
+        assert d.is_reserved_word("users") is False
+
+    def test_reserved_word_warning_emitted(self):
+        d = SQLiteDialect()
+        with pytest.warns(IdentifierQuotingWarning, match="select"):
+            d.format_identifier("select", need_quote=False)
+
+    def test_no_warning_for_non_reserved_word(self):
+        d = SQLiteDialect()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            d.format_identifier("users", need_quote=False)
+
+    def test_format_identifier_default_quotes_dummy(self):
+        d = DummyDialect()
+        assert d.format_identifier("users") == '"users"'
+
+    def test_format_identifier_need_quote_false_dummy(self):
+        d = DummyDialect()
+        assert d.format_identifier("users", need_quote=False) == "users"
+
+    def test_format_identifier_escapes_internal_quotes_dummy(self):
+        d = DummyDialect()
+        assert d.format_identifier('col"name') == '"col""name"'
+
+    def test_reserved_words_empty_dummy(self):
+        d = DummyDialect()
+        assert len(d.reserved_words) == 0
+
+    def test_is_reserved_word_false_dummy(self):
+        d = DummyDialect()
+        assert d.is_reserved_word("select") is False
+
+
+class TestColumnIdentifierQuoting:
+    """Test Column per-role need_quote properties."""
+
+    def test_defaults_all_true(self):
+        d = SQLiteDialect()
+        col = Column(d, "id", table="users")
+        assert col.name_need_quote is True
+        assert col.table_need_quote is True
+        assert col.schema_need_quote is True
+        assert col.alias_need_quote is True
+
+    def test_all_false(self):
+        d = SQLiteDialect()
+        col = Column(d, "id", table="users",
+                     name_need_quote=False, table_need_quote=False,
+                     schema_need_quote=False, alias_need_quote=False)
+        assert col.name_need_quote is False
+        assert col.table_need_quote is False
+        assert col.schema_need_quote is False
+        assert col.alias_need_quote is False
+
+    def test_alias_need_quote_independent(self):
+        d = SQLiteDialect()
+        col = Column(d, "id", name_need_quote=True, alias_need_quote=False)
+        assert col.name_need_quote is True
+        assert col.alias_need_quote is False
+
+    def test_schema_need_quote_independent(self):
+        d = SQLiteDialect()
+        col = Column(d, "id", table="t", schema_name="s",
+                     name_need_quote=True, schema_need_quote=False)
+        assert col.schema_need_quote is False
+        assert col.table_need_quote is True
+        assert col.name_need_quote is True
+
+    def test_table_need_quote_independent(self):
+        d = SQLiteDialect()
+        col = Column(d, "id", table="t",
+                     name_need_quote=True, table_need_quote=False)
+        assert col.table_need_quote is False
+        assert col.name_need_quote is True
+
+    def test_mixed_quoting(self):
+        d = SQLiteDialect()
+        col = Column(d, "id", table="t",
+                     name_need_quote=False, table_need_quote=True)
+        assert col.table_need_quote is True
+        assert col.name_need_quote is False
+
+
+class TestRelationSourceIdentifierQuoting:
+    """Test where the need_quote flags live now the two trees are split.
+
+    A name has roles -- name, catalog, schema -- and those belong to the object
+    that *is* the catalogue entry. An alias renames a row for one query, so its
+    quoting belongs to the source pointing at that object.
+    """
+
+    def test_defaults_all_true(self):
+        d = SQLiteDialect()
+        source = NamedRelationRef(d, Table(d, "users"))
+        assert source.relation.name_need_quote is True
+        assert source.relation.schema_need_quote is True
+        assert source.alias_need_quote is True
+
+    def test_all_false(self):
+        d = SQLiteDialect()
+        source = NamedRelationRef(
+            d,
+            Table(d, "users", name_need_quote=False, schema_need_quote=False),
+            alias_need_quote=False,
+        )
+        assert source.relation.name_need_quote is False
+        assert source.relation.schema_need_quote is False
+        assert source.alias_need_quote is False
+
+    def test_schema_need_quote_independent(self):
+        d = SQLiteDialect()
+        source = NamedRelationRef(
+            d,
+            Table(
+                d,
+                "users",
+                schema_name="public",
+                name_need_quote=True,
+                schema_need_quote=False,
+            ),
+        )
+        assert source.relation.schema_need_quote is False
+        assert source.relation.name_need_quote is True
+
+    def test_alias_need_quote_independent(self):
+        d = SQLiteDialect()
+        source = NamedRelationRef(
+            d,
+            Table(d, "users", name_need_quote=True),
+            alias_need_quote=False,
+        )
+        assert source.relation.name_need_quote is True
+        assert source.alias_need_quote is False
+
+
+class TestQualifiedIdentifierIdentifierQuoting:
+    """Test QualifiedIdentifier per-role need_quote properties."""
+
+    def test_defaults_all_true(self):
+        d = SQLiteDialect()
+        qi = QualifiedIdentifier(d, schema="public", name="users")
+        assert qi.name_need_quote is True
+        assert qi.schema_need_quote is True
+
+    def test_all_false(self):
+        d = SQLiteDialect()
+        qi = QualifiedIdentifier(d, schema="public", name="users",
+                                           name_need_quote=False,
+                                           schema_need_quote=False)
+        assert qi.name_need_quote is False
+        assert qi.schema_need_quote is False
+
+    def test_schema_need_quote_independent(self):
+        d = SQLiteDialect()
+        qi = QualifiedIdentifier(d, schema="public", name="users",
+                                           name_need_quote=True,
+                                           schema_need_quote=False)
+        assert qi.schema_need_quote is False
+        assert qi.name_need_quote is True
+
+    def test_no_schema(self):
+        d = SQLiteDialect()
+        qi = QualifiedIdentifier(d, name="users",
+                                           name_need_quote=False)
+        assert qi.name_need_quote is False
+
+
+
+class TestIdentifierIdentifierQuoting:
+    """Test Identifier per-role need_quote properties."""
+
+    def test_defaults_all_true(self):
+        d = SQLiteDialect()
+        ident = Identifier(d, "users")
+        assert ident.name_need_quote is True
+        assert ident.alias_need_quote is True
+
+    def test_all_false(self):
+        d = SQLiteDialect()
+        ident = Identifier(d, "users",
+                           name_need_quote=False, alias_need_quote=False)
+        assert ident.name_need_quote is False
+        assert ident.alias_need_quote is False
+
+    def test_alias_need_quote_independent(self):
+        d = SQLiteDialect()
+        ident = Identifier(d, "users",
+                           name_need_quote=True, alias_need_quote=False)
+        assert ident.name_need_quote is True
+        assert ident.alias_need_quote is False
+
+
+class TestFormatMethodDirectPropertyAccess:
+    """Test that format methods read need_quote properties directly.
+
+    Uses DummyDialect because SQLite overrides format_column/format_wildcard
+    to always quote, whereas DummyDialect inherits the generic ExpressionMixin
+    that reads the properties.
+    """
+
+    def test_format_column_unquoted(self):
+        d = DummyDialect()
+        col = Column(d, "id", table="users", name_need_quote=False,
+                     table_need_quote=False)
+        sql, params = d.format_column(col)
+        assert sql == "users.id"
+        assert params == ()
+
+    def test_format_column_with_alias(self):
+        d = DummyDialect()
+        col = Column(d, "id", table="users", alias="user_id",
+                     name_need_quote=False, table_need_quote=False,
+                     alias_need_quote=False)
+        sql, params = d.format_column(col)
+        assert sql == "users.id AS user_id"
+
+    def test_format_column_alias_independent_quoting(self):
+        d = DummyDialect()
+        col = Column(d, "id", table="users", alias="user_id",
+                     name_need_quote=True, table_need_quote=True,
+                     alias_need_quote=False)
+        sql, params = d.format_column(col)
+        assert sql == '"users"."id" AS user_id'
+
+    def test_format_column_schema_table_name(self):
+        d = DummyDialect()
+        col = Column(d, "id", table="users", schema_name="public",
+                     name_need_quote=False, table_need_quote=False,
+                     schema_need_quote=False)
+        sql, params = d.format_column(col)
+        assert sql == "public.users.id"
+
+    def test_format_column_schema_table_name_quoted(self):
+        d = DummyDialect()
+        col = Column(d, "id", table="users", schema_name="public",
+                     name_need_quote=True, table_need_quote=True,
+                     schema_need_quote=True)
+        sql, params = d.format_column(col)
+        assert sql == '"public"."users"."id"'
+
+    def test_format_column_name_only(self):
+        d = DummyDialect()
+        col = Column(d, "id", name_need_quote=False)
+        sql, params = d.format_column(col)
+        assert sql == "id"
+
+    def test_format_column_name_only_quoted(self):
+        d = DummyDialect()
+        col = Column(d, "id", name_need_quote=True)
+        sql, params = d.format_column(col)
+        assert sql == '"id"'
+
+    def test_source_name_unquoted(self):
+        d = DummyDialect()
+        source = NamedRelationRef(d, Table(d, "users", name_need_quote=False))
+        sql, params = source.to_sql()
+        assert sql == "users"
+
+    def test_source_with_alias(self):
+        d = DummyDialect()
+        source = NamedRelationRef(
+            d,
+            Table(d, "users", name_need_quote=False),
+            alias="u",
+            alias_need_quote=False,
+        )
+        sql, params = source.to_sql()
+        assert sql == "users AS u"
+
+    def test_source_schema_quoted(self):
+        d = SchemaDialect()
+        source = NamedRelationRef(d, Table(d, "users", schema_name="main"))
+        sql, params = source.to_sql()
+        assert sql == '"main"."users"'
+
+    def test_source_schema_unquoted(self):
+        d = SchemaDialect()
+        source = NamedRelationRef(
+            d,
+            Table(
+                d,
+                "users",
+                schema_name="main",
+                name_need_quote=False,
+                schema_need_quote=False,
+            ),
+        )
+        sql, params = source.to_sql()
+        assert sql == "main.users"
+
+    def test_source_schema_refused_where_there_is_no_schema(self):
+        d = DummyDialect()
+        source = NamedRelationRef(d, Table(d, "users", schema_name="public"))
+        with pytest.raises(UnsupportedFeatureError, match="schema-qualified"):
+            source.to_sql()
+
+    def test_source_alias_independent_quoting(self):
+        d = DummyDialect()
+        source = NamedRelationRef(
+            d,
+            Table(d, "users"),
+            alias="u",
+            alias_need_quote=False,
+        )
+        sql, params = source.to_sql()
+        assert sql == '"users" AS u'
+
+
+
+
+
+
+    def test_format_identifier_expression_unquoted(self):
+        d = DummyDialect()
+        ident = Identifier(d, "users", name_need_quote=False)
+        sql, params = d.format_identifier_expression(ident)
+        assert sql == "users"
+
+    def test_format_identifier_expression_quoted(self):
+        d = DummyDialect()
+        ident = Identifier(d, "users", name_need_quote=True)
+        sql, params = d.format_identifier_expression(ident)
+        assert sql == '"users"'
+
+    def test_format_column_reserved_word_quoted(self):
+        d = DummyDialect()
+        col = Column(d, "select", table="users", name_need_quote=True)
+        sql, params = d.format_column(col)
+        assert sql == '"users"."select"'
+
+    def test_format_column_reserved_word_unquoted_warning(self):
+        d = DummyDialect()
+        d._reserved_words = frozenset({"select"})
+        col = Column(d, "select", table="users", name_need_quote=False,
+                     table_need_quote=False)
+        with pytest.warns(IdentifierQuotingWarning):
+            sql, params = d.format_column(col)
+        assert sql == "users.select"
+
+    def test_format_identifier_expression_reserved_word_warning(self):
+        d = DummyDialect()
+        d._reserved_words = frozenset({"select"})
+        ident = Identifier(d, "select", name_need_quote=False)
+        with pytest.warns(IdentifierQuotingWarning):
+            sql, params = d.format_identifier_expression(ident)
+        assert sql == "select"
+
+    def test_format_qualified_identifier_unquoted(self):
+        d = DummyDialect()
+        qi = QualifiedIdentifier(d, schema="public", name="users",
+                                           name_need_quote=False,
+                                           schema_need_quote=False)
+        sql, params = d.format_qualified_identifier(qi)
+        assert sql == "public.users"
+
+    def test_format_qualified_identifier_quoted(self):
+        d = DummyDialect()
+        qi = QualifiedIdentifier(d, schema="public", name="users",
+                                           name_need_quote=True,
+                                           schema_need_quote=True)
+        sql, params = d.format_qualified_identifier(qi)
+        assert sql == '"public"."users"'
+
+    def test_format_qualified_identifier_no_schema(self):
+        d = DummyDialect()
+        qi = QualifiedIdentifier(d, name="users",
+                                           name_need_quote=False)
+        sql, params = d.format_qualified_identifier(qi)
+        assert sql == "users"
+
+    def test_format_column_mixed_quoting(self):
+        d = DummyDialect()
+        col = Column(d, "id", table="users", schema_name="public",
+                     name_need_quote=True, table_need_quote=False,
+                     schema_need_quote=False)
+        sql, params = d.format_column(col)
+        assert sql == 'public.users."id"'
+
+    def test_source_mixed_quoting(self):
+        d = SchemaDialect()
+        source = NamedRelationRef(
+            d,
+            Table(
+                d,
+                "users",
+                schema_name="main",
+                name_need_quote=True,
+                schema_need_quote=False,
+            ),
+        )
+        sql, params = source.to_sql()
+        assert sql == 'main."users"'
+

@@ -56,7 +56,7 @@ for validating the async abstraction.
 | Location | Sync implementation | Async implementation | Purpose |
 |----------|---------------------|----------------------|---------|
 | `src/rhosocial/activerecord/backend/impl/sqlite/` | ✅ `SQLiteBackend` (`backend/sync.py`) | ✅ `AsyncSQLiteBackend` (`backend/async_backend.py`) | Production |
-| `tests/rhosocial/activerecord_test/feature/backend/sqlite_async/` | — | ✅ test-only async backend (aiosqlite) | Testing only |
+| `tests/rhosocial/activerecord_test/feature/backend/sqlite/core/` | — | ✅ test-only async backend (aiosqlite) | Testing only; sync and async tests colocated with `_async` suffix |
 
 ```python
 # Production sync backend
@@ -71,7 +71,7 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
     async def connect(self): ...
     async def execute(self, sql: str, params=None): ...
 
-# Test-only async backend (tests/.../backend/sqlite_async/async_backend.py)
+# Test-only async backend (tests/.../backend/sqlite/core/async_backend.py)
 # Validates the async abstraction with aiosqlite; NOT for production use.
 class AsyncSQLiteBackend(AsyncStorageBackend):
     async def execute(self, sql: str, params=None): ...

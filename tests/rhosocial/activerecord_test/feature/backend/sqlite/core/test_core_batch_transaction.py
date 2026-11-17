@@ -9,7 +9,7 @@ Tests verify database state after:
 Each test executes batch DML, then queries the database to confirm
 which rows were committed and which were rolled back.
 
-For async tests, see sqlite_async/test_batch_transaction.py.
+For async tests, see test_core_batch_transaction_async.py in this directory.
 """
 
 import pytest

@@ -7,7 +7,7 @@ TEST PURPOSE:
        through serialization/deserialization roundtrips
     2. SQLite-specific expressions - verify SQLite-only expressions like ReindexExpression
 
-    This complements test_expression_traversal.py (dummy2) which tests generic
+    This complements test_expression_traversal_dummy2.py (dummy/expression) which tests generic
     expressions using discovery. This file tests specific scenarios that require
     a real dialect (SQLite) to verify proper handling.
 
@@ -17,7 +17,7 @@ TEST PURPOSE:
     - SQLite-specific expressions (SQLiteReindexStatement, SQLiteMatchPredicate,
       SQLiteTableListExpression, SQLiteColumnInfoExpression)
 
-    See also: dummy2/test_expression_traversal.py for generic expression discovery tests.
+    See also: dummy/expression/test_expression_traversal_dummy2.py for generic expression discovery tests.
 """
 
 import pytest

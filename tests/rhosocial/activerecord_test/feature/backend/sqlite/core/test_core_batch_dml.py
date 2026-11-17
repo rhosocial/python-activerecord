@@ -9,7 +9,7 @@ Tests cover:
   - Parameter type conversion
   - Tier 2 (old SQLite version) RETURNING fast-fail
 
-For async tests, see sqlite_async/test_batch_dml.py.
+For async tests, see test_core_batch_dml_async.py in this directory.
 """
 
 import pytest
