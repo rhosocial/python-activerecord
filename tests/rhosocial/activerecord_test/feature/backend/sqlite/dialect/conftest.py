@@ -28,52 +28,21 @@ def sqlite_backend():
 
 @pytest.fixture(
     params=[
-        (3, 8, 0),  # Basic version without many features
-        (3, 8, 3),  # First version with CTE support (https://sqlite.org/changes.html#version_3_8_3)
-        (3, 24, 0),  # First version with UPSERT support (https://sqlite.org/changes.html#version_3_24_0)
-        (3, 25, 0),  # First version with window functions (https://sqlite.org/changes.html#version_3_25_0)
-        (
-            3,
-            28,
-            0,
-        ),  # Enhanced window functions with EXCLUDE clause and GROUPS frames (https://sqlite.org/changes.html#version_3_28_0)
-        (
-            3,
-            30,
-            0,
-        ),  # FILTER clause for aggregate functions and NULLS FIRST/LAST syntax (https://sqlite.org/changes.html#version_3_30_0)
-        (
-            3,
-            34,
-            0,
-        ),  # Enhanced recursive CTEs to support multiple recursive terms (https://sqlite.org/changes.html#version_3_34_0)
-        (
-            3,
-            35,
-            0,
-        ),  # First version with RETURNING clause and generalized UPSERT (https://sqlite.org/changes.html#version_3_35_0)
-        (3, 35, 4),  # Fixed RETURNING clause defects (https://sqlite.org/changes.html#version_3_35_4)
-        (
-            3,
-            38,
-            0,
-        ),  # JSON functions become built-in and support -> operators (https://sqlite.org/changes.html#version_3_38_0)
-        (3, 41, 0),  # JSON functions support JSON5 extensions (https://sqlite.org/changes.html#version_3_41_0)
-        (
-            3,
-            44,
-            0,
-        ),  # Aggregate functions support ORDER BY clause, CONCAT and CONCAT_WS functions (https://sqlite.org/changes.html#version_3_44_0)
-        (
-            3,
-            45,
-            0,
-        ),  # JSON functions rewritten with JSONB internal format (https://sqlite.org/changes.html#version_3_45_0)
-        (
-            3,
-            51,
-            0,
-        ),  # Enhanced JSONB functions with jsonb_each() and jsonb_tree() (https://sqlite.org/changes.html#version_3_51_0)
+        (3, 8, 0),  # no optional features
+        (3, 8, 3),  # CTE
+        (3, 24, 0),  # UPSERT
+        (3, 25, 0),  # window functions
+        (3, 28, 0),  # window EXCLUDE / GROUPS
+        (3, 30, 0),  # FILTER, NULLS FIRST/LAST
+        (3, 34, 0),  # multiple recursive terms
+        (3, 35, 0),  # RETURNING, generalized UPSERT
+        (3, 35, 4),  # RETURNING defect fixes
+        (3, 38, 0),  # built-in JSON, -> operators
+        (3, 41, 0),  # JSON5
+        (3, 44, 0),  # ORDER BY in aggregates, CONCAT
+        (3, 45, 0),  # JSONB
+        (3, 51, 0),  # jsonb_each / jsonb_tree
+        (3, 53, 0),  # ADD/DROP CONSTRAINT, REINDEX EXPRESSIONS, json_array_insert
     ],
     ids=_id_from_version,
 )
@@ -165,3 +134,9 @@ def sqlite_dialect_3_45_0():
 def sqlite_dialect_3_51_0():
     """Provides a SQLiteDialect instance for version 3.51.0 (with enhanced JSONB functions)."""
     return SQLiteDialect(version=(3, 51, 0))
+
+
+@pytest.fixture
+def sqlite_dialect_3_53_0():
+    """Provides a SQLiteDialect for 3.53.0 (constraints, REINDEX EXPRESSIONS, JSON array insert)."""
+    return SQLiteDialect(version=(3, 53, 0))
