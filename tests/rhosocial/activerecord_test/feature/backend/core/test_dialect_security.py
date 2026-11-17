@@ -28,7 +28,7 @@ from rhosocial.activerecord.backend.expression import Column
 
 
 
-class TestDialect(
+class SecurityDialect(
     SQLDialectBase,
     ExpressionMixin,
     DDLColumnMixin,
@@ -109,7 +109,7 @@ class TestEscapeReachesTheDialect:
     def _dialect_with_backslash_policy(self):
         """A dialect whose escaping doubles the backslash, like MySQL's."""
 
-        class BackslashDialect(TestDialect):
+        class BackslashDialect(SecurityDialect):
             name = "backslash"
 
             @staticmethod
@@ -258,7 +258,7 @@ def test_trim_direction_validation(dialect):
 
 def test_trim_direction_rejects_invalid(dialect):
     """Test that invalid trim direction is rejected."""
-    dialect = TestDialect()
+    dialect = SecurityDialect()
     col = Column(dialect, "name")
 
     with pytest.raises(ValueError, match="Invalid trim direction"):
@@ -391,7 +391,7 @@ def test_format_partition_method_rejects_invalid_method_without_echoing_value(di
 @pytest.fixture
 def dialect():
     """Create a test dialect."""
-    return TestDialect()
+    return SecurityDialect()
 
 
 # ── SQLite PRAGMA escaping & whitelist ─────────────────────────────────

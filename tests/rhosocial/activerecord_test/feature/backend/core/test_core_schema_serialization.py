@@ -121,7 +121,7 @@ class TestSnapshotSerialization:
             table_type=TableType.BASE_TABLE,
         )
         return SchemaSnapshot(
-            dialect_class="test.TestDialect",
+            dialect_class="test.SecurityDialect",
             captured_at=datetime(2026, 6, 20, 17, 0, 0, tzinfo=timezone.utc),
             database_info=db_info,
             tables={"users": tbl},
@@ -410,7 +410,7 @@ class TestSnapshotDiffRoundtrip:
             table_type=TableType.BASE_TABLE,
         )
         return SchemaSnapshot(
-            dialect_class="test.TestDialect",
+            dialect_class="test.SecurityDialect",
             captured_at=datetime(2026, 6, 20, 17, 0, 0, tzinfo=timezone.utc),
             database_info=db_info,
             tables={"users": tbl},
