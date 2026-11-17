@@ -16,7 +16,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     CreateTableStatement,
 )
 from rhosocial.activerecord.backend.expression import BinaryExpression, Column, Literal
-# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_generated_columns.py
+# tests/rhosocial/activerecord_test/feature/backend/dummy/ddl/test_generated_column_protocol.py
 
 
 class TestGeneratedColumnProtocol:

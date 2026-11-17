@@ -15,7 +15,7 @@ from rhosocial.activerecord.backend.expression import (
     ComparisonPredicate,
     Literal,
 )
-# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_composite_pk.py
+# tests/rhosocial/activerecord_test/feature/backend/dummy/ddl/test_statements_composite_pk.py
 
 dialect = DummyDialect()
 
