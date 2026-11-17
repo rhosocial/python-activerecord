@@ -15,6 +15,7 @@ import pytest
 
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.testsuite.pytest_plugin import Declaration
 
 from native_models import (
     AFFINITY_DEFINITIONS,
@@ -23,6 +24,15 @@ from native_models import (
     NativeAffinityNumeric,
     NativeAffinityReal,
     NativeAffinityText,
+)
+
+# This directory owns one session-scoped database; parallel workers would
+# recreate the same tables underneath each other.
+DECLARATION = Declaration(
+    parallel=True,
+    purpose="SQLite storage classes and affinity over a directory-owned database",
+    passes_means="every declared column stores and returns its SQLite affinity value",
+    fails_means="a value is silently coerced into the wrong storage class",
 )
 
 DDL = ExecutionOptions(stmt_type=StatementType.DDL)

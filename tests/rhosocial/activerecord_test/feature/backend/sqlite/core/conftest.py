@@ -1,10 +1,13 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite/core/conftest.py
-"""Schedule this directory's IO tests on one xdist worker."""
-import pytest
+"""SQLite executable core tests use temporary databases and shared backend state.
 
-GROUP = "sqlite:core"
+Declared as one parallel unit so they stay on a single xdist worker per scenario.
+"""
+from rhosocial.activerecord.testsuite.pytest_plugin import Declaration
 
-
-def pytest_collection_modifyitems(items):
-    for item in items:
-        item.add_marker(pytest.mark.xdist_group(GROUP))
+DECLARATION = Declaration(
+    parallel=True,
+    purpose="SQLite backend execution: DML, DQL, DDL, transactions and batching",
+    passes_means="executed statements produce the expected rows, schema and transaction outcomes",
+    fails_means="a statement executes against the wrong connection or loses its effects",
+)

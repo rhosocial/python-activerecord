@@ -51,28 +51,9 @@ The Provider pattern is the core mechanism for achieving backend-agnostic testin
 
 #### 2.1 Backend Tests (`backend/`)
 
-Backend tests are split into a generic layer and two concrete backends (dummy, sqlite).
-Directories are named by **test focus** — numeric suffixes are gone.
-
-| Subdirectory | Content |
-| ------------ | ------- |
-| `core/` | Framework-level backend contracts (MRO/dispatch, cast, transaction base, partition, schema, named expressions) |
-| `adapters/` | Type adapter contracts and round-trips |
-| `errors/` | Error taxonomy / execute contract |
-| `dialect/` | Backend-agnostic SQL dialect protocols (CTE, window, arrays, JSON, quoting, …) |
-| `dummy/` | Concrete backend with **no database**: `capability/`, `expression/`, `statements/`, `ddl/`, `dialect/`, `types/`, `mixin/` |
-| `sqlite/` | Concrete backend with a real database: `core/`, `cli/`, `dialect/{capabilities,ddl,execution,expressions,functions,statements}`, `extensions/`, `introspection/`, `native/`, `migration/`, `named_connection/` |
-
-**Naming rules**:
-
-- No numbered directories (`dummy2/`, `sqlite2/`, `sqlite4/`, `sqlite_async/` no longer exist).
-- Sync/async tests for the same IO behaviour live in the **same directory**: `test_X.py` ↔
-  `test_X_async.py`; only the `_async` suffix differs.
-- Non-IO tests (expression construction, `to_sql`, dialect formatting, `supports_*`, protocol
-  completeness) are written once — no `_async` copy. Dummy's backend "IO" is placeholder-only,
-  so dummy is never split.
-- `dummy/` is the SQL-standard reference baseline; `sqlite/` carries the per-backend diff plus
-  everything that requires a live connection.
+Backend tests are split by test focus into a generic layer and two concrete backends
+(dummy, sqlite). See `rhosocial/activerecord_test/feature/backend/README.md` for the
+layout, naming rules and parallelism declaration.
 
 #### 2.2 Basic Tests (`basic/`)
 

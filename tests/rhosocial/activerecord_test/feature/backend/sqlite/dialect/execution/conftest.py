@@ -1,10 +1,13 @@
-# tests/rhosocial/activerecord_test/feature/backend/sqlite/dialect-execution/conftest.py
-"""Schedule this directory's IO tests on one xdist worker."""
-import pytest
+# tests/rhosocial/activerecord_test/feature/backend/sqlite/dialect/execution/conftest.py
+"""Executable SQLite statement tests share backend fixtures.
 
-GROUP = "sqlite:dialect-execution"
+Declared as one parallel unit so they stay on a single xdist worker per scenario.
+"""
+from rhosocial.activerecord.testsuite.pytest_plugin import Declaration
 
-
-def pytest_collection_modifyitems(items):
-    for item in items:
-        item.add_marker(pytest.mark.xdist_group(GROUP))
+DECLARATION = Declaration(
+    parallel=True,
+    purpose="Executable SQLite statements, from capability probes to recursive-CTE examples",
+    passes_means="the statement runs on the real engine and returns the expected result",
+    fails_means="a capability is advertised but the statement cannot actually execute",
+)

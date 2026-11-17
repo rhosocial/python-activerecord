@@ -1,10 +1,13 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite/extensions/conftest.py
-"""Schedule this directory's IO tests on one xdist worker."""
-import pytest
+"""SQLite extension tests create virtual tables and touch PRAGMA state.
 
-GROUP = "sqlite:extensions"
+Declared as one parallel unit so they stay on a single xdist worker per scenario.
+"""
+from rhosocial.activerecord.testsuite.pytest_plugin import Declaration
 
-
-def pytest_collection_modifyitems(items):
-    for item in items:
-        item.add_marker(pytest.mark.xdist_group(GROUP))
+DECLARATION = Declaration(
+    parallel=True,
+    purpose="SQLite virtual tables, PRAGMA surfaces and extension capabilities",
+    passes_means="the extension is available and its table or pragma behaves as declared",
+    fails_means="an unsupported extension is advertised or a virtual table leaks state",
+)

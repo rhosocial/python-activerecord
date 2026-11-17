@@ -1,10 +1,13 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite/cli/conftest.py
-"""Schedule this directory's IO tests on one xdist worker."""
-import pytest
+"""SQLite CLI tests share named connections and the working directory.
 
-GROUP = "sqlite:cli"
+Declared as one parallel unit so they stay on a single xdist worker per scenario.
+"""
+from rhosocial.activerecord.testsuite.pytest_plugin import Declaration
 
-
-def pytest_collection_modifyitems(items):
-    for item in items:
-        item.add_marker(pytest.mark.xdist_group(GROUP))
+DECLARATION = Declaration(
+    parallel=True,
+    purpose="SQLite CLI commands over named connections and local files",
+    passes_means="a command renders, executes and prints the documented result",
+    fails_means="a command silently misses its database or prints the wrong shape",
+)

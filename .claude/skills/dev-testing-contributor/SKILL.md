@@ -64,6 +64,14 @@ tests/rhosocial/<backend>_test/feature/backend/
 Sync/async pairing applies only to tests that perform real IO: `test_X.py` ↔ `test_X_async.py`
 in the same directory. Pure formatting/expression/protocol tests are never duplicated.
 
+Parallelism follows the same declaration-driven rule as the shared testsuite: a leaf directory
+that shares a database or IO state declares `DECLARATION = Declaration(parallel=True, ...)` in
+its conftest (the seven SQLite IO directories listed above) and is pinned to one xdist worker
+per scenario. A directory that declares nothing is free to run in unlimited parallel — a
+`conftest.py` or a `database` fixture alone is not a declaration. Declarations are inherited
+from parent directories, so use `Declaration(parallel=False)` to opt out explicitly. Run
+backend tests with `-n 4 --dist=loadgroup`; more workers regress on this suite.
+
 ### 2. ActiveRecord common test suite (`feature/{basic,query,relation,…}`)
 
 These validate **framework-level behavior that must hold identically across every backend** —

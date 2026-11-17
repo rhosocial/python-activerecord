@@ -15,12 +15,21 @@ import pytest
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.testsuite.pytest_plugin import Declaration
 
 from support.fixtures import (
     TABLE_DEFINITIONS,
     TRIGGER_DEFINITION,
     VIEW_DEFINITION,
     IndexesDefinition,
+)
+
+# Introspection reads one real database per scenario; keep the directory serial.
+DECLARATION = Declaration(
+    parallel=True,
+    purpose="SQLite introspection of tables, columns, indexes and pragmas",
+    passes_means="the catalog answers match the schema the fixtures created",
+    fails_means="introspection reports a shape the database does not have",
 )
 
 DDL = ExecutionOptions(stmt_type=StatementType.DDL)
@@ -138,10 +147,3 @@ def backend_with_trigger(backend_with_tables: SQLiteBackend) -> SQLiteBackend:
 
     return backend_with_tables
 
-
-GROUP = "sqlite:introspection"
-
-
-def pytest_collection_modifyitems(items):
-    for item in items:
-        item.add_marker(pytest.mark.xdist_group(GROUP))
