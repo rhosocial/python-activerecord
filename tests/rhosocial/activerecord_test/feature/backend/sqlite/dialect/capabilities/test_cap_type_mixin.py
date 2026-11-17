@@ -36,6 +36,9 @@ from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
     SQLiteRealType,
     SQLiteTextType,
 )
+from rhosocial.activerecord.backend.impl.sqlite.mixins.data_type_suggestions import (
+    SQLITE_DATA_TYPE_SUGGESTIONS,
+)
 
 DIALECT = SQLiteDialect(version=(3, 53, 0))
 
@@ -142,3 +145,10 @@ def test_parse_type_affinity_branches():
     assert isinstance(DIALECT.parse_type("DECIMAL"), SQLiteNumericType)
     assert isinstance(DIALECT.parse_type("BLOB"), SQLiteBlobType)
     assert isinstance(DIALECT.parse_type("MYSTERY"), CustomType)
+
+
+def test_suggested_data_types_returns_fresh_copy():
+    """SQLite's DDL suggestions are the affinities it really stores."""
+    table = DIALECT.suggested_data_types()
+    assert table == SQLITE_DATA_TYPE_SUGGESTIONS
+    assert table is not SQLITE_DATA_TYPE_SUGGESTIONS
