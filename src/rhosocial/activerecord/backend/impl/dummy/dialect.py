@@ -736,7 +736,7 @@ class DummyDialect(
         is what lets an introspected schema be written back verbatim; it is
         *not* an answer for a name in the table above, which is why the table
         is checked against every core ``SPELLINGS`` entry by
-        ``tests/.../dummy2/test_type_spelling_parse.py``.
+        ``tests/.../dummy/types/test_type_spelling_parse.py``.
         """
         stripped = raw.strip()
         if not stripped:

@@ -53,7 +53,7 @@ class DataTypeMixin:
     The two are disjoint by contract: a type the dialect renders needs no
     substitute. Both properties — completeness over core types, and the
     renderability of every suggested substitute — are enforced by
-    ``tests/.../dummy2/test_type_protocol_contracts.py`` rather than by a
+    ``tests/.../dummy/capability/test_type_protocol_contracts.py`` rather than by a
     ``Protocol``, because the set of concepts is open: a backend may add one
     (that is how ``Enum8``/``Enum16`` in ClickHouse, ``GEOMETRY`` in
     PostgreSQL, or the three SQL Server GUID spellings exist), and requiring
@@ -69,7 +69,7 @@ class DataTypeMixin:
     family *is* the registry, and :meth:`type_class_for` says where the class
     comes from — the formatter's own annotation first, then the backend's type
     module, then the live subclass tree. That last step is why
-    ``tests/.../dummy2/test_type_dispatch_registry.py`` asks in a **fresh
+    ``tests/.../dummy/types/test_type_dispatch_registry.py`` asks in a **fresh
     interpreter**: a test that imports the type classes in its own preamble has
     already loaded them, and a bug that only shows up before they are loaded is
     invisible to it.
@@ -214,7 +214,7 @@ class DataTypeMixin:
         only under ``TYPE_CHECKING`` so the annotation is a string with nothing
         behind it, still resolves here *if* something imported the class — and if
         nothing did, this returns ``None`` as it always did.  That residual is why
-        ``tests/.../dummy2/test_type_dispatch_registry.py`` checks the mapping
+        ``tests/.../dummy/types/test_type_dispatch_registry.py`` checks the mapping
         from a **fresh interpreter**, which is the only way a load-order bug can be
         seen: a test that imports the type classes in its own preamble has already
         made the bug invisible.

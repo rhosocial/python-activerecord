@@ -178,9 +178,12 @@ for name, dt_cls in dialect.supports_data_types().items():
 
 `supports_data_types()` 由方言自身的命名族成员自动发现（后端方言会把带自己前缀的条目合并进继承的映射）。它的键与 `format_data_type_*` 命名族的分发键完全一致。
 
-### 跨后端建议 (suggested_data_types)
+### 跨后端建议 (substitute_data_types)
 
-`suggested_data_types() -> Dict[str, type]` 是**跨后端类型一致性**的对应机制：对于方言**不**原生支持的通用类型，它可以建议一个替代的 `DataType` 类。
+`substitute_data_types() -> Dict[str, type]` 是**跨后端类型一致性**的对应机制：对于方言**不**原生支持的通用类型，它可以建议一个替代的 `DataType` 类。
+
+不要与 `suggested_data_types()` 混淆：后者把 `FRAMEWORK_PYTHON_TYPES` 中的 24 个 Python 类型映射到
+`DataType` 实例，用作裸字段的默认 DDL 声明。
 
 - 键使用相同的通用名命名空间（`"uuid"`、`"enum"`、……），且与 `supports_data_types()` 的键**互不相交**——方言能渲染的类型无需建议
 - 值是具体的 `DataType` 类（例如 SQLite 建议 `uuid`/`enum` → `SQLiteTextType`，`binary`/`varbinary` → `SQLiteBlobType`）

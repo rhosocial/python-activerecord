@@ -537,7 +537,7 @@ SQLServerDialect does not support the generic type 'oracle_varchar2'
 This demonstrates three rules:
 
 1. `DDLSourceMixin` does not validate a backend expression against the active dialect at model import time.
-2. `supports_data_types()` and `suggested_data_types()` are capability queries, not automatic substitution mechanisms.
+2. `supports_data_types()` and `substitute_data_types()` are capability queries, not automatic substitution mechanisms.
 3. If a model has only an incompatible backend expression, the consumer must handle `TypeError`; the source will not silently fall back to `VARCHAR`, `TEXT`, or another core type.
 
 ## Backend-Specific Options

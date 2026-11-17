@@ -173,9 +173,12 @@ for name, dt_cls in dialect.supports_data_types().items():
 
 `supports_data_types()` is discovered from the dialect's own naming-family members (and backend dialects merge their namespaced entries into the inherited map). Its keys are exactly the dispatch keys of the `format_data_type_*` family.
 
-### Cross-Backend Suggestions (suggested_data_types)
+### Cross-Backend Suggestions (substitute_data_types)
 
-`suggested_data_types() -> Dict[str, type]` is the counterpart for **cross-backend type consistency**: for generic types the dialect does **not** natively support, it may suggest a replacement `DataType` class.
+`substitute_data_types() -> Dict[str, type]` is the counterpart for **cross-backend type consistency**: for generic types the dialect does **not** natively support, it may suggest a replacement `DataType` class.
+
+Do not confuse it with `suggested_data_types()`, which maps the 24 Python types in
+`FRAMEWORK_PYTHON_TYPES` to `DataType` instances used as the default DDL declaration for bare fields.
 
 - Keys use the same generic-name namespace (`"uuid"`, `"enum"`, ...) and are **disjoint** from the keys of `supports_data_types()` — a type the dialect renders needs no suggestion
 - Values are concrete `DataType` classes (e.g. SQLite suggests `uuid`/`enum` → `SQLiteTextType`, `binary`/`varbinary` → `SQLiteBlobType`)
