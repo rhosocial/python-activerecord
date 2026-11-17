@@ -1,6 +1,6 @@
 ---
 name: dev-sqlite-version-swap
-description: Run Python against a different SQLite engine for one process, without rebuilding or replacing the interpreter - build a SONAME-matched libsqlite3 and point LD_LIBRARY_PATH at it, then verify version, compile options and capability probes before trusting the tests
+description: Run Python against a different or full-featured SQLite engine for one process on Linux, WSL, Windows or macOS - build a SONAME-matched libsqlite3 or a feature-complete sqlite3.dll, point the loader at it, and verify version, compile options and capability probes before trusting the tests
 license: MIT
 compatibility: opencode
 metadata:
@@ -63,10 +63,19 @@ this skill does nothing. Record the engine version printed here as the baseline.
 
 ## Build a replacement
 
-`scripts/build_sqlite_swap.sh` (relative to this skill) does the work: it
-resolves the amalgamation archive for a version from the official download
-page, compiles it with the features usually wanted for capability tests, writes
-`libsqlite3.so.0` with the matching SONAME, and prints the verification command.
+The `scripts/` directory of this skill holds four helpers:
+
+| Script | Platform | Purpose |
+|---|---|---|
+| `build_sqlite_swap.sh <version> [prefix]` | Linux / WSL | Build `libsqlite3.so.0` with a matching SONAME. |
+| `build_sqlite_swap.ps1 -Version <ver>` | Windows | Build a full-featured `sqlite3.dll` with MSVC and copy `_sqlite3.pyd` beside it. |
+| `verify_sqlite_features.py` | all | Print version, check compile options and probe reachable modules/functions. |
+| `run_with_sqlite_swap.py` | Windows (works elsewhere) | Put the private directory at `sys.path[0]`, then hand args to pytest. |
+
+`scripts/build_sqlite_swap.sh` does the work: it resolves the amalgamation
+archive for a version from the official download page, compiles it with the
+features usually wanted for capability tests, writes `libsqlite3.so.0` with the
+matching SONAME, and prints the verification command.
 
 ```bash
 scripts/build_sqlite_swap.sh 3.53.0
@@ -98,6 +107,19 @@ SQLITE_AMALGAMATION_URL=https://example.invalid/sqlite-amalgamation-3530000.zip 
 | `-DSQLITE_ENABLE_DBSTAT_VTAB` | The `dbstat` virtual table used by storage introspection. |
 | `-DSQLITE_ENABLE_MATH_FUNCTIONS` | Built-in math functions. |
 | `-DSQLITE_ENABLE_COLUMN_METADATA` | `sqlite3_column_*` metadata used by some drivers. |
+| `-DSQLITE_ENABLE_PERCENTILE` | `percentile()` extension function. |
+| `-DSQLITE_ENABLE_DBPAGE_VTAB` | Raw page `dbpage` virtual table. |
+| `-DSQLITE_ENABLE_STMTVTAB` | `stmtvtab` virtual table. |
+| `-DSQLITE_ENABLE_BYTECODE_VTAB` | `bytecode` virtual table. |
+| `-DSQLITE_ENABLE_SERIALIZE` / `DESERIALIZE` | Serialization API (built in by default in modern SQLite; not printed in `compile_options`). |
+
+For "all features" builds add `FTS3`, `FTS4`, `PREUPDATE_HOOK`, `SESSION`,
+`NORMALIZE`, `EXPLAIN_COMMENTS`, `STMT_SCANSTATUS`, `UPDATE_DELETE_LIMIT`,
+`LOAD_EXTENSION` and `THREADSAFE=1`. Note that `dbpage`, `stmtvtab` and
+`bytecode` are compiled in but gated behind `sqlite3_db_config()` in the C API;
+Python's stdlib `sqlite3` does not expose that call, so they cannot be created
+from Python even though `compile_options` lists them. Treat that as a loader
+limitation, not a failed build.
 
 Build flags decide which features *exist*; `PRAGMA compile_options` is how a
 dialect finds out. If a capability probe reads compile options, it will
@@ -158,14 +180,66 @@ a skip: the suite reports success for a version nobody is running.
 | `LD_DEBUG` names another path | Another entry in the search order wins (a wrapper script, a container, an RPATH). Inspect with `LD_DEBUG=libs`. |
 | Other libraries in the process fail | They resolved the same SONAME to your build. For a test process that is acceptable; do not use this method for unrelated workloads. |
 
-## macOS and Windows
+## Windows: swap the DLL for one process
 
-The mechanism is a Linux ELF/loader feature (`LD_LIBRARY_PATH` plus SONAME).
-On macOS the equivalents are `DYLD_LIBRARY_PATH` (or `DYLD_INSERT_LIBRARIES`)
-and `install_name`; SIP may ignore the former for protected binaries. On
-Windows the engine is a DLL that the `sqlite3` extension loads by name, so the
-replacement is a `sqlite3.dll` of the matching bitness placed where the search
-order finds it first. Verify with the same two version lines.
+CPython on Windows keeps `DLLs/_sqlite3.pyd` and `DLLs/sqlite3.dll` side by side
+in each installation. The extension loads `sqlite3.dll` by name from the
+directory of the loaded module, so a private directory containing **both files**
+wins if it sits at `sys.path[0]` before anything imports `sqlite3`.
+
+`PYTHONPATH` alone does **not** work: CPython puts its own `DLLs/` ahead of
+`PYTHONPATH` on `sys.path`. Use the launcher.
+
+1. Build with MSVC (BuildTools provides `vcvars64.bat`):
+
+   ```powershell
+   .claude/skills/dev-sqlite-version-swap/scripts/build_sqlite_swap.ps1 -Version 3.53.4
+   ```
+
+   The script downloads the amalgamation if needed, compiles a full-featured
+   `sqlite3.dll` into `%LOCALAPPDATA%\sqlite-swap\<version>\bin`, and copies
+   `_sqlite3.pyd` next to it. The `/DSQLITE_API=__declspec(dllexport)` define is
+   **mandatory**: without it the DLL loads via `ctypes` but exports no
+   `sqlite3_*` symbols, and importing `_sqlite3.pyd` fails with "not a valid
+   Win32 application".
+2. Verify the engine the launcher will load. Use the **project venv** interpreter
+   (it has pytest and the project installed); the probe itself needs only stdlib:
+
+   ```powershell
+   $env:SQLITE_SWAP_DIR="$env:LOCALAPPDATA\sqlite-swap\3.53.4\bin"
+   .\.venv3.15\Scripts\python.exe `
+       .claude/skills/dev-sqlite-version-swap/scripts/verify_sqlite_features.py
+   ```
+
+   The probe inserts `SQLITE_SWAP_DIR` at `sys.path[0]` itself on Windows, so it
+   reports the engine that tests will actually use.
+
+3. Run tests with the same venv interpreter:
+
+   ```powershell
+   .\.venv3.15\Scripts\python.exe `
+       .claude/skills/dev-sqlite-version-swap/scripts/run_with_sqlite_swap.py `
+       tests/... -q
+   ```
+
+   The launcher inserts the private directory at `sys.path[0]`, imports
+   `sqlite3` early, prints the loaded engine version to stderr, then calls
+   `pytest.main()`. Stopping use of the launcher restores the system engine.
+
+An alternative is to back up `DLLs/sqlite3.dll`, copy the custom DLL over it,
+run plain `python -m pytest`, then restore the backup. That changes every
+process using the interpreter and is easy to forget — prefer the launcher.
+
+Bitness and version must match: an x64 DLL for x64 Python, built from exactly
+the version reported by `sqlite3.sqlite_version`, and with the other compile
+options from `PRAGMA compile_options` preserved.
+
+## macOS
+
+The ELF mechanism above does not apply. Use `DYLD_LIBRARY_PATH` (or
+`DYLD_INSERT_LIBRARIES`) with a matching `install_name`; SIP may ignore the
+former for protected binaries. Verify with the same version/compile-option
+probe before trusting a test run.
 
 ## Cleanup
 
@@ -182,4 +256,6 @@ rm -rf "$HOME/.local/sqlite-swap/<version>"
 3. `sqlite3.sqlite_version` and `select sqlite_version()` both report the target.
 4. `PRAGMA compile_options` contains the features the tests need.
 5. Any engine-fact cache in the code under test is reset.
-6. The capability-gated tests now run instead of skip, and execute real SQL.
+6. `scripts/verify_sqlite_features.py` reports PASS (wanted options present, reachable probes OK).
+7. On Windows, the private directory is at `sys.path[0]` via the launcher — `PYTHONPATH` alone is not enough.
+8. The capability-gated tests now run instead of skip, and execute real SQL.
