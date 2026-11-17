@@ -2,7 +2,11 @@
 """SQLite JSON adapter hooks for neutral-type codecs (DB-free)."""
 from typing import Any
 
-from rhosocial.activerecord.backend.adapters.json_codec import AdapterJSONCodec, register_type
+from rhosocial.activerecord.backend.adapters.json_codec import (
+    AdapterJSONCodec,
+    register_type,
+    unregister_type,
+)
 from rhosocial.activerecord.backend.impl.sqlite.adapters import SQLiteJSONAdapter
 
 
@@ -32,12 +36,17 @@ def test_sqlite_json_adapter_defaults_preserve_extended_serializer():
 
 def test_sqlite_json_adapter_forwards_hooks():
     register_type("sqlite_json_demo", _Demo)
-    codec = AdapterJSONCodec(tagged=True)
-    adapter = SQLiteJSONAdapter(default=codec.default, object_hook=codec.object_hook)
+    try:
+        codec = AdapterJSONCodec(tagged=True)
+        adapter = SQLiteJSONAdapter(default=codec.default, object_hook=codec.object_hook)
 
-    text = adapter.to_database({"d": _Demo(9)}, str)
-    assert '"__type__": "sqlite_json_demo"' in text
+        text = adapter.to_database({"d": _Demo(9)}, str)
+        assert '"__type__": "sqlite_json_demo"' in text
 
-    decoded = adapter.from_database(text, dict)
-    assert isinstance(decoded["d"], _Demo)
-    assert decoded["d"].number == 9
+        decoded = adapter.from_database(text, dict)
+        assert isinstance(decoded["d"], _Demo)
+        assert decoded["d"].number == 9
+    finally:
+        # The codec registry is process-global; leave no demo tag behind for
+        # the adapter-catalogue contract tests sharing this worker.
+        unregister_type("sqlite_json_demo")

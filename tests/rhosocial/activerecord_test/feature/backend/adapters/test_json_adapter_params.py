@@ -3,7 +3,11 @@
 
 from typing import Any
 
-from rhosocial.activerecord.backend.adapters.json_codec import AdapterJSONCodec, register_type
+from rhosocial.activerecord.backend.adapters.json_codec import (
+    AdapterJSONCodec,
+    register_type,
+    unregister_type,
+)
 from rhosocial.activerecord.backend.type_adapter import JSONAdapter
 
 
@@ -33,12 +37,17 @@ def test_json_adapter_without_hooks_is_unchanged():
 
 def test_json_adapter_forwards_default_and_object_hook():
     register_type("demo_json_adapter", _Demo)
-    codec = AdapterJSONCodec(tagged=True)
-    adapter = JSONAdapter(default=codec.default, object_hook=codec.object_hook)
+    try:
+        codec = AdapterJSONCodec(tagged=True)
+        adapter = JSONAdapter(default=codec.default, object_hook=codec.object_hook)
 
-    text = adapter.to_database({"d": _Demo(7)}, str)
-    assert '"__type__": "demo_json_adapter"' in text
+        text = adapter.to_database({"d": _Demo(7)}, str)
+        assert '"__type__": "demo_json_adapter"' in text
 
-    decoded = adapter.from_database(text, dict)
-    assert isinstance(decoded["d"], _Demo)
-    assert decoded["d"].value == 7
+        decoded = adapter.from_database(text, dict)
+        assert isinstance(decoded["d"], _Demo)
+        assert decoded["d"].value == 7
+    finally:
+        # The codec registry is process-global; leave no demo tag behind for
+        # the adapter-catalogue contract tests sharing this worker.
+        unregister_type("demo_json_adapter")
