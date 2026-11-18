@@ -120,6 +120,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     TransactionControlMixin,
 )
 from rhosocial.activerecord.backend.dialect.protocols import (
+    IntegerAutoIncrementColumnSuggestionSupport,
     # Named-object protocols
     TableObjectSupport,
     ViewObjectSupport,
@@ -414,6 +415,7 @@ class DummyDialect(
     GeneratedColumnMixin,
     AutoIncrementMixin,
     IdentityColumnMixin,
+    IntegerAutoIncrementColumnSuggestionSupport,
     DatabaseMixin,
     # Introspection Mixin
     IntrospectionMixin,
@@ -1588,6 +1590,19 @@ class DummyDialect(
 
     def supports_auto_increment_column(self) -> bool:
         return True
+
+    def suggest_integer_auto_increment_column(self, default_type):
+        """Implement the protocol without suggesting an auto-increment storage.
+
+        Dummy's ``supports_auto_increment_column()`` probe drives the *generic*
+        marker's own render test; the column suggestion is a separate channel
+        and here declines, keeping the portable column baseline plain.
+        """
+        from rhosocial.activerecord.backend.expression import (
+            IntegerAutoIncrementColumnSuggestion,
+        )
+
+        return IntegerAutoIncrementColumnSuggestion(default_type, None)
 
     def supports_database_assigned_integer_column(self) -> bool:
         return True

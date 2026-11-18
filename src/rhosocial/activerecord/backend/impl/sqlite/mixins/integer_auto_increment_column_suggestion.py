@@ -6,15 +6,13 @@ key as ``INTEGER PRIMARY KEY AUTOINCREMENT``. Note this is *not* the bare
 ``AUTO_INCREMENT`` marker -- ``AutoIncrementMixin.supports_auto_increment_column()``
 is deliberately False on SQLite -- so this mixin does not consult that probe;
 it returns the mechanism SQLite actually spells and leaves rendering to
-:meth:`format_auto_increment_clause`.
+:meth:`format_sqlite_auto_increment_clause`.
 """
 
 from typing import TYPE_CHECKING
 
-from ....expression.statements import (
-    AutoIncrementClause,
-    IntegerAutoIncrementColumnSuggestion,
-)
+from ....expression.statements import IntegerAutoIncrementColumnSuggestion
+from ..sqlite_auto_increment_clause import SQLiteAutoIncrementClause
 
 if TYPE_CHECKING:  # pragma: no cover
     from ....expression.types._base import DataType
@@ -27,5 +25,5 @@ class SQLiteIntegerAutoIncrementColumnSuggestionMixin:
         self, default_type: "DataType"
     ) -> IntegerAutoIncrementColumnSuggestion:
         return IntegerAutoIncrementColumnSuggestion(
-            default_type, AutoIncrementClause(self)
+            default_type, SQLiteAutoIncrementClause(self)
         )

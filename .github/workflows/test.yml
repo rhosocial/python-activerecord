@@ -235,7 +235,11 @@ jobs:
           echo "- Result: benchmark job fails only when FastAPI benchmark execution or correctness checks fail."
           echo
           echo '```text'
-          grep -A 120 "benchmark:" fastapi-benchmark-output.txt || cat fastapi-benchmark-output.txt
+          if [ -f fastapi-benchmark-output.txt ]; then
+            grep -A 120 "benchmark:" fastapi-benchmark-output.txt || cat fastapi-benchmark-output.txt
+          else
+            echo "(no FastAPI benchmark output captured)"
+          fi
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY"
 

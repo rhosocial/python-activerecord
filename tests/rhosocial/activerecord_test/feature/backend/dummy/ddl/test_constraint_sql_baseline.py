@@ -81,8 +81,8 @@ class TestColumnConstraintBaseline:
         from rhosocial.activerecord.backend.expression.statements import ColumnDefinition
         from rhosocial.activerecord.backend.expression.types import IntegerType
 
-        for dialect, expected in ((dummy_dialect, " INTEGER PRIMARY KEY"),
-                                  (SQLiteDialect(), ' INTEGER PRIMARY KEY AUTOINCREMENT')):
+        for dialect, expected in ((dummy_dialect, '"id" INTEGER PRIMARY KEY'),
+                                  (SQLiteDialect(), '"id" INTEGER PRIMARY KEY AUTOINCREMENT')):
             data_type, attributes = auto_increment_parts(dialect, IntegerType(dialect))
             column = ColumnDefinition(
                 dialect, "id", data_type,

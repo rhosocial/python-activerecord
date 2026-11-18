@@ -1,6 +1,8 @@
 from rhosocial.activerecord.backend.expression.statements import (
-    AutoIncrementClause,
     ColumnPrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.impl.sqlite.sqlite_auto_increment_clause import (
+    SQLiteAutoIncrementClause,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from typing import Tuple, TYPE_CHECKING
@@ -44,12 +46,8 @@ class SQLiteDDLColumnMixin:
         """
         return super().format_column_primary_key_constraint(constraint)
 
-    def format_auto_increment_clause(self, expr) -> Tuple[str, tuple]:
-        """SQLite spells the parameterless auto-increment marker ``AUTOINCREMENT``.
-
-        This is deliberately not the core ``AUTO_INCREMENT`` spelling: SQLite
-        accepts ``AUTOINCREMENT`` only as the tail of ``INTEGER PRIMARY KEY``.
-        """
+    def format_sqlite_auto_increment_clause(self, expr) -> Tuple[str, tuple]:
+        """SQLite's rowid-alias ``AUTOINCREMENT`` tail (after PRIMARY KEY)."""
         return " AUTOINCREMENT", ()
 
     def format_default_value_clause(self, expr: "DefaultValueClause") -> Tuple[str, tuple]:
@@ -95,8 +93,8 @@ class SQLiteDDLColumnMixin:
         sql = f"{self.format_identifier(col_def.name)} {type_sql}"
 
         attributes = tuple(col_def.attributes or ())
-        increment_attributes = [a for a in attributes if isinstance(a, AutoIncrementClause)]
-        other_attributes = [a for a in attributes if not isinstance(a, AutoIncrementClause)]
+        increment_attributes = [a for a in attributes if isinstance(a, SQLiteAutoIncrementClause)]
+        other_attributes = [a for a in attributes if not isinstance(a, SQLiteAutoIncrementClause)]
         for attr in other_attributes:
             fragment, params = self.format_column_attribute(attr)
             sql += fragment
@@ -136,7 +134,7 @@ class SQLiteDDLColumnMixin:
         )
 
         has_increment = any(
-            isinstance(a, AutoIncrementClause) for a in (col_def.attributes or ())
+            isinstance(a, SQLiteAutoIncrementClause) for a in (col_def.attributes or ())
         )
         if not has_increment:
             return

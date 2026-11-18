@@ -16,7 +16,6 @@ from typing import Optional
 
 from rhosocial.activerecord.backend.dialect.protocols import IntegerAutoIncrementColumnSuggestionSupport
 from rhosocial.activerecord.backend.expression import IntegerAutoIncrementColumnSuggestion
-from rhosocial.activerecord.backend.expression.statements import AutoIncrementClause
 from rhosocial.activerecord.backend.expression.types import IntegerType
 from rhosocial.activerecord.backend.impl.sqlite.mixins import (
     SQLiteIntegerAutoIncrementColumnSuggestionMixin,
@@ -94,6 +93,12 @@ def test_suggestion_protocol_and_backend_mixin_exist():
 
 
 def test_sqlite_suggestion_carries_the_autoincrement_clause():
+    from rhosocial.activerecord.backend.impl.sqlite.sqlite_auto_increment_clause import (
+        SQLiteAutoIncrementClause,
+    )
+
     suggestion = SQLiteDialect().suggest_integer_auto_increment_column(IntegerType())
     assert isinstance(suggestion.type, IntegerType)
-    assert isinstance(suggestion.auto_increment, AutoIncrementClause)
+    # SQLite uses a dedicated rowid-alias clause so the generic AutoIncrementClause
+    # stays fail-closed on dialects whose supports_auto_increment_column() is False.
+    assert isinstance(suggestion.auto_increment, SQLiteAutoIncrementClause)
