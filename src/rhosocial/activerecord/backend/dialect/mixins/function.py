@@ -548,7 +548,11 @@ class FunctionCallMixin:
         column given a name here is a name the caller asked for.
         """
         source_sql, source_params = expr.source.to_sql()
-        if expr.source.alias and not expr.alias:
+        # The annotated node need not carry an alias slot at all -- a Literal,
+        # for one, renders a value and has no name that could be aliased. Only
+        # nodes that model a column-like surface expose ``alias``.
+        source_alias = getattr(expr.source, "alias", None)
+        if source_alias and not expr.alias:
             return source_sql, tuple(source_params)
         if expr.alias:
             return f"{source_sql} AS {self.format_identifier(expr.alias)}", tuple(source_params)

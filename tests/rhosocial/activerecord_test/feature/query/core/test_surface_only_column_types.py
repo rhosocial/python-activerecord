@@ -140,6 +140,19 @@ def test_the_annotation_renders_its_source():
     assert annotated.to_sql() == ('"t"."c"', ())
 
 
+def test_the_annotation_renders_an_aliasless_source():
+    """The wrapped node need not expose an ``alias`` slot at all.
+
+    A Literal renders a value and has no column-like surface, so reading
+    ``source.alias`` unconditionally raised AttributeError here.
+    """
+    from rhosocial.activerecord.backend.expression import Literal
+
+    dialect = sqlite_dialect()
+    annotated = SurfaceOnlyAnnotation(dialect, Literal(dialect, 1))
+    assert annotated.to_sql() == ("?", (1,))
+
+
 @pytest.mark.parametrize(
     "table, dialect_factory, expected",
     [
