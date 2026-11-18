@@ -94,6 +94,14 @@ class TestAutoIncrementRefusedElsewhere:
         with pytest.raises(UnsupportedFeatureError, match="non-INTEGER"):
             column.to_sql()
 
+    def test_without_a_primary_key(self):
+        """AUTOINCREMENT with no single-column PK is refused by name."""
+        dialect = SQLiteDialect()
+        column = definition(dialect, IntegerType(dialect), auto_increment=True)
+
+        with pytest.raises(UnsupportedFeatureError, match="AUTOINCREMENT without a primary key"):
+            column.to_sql()
+
 
 class TestPrivateHandlersAreGone:
     """The SQLite-specific copies of the shared renderers are deleted.
