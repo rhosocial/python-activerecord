@@ -9,12 +9,14 @@ autoincrement.
 """
 import pytest
 from rhosocial.activerecord.backend.expression.statements import (
-    AutoIncrementClause,
     ColumnDefaultConstraint,
     ColumnNotNullConstraint,
     ColumnNullableConstraint,
     ColumnPrimaryKeyConstraint,
     ColumnUniqueConstraint,
+)
+from rhosocial.activerecord.backend.impl.sqlite.sqlite_auto_increment_clause import (
+    SQLiteAutoIncrementClause,
 )
 from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
@@ -28,7 +30,7 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 
 
 def definition(dialect, data_type, *constraints, auto_increment=False):
-    attributes = [AutoIncrementClause(dialect)] if auto_increment else []
+    attributes = [SQLiteAutoIncrementClause(dialect)] if auto_increment else []
     return ColumnDefinition(
         dialect, "id", data_type, constraints=list(constraints), attributes=attributes
     )

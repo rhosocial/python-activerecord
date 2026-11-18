@@ -10,12 +10,14 @@ import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression.statements import (
-    AutoIncrementClause,
     ColumnCommentClause,
     ColumnConstraint,
     ColumnDefinition,
     ColumnPrimaryKeyConstraint,
     DefaultValueClause,
+)
+from rhosocial.activerecord.backend.impl.sqlite.sqlite_auto_increment_clause import (
+    SQLiteAutoIncrementClause,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
@@ -28,7 +30,7 @@ DIALECT = SQLiteDialect(version=(3, 53, 0))
 
 def _auto_increment_attribute():
     """Auto-increment now comes from the backend suggestion as a clause."""
-    return AutoIncrementClause(DIALECT)
+    return SQLiteAutoIncrementClause(DIALECT)
 
 
 def _primary_key_constraint():
