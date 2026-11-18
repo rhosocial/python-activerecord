@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/field/integer_pk.py
 """Module providing integer primary key functionality."""
 
-from typing import ClassVar, Optional
+from typing import ClassVar, Optional, Set
 
 
 class IntegerPKMixin:
@@ -26,3 +26,8 @@ class IntegerPKMixin:
     __primary_key__: ClassVar[str] = "id"
 
     id: Optional[int] = None
+
+    @classmethod
+    def no_track_fields_from_mixins(cls) -> Set[str]:
+        """The auto-increment PK is identity, not a user-changed value."""
+        return super().no_track_fields_from_mixins() | {cls.primary_key()}

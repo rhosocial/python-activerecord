@@ -3,7 +3,7 @@
 
 import sys
 import uuid
-from typing import ClassVar
+from typing import ClassVar, Set
 from pydantic import Field
 
 try:
@@ -42,6 +42,11 @@ class UUIDMixin(IDataPreparationBehavior):
             or self._generate_uuid()
         ),
     ] = Field(default_factory=uuid.uuid4)
+
+    @classmethod
+    def no_track_fields_from_mixins(cls) -> Set[str]:
+        """The UUID key is identity, not a user-changed value."""
+        return super().no_track_fields_from_mixins() | {cls.primary_key()}
 
     @classmethod
     def uuid_version(cls) -> str:

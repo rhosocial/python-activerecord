@@ -17,7 +17,7 @@ database backends.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Union
+from typing import Any, Dict, Set, Union
 
 try:
     from typing import Annotated
@@ -65,6 +65,14 @@ class TimestampMixin(IUpdateBehavior):
             before_restore=now,
         )
         return generators
+
+    @classmethod
+    def no_track_fields_from_mixins(cls) -> Set[str]:
+        """Timestamps are framework-managed, never user-changed."""
+        return super().no_track_fields_from_mixins() | {
+            cls.created_at_field(),
+            cls.updated_at_field(),
+        }
 
     @classmethod
     def created_at_field(cls) -> str:

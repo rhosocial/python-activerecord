@@ -83,7 +83,24 @@ class ActiveRecordBase(BaseModel, ABC):
             declared = base.__dict__.get("__no_track_fields__")
             if declared:
                 collected.update(declared)
+        # Companion path for semantics-only mixins that configure their field
+        # names at runtime and therefore cannot name them in a static set.
+        collected.update(cls.no_track_fields_from_mixins())
         return collected
+
+    @classmethod
+    def no_track_fields_from_mixins(cls) -> Set[str]:
+        """Framework-managed field names that change tracking must ignore.
+
+        Counterpart of :meth:`field_generators`: semantics-only mixins
+        (``TimestampMixin``, ``SoftDeleteMixin``, ``OptimisticLockMixin``) that
+        configure their field names at runtime override this with
+        ``super().no_track_fields_from_mixins() | {cls.updated_at_field(), ...}``
+        so several mixins can contribute. These are fields the framework writes
+        itself (audit / lock values); a user never changes them, so they must
+        not appear in ``dirty_fields`` handed to update events.
+        """
+        return set()
 
     @classmethod
     def table_name(cls) -> str:

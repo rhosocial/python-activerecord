@@ -16,7 +16,7 @@ equal footing without mixing execution models.
 """
 
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Set
 
 from pydantic import Field
 
@@ -50,6 +50,11 @@ class SoftDeleteMixin(IDeleteBehavior):
             before_restore=lambda instance: None,
         )
         return generators
+
+    @classmethod
+    def no_track_fields_from_mixins(cls) -> Set[str]:
+        """The soft-delete marker is framework-managed, never user-changed."""
+        return super().no_track_fields_from_mixins() | {cls.deleted_at_field()}
 
     @classmethod
     def deleted_at_field(cls) -> str:

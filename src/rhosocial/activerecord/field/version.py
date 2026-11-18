@@ -51,7 +51,7 @@ from ..backend.expression import SQLPredicate, SQLValue
 from ..backend.errors import DatabaseError, StaleRecordError
 from ..base.fields import UseConstraint
 from pydantic import Field
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Set, Union
 
 
 if sys.version_info >= (3, 9):
@@ -77,6 +77,11 @@ class OptimisticLockMixin(IUpdateBehavior):
     """
 
     _feature_handlers = [FieldConfigValidationHandler]
+
+    @classmethod
+    def no_track_fields_from_mixins(cls) -> Set[str]:
+        """The version column is framework-managed, never user-changed."""
+        return super().no_track_fields_from_mixins() | {cls.version_field()}
 
     @classmethod
     def version_field(cls) -> str:
