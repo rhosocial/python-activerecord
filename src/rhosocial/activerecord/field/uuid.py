@@ -3,9 +3,15 @@
 
 import sys
 import uuid
-from typing import Any, Dict
+from typing import ClassVar
 from pydantic import Field
 
+try:
+    from typing import Annotated
+except ImportError:  # Python 3.8
+    from typing_extensions import Annotated
+
+from ..base.fields import UseFieldGenerator
 from ..interface.update import IDataPreparationBehavior
 
 
@@ -27,7 +33,15 @@ class UUIDMixin(IDataPreparationBehavior):
     backend declares explicit UUID storage instead.
     """
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4)
+    __primary_key__: ClassVar[str] = "id"
+
+    id: Annotated[
+        uuid.UUID,
+        UseFieldGenerator(
+            before_insert=lambda self: getattr(self, self.primary_key(), None)
+            or self._generate_uuid()
+        ),
+    ] = Field(default_factory=uuid.uuid4)
 
     @classmethod
     def uuid_version(cls) -> str:
@@ -76,28 +90,3 @@ class UUIDMixin(IDataPreparationBehavior):
         if pk_field not in data:
             data[pk_field] = self._generate_uuid()
         super().__init__(**data)
-
-    def prepare_save_data(self, data: Dict[str, Any], is_new: bool) -> Dict[str, Any]:
-        """Prepare save data ensuring proper UUID handling
-
-        Args:
-            data: Current prepared data
-            is_new: Whether this is a new record
-
-        Returns:
-            Dict[str, Any]: Processed data
-        """
-        pk_field = self.primary_key()
-
-        if is_new and not getattr(self, pk_field, None):
-            uuid_value = self._generate_uuid()
-            setattr(self, pk_field, uuid_value)
-            data[pk_field] = uuid_value
-        elif pk_field not in data and getattr(self, pk_field, None):
-            data[pk_field] = getattr(self, pk_field)
-
-        parent_prepare = super().prepare_save_data if hasattr(super(), "prepare_save_data") else None
-        if parent_prepare:
-            data = parent_prepare(data, is_new)
-
-        return data

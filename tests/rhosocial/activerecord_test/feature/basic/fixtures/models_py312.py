@@ -397,7 +397,7 @@ class YesOrNoBooleanAdapter(BaseSQLTypeAdapter):
         return value == "yes"
 
 
-class TypeAdapterTest(ActiveRecord):
+class TypeAdapterTest(IntegerPKMixin, ActiveRecord):
     """Model for testing various type adapter scenarios.
 
     Python 3.12+ version using | syntax.
@@ -417,7 +417,7 @@ class TypeAdapterTest(ActiveRecord):
     optional_custom_bool: Annotated[bool | None, UseAdapter(YesOrNoBooleanAdapter(), str)] = None
 
 
-class AsyncTypeAdapterTest(AsyncActiveRecord):
+class AsyncTypeAdapterTest(IntegerPKMixin, AsyncActiveRecord):
     """Model for testing various type adapter scenarios.
 
     Python 3.12+ version using | syntax.
@@ -563,6 +563,7 @@ class IntToStringAdapter(BaseSQLTypeAdapter):
 
 
 class ColumnMappingModel(ActiveRecord):
+    __primary_key__ = "id"
     """A model demonstrating various valid uses of UseColumn and UseAdapter.
 
     Python 3.12+ version using | syntax.
@@ -659,6 +660,7 @@ class JsonToStringAdapter(BaseSQLTypeAdapter):
 
 
 class MixedAnnotationModel(ActiveRecord):
+    __primary_key__ = "id"
     """A model with various combinations of annotations to test field mapping and adapters.
 
     Python 3.12+ version using | syntax, Self type, and @override.
@@ -682,6 +684,7 @@ class MixedAnnotationModel(ActiveRecord):
 
 
 class AsyncMixedAnnotationModel(AsyncActiveRecord):
+    __primary_key__ = "id"
     """A model with various combinations of annotations to test field mapping and adapters.
 
     Python 3.12+ version using | syntax.

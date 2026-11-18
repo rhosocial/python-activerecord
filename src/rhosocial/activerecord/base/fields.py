@@ -192,6 +192,79 @@ class UseSqlType(DDLAnnotation):
         return f"UseSqlType({', '.join(repr(t) for t in self.data_types)})"
 
 
+class UseFieldGenerator(DDLAnnotation):
+    """Explicit per-operation value generation for a field.
+
+    ``Annotated[T, UseFieldGenerator(before_insert=..., ...)]`` declares how a
+    field gets its value on each write. The callables take the model instance
+    and return the value to write. An operation with **no** callable declared
+    means the field is *filtered out* of that operation's write set -- it is
+    neither generated nor written, so a database default / existing value is
+    left untouched.
+
+    This is an ActiveRecord-side generator: it runs in Python before the write
+    and is distinct from a database-generated key. Declaring it on a primary
+    key therefore cancels the ``Optional[int]`` -> database-identity inference
+    (see ``base.derivation._has_value_generation_annotation``).
+
+    ``on_all`` is a convenience that supplies a generator for every operation
+    that was not explicitly given. Durations conflict with field constraints
+    are the caller's responsibility; the framework does not reconcile them.
+    """
+
+    _SLOTS = (
+        "before_insert", "before_update", "before_soft_delete", "before_restore"
+    )
+
+    def __init__(
+        self,
+        *,
+        before_insert: Optional[Callable] = None,
+        before_update: Optional[Callable] = None,
+        before_soft_delete: Optional[Callable] = None,
+        before_restore: Optional[Callable] = None,
+        on_all: Optional[Callable] = None,
+    ):
+        from ..types import WriteOperation
+
+        given = {
+            "before_insert": before_insert,
+            "before_update": before_update,
+            "before_soft_delete": before_soft_delete,
+            "before_restore": before_restore,
+        }
+        if on_all is not None and not callable(on_all):
+            raise TypeError("UseFieldGenerator(on_all=...) must be callable")
+        for name, generator in given.items():
+            if generator is not None and not callable(generator):
+                raise TypeError(
+                    f"UseFieldGenerator({name}=...) must be callable, "
+                    f"got {type(generator).__name__}"
+                )
+        if on_all is not None:
+            for name in self._SLOTS:
+                if given[name] is None:
+                    given[name] = on_all
+        self._generators = {
+            WriteOperation.INSERT: given["before_insert"],
+            WriteOperation.UPDATE: given["before_update"],
+            WriteOperation.SOFT_DELETE: given["before_soft_delete"],
+            WriteOperation.RESTORE: given["before_restore"],
+        }
+
+    def generator_for(self, operation) -> Optional[Callable]:
+        """The callable for *operation*, or None when the field is filtered out."""
+        return self._generators.get(operation)
+
+    def operations(self) -> tuple:
+        """Operations for which this annotation declares a generator."""
+        return tuple(op for op, generator in self._generators.items() if generator is not None)
+
+    def __repr__(self) -> str:
+        active = ", ".join(op.value for op in self.operations())
+        return f"UseFieldGenerator({active})"
+
+
 class UseColumnType:
     """Marker for ``Annotated[T, UseColumnType(*column_classes)]``.
 

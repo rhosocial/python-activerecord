@@ -5,9 +5,9 @@ class CompositePKMixin:
     """
     Composite primary key helper mixin.
 
-    Subclasses must declare __primary_key__ as a tuple of column names and
-    should set __pk_auto_generated__ = False since composite PKs are typically
-    provided by the application layer.
+    Subclasses must declare __primary_key__ as a tuple of column names. A
+    composite key is always the application's to supply: ``pk_auto_generated()``
+    derives False from ``identity_pk_fields()``, which excludes composite keys.
 
     Usage:
         class OrderItem(CompositePKMixin, BaseActiveRecord):
@@ -26,11 +26,6 @@ class CompositePKMixin:
     composite key mixing a generated surrogate with a caller-supplied partition
     key is exactly the case it exists for.
     """
-
-    @classmethod
-    def pk_auto_generated(cls) -> bool:
-        """A composite key is the application's to give -- override to change."""
-        return False
 
     def __init__(self, **data):
         super().__init__(**data)

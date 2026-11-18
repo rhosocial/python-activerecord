@@ -34,6 +34,7 @@ from rhosocial.activerecord.model import ActiveRecord
 
 
 class ExchangeLegacy(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "exchange_probe"
@@ -47,6 +48,7 @@ class ExchangeLegacy(ActiveRecord):
 
 
 class ExchangeNext(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "exchange_probe_next"

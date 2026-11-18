@@ -15,6 +15,7 @@ foreign-key formatter read them), and a request for a trait a branch cannot
 carry is refused where the node is built instead of being accepted and
 dropped.
 """
+from rhosocial.activerecord.backend.expression.statements import auto_increment_parts  # noqa: E402
 
 import pytest
 from rhosocial.activerecord.backend.expression.statements import (
@@ -77,14 +78,18 @@ class TestColumnConstraintBaseline:
 
     def test_primary_key_autoincrement_is_sqlite_only(self, dummy_dialect):
         """AUTOINCREMENT is part of SQLite's grammar and nowhere else."""
-        clause = ColumnConstraint(
-            dummy_dialect, branch=ColumnPrimaryKeyConstraint(dummy_dialect, True)
-        )
-        assert clause.to_sql() == (" PRIMARY KEY", ())
-        sqlite = SQLiteDialect()
-        assert ColumnConstraint(
-            sqlite, branch=ColumnPrimaryKeyConstraint(sqlite, True)
-        ).to_sql() == (" PRIMARY KEY AUTOINCREMENT", ())
+        from rhosocial.activerecord.backend.expression.statements import ColumnDefinition
+        from rhosocial.activerecord.backend.expression.types import IntegerType
+
+        for dialect, expected in ((dummy_dialect, " INTEGER PRIMARY KEY"),
+                                  (SQLiteDialect(), ' INTEGER PRIMARY KEY AUTOINCREMENT')):
+            data_type, attributes = auto_increment_parts(dialect, IntegerType(dialect))
+            column = ColumnDefinition(
+                dialect, "id", data_type,
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))],
+                attributes=attributes,
+            )
+            assert column.to_sql()[0] == expected
 
     def test_check_inlines_its_literal(self, dummy_dialect):
         clause = ColumnConstraint(

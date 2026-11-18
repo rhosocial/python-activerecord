@@ -175,6 +175,7 @@ from .graph import (
     AlterPropertyGraphStatement,
 )
 from .statements import (
+    IntegerAutoIncrementColumnSuggestion,
     QueryStatement,
     SetOperationStatement,
     DeleteStatement,
@@ -658,6 +659,8 @@ __all__ = [
     "DefaultValueClause",
     "IdentityClause",
     "AutoIncrementClause",
+    "IntegerAutoIncrementColumnSuggestion",
+    "auto_increment_parts",
     "ReferencesClause",
     "ColumnCommentClause",
     "TableCommentClause",

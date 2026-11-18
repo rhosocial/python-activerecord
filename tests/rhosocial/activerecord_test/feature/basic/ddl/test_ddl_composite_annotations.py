@@ -30,6 +30,7 @@ import pytest
 
 
 class CompositeIndexModel(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "composite_index_model"
@@ -40,6 +41,7 @@ class CompositeIndexModel(ActiveRecord):
 
 
 class CompositeUniqueModel(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "composite_unique_model"
@@ -53,6 +55,7 @@ class CompositeUniqueModel(ActiveRecord):
 
 
 class CompositeForeignKeyModel(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "composite_foreign_key_model"

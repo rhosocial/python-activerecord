@@ -29,6 +29,8 @@ from native_models import (
 # This directory owns one session-scoped database; parallel workers would
 # recreate the same tables underneath each other.
 DECLARATION = Declaration(
+    # This scope opens a database; the plugin enforces this declaration.
+    uses_database=True,
     parallel=True,
     purpose="SQLite storage classes and affinity over a directory-owned database",
     passes_means="every declared column stores and returns its SQLite affinity value",

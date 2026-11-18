@@ -34,6 +34,7 @@ from rhosocial.activerecord.model import ActiveRecord
 
 
 class MigUser(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "mig_function_users"
@@ -58,6 +59,7 @@ class MigUser(ActiveRecord):
 
 
 class MigPost(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "mig_function_posts"
@@ -122,6 +124,7 @@ def module_function(ctx):
 
 
 class MigDirectUser(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "mig_function_direct"

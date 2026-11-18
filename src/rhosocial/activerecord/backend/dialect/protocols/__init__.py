@@ -40,6 +40,7 @@ from .ddl.alter_table_modifier import AlterTableModifierSupport
 from .ddl.auto_increment import AutoIncrementColumnSupport
 from .ddl.database_assigned_column import DatabaseAssignedColumnSupport
 from .ddl.identity_column import IdentityColumnSupport
+from .ddl.integer_auto_increment_column_suggestion import IntegerAutoIncrementColumnSuggestionSupport
 from .ddl.column_attribute import ColumnAttributeSupport
 from .ddl.comment import CommentSupport
 from .ddl.constraint import ConstraintSupport
@@ -181,6 +182,7 @@ __all__ = [
     "GraphTableSupport",
     "ILIKESupport",
     "IdentityColumnSupport",
+    "IntegerAutoIncrementColumnSuggestionSupport",
     "IndexObjectSupport",
     "IntrospectionSupport",
     "JSONSupport",

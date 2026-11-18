@@ -42,6 +42,11 @@ class ActiveRecordBase(BaseModel, ABC):
     # UsePartitionKey annotations at class creation. Empty for a
     # non-partitioned model.
     __partition_key__: ClassVar[Tuple[str, ...]] = ()
+    # Primary key declaration: a column name (str), a composite tuple, or None
+    # for a keyless model. The interface's primary_key() reads this; a model may
+    # still override the method for a dynamic key. IntegerPKMixin declares this
+    # as "id"; a bare model without it is keyless by default.
+    __primary_key__: ClassVar[PrimaryKeyDef] = None
     __backend__: Optional[Union[StorageBackend, AsyncStorageBackend]] = None
     __backend_class__: ClassVar[Type[Union[StorageBackend, AsyncStorageBackend]]] = None
     __connection_config__: ClassVar[Optional[ConnectionConfig]] = None
@@ -146,13 +151,19 @@ class ActiveRecordBase(BaseModel, ABC):
         a tuple of column names. ``None`` declares a keyless model: the relation
         has no single-row identity. See :meth:`addressable`.
 
+        Reads the ``__primary_key__`` declaration: a str (single column), a
+        tuple (composite), or ``None`` (keyless). A model may still override
+        this method for a dynamic key, in which case the override wins.
+
         Example:
+            class User(ActiveRecord):
+                __primary_key__ = "user_id"      # declaration
+
             @classmethod
-            def primary_key(cls):
-                # Sharded key: the shard is chosen per tenant
+            def primary_key(cls):                # dynamic override
                 return f"{cls.__name__.lower()}_id"
         """
-        return "id"
+        return cls.__primary_key__
 
     @classmethod
     def addressable(cls) -> bool:
@@ -262,6 +273,24 @@ class ActiveRecordBase(BaseModel, ABC):
         return tuple(getattr(cls, "__table_generated_columns__", ()) or ())
 
     @classmethod
+    def _is_database_generated_integer_key(cls, field: str) -> bool:
+        """The single rule: a single-column ``Optional[int]`` key with no value
+        generator annotation is filled by the database on INSERT. Nothing else
+        declares this -- no dunder, no override. The type and annotation are
+        the whole answer.
+        """
+        if cls.is_composite_pk() or len(cls.primary_key_fields()) != 1:
+            return False
+        if not cls.field_is_optional(field) or cls.field_python_type(field) is not int:
+            return False
+        from ..base.fields import UseFieldGenerator
+
+        return not any(
+            isinstance(annotation, UseFieldGenerator)
+            for annotation in cls.column_annotations(field)
+        )
+
+    @classmethod
     def identity_pk_fields(cls) -> Tuple[str, ...]:
         """Primary key fields the *database* fills in on INSERT.
 
@@ -284,7 +313,10 @@ class ActiveRecordBase(BaseModel, ABC):
 
         resolved = []
         for field in cls.primary_key_fields():
-            if any(isinstance(attr, IdentityAttribute) for attr in cls.column_attributes(field)):
+            declared = any(
+                isinstance(attr, IdentityAttribute) for attr in cls.column_attributes(field)
+            )
+            if declared or cls._is_database_generated_integer_key(field):
                 resolved.append(field)
         return tuple(resolved)
 
@@ -407,14 +439,15 @@ class ActiveRecordBase(BaseModel, ABC):
 
     @classmethod
     def pk_auto_generated(cls) -> bool:
-        """Whether the primary key is database-generated.
+        """Whether the primary key value is supplied by the database.
 
-        Declared by overriding this method. The default is ``True``: the
-        conventional single-column ``id`` is the database's to supply,
-        which is what the insert paths assume. A model whose key the
-        application writes overrides it to ``False``.
+        Fully derived from the key's own declaration -- there is no switch to
+        set and no override to consult. A single-column ``Optional[int]`` key
+        with no value generator is a database identity key; a required key, a
+        string key, a composite key, or one carrying a generator is the
+        application's to supply.
         """
-        return True
+        return bool(cls.identity_pk_fields())
 
     @classmethod
     def backend_class(cls) -> Optional[Type[Union[StorageBackend, AsyncStorageBackend]]]:
@@ -597,6 +630,19 @@ class ActiveRecordBase(BaseModel, ABC):
         Override in ColumnNameMixin to reverse-map custom column names.
         """
         return cls.primary_key()
+
+    @classmethod
+    def field_generators(cls) -> Dict[str, Any]:
+        """Field generators declared by the model's mixins, keyed by field name.
+
+        Field-level ``UseFieldGenerator`` annotations are read directly by the
+        generator runner. This hook is the companion path for semantics-only
+        mixins (``TimestampMixin``, ``SoftDeleteMixin``) that configure their
+        field names at runtime and therefore cannot annotate a field they do
+        not declare. Overrides should merge with ``super()`` so several mixins
+        can contribute.
+        """
+        return {}
 
     @classmethod
     def primary_key_fields(cls) -> Tuple[str, ...]:

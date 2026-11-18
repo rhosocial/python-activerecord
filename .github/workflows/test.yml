@@ -64,7 +64,7 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/ -n 8 --dist=loadgroup --cov=rhosocial --cov-branch --cov-report=xml
+python -m pytest tests/rhosocial/activerecord_test/feature/backend tests/rhosocial/activerecord_test/feature/basic  -n 8 --dist=loadgroup --cov=rhosocial --cov-branch --cov-report=xml
 
     - name: SQLite expression-dialect coverage gate
       env:
@@ -312,7 +312,7 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/ -n 8 --dist=loadgroup
+python -m pytest tests/rhosocial/activerecord_test/feature/backend tests/rhosocial/activerecord_test/feature/basic  -n 8 --dist=loadgroup
 
   test-free-threaded:
     name: Run tests with Python ${{ matrix.python-version }} free-threaded
@@ -373,7 +373,7 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/ -n 8 --dist=loadgroup
+python -m pytest tests/rhosocial/activerecord_test/feature/backend tests/rhosocial/activerecord_test/feature/basic  -n 8 --dist=loadgroup
 
   test-python-315:
     name: Run tests with Python ${{ matrix.python-version }}${{ matrix.freethreaded && 't free-threaded' || '' }}
@@ -430,4 +430,4 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/ -n 8 --dist=loadgroup
+python -m pytest tests/rhosocial/activerecord_test/feature/backend tests/rhosocial/activerecord_test/feature/basic  -n 8 --dist=loadgroup

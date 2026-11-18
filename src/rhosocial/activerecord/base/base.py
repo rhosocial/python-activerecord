@@ -41,7 +41,9 @@ from ..backend.options import InsertOptions, LogContext
 from ..interface import IActiveRecord, IAsyncActiveRecord, ModelEvent
 from ..interface.update import IDataPreparationBehavior, IDeleteBehavior, IUpdateBehavior
 from ..logging import LoggingConfig, LoggingMixin
+from ..types import WriteOperation
 from .bulk_operations import BulkOperationsMixin, AsyncBulkOperationsMixin
+from .field_generation import apply_field_generators
 
 
 
@@ -477,7 +479,10 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             ):
                 prepare_method = base.prepare_save_data
                 data = prepare_method(self, data, is_new)
-        return data
+        # Field generators run last so they can fill values and filter fields
+        # out of the final payload regardless of which mixins contributed.
+        operation = WriteOperation.INSERT if is_new else WriteOperation.UPDATE
+        return apply_field_generators(self.__class__, self, operation, data)
 
     def _after_save(self, is_new: bool) -> None:
         bases = self.__class__.__mro__
@@ -1481,7 +1486,8 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             ):
                 prepare_method = base.prepare_save_data
                 data = prepare_method(self, data, is_new)
-        return data
+        operation = WriteOperation.INSERT if is_new else WriteOperation.UPDATE
+        return apply_field_generators(self.__class__, self, operation, data)
 
     def _after_save(self, is_new: bool) -> None:
         bases = self.__class__.__mro__

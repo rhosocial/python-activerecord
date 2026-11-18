@@ -41,6 +41,7 @@ from rhosocial.activerecord.model import ActiveRecord
 
 
 class GroupUser(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "mig_group_users"
@@ -54,6 +55,7 @@ class GroupUser(ActiveRecord):
 
 
 class GroupPost(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "mig_group_posts"
@@ -67,6 +69,7 @@ class GroupPost(ActiveRecord):
 
 
 class GroupDirect(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "mig_group_direct"
@@ -80,6 +83,7 @@ class GroupDirect(ActiveRecord):
 
 
 class GroupPair(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "mig_group_pairs"

@@ -20,6 +20,7 @@ from rhosocial.activerecord.model import AsyncActiveRecord
 
 
 class AsyncReadOnlyRecord(AsyncActiveRecord, ReadOnlyMixin):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "ro_readonly_records"
@@ -30,6 +31,7 @@ class AsyncReadOnlyRecord(AsyncActiveRecord, ReadOnlyMixin):
 
 
 class AsyncWritableRecord(AsyncActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "ro_writable_records"

@@ -50,6 +50,7 @@ except ImportError:
 
 
 class Plain(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "plain"
@@ -94,6 +95,7 @@ class CompositeWithDeclaredPrimaryKey(ActiveRecord):
 
 
 class WithTableConstraint(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "with_table_constraint"
@@ -108,6 +110,7 @@ class WithTableConstraint(ActiveRecord):
 
 
 class WithFieldIndex(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "with_field_index"
@@ -121,6 +124,7 @@ class WithFieldIndex(ActiveRecord):
 
 
 class WithAttributes(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "with_attributes"
@@ -135,6 +139,7 @@ class WithAttributes(ActiveRecord):
 
 
 class WithNullable(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "with_nullable"
@@ -146,6 +151,7 @@ class WithNullable(ActiveRecord):
 
 
 class WithDerivedDeclarations(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "with_derived_declarations"
@@ -173,6 +179,7 @@ class ForeignAttribute(ColumnAttribute):
     kind = "foreign_custom"
 
 class WithForeignAttribute(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "with_foreign_attribute"
@@ -186,6 +193,7 @@ class ForeignPartitionClause(PartitionClause):
 
 
 class WithForeignPartition(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "with_foreign_partition"
@@ -206,6 +214,7 @@ class UnhandledAnnotation(DDLAnnotation):
 
 
 class WithUnhandledAnnotation(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "with_unhandled_annotation"
@@ -215,6 +224,7 @@ class WithUnhandledAnnotation(ActiveRecord):
 
 
 class EveryRegisteredMarker(ActiveRecord):
+    __primary_key__ = "id"
     """One field per core marker, so the registry can be walked against them."""
 
     @classmethod
@@ -438,6 +448,7 @@ def test_default_table_interfaces_are_empty_or_none():
 
 
 class WithMixedAnnotations(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "with_mixed_annotations"
@@ -447,6 +458,7 @@ class WithMixedAnnotations(ActiveRecord):
 
 
 class WithTimestamps(DefaultTimestampMixin, ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "with_timestamps"

@@ -26,6 +26,7 @@ from support.fixtures import (
 
 # Introspection reads one real database per scenario; keep the directory serial.
 DECLARATION = Declaration(
+    uses_database=True,
     parallel=True,
     purpose="SQLite introspection of tables, columns, indexes and pragmas",
     passes_means="the catalog answers match the schema the fixtures created",

@@ -10,6 +10,7 @@ import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression.statements import (
+    AutoIncrementClause,
     ColumnCommentClause,
     ColumnConstraint,
     ColumnDefinition,
@@ -25,10 +26,13 @@ from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
 DIALECT = SQLiteDialect(version=(3, 53, 0))
 
 
-def _auto_increment_constraint():
-    return ColumnConstraint(
-        DIALECT, branch=ColumnPrimaryKeyConstraint(DIALECT, is_auto_increment=True)
-    )
+def _auto_increment_attribute():
+    """Auto-increment now comes from the backend suggestion as a clause."""
+    return AutoIncrementClause(DIALECT)
+
+
+def _primary_key_constraint():
+    return ColumnConstraint(DIALECT, branch=ColumnPrimaryKeyConstraint(DIALECT))
 
 
 def test_boolean_default_is_inlined_as_one_or_zero():
@@ -41,7 +45,8 @@ def test_auto_increment_on_integer_primary_key_renders():
         DIALECT,
         "id",
         SQLiteIntegerType(DIALECT),
-        constraints=[_auto_increment_constraint()],
+        constraints=[_primary_key_constraint()],
+        attributes=[_auto_increment_attribute()],
     ).to_sql()
     assert sql == '"id" INTEGER PRIMARY KEY AUTOINCREMENT'
     assert params == ()
@@ -53,7 +58,8 @@ def test_auto_increment_on_non_integer_is_refused():
             DIALECT,
             "name",
             SQLiteTextType(DIALECT),
-            constraints=[_auto_increment_constraint()],
+            constraints=[_primary_key_constraint()],
+            attributes=[_auto_increment_attribute()],
         ).to_sql()
 
 

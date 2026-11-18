@@ -35,6 +35,7 @@ from rhosocial.activerecord.model import ActiveRecord
 
 
 class DerivedUser(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "derived_users"

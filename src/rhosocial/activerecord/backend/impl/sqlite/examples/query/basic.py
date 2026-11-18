@@ -1,3 +1,4 @@
+from rhosocial.activerecord.backend.expression.statements import auto_increment_parts  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnNotNullConstraint,
     ColumnPrimaryKeyConstraint,
@@ -41,13 +42,13 @@ create_table = CreateTableStatement(
     table_name="users",
     columns=[
         ColumnDefinition(dialect, 
-            "id",
-            IntegerType(),
+            "id"[0],
+            auto_increment_parts(dialect, IntegerType())[0],
             constraints=[
-                ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
+                ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect)),
                 ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
-        ),
+         attributes=auto_increment_parts(dialect, IntegerType())[1]),
         ColumnDefinition(dialect, 
             "name",
             TextType(),

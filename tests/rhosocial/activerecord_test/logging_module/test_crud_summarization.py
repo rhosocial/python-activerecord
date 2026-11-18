@@ -25,6 +25,7 @@ from rhosocial.activerecord.logging import (
 
 
 class Article(ActiveRecord):
+    __primary_key__ = "id"
     """Test model with long text fields for summarization testing."""
 
     @classmethod

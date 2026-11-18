@@ -77,6 +77,7 @@ from rhosocial.activerecord.query import AsyncCTEQuery, CTEQuery
 
 
 class User(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"
@@ -88,6 +89,7 @@ class User(ActiveRecord):
 
 
 class AsyncUser(AsyncActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"
@@ -99,6 +101,7 @@ class AsyncUser(AsyncActiveRecord):
 
 
 class ReadOnlyUser(ActiveRecord, ReadOnlyMixin):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"
@@ -110,6 +113,7 @@ class ReadOnlyUser(ActiveRecord, ReadOnlyMixin):
 
 
 class AsyncReadOnlyUser(AsyncActiveRecord, ReadOnlyMixin):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"
@@ -121,6 +125,7 @@ class AsyncReadOnlyUser(AsyncActiveRecord, ReadOnlyMixin):
 
 
 class SoftUser(SoftDeleteMixin, ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"
@@ -133,6 +138,7 @@ class SoftUser(SoftDeleteMixin, ActiveRecord):
 
 
 class AsyncSoftUser(AsyncSoftDeleteMixin, AsyncActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"
@@ -145,6 +151,7 @@ class AsyncSoftUser(AsyncSoftDeleteMixin, AsyncActiveRecord):
 
 
 class ValidatedUser(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"
@@ -169,6 +176,7 @@ class ValidatedUser(ActiveRecord):
 
 
 class AsyncValidatedUser(AsyncActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"

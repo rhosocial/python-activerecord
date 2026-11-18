@@ -87,6 +87,7 @@ class TestUuidVersionSelection:
 
 
 class NamedAccount(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "a2_named_accounts"
@@ -104,6 +105,7 @@ class NamedAccount(ActiveRecord):
 
 
 class UnnamedAccount(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "a2_unnamed_accounts"
@@ -155,6 +157,7 @@ class TestNaturalKeyDeclaration:
 
 
 class AsyncNamedAccount(AsyncActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "a2_named_accounts_async"

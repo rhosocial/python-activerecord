@@ -27,8 +27,10 @@ from .literal import LiteralValueMixin
 from .column_type import SQLiteColumnTypeMixin
 from .data_type_suggestions import SQLiteDataTypeSuggestionsMixin
 from .object_name import SQLiteObjectNameMixin
+from .integer_auto_increment_column_suggestion import SQLiteIntegerAutoIncrementColumnSuggestionMixin
 
 __all__ = [
+    'SQLiteIntegerAutoIncrementColumnSuggestionMixin',
     'SQLiteExtensionMixin',
     'SQLiteVirtualTableMixin',
     'SQLitePragmaMixin',

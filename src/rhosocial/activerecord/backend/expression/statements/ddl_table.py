@@ -378,6 +378,7 @@ class ColumnDefinition(BaseExpression):
         # adapts it at render time. See ``DDLColumnMixin.translate_ar_attribute``.
         self.attributes = list(attributes or [])
 
+
 class GeneratedColumnType(str, Enum):
     """Types of generated columns (computed columns)."""
 
@@ -458,15 +459,15 @@ class ColumnConstraintBranch(BaseExpression, ABC):
 
 
 class ColumnPrimaryKeyConstraint(ColumnConstraintBranch):
-    """``PRIMARY KEY``, optionally SQLite's ``AUTOINCREMENT``."""
+    """``PRIMARY KEY``.
 
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        is_auto_increment: bool = False,
-    ):
+    Auto-increment is not a flag on this constraint. It is a backend column
+    suggestion: the dialect supplies a type and/or an attribute clause, which
+    derivation places on the column definition independently of this key.
+    """
+
+    def __init__(self, dialect: "SQLDialectBase"):
         super().__init__(dialect)
-        self.is_auto_increment = is_auto_increment
 
     @property
     def format_method(self) -> str:

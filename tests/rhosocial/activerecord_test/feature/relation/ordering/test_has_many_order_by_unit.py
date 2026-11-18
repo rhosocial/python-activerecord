@@ -43,6 +43,7 @@ from rhosocial.activerecord.relation import (
 
 
 class OrderingAuthor(ActiveRecord):
+    __primary_key__ = "id"
     """Author with an ordered HasMany whose sort field uses a custom column."""
 
     @classmethod
@@ -62,6 +63,7 @@ class OrderingAuthor(ActiveRecord):
 
 
 class OrderingBook(ActiveRecord):
+    __primary_key__ = "id"
     """Book whose Python field ``title`` maps to the column ``book_title``."""
 
     @classmethod
@@ -79,6 +81,7 @@ class OrderingBook(ActiveRecord):
 
 
 class PlainOrderingAuthor(ActiveRecord):
+    __primary_key__ = "id"
     """Author whose HasMany keeps the old un-ordered behaviour."""
 
     @classmethod
@@ -96,6 +99,7 @@ class PlainOrderingAuthor(ActiveRecord):
 
 
 class BadOrderAuthor(ActiveRecord):
+    __primary_key__ = "id"
     """Author with a relation that names a field that does not exist."""
 
     @classmethod
@@ -113,6 +117,7 @@ class BadOrderAuthor(ActiveRecord):
 
 
 class DerivedBook(ActiveRecord):
+    __primary_key__ = "id"
     """Book with a derived field that must not be accepted as an order key."""
 
     @classmethod
@@ -134,6 +139,7 @@ class DerivedBook(ActiveRecord):
 
 
 class DerivedAuthor(ActiveRecord):
+    __primary_key__ = "id"
     """Author ordering by a derived field (rejected on first query build)."""
 
     @classmethod
@@ -168,6 +174,7 @@ class OrderingPart(CompositePKMixin, ActiveRecord):
 
 
 class OrderingOwner(ActiveRecord):
+    __primary_key__ = "id"
     """Owner of composite-key parts ordered by ``label``."""
 
     @classmethod
@@ -189,6 +196,7 @@ class OrderingOwner(ActiveRecord):
 
 
 class AsyncOrderingAuthor(AsyncActiveRecord):
+    __primary_key__ = "id"
     """Async mirror of OrderingAuthor."""
 
     @classmethod
@@ -206,6 +214,7 @@ class AsyncOrderingAuthor(AsyncActiveRecord):
 
 
 class AsyncOrderingBook(AsyncActiveRecord):
+    __primary_key__ = "id"
     """Async mirror of OrderingBook."""
 
     @classmethod

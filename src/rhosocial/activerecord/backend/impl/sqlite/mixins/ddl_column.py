@@ -1,4 +1,5 @@
 from rhosocial.activerecord.backend.expression.statements import (
+    AutoIncrementClause,
     ColumnPrimaryKeyConstraint,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
@@ -34,20 +35,22 @@ class SQLiteDDLColumnMixin:
     def format_column_primary_key_constraint(
         self, constraint: "ColumnPrimaryKeyConstraint"
     ) -> Tuple[str, tuple]:
-        """SQLite's PRIMARY KEY, which is where ``AUTOINCREMENT`` lives.
+        """SQLite's plain ``PRIMARY KEY``.
 
-        ``AUTOINCREMENT`` is part of SQLite's primary-key grammar -- it follows
-        ``PRIMARY KEY`` and nowhere else -- so it is appended here rather than
-        in the shared renderer, which knows nothing about it.
-
-        Placement is checked in :meth:`format_column_definition`, because
-        whether the column is an ``INTEGER`` is a fact only the column
-        definition holds.
+        ``AUTOINCREMENT`` follows ``PRIMARY KEY`` in SQLite's grammar, but it
+        comes from the backend's column suggestion as an ``AutoIncrementClause``
+        attribute, not from a flag on this constraint. :meth:`format_column_definition`
+        places that clause immediately after the primary key.
         """
-        sql, params = super().format_column_primary_key_constraint(constraint)
-        if constraint.is_auto_increment:
-            sql += " AUTOINCREMENT"
-        return sql, params
+        return super().format_column_primary_key_constraint(constraint)
+
+    def format_auto_increment_clause(self, expr) -> Tuple[str, tuple]:
+        """SQLite spells the parameterless auto-increment marker ``AUTOINCREMENT``.
+
+        This is deliberately not the core ``AUTO_INCREMENT`` spelling: SQLite
+        accepts ``AUTOINCREMENT`` only as the tail of ``INTEGER PRIMARY KEY``.
+        """
+        return " AUTOINCREMENT", ()
 
     def format_default_value_clause(self, expr: "DefaultValueClause") -> Tuple[str, tuple]:
         """Format the value clause of a DEFAULT constraint (SQLite).
@@ -87,27 +90,55 @@ class SQLiteDDLColumnMixin:
             )
         self._check_auto_increment_placement(col_def)
 
-        sql, params = super().format_column_definition(col_def)
-        return sql, params
+        all_params: list = []
+        type_sql, _ = col_def.data_type.to_sql()
+        sql = f"{self.format_identifier(col_def.name)} {type_sql}"
+
+        attributes = tuple(col_def.attributes or ())
+        increment_attributes = [a for a in attributes if isinstance(a, AutoIncrementClause)]
+        other_attributes = [a for a in attributes if not isinstance(a, AutoIncrementClause)]
+        for attr in other_attributes:
+            fragment, params = self.format_column_attribute(attr)
+            sql += fragment
+            all_params.extend(params)
+        for constraint in col_def.constraints:
+            fragment, params = self.format_column_constraint(constraint)
+            sql += fragment
+            all_params.extend(params)
+            # AUTOINCREMENT is grammar that follows PRIMARY KEY *immediately*
+            # (before NOT NULL and any later constraint), so it is emitted
+            # right after the primary-key constraint's own fragment.
+            if any(
+                isinstance(c.branch, ColumnPrimaryKeyConstraint) and c is constraint
+                for c in col_def.constraints
+            ):
+                for attr in increment_attributes:
+                    increment_sql, increment_params = self.format_column_attribute(attr)
+                    sql += increment_sql
+                    all_params.extend(increment_params)
+
+        if col_def.generated_expression is not None:
+            gen_sql, gen_params = col_def.generated_expression.to_sql()
+            sql += gen_sql
+            all_params.extend(gen_params)
+        return sql, tuple(all_params)
 
     def _check_auto_increment_placement(self, col_def: "ColumnDefinition") -> None:
         """Refuse ``AUTOINCREMENT`` anywhere SQLite cannot spell it.
 
-        SQLite accepts ``INTEGER PRIMARY KEY AUTOINCREMENT`` and nothing else.
-        A flag on any other constraint used to be dropped without a word, which
-        left a table whose key does not autoincrement and no trace of why.
+        SQLite accepts ``INTEGER PRIMARY KEY AUTOINCREMENT`` and nothing else:
+        the column must be INTEGER and its primary key must be a single-column
+        constraint. A suggestion applied to any other column used to be dropped
+        without a word, leaving a key that does not autoincrement and no trace.
         """
         from rhosocial.activerecord.backend.expression.types.integer import (
             IntegerType,
         )
 
-        flagged = [
-            constraint
-            for constraint in col_def.constraints
-            if isinstance(constraint.branch, ColumnPrimaryKeyConstraint)
-            and constraint.branch.is_auto_increment
-        ]
-        if not flagged:
+        has_increment = any(
+            isinstance(a, AutoIncrementClause) for a in (col_def.attributes or ())
+        )
+        if not has_increment:
             return
         if not isinstance(col_def.data_type, IntegerType):
             raise UnsupportedFeatureError(
@@ -116,6 +147,17 @@ class SQLiteDDLColumnMixin:
                 f"SQLite spells AUTOINCREMENT only as part of INTEGER PRIMARY "
                 f"KEY AUTOINCREMENT, and this column is "
                 f"{type(col_def.data_type).__name__}.",
+            )
+        has_pk = any(
+            isinstance(constraint.branch, ColumnPrimaryKeyConstraint)
+            for constraint in col_def.constraints
+        )
+        if not has_pk:
+            raise UnsupportedFeatureError(
+                self.name,
+                "AUTOINCREMENT without a primary key",
+                "SQLite spells AUTOINCREMENT only as part of INTEGER PRIMARY "
+                "KEY AUTOINCREMENT; this column has no primary-key constraint.",
             )
 
 

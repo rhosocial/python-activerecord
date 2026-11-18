@@ -18,6 +18,7 @@ import pytest
 
 
 class LockedCounter(OptimisticLockMixin, ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "reload_counters"
@@ -165,6 +166,7 @@ class TestAsyncReload:
 
 
 class AsyncLockedCounter(OptimisticLockMixin, AsyncActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "reload_counters"

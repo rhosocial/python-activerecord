@@ -10,6 +10,7 @@ The trigger body is a statement list (``UPDATE ... WHERE id = NEW.id``), and
 ``CreateTriggerStatement`` carries it as ``body`` expressions; the view is a
 ``CreateViewStatement`` over a query.  No SQL text is written or parsed here.
 """
+from rhosocial.activerecord.backend.expression.statements import auto_increment_parts  # noqa: E402
 
 from rhosocial.activerecord.backend.expression import (
     Column as ColumnRef,
@@ -73,15 +74,13 @@ class Definition:
         return Column(self.dialect, name, sql_type, constraints=constraints or [])
 
     def auto_pk(self, name="id"):
-        return self.column(
+        data_type, attributes = auto_increment_parts(self.dialect, Int(self.dialect))
+        return Column(
+            self.dialect,
             name,
-            Int(self.dialect),
-            [
-                Constraint(
-                    self.dialect,
-                    branch=PrimaryKey(self.dialect, is_auto_increment=True),
-                )
-            ],
+            data_type,
+            constraints=[Constraint(self.dialect, branch=PrimaryKey(self.dialect))],
+            attributes=attributes,
         )
 
     def not_null(self, name, sql_type):

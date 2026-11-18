@@ -47,6 +47,7 @@ AFFINITIES = ("text", "integer", "real", "numeric", "blob")
 
 
 class _AffinityModel(ActiveRecord):
+    __primary_key__ = "id"
     """Common payload fields; subclasses only change the table (affinity)."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)

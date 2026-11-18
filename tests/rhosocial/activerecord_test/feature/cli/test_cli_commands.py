@@ -97,6 +97,7 @@ from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
 
 
 class User(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"
@@ -107,6 +108,7 @@ class User(ActiveRecord):
 
 
 class AsyncUser(AsyncActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"
@@ -178,6 +180,7 @@ from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionCo
 
 
 class User(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"

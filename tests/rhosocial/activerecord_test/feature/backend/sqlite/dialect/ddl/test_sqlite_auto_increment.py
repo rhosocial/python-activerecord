@@ -9,6 +9,7 @@ autoincrement.
 """
 import pytest
 from rhosocial.activerecord.backend.expression.statements import (
+    AutoIncrementClause,
     ColumnDefaultConstraint,
     ColumnNotNullConstraint,
     ColumnNullableConstraint,
@@ -26,8 +27,11 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 
 
 
-def definition(dialect, data_type, *constraints):
-    return ColumnDefinition(dialect, "id", data_type, constraints=list(constraints))
+def definition(dialect, data_type, *constraints, auto_increment=False):
+    attributes = [AutoIncrementClause(dialect)] if auto_increment else []
+    return ColumnDefinition(
+        dialect, "id", data_type, constraints=list(constraints), attributes=attributes
+    )
 
 
 def primary_key(dialect, **kwargs):
@@ -39,7 +43,7 @@ def primary_key(dialect, **kwargs):
 class TestAutoIncrementRenders:
     def test_integer_primary_key(self):
         dialect = SQLiteDialect()
-        column = definition(dialect, IntegerType(dialect), primary_key(dialect, is_auto_increment=True))
+        column = definition(dialect, IntegerType(dialect), primary_key(dialect), auto_increment=True)
 
         assert column.to_sql()[0] == '"id" INTEGER PRIMARY KEY AUTOINCREMENT'
 
@@ -48,7 +52,8 @@ class TestAutoIncrementRenders:
         column = definition(
             dialect,
             SQLiteIntegerType(dialect),
-            primary_key(dialect, is_auto_increment=True),
+            primary_key(dialect),
+            auto_increment=True,
         )
 
         assert "AUTOINCREMENT" in column.to_sql()[0]
@@ -63,17 +68,15 @@ class TestAutoIncrementRenders:
 class TestAutoIncrementRefusedElsewhere:
     """SQLite would reject the SQL, so the request is refused by name."""
 
-    def test_the_flag_belongs_to_the_primary_key_branch_alone(self):
-        """The refusal is structural now: no other branch has the field.
+    def test_the_flag_is_gone_from_every_branch(self):
+        """Auto-increment is no longer a constraint flag at all.
 
-        What SQLite used to refuse at render time -- a flag on a constraint
-        kind that has nowhere to spell it -- is no longer expressible: the flag
-        is a field of the primary-key branch, and the other branches do not
-        declare it, so ``is_auto_increment=True`` cannot reach them at all.
+        It is a backend column suggestion: a type and/or an attribute clause
+        placed on the column definition. No constraint branch -- primary key
+        or otherwise -- carries an ``is_auto_increment`` field any more.
         """
-
-        assert "is_auto_increment" in ColumnPrimaryKeyConstraint.__init__.__code__.co_varnames
         for branch_cls in (
+            ColumnPrimaryKeyConstraint,
             ColumnNotNullConstraint,
             ColumnNullableConstraint,
             ColumnUniqueConstraint,
@@ -83,7 +86,7 @@ class TestAutoIncrementRefusedElsewhere:
     def test_on_a_non_integer_column(self):
         dialect = SQLiteDialect()
         column = definition(
-            dialect, TextType(dialect), primary_key(dialect, is_auto_increment=True)
+            dialect, TextType(dialect), primary_key(dialect), auto_increment=True
         )
 
         with pytest.raises(UnsupportedFeatureError, match="non-INTEGER"):

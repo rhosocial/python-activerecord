@@ -35,6 +35,7 @@ class UpperAdapter(BaseSQLTypeAdapter):
 
 
 class DefaultModel(ActiveRecord):
+    __primary_key__ = "id"
     """Uses only the framework/backend default suggestions."""
 
     @classmethod

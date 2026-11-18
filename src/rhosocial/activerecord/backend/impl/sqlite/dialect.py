@@ -167,6 +167,7 @@ from .mixins import (
     # the SQL-standard construct, so naming is answered here rather than by the
     # DDL probes. Placed ahead of the shared TableNameMixin in the class list.
     SQLiteObjectNameMixin,
+    SQLiteIntegerAutoIncrementColumnSuggestionMixin,
     SQLiteTypeSupportMixin,
     # Value literals: SQLite's blob spelling, overriding the base's
     # format_binary_value / format_uuid_value by MRO position.
@@ -181,6 +182,13 @@ from .mixins import (
 from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression
 
 class SQLiteDialect(
+    # Backend suggestion first: the answer to "how is an integer auto-increment
+    # key declared here" is SQLite's alone, and a mixin placed after a class it
+    # overrides never wins MRO.
+    SQLiteIntegerAutoIncrementColumnSuggestionMixin,
+    # SQLite's column formatter spells AUTOINCREMENT; it must precede the core
+    # AutoIncrementMixin, whose AUTO_INCREMENT formatter would otherwise win.
+    SQLiteDDLColumnMixin,
     # The bases below come in bundles: a backend mixin, then the core bundle
     # it stands in for. The backend's answer has to come first -- a mixin
     # placed after the class it overrides never wins -- so a new mixin goes
@@ -259,11 +267,10 @@ class SQLiteDialect(
     GeneratedColumnMixin,
     AutoIncrementMixin,
     IdentityColumnMixin,
-    # Both new nodes fail closed on SQLite: it has no GENERATED ... AS
-    # IDENTITY grammar, and its AUTOINCREMENT keyword exists only inside an
-    # INTEGER PRIMARY KEY constraint (the existing is_auto_increment path),
-    # not as a standalone column clause. The mixin probes therefore stay at
-    # their False defaults and the formatters refuse the clauses.
+    # Both nodes stay fail-closed on SQLite as standalone column clauses: it
+    # has no GENERATED ... AS IDENTITY grammar, and AUTOINCREMENT lives only
+    # inside INTEGER PRIMARY KEY. The suggestion mixin placed first in the
+    # bases supplies the rowid-alias form through its own attribute clause.
     PartitionMixin,
     # New Mixins (without SQLite overrides)
     # SQLiteFunctionMixin rides first among them: it carries the dialect's
@@ -281,7 +288,6 @@ class SQLiteDialect(
     # SQLite-specific mixins (BEFORE generic mixins they override)
     SQLiteTransactionMixin,
     SQLiteDateTimeMixin,
-    SQLiteDDLColumnMixin,
     SQLiteDMLMixin,
     SQLiteTriggerMixin,
     SQLitePragmaMixin,

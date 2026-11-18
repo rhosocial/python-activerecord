@@ -47,6 +47,7 @@ class CrashingDialect(SQLiteDialect):
 
 
 class RefusedFirst(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "refused_first"
@@ -55,6 +56,7 @@ class RefusedFirst(ActiveRecord):
 
 
 class RefusedOnly(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "refused_only"
@@ -63,6 +65,7 @@ class RefusedOnly(ActiveRecord):
 
 
 class Crashing(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "crashing"
@@ -79,6 +82,7 @@ class Unrendered(ActiveRecord):
 
 
 class DeclaredPart(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "declared_part"

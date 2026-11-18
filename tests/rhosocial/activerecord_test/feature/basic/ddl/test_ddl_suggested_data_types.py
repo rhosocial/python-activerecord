@@ -30,10 +30,7 @@ import pytest
 from rhosocial.activerecord.backend.dialect.mixins import DataTypeMixin
 from rhosocial.activerecord.backend.dialect.protocols import DataTypeSupport
 from rhosocial.activerecord.base import UseSqlType
-from rhosocial.activerecord.base.derivation import (
-    _INTEGER_CONCEPTS,
-    build_create_table_statement,
-)
+from rhosocial.activerecord.base.derivation import build_create_table_statement
 from rhosocial.activerecord.backend.expression.types import (
     BooleanType,
     IntegerType,
@@ -59,6 +56,7 @@ def _create(model, dialect=None):
 
 
 class BareRow(ActiveRecord):
+    __primary_key__ = "id"
     """Nothing but Python types: the model a suggestion has to carry."""
 
     @classmethod
@@ -72,6 +70,7 @@ class BareRow(ActiveRecord):
 
 
 class DeclaredRow(ActiveRecord):
+    __primary_key__ = "id"
     """The same columns, each with the suggestion spelled out."""
 
     @classmethod
@@ -85,6 +84,7 @@ class DeclaredRow(ActiveRecord):
 
 
 class Uninferable(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "uninferable"
@@ -94,17 +94,14 @@ class Uninferable(ActiveRecord):
 
 
 class AppKey(ActiveRecord):
-    """The application writes its own key, so no identity is implied."""
+    __primary_key__ = "id"
+    """A required key is the application's to supply, so no identity is implied."""
 
     @classmethod
     def table_name(cls):
         return "app_key"
 
-    @classmethod
-    def pk_auto_generated(cls):
-        return False
-
-    id: Optional[int] = None
+    id: int
     name: str
 
 
@@ -123,6 +120,7 @@ class CompositeKey(CompositePKMixin, ActiveRecord):
 
 
 class NonIntegerKey(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "non_integer_key"
@@ -283,7 +281,8 @@ def test_a_single_integer_primary_key_gets_an_identity():
 
 
 def test_an_application_written_key_gets_no_identity():
-    assert AppKey.pk_auto_generated() is False
+    # Only Optional[int] is inferred as database-generated; a required key is
+    # supplied by the application (or, in stage B, by a field generator).
     assert "AUTOINCREMENT" not in _create(AppKey)
 
 
@@ -295,10 +294,12 @@ def test_a_non_integer_key_gets_no_identity():
     assert "AUTOINCREMENT" not in _create(NonIntegerKey)
 
 
-def test_the_integer_concepts_are_pinned():
-    """The set the derivation reads, written out: a width class a dialect gains
-    without joining this set would silently fail to become an identity, and
-    the derivation would never name the reason."""
-    assert _INTEGER_CONCEPTS == frozenset(
-        {"integer", "bigint", "smallint", "tinyint"}
-    )
+def test_only_optional_int_is_inferred_as_database_generated():
+    """The inference is the field's Python type, not a dunder switch: an
+    ``Optional[int]`` single-column key gets identity; a required ``int`` key
+    does not. Backend-renamed integer types are handled by their own
+    suggestion mixin, not by a name or class set here.
+    """
+    assert "AUTOINCREMENT" in _create(BareRow)
+    assert "AUTOINCREMENT" not in _create(AppKey)
+    assert "AUTOINCREMENT" not in _create(NonIntegerKey)

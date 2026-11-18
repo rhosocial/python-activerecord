@@ -26,9 +26,8 @@ except ImportError:  # Python 3.8
 
 from pydantic import Field, field_validator
 
-from ..base.fields import UseSqlType
+from ..base.fields import UseFieldGenerator, UseSqlType
 from ..backend.expression.types import TimestampType
-from ..interface import ModelEvent
 from ..interface.update import IUpdateBehavior
 from ..interface.model import IActiveRecord, IAsyncActiveRecord
 from .field_config import FieldConfigValidationHandler
@@ -46,11 +45,26 @@ class TimestampMixin(IUpdateBehavior):
 
     _feature_handlers = [FieldConfigValidationHandler]
 
-    def __init__(self, **data):
-        super().__init__(**data)
-        # Use separate events for INSERT and UPDATE operations
-        self.on(ModelEvent.BEFORE_INSERT, self._set_timestamps_on_insert)
-        self.on(ModelEvent.BEFORE_UPDATE, self._set_updated_at)
+    @classmethod
+    def field_generators(cls):
+        """Declare generators for the configured timestamp fields.
+
+        The semantics-only mixin declares no fields of its own, so it supplies
+        generators by field name and merges with any other mixin's answers.
+        """
+        generators = dict(super().field_generators())
+
+        def now(instance):
+            return datetime.now(timezone.utc)
+
+        generators[cls.created_at_field()] = UseFieldGenerator(before_insert=now)
+        generators[cls.updated_at_field()] = UseFieldGenerator(
+            before_insert=now,
+            before_update=now,
+            before_soft_delete=now,
+            before_restore=now,
+        )
+        return generators
 
     @classmethod
     def created_at_field(cls) -> str:

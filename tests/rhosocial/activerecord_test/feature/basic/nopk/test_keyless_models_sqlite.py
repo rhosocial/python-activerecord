@@ -62,6 +62,7 @@ class KeylessReadOnly(ActiveRecord, ReadOnlyMixin):
 
 
 class ReadOnlyWithKey(ActiveRecord, ReadOnlyMixin):
+    __primary_key__ = "id"
     """Read-only but addressable -- the other direction."""
     @classmethod
     def table_name(cls):
@@ -73,6 +74,7 @@ class ReadOnlyWithKey(ActiveRecord, ReadOnlyMixin):
 
 
 class NormalModel(ActiveRecord):
+    __primary_key__ = "id"
     """Control: an ordinary addressable, writable model."""
     @classmethod
     def table_name(cls):
