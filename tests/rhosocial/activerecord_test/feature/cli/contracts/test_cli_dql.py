@@ -1,0 +1,3 @@
+# tests/rhosocial/activerecord_test/feature/cli/contracts/test_cli_dql.py
+"""Bridge to the shared ``feature/cli`` contract."""
+from rhosocial.activerecord.testsuite.feature.cli.test_cli_dql import *  # noqa: F401,F403
