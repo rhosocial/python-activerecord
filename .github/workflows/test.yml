@@ -65,6 +65,10 @@ jobs:
       run: |
         export PYTHONPATH=src:tests
         python -m pytest tests/ -n 8 --dist=loadgroup --cov=rhosocial --cov-branch --cov-report=xml --ignore=tests/rhosocial/activerecord_test/logging_module --ignore=tests/rhosocial/activerecord_test/feature/rules --ignore=tests/benchmark
+        # Preserve the full run's report: the coverage gate below replaces the
+        # .coverage data file with its narrow 3-package scope, so back up the
+        # full XML here and upload that instead.
+        cp coverage.xml coverage-full.xml
 
     - name: SQLite expression-dialect coverage gate
       env:
@@ -75,7 +79,9 @@ jobs:
         # dialect/expression/mixins is the layer whose output is SQL text:
         # every branch is a spelling, and an untested one is a spelling nobody
         # checked. Hold it at 100% line+branch; the rest of the backend is not
-        # gated. This writes no coverage.xml, so the report above is untouched.
+        # gated. This writes no coverage.xml, but pytest-cov DOES replace the
+        # .coverage data file with this narrow scope -- hence the full report
+        # was backed up as coverage-full.xml above and is what gets uploaded.
         export PYTHONPATH=src:tests
         python -m pytest tests/rhosocial/activerecord_test/feature/backend/sqlite \
           -q -p no:warnings \
@@ -88,7 +94,7 @@ jobs:
       uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        files: ./coverage.xml
+        files: ./coverage-full.xml
         flags: unittests,python-3.14
         name: codecov-umbrella-3.14
         fail_ci_if_error: false
