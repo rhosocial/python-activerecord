@@ -1,3 +1,3 @@
 # tests/rhosocial/activerecord_test/feature/query/basic/conftest.py
-"""Use the shared ``query/basic`` minimal test set."""
+"""Bridge to the shared ``query/basic`` contract."""
 from rhosocial.activerecord.testsuite.feature.query.basic.conftest import *  # noqa: F401,F403
