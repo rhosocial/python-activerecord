@@ -64,7 +64,7 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/ -n 8 --dist=loadgroup --cov=rhosocial --cov-branch --cov-report=xml --ignore=tests/rhosocial/activerecord_test/logging_module --ignore=tests/rhosocial/activerecord_test/feature/rules --ignore=tests/benchmark
+        python -m pytest tests/ -n 8 --dist=loadgroup --cov=rhosocial.activerecord --cov-branch --cov-report=xml --ignore=tests/rhosocial/activerecord_test/logging_module --ignore=tests/rhosocial/activerecord_test/feature/rules --ignore=tests/benchmark
         # Preserve the full run's report: the coverage gate below replaces the
         # .coverage data file with its narrow 3-package scope, so back up the
         # full XML here and upload that instead.
