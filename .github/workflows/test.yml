@@ -64,7 +64,7 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/rhosocial/activerecord_test/feature/backend tests/rhosocial/activerecord_test/feature/basic  -n 8 --dist=loadgroup --cov=rhosocial --cov-branch --cov-report=xml
+        python -m pytest tests/rhosocial/activerecord_test/feature/backend tests/rhosocial/activerecord_test/feature/basic  -n 8 --dist=loadgroup --cov=rhosocial --cov-branch --cov-report=xml tests/rhosocial/activerecord_test/feature/query tests/rhosocial/activerecord_test/feature/cte tests/rhosocial/activerecord_test/feature/setop tests/rhosocial/activerecord_test/feature/query_integration
 
     - name: SQLite expression-dialect coverage gate
       env:
@@ -316,7 +316,7 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/rhosocial/activerecord_test/feature/backend tests/rhosocial/activerecord_test/feature/basic  -n 8 --dist=loadgroup
+        python -m pytest tests/rhosocial/activerecord_test/feature/backend tests/rhosocial/activerecord_test/feature/basic  -n 8 --dist=loadgroup tests/rhosocial/activerecord_test/feature/query tests/rhosocial/activerecord_test/feature/cte tests/rhosocial/activerecord_test/feature/setop tests/rhosocial/activerecord_test/feature/query_integration
 
   test-free-threaded:
     name: Run tests with Python ${{ matrix.python-version }} free-threaded
@@ -377,7 +377,7 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/rhosocial/activerecord_test/feature/backend tests/rhosocial/activerecord_test/feature/basic  -n 8 --dist=loadgroup
+        python -m pytest tests/rhosocial/activerecord_test/feature/backend tests/rhosocial/activerecord_test/feature/basic  -n 8 --dist=loadgroup tests/rhosocial/activerecord_test/feature/query tests/rhosocial/activerecord_test/feature/cte tests/rhosocial/activerecord_test/feature/setop tests/rhosocial/activerecord_test/feature/query_integration
 
   test-python-315:
     name: Run tests with Python ${{ matrix.python-version }}${{ matrix.freethreaded && 't free-threaded' || '' }}
@@ -434,4 +434,4 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/rhosocial/activerecord_test/feature/backend tests/rhosocial/activerecord_test/feature/basic  -n 8 --dist=loadgroup
+        python -m pytest tests/rhosocial/activerecord_test/feature/backend tests/rhosocial/activerecord_test/feature/basic  -n 8 --dist=loadgroup tests/rhosocial/activerecord_test/feature/query tests/rhosocial/activerecord_test/feature/cte tests/rhosocial/activerecord_test/feature/setop tests/rhosocial/activerecord_test/feature/query_integration
