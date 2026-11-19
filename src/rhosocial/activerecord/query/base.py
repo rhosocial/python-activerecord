@@ -23,6 +23,25 @@ from ..logging.mixin import BackendLoggingMixin
 from .utils import convert_qmark_placeholder
 
 
+class ExplainOnModelQueryError(ValueError):
+    """Raised when ``explain()`` is terminated by a model-returning method.
+
+    ``all()`` and ``one()`` return model instances, not a plan. Once
+    ``explain()`` is enabled they cannot run, because doing so would silently
+    ignore the plan. Use ``.aggregate()`` (or a scalar aggregate) instead.
+    """
+
+
+def reject_explain_on_model_query(query, terminator: str) -> None:
+    """Guard all()/one(): they cannot execute while EXPLAIN is enabled."""
+    if getattr(query, "_explain_enabled", False):
+        raise ExplainOnModelQueryError(
+            f".explain() cannot be terminated by .{terminator}() -- that returns "
+            "model instances, not a plan. Use .explain().aggregate() to get the "
+            "execution plan (opaque dict rows)."
+        )
+
+
 class BaseQueryMixin(IQueryBuilding):
     """BaseQueryMixin implementation for basic query building operations.
 
@@ -555,13 +574,17 @@ class BaseQueryMixin(IQueryBuilding):
     def explain(self, **kwargs) -> "BaseQueryMixin":
         """Enable EXPLAIN for the subsequent query execution.
 
-        This method configures the query to generate an execution plan when executed.
-        The explain will be performed when calling execution methods like all(), one(),
-        count(), etc.
+        When EXPLAIN is enabled, the terminal aggregate methods (``aggregate()``
+        and the scalar aggregates ``count``/``sum_``/``avg``/``min_``/``max_``/
+        ``exists``) return the raw execution plan instead of the normal result.
+        The plan is a list of opaque dict rows rendered by the backend's own
+        dialect; ActiveRecord does not interpret its contents.
 
-        The explain() method can be called at any point after query() and before
-        the final execution method (all/one/exists/count/etc.). It can also be called
-        multiple times, with the last call taking effect.
+        ``all()`` and ``one()`` return model instances, not a plan; they refuse
+        to run while EXPLAIN is enabled (raising ``ExplainOnModelQueryError``).
+
+        explain() may be called at any point after query() and before the
+        terminal call, and repeated calls take effect with the last one winning.
 
         Args:
             **kwargs: EXPLAIN options. These will be passed to ExplainOptions.
@@ -570,36 +593,36 @@ class BaseQueryMixin(IQueryBuilding):
             IQuery: Query instance for method chaining
 
         Examples:
-            1. Basic explain
-            User.query().explain().all()
+            1. Basic explain (plan is returned as opaque dict rows)
+            plan = User.query().explain().aggregate()
 
             2. With analysis and JSON output
-            User.query()\\
-                .explain(analyze=True, format=ExplainFormat.JSON)\\
-                .all()
+            plan = User.query()\
+                .explain(analyze=True, format=ExplainFormat.JSON)\
+                .aggregate()
 
-            3. PostgreSQL specific options
-            User.query()\\
-                .explain(buffers=True, settings=True)\\
-                .all()
+            3. Backend-specific options
+            plan = User.query()\
+                .explain(buffers=True, settings=True)\
+                .aggregate()
 
-            4. Configure explain for aggregate query
-            plan = User.query()\\
-                .group_by(User.c.department)\\
-                .explain(format=ExplainFormat.TEXT)\\
+            4. Scalar aggregates return the plan too
+            plan = User.query()\
+                .group_by(User.c.department)\
+                .explain(format=ExplainFormat.TEXT)\
                 .count(User.c.id)
 
-            5. Explain can be called at any point before execution
+            5. explain() may be placed anywhere before the terminal call
             query = User.query().where(User.c.status == 'active')
             query.explain()  # Enable explain
-            result = query.all()  # Will show execution plan
+            plan = query.aggregate()  # Returns the execution plan
 
             6. Multiple explain calls (last one takes effect)
-            User.query()\\
-                .where(User.c.status == 'active')\\
-                .explain(format=ExplainFormat.TEXT)\\  # First explain call
-                .explain(analyze=True)\\               # Second call overrides first
-                .all()                                # Will use analyze=True option
+            User.query()\
+                .where(User.c.status == 'active')\
+                .explain(format=ExplainFormat.TEXT)\
+                .explain(analyze=True)\
+                .aggregate()
         """
         # Enable explain mode
         self._explain_enabled = True

@@ -5,7 +5,7 @@ import logging
 from typing import Dict, List, Optional, Type
 
 from .aggregate import AggregateQueryMixin, AsyncAggregateQueryMixin
-from .base import BaseQueryMixin
+from .base import BaseQueryMixin, reject_explain_on_model_query
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
 from .relational import RelationalQueryMixin
@@ -192,6 +192,7 @@ class ActiveQuery(
             users = User.query().where('status = ?', ('active',)).all()
             users = User.query().select('id', 'name').where('status = ?', ('active',)).all()
         """
+        reject_explain_on_model_query(self, "all")
         # Get SQL and parameters
         sql, params = self.to_sql()
 
@@ -239,6 +240,7 @@ class ActiveQuery(
             # Warning: When using raw SQL strings, you must ensure the query is safe from SQL injection
             user = User.query().where('email = ?', (email,)).one()
         """
+        reject_explain_on_model_query(self, "one")
         # Get backend instance and dialect
         backend = self.backend()
         dialect = backend.dialect
@@ -586,6 +588,7 @@ class AsyncActiveQuery(
             users = await User.query().where('status = ?', ('active',)).all()
             users = await User.query().select('id', 'name').where('status = ?', ('active',)).all()
         """
+        reject_explain_on_model_query(self, "all")
         # Get SQL and parameters
         sql, params = self.to_sql()
 
@@ -631,6 +634,7 @@ class AsyncActiveQuery(
             # Warning: When using raw SQL strings, you must ensure the query is safe from SQL injection
             user = await User.query().where('email = ?', (email,)).one()
         """
+        reject_explain_on_model_query(self, "one")
         # Get backend instance and dialect
         backend = self.backend()
         dialect = backend.dialect
