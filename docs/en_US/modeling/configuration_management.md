@@ -192,7 +192,7 @@ def fresh_db():
 
 ## Runnable Example
 
-See [`docs/examples/chapter_03_modeling/configuration_management.py`](../../../examples/chapter_03_modeling/configuration_management.py)
+See [`docs/examples/chapter_03_modeling/configuration_management.py`](../../examples/chapter_03_modeling/configuration_management.py)
 for a self-contained script that demonstrates all five patterns above.
 
 ---

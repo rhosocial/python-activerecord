@@ -172,7 +172,7 @@ def setup_logging(log_dir="logs", log_filename="app", level="INFO", when="d", ba
 
 > **Relationship with framework `LoggingConfig`**: the framework's model/backend loggers are managed by their own `LoggingConfig`, which propagates to the root by default and installs no handler. The setup above is the **application layer** attaching handlers to the root and explicitly routing uvicorn — the two do not conflict: framework logs inherit the root handlers (with `LoggingConfig` responsible for sensitive-data masking), application logs use those handlers too.
 
-A complete runnable example is in the [FastAPI Integration scenario](../scenarios/fastapi.md#7-logging-configuration) (`docs/examples/chapter_14_scenarios/fastapi_blog/app/logging_conf.py`).
+A complete runnable example is in the [FastAPI Integration scenario](../scenarios/fastapi.md#7-logging-configuration) (`docs/examples/chapter_09_logging/06_structured_events.py`).
 
 ## Structured Events
 

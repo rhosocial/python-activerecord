@@ -452,7 +452,7 @@ assert_all_configured()
 
 ## Runnable Example
 
-See [`docs/examples/chapter_03_modeling/concurrency.py`](../../../examples/chapter_03_modeling/concurrency.py)
+See [`docs/examples/chapter_03_modeling/concurrency.py`](../../examples/chapter_03_modeling/concurrency.py)
 for a self-contained script that demonstrates all four patterns above.
 
 ---

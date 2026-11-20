@@ -53,4 +53,4 @@ pip install rhosocial-activerecord[all]
 
 ## Example Code
 
-Full example code for this chapter can be found at `docs/examples/chapter_12_backend/`.
+Full example code for this chapter can be found at `docs/examples/chapter_03_modeling/`.

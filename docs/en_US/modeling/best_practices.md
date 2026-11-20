@@ -722,8 +722,8 @@ UserMetric.query().all()  # Raises: DatabaseError: No backend configured
 Both approaches are fully supported.  Choose based on your team's preference and the
 semantic relationship between your models.
 
-See also: [`docs/examples/chapter_03_modeling/multiple_connections_inheritance.py`](../../../examples/chapter_03_modeling/multiple_connections_inheritance.py)
-and [`docs/examples/chapter_03_modeling/multiple_connections_mixin.py`](../../../examples/chapter_03_modeling/multiple_connections_mixin.py)
+See also: [`docs/examples/chapter_03_modeling/multiple_connections_inheritance.py`](../../examples/chapter_03_modeling/multiple_connections_inheritance.py)
+and [`docs/examples/chapter_03_modeling/multiple_connections_mixin.py`](../../examples/chapter_03_modeling/multiple_connections_mixin.py)
 for runnable examples of each pattern.
 
 > 💡 **AI Prompt:** "I have two model classes that map to the same table but need

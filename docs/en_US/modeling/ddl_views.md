@@ -154,4 +154,4 @@ for v in views:
 
 ## Example Code
 
-Full example: [docs/examples/chapter_03_modeling/ddl_views.py](../../../examples/chapter_03_modeling/ddl_views.py)
+Full example: [docs/examples/chapter_03_modeling/ddl_views.py](../../examples/chapter_03_modeling/ddl_views.py)
