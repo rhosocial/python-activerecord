@@ -33,7 +33,7 @@ class MyExpression(BaseExpression):
 
 ### 为什么没有"自定义 get_params()"
 
-`get_params()` 不是扩展点：重写它是缺陷，不是定制。核心在 `tests/.../dummy2/test_expression_artifact_contract.py::test_no_get_params_override` 里无例外地强制这一点——每个已注册的表达式类都必须沿用通用实现。（该测试允许的唯一例外，是做真正的"原始值 ↔ 归一化值"往返改写的 `VAR_POSITIONAL` 类，而核心注册表里没有任何一个属于这种情况。）
+`get_params()` 不是扩展点：重写它是缺陷，不是定制。核心在 `tests/.../dummy/expression/test_expression_artifact_contract.py::test_no_get_params_override` 里无例外地强制这一点——每个已注册的表达式类都必须沿用通用实现。（该测试允许的唯一例外，是做真正的"原始值 ↔ 归一化值"往返改写的 `VAR_POSITIONAL` 类，而核心注册表里没有任何一个属于这种情况。）
 
 原因是结构性的，不是风格问题。往返是靠"用 `get_params()` 返回的内容去调用构造函数"重建的，所以这两半必须彼此吻合。而重写恰恰是它们开始走偏的地方：这个类发出的键会被构造函数改名、合并或拒绝，状态就悄悄丢了——解码器只按名字把值交出去，并不替结果把关。各后端包曾各自积累过重写实现，而它们存在的理由全都是同一个：`__init__` 把调用方传进来的东西改了名或合并了——而一旦按收到的名字原样保存，这些重写就全都不再必要。
 

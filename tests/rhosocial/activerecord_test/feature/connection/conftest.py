@@ -25,6 +25,10 @@ from rhosocial.activerecord.connection import (
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 
+from connection_definitions import CONNECTION_DEFINITIONS, POOL_DEFINITIONS
+
+DDL = ExecutionOptions(stmt_type=StatementType.DDL)
+
 
 # Define test model classes
 class User(IntegerPKMixin, ActiveRecord):
@@ -142,24 +146,9 @@ def configured_backend(
     backend = backend_class(**sqlite_config.model_dump())
     backend.connect()
 
-    # Create test tables
-    backend.executescript("""
-        CREATE TABLE users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT NOT NULL
-        );
-        CREATE TABLE posts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            user_id INTEGER NOT NULL
-        );
-        CREATE TABLE comments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            content TEXT NOT NULL,
-            post_id INTEGER NOT NULL
-        );
-    """)
+    dialect = backend.dialect
+    for definition in CONNECTION_DEFINITIONS:
+        backend.execute(*definition(dialect).create_table.to_sql(), options=DDL)
 
     yield backend
 
@@ -214,7 +203,8 @@ def cleanup_shared_db_tables(shared_sqlite_db_path: str):
         for table_name in ["ctx_test_users", "async_ctx_test_users", "pool_users", "pool_posts"]:
             try:
                 backend.execute(
-                    f"DROP TABLE IF EXISTS {table_name}", options=ExecutionOptions(stmt_type=StatementType.DDL)
+                    f"DROP TABLE IF EXISTS {table_name}",
+                    options=ExecutionOptions(stmt_type=StatementType.DDL),
                 )
             except Exception:
                 pass
@@ -336,16 +326,7 @@ async def async_session_aware_user_model() -> Type[AsyncActiveRecord]:
 def pool_with_tables(backend_pool: BackendPool) -> Generator[BackendPool, None, None]:
     """Create a pool with test tables initialized."""
     with backend_pool.connection() as backend:
-        backend.executescript("""
-            CREATE TABLE IF NOT EXISTS pool_users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                email TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS pool_posts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL,
-                user_id INTEGER NOT NULL
-            );
-        """)
+        dialect = backend.dialect
+        for definition in POOL_DEFINITIONS:
+            backend.execute(*definition(dialect).create_table.to_sql(), options=DDL)
     yield backend_pool

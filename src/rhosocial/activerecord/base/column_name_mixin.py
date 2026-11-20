@@ -165,6 +165,7 @@ class ColumnNameMixin:
         return column_to_field_map.get(column_name, column_name)
 
     @classmethod
+    @lru_cache(maxsize=None)
     def get_field_to_column_map(cls) -> Dict[str, str]:
         """
         Get complete field-to-column name mapping.

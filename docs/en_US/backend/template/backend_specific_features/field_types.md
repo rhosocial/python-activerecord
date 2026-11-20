@@ -72,7 +72,7 @@ email_type = VarCharType()
 |-----------|-------------|------------|-------------|
 | `EnumType` | `str` | `values: List[str]` (required) | Enumerated string values |
 
-`EnumType(values=['S', 'M', 'L'])` — native ENUM on MySQL/MariaDB; backends without a native ENUM type suggest a replacement via `suggested_data_types()` (e.g. SQLite suggests text).
+`EnumType(values=['S', 'M', 'L'])` — native ENUM on MySQL/MariaDB; backends without a native ENUM type suggest a replacement via `substitute_data_types()` (e.g. SQLite suggests text).
 
 ### Boolean Type
 

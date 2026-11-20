@@ -36,6 +36,7 @@ from .value_types import (
     TemporalValue,
     TextValue,
     XMLValue,
+    SurfaceOnlyValue,
 )
 from .bases import BaseExpression, SQLValue
 
@@ -203,6 +204,21 @@ class XMLAnnotation(
 
 
 
+class SurfaceOnlyAnnotation(
+    _Annotation,
+    DeclaredValueType,
+    SurfaceOnlyValue,
+):
+    """Declared to yield a value of a family the framework does not model.
+
+    The six complex families and durations reach this surface: their declared
+    results are typed as what they are, and they offer the shared column
+    surface plus nothing the framework cannot promise on every backend. A
+    backend that models those operations declares its own column class; this
+    annotation is what the core promises and no more.
+    """
+
+
 __all__ = [
     "TextAnnotation",
     "NumberAnnotation",
@@ -214,4 +230,5 @@ __all__ = [
     "UUIDAnnotation",
     "BinaryAnnotation",
     "XMLAnnotation",
+    "SurfaceOnlyAnnotation",
 ]

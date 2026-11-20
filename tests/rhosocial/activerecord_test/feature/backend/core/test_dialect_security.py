@@ -1,0 +1,406 @@
+# tests/rhosocial/activerecord_test/feature/backend/test_dialect_security.py
+"""
+Tests for dialect SQL injection security fixes.
+
+This test module verifies that string escaping and validation
+methods properly sanitize user input to prevent SQL injection.
+"""
+
+import pytest
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefaultConstraint,
+)
+from rhosocial.activerecord.backend.dialect.mixins import NamespaceMixin, TableNameMixin
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
+from rhosocial.activerecord.backend.expression.functions.string import trim
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefinition,
+    ColumnConstraint,
+    PartitionStrategy,
+)
+from rhosocial.activerecord.backend.dialect.mixins.data_type import DataTypeMixin
+from rhosocial.activerecord.backend.dialect.mixins import PartitionMixin, ExpressionMixin, DDLColumnMixin, TableMixin
+from typing import Tuple
+from rhosocial.activerecord.backend.dialect import SQLDialectBase
+from rhosocial.activerecord.backend.expression import Column
+
+
+
+
+class SecurityDialect(
+    SQLDialectBase,
+    ExpressionMixin,
+    DDLColumnMixin,
+    PartitionMixin,
+    DataTypeMixin,
+    TableNameMixin,
+    NamespaceMixin,
+    TableMixin,
+):
+    """Test dialect for security tests."""
+
+    name = "test"
+
+    def format_data_type_integer(self, data_type):
+        return "INTEGER", ()
+
+    def supports_table_partitioning(self) -> bool:
+        return True
+
+    def supports_partitioned_table_creation(self) -> bool:
+        return True
+
+    def format_data_type_int(self, data_type) -> Tuple[str, tuple]:
+        return "INTEGER", ()
+
+    def format_data_type_varchar(self, data_type) -> Tuple[str, tuple]:
+        if data_type.length is not None:
+            return f"VARCHAR({data_type.length})", ()
+        return "VARCHAR", ()
+
+    def format_partition_clause(self, expr) -> Tuple[str, tuple]:
+        parts = []
+        params = []
+        for key in expr.keys:
+            key_sql, key_params = key.to_sql()
+            parts.append(key_sql)
+            params.extend(key_params)
+        return f" PARTITION BY {expr.method} ({', '.join(parts)})", tuple(params)
+
+
+def testescape_sql_string_basic(dialect):
+    """Test basic single quote escaping."""
+    result = dialect.escape_sql_string("test")
+    assert result == "test"
+
+    result = dialect.escape_sql_string("it's")
+    assert result == "it''s"
+
+    result = dialect.escape_sql_string("'")
+    assert result == "''"
+
+
+def testescape_sql_string_multiple_quotes(dialect):
+    """Test escaping multiple single quotes."""
+    result = dialect.escape_sql_string("it's John's car")
+    assert result == "it''s John''s car"
+
+    result = dialect.escape_sql_string("''")
+    assert result == "''''"
+
+
+class TestEscapeReachesTheDialect:
+    """An inline literal must be escaped by the *dialect*, not by the base class.
+
+    A backend may spell string escaping its own way: MySQL and MariaDB double
+    the backslash because it is an escape character under the default SQL
+    mode, and BigQuery uses the backslash escape for the quote itself. When a
+    formatter reached for ``SQLDialectBase.escape_sql_string`` instead of
+    ``self.escape_sql_string``, the base class's spelling won and the
+    backend's policy was silently dropped -- a MariaDB JSON document
+    containing a backslash came out under-escaped, and the stored value
+    differed from the one that was sent.
+
+    These cases pin the rule: the escaping a caller sees is the escaping the
+    dialect declares.
+    """
+
+    def _dialect_with_backslash_policy(self):
+        """A dialect whose escaping doubles the backslash, like MySQL's."""
+
+        class BackslashDialect(SecurityDialect):
+            name = "backslash"
+
+            @staticmethod
+            def escape_sql_string(value: str) -> str:
+                return value.replace("\\", "\\\\").replace("'", "''")
+
+            def supports_alter_column_properties(self) -> bool:
+                return True
+
+        return BackslashDialect()
+
+    def test_the_public_helper_uses_the_override(self):
+        dialect = self._dialect_with_backslash_policy()
+        assert dialect.escape_sql_string("a\\b'c") == "a\\\\b''c"
+
+    def test_an_inline_literal_uses_the_override(self):
+        """A literal rendered inline carries the dialect's escaping."""
+        from rhosocial.activerecord.backend.expression.core import Literal
+
+        dialect = self._dialect_with_backslash_policy()
+        sql, params = Literal(dialect, "a\\b'c", inline=True).to_sql()
+
+        assert sql == "'a\\\\b''c'"
+        assert params == ()
+
+    def test_an_alter_column_default_uses_the_override(self):
+        """``ALTER COLUMN ... SET DEFAULT`` inlines its value, so it escapes.
+
+        The value travels through the same path as the literal above: the
+        formatter must ask the dialect, not the base class.
+        """
+        from rhosocial.activerecord.backend.expression.statements import (
+            AlterColumnAction,
+        )
+
+        dialect = self._dialect_with_backslash_policy()
+        action = AlterColumnAction(dialect, column_name="c", operation="SET DEFAULT",
+                                   new_value="a\\b'c")
+        sql, params = dialect.format_alter_column_action(action)
+        assert "a\\\\b''c" in sql
+        assert params == ()
+
+
+def test_a_type_position_refuses_a_payload(dialect):
+    """A type name is a name, and the grammar is what says so.
+
+    The backend has no character filter of its own any more: the type
+    position is guarded by the grammar, which is the framework's rule for
+    what a name may be, and the server decides whether the type exists.
+    """
+    from rhosocial.activerecord.backend.expression import Literal
+    from rhosocial.activerecord.backend.expression.statements import (
+        AlterColumnAction,
+    )
+    from rhosocial.activerecord.backend.expression.type_name import (
+        InvalidTypeNameError,
+    )
+    from rhosocial.activerecord.backend.expression.xml import (
+        XMLSerializeExpression,
+    )
+
+    # A name is a name: the position takes it.
+    XMLSerializeExpression(dialect, Literal(dialect, "x"), "TEXT")
+    AlterColumnAction(dialect, "c", "SET DATA TYPE", new_value="TEXT")
+
+    # A value that is not a name is refused, and refused before the
+    # statement is ever rendered.
+    with pytest.raises(InvalidTypeNameError):
+        XMLSerializeExpression(
+            dialect, Literal(dialect, "x"), "TEXT; DROP TABLE users--"
+        )
+    with pytest.raises(InvalidTypeNameError):
+        AlterColumnAction(
+            dialect, "c", "SET DATA TYPE", new_value="TEXT; DROP TABLE users--"
+        )
+
+
+def test_format_column_definition_data_type_validation(dialect):
+    """Test that column definition validates data_type."""
+    col_def = ColumnDefinition(dialect, 
+        name="test_col",
+        data_type=VarCharType(dialect, 255),
+    )
+
+    sql, params = dialect.format_column_definition(col_def)
+    assert "VARCHAR(255)" in sql
+
+
+def test_column_definition_rejects_string_data_type(dialect):
+    """Test that ColumnDefinition rejects a string for data_type."""
+    with pytest.raises(TypeError, match="data_type must be a DataType"):
+        ColumnDefinition(dialect, 
+            name="test_col",
+            data_type="VARCHAR(255); DROP TABLE users--",
+        )
+
+
+def test_format_cast_expression_valid(dialect):
+    """A cast renders the type it was handed."""
+    from rhosocial.activerecord.backend.expression.core import CastExpression, Column
+
+    expr = CastExpression(dialect, Column(dialect, "column"),
+                          IntegerType(dialect))
+    sql, params = dialect.format_cast_expression(expr)
+    assert "INTEGER" in sql
+
+
+def test_format_cast_expression_rejects_injection(dialect):
+    """A malicious type name is refused at construction, not at render.
+
+    The type position of a cast cannot take a bound parameter, so nothing can
+    sanitise a string there later. Refusing it where it enters is the only
+    point at which the refusal is still guaranteed.
+    """
+    from rhosocial.activerecord.backend.expression.core import CastExpression, Column
+
+    with pytest.raises(TypeError):
+        CastExpression(dialect, Column(dialect, "column"),
+                       "INTEGER; DROP TABLE users--")
+
+
+def test_custom_type_rejects_injection(dialect):
+    """CustomType is the way through, so it validates what it is given."""
+    from rhosocial.activerecord.backend.expression.types import (
+        CustomType,
+        InvalidTypeNameError,
+    )
+
+    with pytest.raises(InvalidTypeNameError):
+        CustomType(dialect, raw="INTEGER; DROP TABLE users--")
+
+
+def test_trim_direction_validation(dialect):
+    """Test trim direction is validated."""
+    col = Column(dialect, "name")
+
+    result = trim(dialect, col, " ", "BOTH")
+    assert result is not None
+
+    result = trim(dialect, col, " ", "LEADING")
+    assert result is not None
+
+    result = trim(dialect, col, " ", "TRAILING")
+    assert result is not None
+
+
+def test_trim_direction_rejects_invalid(dialect):
+    """Test that invalid trim direction is rejected."""
+    dialect = SecurityDialect()
+    col = Column(dialect, "name")
+
+    with pytest.raises(ValueError, match="Invalid trim direction"):
+        trim(dialect, col, " ", "BOTH; DROP TABLE users--")
+
+    with pytest.raises(ValueError, match="Invalid trim direction"):
+        trim(dialect, col, " ", "invalid")
+
+
+def test_format_default_constraint_string_escaping(dialect):
+    """Test DEFAULT constraint string is escaped."""
+    constraint = ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, "test's value"))
+
+    sql, params = dialect.format_column_default_constraint(constraint.branch)
+    assert "test''s value" in sql
+    assert "'; DROP" not in sql
+
+
+def test_format_storage_options_string_escaping(dialect):
+    """Test storage options string values are escaped."""
+    from rhosocial.activerecord.backend.expression.statements import StorageOptionsExpression
+    storage_opts = StorageOptionsExpression(dialect, {"key": "value's"})
+    sql, params = dialect.format_storage_options_expression(storage_opts)
+    assert "value''s" in sql
+    assert "'; DROP" not in sql
+
+
+def test_format_storage_options_key_identifier_quoting(dialect):
+    """Test storage option keys are quoted as identifiers.
+
+    Before fix: key was embedded directly with only .upper().
+    After fix: key goes through format_identifier(), so even if 'DROP TABLE'
+    appears in the SQL, it's safely enclosed inside quoted identifiers.
+    """
+    from rhosocial.activerecord.backend.expression.statements import StorageOptionsExpression
+    malicious_key = 'key"; DROP TABLE users--'
+    storage_opts = StorageOptionsExpression(dialect, {malicious_key: "value"})
+    sql, params = dialect.format_storage_options_expression(storage_opts)
+
+    # DROP TABLE may appear inside quoted identifier, that's safe.
+    # Verify quotes are balanced (no breakout).
+    outer_quotes = [i for i, c in enumerate(sql) if c == '"']
+    assert len(outer_quotes) % 2 == 0, f"Unbalanced quotes in {sql}"
+
+
+def test_format_storage_options_mixed_safe_and_malicious_keys(dialect):
+    """Test that safe keys work and malicious keys are quoted in same dict."""
+    from rhosocial.activerecord.backend.expression.statements import StorageOptionsExpression
+    safe_key = "fillfactor"
+    malicious_key = 'evil"; DELETE FROM t--'
+    storage_opts = StorageOptionsExpression(dialect, {safe_key: 70, malicious_key: "x"})
+    sql, params = dialect.format_storage_options_expression(storage_opts)
+
+    assert "fillfactor" in sql or "FILLFACTOR" in sql
+    # DELETE may appear inside quoted identifier — verify balanced quotes
+    outer_quotes = [i for i, c in enumerate(sql) if c == '"']
+    assert len(outer_quotes) % 2 == 0, f"Unbalanced quotes in {sql}"
+
+
+def test_format_storage_options_int_value_not_parameterized(dialect):
+    """Numeric storage options are embedded as literals (design decision)."""
+    from rhosocial.activerecord.backend.expression.statements import StorageOptionsExpression
+    storage_opts = StorageOptionsExpression(dialect, {"fillfactor": 70})
+    sql, params = dialect.format_storage_options_expression(storage_opts)
+    assert "70" in sql
+    assert params == ()
+
+
+def test_format_storage_options_none_value_uses_placeholder(dialect):
+    """None or unknown type values use parameterized placeholder."""
+    from rhosocial.activerecord.backend.expression.statements import StorageOptionsExpression
+    storage_opts = StorageOptionsExpression(dialect, {"option": None})
+    sql, params = dialect.format_storage_options_expression(storage_opts)
+    assert "NULL" in sql
+
+
+def test_format_storage_options_empty(dialect):
+    """Empty storage options returns empty string."""
+    from rhosocial.activerecord.backend.expression.statements import StorageOptionsExpression
+    sql, params = dialect.format_storage_options_expression(StorageOptionsExpression(dialect, {}))
+    assert sql == ""
+    assert params == ()
+
+
+def test_format_partition_method_validation(dialect):
+    """Test partition method is allowlist-validated and columns are quoted."""
+    from rhosocial.activerecord.backend.expression.statements.ddl_table import (
+        CreateTableStatement,
+        ColumnDefinition,
+        PartitionClause,
+    )
+
+    col_def = ColumnDefinition(dialect, name="id", data_type=IntegerType(dialect))
+    expr = CreateTableStatement(
+        dialect=dialect,
+        table=Table(dialect, 'test_table'),
+        columns=[col_def],
+        partition=PartitionClause(
+            dialect=dialect,
+            method=PartitionStrategy.RANGE,
+            keys=[Column(dialect, "id")],
+        ),
+    )
+    sql, params = dialect.format_create_table_statement(expr)
+    assert "PARTITION BY RANGE" in sql
+    assert '"id"' in sql or '"ID"' in sql
+    assert params == ()
+
+
+def test_format_partition_method_rejects_invalid_method_without_echoing_value(dialect):
+    """Invalid partition method is rejected before SQL generation."""
+    from rhosocial.activerecord.backend.expression.statements.ddl_table import (
+        PartitionClause,
+    )
+
+    malicious_method = "RANGE); DROP TABLE users; --"
+
+    with pytest.raises(TypeError) as exc_info:
+        PartitionClause(
+            dialect=dialect,
+            method=malicious_method,
+            keys=[Column(dialect, "id")],
+        )
+
+    message = str(exc_info.value)
+    assert "method must be a PartitionStrategy" in message
+    assert malicious_method not in message
+
+
+@pytest.fixture
+def dialect():
+    """Create a test dialect."""
+    return SecurityDialect()
+
+
+# ── SQLite PRAGMA escaping & whitelist ─────────────────────────────────
+
+
+def test_format_identifier_prevents_name_injection():
+    """format_identifier must double-quote embedded quotes."""
+    d = SQLDialectBase()
+    # core base wraps in double-quotes and escapes embedded "
+    assert d.format_identifier("normal") == '"normal"'
+    assert d.format_identifier('it"self') == '"it""self"'
+    assert d.format_identifier("") == '""'

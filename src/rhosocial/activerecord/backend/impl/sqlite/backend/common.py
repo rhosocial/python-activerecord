@@ -11,7 +11,20 @@ import sqlite3
 from sqlite3 import ProgrammingError
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-from ..adapters import SQLiteBlobAdapter, SQLiteJSONAdapter, SQLiteUUIDAdapter
+from ..adapters import (
+    SQLiteBitStringAdapter,
+    SQLiteBlobAdapter,
+    SQLiteGeometryAdapter,
+    SQLiteJSONAdapter,
+    SQLiteMacAddressAdapter,
+    SQLiteRangeAdapter,
+    SQLiteUUIDAdapter,
+    SQLiteVectorAdapter,
+)
+from rhosocial.activerecord.backend.base.type_adaption import (
+    merge_adapter_suggestions,
+    sort_and_deduplicate_adapters,
+)
 from rhosocial.activerecord.backend.errors import (
     DatabaseError,
     DeadlockError,
@@ -37,22 +50,43 @@ _sqlite_version_cache: Optional[Tuple[int, int, int]] = None
 
 
 def get_type_mappings():
-    """Get type mappings with lazy imports."""
-    from datetime import date, datetime, time
-    from decimal import Decimal
-    from uuid import UUID
-    from enum import Enum
+    """SQLite-specific ``(Python type, driver type)`` pairs.
+
+    SQLite follows the framework defaults for every scalar Python type
+    (``bool``/``datetime``/``date``/``time``/``Decimal``/``UUID``/``dict``/
+    ``list``/``Enum``); it only has to add the neutral families it carries as
+    TEXT, which are resolved through its own adapter registry.
+    """
+    from rhosocial.activerecord.backend.adapters.bitstring import BitString
+    from rhosocial.activerecord.backend.adapters.geometry import (
+        Geometry,
+        GeometryCollection,
+        LineString,
+        MultiLineString,
+        MultiPoint,
+        MultiPolygon,
+        Point,
+        Polygon,
+    )
+    from rhosocial.activerecord.backend.adapters.network import MacAddress
+    from rhosocial.activerecord.backend.adapters.range import Multirange, Range
+    from rhosocial.activerecord.backend.adapters.vector import Vector
 
     return [
-        (bool, int),
-        (datetime, str),
-        (date, str),
-        (time, str),
-        (Decimal, float),
-        (UUID, str),
-        (dict, str),
-        (list, str),
-        (Enum, str),
+        # Neutral families carried as TEXT/BLOB text representations.
+        (Geometry, str),
+        (Point, str),
+        (LineString, str),
+        (Polygon, str),
+        (MultiPoint, str),
+        (MultiLineString, str),
+        (MultiPolygon, str),
+        (GeometryCollection, str),
+        (Vector, str),
+        (BitString, str),
+        (Range, str),
+        (Multirange, str),
+        (MacAddress, str),
     ]
 
 
@@ -68,6 +102,11 @@ class SQLiteBackendMixin:
             SQLiteBlobAdapter(),
             SQLiteJSONAdapter(),
             SQLiteUUIDAdapter(),
+            SQLiteGeometryAdapter(),
+            SQLiteVectorAdapter(),
+            SQLiteBitStringAdapter(),
+            SQLiteRangeAdapter(),
+            SQLiteMacAddressAdapter(),
         ]
         for adapter in sqlite_adapters:
             for py_type, db_types in adapter.supported_types.items():
@@ -76,22 +115,35 @@ class SQLiteBackendMixin:
         self.logger.debug("Registered SQLite-specific type adapters.")
 
     def get_default_adapter_suggestions(self) -> Dict[Type, Tuple["SQLTypeAdapter", Type]]:
-        """Provides default type adapter suggestions for SQLite."""
+        """Provides default type adapter suggestions for SQLite.
+
+        The framework defaults are the base; SQLite merges its own pairs
+        (the neutral families it stores as TEXT) on top of them.
+        """
         if self._default_suggestions_cache is not None:
             return self._default_suggestions_cache
 
-        suggestions: Dict[Type, Tuple["SQLTypeAdapter", Type]] = {}
-        type_mappings = get_type_mappings()
-
-        for py_type, db_type in type_mappings:
-            adapter = self.adapter_registry.get_adapter(py_type, db_type)
-            if adapter:
-                suggestions[py_type] = (adapter, db_type)
-            else:
+        base = super().get_default_adapter_suggestions()
+        suggestions = merge_adapter_suggestions(base, get_type_mappings(), self.adapter_registry)
+        for py_type, (adapter, db_type) in suggestions.items():
+            if adapter is None:
                 self.logger.debug(f"No adapter found for ({py_type.__name__}, {db_type.__name__}).")
 
         self._default_suggestions_cache = suggestions
         return suggestions
+
+    def get_type_adapters(self) -> List["SQLTypeAdapter"]:
+        """Return the adapter instances this backend provides.
+
+        This is a plain inventory: it says which adapters exist for this backend.
+        It carries no suggestion/default/priority semantics; the caller decides.
+
+        SQLite enumerates its adapter registry directly, so the inventory also
+        includes adapters that have no default suggestion (e.g. the BLOB
+        adapter). Classes are deduplicated and sorted deterministically.
+        """
+        registered = self.adapter_registry.get_all_adapters()
+        return sort_and_deduplicate_adapters(registered.values())
 
     @property
     def threadsafety(self) -> int:

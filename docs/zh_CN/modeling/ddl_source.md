@@ -2,6 +2,8 @@
 
 `DDLSource` 是 ActiveRecord 暴露 DDL 声明的结构化协议，`DDLSourceMixin` 是它在模型上的默认实现。它负责从模型类中收集 DDL 表达式和声明，并把结果呈现出来；它不选择后端、不生成 SQL、不创建语句计划，也不执行数据库操作。
 
+> 完整的能力矩阵与设计边界，请参阅 [The ActiveRecord Definition](definition.md)。
+
 ```python
 from rhosocial.activerecord.base import DDLSource
 from rhosocial.activerecord.model import ActiveRecord
@@ -42,7 +44,7 @@ assert isinstance(User, DDLSource)
 
 | 声明 | 读取接口 | 说明 |
 |------|----------|------|
-| `__table_name__` | `table_name()` | 必须是字符串；未设置或类型错误会抛出 `ValueError`。 |
+| `table_name()`（类方法覆盖） | `table_name()` | 通过覆盖类方法声明并返回表名；框架不读取任何双下划线属性，未覆盖时调用抛出 `NotImplementedError`。 |
 | `__schema_name__` | `schema_name()` | 原样返回；未设置时为 `None`。 |
 | `__primary_key__` | `primary_key_columns()` | 字符串规范化为单元素 tuple，tuple 原样返回。 |
 | `__primary_key__` | `is_composite_pk()` | 只有 tuple 才表示复合主键。 |
@@ -102,7 +104,7 @@ class Report(ActiveRecord):
 
 | 接口 | 返回值 | 如何收集及注意事项 |
 |------|--------|------------------|
-| `table_name()` | `str` | 读取并校验 `__table_name__`。 |
+| `table_name()` | `str` | 由模型的类方法覆盖提供；不读取 `__table_name__`。 |
 | `schema_name()` | `Optional[str]` | 读取 `__schema_name__`。 |
 | `primary_key_columns()` | `Tuple[str, ...]` | 规范化 `__primary_key__`。 |
 | `is_composite_pk()` | `bool` | 判断主键声明是否为 tuple。 |
@@ -172,21 +174,28 @@ class Report(ActiveRecord):
 
 ## 后端表达式如何接入
 
-`UseSqlType` 可以携带通用类型和后端专属类型：
+`UseSqlType` 可以携带多个按优先级排列的 `DataType` 候选。整个机制分为三步：
+
+1. **声明** —— 字段按书写内容携带候选；通用类型和某个后端专属的类型都可以出现。
+2. **收集** —— `DDLSourceMixin` 保留每个候选及其顺序，不选择、不替换、不丢弃。
+3. **消费** —— 持有具体方言的 DDL 消费者为该后端选择第一个可渲染的候选（“首个可渲染者胜出”）。
+
+内置 SQLite 后端用通用类型演示了这一机制：
 
 ```python
 from typing import Annotated
 from rhosocial.activerecord.base import UseSqlType
-from rhosocial.activerecord.backend.expression.types import TextType
-from rhosocial.activerecord.backend.impl.postgres.expression.types import PostgresUUIDType
+from rhosocial.activerecord.backend.expression.types import TextType, VarCharType
 
 identifier: Annotated[
     str,
-    UseSqlType(PostgresUUIDType(), TextType()),
+    UseSqlType(TextType(), VarCharType(length=64)),
 ]
 ```
 
-`DDLSourceMixin` 只保留这两个候选及其顺序。PostgreSQL 是否接受第一个候选、其他后端是否接受第二个候选，必须由后续方言消费者根据自身能力决定；source 不会在这里做替换或回退。
+`column_data_type("identifier")` 返回包含两个候选的完整标记，顺序保持不变。当 SQLite DDL 消费者渲染该列时，它选择 SQLite 能渲染的第一个候选 —— 这里是 `TextType()` —— 而 source 中的声明保持不变。后端无法渲染的候选会被跳过，转而选择下一个可渲染候选；source 从不改写它。
+
+> 💡 **AI Prompt**: "ActiveRecord 如何与内置 SQLite 后端协作，把一个包含多个候选的 `UseSqlType` 声明变成具体的列类型？source 为什么保留全部候选而不自行选择？"
 
 后端专属 `ColumnOptions` 不是核心 `Use*` 标记，不能仅靠在字段上写一个选项对象就自动收集。它需要像上面的 `BackendSettingHandler` 一样由处理器写入元数据。选项对象随后由后端表达式类使用：
 
@@ -197,22 +206,11 @@ column = column_class(dialect, "name", data_type)
 option.apply_to(column)
 ```
 
-这段代码属于后端表达式消费者，不属于 `DDLSourceMixin`。
+这段代码属于后端表达式消费者，不属于 `DDLSourceMixin`。其他后端以各自文档为准。
 
 ## 后端差异速查
 
-| 后端 | 常见声明/表达式 | 收集层的注意事项 |
-|------|----------------|------------------|
-| SQLite | 通用 `DataType`、`ColumnConstraint`、`IndexDefinition` | source 只收集通用声明；SQLite 的能力限制由 SQLite dialect 后续处理。 |
-| MySQL | `MySQL*Type`、`MySQLColumnOptions`、`MySQLCreateTableOptions`、MySQL 分区表达式 | `UseIndex` 产生的定义可由支持内联索引的方言消费；source 本身不决定内联或独立创建。 |
-| MariaDB | `MariaDB*Type`、`MariaDBColumnOptions`、`MariaDBCreateTableOptions`、MariaDB 分区表达式 | 与 MySQL 类似，具体语法和能力由 MariaDB dialect 决定。 |
-| PostgreSQL | `Postgres*Type`、`PostgresColumnOptions`、`PostgresCreateTableOptions`、PostgreSQL 分区表达式 | schema、表空间和后端选项仍是声明值；能力门控不在 source 中执行。 |
-| SQL Server | `SQLServer*Type`、`SQLServerColumnOptions`、`SQLServerCreateTableOptions`、SQL Server 分区表达式 | SQL Graph 或其他专属建表类只能通过扩展 hook/外部消费者选择。 |
-| Oracle | `Oracle*Type`、`OracleColumnOptions`、Oracle 分区表达式 | 不支持的注释、分区或类型由 Oracle dialect 报错，不在收集阶段伪装支持。 |
-| Snowflake | `Snowflake*Type`、`SnowflakeCreateTableOptions`、Snowflake 分区/克隆相关表达式 | VARIANT、OBJECT、ARRAY 等类型只是候选声明；source 不做 Snowflake 专属选择。 |
-| ClickHouse | `ClickHouse*Type`、`ClickHouseColumnOptions`、`ClickHouseIndexDefinition`、ClickHouse 分区表达式 | UNIQUE、外键等不受支持的能力由 ClickHouse dialect fail-fast；source 仍可呈现用户声明。 |
-| BigQuery | 当前主要使用通用 `DataType`、约束和 `CreateTableOptions` | 当前包没有与 `DDLSource` 自动绑定的 BigQuery 专属 `ColumnOptions`；通用声明仍可被收集。 |
-| Firebird | `Firebird*Type`、`FirebirdColumnOptions`、`FirebirdCreateTableStatement`、Firebird 分区/计算列表达式 | 计算列、表空间和专属建表类由 Firebird 消费者处理。 |
+内置 SQLite 后端渲染 `DDLSourceMixin` 收集的通用声明 —— 通用 `DataType`、`ColumnConstraint`、`IndexDefinition` 和 `TableConstraint`。SQLite 的能力集小于 ActiveRecord 的声明面：当某个声明描述了 SQLite 原生不支持的能力（例如某些表选项、分区或存储设置）时，source 仍会原样保留并返回。这是 SQLite 的限制，不是 ActiveRecord 的缺陷。其他后端提供 SQLite 之外的能力，以各自文档为准。
 
 后端测试应至少验证三件事：DDLSource 返回的对象和顺序、后端专属类型/选项没有被提前改写、收集结果可以交给该后端已有的表达式构造路径。收集测试不需要连接真实数据库；SQL 渲染应使用方言和最小表达式单独验证。
 

@@ -516,17 +516,25 @@ class LimitOffsetClause(BaseExpression):
     ):
         super().__init__(dialect)
 
-        # Validate that offset requires limit in dialects that don't support offset without limit
-        if offset is not None and limit is None:
-            if not dialect.supports_offset_without_limit():
-                raise ValueError(
-                    f"OFFSET clause requires LIMIT clause in {dialect.name} dialect. "
-                    f"Call .limit() before .offset(), or use .limit(limit, offset=offset)."
-                )
-
         self.limit = limit  # Maximum number of rows to return (optional)
         self.offset = offset  # Number of rows to skip (optional, requires LIMIT in most dialects)
         self.with_ties = with_ties  # FETCH FIRST ... WITH TIES (requires FETCH syntax)
+
+        # A node built before any backend exists has no dialect to ask, so the
+        # answer is deferred to the render (``check_dialect``); supplying one
+        # here keeps the early refusal for callers that already have it.
+        if dialect is not None:
+            self.check_dialect(self.dialect)
+
+    def check_dialect(self, dialect: "SQLDialectBase") -> None:
+        """OFFSET without LIMIT is refused where the grammar requires a limit."""
+        if self.offset is None or self.limit is not None:
+            return
+        if not dialect.supports_offset_without_limit():
+            raise ValueError(
+                f"OFFSET clause requires LIMIT clause in {dialect.name} dialect. "
+                f"Call .limit() before .offset(), or use .limit(limit, offset=offset)."
+            )
 
     @property
     def format_method(self) -> str:

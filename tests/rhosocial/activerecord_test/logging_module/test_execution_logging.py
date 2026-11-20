@@ -49,6 +49,25 @@ def _sql_debug_records(caplog):
     ]
 
 
+@pytest.fixture(autouse=True)
+def restore_framework_logger_state():
+    """Keep this module independent of other tests' logging configuration.
+
+    A test that previously called ``configure_logging(propagate=False)`` leaves
+    the already-created framework logger with ``propagate=False`` (and possibly
+    a raised level). Under xdist the logging tests can land on that worker, and
+    then ``caplog`` sees no records. Restore the relevant logger for the duration
+    of each test in this module and put it back afterwards.
+    """
+    logger = logging.getLogger("rhosocial.activerecord.backend.sqlite")
+    original_level, original_propagate = logger.level, logger.propagate
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = True
+    yield
+    logger.setLevel(original_level)
+    logger.propagate = original_propagate
+
+
 @pytest.fixture
 def log_model(tmp_path):
     """Configure an isolated SQLite model with a fresh table."""

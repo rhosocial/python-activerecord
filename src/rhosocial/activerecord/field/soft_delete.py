@@ -16,13 +16,15 @@ equal footing without mixing execution models.
 """
 
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Set
 
 from pydantic import Field
 
+from ..base.field_generation import apply_field_generators
+from ..base.fields import UseFieldGenerator
 from ..backend.expression.core import Column
 from ..backend.expression import ComparisonPredicate, IsNullPredicate, Literal
-from ..interface import ModelEvent
+from ..types import WriteOperation
 from ..interface.update import IDeleteBehavior
 from ..query import ActiveQuery
 from .field_config import FieldConfigValidationHandler
@@ -39,9 +41,20 @@ class SoftDeleteMixin(IDeleteBehavior):
 
     _feature_handlers = [FieldConfigValidationHandler]
 
-    def __init__(self, **data):
-        super().__init__(**data)
-        self.on(ModelEvent.BEFORE_DELETE, self._mark_as_deleted)
+    @classmethod
+    def field_generators(cls):
+        """Generate deleted_at on soft delete and clear it on restore."""
+        generators = dict(super().field_generators())
+        generators[cls.deleted_at_field()] = UseFieldGenerator(
+            before_soft_delete=lambda instance: datetime.now(timezone.utc),
+            before_restore=lambda instance: None,
+        )
+        return generators
+
+    @classmethod
+    def no_track_fields_from_mixins(cls) -> Set[str]:
+        """The soft-delete marker is framework-managed, never user-changed."""
+        return super().no_track_fields_from_mixins() | {cls.deleted_at_field()}
 
     @classmethod
     def deleted_at_field(cls) -> str:
@@ -81,14 +94,12 @@ class SoftDeleteMixin(IDeleteBehavior):
         setattr(instance, self.deleted_at_field(), datetime.now(timezone.utc))
 
     def prepare_delete(self) -> Dict[str, Any]:
-        """Prepare soft delete data (field name as key; mapped downstream)."""
-        field_name = self.deleted_at_field()
-        value = getattr(self, field_name)
-        if value is None:
-            raise ValueError(
-                f"{field_name} not set, ensure BEFORE_DELETE event is triggered"
-            )
-        return {field_name: value}
+        """Prepare soft-delete data via the field generators for this operation.
+
+        Every field with a ``before_soft_delete`` generator contributes -- the
+        deleted-at marker and, when present, a refreshed ``updated_at``.
+        """
+        return apply_field_generators(self.__class__, self, WriteOperation.SOFT_DELETE, {})
 
     @classmethod
     def query(cls) -> "ActiveQuery":
@@ -150,10 +161,15 @@ class SoftDeleteMixin(IDeleteBehavior):
 
         from ..backend.options import UpdateOptions
 
+        restore_data = apply_field_generators(self.__class__, self, WriteOperation.RESTORE, {})
+        data = {
+            self.__class__.get_column_name(field): value
+            for field, value in restore_data.items()
+        }
         condition_expr = self._build_restore_condition()
         update_options = UpdateOptions(
             table=self.table_name(),
-            data={self._deleted_at_column(): None},
+            data=data,
             where=condition_expr,
         )
 
@@ -182,10 +198,15 @@ class AsyncSoftDeleteMixin(SoftDeleteMixin):
 
         from ..backend.options import UpdateOptions
 
+        restore_data = apply_field_generators(self.__class__, self, WriteOperation.RESTORE, {})
+        data = {
+            self.__class__.get_column_name(field): value
+            for field, value in restore_data.items()
+        }
         condition_expr = self._build_restore_condition()
         update_options = UpdateOptions(
             table=self.table_name(),
-            data={self._deleted_at_column(): None},
+            data=data,
             where=condition_expr,
         )
 

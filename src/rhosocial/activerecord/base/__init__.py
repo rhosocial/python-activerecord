@@ -16,6 +16,7 @@ from .fields import (
     UseColumnAttributes,
     UseComment,
     UseConstraint,
+    UseFieldGenerator,
     UseGeneratedColumn,
     UseIndex,
     UsePartitionKey,
@@ -39,6 +40,7 @@ from .ddl import (
     ObjectDeclaration,
 )
 from .metaclass import MetaclassMixin, ActiveRecordMetaclass
+from .migration_mixin import MigrationMixin, AsyncMigrationMixin
 
 __all__ = [
     "BaseActiveRecord",
@@ -60,6 +62,7 @@ __all__ = [
     "UseComment",
     "UseAdapter",
     "UseConstraint",
+    "UseFieldGenerator",
     "UseGeneratedColumn",
     "UseIndex",
     "UsePartitionKey",
@@ -82,4 +85,6 @@ __all__ = [
     "MARKER_REGISTRY",
     "MetaclassMixin",
     "ActiveRecordMetaclass",
+    "MigrationMixin",
+    "AsyncMigrationMixin",
 ]

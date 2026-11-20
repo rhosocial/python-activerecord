@@ -38,6 +38,10 @@ Required files:
 ## Testing
 Create tests in: tests/rhosocial/activerecord_test/feature/backend/{backend_name}/
 
+Name test directories by test focus (e.g. `core/`, `dialect/`, `expression/`, `statements/`,
+`introspection/`) — never with numeric suffixes. Keep sync/async pairs for real-IO tests in the
+same directory as `test_X.py` / `test_X_async.py`; pure formatting tests are written once.
+
 Ask the user:
 1. Backend name (e.g., mysql, postgresql)?
 2. Python driver package (e.g., pymysql, psycopg2)?

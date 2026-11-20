@@ -1,6 +1,3 @@
 # tests/rhosocial/activerecord_test/feature/basic/transaction/conftest.py
-"""
-Pytest configuration for basic transaction feature tests.
-"""
-
-from rhosocial.activerecord.testsuite.feature.basic.transaction.conftest import *  # noqa: F403
+"""Use the shared ``basic/transaction`` minimal test set."""
+from rhosocial.activerecord.testsuite.feature.basic.transaction.conftest import *  # noqa: F401,F403

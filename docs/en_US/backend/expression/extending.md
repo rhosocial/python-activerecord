@@ -33,7 +33,7 @@ A parameter the convention cannot resolve is skipped with a warning. That warnin
 
 ### Why There Is No Custom get_params()
 
-`get_params()` is not an extension point: an override is a defect, not a customization. Core enforces this with no exceptions in `tests/.../dummy2/test_expression_artifact_contract.py::test_no_get_params_override` — every registered expression class must leave the generic implementation alone. (The single exemption the test allows, a `VAR_POSITIONAL` class doing genuine raw-vs-normalized round-trip rewriting, has no instance in the core registry.)
+`get_params()` is not an extension point: an override is a defect, not a customization. Core enforces this with no exceptions in `tests/.../dummy/expression/test_expression_artifact_contract.py::test_no_get_params_override` — every registered expression class must leave the generic implementation alone. (The single exemption the test allows, a `VAR_POSITIONAL` class doing genuine raw-vs-normalized round-trip rewriting, has no instance in the core registry.)
 
 The reason is structural rather than stylistic. A round-trip is rebuilt by calling the constructor with whatever `get_params()` returned, so those two halves have to agree. An override is exactly where they drift: the class emits a key the constructor renames, merges or refuses, and the state is silently gone — the decoder hands values over by name and does not second-guess the result. The backend packages accumulated their own overrides, every one of them written because `__init__` renamed or merged what the caller passed — and every one of them became unnecessary once the state was stored under the name it was given.
 

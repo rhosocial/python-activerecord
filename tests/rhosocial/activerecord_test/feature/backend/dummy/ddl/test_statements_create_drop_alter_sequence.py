@@ -1,0 +1,432 @@
+# tests/rhosocial/activerecord_test/feature/backend/dummy/ddl/test_statements_create_drop_alter_sequence.py
+import pytest
+from unittest.mock import patch
+from rhosocial.activerecord.backend.expression.statements import (
+    CreateSequenceStatement,
+    DropSequenceStatement,
+    AlterSequenceStatement,
+)
+from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.expression.objects import Sequence
+
+
+class TestCreateDropAlterSequenceStatements:
+    """Tests for CREATE SEQUENCE, DROP SEQUENCE, and ALTER SEQUENCE statements."""
+
+    # region CREATE SEQUENCE tests
+    def test_basic_create_sequence(self, dummy_dialect: DummyDialect):
+        """Tests basic CREATE SEQUENCE statement."""
+        create_seq = CreateSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "user_id_seq"))
+        sql, params = create_seq.to_sql()
+
+        assert 'CREATE SEQUENCE "user_id_seq"' in sql
+        assert params == ()
+
+    def test_create_sequence_if_not_exists(self, dummy_dialect: DummyDialect):
+        """Tests CREATE SEQUENCE IF NOT EXISTS statement."""
+        create_seq = CreateSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "order_id_seq"), if_not_exists=True)
+        sql, params = create_seq.to_sql()
+
+        assert 'CREATE SEQUENCE IF NOT EXISTS "order_id_seq"' in sql
+        assert params == ()
+
+    def test_create_sequence_with_start(self, dummy_dialect: DummyDialect):
+        """Tests CREATE SEQUENCE with START WITH."""
+        create_seq = CreateSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "invoice_seq"), start=1000)
+        sql, params = create_seq.to_sql()
+
+        assert 'CREATE SEQUENCE "invoice_seq"' in sql
+        assert "START WITH 1000" in sql
+        assert params == ()
+
+    def test_create_sequence_with_increment(self, dummy_dialect: DummyDialect):
+        """Tests CREATE SEQUENCE with INCREMENT BY."""
+        create_seq = CreateSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "even_seq"), start=2, increment=2)
+        sql, params = create_seq.to_sql()
+
+        assert "START WITH 2" in sql
+        assert "INCREMENT BY 2" in sql
+        assert params == ()
+
+    def test_create_sequence_with_min_max(self, dummy_dialect: DummyDialect):
+        """Tests CREATE SEQUENCE with MINVALUE and MAXVALUE."""
+        create_seq = CreateSequenceStatement(
+            dummy_dialect, sequence=Sequence(dummy_dialect, "bounded_seq"), start=1, minvalue=1, maxvalue=1000
+        )
+        sql, params = create_seq.to_sql()
+
+        assert "MINVALUE 1" in sql
+        assert "MAXVALUE 1000" in sql
+        assert params == ()
+
+    def test_create_sequence_with_cycle(self, dummy_dialect: DummyDialect):
+        """Tests CREATE SEQUENCE with CYCLE option."""
+        create_seq = CreateSequenceStatement(
+            dummy_dialect, sequence=Sequence(dummy_dialect, "cycling_seq"), start=1, maxvalue=100, cycle=True
+        )
+        sql, params = create_seq.to_sql()
+
+        assert "CYCLE" in sql
+        assert "NO CYCLE" not in sql
+        assert params == ()
+
+    def test_create_sequence_no_cycle_explicit(self, dummy_dialect: DummyDialect):
+        """Tests CREATE SEQUENCE with explicit NO CYCLE."""
+        create_seq = CreateSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "non_cycling_seq"), start=1, no_cycle=True)
+        sql, params = create_seq.to_sql()
+
+        assert "NO CYCLE" in sql
+        assert params == ()
+
+    def test_create_sequence_with_cache(self, dummy_dialect: DummyDialect):
+        """Tests CREATE SEQUENCE with CACHE."""
+        create_seq = CreateSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "high_throughput_seq"), start=1, cache=100)
+        sql, params = create_seq.to_sql()
+
+        assert "CACHE 100" in sql
+        assert params == ()
+
+    def test_create_sequence_with_order(self, dummy_dialect: DummyDialect):
+        """Tests CREATE SEQUENCE with ORDER."""
+        create_seq = CreateSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "ordered_seq"), start=1, order=True)
+        sql, params = create_seq.to_sql()
+
+        assert "ORDER" in sql
+        assert params == ()
+
+    def test_create_sequence_with_owned_by(self, dummy_dialect: DummyDialect):
+        """Tests CREATE SEQUENCE with OWNED BY."""
+        create_seq = CreateSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "user_id_seq"), start=1, owned_by="users.id")
+        sql, params = create_seq.to_sql()
+
+        assert "OWNED BY users.id" in sql
+        assert params == ()
+
+    def test_create_sequence_all_options(self, dummy_dialect: DummyDialect):
+        """Tests CREATE SEQUENCE with all options."""
+        create_seq = CreateSequenceStatement(
+            dummy_dialect,
+            sequence=Sequence(dummy_dialect, "complex_seq"),
+            if_not_exists=True,
+            start=100,
+            increment=5,
+            minvalue=100,
+            maxvalue=10000,
+            cycle=True,
+            cache=20,
+            order=True,
+            owned_by="orders.id",
+        )
+        sql, params = create_seq.to_sql()
+
+        assert "CREATE SEQUENCE IF NOT EXISTS" in sql
+        assert "START WITH 100" in sql
+        assert "INCREMENT BY 5" in sql
+        assert "MINVALUE 100" in sql
+        assert "MAXVALUE 10000" in sql
+        assert "CYCLE" in sql
+        assert "CACHE 20" in sql
+        assert "ORDER" in sql
+        assert "OWNED BY orders.id" in sql
+        assert params == ()
+
+    # region DROP SEQUENCE tests
+    def test_basic_drop_sequence(self, dummy_dialect: DummyDialect):
+        """Tests basic DROP SEQUENCE statement."""
+        drop_seq = DropSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "old_seq"))
+        sql, params = drop_seq.to_sql()
+
+        assert sql == 'DROP SEQUENCE "old_seq"'
+        assert params == ()
+
+    def test_drop_sequence_if_exists(self, dummy_dialect: DummyDialect):
+        """Tests DROP SEQUENCE IF EXISTS statement."""
+        drop_seq = DropSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "deprecated_seq"), if_exists=True)
+        sql, params = drop_seq.to_sql()
+
+        assert sql == 'DROP SEQUENCE IF EXISTS "deprecated_seq"'
+        assert params == ()
+
+    # region ALTER SEQUENCE tests
+    def test_alter_sequence_restart(self, dummy_dialect: DummyDialect):
+        """Tests ALTER SEQUENCE with RESTART."""
+        alter_seq = AlterSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "user_id_seq"), restart=1000)
+        sql, params = alter_seq.to_sql()
+
+        assert 'ALTER SEQUENCE "user_id_seq"' in sql
+        assert "RESTART WITH 1000" in sql
+        assert params == ()
+
+    def test_alter_sequence_increment(self, dummy_dialect: DummyDialect):
+        """Tests ALTER SEQUENCE with INCREMENT BY."""
+        alter_seq = AlterSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "order_seq"), increment=1)
+        sql, params = alter_seq.to_sql()
+
+        assert "INCREMENT BY 1" in sql
+        assert params == ()
+
+    def test_alter_sequence_min_max(self, dummy_dialect: DummyDialect):
+        """Tests ALTER SEQUENCE with MINVALUE and MAXVALUE."""
+        alter_seq = AlterSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "bounded_seq"), minvalue=10, maxvalue=999999)
+        sql, params = alter_seq.to_sql()
+
+        assert "MINVALUE 10" in sql
+        assert "MAXVALUE 999999" in sql
+        assert params == ()
+
+    def test_alter_sequence_cycle(self, dummy_dialect: DummyDialect):
+        """Tests ALTER SEQUENCE with CYCLE."""
+        alter_seq = AlterSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "cycling_seq"), cycle=True)
+        sql, params = alter_seq.to_sql()
+
+        assert "CYCLE" in sql
+        assert "NO CYCLE" not in sql
+        assert params == ()
+
+    def test_alter_sequence_no_cycle(self, dummy_dialect: DummyDialect):
+        """Tests ALTER SEQUENCE with NO CYCLE."""
+        alter_seq = AlterSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "non_cycling_seq"), no_cycle=True)
+        sql, params = alter_seq.to_sql()
+
+        assert "NO CYCLE" in sql
+        assert params == ()
+
+    def test_alter_sequence_cache(self, dummy_dialect: DummyDialect):
+        """Tests ALTER SEQUENCE with CACHE."""
+        alter_seq = AlterSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "cached_seq"), cache=50)
+        sql, params = alter_seq.to_sql()
+
+        assert "CACHE 50" in sql
+        assert params == ()
+
+    def test_alter_sequence_order(self, dummy_dialect: DummyDialect):
+        """Tests ALTER SEQUENCE with ORDER."""
+        alter_seq = AlterSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "ordered_seq"), order=True)
+        sql, params = alter_seq.to_sql()
+
+        assert "ORDER" in sql
+        assert params == ()
+
+    def test_alter_sequence_no_order(self, dummy_dialect: DummyDialect):
+        """Tests ALTER SEQUENCE with NO ORDER."""
+        alter_seq = AlterSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "unordered_seq"), no_order=True)
+        sql, params = alter_seq.to_sql()
+
+        assert "NO ORDER" in sql
+        assert params == ()
+
+    def test_alter_sequence_owned_by(self, dummy_dialect: DummyDialect):
+        """Tests ALTER SEQUENCE with OWNED BY."""
+        alter_seq = AlterSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "user_id_seq"), owned_by="users.id")
+        sql, params = alter_seq.to_sql()
+
+        assert "OWNED BY users.id" in sql
+        assert params == ()
+
+    def test_alter_sequence_owned_by_none(self, dummy_dialect: DummyDialect):
+        """Tests ALTER SEQUENCE with OWNED BY NONE."""
+        alter_seq = AlterSequenceStatement(
+            dummy_dialect,
+            sequence=Sequence(dummy_dialect, "orphan_seq"),
+            owned_by="",  # Empty string triggers OWNED BY NONE
+        )
+        sql, params = alter_seq.to_sql()
+
+        # owned_by="" should result in OWNED BY NONE
+        assert "OWNED BY NONE" in sql or "OWNED BY " not in sql
+        assert params == ()
+
+    def test_alter_sequence_multiple_options(self, dummy_dialect: DummyDialect):
+        """Tests ALTER SEQUENCE with multiple options."""
+        alter_seq = AlterSequenceStatement(
+            dummy_dialect, sequence=Sequence(dummy_dialect, "complex_seq"), restart=500, increment=2, maxvalue=10000, cycle=True, cache=25
+        )
+        sql, params = alter_seq.to_sql()
+
+        assert 'ALTER SEQUENCE "complex_seq"' in sql
+        assert "RESTART WITH 500" in sql
+        assert "INCREMENT BY 2" in sql
+        assert "MAXVALUE 10000" in sql
+        assert "CYCLE" in sql
+        assert "CACHE 25" in sql
+        assert params == ()
+
+    # region Roundtrip and edge cases
+    def test_sequence_roundtrip(self, dummy_dialect: DummyDialect):
+        """Tests creating and dropping a sequence."""
+        create_seq = CreateSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "roundtrip_seq"), start=1)
+        create_sql, create_params = create_seq.to_sql()
+
+        drop_seq = DropSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "roundtrip_seq"))
+        drop_sql, drop_params = drop_seq.to_sql()
+
+        assert 'CREATE SEQUENCE "roundtrip_seq"' in create_sql
+        assert 'DROP SEQUENCE "roundtrip_seq"' == drop_sql
+        assert create_params == ()
+        assert drop_params == ()
+
+    @pytest.mark.parametrize(
+        "sequence_name,expected_identifier",
+        [
+            pytest.param("simple_seq", '"simple_seq"', id="simple_name"),
+            pytest.param("seq_with_underscores", '"seq_with_underscores"', id="underscore_name"),
+            pytest.param("SeqWithCamelCase", '"SeqWithCamelCase"', id="camelcase_name"),
+            pytest.param("seq-with-hyphens", '"seq-with-hyphens"', id="hyphen_name"),
+        ],
+    )
+    def test_create_sequence_various_names(self, dummy_dialect: DummyDialect, sequence_name, expected_identifier):
+        """Tests CREATE SEQUENCE with various name formats."""
+        create_seq = CreateSequenceStatement(
+            dummy_dialect, Sequence(dummy_dialect, sequence_name)
+        )
+        sql, params = create_seq.to_sql()
+
+        assert f"CREATE SEQUENCE {expected_identifier}" in sql
+        assert params == ()
+
+    def test_sequence_with_special_characters(self, dummy_dialect: DummyDialect):
+        """Tests sequence names with special characters."""
+        create_seq = CreateSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, 'seq"name'))
+        sql, params = create_seq.to_sql()
+
+        assert sql.startswith('CREATE SEQUENCE "seq""name"')
+        assert params == ()
+
+    def test_sequence_with_unicode(self, dummy_dialect: DummyDialect):
+        """Tests sequence names with unicode characters."""
+        create_seq = CreateSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "序列"))
+        sql, params = create_seq.to_sql()
+
+        assert 'CREATE SEQUENCE "序列"' in sql
+        assert params == ()
+
+
+class TestAlterSequenceCapabilityGating:
+    """ALTER SEQUENCE options must honour their capability bits."""
+
+    def test_cycle_gated(self, dummy_dialect: DummyDialect):
+        expr = AlterSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "s"), cycle=True)
+        with patch.object(type(dummy_dialect), "supports_sequence_cycle", return_value=False):
+            with pytest.raises(UnsupportedFeatureError, match="CYCLE"):
+                expr.to_sql()
+
+    def test_cache_gated(self, dummy_dialect: DummyDialect):
+        expr = AlterSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "s"), cache=10)
+        with patch.object(type(dummy_dialect), "supports_sequence_cache", return_value=False):
+            with pytest.raises(UnsupportedFeatureError, match="CACHE"):
+                expr.to_sql()
+
+    def test_order_gated(self, dummy_dialect: DummyDialect):
+        expr = AlterSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "s"), order=True)
+        with patch.object(type(dummy_dialect), "supports_sequence_order", return_value=False):
+            with pytest.raises(UnsupportedFeatureError, match="ORDER"):
+                expr.to_sql()
+
+    def test_owned_by_gated(self, dummy_dialect: DummyDialect):
+        expr = AlterSequenceStatement(dummy_dialect, sequence=Sequence(dummy_dialect, "s"), owned_by="t.id")
+        with patch.object(type(dummy_dialect), "supports_sequence_owned_by", return_value=False):
+            with pytest.raises(UnsupportedFeatureError, match="OWNED BY"):
+                expr.to_sql()
+
+
+class TestSequenceMasterSwitch:
+    """A dialect that declares no sequence object refuses all three statements.
+
+    This is the gate that makes an accidental ``SequenceMixin`` inheritance
+    harmless: even a dialect whose option probes are optimistic cannot render
+    sequence DDL once ``supports_sequence()`` is False.
+    """
+
+    @pytest.mark.parametrize(
+        "expr_factory",
+        [
+            pytest.param(
+                lambda d: CreateSequenceStatement(d, sequence=Sequence(d, "s")),
+                id="create",
+            ),
+            pytest.param(
+                lambda d: DropSequenceStatement(d, sequence=Sequence(d, "s")),
+                id="drop",
+            ),
+            pytest.param(
+                lambda d: AlterSequenceStatement(d, sequence=Sequence(d, "s"), restart=1),
+                id="alter",
+            ),
+        ],
+    )
+    def test_master_switch_refuses(self, dummy_dialect: DummyDialect, expr_factory):
+        expr = expr_factory(dummy_dialect)
+        with patch.object(type(dummy_dialect), "supports_sequence", return_value=False):
+            with pytest.raises(UnsupportedFeatureError, match="has no sequence object"):
+                expr.to_sql()
+
+
+class TestSequenceOptionGating:
+    """Every requested option is checked before its clause is emitted.
+
+    A probe answering False must raise, naming the option, rather than letting
+    the formatter drop the clause -- dropping it would change the statement.
+    """
+
+    @pytest.mark.parametrize(
+        "probe,options,fragment",
+        [
+            ("supports_sequence_if_not_exists", {"if_not_exists": True}, "IF NOT EXISTS"),
+            ("supports_sequence_start", {"start": 5}, "START"),
+            ("supports_sequence_increment", {"increment": 2}, "INCREMENT"),
+            ("supports_sequence_minvalue", {"minvalue": 1}, "MINVALUE"),
+            ("supports_sequence_maxvalue", {"maxvalue": 10}, "MAXVALUE"),
+            ("supports_sequence_cycle", {"no_cycle": True}, "CYCLE"),
+            ("supports_sequence_cache", {"cache": 5}, "CACHE"),
+            ("supports_sequence_cache", {"no_cache": True}, "CACHE"),
+            ("supports_sequence_order", {"order": True}, "ORDER"),
+            ("supports_sequence_order", {"no_order": True}, "ORDER"),
+            ("supports_sequence_owned_by", {"owned_by": "t.id"}, "OWNED BY"),
+        ],
+    )
+    def test_create_option_gated(self, dummy_dialect: DummyDialect, probe, options, fragment):
+        expr = CreateSequenceStatement(
+            dummy_dialect, sequence=Sequence(dummy_dialect, "s"), **options
+        )
+        with patch.object(type(dummy_dialect), probe, return_value=False):
+            with pytest.raises(UnsupportedFeatureError, match=fragment):
+                expr.to_sql()
+
+    @pytest.mark.parametrize(
+        "probe,options,fragment",
+        [
+            ("supports_alter_sequence_start", {"start": 5}, "START"),
+            ("supports_sequence_increment", {"increment": 2}, "INCREMENT"),
+            ("supports_sequence_minvalue", {"minvalue": 1}, "MINVALUE"),
+            ("supports_sequence_maxvalue", {"maxvalue": 10}, "MAXVALUE"),
+            ("supports_sequence_cycle", {"no_cycle": True}, "CYCLE"),
+            ("supports_sequence_cache", {"no_cache": True}, "CACHE"),
+            ("supports_sequence_order", {"no_order": True}, "ORDER"),
+        ],
+    )
+    def test_alter_option_gated(self, dummy_dialect: DummyDialect, probe, options, fragment):
+        expr = AlterSequenceStatement(
+            dummy_dialect, sequence=Sequence(dummy_dialect, "s"), **options
+        )
+        with patch.object(type(dummy_dialect), probe, return_value=False):
+            with pytest.raises(UnsupportedFeatureError, match=fragment):
+                expr.to_sql()
+
+    def test_unset_create_cycle_pair_renders_nothing(self, dummy_dialect: DummyDialect):
+        """An unset pair is 'unspecified': nothing is spelled, no probe consulted."""
+        expr = CreateSequenceStatement(
+            dummy_dialect, sequence=Sequence(dummy_dialect, "s")
+        )
+        with patch.object(type(dummy_dialect), "supports_sequence_cycle", return_value=False):
+            sql, _ = expr.to_sql()
+        assert "CYCLE" not in sql
+
+    def test_unset_alter_cycle_pair_renders_nothing(self, dummy_dialect: DummyDialect):
+        """ALTER SEQUENCE has the same unset-pair behavior as CREATE."""
+        expr = AlterSequenceStatement(
+            dummy_dialect, sequence=Sequence(dummy_dialect, "s")
+        )
+        with patch.object(type(dummy_dialect), "supports_sequence_cycle", return_value=False):
+            sql, _ = expr.to_sql()
+        assert "CYCLE" not in sql

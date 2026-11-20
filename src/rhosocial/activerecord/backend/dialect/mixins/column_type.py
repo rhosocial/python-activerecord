@@ -29,7 +29,7 @@ class ColumnTypeMixin:
     def suggested_column_types(self) -> Dict[Any, Optional[Type["ColumnBase"]]]:
         """The column class this dialect suggests for each common Python type.
 
-        Must be overridden. Every key of the framework's common types has to
+        Must be overridden. Every key of the framework-modelled types has to
         be answered -- with a column class, or with ``None`` when the dialect
         genuinely has no workaround for that value family.
         """

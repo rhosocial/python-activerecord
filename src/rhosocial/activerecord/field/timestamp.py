@@ -17,11 +17,17 @@ database backends.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Union
+from typing import Any, Dict, Set, Union
+
+try:
+    from typing import Annotated
+except ImportError:  # Python 3.8
+    from typing_extensions import Annotated
 
 from pydantic import Field, field_validator
 
-from ..interface import ModelEvent
+from ..base.fields import UseFieldGenerator, UseSqlType
+from ..backend.expression.types import TimestampType
 from ..interface.update import IUpdateBehavior
 from ..interface.model import IActiveRecord, IAsyncActiveRecord
 from .field_config import FieldConfigValidationHandler
@@ -39,11 +45,34 @@ class TimestampMixin(IUpdateBehavior):
 
     _feature_handlers = [FieldConfigValidationHandler]
 
-    def __init__(self, **data):
-        super().__init__(**data)
-        # Use separate events for INSERT and UPDATE operations
-        self.on(ModelEvent.BEFORE_INSERT, self._set_timestamps_on_insert)
-        self.on(ModelEvent.BEFORE_UPDATE, self._set_updated_at)
+    @classmethod
+    def field_generators(cls):
+        """Declare generators for the configured timestamp fields.
+
+        The semantics-only mixin declares no fields of its own, so it supplies
+        generators by field name and merges with any other mixin's answers.
+        """
+        generators = dict(super().field_generators())
+
+        def now(instance):
+            return datetime.now(timezone.utc)
+
+        generators[cls.created_at_field()] = UseFieldGenerator(before_insert=now)
+        generators[cls.updated_at_field()] = UseFieldGenerator(
+            before_insert=now,
+            before_update=now,
+            before_soft_delete=now,
+            before_restore=now,
+        )
+        return generators
+
+    @classmethod
+    def no_track_fields_from_mixins(cls) -> Set[str]:
+        """Timestamps are framework-managed, never user-changed."""
+        return super().no_track_fields_from_mixins() | {
+            cls.created_at_field(),
+            cls.updated_at_field(),
+        }
 
     @classmethod
     def created_at_field(cls) -> str:
@@ -114,10 +143,24 @@ class DefaultTimestampMixin(TimestampMixin):
     factory) so models can simply mix it in.  Use
     :class:`TimestampMixin` directly when the fields should carry
     different Python names or columns.
+
+    The declared precision is **milliseconds**, and that is a decision about
+    what every backend can honour rather than the finest thing any of them can
+    do: PostgreSQL's ``TIMESTAMP`` is microseconds, but MySQL's bare
+    ``TIMESTAMP`` is seconds and rounds a second half up, and
+    ClickHouse's ``DateTime`` is seconds, so second-precision would silently
+    move ``updated_at`` past the events it records.  Milliseconds are
+    preserved everywhere, so the shared default is the largest precision that
+    is never a lie.  A model that needs microseconds declares
+    ``TimestampType(precision=6)`` itself.
     """
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: Annotated[datetime, UseSqlType(TimestampType(precision=3))] = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Annotated[datetime, UseSqlType(TimestampType(precision=3))] = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
 
 
 class UtcTimestampMixin:

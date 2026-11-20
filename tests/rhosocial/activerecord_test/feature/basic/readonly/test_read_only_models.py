@@ -26,6 +26,7 @@ from rhosocial.activerecord.model import ActiveRecord
 
 
 class ReadOnlyRecord(ActiveRecord, ReadOnlyMixin):
+    __primary_key__ = "id"
     c: ClassVar[FieldProxy] = FieldProxy()
     @classmethod
     def table_name(cls):
@@ -36,6 +37,7 @@ class ReadOnlyRecord(ActiveRecord, ReadOnlyMixin):
 
 
 class WritableRecord(ActiveRecord):
+    __primary_key__ = "id"
     c: ClassVar[FieldProxy] = FieldProxy()
     @classmethod
     def table_name(cls):
@@ -46,6 +48,7 @@ class WritableRecord(ActiveRecord):
 
 
 class OptedOutRecord(ActiveRecord, ReadOnlyMixin):
+    __primary_key__ = "id"
     """Declares the mixin but turns the flag off explicitly."""
     c: ClassVar[FieldProxy] = FieldProxy()
     @classmethod
@@ -60,6 +63,7 @@ class OptedOutRecord(ActiveRecord, ReadOnlyMixin):
 
 
 class ImplementsButWritable(ActiveRecord, IReadOnlyBehavior):
+    __primary_key__ = "id"
     """Satisfies the interface without being read-only.
 
     This is the case that makes a type test the wrong gate: membership in
@@ -77,6 +81,7 @@ class ImplementsButWritable(ActiveRecord, IReadOnlyBehavior):
 
 
 class ReadOnlyViewRecord(ActiveRecord, ReadOnlyMixin):
+    __primary_key__ = "id"
     """A read-only model that declares it maps a view."""
 
     c: ClassVar[FieldProxy] = FieldProxy()

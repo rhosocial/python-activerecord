@@ -441,12 +441,6 @@ def _print_result(result: Any, direction: Any) -> None:
             print("  (no SQL generated)")
     elif result.success:
         print(f"[OK] Migration '{result.version}' applied ({direction.value})")
-    if result.snapshot_diff:
-        diff = result.snapshot_diff
-        if hasattr(diff, "added_tables") and diff.added_tables:
-            print(f"  Tables added: {diff.added_tables}")
-        if hasattr(diff, "removed_tables") and diff.removed_tables:
-            print(f"  Tables removed: {diff.removed_tables}")
 
 
 def _handle_exception(e: Exception, provider: Any, is_async: bool = False) -> None:

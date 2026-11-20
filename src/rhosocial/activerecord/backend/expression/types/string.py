@@ -134,15 +134,45 @@ class VarCharType(DataType):
     PARAMETERS = LENGTH_PARAMETERS
 
 class TextType(DataType):
-    """TEXT / CLOB — unbounded string.
+    """TEXT / CLOB — a string whose size is declared as a *minimum*.
 
     PostgreSQL treats ``clob`` as an alias for ``text``.
+
+    The width is not "how big this column is" but "what must fit": every backend
+    rounds up to a tier of its own, because SQL text has no arbitrary byte
+    count.  ``TextType(length=16000)`` is ``MEDIUMTEXT`` on MySQL, ``CLOB`` on
+    Oracle when a four-byte encoding would push it past 4 000 bytes,
+    ``NVARCHAR(MAX)`` on SQL Server, and plain ``TEXT`` on PostgreSQL, SQLite
+    and ClickHouse, which have no tier to choose.  Declaring the minimum is
+    what lets one model say "this column must hold a document" without naming
+    any backend's spelling.
     """
 
     name = "text"
 
     SPELLINGS = ("text", "clob")
 
-    def __init__(self, dialect=None, *, spelling: str = "text"):
+    def __init__(self, dialect=None, length: Optional[int] = None, *,
+                 spelling: str = "text"):
         super().__init__(dialect)
+        self._length = length
         self.spelling = spelling
+
+    @property
+    def length(self) -> Optional[int]:
+        """The declared minimum, or the width this server supplies for none declared.
+
+        Resolved rather than stored, exactly as on :class:`CharType`, so a
+        dialect bound after the fact resolves the same way as one passed at
+        construction -- and for the same reason identity is settled only once a
+        dialect is bound.
+        """
+        return self._length if self._length is not None else declared_parameter(
+            self.name, "length", self._dialect
+        )
+
+    @length.setter
+    def length(self, value: Optional[int]) -> None:
+        self._length = value
+
+    PARAMETERS = LENGTH_PARAMETERS

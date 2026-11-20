@@ -8,6 +8,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     TableUniqueConstraint,
 )
 from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.field import DefaultTimestampMixin
 from rhosocial.activerecord.base import (
     CharacterSetAttribute,
     CollationAttribute,
@@ -18,6 +19,7 @@ from rhosocial.activerecord.base import (
     DDLSource,
     IdentityAttribute,
     ObjectDeclaration,
+    UseColumn,
     UseColumnAttributes,
     UseComment,
     UseConstraint,
@@ -48,6 +50,7 @@ except ImportError:
 
 
 class Plain(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "plain"
@@ -92,6 +95,7 @@ class CompositeWithDeclaredPrimaryKey(ActiveRecord):
 
 
 class WithTableConstraint(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "with_table_constraint"
@@ -106,6 +110,7 @@ class WithTableConstraint(ActiveRecord):
 
 
 class WithFieldIndex(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "with_field_index"
@@ -119,6 +124,7 @@ class WithFieldIndex(ActiveRecord):
 
 
 class WithAttributes(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "with_attributes"
@@ -133,6 +139,7 @@ class WithAttributes(ActiveRecord):
 
 
 class WithNullable(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "with_nullable"
@@ -144,6 +151,7 @@ class WithNullable(ActiveRecord):
 
 
 class WithDerivedDeclarations(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "with_derived_declarations"
@@ -171,6 +179,7 @@ class ForeignAttribute(ColumnAttribute):
     kind = "foreign_custom"
 
 class WithForeignAttribute(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "with_foreign_attribute"
@@ -184,6 +193,7 @@ class ForeignPartitionClause(PartitionClause):
 
 
 class WithForeignPartition(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "with_foreign_partition"
@@ -204,6 +214,7 @@ class UnhandledAnnotation(DDLAnnotation):
 
 
 class WithUnhandledAnnotation(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "with_unhandled_annotation"
@@ -213,6 +224,7 @@ class WithUnhandledAnnotation(ActiveRecord):
 
 
 class EveryRegisteredMarker(ActiveRecord):
+    __primary_key__ = "id"
     """One field per core marker, so the registry can be walked against them."""
 
     @classmethod
@@ -432,24 +444,58 @@ def test_default_table_interfaces_are_empty_or_none():
     assert Plain.table_partition() is None
     assert Plain.table_inherits() is None
     assert Plain.table_tablespace() is None
-    assert Plain.create_table_statement_classes() is None
     assert Plain.object_type() is ObjectDeclaration.TABLE
 
 
+class WithMixedAnnotations(ActiveRecord):
+    __primary_key__ = "id"
+    @classmethod
+    def table_name(cls):
+        return "with_mixed_annotations"
+
+    id: int
+    value: Annotated[str, UseColumn("val"), UnhandledAnnotation(), UseComment("mixed")]
+
+
+class WithTimestamps(DefaultTimestampMixin, ActiveRecord):
+    __primary_key__ = "id"
+    @classmethod
+    def table_name(cls):
+        return "with_timestamps"
+
+    id: int
+
+
 def test_table_level_accessors_run_the_unhandled_annotation_gate():
-    """P1-3: the direct-write table faces answer to the same gate.
+    """The declaration surface no longer rejects annotations it cannot use.
 
-    Field-level accessors all call ``_validate_ddl_annotations`` before
-    reading; ``table_indexes`` and ``table_constraints`` now do too, so a
-    model carrying an unconsumed annotation cannot slip a table-level read
-    past the check that every other accessor applies.
+    A marker may belong to a backend this model is never used with; the plan
+    generator, not the declaration surface, decides which markers apply.
     """
-    with pytest.raises(TypeError, match="explicit handler"):
-        WithUnhandledAnnotation.table_indexes()
-    with pytest.raises(TypeError, match="explicit handler"):
-        WithUnhandledAnnotation.table_constraints()
+    assert WithUnhandledAnnotation.table_indexes() == []
+    assert WithUnhandledAnnotation.table_constraints() == []
+    assert WithUnhandledAnnotation.ddl_field_names() == ("id", "value")
 
 
-def test_unhandled_annotation_requires_explicit_handler():
-    with pytest.raises(TypeError, match="explicit handler"):
-        WithUnhandledAnnotation.ddl_field_names()
+def test_unhandled_annotation_is_still_present_in_the_declaration_surface():
+    annotations = WithUnhandledAnnotation.column_annotations("value")
+    assert len(annotations) == 1
+    assert isinstance(annotations[0], UnhandledAnnotation)
+
+
+def test_column_annotations_returns_every_marker_unfiltered():
+    annotations = WithMixedAnnotations.column_annotations("value")
+    assert [type(annotation) for annotation in annotations] == [
+        UseColumn,
+        UnhandledAnnotation,
+        UseComment,
+    ]
+    assert WithMixedAnnotations.column_name("value") == "val"
+    assert WithMixedAnnotations.column_comment("value") == "mixed"
+
+
+def test_default_timestamp_fields_declare_a_sql_type():
+    for field in ("created_at", "updated_at"):
+        declared = WithTimestamps.column_data_type(field)
+        assert isinstance(declared, UseSqlType)
+        assert declared.data_type.name == "timestamp"

@@ -19,9 +19,11 @@ from ..backend.errors import (
     BulkStateError,
     BulkValidationError,
     ConcurrencyError,
-    ConnectionError as BackendConnectionError,
-    DataError,
+)
+from ..backend.errors import ConnectionError as BackendConnectionError
+from ..backend.errors import (
     DatabaseError,
+    DataError,
     DeadlockError,
     InfrastructureError,
     IntegrityError,
@@ -36,9 +38,25 @@ from ..backend.errors import (
     TransactionError,
     TypeConversionError,
     UnaddressableRecordError,
-    ValidationError as DBValidationError,
 )
-from .errors import CLIError, CliNotFoundError, ReadOnlyModelError, EXIT_READ_ONLY
+from ..backend.errors import ValidationError as DBValidationError
+from ..backend.migration.exceptions import (
+    MigrationAlreadyAppliedError,
+    MigrationDependencyError,
+    MigrationDialectError,
+    MigrationError,
+    MigrationFunctionExecutionError,
+    MigrationNotAppliedError,
+    MigrationVersionConflictError,
+)
+from .errors import (
+    EXIT_MIGRATION_FAILED,
+    EXIT_MIGRATION_STATE,
+    EXIT_READ_ONLY,
+    CLIError,
+    CliNotFoundError,
+    ReadOnlyModelError,
+)
 
 
 def _pydantic_summary(error: PydanticValidationError) -> str:
@@ -77,6 +95,41 @@ def translate_error(
 
     if isinstance(exc, CLIError):
         return exc
+    if isinstance(exc, MigrationFunctionExecutionError):
+        hint_lines = []
+        if exc.executed:
+            hint_lines.append(f"Executed before failure: {', '.join(exc.executed)}")
+        else:
+            hint_lines.append("No migration completed before the failure.")
+        if exc.transactional_ddl:
+            hint_lines.append("Transaction rolled back.")
+        else:
+            hint_lines.append("Transaction not rolled back; this backend commits DDL implicitly.")
+        translated = CLIError(
+            str(exc),
+            exit_code=EXIT_MIGRATION_FAILED,
+            hint="\n".join(hint_lines),
+        )
+        translated.migration_version = exc.version
+        translated.migration_fqn = exc.fqn
+        translated.executed = list(exc.executed)
+        translated.transactional_ddl = exc.transactional_ddl
+        translated.rolled_back = exc.transactional_ddl
+        return translated
+    if isinstance(exc, MigrationDialectError):
+        return CLIError(str(exc), exit_code=EXIT_MIGRATION_FAILED)
+    if isinstance(
+        exc,
+        (
+            MigrationDependencyError,
+            MigrationAlreadyAppliedError,
+            MigrationNotAppliedError,
+            MigrationVersionConflictError,
+        ),
+    ):
+        return CLIError(str(exc), exit_code=EXIT_MIGRATION_STATE)
+    if isinstance(exc, MigrationError):
+        return CLIError(str(exc), exit_code=EXIT_MIGRATION_STATE)
     if isinstance(exc, PydanticValidationError):
         return CLIError(f"Invalid data for {model_name}: {_pydantic_summary(exc)}")
     if isinstance(exc, UnaddressableRecordError):
@@ -132,9 +185,7 @@ def translate_error(
     if isinstance(exc, RecordError):
         return CLIError(f"Record error{context}: {exc}")
     if isinstance(exc, ConcurrencyError):
-        return CLIError(
-            f"Concurrency conflict{context}: {exc}. Reload the record and retry."
-        )
+        return CLIError(f"Concurrency conflict{context}: {exc}. Reload the record and retry.")
     if isinstance(exc, InfrastructureError):
         return CLIError(f"Database infrastructure error{context}: {exc}")
     if isinstance(exc, DataError):
@@ -159,4 +210,6 @@ def operation_label(args) -> str:
         return f"set {args.set_operation}"
     if section == "cte":
         return "cte run"
+    if section == "migrate":
+        return "migrate"
     return section or "command"

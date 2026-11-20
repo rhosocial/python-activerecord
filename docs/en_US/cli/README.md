@@ -10,6 +10,15 @@ The CLI is a thin adapter. It never builds SQL strings: DML calls ActiveRecord
 methods, DQL calls `ActiveQuery`, and `set` / `cte` execute user-supplied
 `SetOperationQuery` / `CTEQuery` objects.
 
+> 💡 **Note**: Model commands run through the model's configured backend: the CLI calls
+> ActiveRecord APIs, and those APIs execute SQL through the backend. A fresh model defaults
+> to the built-in `DummyBackend`, which can only build SQL and cannot execute `save()` /
+> `find()` / `all()`. Before running commands that touch the database, configure a real
+> backend (SQLite in these docs) via `--backend-class` / `--config-class` (see
+> [Connections](connections.md)) or have the model module call `configure()`.
+
+> 💡 **AI Prompt:** "My model CLI command reports 'No backend configured' because the model still uses the default DummyBackend. How do I connect it to SQLite so the command executes?"
+
 ## Pages
 
 | Page | Contents |

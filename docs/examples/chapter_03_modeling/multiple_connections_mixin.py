@@ -58,14 +58,18 @@ class UserFieldsMixinA:
 class UserWithMixinA(UserFieldsMixinA, ActiveRecord):
     """Business-side model using the plain Python mixin."""
 
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls) -> str:
+        return "users"
     c: ClassVar[FieldProxy] = FieldProxy()
 
 
 class UserMetricWithMixinA(UserFieldsMixinA, ActiveRecord):
     """Analytics-side model using the plain Python mixin."""
 
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls) -> str:
+        return "users"
     c: ClassVar[FieldProxy] = FieldProxy()
 
 
@@ -87,14 +91,18 @@ class UserFieldsMixinB(BaseModel):
 class UserWithMixinB(UserFieldsMixinB, ActiveRecord):
     """Business-side model using the BaseModel mixin."""
 
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls) -> str:
+        return "users"
     c: ClassVar[FieldProxy] = FieldProxy()
 
 
 class UserMetricWithMixinB(UserFieldsMixinB, ActiveRecord):
     """Analytics-side model using the BaseModel mixin."""
 
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls) -> str:
+        return "users"
     c: ClassVar[FieldProxy] = FieldProxy()
 
 
@@ -209,11 +217,15 @@ def demonstrate_no_silent_trap() -> None:
         email: str
 
     class UserX(UserMixin, ActiveRecord):
-        __table_name__ = "users"
+        @classmethod
+        def table_name(cls) -> str:
+            return "users"
         c: ClassVar[FieldProxy] = FieldProxy()
 
     class UserMetricX(UserMixin, ActiveRecord):
-        __table_name__ = "users"
+        @classmethod
+        def table_name(cls) -> str:
+            return "users"
         c: ClassVar[FieldProxy] = FieldProxy()
 
     # Configure only UserX, intentionally skip UserMetricX

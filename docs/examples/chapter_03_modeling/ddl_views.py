@@ -3,7 +3,7 @@
 Demonstrates DDL operations for views:
 1. Create basic view
 2. Create view with column aliases
-3. Create view with OR REPLACE
+3. Replace a view (drop then recreate)
 4. Drop view
 5. Introspection to verify view creation
 """
@@ -35,7 +35,9 @@ from rhosocial.activerecord.model import ActiveRecord
 class User(ActiveRecord):
     """User Model for DDL view demo"""
 
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls) -> str:
+        return "users"
 
     id: int = None
     name: str
@@ -158,26 +160,31 @@ def main():
     print()
 
     # ============================================================
-    # Example 3: Create view with OR REPLACE
+    # Example 3: Replace a view (drop then recreate)
     # ============================================================
+    # SQLite has no CREATE OR REPLACE VIEW -- its dialect refuses replace=True.
+    # The portable equivalent is to drop the old view, then create it anew.
     active_users_query = QueryStatement(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "name")],
         from_=NamedRelationRef(dialect, Table(dialect, "users")),
     )
 
+    drop_replace_view = DropViewStatement(dialect, View(dialect, "active_users"), if_exists=True)
+    sql, params = drop_replace_view.to_sql()
+    backend.execute(sql, params)
+
     create_replace_view = CreateViewStatement(
-        dialect, View(dialect, "active_users"), query=active_users_query, replace=True
+        dialect, View(dialect, "active_users"), query=active_users_query
     )
 
     sql, params = create_replace_view.to_sql()
-    print("=== Create View with OR REPLACE ===")
+    print("=== Replace View (drop then recreate) ===")
     print(f"SQL: {sql}")
-    print("Note: SQLite has no CREATE OR REPLACE VIEW; its dialect renders IF NOT EXISTS instead.")
+    print("Note: SQLite has no CREATE OR REPLACE VIEW; drop the view first, then create it again.")
     print()
 
-    sql_str, params = create_replace_view.to_sql()
-    backend.execute(sql_str, params)
+    backend.execute(sql, params)
 
     # Query the replaced view
     print("--- Querying replaced view ---")

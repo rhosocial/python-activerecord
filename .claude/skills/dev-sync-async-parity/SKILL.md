@@ -50,13 +50,13 @@ of all parity.
 ### Current Status
 
 **Not every backend must ship both sync and async variants.** The async SQLite backend is
-already **implemented in the production source**; a separate test-only async backend also exists
-for validating the async abstraction.
+**implemented in the production source**, and the backend tests exercise that implementation
+directly — there is no test-only async backend.
 
 | Location | Sync implementation | Async implementation | Purpose |
 |----------|---------------------|----------------------|---------|
 | `src/rhosocial/activerecord/backend/impl/sqlite/` | ✅ `SQLiteBackend` (`backend/sync.py`) | ✅ `AsyncSQLiteBackend` (`backend/async_backend.py`) | Production |
-| `tests/rhosocial/activerecord_test/feature/backend/sqlite_async/` | — | ✅ test-only async backend (aiosqlite) | Testing only |
+| `tests/rhosocial/activerecord_test/feature/backend/sqlite/` | uses production backend | uses production backend | sync and async tests colocated with `_async` suffix |
 
 ```python
 # Production sync backend
@@ -71,10 +71,7 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
     async def connect(self): ...
     async def execute(self, sql: str, params=None): ...
 
-# Test-only async backend (tests/.../backend/sqlite_async/async_backend.py)
-# Validates the async abstraction with aiosqlite; NOT for production use.
-class AsyncSQLiteBackend(AsyncStorageBackend):
-    async def execute(self, sql: str, params=None): ...
+# Backend tests import this same class from the production package.
 ```
 
 ### When an Async Backend May Not Be Needed
@@ -427,8 +424,8 @@ blocking thread-pool machinery with no real async I/O benefit, so we deliberatel
   that backend.
 - Do **not** create artificial async wrappers (thread-pool / executor bridges) to emulate async
   where the driver has no async support.
-- A test-only async backend exists for the SQLite feature tree purely to validate the async
-  abstraction in the test suite — it is not a substitute for a real async production backend.
+- Backend tests exercise the production async implementation directly; do not add a test-only
+  async backend as a substitute for a real production one.
 
 ### Q3: How do I verify the correctness of an async backend?
 

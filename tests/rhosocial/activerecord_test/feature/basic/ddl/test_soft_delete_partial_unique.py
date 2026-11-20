@@ -25,6 +25,7 @@ import pytest
 
 
 class SoftDeletedEmail(DefaultSoftDeleteMixin, ActiveRecord):
+    __primary_key__ = "id"
     """One row per address, but only among the rows that are not deleted."""
 
     @classmethod

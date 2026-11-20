@@ -3,7 +3,12 @@
 
 from __future__ import annotations
 
-from ._base import DataType
+from __future__ import annotations
+
+from typing import Optional
+
+from ._base import LENGTH_PARAMETERS, DataType
+from ._defaults import declared_parameter
 
 
 class XmlType(DataType):
@@ -12,7 +17,7 @@ class XmlType(DataType):
     A *semantic* type: the value means "an XML document" on every backend that
     has one, while the storage is each backend's own choice. Backends that can
     render it implement ``format_data_type_xml``; the rest declare a substitute
-    through ``suggested_data_types()`` — for most of them ``TextType``, which
+    through ``substitute_data_types()`` — for most of them ``TextType``, which
     is not a compromise but an accurate description of what they store.
 
     Not to be confused with :class:`~...types.json_.JsonType`. Both are
@@ -28,8 +33,10 @@ class XmlType(DataType):
     matters most. See :class:`~...types.uuid_.UUIDType` for the same argument
     applied to UUID.
 
-    Carries no parameters: an associated XML Schema is a column or domain
-    attribute, not part of the type's identity.
+    Carries one parameter, ``length``, and it is a *capacity* rather than a
+    schema: how many characters the document must fit, as a minimum a backend
+    rounds up within its own tiers. An associated XML Schema stays a column or
+    domain attribute and is deliberately **not** part of the type's identity.
 
     Storage by backend, for reference when reading a DDL diff:
 
@@ -60,7 +67,7 @@ class XmlType(DataType):
                      Note the bare word ``XML`` is not MariaDB's keyword on any
                      version
     SQLite          ``TEXT`` — no native type; XML gets TEXT affinity
-    Snowflake       ``OBJECT`` (via ``suggested_data_types``) — ``PARSE_XML()``
+    Snowflake       ``OBJECT`` (via ``substitute_data_types``) — ``PARSE_XML()``
                      returns ``OBJECT``, which is Snowflake's name for a
                      ``VARIANT``; there is no XML type
     BigQuery        ``STRING`` — no XML type; its type list is closed and
@@ -109,5 +116,24 @@ class XmlType(DataType):
 
     name = "xml"
 
-    def __init__(self, dialect=None):
+    def __init__(self, dialect=None, length: Optional[int] = None):
         super().__init__(dialect)
+        self._length = length
+
+    @property
+    def length(self) -> Optional[int]:
+        """The declared minimum, or the width this server supplies for none declared.
+
+        Resolved rather than stored, exactly as on :class:`VarCharType`, so a
+        dialect bound after the fact resolves the same way as one passed at
+        construction.
+        """
+        return self._length if self._length is not None else declared_parameter(
+            self.name, "length", self._dialect
+        )
+
+    @length.setter
+    def length(self, value: Optional[int]) -> None:
+        self._length = value
+
+    PARAMETERS = LENGTH_PARAMETERS

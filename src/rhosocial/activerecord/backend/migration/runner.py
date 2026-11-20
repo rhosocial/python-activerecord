@@ -23,7 +23,6 @@ from rhosocial.activerecord.backend.migration.exceptions import (
 )
 from .record import MigrationRecord, MigrationResult, MigrationRecordStore
 from .resolver import NamedMigrationResolver
-from .snapshot import compute_schema_diff, snapshot_to_dict, take_sync_snapshot
 
 
 class MigrationRunner:
@@ -31,7 +30,7 @@ class MigrationRunner:
 
     Encapsulates the procedure execution pattern from ``ProcedureRunner``
     and adds migration-specific concerns: dependency checking, duplicate
-    protection, optional schema snapshots, and optional record keeping.
+    protection, and optional record keeping.
     """
 
     def __init__(
@@ -84,10 +83,7 @@ class MigrationRunner:
                     f"cannot rollback"
                 )
 
-        # 4. Snapshot before
-        snapshot_before = take_sync_snapshot(backend) if not dry_run else None
-
-        # 5. Build execute callback and execute via MigrationContext
+        # 4. Build execute callback and execute via MigrationContext
         dialect = getattr(backend, "dialect", None)
         collected_sql: list[tuple[str, str, tuple]] | None = [] if dry_run else None
 
@@ -112,6 +108,7 @@ class MigrationRunner:
             direction=direction,
             dry_run=dry_run,
             record_store=record_store,
+            backend=backend,
         )
 
         error = None
@@ -163,12 +160,7 @@ class MigrationRunner:
                     pass
             error = e
 
-        # 6. Snapshot after
-        snapshot_after = None
-        if not dry_run and error is None:
-            snapshot_after = take_sync_snapshot(backend)
-
-        # 7. Version conflict check (duplicate version, different FQN)
+        # 6. Version conflict check (duplicate version, different FQN)
         if not dry_run and record_store:
             for existing in record_store.get_applied():
                 if (
@@ -181,7 +173,7 @@ class MigrationRunner:
                         f"cannot record from '{self._fqn}'"
                     )
 
-        # 8. Record
+        # 7. Record
         if not dry_run and record_store:
             success = error is None
             record = MigrationRecord(
@@ -191,21 +183,20 @@ class MigrationRunner:
                 applied_at=datetime.now(timezone.utc),
                 success=success,
                 error_message=str(error) if error else None,
-                snapshot_before=snapshot_to_dict(snapshot_before),
-                snapshot_after=snapshot_to_dict(snapshot_after),
             )
             record_store.record(record)
 
         if error:
             raise error
 
-        snapshot_diff = compute_schema_diff(snapshot_before, snapshot_after, dialect)
+        dry_run_sql = None
+        if dry_run:
+            dry_run_sql = list(collected_sql or [])
 
         return MigrationResult(
             version=self._migration.version,
             applied_at=datetime.now(timezone.utc),
             success=True,
             dry_run=dry_run,
-            dry_run_sql=collected_sql,
-            snapshot_diff=snapshot_diff,
+            dry_run_sql=dry_run_sql,
         )

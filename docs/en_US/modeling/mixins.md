@@ -2,6 +2,8 @@
 
 Composition over inheritance. `rhosocial-activerecord` encourages using Mixins to reuse common fields and logic.
 
+> For the complete capability matrix and design boundaries, see [The ActiveRecord Definition](definition.md).
+
 ## Built-in Mixins
 
 The framework provides several common Mixins.
@@ -10,7 +12,7 @@ The framework provides several common Mixins.
 >
 > Any behavior mixin that needs a field (timestamps, optimistic locking, soft delete) is split into **two classes**:
 >
-> * **Semantics base** (e.g. `TimestampMixin`): provides only the *maintenance semantics* (event hooks, SQL conditions, query filtering) and **declares no fields**. It points at a field the model declares itself via a class attribute (e.g. `__created_at_field__`). Use it when you need a **custom field/column name**.
+> * **Semantics base** (e.g. `TimestampMixin`): provides only the *maintenance semantics* (event hooks, SQL conditions, query filtering) and **declares no fields**. It points at a field the model declares itself via an overridable accessor classmethod (e.g. `created_at_field()`). Use it when you need a **custom field/column name**.
 > * **Default subclass** (e.g. `DefaultTimestampMixin`): adds the *conventional fields* (`created_at`/`updated_at`, `version`, `deleted_at`) on top of the semantics base. Ready to use out of the box.
 >
 > **In most cases just use the `Default*` variant.** Only reach for the semantics base (and declare your own field) when the field name differs from the convention — for example when mapping a legacy database table.
@@ -116,7 +118,7 @@ class Post(DefaultTimestampMixin, ActiveRecord):
 
 #### Custom field names: TimestampMixin
 
-When the model uses different field names (e.g. mapping a legacy database), use the semantics base `TimestampMixin`, declare your own fields, and point to them via `__created_at_field__` / `__updated_at_field__`:
+When the model uses different field names (e.g. mapping a legacy database), use the semantics base `TimestampMixin`, declare your own fields, and point to them by overriding `created_at_field()` / `updated_at_field()`:
 
 ```python
 from rhosocial.activerecord.field import TimestampMixin
@@ -307,8 +309,8 @@ class Article(OptimisticLockMixin, ActiveRecord):
 
 **When customizing field names**:
 
-- `__version_field__`: the model's declared version field (Python field name)
-- `__version_increment_by__`: the increment applied on each UPDATE (optional, default 1)
+- `version_field()`: an overridable classmethod naming the model's declared version field (Python field name)
+- `version_increment_by()`: an overridable classmethod for the increment applied on each UPDATE (optional, default 1)
 - The version column name follows standard `UseColumn` resolution
 
 > 💡 **AI Prompt Example**: "How do I handle multiple people editing the same article? How does optimistic locking work?"

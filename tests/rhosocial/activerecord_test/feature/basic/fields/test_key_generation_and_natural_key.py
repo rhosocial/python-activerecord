@@ -87,6 +87,7 @@ class TestUuidVersionSelection:
 
 
 class NamedAccount(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "a2_named_accounts"
@@ -104,6 +105,7 @@ class NamedAccount(ActiveRecord):
 
 
 class UnnamedAccount(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "a2_unnamed_accounts"
@@ -155,6 +157,7 @@ class TestNaturalKeyDeclaration:
 
 
 class AsyncNamedAccount(AsyncActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "a2_named_accounts_async"
@@ -231,6 +234,7 @@ class TestNaturalKeyConsumption:
         # connection, while this one is already wired to the test loop.
         backend = async_user_class.backend()
         AsyncNamedAccount.__backend__ = backend
+        await backend.execute('DROP TABLE IF EXISTS "a2_named_accounts_async"')
         await backend.executescript(NAMED_DDL.format(table="a2_named_accounts_async"))
 
         row, created = await AsyncNamedAccount.find_one_or_create(

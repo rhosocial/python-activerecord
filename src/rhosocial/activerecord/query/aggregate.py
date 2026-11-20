@@ -11,6 +11,7 @@ from ..backend.expression import (
     Column,
 )
 from ..backend.expression.objects import Table
+from ..backend.expression.advanced_functions import ExistsPredicate
 from ..backend.expression.sources import NamedRelationRef
 
 
@@ -90,14 +91,7 @@ class AggregateQueryMixin:
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.count(dialect, column_arg, is_distinct=is_distinct, alias=result_alias)
 
-        original_select = self.select_columns
-        self.select_columns = [agg_expr]
-        result = self.aggregate()
-        self.select_columns = original_select
-
-        if result:
-            return result[0].get(result_alias, 0)
-        return 0
+        return self._run_scalar(agg_expr, result_alias, 0)
 
     def sum_(self, column: Union[str, BaseExpression], is_distinct: bool = False, alias: Optional[str] = None) -> float:
         """Simple aggregation function that returns a scalar sum value when used at the end of a method chain.
@@ -142,14 +136,7 @@ class AggregateQueryMixin:
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.sum_(dialect, column_arg, is_distinct=is_distinct, alias=result_alias)
 
-        original_select = self.select_columns
-        self.select_columns = [agg_expr]
-        result = self.aggregate()
-        self.select_columns = original_select
-
-        if result:
-            return result[0].get(result_alias, 0.0)
-        return 0.0
+        return self._run_scalar(agg_expr, result_alias, 0.0)
 
     def avg(self, column: Union[str, BaseExpression], is_distinct: bool = False, alias: Optional[str] = None) -> float:
         """Simple aggregation function that returns a scalar average value when used at the end of a method chain.
@@ -194,14 +181,7 @@ class AggregateQueryMixin:
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.avg(dialect, column_arg, is_distinct=is_distinct, alias=result_alias)
 
-        original_select = self.select_columns
-        self.select_columns = [agg_expr]
-        result = self.aggregate()
-        self.select_columns = original_select
-
-        if result:
-            return result[0].get(result_alias, 0.0)
-        return 0.0
+        return self._run_scalar(agg_expr, result_alias, 0.0)
 
     def min_(self, column: Union[str, BaseExpression], alias: Optional[str] = None) -> Any:
         """Simple aggregation function that returns a scalar minimum value when used at the end of a method chain.
@@ -242,14 +222,7 @@ class AggregateQueryMixin:
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.min_(dialect, column_arg, alias=result_alias)
 
-        original_select = self.select_columns
-        self.select_columns = [agg_expr]
-        result = self.aggregate()
-        self.select_columns = original_select
-
-        if result:
-            return result[0].get(result_alias, None)
-        return None
+        return self._run_scalar(agg_expr, result_alias, None)
 
     def max_(self, column: Union[str, BaseExpression], alias: Optional[str] = None) -> Any:
         """Simple aggregation function that returns a scalar maximum value when used at the end of a method chain.
@@ -290,14 +263,26 @@ class AggregateQueryMixin:
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.max_(dialect, column_arg, alias=result_alias)
 
+        return self._run_scalar(agg_expr, result_alias, None)
+
+    def _run_scalar(self, agg_expr, result_alias: str, default):
+        """Execute a scalar aggregate, forwarding an EXPLAIN plan unchanged.
+
+        When explain() is on, aggregate() returns the backend's opaque plan (a
+        list of dict rows). Return it as-is rather than trying to read a scalar
+        out of it. Otherwise unwrap the single aggregate value from the result.
+        User-defined aggregates can reuse this helper and inherit correct
+        EXPLAIN behavior without knowing the plan's shape.
+        """
         original_select = self.select_columns
         self.select_columns = [agg_expr]
-        result = self.aggregate()
-        self.select_columns = original_select
-
-        if result:
-            return result[0].get(result_alias, None)
-        return None
+        try:
+            result = self.aggregate()
+        finally:
+            self.select_columns = original_select
+        if self._explain_enabled:
+            return result
+        return result[0].get(result_alias, default) if result else default
 
     def aggregate(self) -> List[Dict[str, Any]]:
         """Execute aggregate query with all configured expressions and groupings.
@@ -435,8 +420,36 @@ class AggregateQueryMixin:
             else:
                 print("User does not exist")
         """
-        # Use count to check existence - this is more reliable than LIMIT 1
-        return self.count() > 0
+        # EXISTS(subquery) asks the database the exact yes/no question, instead
+        # of counting every matching row. The subquery is the current query as
+        # configured; EXPLAIN mode is handled by _run_scalar (the plan is
+        # forwarded unchanged rather than read as a boolean).
+        backend = self.backend()
+        dialect = backend.dialect
+        from_clause = NamedRelationRef(
+            dialect,
+            Table(
+                dialect,
+                self.model_class.table_name(),
+                schema_name=self.model_class.schema_name(),
+            ),
+        )
+        subquery = statements.QueryStatement(
+            dialect,
+            select=self.select_columns,
+            from_=self.join_clause if self.join_clause else from_clause,
+            where=self.where_clause,
+            group_by_having=self.group_by_having_clause,
+            order_by=self.order_by_clause,
+            limit_offset=self.limit_offset_clause,
+        )
+        exists_expr = ExistsPredicate(dialect, subquery)
+        result_alias = "_exists"
+        exists_expr.alias = result_alias
+        result = self._run_scalar(exists_expr, result_alias, False)
+        if self._explain_enabled:
+            return result
+        return bool(result)
 
 
 class AsyncAggregateQueryMixin:
@@ -489,14 +502,7 @@ class AsyncAggregateQueryMixin:
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.count(dialect, column_arg, is_distinct=is_distinct, alias=result_alias)
 
-        original_select = self.select_columns
-        self.select_columns = [agg_expr]
-        result = await self.aggregate()
-        self.select_columns = original_select
-
-        if result:
-            return result[0].get(result_alias, 0)
-        return 0
+        return await self._run_scalar(agg_expr, result_alias, 0)
 
     async def sum_(
         self, column: Union[str, BaseExpression], is_distinct: bool = False, alias: Optional[str] = None
@@ -535,14 +541,7 @@ class AsyncAggregateQueryMixin:
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.sum_(dialect, column_arg, is_distinct=is_distinct, alias=result_alias)
 
-        original_select = self.select_columns
-        self.select_columns = [agg_expr]
-        result = await self.aggregate()
-        self.select_columns = original_select
-
-        if result:
-            return result[0].get(result_alias, 0.0)
-        return 0.0
+        return await self._run_scalar(agg_expr, result_alias, 0.0)
 
     async def avg(
         self, column: Union[str, BaseExpression], is_distinct: bool = False, alias: Optional[str] = None
@@ -589,14 +588,7 @@ class AsyncAggregateQueryMixin:
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.avg(dialect, column_arg, is_distinct=is_distinct, alias=result_alias)
 
-        original_select = self.select_columns
-        self.select_columns = [agg_expr]
-        result = await self.aggregate()
-        self.select_columns = original_select
-
-        if result:
-            return result[0].get(result_alias, 0.0)
-        return 0.0
+        return await self._run_scalar(agg_expr, result_alias, 0.0)
 
     async def min_(self, column: Union[str, BaseExpression], alias: Optional[str] = None) -> Any:
         """Simple asynchronous aggregation function that returns a scalar minimum value
@@ -638,14 +630,7 @@ class AsyncAggregateQueryMixin:
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.min_(dialect, column_arg, alias=result_alias)
 
-        original_select = self.select_columns
-        self.select_columns = [agg_expr]
-        result = await self.aggregate()
-        self.select_columns = original_select
-
-        if result:
-            return result[0].get(result_alias, None)
-        return None
+        return await self._run_scalar(agg_expr, result_alias, None)
 
     async def max_(self, column: Union[str, BaseExpression], alias: Optional[str] = None) -> Any:
         """Simple asynchronous aggregation function that returns a scalar maximum value
@@ -687,14 +672,19 @@ class AsyncAggregateQueryMixin:
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.max_(dialect, column_arg, alias=result_alias)
 
+        return await self._run_scalar(agg_expr, result_alias, None)
+
+    async def _run_scalar(self, agg_expr, result_alias: str, default):
+        """Async twin of :meth:`AggregateQueryMixin._run_scalar`."""
         original_select = self.select_columns
         self.select_columns = [agg_expr]
-        result = await self.aggregate()
-        self.select_columns = original_select
-
-        if result:
-            return result[0].get(result_alias, None)
-        return None
+        try:
+            result = await self.aggregate()
+        finally:
+            self.select_columns = original_select
+        if self._explain_enabled:
+            return result
+        return result[0].get(result_alias, default) if result else default
 
     async def aggregate(self) -> List[Dict[str, Any]]:
         """Execute aggregate query with all configured expressions and groupings asynchronously.
@@ -831,5 +821,30 @@ class AsyncAggregateQueryMixin:
             else:
                 print("User does not exist")
         """
-        # Use count to check existence - this is more reliable than LIMIT 1
-        return await self.count() > 0
+        # Async twin of AggregateQueryMixin.exists(): EXISTS(subquery).
+        backend = self.backend()
+        dialect = backend.dialect
+        from_clause = NamedRelationRef(
+            dialect,
+            Table(
+                dialect,
+                self.model_class.table_name(),
+                schema_name=self.model_class.schema_name(),
+            ),
+        )
+        subquery = statements.QueryStatement(
+            dialect,
+            select=self.select_columns,
+            from_=self.join_clause if self.join_clause else from_clause,
+            where=self.where_clause,
+            group_by_having=self.group_by_having_clause,
+            order_by=self.order_by_clause,
+            limit_offset=self.limit_offset_clause,
+        )
+        exists_expr = ExistsPredicate(dialect, subquery)
+        result_alias = "_exists"
+        exists_expr.alias = result_alias
+        result = await self._run_scalar(exists_expr, result_alias, False)
+        if self._explain_enabled:
+            return result
+        return bool(result)

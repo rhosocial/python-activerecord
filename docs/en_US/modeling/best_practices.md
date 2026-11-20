@@ -317,9 +317,14 @@ class User(ActiveRecord):
     is_vip: bool = False
 ```
 
-### 4.2 Using Alembic for Migrations
+### 4.2 Migrations
 
-While `rhosocial-activerecord` doesn't provide migration tools itself, you can use Alembic.
+`rhosocial-activerecord` ships a **native migration system** — versioned, reversible migrations
+with dependency checks, dry runs, and version records. See the
+[Migration System](../migration/README.md) chapter for the full API and examples.
+
+You may still integrate a third-party tool such as Alembic if it fits your workflow, but it is not
+required — the framework does not need an external migration tool.
 
 **alembic/env.py Configuration:**
 
@@ -722,8 +727,8 @@ UserMetric.query().all()  # Raises: DatabaseError: No backend configured
 Both approaches are fully supported.  Choose based on your team's preference and the
 semantic relationship between your models.
 
-See also: [`docs/examples/chapter_03_modeling/multiple_connections_inheritance.py`](../../../examples/chapter_03_modeling/multiple_connections_inheritance.py)
-and [`docs/examples/chapter_03_modeling/multiple_connections_mixin.py`](../../../examples/chapter_03_modeling/multiple_connections_mixin.py)
+See also: [`docs/examples/chapter_03_modeling/multiple_connections_inheritance.py`](../../examples/chapter_03_modeling/multiple_connections_inheritance.py)
+and [`docs/examples/chapter_03_modeling/multiple_connections_mixin.py`](../../examples/chapter_03_modeling/multiple_connections_mixin.py)
 for runnable examples of each pattern.
 
 > 💡 **AI Prompt:** "I have two model classes that map to the same table but need

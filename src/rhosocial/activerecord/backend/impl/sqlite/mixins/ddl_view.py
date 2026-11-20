@@ -41,12 +41,19 @@ class SQLiteViewMixin:
         return True
 
     def supports_or_replace_view(self) -> bool:
-        """SQLite supports CREATE OR REPLACE VIEW."""
-        return True
+        """SQLite has no CREATE OR REPLACE VIEW.
+
+        The grammar is ``CREATE [TEMPORARY] VIEW [IF NOT EXISTS]``; there is
+        no ``OR REPLACE`` alternative. A replace request is refused rather
+        than spelled as ``IF NOT EXISTS``, which would leave an existing
+        view's old definition in place while telling the caller it was
+        replaced.
+        """
+        return False
 
     def supports_create_or_replace_view(self) -> bool:
-        """SQLite supports CREATE OR REPLACE VIEW."""
-        return True
+        """SQLite has no CREATE OR REPLACE VIEW."""
+        return False
 
     def supports_if_not_exists_view(self) -> bool:
         """SQLite supports CREATE VIEW IF NOT EXISTS."""
@@ -90,13 +97,26 @@ class SQLiteViewMixin:
         return False
 
     def format_create_view_statement(self, expr: "CreateViewStatement") -> Tuple[str, tuple]:
-        """Format CREATE VIEW statement for SQLite."""
+        """Format CREATE VIEW statement for SQLite.
+
+        SQLite's grammar has no ``OR REPLACE`` alternative, so a replace
+        request is refused before any SQL exists. Rendering it as
+        ``IF NOT EXISTS`` -- which SQLite's grammar does have -- would leave
+        the old view's definition in place and report success, which is not
+        what the caller asked for.
+        """
+        if expr.replace:
+            raise UnsupportedFeatureError(
+                self.name,
+                "CREATE OR REPLACE VIEW",
+                "SQLite has no CREATE OR REPLACE VIEW; drop the view first, "
+                "then create it again.",
+            )
+
         parts = ["CREATE"]
         if expr.temporary:
             parts.append("TEMPORARY")
-        if expr.replace and self.supports_create_or_replace_view():
-            parts.append("VIEW IF NOT EXISTS")
-        elif expr.if_not_exists and self.supports_if_not_exists_view():
+        if expr.if_not_exists and self.supports_if_not_exists_view():
             parts.append("VIEW IF NOT EXISTS")
         else:
             parts.append("VIEW")

@@ -1,9 +1,3 @@
 # tests/rhosocial/activerecord_test/feature/query/optimization/test_query_optimization.py
-"""
-Bridge file for query optimization tests from the testsuite.
-
-This file imports the generic tests from the testsuite package and makes them
-discoverable by pytest in this project's test run.
-"""
-
-from rhosocial.activerecord.testsuite.feature.query.optimization.test_query_optimization import *  # noqa: F403
+"""Bridge to the shared ``query/optimization`` contract."""
+from rhosocial.activerecord.testsuite.feature.query.optimization.test_query_optimization import *  # noqa: F401,F403

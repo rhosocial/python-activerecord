@@ -66,7 +66,7 @@ class PredicateMixin:
     alias and rendered a bare boolean.
     """
 
-    def _with_alias(self, sql: str, expr: Any) -> str:
+    def _with_predicate_alias(self, sql: str, expr: Any) -> str:
         """Append ``AS <alias>`` when *expr* carries one.
 
         Args:
@@ -102,7 +102,7 @@ class PredicateMixin:
         # rather than the wire format.
         symbol = expr.op.symbol
         return (
-            self._with_alias(f"{left_sql} {symbol} {right_sql}", expr),
+            self._with_predicate_alias(f"{left_sql} {symbol} {right_sql}", expr),
             left_params + right_params,
         )
 
@@ -130,7 +130,7 @@ class PredicateMixin:
         op = expr.op.upper()
         if op == "NOT" and len(expr.operands) == 1:
             sql, params = expr.operands[0].to_sql()
-            return self._with_alias(f"NOT ({sql})", expr), params
+            return self._with_predicate_alias(f"NOT ({sql})", expr), params
 
         parent_precedence = _CONNECTIVE_PRECEDENCE.get(op)
         parts = []
@@ -144,7 +144,7 @@ class PredicateMixin:
                 sql = f"({sql})"
             parts.append(sql)
             all_params.extend(params)
-        return self._with_alias(f" {expr.op} ".join(parts), expr), tuple(all_params)
+        return self._with_predicate_alias(f" {expr.op} ".join(parts), expr), tuple(all_params)
 
     def format_in_predicate(self, expr: InPredicate) -> Tuple[str, tuple]:
         """Format an ``IN`` predicate.
@@ -172,17 +172,17 @@ class PredicateMixin:
         if isinstance(expr.values, Literal) and isinstance(expr.values.value, (list, tuple, set)):
             values = expr.values.value
             if not values:
-                return self._with_alias(f"{operand_sql} IN ()", expr), expr_params
+                return self._with_predicate_alias(f"{operand_sql} IN ()", expr), expr_params
             if expr.values.inline:
                 rendered = ", ".join(self.format_literal(value) for value in values)
-                return self._with_alias(f"{operand_sql} IN ({rendered})", expr), expr_params
+                return self._with_predicate_alias(f"{operand_sql} IN ({rendered})", expr), expr_params
             placeholders = ", ".join([self.get_parameter_placeholder()] * len(values))
             return (
-                self._with_alias(f"{operand_sql} IN ({placeholders})", expr),
+                self._with_predicate_alias(f"{operand_sql} IN ({placeholders})", expr),
                 expr_params + tuple(values),
             )
         values_sql, values_params = expr.values.to_sql()
-        return self._with_alias(f"{operand_sql} IN {values_sql}", expr), expr_params + values_params
+        return self._with_predicate_alias(f"{operand_sql} IN {values_sql}", expr), expr_params + values_params
 
     def format_between_predicate(self, expr: BetweenPredicate) -> Tuple[str, tuple]:
         """Format a ``BETWEEN`` predicate.
@@ -197,7 +197,7 @@ class PredicateMixin:
         low_sql, low_params = expr.low.to_sql()
         high_sql, high_params = expr.high.to_sql()
         return (
-            self._with_alias(f"{operand_sql} BETWEEN {low_sql} AND {high_sql}", expr),
+            self._with_predicate_alias(f"{operand_sql} BETWEEN {low_sql} AND {high_sql}", expr),
             expr_params + low_params + high_params,
         )
 
@@ -212,7 +212,7 @@ class PredicateMixin:
         """
         operand_sql, expr_params = expr.operand.to_sql()
         not_str = " NOT" if expr.is_not else ""
-        return self._with_alias(f"{operand_sql} IS{not_str} NULL", expr), expr_params
+        return self._with_predicate_alias(f"{operand_sql} IS{not_str} NULL", expr), expr_params
 
     def format_distinct_from_predicate(self, expr: DistinctFromPredicate) -> Tuple[str, tuple]:
         """Format a NULL-safe ``IS [NOT] DISTINCT FROM`` predicate.
@@ -234,7 +234,7 @@ class PredicateMixin:
         right_sql, right_params = expr.right.to_sql()
         not_str = " NOT" if expr.is_not else ""
         return (
-            self._with_alias(f"{left_sql} IS{not_str} DISTINCT FROM {right_sql}", expr),
+            self._with_predicate_alias(f"{left_sql} IS{not_str} DISTINCT FROM {right_sql}", expr),
             left_params + right_params,
         )
 
@@ -251,7 +251,7 @@ class PredicateMixin:
         expr_sql, expr_params = expr.expr.to_sql()
         not_str = " NOT" if expr.is_not else ""
         bool_str = "TRUE" if expr.value else "FALSE"
-        return self._with_alias(f"{expr_sql} IS{not_str} {bool_str}", expr), expr_params
+        return self._with_predicate_alias(f"{expr_sql} IS{not_str} {bool_str}", expr), expr_params
 
     def format_exists_predicate(self, expr: ExistsPredicate) -> Tuple[str, tuple]:
         """Format an ``[NOT] EXISTS`` expression.
@@ -264,7 +264,7 @@ class PredicateMixin:
         """
         subquery_sql, subquery_params = expr.subquery.to_sql()
         exists_clause = "NOT EXISTS" if expr.is_not else "EXISTS"
-        return self._with_alias(f"{exists_clause} {subquery_sql}", expr), subquery_params
+        return self._with_predicate_alias(f"{exists_clause} {subquery_sql}", expr), subquery_params
 
     def format_any_predicate(self, expr: AnyPredicate) -> Tuple[str, tuple]:
         """Format a quantified ``ANY`` comparison expression.
@@ -287,7 +287,7 @@ class PredicateMixin:
             array_params = (tuple(array_expr.value),)
         else:
             array_sql, array_params = array_expr.to_sql()
-        return self._with_alias(f"({expr_sql} {expr.op} ANY{array_sql})", expr), tuple(
+        return self._with_predicate_alias(f"({expr_sql} {expr.op} ANY{array_sql})", expr), tuple(
             list(expr_params) + list(array_params)
         )
 
@@ -312,7 +312,7 @@ class PredicateMixin:
             array_params = (tuple(array_expr.value),)
         else:
             array_sql, array_params = array_expr.to_sql()
-        return self._with_alias(f"({expr_sql} {expr.op} ALL{array_sql})", expr), tuple(
+        return self._with_predicate_alias(f"({expr_sql} {expr.op} ALL{array_sql})", expr), tuple(
             list(expr_params) + list(array_params)
         )
 
@@ -333,7 +333,7 @@ class PredicateMixin:
         # dialect that spells NOT LIKE differently overrides this method rather
         # than the wire format.
         return (
-            self._with_alias(
+            self._with_predicate_alias(
                 f"{left_sql} {expr.op.keyword} {pattern_sql}",
                 expr,
             ),

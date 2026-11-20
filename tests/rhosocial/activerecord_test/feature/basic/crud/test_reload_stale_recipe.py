@@ -18,6 +18,7 @@ import pytest
 
 
 class LockedCounter(OptimisticLockMixin, ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "reload_counters"
@@ -133,8 +134,10 @@ class TestAsyncReload:
     async def async_counters(self, async_user_class):
         backend = async_user_class.backend()
         AsyncLockedCounter.__backend__ = backend
+        await backend.execute('DROP TABLE IF EXISTS "reload_counters"')
         await backend.executescript("; ".join(DDL))
         yield AsyncLockedCounter
+        await backend.execute('DROP TABLE IF EXISTS "reload_counters"')
 
     @pytest.mark.asyncio
     async def test_async_reload_takes_the_stored_values(self, async_counters):
@@ -163,6 +166,7 @@ class TestAsyncReload:
 
 
 class AsyncLockedCounter(OptimisticLockMixin, AsyncActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "reload_counters"

@@ -1,0 +1,209 @@
+# tests/rhosocial/activerecord_test/feature/backend/sqlite/dialect/ddl/test_ddl_generated_columns.py
+"""Tests for SQLite generated columns support."""
+
+import pytest
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnGeneratedConstraint,
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteRealType, SQLiteTextType
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.expression import RawSQL
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefinition,
+    GeneratedColumnType,
+    CreateTableStatement,
+    ColumnConstraint,
+)
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+
+class TestGeneratedColumnsVersionSupport:
+    """Test version detection for generated columns."""
+
+    def test_supports_generated_columns_3_31_0(self):
+        """Test that SQLite 3.31.0 supports generated columns."""
+        dialect = SQLiteDialect(version=(3, 31, 0))
+        assert dialect.supports_generated_columns() is True
+
+    def test_supports_generated_columns_3_35_0(self):
+        """Test that SQLite 3.35.0 supports generated columns."""
+        dialect = SQLiteDialect(version=(3, 35, 0))
+        assert dialect.supports_generated_columns() is True
+
+    def test_does_not_support_generated_columns_3_30_0(self):
+        """Test that SQLite 3.30.0 does not support generated columns."""
+        dialect = SQLiteDialect(version=(3, 30, 0))
+        assert dialect.supports_generated_columns() is False
+
+    def test_does_not_support_generated_columns_3_24_0(self):
+        """Test that SQLite 3.24.0 does not support generated columns."""
+        dialect = SQLiteDialect(version=(3, 24, 0))
+        assert dialect.supports_generated_columns() is False
+
+
+class TestGeneratedColumnsFormatting:
+    """Test formatting of generated columns."""
+
+    def test_virtual_generated_column(self):
+        """Test formatting a VIRTUAL generated column."""
+        dialect = SQLiteDialect(version=(3, 31, 0))
+
+        col_def = ColumnDefinition(dialect,
+            name="full_name",
+            data_type=SQLiteTextType(dialect=dialect),
+            generated_expression=ColumnGeneratedConstraint(
+                dialect,
+                expression=RawSQL(dialect, '"first_name" || \' \' || "last_name"'),
+                storage_type=GeneratedColumnType.VIRTUAL,
+            ),
+        )
+
+        sql, params = dialect.format_column_definition(col_def)
+
+        assert "GENERATED ALWAYS AS" in sql
+        assert "VIRTUAL" in sql
+        assert params == ()
+
+    def test_stored_generated_column(self):
+        """Test formatting a STORED generated column."""
+        dialect = SQLiteDialect(version=(3, 31, 0))
+
+        col_def = ColumnDefinition(dialect,
+            name="total_price",
+            data_type=SQLiteRealType(dialect=dialect),
+            generated_expression=ColumnGeneratedConstraint(
+                dialect,
+                expression=RawSQL(dialect, '"price" * "quantity"'),
+                storage_type=GeneratedColumnType.STORED,
+            ),
+        )
+
+        sql, params = dialect.format_column_definition(col_def)
+
+        assert "GENERATED ALWAYS AS" in sql
+        assert "STORED" in sql
+        assert params == ()
+
+    def test_generated_column_default_virtual(self):
+        """Test that generated column defaults to VIRTUAL when type not specified."""
+        dialect = SQLiteDialect(version=(3, 31, 0))
+
+        col_def = ColumnDefinition(dialect,
+            name="computed_value",
+            data_type=SQLiteIntegerType(dialect),
+            generated_expression=ColumnGeneratedConstraint(
+                dialect,
+                expression=RawSQL(dialect, '"base_value" + 1'),
+            ),
+        )
+
+        sql, params = dialect.format_column_definition(col_def)
+
+        assert "GENERATED ALWAYS AS" in sql
+        assert "VIRTUAL" in sql
+
+    def test_generated_column_with_constraints(self):
+        """Test generated column with additional constraints."""
+        dialect = SQLiteDialect(version=(3, 31, 0))
+
+        col_def = ColumnDefinition(dialect,
+            name="status_code",
+            data_type=SQLiteIntegerType(dialect),
+            constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))],
+            generated_expression=ColumnGeneratedConstraint(
+                dialect,
+                expression=RawSQL(dialect, '"raw_status"'),
+            ),
+        )
+
+        sql, params = dialect.format_column_definition(col_def)
+
+        assert "NOT NULL" in sql
+        assert "GENERATED ALWAYS AS" in sql
+        assert "VIRTUAL" in sql
+
+    def test_generated_column_raises_error_on_unsupported_version(self):
+        """Test that generated column raises error on unsupported version."""
+        dialect = SQLiteDialect(version=(3, 30, 0))
+
+        col_def = ColumnDefinition(dialect,
+            name="computed", data_type=SQLiteTextType(dialect=dialect),
+            generated_expression=ColumnGeneratedConstraint(
+                dialect,
+                expression=RawSQL(dialect, '"source"'),
+            ),
+        )
+
+        with pytest.raises(UnsupportedFeatureError) as exc_info:
+            dialect.format_column_definition(col_def)
+
+        assert "Generated columns" in str(exc_info.value)
+
+
+class TestGeneratedColumnsInCreateTable:
+    """Test generated columns in CREATE TABLE statements."""
+
+    def test_create_table_with_generated_column(self):
+        """Test CREATE TABLE with a generated column."""
+        dialect = SQLiteDialect(version=(3, 31, 0))
+
+        columns = [
+            ColumnDefinition(
+                dialect,
+                name="id",
+                data_type=SQLiteIntegerType(dialect),
+                constraints=[ColumnConstraint(
+                    dialect, branch=ColumnPrimaryKeyConstraint(dialect)
+                )],
+            ),
+            ColumnDefinition(dialect, name="price", data_type=SQLiteRealType(dialect=dialect)),
+            ColumnDefinition(dialect, name="quantity", data_type=SQLiteIntegerType(dialect)),
+            ColumnDefinition(dialect,
+                name="total",
+                data_type=SQLiteRealType(dialect=dialect),
+                generated_expression=ColumnGeneratedConstraint(
+                    dialect,
+                    expression=RawSQL(dialect, '"price" * "quantity"'),
+                    storage_type=GeneratedColumnType.STORED,
+                ),
+            ),
+        ]
+
+        create_table = CreateTableStatement(dialect=dialect, table=Table(dialect, 'order_items'), columns=columns)
+
+        sql, params = create_table.to_sql()
+
+        assert 'CREATE TABLE "order_items"' in sql
+        assert '"id" INTEGER PRIMARY KEY' in sql
+        assert '"total" REAL GENERATED ALWAYS AS' in sql
+        assert "STORED" in sql
+
+    def test_create_table_with_virtual_generated_column(self):
+        """Test CREATE TABLE with a VIRTUAL generated column."""
+        dialect = SQLiteDialect(version=(3, 31, 0))
+
+        columns = [
+            ColumnDefinition(dialect, name="id", data_type=SQLiteIntegerType(dialect)),
+            ColumnDefinition(dialect, name="first_name", data_type=SQLiteTextType(dialect=dialect)),
+            ColumnDefinition(dialect, name="last_name", data_type=SQLiteTextType(dialect=dialect)),
+            ColumnDefinition(dialect,
+                name="full_name",
+                data_type=SQLiteTextType(dialect=dialect),
+                generated_expression=ColumnGeneratedConstraint(
+                    dialect,
+                    expression=RawSQL(dialect, '"first_name" || \' \' || "last_name"'),
+                    storage_type=GeneratedColumnType.VIRTUAL,
+                ),
+            ),
+        ]
+
+        create_table = CreateTableStatement(dialect=dialect, table=Table(dialect, 'users'), columns=columns)
+
+        sql, params = create_table.to_sql()
+
+        assert 'CREATE TABLE "users"' in sql
+        assert '"full_name" TEXT GENERATED ALWAYS AS' in sql
+        assert "VIRTUAL" in sql

@@ -28,9 +28,9 @@ These test a **specific backend's own internals** — how it talks to its databa
 dialect SQL, adapts types, and manages connections.
 
 - **Location**: reside in each backend's own repository under
-  `tests/rhosocial/<backend>_test/feature/backend/` (e.g. the core project has
-  `sqlite/`, `sqlite_async/`, `dummy/`, `dummy2/`, `dialect/`, `migration/`,
-  `named_connection/`, `named_expression/`, `schema/`, plus concurrency/security/output tests).
+  `tests/rhosocial/<backend>_test/feature/backend/` (e.g. the core project has a generic
+  layer — `core/`, `adapters/`, `errors/`, `dialect/` — and two concrete backends, `dummy/`
+  and `sqlite/`, each subdivided by test focus; no numeric-suffix directories).
 - **Author**: the backend's own maintainers. They are **not imported from the shared testsuite**;
   each backend writes its own.
 - **What they verify**: backend implementation details — `StorageBackend`/`AsyncStorageBackend`
@@ -43,17 +43,34 @@ dialect SQL, adapts types, and manages connections.
 
 ```text
 tests/rhosocial/<backend>_test/feature/backend/
-├── base/                    # storage backend base behavior
-├── dialect/                 # dialect-specific SQL generation
-├── type_adapter/            # type conversion round-trips
-├── sqlite/  sqlite_async/   # concrete impl (here: SQLite + its async variant)
-├── dummy/                   # protocol support surface (all supports_* True;
-│                            #   member-completeness enforcement) — no real DB
-├── dummy2/                  # expression to_sql() via the generic reference
-│                            #   dialect — tests expressions/protocols/mixins
-├── concurrency/  security/  # pooling, threads, SQL safety
-└── test_helpers.py  test_output_*.py
+├── core/          # framework-level backend contracts; absorbs old base/, schema/, partition/
+├── adapters/      # type adapter contracts; absorbs old field_adapters/
+├── errors/        # error taxonomy / execute contract
+├── dialect/       # backend-agnostic dialect protocols
+├── dummy/         # concrete backend WITHOUT a database; generic SQL baseline
+│   ├── capability/  #   supports_* / protocol member completeness / placeholder IO
+│   ├── expression/  #   expression construction + to_sql
+│   ├── statements/  #   statement rendering
+│   ├── ddl/         #   DDL rendering and capability surface
+│   ├── dialect/     #   dialect formatting baseline
+│   ├── types/       #   data types
+│   └── mixin/       #   mixin reachability
+└── sqlite/        # concrete backend WITH a real database
+    ├── core/        #   executable DML/DQL/DDL/transactions; sync/async paired
+    ├── cli/  dialect/{capabilities,ddl,execution,expressions,functions,statements}
+    ├── extensions/  introspection/  native/  migration/  named_connection/
 ```
+
+Sync/async pairing applies only to tests that perform real IO: `test_X.py` ↔ `test_X_async.py`
+in the same directory. Pure formatting/expression/protocol tests are never duplicated.
+
+Parallelism follows the same declaration-driven rule as the shared testsuite: a leaf directory
+that shares a database or IO state declares `DECLARATION = Declaration(parallel=True, ...)` in
+its conftest (the seven SQLite IO directories listed above) and is pinned to one xdist worker
+per scenario. A directory that declares nothing is free to run in unlimited parallel — a
+`conftest.py` or a `database` fixture alone is not a declaration. Declarations are inherited
+from parent directories, so use `Declaration(parallel=False)` to opt out explicitly. Run
+backend tests with `-n 4 --dist=loadgroup`; more workers regress on this suite.
 
 ### 2. ActiveRecord common test suite (`feature/{basic,query,relation,…}`)
 

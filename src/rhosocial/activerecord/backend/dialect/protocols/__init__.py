@@ -38,7 +38,9 @@ from .object.type_ import TypeObjectSupport
 # --- Data definition ---
 from .ddl.alter_table_modifier import AlterTableModifierSupport
 from .ddl.auto_increment import AutoIncrementColumnSupport
+from .ddl.database_assigned_column import DatabaseAssignedColumnSupport
 from .ddl.identity_column import IdentityColumnSupport
+from .ddl.integer_auto_increment_column_suggestion import IntegerAutoIncrementColumnSuggestionSupport
 from .ddl.column_attribute import ColumnAttributeSupport
 from .ddl.comment import CommentSupport
 from .ddl.constraint import ConstraintSupport
@@ -53,6 +55,7 @@ from .ddl.index.create_index import CreateIndexSupport
 from .ddl.index.drop_index import DropIndexSupport
 from .ddl.index.fulltext import FulltextIndexSupport
 from .ddl.partition import PartitionSupport
+from .ddl.transactional_ddl import TransactionalDDLSupport
 from .ddl.routine.create_function import CreateRoutineSupport
 from .ddl.routine.drop_function import DropRoutineSupport
 from .ddl.schema.create_schema import CreateSchemaSupport
@@ -154,6 +157,7 @@ __all__ = [
     "CreateTriggerSupport",
     "CreateTypeSupport",
     "CreateViewSupport",
+    "DatabaseAssignedColumnSupport",
     "DDLTypeSupport",
     "ColumnTypeSupport",
     "DataTypeSupport",
@@ -178,6 +182,7 @@ __all__ = [
     "GraphTableSupport",
     "ILIKESupport",
     "IdentityColumnSupport",
+    "IntegerAutoIncrementColumnSuggestionSupport",
     "IndexObjectSupport",
     "IntrospectionSupport",
     "JSONSupport",
@@ -207,6 +212,7 @@ __all__ = [
     "TableObjectSupport",
     "TemporalTableSupport",
     "TransactionControlSupport",
+    "TransactionalDDLSupport",
     "TriggerObjectSupport",
     "TruncateSupport",
     "TypeObjectSupport",

@@ -5,7 +5,7 @@ import logging
 from typing import Dict, List, Optional, Type
 
 from .aggregate import AggregateQueryMixin, AsyncAggregateQueryMixin
-from .base import BaseQueryMixin
+from .base import BaseQueryMixin, reject_explain_on_model_query
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
 from .relational import RelationalQueryMixin
@@ -192,24 +192,20 @@ class ActiveQuery(
             users = User.query().where('status = ?', ('active',)).all()
             users = User.query().select('id', 'name').where('status = ?', ('active',)).all()
         """
+        reject_explain_on_model_query(self, "all")
         # Get SQL and parameters
         sql, params = self.to_sql()
 
-        # Step 1: Get column adapters for processing output (DB -> Python).
-        # This map specifies how database results should be converted back to Python objects.
-        column_adapters = self.model_class.get_column_adapters()
-        self._log(logging.DEBUG, f"Column adapters map: {column_adapters}")
-
-        # Step 2: Fetch all records, passing the column adapters to the backend.
+        # Fetch the raw rows: the backend returns column names and untouched
+        # driver values. Column mapping and value conversion belong to the
+        # model, which applies the same adapters used when writing.
         rows = self.backend().fetch_all(
             sql,
             params,
-            column_adapters=column_adapters,
             log_context=self._build_log_context("select", "active_query"),
         )
 
-        # Convert database column names back to Python field names before creating model instances
-        field_data_rows = [self.model_class._map_columns_to_fields(row) for row in rows]
+        field_data_rows = [self.model_class._adapt_row_from_database(row) for row in rows]
         records = [self.model_class.create_from_database(field_data) for field_data in field_data_rows]
 
         # Apply eager loading if configured via with_()
@@ -244,6 +240,7 @@ class ActiveQuery(
             # Warning: When using raw SQL strings, you must ensure the query is safe from SQL injection
             user = User.query().where('email = ?', (email,)).one()
         """
+        reject_explain_on_model_query(self, "one")
         # Get backend instance and dialect
         backend = self.backend()
         dialect = backend.dialect
@@ -276,24 +273,17 @@ class ActiveQuery(
         # Generate SQL using the temporary QueryStatement
         sql, params = query_expr.to_sql()
 
-        # Step 1: Get column adapters for processing output (DB -> Python).
-        # This map specifies how database results should be converted back to Python objects.
-        column_adapters = self.model_class.get_column_adapters()
-        self._log(logging.DEBUG, f"Column adapters map: {column_adapters}")
-
-        # Step 2: Fetch a single record, passing the column adapters to the backend.
+        # Fetch a single raw row; the model maps columns and converts values.
         row = self.backend().fetch_one(
             sql,
             params,
-            column_adapters=column_adapters,
             log_context=self._build_log_context("select", "active_query"),
         )
 
         if not row:
             return None
 
-        # Convert database column names back to Python field names before creating model instance
-        field_data = self.model_class._map_columns_to_fields(row)
+        field_data = self.model_class._adapt_row_from_database(row)
         record = self.model_class.create_from_database(field_data)
 
         # Apply eager loading if configured via with_()
@@ -598,24 +588,18 @@ class AsyncActiveQuery(
             users = await User.query().where('status = ?', ('active',)).all()
             users = await User.query().select('id', 'name').where('status = ?', ('active',)).all()
         """
+        reject_explain_on_model_query(self, "all")
         # Get SQL and parameters
         sql, params = self.to_sql()
 
-        # Step 1: Get column adapters for processing output (DB -> Python).
-        # This map specifies how database results should be converted back to Python objects.
-        column_adapters = self.model_class.get_column_adapters()
-        self._log(logging.DEBUG, f"Column adapters map: {column_adapters}")
-
-        # Step 2: Fetch all records, passing the column adapters to the backend.
+        # Fetch raw rows; the model maps columns and converts values.
         rows = await self.backend().fetch_all(
             sql,
             params,
-            column_adapters=column_adapters,
             log_context=self._build_log_context("select", "active_query"),
         )
 
-        # Convert database column names back to Python field names before creating model instances
-        field_data_rows = [self.model_class._map_columns_to_fields(row) for row in rows]
+        field_data_rows = [self.model_class._adapt_row_from_database(row) for row in rows]
         records = [self.model_class.create_from_database(field_data) for field_data in field_data_rows]
 
         # Apply eager loading if configured via with_()
@@ -650,6 +634,7 @@ class AsyncActiveQuery(
             # Warning: When using raw SQL strings, you must ensure the query is safe from SQL injection
             user = await User.query().where('email = ?', (email,)).one()
         """
+        reject_explain_on_model_query(self, "one")
         # Get backend instance and dialect
         backend = self.backend()
         dialect = backend.dialect
@@ -682,24 +667,17 @@ class AsyncActiveQuery(
         # Generate SQL using the temporary QueryStatement
         sql, params = query_expr.to_sql()
 
-        # Step 1: Get column adapters for processing output (DB -> Python).
-        # This map specifies how database results should be converted back to Python objects.
-        column_adapters = self.model_class.get_column_adapters()
-        self._log(logging.DEBUG, f"Column adapters map: {column_adapters}")
-
-        # Step 2: Fetch a single record, passing the column adapters to the backend.
+        # Fetch a single raw row; the model maps columns and converts values.
         row = await self.backend().fetch_one(
             sql,
             params,
-            column_adapters=column_adapters,
             log_context=self._build_log_context("select", "active_query"),
         )
 
         if not row:
             return None
 
-        # Convert database column names back to Python field names before creating model instance
-        field_data = self.model_class._map_columns_to_fields(row)
+        field_data = self.model_class._adapt_row_from_database(row)
         record = self.model_class.create_from_database(field_data)
 
         # Apply eager loading if configured via with_()

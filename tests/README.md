@@ -51,25 +51,9 @@ The Provider pattern is the core mechanism for achieving backend-agnostic testin
 
 #### 2.1 Backend Tests (`backend/`)
 
-Backend-related tests are organized by functionality module and backend type:
-
-| Subdirectory | Content |
-| ------------ | ------- |
-| `base/` | Base backend protocol, transaction management, hook function tests |
-| `dialect/` | SQL dialect protocol tests (CTE, window functions, arrays, JSON, etc.) |
-| `dummy/` | Dummy backend basic functionality tests (no real database connection) |
-| `dummy2/` | Dummy backend advanced functionality tests (window functions, advanced mixins) |
-| `sqlite/` | SQLite backend core functionality tests |
-| `sqlite2/` | SQLite batch operation tests (batch DML/DQL, transactions) |
-| `sqlite3/` | SQLite column mapping and RETURNING clause tests |
-| `sqlite4/` | SQLite introspection tests (table, column, index info queries) |
-| `sqlite_async/` | Async backend functionality tests |
-| `sqlite_pragma_extension/` | SQLite PRAGMA extension functionality tests |
-
-**Directory Numbering Explanation**:
-
-- Unnumbered directories (e.g., `sqlite/`): Core functionality tests
-- Numbered directories (e.g., `sqlite2/`, `sqlite3/`): Specialized functionality tests, numbered by development order
+Backend tests are split by test focus into a generic layer and two concrete backends
+(dummy, sqlite). See `rhosocial/activerecord_test/feature/backend/README.md` for the
+layout, naming rules and parallelism declaration.
 
 #### 2.2 Basic Tests (`basic/`)
 
@@ -144,7 +128,7 @@ pytest tests/rhosocial/activerecord_test/feature/
 pytest tests/rhosocial/activerecord_test/feature/backend/
 
 # Run SQLite introspection tests only
-pytest tests/rhosocial/activerecord_test/feature/backend/sqlite4/
+pytest tests/rhosocial/activerecord_test/feature/backend/sqlite/introspection/
 ```
 
 ### Run Single Test File

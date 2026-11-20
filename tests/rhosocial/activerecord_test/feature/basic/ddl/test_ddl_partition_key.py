@@ -7,6 +7,8 @@ Exactly one of the two faces (annotations, direct dunder) may declare the
 key; the query layer warns when a lookup skips every partition column, and
 the CLI says the same out loud at filter time.
 """
+from typing import Optional
+
 from rhosocial.activerecord.backend.expression import (
     Column,
     ComparisonPredicate,
@@ -66,11 +68,12 @@ class DirectPartitioned(ActiveRecord):
 
 
 class Unpartitioned(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "unpartitioned"
 
-    id: int
+    id: Optional[int] = None
     name: str
 
 
@@ -251,13 +254,7 @@ class TestQueryPartitionScopeWarning:
                 def table_name(cls):
                     return "natural_key_partitioned"
 
-                @classmethod
-                def primary_key(cls):
-                    return ("code", "bucket")
-
-                @classmethod
-                def pk_auto_generated(cls):
-                    return False
+                __primary_key__ = ("code", "bucket")
 
                 code: str
                 bucket: Annotated[str, UsePartitionKey()]

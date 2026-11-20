@@ -23,6 +23,14 @@ the value type each column named, which is measurable: comparing the operation
 sets of ``NumericColumn`` and ``NumericValue`` gives an empty symmetric
 difference, for every column that has a value type.
 
+The exception is the seven *surface-only* classes -- ``GeometryColumn``,
+``VectorColumn``, ``BitStringColumn``, ``RangeColumn``, ``MultirangeColumn``,
+``MacAddressColumn`` and ``IntervalColumn``. Their families have no operation
+the framework can promise on every backend (see :class:`SurfaceOnlyValue`), so
+they take ``ColumnBase`` alone rather than a value type that would promise one.
+A backend that does model those operations declares its own class deriving
+from these.
+
 Nothing about the *storage* type appears here. A ``UUIDColumn`` is a
 ``UUIDColumn`` on every backend; how the value is stored is the DDL layer's
 business (``DataType`` / ``format_data_type_*``), and the two never read each
@@ -340,6 +348,108 @@ class XMLColumn(XMLValue, ColumnBase):
         return "format_column"
 
 
+class GeometryColumn(ColumnBase):
+    """A column holding a geometry value: alias, null tests, casting.
+
+    Deliberately no family operation. Distance, intersection and containment
+    are spelled differently -- or not at all -- by each server: PostGIS
+    ``ST_Distance``, SQL Server's method form ``geom.STDistance(x)``, MySQL's
+    ``ST_Distance``, and no spatial function whatsoever in SQLite, Firebird,
+    Snowflake or BigQuery. A backend that models them declares its own class
+    (``PostgresGeometryColumn``) deriving from this one.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column"
+
+
+class VectorColumn(ColumnBase):
+    """A column holding a vector: alias, null tests, casting.
+
+    No similarity or distance operation, for the same reason: pgvector uses
+    ``<->`` / ``<=>``, MySQL has ``DISTANCE()``, ClickHouse has
+    ``L2Distance``, and most backends have neither the type nor the function.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column"
+
+
+class BitStringColumn(ColumnBase):
+    """A column holding a bit string: alias, null tests, casting.
+
+    Bitwise operators are not portable: PostgreSQL spells exclusive-or ``#``
+    where MySQL spells it ``^``, shifting differs, and a column carried as
+    text has string semantics instead of numeric ones. A backend that models
+    its own bit semantics declares a class deriving from this one.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column"
+
+
+class RangeColumn(ColumnBase):
+    """A column holding a range: alias, null tests, casting.
+
+    Containment and overlap (``@>`` / ``<@`` / ``&&``) exist as operators only
+    in PostgreSQL. Elsewhere a range is carried as text or JSON, where those
+    operators would mean something else entirely, so the core does not offer
+    them.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column"
+
+
+class MultirangeColumn(ColumnBase):
+    """A column holding a multirange: alias, null tests, casting.
+
+    Same boundary as :class:`RangeColumn` -- the operators are PostgreSQL's
+    alone, and the type itself exists only there.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column"
+
+
+class MacAddressColumn(ColumnBase):
+    """A column holding a MAC address: alias, null tests, casting.
+
+    The type is PostgreSQL's ``macaddr`` / ``macaddr8``; elsewhere an address
+    is stored as text with no shared function surface, so there is nothing
+    portable to promise beyond the column surface itself.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column"
+
+
+class IntervalColumn(ColumnBase):
+    """A column holding a duration: alias, null tests, casting.
+
+    Interval arithmetic and comparison are not portable across the backends
+    that have an interval type, and most backends do not have one at all --
+    a duration is stored as a number of units or as text. The class names the
+    value; the operations remain where the value is known.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column"
+
 
 def annotation_for(expr: object):
     """The annotation typing an operation that hands *expr* back.
@@ -400,6 +510,7 @@ def _annotations():
         IntegerAnnotation,
         JSONAnnotation,
         NumberAnnotation,
+        SurfaceOnlyAnnotation,
         TemporalAnnotation,
         TextAnnotation,
         UUIDAnnotation,
@@ -423,6 +534,18 @@ def _annotations():
         # in common and nothing else, so both land on the opaque annotation.
         BinaryColumn: BinaryAnnotation,
         UUIDColumn: UUIDAnnotation,
+        # The six complex families and a duration share one answer: the
+        # framework promises no family operation for any of them, so an
+        # operation handing one back is typed as what it holds and offers
+        # only the column surface. A backend that models the operations
+        # declares its own column class and resolves through this entry.
+        GeometryColumn: SurfaceOnlyAnnotation,
+        VectorColumn: SurfaceOnlyAnnotation,
+        BitStringColumn: SurfaceOnlyAnnotation,
+        RangeColumn: SurfaceOnlyAnnotation,
+        MultirangeColumn: SurfaceOnlyAnnotation,
+        MacAddressColumn: SurfaceOnlyAnnotation,
+        IntervalColumn: SurfaceOnlyAnnotation,
     }
 
 
@@ -441,5 +564,12 @@ __all__ = [
     "JSONColumn",
     "ArrayColumn",
     "XMLColumn",
+    "GeometryColumn",
+    "VectorColumn",
+    "BitStringColumn",
+    "RangeColumn",
+    "MultirangeColumn",
+    "MacAddressColumn",
+    "IntervalColumn",
     "annotation_for",
 ]

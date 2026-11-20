@@ -192,6 +192,79 @@ class UseSqlType(DDLAnnotation):
         return f"UseSqlType({', '.join(repr(t) for t in self.data_types)})"
 
 
+class UseFieldGenerator(DDLAnnotation):
+    """Explicit per-operation value generation for a field.
+
+    ``Annotated[T, UseFieldGenerator(before_insert=..., ...)]`` declares how a
+    field gets its value on each write. The callables take the model instance
+    and return the value to write. An operation with **no** callable declared
+    means the field is *filtered out* of that operation's write set -- it is
+    neither generated nor written, so a database default / existing value is
+    left untouched.
+
+    This is an ActiveRecord-side generator: it runs in Python before the write
+    and is distinct from a database-generated key. Declaring it on a primary
+    key therefore cancels the ``Optional[int]`` -> database-identity inference
+    (see ``base.derivation._has_value_generation_annotation``).
+
+    ``on_all`` is a convenience that supplies a generator for every operation
+    that was not explicitly given. Durations conflict with field constraints
+    are the caller's responsibility; the framework does not reconcile them.
+    """
+
+    _SLOTS = (
+        "before_insert", "before_update", "before_soft_delete", "before_restore"
+    )
+
+    def __init__(
+        self,
+        *,
+        before_insert: Optional[Callable] = None,
+        before_update: Optional[Callable] = None,
+        before_soft_delete: Optional[Callable] = None,
+        before_restore: Optional[Callable] = None,
+        on_all: Optional[Callable] = None,
+    ):
+        from ..types import WriteOperation
+
+        given = {
+            "before_insert": before_insert,
+            "before_update": before_update,
+            "before_soft_delete": before_soft_delete,
+            "before_restore": before_restore,
+        }
+        if on_all is not None and not callable(on_all):
+            raise TypeError("UseFieldGenerator(on_all=...) must be callable")
+        for name, generator in given.items():
+            if generator is not None and not callable(generator):
+                raise TypeError(
+                    f"UseFieldGenerator({name}=...) must be callable, "
+                    f"got {type(generator).__name__}"
+                )
+        if on_all is not None:
+            for name in self._SLOTS:
+                if given[name] is None:
+                    given[name] = on_all
+        self._generators = {
+            WriteOperation.INSERT: given["before_insert"],
+            WriteOperation.UPDATE: given["before_update"],
+            WriteOperation.SOFT_DELETE: given["before_soft_delete"],
+            WriteOperation.RESTORE: given["before_restore"],
+        }
+
+    def generator_for(self, operation) -> Optional[Callable]:
+        """The callable for *operation*, or None when the field is filtered out."""
+        return self._generators.get(operation)
+
+    def operations(self) -> tuple:
+        """Operations for which this annotation declares a generator."""
+        return tuple(op for op, generator in self._generators.items() if generator is not None)
+
+    def __repr__(self) -> str:
+        active = ", ".join(op.value for op in self.operations())
+        return f"UseFieldGenerator({active})"
+
+
 class UseColumnType:
     """Marker for ``Annotated[T, UseColumnType(*column_classes)]``.
 
@@ -225,7 +298,9 @@ class UseColumnType:
     class", which does not exist yet -- so rather than silently taking the first
     candidate and pretending the negotiation happened, a multi-candidate
     declaration is refused here, at the point of the mistake, and says what it
-    is waiting for.
+    is waiting for. The data-type capability tables are a different axis: they
+    say how a value is *stored*, not which operations its column class offers,
+    and completing them does not unblock this negotiation.
 
     Examples::
 
@@ -279,14 +354,15 @@ class UseColumnType:
             raise TypeError(
                 f"UseColumnType was given {len(column_classes)} column "
                 f"classes ({', '.join(c.__name__ for c in column_classes)}), "
-                f"but multi-candidate resolution needs the capability "
-                f"declaration mechanism, which does not exist yet: choosing "
-                f"among candidates means asking the dialect whether it covers "
-                f"every operation of a class, and there is no answer to read "
-                f"yet. Declare a single column class for now; when the "
-                f"capability declaration lands, this signature keeps its "
-                f"variadic shape and the candidates will be ordered by "
-                f"declaration order as UseSqlType's are."
+                f"but multi-candidate resolution needs an *operation* capability "
+                f"declaration: choosing among candidates means asking whether a "
+                f"dialect covers every operation of a ColumnBase class, and no "
+                f"such declaration exists. The data-type capability tables "
+                f"(supports_data_types / suggested_data_types / "
+                f"substitute_data_types) answer storage questions, not "
+                f"operation ones, and cannot substitute for it. Declare a "
+                f"single column class for now; the signature stays variadic so "
+                f"declaration order can be honoured when that mechanism lands."
             )
         self.column_classes: tuple = tuple(column_classes)
         #: The declared class — a convenience alias, since only one may be
@@ -316,8 +392,10 @@ class UseIndex(DDLAnnotation):
       ``TypeError`` at class creation;
     - every column in ``columns`` must name an existing column of the model;
       an unknown name raises ``TypeError`` at class creation;
-    - ``columns`` must list at least two names; for a single-column index
-      omit it (the anchor alone is the column).
+    - ``columns`` may list one or more names. A one-name list declares a
+      table-level entry explicitly; whether a table-level entry covers one
+      column or several is the caller's decision, not something this layer
+      polices. Omitting ``columns`` keeps the anchor alone as the column.
 
     ``include_columns`` (covering columns, an index-level option) is a
     separate parameter and does not participate in the column list above.
@@ -380,11 +458,10 @@ class UseIndex(DDLAnnotation):
         if columns is None:
             return None
         names = tuple(columns)
-        if len(names) < 2:
+        if not names:
             raise TypeError(
-                "UseIndex columns must list at least two column names; a "
-                "single-column index omits the parameter and uses the "
-                "annotated field alone."
+                "UseIndex columns must not be empty; omit the parameter to "
+                "declare a single-column index on the annotated field."
             )
         for column in names:
             if not isinstance(column, str) or not column:
@@ -455,16 +532,18 @@ class UseConstraint(DDLAnnotation):
       single-column PK lands on the column, a composite PK becomes a
       table-level constraint.
 
-    Composite (multi-column) form: ``columns`` (optional) lists the source
-    columns -- **database column names** -- of a constraint that spans more
-    than one column. Only the branches that have a table-level counterpart
-    accept it (``ColumnUniqueConstraint`` becomes ``TableUniqueConstraint``,
+    Composite (table-level) form: ``columns`` (optional) lists the source
+    columns -- **database column names** -- of a constraint declared at table
+    level. Only the branches that have a table-level counterpart accept it
+    (``ColumnUniqueConstraint`` becomes ``TableUniqueConstraint``,
     ``ColumnForeignKeyConstraint`` becomes ``TableForeignKeyConstraint``);
     other branches are column-level by nature and refuse ``columns``. The
     anchor must be ``columns[0]`` (the leftmost prefix), every column must
     name an existing column of the model, and violations raise ``TypeError``
-    at class creation. A multi-column declaration surfaces through
-    ``table_constraints()``, not ``column_constraints()``.
+    at class creation. A declaration with ``columns`` surfaces through
+    ``table_constraints()``, not ``column_constraints()`` -- including one
+    that names a single column, which is a table-level fact by declaration,
+    not an error.
 
     For table-level constraints declared outright (CHECK spanning multiple
     columns, composite UNIQUE, composite FOREIGN KEY), ``__table_constraints__``
@@ -612,11 +691,10 @@ class UseConstraint(DDLAnnotation):
         if columns is None:
             return None
         names = tuple(columns)
-        if len(names) < 2:
+        if not names:
             raise TypeError(
-                "UseConstraint columns must list at least two column names; "
-                "a single-column constraint omits the parameter and anchors "
-                "on the annotated field alone."
+                "UseConstraint columns must not be empty; omit the parameter "
+                "to declare a column-level constraint on the annotated field."
             )
         for column in names:
             if not isinstance(column, str) or not column:

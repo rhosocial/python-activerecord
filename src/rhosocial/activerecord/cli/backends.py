@@ -18,8 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from ..backend.base import AsyncStorageBackend, StorageBackend
 from ..backend.config import ConnectionConfig
 from ..backend.named_connection import NamedConnectionResolver
-from .errors import CLIError, BackendUnavailableError
-
+from .errors import EXIT_USAGE, BackendUnavailableError, CLIError
 
 #: Annotation wrapper used by ``typing.Annotated``; absent on Python 3.8.
 _ANNOTATED = getattr(typing, "Annotated", None)
@@ -82,16 +81,12 @@ def import_symbol(reference: str, label: str = "class") -> Any:
     if ":" in reference:
         module_path, attribute = reference.rsplit(":", 1)
         if not module_path or not attribute:
-            raise CLIError(
-                f'Invalid {label} "{reference}": expected the form module:Class'
-            )
+            raise CLIError(f'Invalid {label} "{reference}": expected the form module:Class')
         return _load_attribute(module_path, attribute, reference, label)
 
     parts = reference.split(".")
     if len(parts) < 2:
-        raise CLIError(
-            f'Invalid {label} "{reference}": expected the form module:Class'
-        )
+        raise CLIError(f'Invalid {label} "{reference}": expected the form module:Class')
 
     # A dotted name has no delimiter between the module and the attribute,
     # so try the longest importable module prefix first.
@@ -146,9 +141,7 @@ def load_backend_class(reference: str, is_async: bool):
     if not issubclass(backend_class, expected):
         article = "an" if is_async else "a"
         kind = "asynchronous" if is_async else "synchronous"
-        raise CLIError(
-            f'The backend class "{reference}" is not {article} {kind} backend'
-        )
+        raise CLIError(f'The backend class "{reference}" is not {article} {kind} backend')
     return backend_class
 
 
@@ -156,9 +149,7 @@ def load_config_class(reference: str):
     """Import and validate a connection config class."""
     config_class = import_symbol(reference, "connection config class")
     if not isinstance(config_class, type):
-        raise CLIError(
-            f'The connection config reference "{reference}" does not name a class'
-        )
+        raise CLIError(f'The connection config reference "{reference}" does not name a class')
     if not issubclass(config_class, ConnectionConfig):
         raise CLIError(
             f'The connection config class "{reference}" is not a ConnectionConfig subclass'
@@ -221,10 +212,7 @@ def _field_types(config_class) -> Dict[str, Any]:
             hints = typing.get_type_hints(config_class)
         except (NameError, TypeError):
             hints = {}
-        return {
-            field.name: hints.get(field.name, field.type)
-            for field in dataclass_fields
-        }
+        return {field.name: hints.get(field.name, field.type) for field in dataclass_fields}
 
     try:
         signature = inspect.signature(config_class)
@@ -260,14 +248,14 @@ def _collect_config_updates(args, config_class) -> Dict[str, Any]:
                 parsed = json.loads(value)
             except json.JSONDecodeError:
                 raise CLIError(
-                    '--config options must be a JSON object; '
+                    "--config options must be a JSON object; "
                     "use options.KEY=VALUE for individual entries"
                 ) from None
             if not isinstance(parsed, dict):
                 raise CLIError("--config options must be a JSON object")
             extra_options.update(parsed)
         elif key.startswith("options."):
-            extra_options[key[len("options."):]] = value
+            extra_options[key[len("options.") :]] = value
         elif key in fields and key != "options":
             updates[key] = _coerce(value, fields[key])
         else:
@@ -286,8 +274,7 @@ def _build_config(args, config_class) -> ConnectionConfig:
         raise CLIError(f"Cannot build connection config: {exc}") from None
     if not isinstance(config, ConnectionConfig):
         raise CLIError(
-            f'"{config_class.__name__}" produced {type(config).__name__}, '
-            "not a ConnectionConfig"
+            f'"{config_class.__name__}" produced {type(config).__name__}, ' "not a ConnectionConfig"
         )
     return config
 
@@ -318,9 +305,7 @@ def _apply_overrides(config: ConnectionConfig, args) -> ConnectionConfig:
 
 def _load_named_connection(qualified_name: str) -> ConnectionConfig:
     if ":" not in qualified_name:
-        raise CLIError(
-            f'Invalid --connection "{qualified_name}": expected module:callable'
-        )
+        raise CLIError(f'Invalid --connection "{qualified_name}": expected module:callable')
     module_path, attr_name = qualified_name.rsplit(":", 1)
     resolver_name = f"{module_path}.{attr_name}"
     try:
@@ -342,8 +327,7 @@ def _validate_backend_class(backend_class, is_async: bool, source: str) -> None:
         article = "an" if is_async else "a"
         kind = "asynchronous" if is_async else "synchronous"
         raise CLIError(
-            f"{source} selected {backend_class.__name__}, which is not "
-            f"{article} {kind} backend"
+            f"{source} selected {backend_class.__name__}, which is not " f"{article} {kind} backend"
         )
 
 
@@ -400,3 +384,45 @@ def resolve_connection(model, is_async: bool, args):
         config = _apply_overrides(config, args)
 
     return config, backend_class
+
+
+def resolve_connection_without_model(is_async: bool, args):
+    """Resolve a connection without a model to fall back on.
+
+    Module-level migration functions never touch a model, so requiring
+    ``--model`` just to obtain credentials is noise.  When there is no model,
+    the backend class and one config source must be named explicitly.
+
+    Returns:
+        Tuple of (config, backend_class).
+
+    Raises:
+        CLIError: When ``--backend-class`` or a config source is missing, or
+            both config sources are given.
+    """
+    backend_reference = getattr(args, "backend_class", None)
+    if not backend_reference:
+        raise CLIError(
+            "No model supplies a connection. Pass --backend-class MODULE:CLASS, "
+            "and either --connection MODULE:CALLABLE or --config-class "
+            "MODULE:CLASS with --config KEY=VALUE.",
+            exit_code=EXIT_USAGE,
+        )
+    backend_class = load_backend_class(backend_reference, is_async)
+    _validate_backend_class(backend_class, is_async, "--backend-class")
+
+    connection_reference = getattr(args, "connection", None)
+    config_reference = getattr(args, "config_class", None)
+    if connection_reference and config_reference:
+        raise CLIError("Use --connection or --config-class, not both", exit_code=EXIT_USAGE)
+
+    if connection_reference:
+        return _apply_overrides(_load_named_connection(connection_reference), args), backend_class
+    if config_reference:
+        return _build_config(args, load_config_class(config_reference)), backend_class
+
+    raise CLIError(
+        "No model supplies a connection. Pass --connection MODULE:CALLABLE or "
+        "--config-class MODULE:CLASS with --config KEY=VALUE.",
+        exit_code=EXIT_USAGE,
+    )

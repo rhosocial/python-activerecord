@@ -3,7 +3,7 @@ CREATE VIEW - SQLite.
 
 This example demonstrates:
 1. CREATE VIEW
-2. CREATE OR REPLACE VIEW
+2. CREATE VIEW IF NOT EXISTS
 3. Drop view
 """
 
@@ -104,16 +104,19 @@ result = backend.execute(
 print(f"View result: {result.data}")
 
 # ============================================================
-# SECTION: CREATE OR REPLACE VIEW
+# SECTION: CREATE VIEW IF NOT EXISTS
 # ============================================================
-view_expr_replace = CreateViewStatement(
+# SQLite has no CREATE OR REPLACE VIEW. IF NOT EXISTS keeps the statement
+# harmless when the view already exists; to change the definition, drop the
+# view first and create it again.
+view_expr_if_not_exists = CreateViewStatement(
     dialect=dialect,
     view_name="user_names",
     query=query,
-    replace=True,
+    if_not_exists=True,
 )
-sql, params = view_expr_replace.to_sql()
-print(f"CREATE OR REPLACE VIEW SQL: {sql}")
+sql, params = view_expr_if_not_exists.to_sql()
+print(f"CREATE VIEW IF NOT EXISTS SQL: {sql}")
 backend.execute(sql, params, options=options)
 
 # ============================================================
@@ -140,5 +143,5 @@ backend.disconnect()
 # ============================================================
 # Key points:
 # 1. Use CreateViewStatement to create views
-# 2. Use replace=True to replace existing view
+# 2. SQLite has no CREATE OR REPLACE VIEW; use IF NOT EXISTS, or drop and recreate
 # 3. Use DropViewStatement to drop views

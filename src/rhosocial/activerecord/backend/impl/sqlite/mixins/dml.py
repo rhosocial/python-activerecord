@@ -51,6 +51,14 @@ class SQLiteDMLMixin:
             s_sql, s_params = expr.source.select_query.to_sql()
             source_sql = s_sql
             all_params.extend(s_params)
+        else:
+            # ``InsertDataSource`` is a closed set of the three shapes above.
+            # Anything else would render as an INSERT with no source at all,
+            # which parses as a statement that does nothing -- so refuse it
+            # instead of emitting it.
+            raise TypeError(
+                f"Unsupported INSERT source: {type(expr.source).__name__}"
+            )
 
         if expr.or_replace:
             sql = f"INSERT OR REPLACE INTO {table_sql} {columns_sql} {source_sql}".strip()

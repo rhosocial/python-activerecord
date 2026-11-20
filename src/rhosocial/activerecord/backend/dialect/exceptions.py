@@ -62,6 +62,21 @@ class UnsupportedFeatureError(Exception):
         super().__init__(message)
 
 
+class UnsupportedDataTypeError(TypeError):
+    """Raised when a dialect declares no rendering for a type concept.
+
+    The dispatcher refuses a concept the dialect neither renders nor
+    substitutes; that refusal is an *answer* about the concept, not a bug in
+    a caller's arguments, and the two must stay distinguishable: a caller that
+    holds several candidate declarations tries the next one on this answer, but
+    a ``TypeError`` raised inside a formatter is a defect and has to surface.
+
+    It subclasses ``TypeError`` because the documented contract for an
+    undeclared concept is a ``TypeError`` and existing callers must keep
+    catching it.
+    """
+
+
 class ProtocolNotImplementedError(Exception):
     """
     Raised when a dialect hasn't implemented a required protocol.

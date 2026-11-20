@@ -203,7 +203,7 @@ writable. `ReadOnlyMixin` imposes no opinion on either. See
 
 ## Runnable Example
 
-See [`docs/examples/chapter_03_modeling/readonly_models.py`](../../../examples/chapter_03_modeling/readonly_models.py)
+See [`docs/examples/chapter_03_modeling/readonly_models.py`](../../examples/chapter_03_modeling/readonly_models.py)
 for a self-contained script.
 
 ## See Also

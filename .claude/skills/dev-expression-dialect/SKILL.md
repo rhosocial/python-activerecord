@@ -499,8 +499,8 @@ class NewFeatureMixin:
 # 4. dummy dialect: compose both and override supports_* to True only where the
 #    generic default is not already True
 
-# 5. tests: tests/.../dummy2/test_new_feature.py (expression),
-#    tests/.../dummy/test_dummy_protocol_support.py (protocol support)
+# 5. tests: tests/.../dummy/expression/test_new_feature.py (expression),
+#    tests/.../dummy/capability/test_dummy_protocol_support.py (protocol support)
 ```
 
 ### Main-package protocol/mixin pairs
@@ -530,10 +530,12 @@ connection.
   discovers every Protocol in `protocols.py` and fails unless `DummyDialect`
   composes it and implements all members.
 
-**Test organization.** `tests/.../feature/backend/dummy/` covers the protocol
-surface (every `supports_*()` `True`, member completeness); `tests/.../feature/
-backend/dummy2/` covers expression `to_sql()` generation through Dummy's
-standard formatting. Extending both is part of the definition of done.
+**Test organization.** `tests/.../feature/backend/dummy/` is the no-database
+backend, split by test focus: `capability/` covers the protocol surface (every
+`supports_*()` `True`, member completeness, placeholder IO); `expression/`,
+`statements/`, `ddl/`, `dialect/` and `types/` cover `to_sql()` generation through
+Dummy's standard formatting. There are no numeric-suffix directories. Extending
+the relevant focus directory is part of the definition of done.
 
 ---
 

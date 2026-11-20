@@ -6,7 +6,7 @@ see that package for the full protocol surface and the rules the conformance
 tests enforce.
 """
 
-from typing import Dict, Protocol, TYPE_CHECKING, Tuple, runtime_checkable
+from typing import Dict, Optional, Protocol, TYPE_CHECKING, Tuple, runtime_checkable
 
 if TYPE_CHECKING:  # pragma: no cover
     from ....expression.types._base import DataType
@@ -94,7 +94,7 @@ class DataTypeSupport(Protocol):
       the dialect models but cannot express every declaration of; that is
       a refusal answer, not an absence.)
     * the concept is **substituted** — an entry in
-      :meth:`suggested_data_types` names the class this dialect really
+      :meth:`substitute_data_types` names the class this dialect really
       stores for it, so the caller reads the substitution instead of a
       bare ``TypeError``.
 
@@ -172,7 +172,34 @@ class DataTypeSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def suggested_data_types(self) -> "Dict[str, type]":
+    def suggested_data_types(self) -> "Dict[type, Optional[DataType]]":
+        """The declaration this dialect suggests for each framework-modelled type.
+
+        Keys: the framework-modelled Python types (``FRAMEWORK_PYTHON_TYPES``),
+        the same closed list the column-class table is keyed by.
+        Values: a ``DataType`` **instance**, so the answer can carry the
+        parameters a column needs (a timestamp's precision, a text width).
+        Every key must be answered: a bare field always has a declaration, so
+        the table is complete by contract rather than by convention.
+
+        The table belongs to the dialect: a backend overrides it with its own
+        choices, and the user layer (ActiveRecord) adopts those choices by
+        default -- a ``UseSqlType`` declaration on the field wins over them.
+
+        Return a fresh dict; the values are read-only templates for the
+        dialect to bind a rendering on a copy.
+        """
+        ...  # pragma: no cover
+
+    def suggested_extra_data_types(self) -> "Dict[type, DataType]":
+        """Suggestions for Python types the dialect offers beyond the framework's.
+
+        Empty when the backend has none. The key space is the backend's own;
+        a type it does not offer is absent rather than ``None``.
+        """
+        ...  # pragma: no cover
+
+    def substitute_data_types(self) -> "Dict[str, type]":
         """Cross-backend type-consistency suggestion map.
 
         Keys: generic type name — same namespace as ``format_data_type_*`` /

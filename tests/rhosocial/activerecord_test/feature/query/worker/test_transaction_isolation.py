@@ -1,8 +1,3 @@
 # tests/rhosocial/activerecord_test/feature/query/worker/test_transaction_isolation.py
-"""
-Bridge file for transaction isolation tests.
-
-Imports tests from testsuite and makes them discoverable by pytest.
-"""
-
-from rhosocial.activerecord.testsuite.feature.query.worker.test_transaction_isolation import *  # noqa: F403
+"""Bridge to the shared ``query/worker`` contract."""
+from rhosocial.activerecord.testsuite.feature.query.worker.test_transaction_isolation import *  # noqa: F401,F403

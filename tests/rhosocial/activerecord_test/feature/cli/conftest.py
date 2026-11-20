@@ -5,52 +5,21 @@ import io
 import sqlite3
 import textwrap
 import uuid
-from contextlib import redirect_stderr, redirect_stdout
 from types import SimpleNamespace
 
 import pytest
 
-from rhosocial.activerecord.cli import main
-
-from logging_isolation import preserve_logging
-
-SQLITE_BACKEND = "rhosocial.activerecord.backend.impl.sqlite.backend:SQLiteBackend"
-ASYNC_SQLITE_BACKEND = (
-    "rhosocial.activerecord.backend.impl.sqlite.backend:AsyncSQLiteBackend"
-)
-SQLITE_CONFIG = (
-    "rhosocial.activerecord.backend.impl.sqlite.config:SQLiteConnectionConfig"
+from support.cli import (
+    ASYNC_SQLITE_BACKEND,
+    SQLITE_BACKEND,
+    SQLITE_CONFIG,
+    connection_args,
+    run_cli,
 )
 
-
-def connection_args(database, backend=SQLITE_BACKEND):
-    """Build the explicit backend, config class, and database arguments."""
-    return [
-        "--backend-class",
-        backend,
-        "--config-class",
-        SQLITE_CONFIG,
-        "--config",
-        f"database={database}",
-    ]
-
-
-def run_cli(argv, capture=True):
-    """Run the CLI in-process and return (exit_code, stdout, stderr)."""
-    with preserve_logging():
-        if not capture:
-            try:
-                return main(argv), "", ""
-            except SystemExit as exc:
-                return (exc.code if exc.code is not None else 0), "", ""
-        out, err = io.StringIO(), io.StringIO()
-        code = 0
-        with redirect_stdout(out), redirect_stderr(err):
-            try:
-                code = main(argv)
-            except SystemExit as exc:
-                code = exc.code if exc.code is not None else 0
-        return code, out.getvalue(), err.getvalue()
+# Fixtures and the directory's prepare/teardown contract come from the shared
+# suite; the setup below stays local to this backend.
+from rhosocial.activerecord.testsuite.feature.cli.conftest import *  # noqa: F403
 
 
 def write_module(path, module_name, body):
@@ -108,6 +77,7 @@ from rhosocial.activerecord.query import AsyncCTEQuery, CTEQuery
 
 
 class User(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"
@@ -119,6 +89,7 @@ class User(ActiveRecord):
 
 
 class AsyncUser(AsyncActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"
@@ -130,6 +101,7 @@ class AsyncUser(AsyncActiveRecord):
 
 
 class ReadOnlyUser(ActiveRecord, ReadOnlyMixin):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"
@@ -141,6 +113,7 @@ class ReadOnlyUser(ActiveRecord, ReadOnlyMixin):
 
 
 class AsyncReadOnlyUser(AsyncActiveRecord, ReadOnlyMixin):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"
@@ -152,6 +125,7 @@ class AsyncReadOnlyUser(AsyncActiveRecord, ReadOnlyMixin):
 
 
 class SoftUser(SoftDeleteMixin, ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"
@@ -164,6 +138,7 @@ class SoftUser(SoftDeleteMixin, ActiveRecord):
 
 
 class AsyncSoftUser(AsyncSoftDeleteMixin, AsyncActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"
@@ -176,6 +151,7 @@ class AsyncSoftUser(AsyncSoftDeleteMixin, AsyncActiveRecord):
 
 
 class ValidatedUser(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"
@@ -200,6 +176,7 @@ class ValidatedUser(ActiveRecord):
 
 
 class AsyncValidatedUser(AsyncActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"

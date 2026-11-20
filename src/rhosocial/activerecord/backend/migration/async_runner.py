@@ -23,7 +23,6 @@ from .exceptions import (
 )
 from .record import MigrationRecord, MigrationResult, MigrationRecordStore
 from .resolver import AsyncNamedMigrationResolver
-from .snapshot import compute_schema_diff, snapshot_to_dict, take_async_snapshot
 
 
 class AsyncMigrationRunner:
@@ -86,10 +85,7 @@ class AsyncMigrationRunner:
                     f"cannot rollback"
                 )
 
-        # 4. Snapshot before
-        snapshot_before = await take_async_snapshot(backend) if not dry_run else None
-
-        # 5. Build execute callback based on dry_run flag
+        # 4. Build execute callback based on dry_run flag
         dialect = getattr(backend, "dialect", None)
         collected_sql: list[tuple[str, str, tuple]] | None = [] if dry_run else None
 
@@ -142,6 +138,7 @@ class AsyncMigrationRunner:
             direction=direction,
             dry_run=dry_run,
             record_store=record_store,
+            backend=backend,
         )
 
         error = None
@@ -193,12 +190,7 @@ class AsyncMigrationRunner:
                     pass
             error = e
 
-        # 7. Snapshot after
-        snapshot_after = None
-        if not dry_run and error is None:
-            snapshot_after = await take_async_snapshot(backend)
-
-        # 8. Version conflict check
+        # 6. Version conflict check
         if not dry_run and record_store:
             for existing in record_store.get_applied():
                 if (
@@ -211,7 +203,7 @@ class AsyncMigrationRunner:
                         f"cannot record from '{self._fqn}'"
                     )
 
-        # 9. Record
+        # 7. Record
         if not dry_run and record_store:
             success = error is None
             record = MigrationRecord(
@@ -221,21 +213,20 @@ class AsyncMigrationRunner:
                 applied_at=datetime.now(timezone.utc),
                 success=success,
                 error_message=str(error) if error else None,
-                snapshot_before=snapshot_to_dict(snapshot_before),
-                snapshot_after=snapshot_to_dict(snapshot_after),
             )
             record_store.record(record)
 
         if error:
             raise error
 
-        snapshot_diff = compute_schema_diff(snapshot_before, snapshot_after, dialect)
+        dry_run_sql = None
+        if dry_run:
+            dry_run_sql = list(collected_sql or [])
 
         return MigrationResult(
             version=self._migration.version,
             applied_at=datetime.now(timezone.utc),
             success=True,
             dry_run=dry_run,
-            dry_run_sql=collected_sql,
-            snapshot_diff=snapshot_diff,
+            dry_run_sql=dry_run_sql,
         )

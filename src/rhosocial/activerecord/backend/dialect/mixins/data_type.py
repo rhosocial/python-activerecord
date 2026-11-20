@@ -8,6 +8,8 @@ import typing
 from functools import lru_cache
 from typing import Any, Callable, cast, Dict, Optional, Tuple, TYPE_CHECKING
 
+from ..exceptions import UnsupportedDataTypeError
+
 if TYPE_CHECKING:
     from ...expression.types._base import DataType
 
@@ -37,21 +39,21 @@ class DataTypeMixin:
       probe may answer ``False`` there to opt a rendered name out (a
       version-gated feature); without such a probe, rendering *is* support.
 
-    * substituted — ``suggested_data_types()[name]`` names what this backend
+    * substituted — ``substitute_data_types()[name]`` names what this backend
       stores instead, for concepts it genuinely cannot spell (XML on SQLite,
       arrays on Snowflake, …).
 
     Silence is the one answer that is not allowed: a caller who asks for an
     undeclared concept is told "unsupported" and nothing more, which is
     indistinguishable from the concept never having been considered. The
-    ``suggested_data_types`` hook exists so that a backend *can* answer without
+    ``substitute_data_types`` hook exists so that a backend *can* answer without
     faking a type it does not have, and the error text in
     :meth:`_suggested_type_advice` puts the answer in front of the caller.
 
     The two are disjoint by contract: a type the dialect renders needs no
     substitute. Both properties — completeness over core types, and the
     renderability of every suggested substitute — are enforced by
-    ``tests/.../dummy2/test_type_protocol_contracts.py`` rather than by a
+    ``tests/.../dummy/capability/test_type_protocol_contracts.py`` rather than by a
     ``Protocol``, because the set of concepts is open: a backend may add one
     (that is how ``Enum8``/``Enum16`` in ClickHouse, ``GEOMETRY`` in
     PostgreSQL, or the three SQL Server GUID spellings exist), and requiring
@@ -67,7 +69,7 @@ class DataTypeMixin:
     family *is* the registry, and :meth:`type_class_for` says where the class
     comes from — the formatter's own annotation first, then the backend's type
     module, then the live subclass tree. That last step is why
-    ``tests/.../dummy2/test_type_dispatch_registry.py`` asks in a **fresh
+    ``tests/.../dummy/types/test_type_dispatch_registry.py`` asks in a **fresh
     interpreter**: a test that imports the type classes in its own preamble has
     already loaded them, and a bug that only shows up before they are loaded is
     invisible to it.
@@ -81,7 +83,7 @@ class DataTypeMixin:
         raise appends :meth:`substitute_advice`'s text, so a concept this
         dialect does not render still comes back as a ``TypeError`` that
         tells the caller what to declare instead — provided the dialect
-        listed the concept in :meth:`suggested_data_types`.  A concept
+        listed the concept in :meth:`substitute_data_types`.  A concept
         that is neither rendered nor suggested raises with **no advice**:
         that silent hole is exactly what the concept-coverage rule (D9,
         see the protocol) forbids, which is why the suggested map is a
@@ -102,7 +104,7 @@ class DataTypeMixin:
         name = data_type.name
         formatter = getattr(self, f"format_data_type_{name}", None)
         if formatter is None:
-            raise TypeError(
+            raise UnsupportedDataTypeError(
                 f"{type(self).__name__} does not support the generic type "
                 f"{name!r} (no format_data_type_{name})."
                 + self._suggested_type_advice(name)
@@ -130,7 +132,7 @@ class DataTypeMixin:
         """Name this dialect's substitute for *name*, if it declares one.
 
         A backend that cannot render a generic type says what to use instead
-        through ``suggested_data_types()``, and that is where the answer is
+        through ``substitute_data_types()``, and that is where the answer is
         written down. Without it in the message the caller is told the type is
         unsupported and nothing else, which is the same as not knowing.
 
@@ -141,7 +143,7 @@ class DataTypeMixin:
         looking. A backend with something to add says it through
         :meth:`substitute_advice`, which lands in the same error.
         """
-        substitute = self.suggested_data_types().get(name)
+        substitute = self.substitute_data_types().get(name)
         if substitute is None:
             return " Use a type this backend supports."
         caveat = self.substitute_advice(name).strip()
@@ -212,7 +214,7 @@ class DataTypeMixin:
         only under ``TYPE_CHECKING`` so the annotation is a string with nothing
         behind it, still resolves here *if* something imported the class — and if
         nothing did, this returns ``None`` as it always did.  That residual is why
-        ``tests/.../dummy2/test_type_dispatch_registry.py`` checks the mapping
+        ``tests/.../dummy/types/test_type_dispatch_registry.py`` checks the mapping
         from a **fresh interpreter**, which is the only way a load-order bug can be
         seen: a test that imports the type classes in its own preamble has already
         made the bug invisible.
@@ -238,7 +240,41 @@ class DataTypeMixin:
                 return klass
         return None
 
-    def suggested_data_types(self) -> Dict[str, type]:
+    def suggested_data_types(self) -> Dict[type, Optional["DataType"]]:
+        """The declaration this dialect suggests for each framework-modelled type.
+
+        This is the DDL half of the type answer: a field that writes only a
+        Python type (no ``UseSqlType``) is declared with the ``DataType`` this
+        table names. Every entry of ``FRAMEWORK_PYTHON_TYPES`` has to be
+        answered -- the framework's promise is that a bare field always has a
+        declaration, so ``None`` is not an answer here and there is no
+        inherited default.
+
+        The choices are the backend's own: a timestamp's precision, a text
+        column's width, whether a vector is the server's native type or a JSON
+        document. A suggestion the server cannot store is worse than none,
+        which is why this is a table per dialect and not a core-wide constant.
+
+        Each call returns a **fresh dict** whose values are read-only
+        templates. A caller that wants to render binds the dialect on a copy
+        of the single entry it uses, never on the template itself.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} does not answer the suggested data-type "
+            f"table. Implement suggested_data_types() with a DataType instance "
+            f"for every framework-modelled Python type; there is no inherited "
+            f"default."
+        )
+
+    def suggested_extra_data_types(self) -> Dict[type, "DataType"]:
+        """Suggestions for this dialect's own Python types, if it has any.
+
+        Empty by default: a backend with nothing of its own has nothing to
+        report, and a type it does not offer is simply absent from the table.
+        """
+        return {}
+
+    def substitute_data_types(self) -> Dict[str, type]:
         """Return cross-backend type suggestions, empty by default.
 
         One half of the **concept coverage** rule (D9 — see

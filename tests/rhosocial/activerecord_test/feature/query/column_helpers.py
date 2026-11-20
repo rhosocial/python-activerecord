@@ -7,11 +7,12 @@ model for the field's column-type declaration (dialect-free), then
 mirrors that selection step for a bare annotation, so a test can build a column
 without declaring a model.
 
-``COMMON_TYPES`` is the contract-test-side canonical list of the common
-Python types every backend must answer for. It lives here, not in the
-framework: the framework resolves by walking whatever keys a backend's table
-declares, and the required key set is a contract the tests state and hold each
-backend to.
+``COMMON_TYPES`` is the test-side name for the framework-modelled Python types
+every backend must answer for. The list itself now lives in the framework
+(``base/framework_types.FRAMEWORK_PYTHON_TYPES``) because two dialect tables --
+the column-class table and the suggested storage-type table -- are keyed by it,
+and stating it twice is how the two would drift. The tests hold each backend to
+the framework's list, not to a second copy of it.
 
 Deliberately **not** a fallback: an annotation the selection cannot classify
 raises :class:`ColumnTypeResolutionError` exactly as ``Model.c.<field>``
@@ -19,42 +20,22 @@ would, so a test that builds a column from a bad annotation fails here for the
 same reason the model would, and the two cannot drift apart.
 """
 
-import datetime
-import decimal
-import enum
-import uuid
 from typing import Any, Optional, Tuple, Type
 
 from rhosocial.activerecord.backend.expression.column_types import ColumnBase
 from rhosocial.activerecord.backend.expression.core import Column
+from rhosocial.activerecord.base.framework_types import FRAMEWORK_PYTHON_TYPES
 from rhosocial.activerecord.base.field_proxy import (
     ColumnTypeResolutionError,
     FieldAccessor,
 )
 
-#: The common Python types, in declared reading order. The order matters where
-#: a subclass walk meets an ambiguous annotation: ``bool`` ahead of ``int``,
-#: and ``enum.Enum`` tested before the walk (a ``(int, Enum)`` stays an enum).
-COMMON_TYPES: Tuple[Any, ...] = (
-    bool,
-    int,
-    float,
-    decimal.Decimal,
-    str,
-    bytes,
-    bytearray,
-    datetime.date,
-    datetime.time,
-    datetime.datetime,
-    datetime.timedelta,
-    uuid.UUID,
-    dict,
-    list,
-    tuple,
-    set,
-    frozenset,
-    enum.Enum,
-)
+#: The framework-modelled Python types, in declared reading order. The order
+#: matters where a subclass walk meets an ambiguous annotation: ``bool`` ahead
+#: of ``int``, and ``enum.Enum`` tested before the walk (a ``(int, Enum)`` stays
+#: an enum). The list lives in the framework because both dialect tables are
+#: keyed by it; this name is the test-side alias.
+COMMON_TYPES: Tuple[Any, ...] = FRAMEWORK_PYTHON_TYPES
 
 
 def resolve_column_class(dialect: Any, annotation: Any, declared: Any = None) -> Type[ColumnBase]:

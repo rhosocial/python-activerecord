@@ -2,6 +2,8 @@
 
 在 `rhosocial-activerecord` 中，字段定义复用了 Pydantic 的语法，同时引入了 `FieldProxy` 来弥合 Python 对象与 SQL 查询之间的鸿沟。
 
+> 完整的能力矩阵与设计边界，请参阅 [The ActiveRecord Definition](definition.md)。
+
 ## 基础字段定义
 
 模型字段就是标准的 Python 类型注解，可以使用 `pydantic.Field` 来添加元数据和验证规则。
@@ -83,23 +85,26 @@ class User(ActiveRecord):
 
 `DataType` 分为通用类型和后端特定类型。`UseSqlType` 会按声明顺序保存这些候选，收集层不会替后端选择或替换：
 
-- **通用类型**（如 `VarCharType`、`IntegerType`、`TextType`、`JsonType`）可作为跨后端候选。
-- **后端特定类型**（如 `PostgresUUIDType`、`MySQLEnumType`）作为该后端的候选保留；是否支持由后端方言决定。
+- **通用类型**（如 `VarCharType`、`IntegerType`、`TextType`、`JsonType`）属于核心库，可在内置 SQLite 后端上渲染。
+- **后端特定类型**作为拥有它的后端的候选保留；能否渲染由该后端的方言决定。其他后端以各自文档为准。
 
 ### 候选顺序
 
-`UseSqlType` 可以同时声明多个类型。`DDLSourceMixin` 只保留候选及其声明顺序；后续消费者必须根据当前方言明确选择，不能把 source 的收集结果理解为已经完成类型选择。
+`UseSqlType` 可以同时声明多个类型。`DDLSourceMixin` 只保留候选及其声明顺序；后续消费者必须根据当前方言明确选择，不能把 source 的收集结果理解为已经完成类型选择。以内置 SQLite 后端为例，第一个可渲染的候选胜出：
 
 ```python
 from typing import Annotated
 from rhosocial.activerecord.base import UseSqlType
-from rhosocial.activerecord.backend.expression.types import TextType
-from rhosocial.activerecord.backend.impl.postgres.expression.types import PostgresUUIDType
+from rhosocial.activerecord.backend.expression.types import TextType, VarCharType
 
-identifier: Annotated[str, UseSqlType(PostgresUUIDType(), TextType())]
+identifier: Annotated[str, UseSqlType(TextType(), VarCharType(length=64))]
 ```
 
-这样声明保留了同一个模型在不同后端之间的候选优先级；实际选择必须由后端 DDL 消费者显式完成。
+`column_data_type("identifier")` 按顺序返回两个候选；SQLite 渲染该列时选择第一个可渲染的候选 —— 这里是 `TextType()` —— 且不改动声明。这样保留了候选优先级；实际选择必须由后端 DDL 消费者显式完成。
+
+> **后端接入**：这些声明面向 ActiveRecord 核心接口，在内置 SQLite 后端上无需改动即可使用。后端通过提供渲染候选的方言接入；SQLite 不支持的能力属于 SQLite 的限制，不是 ActiveRecord 的缺陷。
+
+> 💡 **AI Prompt**: "ActiveRecord 如何接入后端来渲染一个包含多个候选的 `UseSqlType` 声明？为什么 SQLite 选择第一个可渲染候选，而 source 却保留全部候选？"
 
 > **与 `UseColumn` 的关系**：`UseColumn` 控制**列名**（Python 属性名 ↔ 数据库列名），`UseSqlType` 控制**列类型**（SQL 数据类型），两者互不冲突，可同时使用。
 >

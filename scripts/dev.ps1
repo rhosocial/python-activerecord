@@ -500,6 +500,8 @@ function Write-Help {
     Write-Host '  TESTS (serial unless -Parallel is passed)'
     Write-Host '    test [pytest args]  run pytest, default target: tests'
     Write-Host '    cov [pytest args]   same, with --cov=rhosocial --cov-branch'
+    Write-Host '    sqlite-cov [pytest args]'
+    Write-Host '                        sqlite dialect/expression/mixins at 100% line+branch, fails otherwise'
     Write-Host '    collect             pytest --collect-only (import check, no tests run)'
     Write-Host '    bench [pytest args] run tests/benchmark with -m benchmark'
     Write-Host ''
@@ -546,6 +548,19 @@ $code = switch ($Command) {
         Invoke-Pytest -Parallel:$split.Parallel -PytestArgs (@(
                 '--cov=rhosocial', '--cov-branch',
                 '--cov-report=term', '--cov-report=xml'
+            ) + $split.Args)
+    }
+    'sqlite-cov' {
+        # The expression-dialect layer is held to 100% line+branch: it is the
+        # part of the SQLite backend whose answer is a SQL string, where a
+        # missed branch means a spelling nobody has checked. Everything else in
+        # the backend is allowed to carry its untested error paths.
+        Invoke-Pytest -Target 'tests/rhosocial/activerecord_test/feature/backend/sqlite' -PytestArgs (@(
+                '--cov=rhosocial.activerecord.backend.impl.sqlite.dialect',
+                '--cov=rhosocial.activerecord.backend.impl.sqlite.expression',
+                '--cov=rhosocial.activerecord.backend.impl.sqlite.mixins',
+                '--cov-branch', '--cov-fail-under=100',
+                '--cov-report=term-missing'
             ) + $split.Args)
     }
     'collect' { Invoke-Pytest -NoDefaultTarget -PytestArgs (@('--collect-only', '-q', '-p', 'no:cacheprovider') + $split.Args) }

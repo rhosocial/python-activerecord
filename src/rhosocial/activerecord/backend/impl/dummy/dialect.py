@@ -120,6 +120,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     TransactionControlMixin,
 )
 from rhosocial.activerecord.backend.dialect.protocols import (
+    IntegerAutoIncrementColumnSuggestionSupport,
     # Named-object protocols
     TableObjectSupport,
     ViewObjectSupport,
@@ -136,6 +137,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     DataTypeSupport,
     # Column Class Support Protocol
     ColumnTypeSupport,
+    # Suggested storage types (the DDL half)
     SQLXMLSupport,
     SQLXMLParsingSupport,
     SQLXMLSerializationSupport,
@@ -169,10 +171,12 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     AlterTableModifierSupport,
     ConstraintSupport,
     TruncateSupport,
+    TransactionalDDLSupport,
     CreateSchemaSupport,
     DropSchemaSupport,
     GeneratedColumnSupport,
     AutoIncrementColumnSupport,
+    DatabaseAssignedColumnSupport,
     IdentityColumnSupport,
     ColumnAttributeSupport,
     CommentSupport,
@@ -217,6 +221,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     PivotSupport,
 )
 from .column_type import DummyColumnTypeMixin
+from .data_type_suggestions import DummyDataTypeSuggestionsMixin
 from .expression import _DummyTypeAlterAction, _DummyTypeDefinition
 from rhosocial.activerecord.backend.expression.statements.ddl_type import (
     TypeAlterAction,
@@ -410,6 +415,7 @@ class DummyDialect(
     GeneratedColumnMixin,
     AutoIncrementMixin,
     IdentityColumnMixin,
+    IntegerAutoIncrementColumnSuggestionSupport,
     DatabaseMixin,
     # Introspection Mixin
     IntrospectionMixin,
@@ -425,6 +431,9 @@ class DummyDialect(
     DMLMixin,
     # Value literals: the typed value nodes render through this, and the Dummy
     # dialect has no backend-specific spelling to add on top of it.
+    # Suggested data types: the DDL half of the same answer, installed ahead of
+    # the mixin that withholds the table.
+    DummyDataTypeSuggestionsMixin,
     DataTypeMixin,
     DummyColumnTypeMixin,
     UserDefinedTypeMixin,
@@ -468,8 +477,10 @@ class DummyDialect(
     AlterTableModifierSupport,
     ConstraintSupport,
     TruncateSupport,
+    TransactionalDDLSupport,
     GeneratedColumnSupport,
     AutoIncrementColumnSupport,
+    DatabaseAssignedColumnSupport,
     IdentityColumnSupport,
     ColumnAttributeSupport,
     CommentSupport,
@@ -727,7 +738,7 @@ class DummyDialect(
         is what lets an introspected schema be written back verbatim; it is
         *not* an answer for a name in the table above, which is why the table
         is checked against every core ``SPELLINGS`` entry by
-        ``tests/.../dummy2/test_type_spelling_parse.py``.
+        ``tests/.../dummy/types/test_type_spelling_parse.py``.
         """
         stripped = raw.strip()
         if not stripped:
@@ -1155,6 +1166,9 @@ class DummyDialect(
     def supports_if_exists_table(self) -> bool:
         return True
 
+    def supports_transactional_ddl(self) -> bool:
+        return True
+
     # The generic TableMixin provides reusable renderings for the CREATE
     # TABLE family (AS / LIKE / CLONE / USING TEMPLATE); Dummy advertises them
     # so the generic implementations are exercised end-to-end.
@@ -1575,6 +1589,22 @@ class DummyDialect(
         return True
 
     def supports_auto_increment_column(self) -> bool:
+        return True
+
+    def suggest_integer_auto_increment_column(self, default_type):
+        """Implement the protocol without suggesting an auto-increment storage.
+
+        Dummy's ``supports_auto_increment_column()`` probe drives the *generic*
+        marker's own render test; the column suggestion is a separate channel
+        and here declines, keeping the portable column baseline plain.
+        """
+        from rhosocial.activerecord.backend.expression import (
+            IntegerAutoIncrementColumnSuggestion,
+        )
+
+        return IntegerAutoIncrementColumnSuggestion(default_type, None)
+
+    def supports_database_assigned_integer_column(self) -> bool:
         return True
 
     # endregion

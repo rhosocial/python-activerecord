@@ -34,6 +34,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     # DDL statement protocols
     ConstraintSupport,
     TruncateSupport,
+    TransactionalDDLSupport,
     CreateSchemaSupport,
     DropSchemaSupport,
     GeneratedColumnSupport,
@@ -166,6 +167,7 @@ from .mixins import (
     # the SQL-standard construct, so naming is answered here rather than by the
     # DDL probes. Placed ahead of the shared TableNameMixin in the class list.
     SQLiteObjectNameMixin,
+    SQLiteIntegerAutoIncrementColumnSuggestionMixin,
     SQLiteTypeSupportMixin,
     # Value literals: SQLite's blob spelling, overriding the base's
     # format_binary_value / format_uuid_value by MRO position.
@@ -174,10 +176,19 @@ from .mixins import (
     # take JSONColumn (there is no array type here) and float/Decimal both take
     # NumericColumn. There is no generic table in core to compose.
     SQLiteColumnTypeMixin,
+    # Suggested storage declarations: the DDL half, also answered in full here.
+    SQLiteDataTypeSuggestionsMixin,
 )
 from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression
 
 class SQLiteDialect(
+    # Backend suggestion first: the answer to "how is an integer auto-increment
+    # key declared here" is SQLite's alone, and a mixin placed after a class it
+    # overrides never wins MRO.
+    SQLiteIntegerAutoIncrementColumnSuggestionMixin,
+    # SQLite's column formatter spells AUTOINCREMENT; it must precede the core
+    # AutoIncrementMixin, whose AUTO_INCREMENT formatter would otherwise win.
+    SQLiteDDLColumnMixin,
     # The bases below come in bundles: a backend mixin, then the core bundle
     # it stands in for. The backend's answer has to come first -- a mixin
     # placed after the class it overrides never wins -- so a new mixin goes
@@ -193,6 +204,9 @@ class SQLiteDialect(
     # and UUID -- and leaves the base's portable forms and the
     # literal-construction protocol to it.
     LiteralValueMixin,
+    # Suggested data types: the DDL half of the same answer. A method
+    # `SQLDialectBase` also answers has to be won here, ahead of it.
+    SQLiteDataTypeSuggestionsMixin,
     SQLDialectBase,
     RelationSourceMixin,
     # Named objects: each *NameMixin inherits NamespaceMixin, so they precede it.
@@ -253,11 +267,10 @@ class SQLiteDialect(
     GeneratedColumnMixin,
     AutoIncrementMixin,
     IdentityColumnMixin,
-    # Both new nodes fail closed on SQLite: it has no GENERATED ... AS
-    # IDENTITY grammar, and its AUTOINCREMENT keyword exists only inside an
-    # INTEGER PRIMARY KEY constraint (the existing is_auto_increment path),
-    # not as a standalone column clause. The mixin probes therefore stay at
-    # their False defaults and the formatters refuse the clauses.
+    # Both nodes stay fail-closed on SQLite as standalone column clauses: it
+    # has no GENERATED ... AS IDENTITY grammar, and AUTOINCREMENT lives only
+    # inside INTEGER PRIMARY KEY. The suggestion mixin placed first in the
+    # bases supplies the rowid-alias form through its own attribute clause.
     PartitionMixin,
     # New Mixins (without SQLite overrides)
     # SQLiteFunctionMixin rides first among them: it carries the dialect's
@@ -275,7 +288,6 @@ class SQLiteDialect(
     # SQLite-specific mixins (BEFORE generic mixins they override)
     SQLiteTransactionMixin,
     SQLiteDateTimeMixin,
-    SQLiteDDLColumnMixin,
     SQLiteDMLMixin,
     SQLiteTriggerMixin,
     SQLitePragmaMixin,
@@ -330,6 +342,7 @@ class SQLiteDialect(
     # DDL statement protocols
     ConstraintSupport,
     TruncateSupport,
+    TransactionalDDLSupport,
     GeneratedColumnSupport,
     AutoIncrementColumnSupport,
     IdentityColumnSupport,
@@ -386,14 +399,6 @@ class SQLiteDialect(
             self.version = version
         self._runtime_params: Dict[str, Any] = {}
 
-    def set_runtime_param(self, key: str, value: Any) -> None:
-        """Set a runtime parameter (detected after connection)."""
-        self._runtime_params[key] = value
-
-    def get_runtime_param(self, key: str, default: Any = None) -> Any:
-        """Get a runtime parameter."""
-        return self._runtime_params.get(key, default)
-
     def get_server_version(self) -> Tuple[int, int, int]:
         """Return the SQLite version this dialect is configured for."""
         return self.version
@@ -423,7 +428,7 @@ class SQLiteDialect(
 
         return SQLiteSchemaDiffer()
 
-    def suggested_data_types(self) -> Dict[str, type]:
+    def substitute_data_types(self) -> Dict[str, type]:
         """Cross-backend type-consistency suggestions for SQLite.
 
         Values are the suggested replacement DataType **classes** (same
@@ -728,7 +733,7 @@ class SQLiteDialect(
         left_sql, left_params = expr.left.to_sql()
         right_sql, right_params = expr.right.to_sql()
         not_str = " NOT" if expr.is_not else ""
-        return self._with_alias(
+        return self._with_predicate_alias(
             f"{left_sql} IS{not_str} DISTINCT FROM {right_sql}", expr
         ), left_params + right_params
 
@@ -829,6 +834,21 @@ class SQLiteDialect(
 
     def supports_if_exists_table(self) -> bool:
         """Whether DROP TABLE IF EXISTS is supported."""
+        return True
+
+    def supports_transactional_ddl(self) -> bool:
+        """SQLite DDL participates in transactions."""
+        return True
+
+    def supports_database_assigned_integer_column(self) -> bool:
+        """An ``INTEGER PRIMARY KEY`` is numbered by the engine when omitted.
+
+        SQLite has no ``AUTO_INCREMENT`` token and no identity clause, so
+        ``supports_auto_increment_column`` stays ``False``; the value is still
+        assigned, through the rowid alias the ``is_auto_increment`` column path
+        already renders. The two questions therefore answer differently on the
+        same dialect, which is why they are separate probes.
+        """
         return True
 
     def supports_drop_table_cascade(self) -> bool:

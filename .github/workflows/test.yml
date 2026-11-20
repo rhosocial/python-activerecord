@@ -64,13 +64,37 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/ -n auto --dist=loadgroup -p rhosocial.activerecord.testsuite.conftest --cov=rhosocial --cov-branch --cov-report=xml
+        python -m pytest tests/ -n 8 --dist=loadgroup --cov=rhosocial.activerecord --cov-branch --cov-report=xml --ignore=tests/rhosocial/activerecord_test/logging_module --ignore=tests/rhosocial/activerecord_test/feature/rules --ignore=tests/benchmark
+        # Preserve the full run's report: the coverage gate below replaces the
+        # .coverage data file with its narrow 3-package scope, so back up the
+        # full XML here and upload that instead.
+        cp coverage.xml coverage-full.xml
+
+    - name: SQLite expression-dialect coverage gate
+      env:
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+        REDIS_DB: 0
+      run: |
+        # dialect/expression/mixins is the layer whose output is SQL text:
+        # every branch is a spelling, and an untested one is a spelling nobody
+        # checked. Hold it at 100% line+branch; the rest of the backend is not
+        # gated. This writes no coverage.xml, but pytest-cov DOES replace the
+        # .coverage data file with this narrow scope -- hence the full report
+        # was backed up as coverage-full.xml above and is what gets uploaded.
+        export PYTHONPATH=src:tests
+        python -m pytest tests/rhosocial/activerecord_test/feature/backend/sqlite \
+          -q -p no:warnings \
+          --cov=rhosocial.activerecord.backend.impl.sqlite.dialect \
+          --cov=rhosocial.activerecord.backend.impl.sqlite.expression \
+          --cov=rhosocial.activerecord.backend.impl.sqlite.mixins \
+          --cov-branch --cov-fail-under=100 --cov-report=term-missing
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        files: ./coverage.xml
+        files: ./coverage-full.xml
         flags: unittests,python-3.14
         name: codecov-umbrella-3.14
         fail_ci_if_error: false
@@ -135,16 +159,17 @@ jobs:
           --benchmark-sort=mean \
           --tb=short | tee -a benchmark-output.txt
         python -m pytest \
+          -p tests.benchmark.providers \
           --rootdir=. \
           --confcutdir=. \
-          "$TESTSUITE_DIR/benchmark/crud/test_delete_async.py" \
-          "$TESTSUITE_DIR/benchmark/crud/test_delete.py" \
-          "$TESTSUITE_DIR/benchmark/crud/test_insert_async.py" \
-          "$TESTSUITE_DIR/benchmark/crud/test_insert.py" \
-          "$TESTSUITE_DIR/benchmark/crud/test_query_async.py" \
-          "$TESTSUITE_DIR/benchmark/crud/test_query.py" \
-          "$TESTSUITE_DIR/benchmark/crud/test_update_async.py" \
-          "$TESTSUITE_DIR/benchmark/crud/test_update.py" \
+          "$TESTSUITE_DIR/benchmark/crud/core/test_delete_async.py" \
+          "$TESTSUITE_DIR/benchmark/crud/core/test_delete.py" \
+          "$TESTSUITE_DIR/benchmark/crud/core/test_insert_async.py" \
+          "$TESTSUITE_DIR/benchmark/crud/core/test_insert.py" \
+          "$TESTSUITE_DIR/benchmark/crud/core/test_query_async.py" \
+          "$TESTSUITE_DIR/benchmark/crud/core/test_query.py" \
+          "$TESTSUITE_DIR/benchmark/crud/core/test_update_async.py" \
+          "$TESTSUITE_DIR/benchmark/crud/core/test_update.py" \
           "$TESTSUITE_DIR/benchmark/query" \
           "$TESTSUITE_DIR/benchmark/transaction" \
           "$TESTSUITE_DIR/benchmark/mixin" \
@@ -153,6 +178,7 @@ jobs:
           --benchmark-sort=mean \
           --tb=short | tee -a benchmark-output.txt
         python -m pytest \
+          -p tests.benchmark.providers \
           --rootdir=. \
           --confcutdir=. \
           tests/benchmark/activerecord_bulk \
@@ -217,13 +243,17 @@ jobs:
           echo "- Result: benchmark job fails only when FastAPI benchmark execution or correctness checks fail."
           echo
           echo '```text'
-          grep -A 120 "benchmark:" fastapi-benchmark-output.txt || cat fastapi-benchmark-output.txt
+          if [ -f fastapi-benchmark-output.txt ]; then
+            grep -A 120 "benchmark:" fastapi-benchmark-output.txt || cat fastapi-benchmark-output.txt
+          else
+            echo "(no FastAPI benchmark output captured)"
+          fi
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY"
 
   test-other-versions:
     name: Run tests with Python ${{ matrix.python-version }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
     strategy:
@@ -232,16 +262,22 @@ jobs:
         include:
           - python-version: "3.8"
             redis-version: "6.2"
+            os: ubuntu-22.04
           - python-version: "3.9"
             redis-version: "7.0"
+            os: ubuntu-22.04
           - python-version: "3.10"
             redis-version: "7.2"
+            os: ubuntu-latest
           - python-version: "3.11"
             redis-version: "7.4"
+            os: ubuntu-latest
           - python-version: "3.12"
             redis-version: "8.0"
+            os: ubuntu-latest
           - python-version: "3.13"
             redis-version: "8.2"
+            os: ubuntu-latest
 
     services:
       redis:
@@ -288,7 +324,7 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/ -n auto --dist=loadgroup -p rhosocial.activerecord.testsuite.conftest
+        python -m pytest tests/ -n 8 --dist=loadgroup --ignore=tests/rhosocial/activerecord_test/logging_module --ignore=tests/rhosocial/activerecord_test/feature/rules --ignore=tests/benchmark
 
   test-free-threaded:
     name: Run tests with Python ${{ matrix.python-version }} free-threaded
@@ -349,7 +385,7 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/ -n auto --dist=loadgroup -p rhosocial.activerecord.testsuite.conftest
+        python -m pytest tests/ -n 8 --dist=loadgroup --ignore=tests/rhosocial/activerecord_test/logging_module --ignore=tests/rhosocial/activerecord_test/feature/rules --ignore=tests/benchmark
 
   test-python-315:
     name: Run tests with Python ${{ matrix.python-version }}${{ matrix.freethreaded && 't free-threaded' || '' }}
@@ -406,4 +442,4 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/ -n auto --dist=loadgroup -p rhosocial.activerecord.testsuite.conftest
+        python -m pytest tests/ -n 8 --dist=loadgroup --ignore=tests/rhosocial/activerecord_test/logging_module --ignore=tests/rhosocial/activerecord_test/feature/rules --ignore=tests/benchmark

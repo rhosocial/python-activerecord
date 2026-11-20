@@ -2,6 +2,8 @@
 
 `DDLSource` is the structural protocol through which ActiveRecord exposes DDL declarations. `DDLSourceMixin` is its default model implementation. The mixin collects DDL expressions and declarations from a model class and presents them through the protocol. It does not select a backend, generate SQL, create statement plans, or execute database operations.
 
+> For the complete capability matrix and design boundaries, see [The ActiveRecord Definition](definition.md).
+
 ```python
 from rhosocial.activerecord.base import DDLSource
 from rhosocial.activerecord.model import ActiveRecord
@@ -42,7 +44,7 @@ The current implementation does not infer a `DataType` from a plain Python annot
 
 | Declaration | Reading method | Notes |
 |-------------|----------------|-------|
-| `__table_name__` | `table_name()` | Must be a string; missing or invalid values raise `ValueError`. |
+| `table_name()` (classmethod override) | `table_name()` | Declared by overriding the classmethod, which returns the table name. No dunder attribute is read; without an override the call raises `NotImplementedError`. |
 | `__schema_name__` | `schema_name()` | Returned unchanged; `None` when unset. |
 | `__primary_key__` | `primary_key_columns()` | A string becomes a one-item tuple; a tuple is returned unchanged. |
 | `__primary_key__` | `is_composite_pk()` | Only a tuple denotes a composite primary key. |
@@ -102,7 +104,7 @@ The table below describes the default `DDLSourceMixin` implementation. A custom 
 
 | Method | Return value | Collection behavior |
 |--------|---------------|---------------------|
-| `table_name()` | `str` | Reads and validates `__table_name__`. |
+| `table_name()` | `str` | Declared by the model's classmethod override; no dunder attribute is read. |
 | `schema_name()` | `Optional[str]` | Reads `__schema_name__`. |
 | `primary_key_columns()` | `Tuple[str, ...]` | Normalizes `__primary_key__`. |
 | `is_composite_pk()` | `bool` | Tests whether the primary-key declaration is a tuple. |
@@ -172,21 +174,28 @@ Like `create_table_statement_classes()`, they return candidate classes and defau
 
 ## Backend Expression Integration
 
-`UseSqlType` may contain generic and backend-specific types:
+`UseSqlType` may contain several `DataType` candidates in priority order. The mechanism is a three-way split:
+
+1. **Declaration** — the field carries the candidates as written; generic types and types owned by a backend may both appear.
+2. **Collection** — `DDLSourceMixin` preserves every candidate and its order; it does not select, substitute, or drop one.
+3. **Consumption** — a DDL consumer holding a concrete dialect selects the first candidate it can render for that backend ("first renderable wins").
+
+The built-in SQLite backend shows the mechanism with generic types:
 
 ```python
 from typing import Annotated
 from rhosocial.activerecord.base import UseSqlType
-from rhosocial.activerecord.backend.expression.types import TextType
-from rhosocial.activerecord.backend.impl.postgres.expression.types import PostgresUUIDType
+from rhosocial.activerecord.backend.expression.types import TextType, VarCharType
 
 identifier: Annotated[
     str,
-    UseSqlType(PostgresUUIDType(), TextType()),
+    UseSqlType(TextType(), VarCharType(length=64)),
 ]
 ```
 
-`DDLSourceMixin` preserves both candidates and their order. Whether PostgreSQL accepts the first candidate, or another backend accepts the second, is decided later by the dialect consumer. The source does not substitute or fall back.
+`column_data_type("identifier")` returns the whole marker with both candidates in order. When a SQLite DDL consumer renders the column, it picks the first candidate SQLite can render — here `TextType()` — while the source declaration stays untouched. A candidate a backend cannot render is skipped in favour of the next renderable one; the source never rewrites it.
+
+> 💡 **AI Prompt**: "How does ActiveRecord cooperate with the built-in SQLite backend to turn a `UseSqlType` declaration with several candidates into one concrete column type, and why does the source keep all candidates instead of choosing one?"
 
 A backend-specific `ColumnOptions` object is not a core `Use*` marker, so placing it on a field does not automatically collect it. A handler like `BackendSettingHandler` must write it to field metadata. The backend expression consumer can then use the option:
 
@@ -197,22 +206,11 @@ column = column_class(dialect, "name", data_type)
 option.apply_to(column)
 ```
 
-This code belongs to the backend expression consumer, not to `DDLSourceMixin`.
+This code belongs to the backend expression consumer, not to `DDLSourceMixin`. Other backends are documented separately.
 
 ## Backend Differences at a Glance
 
-| Backend | Representative declarations/expressions | Collector notes |
-|---------|-----------------------------------------|-----------------|
-| SQLite | Generic `DataType`, `ColumnConstraint`, `IndexDefinition` | The source collects generic declarations; SQLite capability checks happen later. |
-| MySQL | `MySQL*Type`, `MySQLColumnOptions`, `MySQLCreateTableOptions`, MySQL partition expressions | A `UseIndex` definition may later be consumed as an inline index; the source does not choose that path. |
-| MariaDB | `MariaDB*Type`, `MariaDBColumnOptions`, `MariaDBCreateTableOptions`, MariaDB partition expressions | Syntax and capabilities are decided by the MariaDB dialect. |
-| PostgreSQL | `Postgres*Type`, `PostgresColumnOptions`, `PostgresCreateTableOptions`, PostgreSQL partition expressions | Schema, tablespace, and backend options remain declarations; capability gates run later. |
-| SQL Server | `SQLServer*Type`, `SQLServerColumnOptions`, `SQLServerCreateTableOptions`, SQL Server partition expressions | SQL Graph or other specialized create-table classes are selected by a consumer through extension hooks. |
-| Oracle | `Oracle*Type`, `OracleColumnOptions`, Oracle partition expressions | Unsupported comments, partitions, or types fail in the Oracle dialect rather than being silently accepted. |
-| Snowflake | `Snowflake*Type`, `SnowflakeCreateTableOptions`, Snowflake partition/clone expressions | VARIANT, OBJECT, ARRAY, and other types remain candidates; the source does not perform Snowflake-specific selection. |
-| ClickHouse | `ClickHouse*Type`, `ClickHouseColumnOptions`, `ClickHouseIndexDefinition`, ClickHouse partition expressions | Unsupported UNIQUE or foreign-key capabilities fail in the ClickHouse dialect; declarations can still be presented. |
-| BigQuery | Currently mainly generic `DataType`, constraints, and `CreateTableOptions` | The package currently has no automatically registered BigQuery-specific `ColumnOptions`; generic declarations can still be collected. |
-| Firebird | `Firebird*Type`, `FirebirdColumnOptions`, `FirebirdCreateTableStatement`, Firebird partition/computed-column expressions | Computed columns, tablespaces, and specialized create-table classes are handled by the Firebird consumer. |
+The built-in SQLite backend renders the generic declarations `DDLSourceMixin` collects — generic `DataType`, `ColumnConstraint`, `IndexDefinition`, and `TableConstraint`. SQLite has a smaller capability set than ActiveRecord's declaration surface: when a declaration describes something SQLite does not support natively (for example certain table options, partitions, or storage settings), the source still preserves and returns it unchanged. That is a SQLite limitation, not a gap in ActiveRecord. Other backends provide capabilities beyond SQLite and are documented separately.
 
 Backend tests should verify at least three things: the objects and order returned by the source, that backend-specific types/options are not rewritten early, and that collected values can be passed to an existing backend expression construction path. Collection tests do not need a live database; render assertions should use the backend dialect and minimal expressions separately.
 

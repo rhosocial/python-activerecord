@@ -341,7 +341,7 @@ class YesOrNoBooleanAdapter(BaseSQLTypeAdapter):
     def _do_from_database(self, value: str, target_type: Type, options: Optional[Dict[str, Any]] = None) -> bool:
         return value == "yes"
 
-class TypeAdapterTest(ActiveRecord):
+class TypeAdapterTest(IntegerPKMixin, ActiveRecord):
     """Model for testing various type adapter scenarios."""
     @classmethod
     def table_name(cls):
@@ -360,7 +360,7 @@ class TypeAdapterTest(ActiveRecord):
     custom_bool: Annotated[bool, UseAdapter(YesOrNoBooleanAdapter(), str)] = None
     optional_custom_bool: Annotated[Optional[bool], UseAdapter(YesOrNoBooleanAdapter(), str)] = None
 
-class AsyncTypeAdapterTest(AsyncActiveRecord):
+class AsyncTypeAdapterTest(IntegerPKMixin, AsyncActiveRecord):
     """Model for testing various type adapter scenarios."""
     @classmethod
     def table_name(cls):
@@ -551,6 +551,7 @@ class IntToStringAdapter(BaseSQLTypeAdapter):
 
 
 class ColumnMappingModel(ActiveRecord):
+    __primary_key__ = "id"
     """
     A model demonstrating various valid uses of UseColumn and UseAdapter,
     including mapping the primary key attribute.
@@ -566,6 +567,7 @@ class ColumnMappingModel(ActiveRecord):
     notes: Annotated[str, UseAdapter(IntToStringAdapter(), target_db_type=int), UseColumn("remarks")] # Mapped to 'remarks' with an adapter
 
 class AsyncColumnMappingModel(AsyncActiveRecord):
+    __primary_key__ = "id"
     """
     A model demonstrating various valid uses of UseColumn and UseAdapter,
     including mapping the primary key attribute.
@@ -658,6 +660,7 @@ class JsonToStringAdapter(BaseSQLTypeAdapter):
         return json.loads(value)
 
 class MixedAnnotationModel(ActiveRecord):
+    __primary_key__ = "id"
     """A model with various combinations of annotations to test field mapping and adapters."""
     @classmethod
     def table_name(cls):
@@ -683,6 +686,7 @@ class MixedAnnotationModel(ActiveRecord):
     status: str = "active"
 
 class AsyncMixedAnnotationModel(AsyncActiveRecord):
+    __primary_key__ = "id"
     """A model with various combinations of annotations to test field mapping and adapters."""
     @classmethod
     def table_name(cls):
@@ -878,7 +882,7 @@ from rhosocial.activerecord.base import DerivedField
 from rhosocial.activerecord.backend.expression import Literal, NumericColumn
 
 
-class Product(ActiveRecord):
+class Product(IntegerPKMixin, ActiveRecord):
     @classmethod
     def table_name(cls):
         return "product"
@@ -897,7 +901,7 @@ class Product(ActiveRecord):
     )]]
 
 
-class AsyncProduct(AsyncActiveRecord):
+class AsyncProduct(IntegerPKMixin, AsyncActiveRecord):
     @classmethod
     def table_name(cls):
         return "product"
@@ -916,7 +920,7 @@ class AsyncProduct(AsyncActiveRecord):
     )]]
 
 
-class ProductFormA(ActiveRecord):
+class ProductFormA(IntegerPKMixin, ActiveRecord):
     """Form A declaration: ClassVar[DerivedField] = DerivedField(...)."""
     @classmethod
     def table_name(cls):
@@ -936,7 +940,7 @@ class ProductFormA(ActiveRecord):
     )
 
 
-class AsyncProductFormA(AsyncActiveRecord):
+class AsyncProductFormA(IntegerPKMixin, AsyncActiveRecord):
     @classmethod
     def table_name(cls):
         return "product"
@@ -969,7 +973,7 @@ class PriceToIntAdapter:
         return {int: {float}}
 
 
-class ProductWithProxy(ActiveRecord):
+class ProductWithProxy(IntegerPKMixin, ActiveRecord):
     """Product model using FieldProxy in DerivedField expressions."""
     @classmethod
     def table_name(cls):
@@ -990,7 +994,7 @@ class ProductWithProxy(ActiveRecord):
     )]]
 
 
-class AsyncProductWithProxy(AsyncActiveRecord):
+class AsyncProductWithProxy(IntegerPKMixin, AsyncActiveRecord):
     @classmethod
     def table_name(cls):
         return "product"
@@ -1010,7 +1014,7 @@ class AsyncProductWithProxy(AsyncActiveRecord):
     )]]
 
 
-class ProductWithColumnAndAdapter(ActiveRecord):
+class ProductWithColumnAndAdapter(IntegerPKMixin, ActiveRecord):
     """Product model with UseColumn and UseAdapter on derived fields."""
     @classmethod
     def table_name(cls):
@@ -1030,7 +1034,7 @@ class ProductWithColumnAndAdapter(ActiveRecord):
     ), UseAdapter(PriceToIntAdapter(), int)]]
 
 
-class AsyncProductWithColumnAndAdapter(AsyncActiveRecord):
+class AsyncProductWithColumnAndAdapter(IntegerPKMixin, AsyncActiveRecord):
     @classmethod
     def table_name(cls):
         return "product"

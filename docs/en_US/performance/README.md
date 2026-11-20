@@ -11,4 +11,4 @@ The core of "Progressive ORM" is the ability to freely switch between developmen
 
 ## Example Code
 
-The complete example code for this chapter is located in `docs/examples/chapter_07_performance/`.
+The complete example code for this chapter is located in `docs/examples/chapter_08_performance/`.

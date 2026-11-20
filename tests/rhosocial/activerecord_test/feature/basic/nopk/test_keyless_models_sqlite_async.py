@@ -48,6 +48,7 @@ class AsyncKeylessReadOnly(AsyncActiveRecord, ReadOnlyMixin):
 
 
 class AsyncNormalModel(AsyncActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "ro_normal_model"

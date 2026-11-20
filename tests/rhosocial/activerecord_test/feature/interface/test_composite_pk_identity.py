@@ -82,6 +82,7 @@ class PlainComposite(CompositePKMixin, ActiveRecord):
 
 
 class SingleKey(ActiveRecord):
+    __primary_key__ = "id"
     """The ordinary model this change must not disturb."""
 
     @classmethod
@@ -153,10 +154,11 @@ class TestPlainCompositeIsUnchanged:
 
 
 class TestSingleKeyIsUnchanged:
-    def test_an_ordinary_key_is_still_excluded_whole(self):
-        # A single-column surrogate key with no identity declaration keeps
-        # exactly today's behaviour: excluded, and the database fills it.
-        assert SingleKey.identity_pk_fields() == ()
+    def test_an_ordinary_optional_int_key_is_excluded_whole(self):
+        # A single-column Optional[int] key with no value generator is a
+        # database identity key under the derived rule: excluded from INSERT,
+        # filled by the database, and required of nobody.
+        assert SingleKey.identity_pk_fields() == ("id",)
         row = SingleKey(name="x")
         assert "id" not in row._prepare_save_data()
         assert row._prepare_save_data()["name"] == "x"

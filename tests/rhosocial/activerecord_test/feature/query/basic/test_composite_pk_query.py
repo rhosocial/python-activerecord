@@ -1,5 +1,3 @@
 # tests/rhosocial/activerecord_test/feature/query/basic/test_composite_pk_query.py
-"""
-Bridge file for composite PK ActiveQuery tests from the testsuite.
-"""
-from rhosocial.activerecord.testsuite.feature.query.basic.test_composite_pk_query import *  # noqa: F403
+"""Bridge to the shared ``query/basic`` contract."""
+from rhosocial.activerecord.testsuite.feature.query.basic.test_composite_pk_query import *  # noqa: F401,F403

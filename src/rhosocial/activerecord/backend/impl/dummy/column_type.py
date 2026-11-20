@@ -13,24 +13,44 @@ import datetime
 import decimal
 import enum
 import uuid
-from typing import Any, Dict, Type
+from typing import Any, Dict, Optional, Type
 
+from rhosocial.activerecord.backend.adapters import (
+    BitString,
+    Geometry,
+    MacAddress,
+    Multirange,
+    Range,
+    Vector,
+)
 from rhosocial.activerecord.backend.dialect.mixins.column_type import ColumnTypeMixin
 from rhosocial.activerecord.backend.expression.column_types import (
     ArrayColumn,
     BinaryColumn,
+    BitStringColumn,
     BooleanColumn,
     ColumnBase,
-    TimestampColumn,
+    GeometryColumn,
     IntegerColumn,
+    IntervalColumn,
     JSONColumn,
+    MacAddressColumn,
+    MultirangeColumn,
     NumericColumn,
+    RangeColumn,
     StringColumn,
+    TimestampColumn,
     UUIDColumn,
+    VectorColumn,
 )
 
-#: The portable baseline: ``{common Python type: ColumnBase subclass}``.
-DUMMY_COLUMN_TYPES: Dict[Any, Type[ColumnBase]] = {
+#: The portable baseline: ``{framework-modelled Python type: ColumnBase subclass}``.
+#:
+#: The complex families name the core classes, because those classes carry only
+#: the surface every column already has (alias, null tests, casting) and promise
+#: no operation the dummy cannot answer. A backend that does have family
+#: operations states its own class in its own table.
+DUMMY_COLUMN_TYPES: Dict[Any, Optional[Type[ColumnBase]]] = {
     bool: BooleanColumn,
     int: IntegerColumn,
     float: NumericColumn,
@@ -41,7 +61,7 @@ DUMMY_COLUMN_TYPES: Dict[Any, Type[ColumnBase]] = {
     datetime.date: TimestampColumn,
     datetime.time: TimestampColumn,
     datetime.datetime: TimestampColumn,
-    datetime.timedelta: NumericColumn,
+    datetime.timedelta: IntervalColumn,
     uuid.UUID: UUIDColumn,
     dict: JSONColumn,
     list: ArrayColumn,
@@ -49,13 +69,19 @@ DUMMY_COLUMN_TYPES: Dict[Any, Type[ColumnBase]] = {
     set: ArrayColumn,
     frozenset: ArrayColumn,
     enum.Enum: StringColumn,
+    Geometry: GeometryColumn,
+    Vector: VectorColumn,
+    BitString: BitStringColumn,
+    Range: RangeColumn,
+    Multirange: MultirangeColumn,
+    MacAddress: MacAddressColumn,
 }
 
 
 class DummyColumnTypeMixin(ColumnTypeMixin):
     """The dialect-less baseline table, for tests to read."""
 
-    def suggested_column_types(self) -> Dict[Any, Type[ColumnBase]]:
+    def suggested_column_types(self) -> Dict[Any, Optional[Type[ColumnBase]]]:
         return dict(DUMMY_COLUMN_TYPES)
 
 

@@ -14,10 +14,10 @@ The event system in rhosocial-activerecord is a key mechanism for decoupling bus
 
 ## Example Code
 
-Complete example code for this chapter can be found at `docs/examples/chapter_09_events/`.
+Complete example code for this chapter can be found at `docs/examples/chapter_10_events/`.
 
 | File | Description |
 |------|-------------|
-| [01_lifecycle_hooks.py](../../examples/chapter_09_events/01_lifecycle_hooks.py) | Lifecycle hooks: before_save, after_save, before_delete, after_delete |
-| [02_event_listeners.py](../../examples/chapter_09_events/02_event_listeners.py) | Event listeners: using on() method, multiple listeners, dynamic registration |
-| [03_mixin_pattern.py](../../examples/chapter_09_events/03_mixin_pattern.py) | Mixin pattern: reusable event logic, combining multiple Mixins
+| [01_lifecycle_hooks.py](../../examples/chapter_10_events/01_lifecycle_hooks.py) | Lifecycle hooks: before_save, after_save, before_delete, after_delete |
+| [02_event_listeners.py](../../examples/chapter_10_events/02_event_listeners.py) | Event listeners: using on() method, multiple listeners, dynamic registration |
+| [03_mixin_pattern.py](../../examples/chapter_10_events/03_mixin_pattern.py) | Mixin pattern: reusable event logic, combining multiple Mixins

@@ -216,7 +216,7 @@ class IntervalType(DataType):
     because SQLite has no interval type at all and stores the value as a
     number, so its qualifier has nowhere to live; the remaining backends do not
     render interval at all and name a substitute through
-    ``suggested_data_types()``.
+    ``substitute_data_types()``.
     """
 
     name = "interval"

@@ -60,6 +60,13 @@ except Exception as e:
     # Output: DummyBackend does not support real database operations. Did you forget to configure a concrete backend?
 ```
 
+> 💡 **Why configure a real backend?** `DummyBackend` can only generate SQL — it cannot run
+> `save()`, `find()`, or `all()`. Any real database operation therefore requires you to
+> configure a real backend first; the examples here use the built-in `SQLiteBackend`
+> (including in-memory `:memory:` mode).
+
+> 💡 **AI Prompt:** "My model uses the default DummyBackend and save() fails with 'No backend configured'. How do I configure SQLite to perform real database operations?"
+
 ## Summary
 
 `DummyBackend` is a lightweight tool for ensuring your code generates correct SQL structures. If you need integration testing or actual data interaction, please use `SQLiteBackend` (supports in-memory mode `:memory:`) or other real database backends.

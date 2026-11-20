@@ -541,7 +541,7 @@ SQLServerDialect does not support the generic type 'oracle_varchar2'
 这个错误说明三件事：
 
 1. `DDLSourceMixin` 不会在模型导入时验证表达式是否属于当前方言。
-2. `supports_data_types()` 和 `suggested_data_types()` 是能力查询，不是自动替换器。
+2. `supports_data_types()` 和 `substitute_data_types()` 是能力查询，不是自动替换器。
 3. 如果模型只有不兼容的后端表达式，调用方必须明确处理 `TypeError`；不能期待 source 隐式退回 `VARCHAR`、`TEXT` 或其他通用类型。
 
 ## 后端专属选项的额外注意事项

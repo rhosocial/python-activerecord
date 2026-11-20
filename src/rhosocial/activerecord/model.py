@@ -22,6 +22,8 @@ from .base import (
     FieldAdapterMixin,
     DerivedFieldMixin,
     DDLSourceMixin,
+    MigrationMixin,
+    AsyncMigrationMixin,
     MetaclassMixin,
 )
 from .relation import RelationManagementMixin
@@ -34,6 +36,7 @@ class ActiveRecord(
     FieldAdapterMixin,
     DerivedFieldMixin,
     DDLSourceMixin,
+    MigrationMixin,
     MetaclassMixin,
     BaseActiveRecord,
 ):
@@ -47,6 +50,7 @@ class AsyncActiveRecord(
     FieldAdapterMixin,
     DerivedFieldMixin,
     DDLSourceMixin,
+    AsyncMigrationMixin,
     MetaclassMixin,
     AsyncBaseActiveRecord,
 ):

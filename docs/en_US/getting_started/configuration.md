@@ -2,6 +2,10 @@
 
 After defining ActiveRecord models, you still cannot immediately access the database backend to perform operations. `rhosocial-activerecord` requires explicit backend configuration before executing database operations. Once configured, you can access the corresponding database and execute queries. Specifically, if you only want to see the SQL results of queries without caring about the actual backend, you can use the dummy backend.
 
+> 💡 **Note**: By default a model uses the built-in `DummyBackend` (`_dummy_backend`),
+> which can generate SQL but cannot execute it. That is why `save()` reports "no backend
+> configured" until you configure a real backend such as SQLite below.
+>
 > 💡 **AI Prompt Example**: "I defined an ActiveRecord model, but calling save() throws an error saying no backend is configured, what should I do?"
 
 ## SQLite Configuration

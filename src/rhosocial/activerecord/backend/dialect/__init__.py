@@ -36,6 +36,7 @@ except UnsupportedFeatureError as e:
 from .base import SQLDialectBase
 from .exceptions import (
     UnsupportedFeatureError,
+    UnsupportedDataTypeError,
     ProtocolNotImplementedError,
     DialectNotAdaptedException,
 )
@@ -93,6 +94,7 @@ from .protocols import (
     PartitionSupport,
     ConstraintSupport,
     TruncateSupport,
+    TransactionalDDLSupport,
     CreateSchemaSupport,
     DropSchemaSupport,
     GeneratedColumnSupport,
@@ -155,6 +157,7 @@ __all__ = [
     "SQLDialectBase",
     # Exceptions
     "UnsupportedFeatureError",
+    "UnsupportedDataTypeError",
     "ProtocolNotImplementedError",
     "DialectNotAdaptedException",
     # Protocols
@@ -207,6 +210,7 @@ __all__ = [
     "PartitionSupport",
     "ConstraintSupport",
     "TruncateSupport",
+    "TransactionalDDLSupport",
     "GeneratedColumnSupport",
     "AutoIncrementColumnSupport",
     "IdentityColumnSupport",

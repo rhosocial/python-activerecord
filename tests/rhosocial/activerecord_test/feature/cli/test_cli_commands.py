@@ -23,7 +23,7 @@ import pytest
 from rhosocial.activerecord.cli import main
 from rhosocial.activerecord.cli import output as cli_output
 from rhosocial.activerecord.cli.args import OUTPUT_FORMATS
-from logging_isolation import preserve_logging
+from support.logging import preserve_logging
 
 SQLITE_BACKEND = "rhosocial.activerecord.backend.impl.sqlite.backend:SQLiteBackend"
 ASYNC_SQLITE_BACKEND = (
@@ -97,6 +97,7 @@ from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
 
 
 class User(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"
@@ -107,6 +108,7 @@ class User(ActiveRecord):
 
 
 class AsyncUser(AsyncActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"
@@ -178,6 +180,7 @@ from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionCo
 
 
 class User(ActiveRecord):
+    __primary_key__ = "id"
     @classmethod
     def table_name(cls):
         return "users"

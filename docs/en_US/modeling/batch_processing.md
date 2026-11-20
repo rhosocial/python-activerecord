@@ -284,7 +284,7 @@ emails = [r["email"] for r in rows]
 
 ## Runnable Example
 
-See [`docs/examples/chapter_03_modeling/batch_processing.py`](../../../examples/chapter_03_modeling/batch_processing.py)
+See [`docs/examples/chapter_03_modeling/batch_processing.py`](../../examples/chapter_03_modeling/batch_processing.py)
 for a self-contained script that demonstrates all five patterns above.
 
 ---

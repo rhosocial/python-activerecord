@@ -285,6 +285,42 @@ class XMLValue(
         raise NotImplementedError
 
 
+class SurfaceOnlyValue(
+    AliasableMixin,
+    NullTestMixin,
+    TypeCastingMixin,
+    SQLValue,
+    ABC,
+):
+    """A value whose only operations are the ones any column already has.
+
+    The six complex families -- geometry, vector, bit string, range,
+    multirange, MAC address -- and a duration have no operation the framework
+    can promise on every backend. Distance, containment, overlap, bitwise
+    arithmetic and similarity are each spelled differently per server, and
+    several servers have no such function at all: a promise made here would
+    be a promise the database refuses.
+
+    What remains is the surface every column carries -- alias, null tests,
+    casting -- so that is what a value of these families offers. A backend
+    that does have those operations names its own column class
+    (``PostgresGeometryColumn`` and so on) and inherits the core one; this
+    surface stays the floor rather than a claim the framework cannot keep.
+    """
+
+    @property
+    @abstractmethod
+    def format_method(self) -> str:
+        """Never implemented: a surface is not a node and cannot render.
+
+        Declared abstract in every surface so that the registrar skips it
+        (a surface never enters the kind whitelist as a name nothing can
+        produce) and so that a node forgetting its own ``format_method``
+        fails when its class is built rather than when it is rendered.
+        """
+        raise NotImplementedError
+
+
 __all__ = [
     "TextValue",
     "NumericValue",
@@ -294,4 +330,5 @@ __all__ = [
     "JSONValue",
     "OpaqueValue",
     "XMLValue",
+    "SurfaceOnlyValue",
 ]

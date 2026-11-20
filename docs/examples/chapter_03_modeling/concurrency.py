@@ -50,7 +50,11 @@ _ORDERS_DDL = """
 
 
 class User(ActiveRecord):
-    __table_name__ = "users"
+    __primary_key__ = "id"
+
+    @classmethod
+    def table_name(cls) -> str:
+        return "users"
     c: ClassVar[FieldProxy] = FieldProxy()
     id: Optional[int] = None
     name: str
@@ -58,7 +62,11 @@ class User(ActiveRecord):
 
 
 class Order(ActiveRecord):
-    __table_name__ = "orders"
+    __primary_key__ = "id"
+
+    @classmethod
+    def table_name(cls) -> str:
+        return "orders"
     c: ClassVar[FieldProxy] = FieldProxy()
     id: Optional[int] = None
     user_id: int
@@ -68,7 +76,11 @@ class Order(ActiveRecord):
 class Product(ActiveRecord):
     """A third model used only in the startup-assertion demo."""
 
-    __table_name__ = "products"
+    __primary_key__ = "id"
+
+    @classmethod
+    def table_name(cls) -> str:
+        return "products"
     c: ClassVar[FieldProxy] = FieldProxy()
     id: Optional[int] = None
     name: str
@@ -147,7 +159,11 @@ def demonstrate_per_process_isolation() -> None:
             # across workers.  In a real post_fork scenario, each forked process
             # has its own memory space, so there is no class sharing.
             class WorkerUser(ActiveRecord):
-                __table_name__ = "users"
+                __primary_key__ = "id"
+
+                @classmethod
+                def table_name(cls) -> str:
+                    return "users"
                 id: Optional[int] = None
                 name: str
                 email: str
@@ -250,7 +266,11 @@ def demonstrate_separate_backends() -> None:
     class UserMetric(ActiveRecord):
         """Analytics model -- separate backend, same table structure."""
 
-        __table_name__ = "users"
+        __primary_key__ = "id"
+
+        @classmethod
+        def table_name(cls) -> str:
+            return "users"
         id: Optional[int] = None
         name: str
         email: str

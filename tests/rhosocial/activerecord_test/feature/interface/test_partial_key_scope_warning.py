@@ -85,6 +85,7 @@ class AsyncPartitionedLog(CompositePKMixin, AsyncActiveRecord):
 
 
 class PlainModel(ActiveRecord):
+    __primary_key__ = "id"
     """An ordinary single-key model: nothing here can be partial."""
 
     @classmethod

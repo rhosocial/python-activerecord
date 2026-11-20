@@ -178,9 +178,12 @@ for name, dt_cls in dialect.supports_data_types().items():
 
 `supports_data_types()` 由方言自身的命名族成员自动发现（后端方言会把带自己前缀的条目合并进继承的映射）。它的键与 `format_data_type_*` 命名族的分发键完全一致。
 
-### 跨后端建议 (suggested_data_types)
+### 跨后端建议 (substitute_data_types)
 
-`suggested_data_types() -> Dict[str, type]` 是**跨后端类型一致性**的对应机制：对于方言**不**原生支持的通用类型，它可以建议一个替代的 `DataType` 类。
+`substitute_data_types() -> Dict[str, type]` 是**跨后端类型一致性**的对应机制：对于方言**不**原生支持的通用类型，它可以建议一个替代的 `DataType` 类。
+
+不要与 `suggested_data_types()` 混淆：后者把 `FRAMEWORK_PYTHON_TYPES` 中的 24 个 Python 类型映射到
+`DataType` 实例，用作裸字段的默认 DDL 声明。
 
 - 键使用相同的通用名命名空间（`"uuid"`、`"enum"`、……），且与 `supports_data_types()` 的键**互不相交**——方言能渲染的类型无需建议
 - 值是具体的 `DataType` 类（例如 SQLite 建议 `uuid`/`enum` → `SQLiteTextType`，`binary`/`varbinary` → `SQLiteBlobType`）
@@ -207,7 +210,7 @@ class Product(ActiveRecord):
 
 方言实现 `parse_type(raw)`（`DataTypeSupport` 协议）时，可将数据库返回的原始类型字符串解析回 `DataType` 对象，用于 schema 内省与比对。未实现该接口的方言回退为 `CustomType(raw=raw)`。旧名 `DDLTypeSupport` / `DDLTypeMixin` 仅作为对应新名的 deprecated 兼容别名保留。
 
-`parse_type` 的结果必须是**规范**的，其两半都由 `tests/.../dummy2/test_type_spelling_parse.py` 强制：
+`parse_type` 的结果必须是**规范**的，其两半都由 `tests/.../dummy/types/test_type_spelling_parse.py` 强制：
 
 - **覆盖** —— 核心 `SPELLINGS` 中的每一个拼写都必须解析成某个类型。`CustomType` 只对框架根本没有概念的名字才是诚实答案；若用在 `INT1`、`CHARACTER`、`DEC`、`BOOL` 上，就会把框架自己声明的类型报成厂商类型，并把原文写回 DDL。
 - **一个概念进、一个类出** —— 同一概念的所有拼写解析到同一个类，且 `character varying`（变长）绝不解析到定长的 `CharType`。每个同义词一个类正是 `spelling` 参数要消除的东西，而把两者混为一谈的解析器会报出并不存在的 schema 变更。

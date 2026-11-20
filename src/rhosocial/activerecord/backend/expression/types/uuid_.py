@@ -12,7 +12,7 @@ class UUIDType(DataType):
     A *semantic* type: the value means "a UUID" on every backend, while the
     storage is each backend's own choice. Backends that can render this type
     directly implement ``format_data_type_uuid``; the rest declare a
-    substitute through ``suggested_data_types()``.
+    substitute through ``substitute_data_types()``.
 
     Storage by backend, for reference when reading a DDL diff. Where a row
     names a spelling the dialect does not actually write, that is said in
@@ -65,7 +65,7 @@ class UUIDType(DataType):
 
     This is a *documentation* table, not a contract: a backend whose entry is
     missing has not implemented the type, and one whose row disagrees with its
-    ``suggested_data_types()`` has a defect worth reporting. A row that
+    ``substitute_data_types()`` has a defect worth reporting. A row that
     contradicts the vendor's own documentation is a defect *here* — that is the
     rule this table is checked against, row by row.
 

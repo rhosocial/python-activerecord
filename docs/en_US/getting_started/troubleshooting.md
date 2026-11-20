@@ -27,7 +27,14 @@ Call User.configure(backend) first.
 
 ### Cause
 
-You tried to use a model before configuring its database backend.
+Every model has a built-in `DummyBackend` (`_dummy_backend`) as its default
+backend. It can generate SQL with `to_sql()` but cannot execute queries. Until
+you configure a real backend (SQLite is the built-in option), calls such as
+`save()`, `find()`, or `all()` raise `DatabaseError: No backend configured`.
+In other words, you used the model before configuring a real backend, so it was
+still running on that default dummy backend.
+
+> 💡 **AI Prompt:** "My model raises 'DatabaseError: No backend configured' on save(). Is it still using the default DummyBackend, and how do I configure SQLite to fix it?"
 
 ### Solution
 

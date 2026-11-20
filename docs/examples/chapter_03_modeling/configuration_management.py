@@ -52,7 +52,9 @@ _ORDERS_DDL = """
 
 
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls) -> str:
+        return "users"
     c: ClassVar[FieldProxy] = FieldProxy()
     id: Optional[int] = None
     name: str
@@ -60,7 +62,9 @@ class User(ActiveRecord):
 
 
 class Order(ActiveRecord):
-    __table_name__ = "orders"
+    @classmethod
+    def table_name(cls) -> str:
+        return "orders"
     c: ClassVar[FieldProxy] = FieldProxy()
     id: Optional[int] = None
     user_id: int

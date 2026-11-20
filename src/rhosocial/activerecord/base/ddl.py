@@ -47,15 +47,12 @@ from .fields import (
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     ColumnConstraint,
     ColumnDefinition,
-    CreateTableStatement,
     CreateTableOptions,
-    DropTableStatement,
     IndexDefinition,
     StorageOptionsExpression,
     TableConstraint,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_partition import PartitionClause
-from rhosocial.activerecord.backend.expression.statements.ddl_index import CreateIndexStatement, DropIndexStatement
 
 try:
     from typing import Annotated
@@ -617,9 +614,11 @@ class DDLSource(Protocol):
     source implementation without inheriting from ActiveRecord.
 
     This contract deliberately excludes the ``ddl()`` factory, backend and
-    dialect objects, expression generation, statement plans, rendering, and
-    execution.  ``@runtime_checkable`` verifies the presence of the protocol
-    methods, not their complete signatures.
+    dialect objects, expression generation, statement-class selection and
+    construction, statement plans, rendering, and execution.  It answers what
+    a model declares, never how that declaration becomes a statement.
+    ``@runtime_checkable`` verifies the presence of the protocol methods, not
+    their complete signatures.
     """
 
     def table_name(self) -> str:
@@ -664,6 +663,16 @@ class DDLSource(Protocol):
     def column_attributes(self, field: str) -> Sequence[ColumnAttribute]:
         ...
 
+    def column_annotations(self, field: str) -> Tuple[Any, ...]:
+        """Every annotation recorded on *field*, exactly as written.
+
+        Includes core markers, backend-owned markers, ``UseColumn``, and
+        annotation types this core knows nothing about, in declaration order.
+        Which of them apply is decided by the consumer (a migration plan for
+        a particular backend), never here.
+        """
+        ...
+
     def column_indexes(self, field: str) -> Sequence[IndexDefinition]:
         ...
 
@@ -694,11 +703,6 @@ class DDLSource(Protocol):
         ...
 
     def table_indexes(self) -> Sequence[IndexDefinition]:
-        ...
-
-    def create_table_statement_classes(
-        self,
-    ) -> Optional[Union[Type[CreateTableStatement], Sequence[Type[CreateTableStatement]]]]:
         ...
 
     def table_constraints(self) -> Sequence[TableConstraint]:
@@ -736,9 +740,14 @@ class DDLSourceMixin:
 
     @classmethod
     def _validate_ddl_annotations(cls) -> None:
-        """Require every DDL annotation to have an explicit processor."""
-        for metadata in (getattr(cls, "__table_ddl_fields__", {}) or {}).values():
-            metadata.require_handled()
+        """A compatibility hook; declaration time requires no handler.
+
+        An annotation may name a backend this model is never used with, so the
+        declaration surface must present it rather than reject it.  Consumers
+        that want strictness can call
+        :meth:`DDLFieldMetadata.require_handled` themselves.
+        """
+        return None
 
     @classmethod
     def table_options(cls) -> Optional[Union[CreateTableOptions, Sequence[CreateTableOptions]]]:
@@ -862,30 +871,6 @@ class DDLSourceMixin:
         )
 
     @classmethod
-    def create_table_statement_classes(
-        cls,
-    ) -> Optional[Union[Type[CreateTableStatement], Sequence[Type[CreateTableStatement]]]]:
-        return None
-
-    @classmethod
-    def drop_table_statement_classes(
-        cls,
-    ) -> Optional[Union[Type[DropTableStatement], Sequence[Type[DropTableStatement]]]]:
-        return None
-
-    @classmethod
-    def create_index_statement_classes(
-        cls,
-    ) -> Optional[Union[Type[CreateIndexStatement], Sequence[Type[CreateIndexStatement]]]]:
-        return None
-
-    @classmethod
-    def drop_index_statement_classes(
-        cls,
-    ) -> Optional[Union[Type[DropIndexStatement], Sequence[Type[DropIndexStatement]]]]:
-        return None
-
-    @classmethod
     def column_name(cls, field: str) -> str:
         return cast(Any, cls).get_column_name(field)
 
@@ -940,6 +925,12 @@ class DDLSourceMixin:
 
     @classmethod
     def column_constraints(cls, field: str) -> Sequence[ColumnConstraint]:
+        """Constraints declared for *field*, plus PK/required-nullability facts.
+
+        The list order is deterministic but not a contract: constraint order
+        does not affect SQL validity, so a consumer may reorder clauses when
+        rendering for a particular dialect.
+        """
         cls._validate_ddl_annotations()
         metadata = cls._field_metadata(field)
         if metadata is None:
@@ -989,6 +980,20 @@ class DDLSourceMixin:
             for marker in metadata.column_attributes
             for attribute in marker.attributes
         ]
+
+    @classmethod
+    def column_annotations(cls, field: str) -> Tuple[Any, ...]:
+        """Every annotation recorded on *field*, exactly as written.
+
+        This is deliberately unfiltered: it includes core markers,
+        backend-owned markers, ``UseColumn`` and annotation types this core
+        knows nothing about.  Which of them apply is decided by the consumer
+        (a migration plan for a particular backend), never here.
+        """
+        metadata = cls._field_metadata(field)
+        if metadata is None:
+            return ()
+        return tuple(metadata.annotations)
 
     @classmethod
     def column_indexes(cls, field: str) -> Sequence[IndexDefinition]:
@@ -1080,6 +1085,12 @@ class DDLSourceMixin:
 
     @classmethod
     def ddl_field_names(cls) -> Tuple[str, ...]:
+        """The fields that take part in DDL, in ``model_fields`` order.
+
+        The order is presentation only, not a contract: field order does not
+        affect SQL validity, so a consumer (a migration plan, for one) may
+        render the columns in whatever order it prefers.
+        """
         cls._validate_ddl_annotations()
         derived = getattr(cls, "__derived_fields__", {}) or {}
         return tuple(
@@ -1098,7 +1109,6 @@ class DDLSourceMixin:
         metadata = cls._field_metadata(field)
         if metadata is None:
             metadata = DDLFieldMetadata(cast(Any, cls).model_fields[field])
-        metadata.require_handled()
         return metadata
 
     @classmethod

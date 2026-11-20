@@ -35,6 +35,7 @@
 ## Modeling Data
 
 * [Overview](modeling/README.md)
+* [Definition](modeling/definition.md)
 * [Fields & Proxies](modeling/fields.md)
 * [Derived Fields](modeling/derived_fields.md)
 * [Mixins](modeling/mixins.md)
@@ -148,6 +149,10 @@
 * [Pragma](backend/sqlite/backend_specific_features/pragma.md)
 * [FTS5](backend/sqlite/backend_specific_features/fts5.md)
 * [Extension](backend/sqlite/backend_specific_features/extension.md)
+
+## Migrations
+
+* [Migration System (Backend Runtime)](migration/README.md)
 
 ## Command-Line Interface
 

@@ -10,6 +10,7 @@ to prevent circular imports.
 import inspect
 import sys
 import warnings
+from contextvars import ContextVar
 from enum import Enum
 from typing import Dict, Any, Optional, Tuple, Protocol, TYPE_CHECKING, Union
 from typing import runtime_checkable
@@ -31,6 +32,21 @@ SQLQueryAndParams: TypeAlias = Tuple[str, tuple]
 # __module__ attribute still points to 'typing'. We explicitly set it here
 # so introspection tools can correctly identify the defining module.
 SQLQueryAndParams.__module__ = __name__
+
+#: The dialect a render is running under, when the caller supplied one.
+#:
+#: Expressions built for a declaration carry no dialect: at that moment no
+#: backend has been opened, so nobody knows which dialect will render them.
+#: The environment fixture binds one at render time instead, and the nodes
+#: below the rendered root resolve it from here. Symbolically this is the
+#: caller's argument threaded down the tree without every formatter having to
+#: pass it along.
+_RENDER_DIALECT: ContextVar[Any] = ContextVar("expression_render_dialect", default=None)
+
+
+def current_dialect() -> Optional[Any]:
+    """The dialect of the render in progress, or ``None``."""
+    return _RENDER_DIALECT.get()
 
 
 class QueryWithParams:
@@ -237,19 +253,29 @@ class BaseExpression:
     def dialect(self) -> "SQLDialectBase":
         """The dialect bound to this expression.
 
-        Reading it **validates** that a dialect is bound: rendering requires
-        one, so access before binding raises ``ValueError`` (bind via
-        construction or the setter). Construction-time state flows through
-        ``self._dialect`` instead (operators inherit the honest binding
-        state, ``None`` included).
+        Reading it **validates** that a dialect is available: rendering requires
+        one, so access with no binding and no active render raises
+        ``ValueError``.  Three sources are honoured, most specific first:
+
+        1. the dialect bound to this node (constructor or setter);
+        2. the dialect of the render in progress (:func:`current_dialect`),
+           which is how a tree built for a declaration renders without every
+           node being bound by hand;
+        3. nothing -- raise.
+
+        Construction-time state flows through ``self._dialect`` instead
+        (operators inherit the honest binding state, ``None`` included).
         """
-        if self._dialect is None:
-            raise ValueError(
-                f"{type(self).__name__} has no dialect bound. Provide one at "
-                f"construction time (first argument) or set it through the "
-                f"dialect property."
-            )
-        return self._dialect
+        if self._dialect is not None:
+            return self._dialect
+        active = current_dialect()
+        if active is not None:
+            return active
+        raise ValueError(
+            f"{type(self).__name__} has no dialect bound. Provide one at "
+            f"construction time (first argument), through the dialect property, "
+            f"or render it with to_sql(dialect)."
+        )
 
     @dialect.setter
     def dialect(self, dialect: Optional["SQLDialectBase"]) -> None:
@@ -298,7 +324,36 @@ class BaseExpression:
             f"method that renders it."
         )
 
-    def to_sql(self) -> "SQLQueryAndParams":
+    def to_sql(self, dialect: Optional["SQLDialectBase"] = None) -> "SQLQueryAndParams":
+        """Render this expression, optionally binding the dialect for the tree.
+
+        A dialect reaches a node two ways, both valid:
+
+        * bound at construction or through the setter, per node;
+        * passed here once.  That is how a tree assembled for a declaration
+          renders: at assembly time no backend exists, so no node could be
+          bound.  The argument becomes the render's active dialect and the
+          nodes below resolve it from there, instead of every node having to
+          be bound one by one.
+        """
+        if dialect is None:
+            return self._render()
+        token = _RENDER_DIALECT.set(dialect)
+        try:
+            return self._render()
+        finally:
+            _RENDER_DIALECT.reset(token)
+
+    def check_dialect(self, dialect: "SQLDialectBase") -> None:
+        """Hook: refuse a dialect this node cannot be rendered against.
+
+        Called on every render, and at construction when a dialect is
+        supplied, so a node whose correctness depends on the grammar it renders
+        with states that in one place rather than at every construction site.
+        """
+        return None
+
+    def _render(self) -> "SQLQueryAndParams":
         """Unified rendering entry point for every expression.
 
         Implemented **once, here** — expression subclasses never override it.
@@ -348,8 +403,10 @@ class BaseExpression:
             UnsupportedFeatureError,
         )
 
+        dialect = self.dialect
+        self.check_dialect(dialect)
         formatter_name = self.format_method
-        formatter = getattr(self.dialect, formatter_name, None)
+        formatter = getattr(dialect, formatter_name, None)
         if formatter is None or not callable(formatter):
             raise UnsupportedFeatureError(
                 dialect_name=self.dialect.name,

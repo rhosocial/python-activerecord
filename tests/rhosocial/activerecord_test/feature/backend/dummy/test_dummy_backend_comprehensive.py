@@ -9,6 +9,7 @@ import pytest
 from rhosocial.activerecord.backend.impl.dummy.backend import DummyBackend, AsyncDummyBackend
 from rhosocial.activerecord.backend.errors import DatabaseError
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.base.type_adaption import CORE_DEFAULT_TYPE_MAPPINGS
 
 
 class TestDummyBackendComprehensive:
@@ -47,11 +48,15 @@ class TestDummyBackendComprehensive:
         assert backend is not None
 
     def test_async_dummy_backend_get_default_adapter_suggestions(self):
-        """Test AsyncDummyBackend get_default_adapter_suggestions."""
+        """A dummy backend still inherits the framework's core suggestions."""
         backend = AsyncDummyBackend()
         suggestions = backend.get_default_adapter_suggestions()
-        # Should return empty dict
-        assert suggestions == {}
+        # No adapters of its own, but the core default table still applies.
+        assert backend.get_type_adapters() == []
+        assert suggestions
+        assert set(suggestions) <= {
+            py_type for py_type, _ in CORE_DEFAULT_TYPE_MAPPINGS
+        }
 
     def test_async_dummy_backend_dialect_property(self):
         """Test AsyncDummyBackend dialect property."""

@@ -2,6 +2,8 @@
 
 确保数据的完整性是模型的重要职责。
 
+> 完整的能力矩阵与设计边界，请参阅 [The ActiveRecord Definition](definition.md)。
+
 ## 数据验证 (Pydantic)
 
 由于模型是 Pydantic 的 `BaseModel`，你可以使用所有的 Pydantic 验证功能。
