@@ -135,7 +135,7 @@
 ## 5. 验证状态
 
 - 共享契约测试套件 `feature/ddl/core` 覆盖了大多数 `DDLSource` 方法，但截至本文撰写时，它在**全部 11 个仓库中的桥接数为零**——该契约从未在后端的 CI 流水线中运行过。核心仓库有自己的内联 `feature/basic/ddl` 测试，覆盖了其中一部分。
-- 有两个协议方法**契约中未提及**：`partition_key_columns()` 和 `object_type()`。
+- 有两个协议方法**共享契约中未提及**：`partition_key_columns()` 与 `object_type()`；不过 core 仓自身的内联测试已覆盖它们（分别为 partition-key 测试与只读/视图测试）。
 
 ---
 

@@ -174,8 +174,9 @@ This section is intentionally explicit — it records what the current definitio
 - The shared contract suite `feature/ddl/core` covers most `DDLSource` methods, but as of this
   writing it has **zero bridges in all 11 repositories** — the contract has never run in a backend
   CI pipeline. The core repository has its own inline `feature/basic/ddl` tests covering part of it.
-- Two protocol methods are **not mentioned by the contract**: `partition_key_columns()` and
-  `object_type()`.
+- Two protocol methods are **not mentioned by the shared contract**: `partition_key_columns()` and
+  `object_type()`. They are, however, covered by the core repository's own inline tests
+  (`test_ddl_partition_key.py` and readonly/view tests respectively).
 
 ---
 
