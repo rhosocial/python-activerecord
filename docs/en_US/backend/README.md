@@ -42,7 +42,7 @@ pip install rhosocial-activerecord[all]
 * **[Architecture](architecture.md)**: How a backend is composed — the Backend vs. Dialect split, Mixin composition, and the Expression–Dialect–Backend data flow.
 * **[Database Introspection](introspection.md)**: Query database structure metadata.
 * **[Query Explain Interface](explain.md)**: Execute EXPLAIN statements and analyse query plans and index usage.
-* **[Partition Maintenance](partition.md)**: The engine-neutral report shape and the maintenance verbs a backend may expose.
+* **[Partition capabilities](../migration/README.md)**: Table partitioning is exposed through backend suggestions (see the migration chapter) plus the backend CLI's introspection; there is no engine-neutral maintenance-report contract.
 * **[Expression System](expression/README.md)**: How Python objects are transformed into SQL strings.
 * **[Custom Backend](custom_backend.md)**: Implementing a new database driver.
 * **[Named Expression](named_expression.md)**: CLI-based expression execution (backend feature, not ActiveRecord).
