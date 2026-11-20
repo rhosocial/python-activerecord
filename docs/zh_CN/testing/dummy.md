@@ -60,6 +60,12 @@ except Exception as e:
     # 输出: DummyBackend does not support real database operations. Did you forget to configure a concrete backend?
 ```
 
+> 💡 **为什么要配置真实后端？** `DummyBackend` 只能生成 SQL，无法执行 `save()`、`find()` 或
+> `all()`。因此任何真实的数据库操作都必须先配置真实后端；本文档示例使用内置的
+> `SQLiteBackend`（包括内存模式 `:memory:`）。
+
+> 💡 **AI 提示词：** "我的模型用的是默认 DummyBackend，save() 报 'No backend configured'。如何配置 SQLite 才能执行真实的数据库操作？"
+
 ## 总结
 
 `DummyBackend` 是一个轻量级的工具，用于确保你的代码生成了正确的 SQL 结构。如果你需要进行集成测试或需要实际的数据交互，请使用 `SQLiteBackend`（支持内存模式 `:memory:`）或其他真实数据库后端。

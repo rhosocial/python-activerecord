@@ -24,6 +24,10 @@
 
 行为 mixin（时间戳、软删除、乐观锁……）与这条流水线并列：它们改变模型的*行为*，并以 `Default*` 形式注入流水线所看到的列。
 
+> **后端集成边界**：这条四层流水线也是 ActiveRecord 把声明交给后端的位置。方言绑定与能力门控正是在该交接处、于第 3、4 层发生。本文档所有示例均使用内置的 SQLite 后端；其他后端以各自文档为准。
+>
+> 💡 **AI 提示词**："使用内置的 SQLite 后端，解释在这条四层流水线中 ActiveRecord 在何处把模型声明交给后端，以及在交接之前每一层各自负责什么。"
+
 ---
 
 ## 1. 能力矩阵
@@ -31,6 +35,10 @@
 ### 1.1 字段注解
 
 声明写在 `typing.Annotated[T, ...]` 中。「是否进入 DDL？」表示该声明会影响生成的 DDL（列名、类型、约束、索引、注释）。标记为**否**的注解只影响运行时行为或查询表达式。
+
+> **后端集成边界**：`UseSqlType`、`UseConstraint`、`UseColumnAttributes` 这类标记是后端接入声明面的位置——例如 SQLite 会把它们渲染成自己的 SQL 类型、约束与属性。本文所有示例均使用 SQLite；其他后端以各自文档为准。
+>
+> 💡 **AI 提示词**："在 `Annotated` 字段上使用 `UseSqlType` 时，请结合内置的 SQLite 后端解释『第一个可渲染者胜出』是如何工作的。给出若干个有序的 `DataType` 候选，并说明 SQLite 如何判定它可以把哪一个渲染为列类型。"
 
 | 注解 | 声明内容 | 是否进入 DDL？ | 消费者 |
 |---|---|---|---|
@@ -59,7 +67,7 @@
 | `table_partition()` | `PartitionClause` | classmethod 覆盖 | 与 `partition_key_columns()` 无关 |
 | `table_indexes()` | `IndexDefinition` 序列 | `__table_indexes__` | 名称与字段的 `UseIndex` 交叉核对 |
 | `table_constraints()` | `TableConstraint` 序列 | 字段 `UseConstraint` + `__table_constraints__` | 合成复合主键约束 |
-| `table_inherits()` | 表名列表 | classmethod 覆盖 | PostgreSQL `INHERITS` |
+| `table_inherits()` | 表名列表 | classmethod 覆盖 | `INHERITS` 子句(SQLite 不支持,由后端提供) |
 | `table_tablespace()` | 字符串 | classmethod 覆盖 | — |
 | `object_type()` | `ObjectDeclaration` | classmethod 覆盖 | 是一个声明，而非内省探测 |
 | `schema_name()` | 字符串或 `None` | 模型接口 | 不由 `DDLSourceMixin` 实现 |
@@ -99,6 +107,8 @@
 | 多个候选 | 允许，第一个可渲染者胜出 | 拒绝（必须恰好一个列类） |
 | 是否交叉核对？ | **否** —— 字段可以只声明其一、两者都声明或都不声明；框架从不调和二者 | 同上 |
 
+> **后端集成边界**：`UseSqlType` 描述的是值如何*存储*，而存储类型最终由后端的方言渲染。本文档示例使用内置的 SQLite 后端；其他后端以各自文档为准。相对地，`UseColumnType` 纯粹属于 ActiveRecord 的查询面关注点，永远不会到达后端。
+
 ### 2.2 纯语义 mixin 不注入字段
 
 `TimestampMixin`、`OptimisticLockMixin`、`SoftDeleteMixin`、`ReadOnlyMixin` 和 `CompositePKMixin` 不声明任何 Pydantic 字段。只有 `Default*` 变体以及 `UUIDMixin` / `IntegerPKMixin` 会向 DDL 注入列。通过 `UseColumn` 声明的自定义列名会被自动采纳。
@@ -108,6 +118,10 @@
 - `DDLSource` **读取**声明并呈现它们（与方言无关）。
 - `base/derivation.py` 中的 `build_*` 函数**推导**通用语句表达式；推导器从不导入后端，也从不决定策略（例如内联索引与独立索引由显式的 `include_indexes` 参数决定，列顺序由调用方掌握并完全指定）。
 - `MigrationMixin` 通过后端**执行**语句；函数式迁移（`@migration` + `MigrationContext.apply`）负责**编排**它们，处理依赖/版本/记录，并提供 `--dry-run` 预览。
+
+> **后端集成边界**：这里推导出的通用语句是与方言无关的，但当后端在第 3、4 层消费它们时，方言绑定与能力门控就会生效。本文档示例使用内置的 SQLite 后端；其他后端以各自文档为准。
+>
+> 💡 **AI 提示词**："使用内置的 SQLite 后端，追踪一个声明如何从 `DDLSource` 经过推导流向迁移，并指出方言在何处绑定，以及 SQLite 在何处对某项能力进行门控。"
 
 ---
 
@@ -127,6 +141,7 @@
 - **不存在赋值时校验。** 模型没有启用 `validate_assignment`；对 `instance.status = "x"` 的赋值不会经过 Pydantic 校验。校验发生在构造时，以及 `save()` 中通过 `validate_fields()` / `validate_record()` 进行。
 - **字段枚举范围（`UseEnumRange`）尚未实现。** 它已调研并列入计划；当前对取值集合的强制仅限于 Pydantic 对 `Enum` 注解字段的原生构造时检查，以及可选的 DDL `CHECK` 约束。
 - **`object_type()` 在核心库中没有消费者。** 协议、mixin 和再导出都存在，但推导器只构建表语句，从不对 `VIEW` / `MATERIALIZED_VIEW` 做分支处理。
+  应将其视为 SQLite 的限制，而非 ActiveRecord 声明入口的缺失：本文示例所使用的 SQLite 后端不会通过这条路径渲染此类语句，而其他后端提供了这类能力——其他后端以各自文档为准。
 - **`schema_name()` 不是由 `DDLSourceMixin` 提供的**（它来自模型接口），而 `build_create_table_statement()` 构建的是未限定 schema 的 `Table(dialect, table_name())`。
 - **`table_partition()` 与 `partition_key_columns()` 是两条独立的通道**；通用推导器从不会根据分区键合成 `PartitionClause`，并且一致性也未受检查。
 

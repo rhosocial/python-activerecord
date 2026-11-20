@@ -30,6 +30,15 @@ to the consumers in layers 3 and 4.
 Behavior mixins (timestamps, soft delete, optimistic locking, …) sit alongside this pipeline: they
 change model *behavior* and, in their `Default*` forms, inject the columns the pipeline sees.
 
+> **Backend integration boundary**: This four-layer pipeline is also where ActiveRecord hands
+> declarations off to a backend. Dialect binding and capability gating happen at that handoff, in
+> layers 3 and 4. All examples in this document use the built-in SQLite backend; other backends
+> are documented separately.
+>
+> 💡 **AI Prompt**: "Using the built-in SQLite backend, explain where ActiveRecord hands model
+> declarations off to the backend in this four-layer pipeline, and what each layer is responsible
+> for before that handoff."
+
 ---
 
 ## 1. Capability matrix
@@ -39,6 +48,15 @@ change model *behavior* and, in their `Default*` forms, inject the columns the p
 Declared inside `typing.Annotated[T, ...]`. "In DDL?" means the declaration influences generated
 DDL (column names, types, constraints, indexes, comments). Markers with **No** affect runtime
 behavior or query expressions only.
+
+> **Backend integration boundary**: Markers such as `UseSqlType`, `UseConstraint`, and
+> `UseColumnAttributes` are the points where a backend plugs into the declaration surface — for
+> example, SQLite renders them into its own SQL types, constraints, and attributes. All examples
+> here use SQLite; other backends are documented separately.
+>
+> 💡 **AI Prompt**: "With `UseSqlType` on an `Annotated` field, explain how 'first renderable wins'
+> works with the built-in SQLite backend. Show several ordered `DataType` candidates and how
+> SQLite determines which one it can render into a column type."
 
 | Annotation | Declares | In DDL? | Consumed by |
 |---|---|---|---|
@@ -69,7 +87,7 @@ Key value classes used through `UseColumnAttributes`: `IdentityAttribute` (gener
 | `table_partition()` | `PartitionClause` | classmethod override | independent of `partition_key_columns()` |
 | `table_indexes()` | `IndexDefinition` sequence | `__table_indexes__` | names cross-checked with field `UseIndex` |
 | `table_constraints()` | `TableConstraint` sequence | field `UseConstraint` + `__table_constraints__` | synthesizes composite-PK constraint |
-| `table_inherits()` | list of table names | classmethod override | PostgreSQL `INHERITS` |
+| `table_inherits()` | list of table names | classmethod override | `INHERITS` clause (not available in SQLite; backend-provided) |
 | `table_tablespace()` | string | classmethod override | — |
 | `object_type()` | `ObjectDeclaration` | classmethod override | a declaration, never an introspection probe |
 | `schema_name()` | string or `None` | model interface | not implemented by `DDLSourceMixin` |
@@ -117,6 +135,11 @@ These are the most frequently misunderstood aspects of the current definition.
 | Multiple candidates | allowed, first renderable wins | rejected (exactly one column class) |
 | Cross-checked? | **No** — a field may declare either, both, or neither; the framework never reconciles them | same |
 
+> **Backend integration boundary**: `UseSqlType` describes how a value is *stored*, and storage
+> types are ultimately rendered by a backend's dialect. The examples in this document use the
+> built-in SQLite backend; other backends are documented separately. `UseColumnType`, by contrast,
+> is a pure ActiveRecord query-surface concern and never reaches a backend.
+
 ### 2.2 Semantics-only mixins inject no fields
 
 `TimestampMixin`, `OptimisticLockMixin`, `SoftDeleteMixin`, `ReadOnlyMixin`, and `CompositePKMixin`
@@ -132,6 +155,15 @@ inject columns into DDL. A custom column name declared via `UseColumn` is honore
 - `MigrationMixin` **executes** statements via a backend; function-style migrations
   (`@migration` + `MigrationContext.apply`) **orchestrate** them, with dependency/version/record
   handling and `--dry-run` preview.
+
+> **Backend integration boundary**: The generic statements derived here are dialect-free, but
+> dialect binding and capability gating take effect when a backend consumes them in layers 3 and 4.
+> The examples in this document use the built-in SQLite backend; other backends are documented
+> separately.
+>
+> 💡 **AI Prompt**: "Using the built-in SQLite backend, trace how a declaration flows from
+> `DDLSource` through derivation to migration, and identify exactly where the dialect is bound and
+> where SQLite gates a capability."
 
 ---
 
@@ -162,6 +194,9 @@ This section is intentionally explicit — it records what the current definitio
   `Enum`-annotated fields and optional DDL `CHECK` constraints.
 - **`object_type()` has no consumer in core.** The protocol, mixin, and re-export exist, but the
   deriver builds table statements only and never branches on `VIEW` / `MATERIALIZED_VIEW`.
+  Treat this as a SQLite limitation rather than a missing ActiveRecord declaration entry point:
+  the SQLite backend used in these examples does not render such statements through this path,
+  while other backends provide them — other backends are documented separately.
 - **`schema_name()` is not supplied by `DDLSourceMixin`** (it comes from the model interface),
   and `build_create_table_statement()` builds an unqualified `Table(dialect, table_name())`.
 - **`table_partition()` and `partition_key_columns()` are two independent channels**; the generic

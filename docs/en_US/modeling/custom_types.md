@@ -2,6 +2,8 @@
 
 Sometimes we need to store complex types that are not natively supported by the database, such as storing a Python list as a JSON string.
 
+> Storage and conversion here use the built-in SQLite backend as the reference. The type-adapter interface plugs into a backend the same way regardless of which one is configured; other backends are documented separately.
+
 ## Using `UseAdapter`
 
 We can define an adapter class that implements the `to_database` and `from_database` methods.

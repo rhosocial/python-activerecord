@@ -85,23 +85,26 @@ class User(ActiveRecord):
 
 `DataType` comes in generic and backend-specific forms. `UseSqlType` preserves both forms in declaration order; the collection layer does not select or replace them:
 
-- **Generic types** (e.g. `VarCharType`, `IntegerType`, `TextType`, `JsonType`) can be used as cross-backend candidates.
-- **Backend-specific types** (e.g. `PostgresUUIDType`, `MySQLEnumType`) remain candidates for that backend; support is decided by the backend dialect.
+- **Generic types** (e.g. `VarCharType`, `IntegerType`, `TextType`, `JsonType`) live in the core and render on the built-in SQLite backend.
+- **Backend-specific types** remain candidates for the backend that owns them; whether a candidate can be rendered is decided by that backend's dialect. Other backends are documented separately.
 
 ### Candidate Order
 
-`UseSqlType` can declare multiple types. `DDLSourceMixin` preserves the candidates and their order; a later DDL consumer must select one explicitly for the active dialect.
+`UseSqlType` can declare multiple types. `DDLSourceMixin` preserves the candidates and their order; a later DDL consumer must select one explicitly for the active dialect. With the built-in SQLite backend, the first candidate it can render wins:
 
 ```python
 from typing import Annotated
 from rhosocial.activerecord.base import UseSqlType
-from rhosocial.activerecord.backend.expression.types import TextType
-from rhosocial.activerecord.backend.impl.postgres.expression.types import PostgresUUIDType
+from rhosocial.activerecord.backend.expression.types import TextType, VarCharType
 
-identifier: Annotated[str, UseSqlType(PostgresUUIDType(), TextType())]
+identifier: Annotated[str, UseSqlType(TextType(), VarCharType(length=64))]
 ```
 
-This preserves candidate priority across backends; the actual choice must be made explicitly by a backend DDL consumer.
+`column_data_type("identifier")` returns both candidates in order; when SQLite renders the column it picks the first candidate it can render — here `TextType()` — without changing the declaration. This preserves candidate priority; the actual choice must be made explicitly by the backend DDL consumer.
+
+> **Backend plug-in**: These declarations are written against ActiveRecord's core surface and work unchanged with the built-in SQLite backend. A backend plugs in by supplying the dialect that renders the candidates; a capability SQLite does not support is a SQLite limitation, not an ActiveRecord gap.
+
+> 💡 **AI Prompt**: "How does ActiveRecord plug in a backend to render a `UseSqlType` declaration with several candidates, and why does SQLite pick the first renderable one while the source keeps them all?"
 
 > **Relationship with `UseColumn`**: `UseColumn` controls the **column name** (Python attribute ↔ database column); `UseSqlType` controls the **column type** (SQL data type). They do not conflict and can be used together.
 >

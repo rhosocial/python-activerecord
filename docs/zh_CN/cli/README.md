@@ -7,6 +7,14 @@
 CLI 只是薄适配层，不拼接 SQL：DML 调用 ActiveRecord 方法，DQL 调用 `ActiveQuery`，
 `set` / `cte` 执行用户自己构造的 `SetOperationQuery` / `CTEQuery`。
 
+> 💡 **说明**：模型命令通过模型配置的后端运行：CLI 调用 ActiveRecord API，这些 API 再通过
+> 后端执行 SQL。新建的模型默认使用内置的 `DummyBackend`，它只能构建 SQL，无法执行
+> `save()` / `find()` / `all()`。在运行访问数据库的命令前，请配置真实后端（本文档使用
+> SQLite），通过 `--backend-class` / `--config-class`（见[连接与模型引用](connections.md)），
+> 或在模型模块中调用 `configure()`。
+
+> 💡 **AI 提示词：** "我的模型 CLI 命令报 'No backend configured'，是因为模型还在用默认的 DummyBackend。如何把它连接到 SQLite 让命令正常执行？"
+
 ## 文档页面
 
 | 页面 | 内容 |

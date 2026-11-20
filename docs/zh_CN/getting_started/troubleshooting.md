@@ -27,7 +27,12 @@ Call User.configure(backend) first.
 
 ### 原因
 
-在使用模型之前，没有为其配置数据库后端。
+每个模型默认都带有内置的 `DummyBackend`（`_dummy_backend`）作为其后端。它只能通过
+`to_sql()` 生成 SQL，却无法执行查询。在你配置真实后端（内置选项是 SQLite）之前，调用
+`save()`、`find()` 或 `all()` 会抛出 `DatabaseError: No backend configured`。
+换句话说，你在配置真实后端之前就使用了模型，因此它仍运行在默认的虚拟后端上。
+
+> 💡 **AI 提示词：** "我的模型在 save() 时抛出 'DatabaseError: No backend configured'，是不是还在用默认的 DummyBackend？该如何配置 SQLite 来解决？"
 
 ### 解决
 
