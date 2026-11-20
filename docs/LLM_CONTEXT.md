@@ -116,8 +116,8 @@ Manages the database connection and executes SQL.
 
 ### Field Mixins (field/)
 Reusable mixins that add automatic fields and logic to models. Behavior mixins that need a field
-are split into a semantics base (declares no fields; points at a model-declared field via a class
-attribute like `__created_at_field__`) and a `Default*` subclass that adds the conventional field.
+are split into a semantics base (declares no fields; points at a model-declared field by overriding
+a classmethod like `created_at_field()`) and a `Default*` subclass that adds the conventional field.
 - `DefaultTimestampMixin` (field/timestamp.py): Adds `created_at`, `updated_at`; auto-set on save. `TimestampMixin` is the field-free semantics base.
 - `DefaultSoftDeleteMixin` (field/soft_delete.py): Adds `deleted_at`; `.delete()` sets timestamp instead of removing row. `SoftDeleteMixin` is the field-free semantics base (+ `AsyncSoftDeleteMixin`/`DefaultAsyncSoftDeleteMixin`).
 - `DefaultOptimisticLockMixin` (field/version.py): Adds `version`; raises `StaleRecordError` (a `DatabaseError` subclass) on concurrent update conflict. `OptimisticLockMixin` is the field-free semantics base.

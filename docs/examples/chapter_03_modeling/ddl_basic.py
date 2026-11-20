@@ -43,7 +43,9 @@ from rhosocial.activerecord.model import ActiveRecord
 class User(ActiveRecord):
     """User Model for DDL demo"""
 
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls) -> str:
+        return "users"
 
     username: str
     email: str

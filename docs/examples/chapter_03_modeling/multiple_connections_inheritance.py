@@ -38,7 +38,9 @@ _USERS_DDL = """
 class User(ActiveRecord):
     """Business-side user model connected to the primary database."""
 
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls) -> str:
+        return "users"
 
     id: Optional[int] = None
     name: str

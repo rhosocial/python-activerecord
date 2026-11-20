@@ -66,7 +66,7 @@ than dropped at render time.
 
 | Branch | Renders |
 |--------|---------|
-| `ColumnPrimaryKeyConstraint` | `PRIMARY KEY` (SQLite adds `AUTOINCREMENT` when `is_auto_increment=True`) |
+| `ColumnPrimaryKeyConstraint` | `PRIMARY KEY` (auto-increment is a separate backend column suggestion, not a constructor flag) |
 | `ColumnUniqueConstraint` | `UNIQUE` |
 | `ColumnNotNullConstraint` | `NOT NULL` |
 | `ColumnNullableConstraint` | `NULL` |

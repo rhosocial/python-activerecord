@@ -44,7 +44,7 @@ The current implementation does not infer a `DataType` from a plain Python annot
 
 | Declaration | Reading method | Notes |
 |-------------|----------------|-------|
-| `__table_name__` | `table_name()` | Must be a string; missing or invalid values raise `ValueError`. |
+| `table_name()` (classmethod override) | `table_name()` | Declared by overriding the classmethod, which returns the table name. No dunder attribute is read; without an override the call raises `NotImplementedError`. |
 | `__schema_name__` | `schema_name()` | Returned unchanged; `None` when unset. |
 | `__primary_key__` | `primary_key_columns()` | A string becomes a one-item tuple; a tuple is returned unchanged. |
 | `__primary_key__` | `is_composite_pk()` | Only a tuple denotes a composite primary key. |
@@ -104,7 +104,7 @@ The table below describes the default `DDLSourceMixin` implementation. A custom 
 
 | Method | Return value | Collection behavior |
 |--------|---------------|---------------------|
-| `table_name()` | `str` | Reads and validates `__table_name__`. |
+| `table_name()` | `str` | Declared by the model's classmethod override; no dunder attribute is read. |
 | `schema_name()` | `Optional[str]` | Reads `__schema_name__`. |
 | `primary_key_columns()` | `Tuple[str, ...]` | Normalizes `__primary_key__`. |
 | `is_composite_pk()` | `bool` | Tests whether the primary-key declaration is a tuple. |

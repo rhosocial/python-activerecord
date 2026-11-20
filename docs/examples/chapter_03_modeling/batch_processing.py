@@ -51,7 +51,9 @@ _USERS_DDL = """
 
 
 class User(ActiveRecord):
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls) -> str:
+        return "users"
     c: ClassVar[FieldProxy] = FieldProxy()
     id: Optional[int] = None
     name: str

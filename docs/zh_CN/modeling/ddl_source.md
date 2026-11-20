@@ -44,7 +44,7 @@ assert isinstance(User, DDLSource)
 
 | 声明 | 读取接口 | 说明 |
 |------|----------|------|
-| `__table_name__` | `table_name()` | 必须是字符串；未设置或类型错误会抛出 `ValueError`。 |
+| `table_name()`（类方法覆盖） | `table_name()` | 通过覆盖类方法声明并返回表名；框架不读取任何双下划线属性，未覆盖时调用抛出 `NotImplementedError`。 |
 | `__schema_name__` | `schema_name()` | 原样返回；未设置时为 `None`。 |
 | `__primary_key__` | `primary_key_columns()` | 字符串规范化为单元素 tuple，tuple 原样返回。 |
 | `__primary_key__` | `is_composite_pk()` | 只有 tuple 才表示复合主键。 |
@@ -104,7 +104,7 @@ class Report(ActiveRecord):
 
 | 接口 | 返回值 | 如何收集及注意事项 |
 |------|--------|------------------|
-| `table_name()` | `str` | 读取并校验 `__table_name__`。 |
+| `table_name()` | `str` | 由模型的类方法覆盖提供；不读取 `__table_name__`。 |
 | `schema_name()` | `Optional[str]` | 读取 `__schema_name__`。 |
 | `primary_key_columns()` | `Tuple[str, ...]` | 规范化 `__primary_key__`。 |
 | `is_composite_pk()` | `bool` | 判断主键声明是否为 tuple。 |

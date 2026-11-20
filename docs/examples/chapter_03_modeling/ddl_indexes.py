@@ -35,7 +35,9 @@ from rhosocial.activerecord.model import ActiveRecord
 class Product(ActiveRecord):
     """Product Model for DDL index demo"""
 
-    __table_name__ = "products"
+    @classmethod
+    def table_name(cls) -> str:
+        return "products"
 
     id: int = None
     name: str

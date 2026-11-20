@@ -61,7 +61,7 @@ ColumnDefinition(
 
 | 分支 | 渲染结果 |
 |------|---------|
-| `ColumnPrimaryKeyConstraint` | `PRIMARY KEY`（SQLite 在 `is_auto_increment=True` 时追加 `AUTOINCREMENT`） |
+| `ColumnPrimaryKeyConstraint` | `PRIMARY KEY`（自增由独立的后端列建议提供，不再是构造参数） |
 | `ColumnUniqueConstraint` | `UNIQUE` |
 | `ColumnNotNullConstraint` | `NOT NULL` |
 | `ColumnNullableConstraint` | `NULL` |

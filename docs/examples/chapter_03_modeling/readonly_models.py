@@ -74,14 +74,18 @@ class UserFields(BaseModel):
 class User(UserFields, ActiveRecord):
     """Writable business model -- primary database."""
 
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls) -> str:
+        return "users"
     c: ClassVar[FieldProxy] = FieldProxy()
 
 
 class UserAnalytics(ReadOnlyMixin, UserFields, ActiveRecord):
     """Read-only analytics model -- analytics replica."""
 
-    __table_name__ = "users"
+    @classmethod
+    def table_name(cls) -> str:
+        return "users"
     c: ClassVar[FieldProxy] = FieldProxy()
 
     @property

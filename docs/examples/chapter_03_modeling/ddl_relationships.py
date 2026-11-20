@@ -33,7 +33,9 @@ from rhosocial.activerecord.model import ActiveRecord
 class Author(ActiveRecord):
     """Author Model for DDL relationship demo"""
 
-    __table_name__ = "authors"
+    @classmethod
+    def table_name(cls) -> str:
+        return "authors"
 
     name: str
     email: str
@@ -44,7 +46,9 @@ class Author(ActiveRecord):
 class Post(ActiveRecord):
     """Post Model for DDL relationship demo"""
 
-    __table_name__ = "posts"
+    @classmethod
+    def table_name(cls) -> str:
+        return "posts"
 
     title: str
     content: str
@@ -56,7 +60,9 @@ class Post(ActiveRecord):
 class Tag(ActiveRecord):
     """Tag Model for DDL relationship demo"""
 
-    __table_name__ = "tags"
+    @classmethod
+    def table_name(cls) -> str:
+        return "tags"
 
     name: str
 
@@ -66,7 +72,9 @@ class Tag(ActiveRecord):
 class PostTag(ActiveRecord):
     """Junction table for many-to-many relationship"""
 
-    __table_name__ = "post_tags"
+    @classmethod
+    def table_name(cls) -> str:
+        return "post_tags"
 
     post_id: int
     tag_id: int
@@ -99,7 +107,7 @@ def main():
             constraints=[
                 ColumnConstraint(
                     dialect,
-                    branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True),
+                    branch=ColumnPrimaryKeyConstraint(dialect),
                 )
             ],
         ),
@@ -145,7 +153,7 @@ def main():
             constraints=[
                 ColumnConstraint(
                     dialect,
-                    branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True),
+                    branch=ColumnPrimaryKeyConstraint(dialect),
                 )
             ],
         ),
@@ -203,7 +211,7 @@ def main():
             constraints=[
                 ColumnConstraint(
                     dialect,
-                    branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True),
+                    branch=ColumnPrimaryKeyConstraint(dialect),
                 )
             ],
         ),
