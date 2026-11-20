@@ -1,57 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
-<!-- 背景 -->
-<rect width="400" height="300" fill="white"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="rhosocial activerecord">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4F52D0"/>
+      <stop offset="1" stop-color="#8A3FFC"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#C9C6FF" stop-opacity="0.85"/>
+    </linearGradient>
+  </defs>
 
-<!-- 中心 ActiveRecord 圆形 -->
-<circle cx="200" cy="150" r="40" fill="#4F52D0"/>
+  <!-- rounded-square canvas -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
 
-<!-- ρ (rho) 主字符 -->
-<text x="190" y="157" text-anchor="end" fill="white"
-      font-family="Georgia, 'Times New Roman', serif"
-      font-size="30" font-weight="400">ρ</text>
+  <!-- orbit: six symmetric ecosystem nodes linked to the core (no labels) -->
+  <g fill="none" stroke="#FFFFFF" stroke-opacity="0.38" stroke-width="6" stroke-linecap="round">
+    <path d="M256 256 L256 92"/>
+    <path d="M256 256 L402 174"/>
+    <path d="M256 256 L402 338"/>
+    <path d="M256 256 L256 420"/>
+    <path d="M256 256 L110 338"/>
+    <path d="M256 256 L110 174"/>
+  </g>
+  <g fill="#FFFFFF" fill-opacity="0.92">
+    <circle cx="256" cy="92" r="14"/>
+    <circle cx="402" cy="174" r="14"/>
+    <circle cx="402" cy="338" r="14"/>
+    <circle cx="256" cy="420" r="14"/>
+    <circle cx="110" cy="338" r="14"/>
+    <circle cx="110" cy="174" r="14"/>
+  </g>
 
-<!-- AR 下标 -->
-<text x="192" y="168" text-anchor="start" fill="rgba(255,255,255,0.72)"
-      font-family="system-ui, -apple-system, sans-serif"
-      font-size="11" font-weight="600" letter-spacing="0.3">AR</text>
-
-<!-- 左侧数据库连接线 -->
-<g stroke-dasharray="5,5">
-  <!-- MySQL连接 -->
-  <path d="M80 100 L160 130" stroke="#4A90E2" stroke-width="3"/>
-  <circle cx="80" cy="100" r="8" fill="#4A90E2"/>
-
-  <!-- PostgreSQL连接 -->
-  <path d="M70 150 L160 150" stroke="#50E3C2" stroke-width="3"/>
-  <circle cx="70" cy="150" r="8" fill="#50E3C2"/>
-
-  <!-- SQLite连接 -->
-  <path d="M80 200 L160 170" stroke="#9013FE" stroke-width="3"/>
-  <circle cx="80" cy="200" r="8" fill="#9013FE"/>
-</g>
-
-<!-- 右侧应用连接线 -->
-<g stroke-dasharray="5,5">
-  <!-- Web应用连接 -->
-  <path d="M240 130 L320 100" stroke="#FF9500" stroke-width="3"/>
-  <circle cx="320" cy="100" r="8" fill="#FF9500"/>
-
-  <!-- API连接 -->
-  <path d="M240 150 L330 150" stroke="#FF2D55" stroke-width="3"/>
-  <circle cx="330" cy="150" r="8" fill="#FF2D55"/>
-
-  <!-- 移动应用连接 -->
-  <path d="M240 170 L320 200" stroke="#5856D6" stroke-width="3"/>
-  <circle cx="320" cy="200" r="8" fill="#5856D6"/>
-</g>
-
-<!-- 左侧数据库文字标签 -->
-<text x="50" y="105" text-anchor="end" fill="#4A90E2" font-family="Arial" font-size="12">MySQL</text>
-<text x="40" y="155" text-anchor="end" fill="#50E3C2" font-family="Arial" font-size="12">pgSQL</text>
-<text x="50" y="205" text-anchor="end" fill="#9013FE" font-family="Arial" font-size="12">SQLite</text>
-
-<!-- 右侧应用文字标签 -->
-<text x="350" y="105" fill="#FF9500" font-family="Arial" font-size="12">API</text>
-<text x="350" y="155" fill="#FF2D55" font-family="Arial" font-size="12">Task</text>
-<text x="350" y="205" fill="#5856D6" font-family="Arial" font-size="12">User</text>
+  <!-- core: abstract ring with an open stroke, an abstract rho-like glyph -->
+  <circle cx="256" cy="256" r="78" fill="none" stroke="url(#ring)" stroke-width="24"
+          stroke-linecap="round" stroke-dasharray="430 60" transform="rotate(-90 256 256)"/>
+  <circle cx="256" cy="256" r="30" fill="#FFFFFF" fill-opacity="0.9"/>
 </svg>
