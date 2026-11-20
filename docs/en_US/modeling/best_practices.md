@@ -317,9 +317,14 @@ class User(ActiveRecord):
     is_vip: bool = False
 ```
 
-### 4.2 Using Alembic for Migrations
+### 4.2 Migrations
 
-While `rhosocial-activerecord` doesn't provide migration tools itself, you can use Alembic.
+`rhosocial-activerecord` ships a **native migration system** — versioned, reversible migrations
+with dependency checks, dry runs, and version records. See the
+[Migration System](../migration/README.md) chapter for the full API and examples.
+
+You may still integrate a third-party tool such as Alembic if it fits your workflow, but it is not
+required — the framework does not need an external migration tool.
 
 **alembic/env.py Configuration:**
 
