@@ -42,6 +42,9 @@ from .ddl.database_assigned_column import DatabaseAssignedColumnSupport
 from .ddl.identity_column import IdentityColumnSupport
 from .ddl.integer_auto_increment_column_suggestion import IntegerAutoIncrementColumnSuggestionSupport
 from .ddl.partition_retention_suggestion import PartitionRetentionSuggestionSupport
+from .ddl.partition_build_suggestion import PartitionBuildSuggestionSupport
+from .ddl.partition_add_suggestion import PartitionAddSuggestionSupport
+from .ddl.partition_drop_suggestion import PartitionDropSuggestionSupport
 from .ddl.column_attribute import ColumnAttributeSupport
 from .ddl.comment import CommentSupport
 from .ddl.constraint import ConstraintSupport
@@ -185,6 +188,9 @@ __all__ = [
     "IdentityColumnSupport",
     "IntegerAutoIncrementColumnSuggestionSupport",
     "PartitionRetentionSuggestionSupport",
+    "PartitionBuildSuggestionSupport",
+    "PartitionAddSuggestionSupport",
+    "PartitionDropSuggestionSupport",
     "IndexObjectSupport",
     "IntrospectionSupport",
     "JSONSupport",

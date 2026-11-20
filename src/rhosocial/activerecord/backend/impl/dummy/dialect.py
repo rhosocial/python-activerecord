@@ -122,6 +122,9 @@ from rhosocial.activerecord.backend.dialect.mixins import (
 from rhosocial.activerecord.backend.dialect.protocols import (
     IntegerAutoIncrementColumnSuggestionSupport,
     PartitionRetentionSuggestionSupport,
+    PartitionBuildSuggestionSupport,
+    PartitionAddSuggestionSupport,
+    PartitionDropSuggestionSupport,
     # Named-object protocols
     TableObjectSupport,
     ViewObjectSupport,
@@ -418,6 +421,9 @@ class DummyDialect(
     IdentityColumnMixin,
     IntegerAutoIncrementColumnSuggestionSupport,
     PartitionRetentionSuggestionSupport,
+    PartitionBuildSuggestionSupport,
+    PartitionAddSuggestionSupport,
+    PartitionDropSuggestionSupport,
     DatabaseMixin,
     # Introspection Mixin
     IntrospectionMixin,
@@ -1616,6 +1622,24 @@ class DummyDialect(
         from rhosocial.activerecord.backend.expression import PartitionRetentionSuggestion
 
         return PartitionRetentionSuggestion(None)
+
+    def suggest_partition_build(self, strategy, plan):
+        """Decline partition-build suggestions, keeping the portable baseline plain."""
+        from rhosocial.activerecord.backend.expression import PartitionBuildSuggestion
+
+        return PartitionBuildSuggestion(None)
+
+    def suggest_partition_add(self, strategy, plan):
+        """Decline partition-add suggestions, keeping the portable baseline plain."""
+        from rhosocial.activerecord.backend.expression import PartitionAddSuggestion
+
+        return PartitionAddSuggestion(None)
+
+    def suggest_partition_drop(self, strategy, plan):
+        """Decline partition-drop suggestions, keeping the portable baseline plain."""
+        from rhosocial.activerecord.backend.expression import PartitionDropSuggestion
+
+        return PartitionDropSuggestion(None)
 
     def supports_database_assigned_integer_column(self) -> bool:
         return True

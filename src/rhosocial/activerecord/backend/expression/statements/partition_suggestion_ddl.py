@@ -1,10 +1,9 @@
 # src/rhosocial/activerecord/backend/expression/statements/partition_suggestion_ddl.py
-"""Consume a partition-retention suggestion into an ordered expression list.
+"""Consume partition-lifecycle suggestions into ordered expression lists.
 
-This is the ``apply(suggest(c, delta))`` bridge for partition retirement. A
-dialect with no ``PartitionRetentionSuggestionSupport`` has no answer: it is the
-structural "no" (no probing, no fallback string), matching
-``auto_increment_parts()``.
+This is the ``apply(suggest(c, delta))`` bridge for partition DDL. A dialect with
+no matching ``*SuggestionSupport`` has no answer: the structural "no" (no probing,
+no fallback string), matching ``auto_increment_parts()``.
 """
 
 from __future__ import annotations
@@ -18,23 +17,57 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..statements import PartitionStrategy
 
 
-def partition_retention_parts(
-    dialect: "SQLDialectBase", strategy: "PartitionStrategy", plan: object
+def _parts(
+    dialect: "SQLDialectBase",
+    protocol: type,
+    method: str,
+    strategy: "PartitionStrategy",
+    plan: object,
 ) -> Optional[List["BaseExpression"]]:
-    """Return the ordered expression chain for retiring old partitions.
-
-    ``None`` here means either "no suggestion capability" (structural no) or
-    "no action needed" (the suggestion's ``operations`` is ``None``). ``False``
-    from the suggestion is also returned as ``None`` so callers get a uniform
-    "nothing to apply" answer; use the suggestion directly when the distinction
-    between unsupported and no-op matters.
-    """
-    from ...dialect.protocols import PartitionRetentionSuggestionSupport
-
-    if not isinstance(dialect, PartitionRetentionSuggestionSupport):
+    if not isinstance(dialect, protocol):
         return None
-    suggestion = dialect.suggest_partition_retention(strategy, plan)
+    suggestion = getattr(dialect, method)(strategy, plan)
     operations = suggestion.operations
     if isinstance(operations, (list, tuple)):
         return [expr for expr in operations if isinstance(expr, BaseExpression)]
     return None  # False (unsupported) or None (no-op)
+
+
+def partition_build_parts(
+    dialect: "SQLDialectBase", strategy: "PartitionStrategy", plan: object
+) -> Optional[List["BaseExpression"]]:
+    """Ordered expressions to declare a partitioned table, or None for no-answer."""
+    from ...dialect.protocols import PartitionBuildSuggestionSupport
+
+    return _parts(
+        dialect, PartitionBuildSuggestionSupport, "suggest_partition_build", strategy, plan
+    )
+
+
+def partition_add_parts(
+    dialect: "SQLDialectBase", strategy: "PartitionStrategy", plan: object
+) -> Optional[List["BaseExpression"]]:
+    """Ordered expressions to add/attach a partition, or None for no-answer."""
+    from ...dialect.protocols import PartitionAddSuggestionSupport
+
+    return _parts(dialect, PartitionAddSuggestionSupport, "suggest_partition_add", strategy, plan)
+
+
+def partition_drop_parts(
+    dialect: "SQLDialectBase", strategy: "PartitionStrategy", plan: object
+) -> Optional[List["BaseExpression"]]:
+    """Ordered expressions to drop/detach a partition, or None for no-answer."""
+    from ...dialect.protocols import PartitionDropSuggestionSupport
+
+    return _parts(dialect, PartitionDropSuggestionSupport, "suggest_partition_drop", strategy, plan)
+
+
+def partition_retention_parts(
+    dialect: "SQLDialectBase", strategy: "PartitionStrategy", plan: object
+) -> Optional[List["BaseExpression"]]:
+    """Ordered expressions to retire old partitions, or None for no-answer."""
+    from ...dialect.protocols import PartitionRetentionSuggestionSupport
+
+    return _parts(
+        dialect, PartitionRetentionSuggestionSupport, "suggest_partition_retention", strategy, plan
+    )

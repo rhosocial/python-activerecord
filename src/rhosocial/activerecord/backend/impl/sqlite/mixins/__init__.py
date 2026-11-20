@@ -29,10 +29,16 @@ from .data_type_suggestions import SQLiteDataTypeSuggestionsMixin
 from .object_name import SQLiteObjectNameMixin
 from .integer_auto_increment_column_suggestion import SQLiteIntegerAutoIncrementColumnSuggestionMixin
 from .partition_retention_suggestion import SQLitePartitionRetentionSuggestionMixin
+from .partition_build_suggestion import SQLitePartitionBuildSuggestionMixin
+from .partition_add_suggestion import SQLitePartitionAddSuggestionMixin
+from .partition_drop_suggestion import SQLitePartitionDropSuggestionMixin
 
 __all__ = [
     'SQLiteIntegerAutoIncrementColumnSuggestionMixin',
     'SQLitePartitionRetentionSuggestionMixin',
+    'SQLitePartitionBuildSuggestionMixin',
+    'SQLitePartitionAddSuggestionMixin',
+    'SQLitePartitionDropSuggestionMixin',
     'SQLiteExtensionMixin',
     'SQLiteVirtualTableMixin',
     'SQLitePragmaMixin',

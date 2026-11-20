@@ -1,0 +1,116 @@
+# tests/rhosocial/activerecord_test/feature/basic/ddl/test_partition_lifecycle_suggestions.py
+"""Contracts for partition build/add/drop backend suggestions (P1).
+
+Same 8-part spec as the retention (B11) sample:
+- minimal runtime-checkable protocols (one ``suggest_*`` method);
+- frozen tri-state suggestion values (expression chain / False / None);
+- no core default mixin;
+- dummy gives the safe "no action" default (None);
+- SQLite (no partitioning) answers explicit unsupported (False);
+- consumption helpers gate on ``isinstance`` (structural no).
+"""
+
+import dataclasses
+
+from rhosocial.activerecord.backend.dialect import mixins as core_mixins
+from rhosocial.activerecord.backend.dialect.protocols import (
+    PartitionBuildSuggestionSupport,
+    PartitionAddSuggestionSupport,
+    PartitionDropSuggestionSupport,
+)
+from rhosocial.activerecord.backend.expression import (
+    PartitionBuildSuggestion,
+    PartitionAddSuggestion,
+    PartitionDropSuggestion,
+    partition_build_parts,
+    partition_add_parts,
+    partition_drop_parts,
+)
+from rhosocial.activerecord.backend.expression.statements import PartitionStrategy
+from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.impl.sqlite.mixins import (
+    SQLitePartitionBuildSuggestionMixin,
+    SQLitePartitionAddSuggestionMixin,
+    SQLitePartitionDropSuggestionMixin,
+)
+
+CASES = [
+    (
+        "build",
+        PartitionBuildSuggestionSupport,
+        PartitionBuildSuggestion,
+        partition_build_parts,
+        SQLitePartitionBuildSuggestionMixin,
+        "suggest_partition_build",
+    ),
+    (
+        "add",
+        PartitionAddSuggestionSupport,
+        PartitionAddSuggestion,
+        partition_add_parts,
+        SQLitePartitionAddSuggestionMixin,
+        "suggest_partition_add",
+    ),
+    (
+        "drop",
+        PartitionDropSuggestionSupport,
+        PartitionDropSuggestion,
+        partition_drop_parts,
+        SQLitePartitionDropSuggestionMixin,
+        "suggest_partition_drop",
+    ),
+]
+
+
+def test_protocols_minimal_and_runtime_checkable():
+    for name, proto, *_ in CASES:
+        methods = [n for n in vars(proto) if not n.startswith("_")]
+        assert methods == [f"suggest_partition_{name}"]
+        assert isinstance(DummyDialect(), proto)
+        assert isinstance(SQLiteDialect(), proto)
+
+
+def test_suggestions_immutable_tri_state():
+    for _, _, cls, *_ in CASES:
+        s = cls()
+        assert dataclasses.is_dataclass(s) and s.operations is None
+        assert cls(False).operations is False
+        try:
+            s.operations = False  # type: ignore[misc]
+        except dataclasses.FrozenInstanceError:
+            pass
+        else:
+            raise AssertionError(f"{cls.__name__} must be frozen")
+
+
+def test_core_ships_no_default_mixins():
+    for _, _, cls, *_ in CASES:
+        assert not hasattr(core_mixins, cls.__name__.replace("Suggestion", "SuggestionMixin"))
+
+
+def test_dummy_gives_safe_no_action_default():
+    for _name, *_, method in CASES:
+        suggestion = getattr(DummyDialect(), method)(PartitionStrategy.RANGE, None)
+        assert suggestion.operations is None
+
+
+def test_sqlite_answers_explicit_unsupported():
+    for _name, _, _, _, sqlite_mixin, method in CASES:
+        assert issubclass(SQLiteDialect, sqlite_mixin)
+        suggestion = getattr(SQLiteDialect(), method)(PartitionStrategy.RANGE, None)
+        assert suggestion.operations is False
+
+
+def test_helpers_return_none_for_no_answer_and_unsupported():
+    for _, _, _, helper, _, _ in CASES:
+        assert helper(DummyDialect(), PartitionStrategy.RANGE, None) is None
+        assert helper(SQLiteDialect(), PartitionStrategy.RANGE, None) is None
+
+
+def test_helpers_gate_on_structural_no():
+    class _NoSuggestion:
+        pass
+
+    for _, _, _, helper, _, _ in CASES:
+        assert helper(_NoSuggestion(), PartitionStrategy.RANGE, None) is None

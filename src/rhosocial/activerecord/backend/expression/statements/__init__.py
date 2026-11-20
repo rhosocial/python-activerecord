@@ -82,8 +82,18 @@ from .ddl_alter import (
 from .ddl_comment import CommentObjectType, CommentOnStatement
 from .ddl_suggestion import IntegerAutoIncrementColumnSuggestion
 from .auto_increment_ddl import auto_increment_parts
-from .partition_suggestion import PartitionRetentionSuggestion
-from .partition_suggestion_ddl import partition_retention_parts
+from .partition_suggestion import (
+    PartitionBuildSuggestion,
+    PartitionAddSuggestion,
+    PartitionDropSuggestion,
+    PartitionRetentionSuggestion,
+)
+from .partition_suggestion_ddl import (
+    partition_build_parts,
+    partition_add_parts,
+    partition_drop_parts,
+    partition_retention_parts,
+)
 from .ddl_table import (
     ForeignKeyMatchType,
     ColumnConstraint,
@@ -232,7 +242,13 @@ __all__ = [
     "AutoIncrementClause",
     "IntegerAutoIncrementColumnSuggestion",
     "auto_increment_parts",
+    "PartitionBuildSuggestion",
+    "PartitionAddSuggestion",
+    "PartitionDropSuggestion",
     "PartitionRetentionSuggestion",
+    "partition_build_parts",
+    "partition_add_parts",
+    "partition_drop_parts",
     "partition_retention_parts",
     "ReferencesClause",
     "ColumnCommentClause",
