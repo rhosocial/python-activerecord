@@ -4,17 +4,13 @@
       <stop offset="0" stop-color="#4F52D0"/>
       <stop offset="1" stop-color="#8A3FFC"/>
     </linearGradient>
-    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.95"/>
-      <stop offset="1" stop-color="#C9C6FF" stop-opacity="0.85"/>
-    </linearGradient>
   </defs>
 
   <!-- rounded-square canvas -->
   <rect width="512" height="512" rx="112" fill="url(#bg)"/>
 
-  <!-- orbit: six symmetric ecosystem nodes linked to the core (no labels) -->
-  <g fill="none" stroke="#FFFFFF" stroke-opacity="0.38" stroke-width="6" stroke-linecap="round">
+  <!-- six symmetric ecosystem nodes linked to the core (no labels) -->
+  <g fill="none" stroke="#FFFFFF" stroke-opacity="0.32" stroke-width="6" stroke-linecap="round">
     <path d="M256 256 L256 92"/>
     <path d="M256 256 L402 174"/>
     <path d="M256 256 L402 338"/>
@@ -22,17 +18,16 @@
     <path d="M256 256 L110 338"/>
     <path d="M256 256 L110 174"/>
   </g>
-  <g fill="#FFFFFF" fill-opacity="0.92">
-    <circle cx="256" cy="92" r="14"/>
-    <circle cx="402" cy="174" r="14"/>
-    <circle cx="402" cy="338" r="14"/>
-    <circle cx="256" cy="420" r="14"/>
-    <circle cx="110" cy="338" r="14"/>
-    <circle cx="110" cy="174" r="14"/>
+  <g fill="#FFFFFF" fill-opacity="0.9">
+    <circle cx="256" cy="92" r="13"/>
+    <circle cx="402" cy="174" r="13"/>
+    <circle cx="402" cy="338" r="13"/>
+    <circle cx="256" cy="420" r="13"/>
+    <circle cx="110" cy="338" r="13"/>
+    <circle cx="110" cy="174" r="13"/>
   </g>
 
-  <!-- core: abstract ring with an open stroke, an abstract rho-like glyph -->
-  <circle cx="256" cy="256" r="78" fill="none" stroke="url(#ring)" stroke-width="24"
-          stroke-linecap="round" stroke-dasharray="430 60" transform="rotate(-90 256 256)"/>
-  <circle cx="256" cy="256" r="30" fill="#FFFFFF" fill-opacity="0.9"/>
+  <!-- geometric lowercase rho: a bowl (ring) + a descender stroke through it -->
+  <circle cx="256" cy="232" r="58" fill="none" stroke="#FFFFFF" stroke-width="26"/>
+  <path d="M256 174 L256 372" stroke="#FFFFFF" stroke-width="26" stroke-linecap="round"/>
 </svg>
