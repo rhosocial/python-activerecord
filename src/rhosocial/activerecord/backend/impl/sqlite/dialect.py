@@ -172,6 +172,10 @@ from .mixins import (
     SQLitePartitionBuildSuggestionMixin,
     SQLitePartitionAddSuggestionMixin,
     SQLitePartitionDropSuggestionMixin,
+    SQLitePartitionTableDropSuggestionMixin,
+    SQLitePartitionTableAlterSuggestionMixin,
+    SQLitePartitionSplitSuggestionMixin,
+    SQLitePartitionMergeSuggestionMixin,
     SQLiteTypeSupportMixin,
     # Value literals: SQLite's blob spelling, overriding the base's
     # format_binary_value / format_uuid_value by MRO position.
@@ -194,6 +198,10 @@ class SQLiteDialect(
     SQLitePartitionBuildSuggestionMixin,
     SQLitePartitionAddSuggestionMixin,
     SQLitePartitionDropSuggestionMixin,
+    SQLitePartitionTableDropSuggestionMixin,
+    SQLitePartitionTableAlterSuggestionMixin,
+    SQLitePartitionSplitSuggestionMixin,
+    SQLitePartitionMergeSuggestionMixin,
     # SQLite's column formatter spells AUTOINCREMENT; it must precede the core
     # AutoIncrementMixin, whose AUTO_INCREMENT formatter would otherwise win.
     SQLiteDDLColumnMixin,

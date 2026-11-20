@@ -71,3 +71,51 @@ def partition_retention_parts(
     return _parts(
         dialect, PartitionRetentionSuggestionSupport, "suggest_partition_retention", strategy, plan
     )
+
+
+def partition_table_drop_parts(
+    dialect: "SQLDialectBase", strategy: "PartitionStrategy", plan: object
+) -> Optional[List["BaseExpression"]]:
+    """Ordered expressions to drop the whole partitioned table, or None for no-answer."""
+    from ...dialect.protocols import PartitionTableDropSuggestionSupport
+
+    return _parts(
+        dialect, PartitionTableDropSuggestionSupport, "suggest_partition_table_drop", strategy, plan
+    )
+
+
+def partition_table_alter_parts(
+    dialect: "SQLDialectBase", strategy: "PartitionStrategy", plan: object
+) -> Optional[List["BaseExpression"]]:
+    """Ordered expressions to alter the table's partitioning scheme, or None for no-answer."""
+    from ...dialect.protocols import PartitionTableAlterSuggestionSupport
+
+    return _parts(
+        dialect,
+        PartitionTableAlterSuggestionSupport,
+        "suggest_partition_table_alter",
+        strategy,
+        plan,
+    )
+
+
+def partition_split_parts(
+    dialect: "SQLDialectBase", strategy: "PartitionStrategy", plan: object
+) -> Optional[List["BaseExpression"]]:
+    """Ordered expressions to split one partition into two, or None for no-answer."""
+    from ...dialect.protocols import PartitionSplitSuggestionSupport
+
+    return _parts(
+        dialect, PartitionSplitSuggestionSupport, "suggest_partition_split", strategy, plan
+    )
+
+
+def partition_merge_parts(
+    dialect: "SQLDialectBase", strategy: "PartitionStrategy", plan: object
+) -> Optional[List["BaseExpression"]]:
+    """Ordered expressions to merge two adjacent partitions, or None for no-answer."""
+    from ...dialect.protocols import PartitionMergeSuggestionSupport
+
+    return _parts(
+        dialect, PartitionMergeSuggestionSupport, "suggest_partition_merge", strategy, plan
+    )

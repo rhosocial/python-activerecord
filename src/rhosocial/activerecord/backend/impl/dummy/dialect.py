@@ -125,6 +125,10 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     PartitionBuildSuggestionSupport,
     PartitionAddSuggestionSupport,
     PartitionDropSuggestionSupport,
+    PartitionTableDropSuggestionSupport,
+    PartitionTableAlterSuggestionSupport,
+    PartitionSplitSuggestionSupport,
+    PartitionMergeSuggestionSupport,
     # Named-object protocols
     TableObjectSupport,
     ViewObjectSupport,
@@ -424,6 +428,10 @@ class DummyDialect(
     PartitionBuildSuggestionSupport,
     PartitionAddSuggestionSupport,
     PartitionDropSuggestionSupport,
+    PartitionTableDropSuggestionSupport,
+    PartitionTableAlterSuggestionSupport,
+    PartitionSplitSuggestionSupport,
+    PartitionMergeSuggestionSupport,
     DatabaseMixin,
     # Introspection Mixin
     IntrospectionMixin,
@@ -1640,6 +1648,30 @@ class DummyDialect(
         from rhosocial.activerecord.backend.expression import PartitionDropSuggestion
 
         return PartitionDropSuggestion(None)
+
+    def suggest_partition_table_drop(self, strategy, plan):
+        """Decline partition table drop suggestions (portable baseline)."""
+        from rhosocial.activerecord.backend.expression import PartitionTableDropSuggestion
+
+        return PartitionTableDropSuggestion(None)
+
+    def suggest_partition_table_alter(self, strategy, plan):
+        """Decline partition table alter suggestions (portable baseline)."""
+        from rhosocial.activerecord.backend.expression import PartitionTableAlterSuggestion
+
+        return PartitionTableAlterSuggestion(None)
+
+    def suggest_partition_split(self, strategy, plan):
+        """Decline partition split suggestions (portable baseline)."""
+        from rhosocial.activerecord.backend.expression import PartitionSplitSuggestion
+
+        return PartitionSplitSuggestion(None)
+
+    def suggest_partition_merge(self, strategy, plan):
+        """Decline partition merge suggestions (portable baseline)."""
+        from rhosocial.activerecord.backend.expression import PartitionMergeSuggestion
+
+        return PartitionMergeSuggestion(None)
 
     def supports_database_assigned_integer_column(self) -> bool:
         return True

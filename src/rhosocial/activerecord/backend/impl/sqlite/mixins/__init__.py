@@ -32,6 +32,10 @@ from .partition_retention_suggestion import SQLitePartitionRetentionSuggestionMi
 from .partition_build_suggestion import SQLitePartitionBuildSuggestionMixin
 from .partition_add_suggestion import SQLitePartitionAddSuggestionMixin
 from .partition_drop_suggestion import SQLitePartitionDropSuggestionMixin
+from .partition_table_drop_suggestion import SQLitePartitionTableDropSuggestionMixin
+from .partition_table_alter_suggestion import SQLitePartitionTableAlterSuggestionMixin
+from .partition_split_suggestion import SQLitePartitionSplitSuggestionMixin
+from .partition_merge_suggestion import SQLitePartitionMergeSuggestionMixin
 
 __all__ = [
     'SQLiteIntegerAutoIncrementColumnSuggestionMixin',
@@ -39,6 +43,10 @@ __all__ = [
     'SQLitePartitionBuildSuggestionMixin',
     'SQLitePartitionAddSuggestionMixin',
     'SQLitePartitionDropSuggestionMixin',
+    'SQLitePartitionTableDropSuggestionMixin',
+    'SQLitePartitionTableAlterSuggestionMixin',
+    'SQLitePartitionSplitSuggestionMixin',
+    'SQLitePartitionMergeSuggestionMixin',
     'SQLiteExtensionMixin',
     'SQLiteVirtualTableMixin',
     'SQLitePragmaMixin',

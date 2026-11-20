@@ -45,6 +45,10 @@ from .ddl.partition_retention_suggestion import PartitionRetentionSuggestionSupp
 from .ddl.partition_build_suggestion import PartitionBuildSuggestionSupport
 from .ddl.partition_add_suggestion import PartitionAddSuggestionSupport
 from .ddl.partition_drop_suggestion import PartitionDropSuggestionSupport
+from .ddl.partition_table_drop_suggestion import PartitionTableDropSuggestionSupport
+from .ddl.partition_table_alter_suggestion import PartitionTableAlterSuggestionSupport
+from .ddl.partition_split_suggestion import PartitionSplitSuggestionSupport
+from .ddl.partition_merge_suggestion import PartitionMergeSuggestionSupport
 from .ddl.column_attribute import ColumnAttributeSupport
 from .ddl.comment import CommentSupport
 from .ddl.constraint import ConstraintSupport
@@ -191,6 +195,10 @@ __all__ = [
     "PartitionBuildSuggestionSupport",
     "PartitionAddSuggestionSupport",
     "PartitionDropSuggestionSupport",
+    "PartitionTableDropSuggestionSupport",
+    "PartitionTableAlterSuggestionSupport",
+    "PartitionSplitSuggestionSupport",
+    "PartitionMergeSuggestionSupport",
     "IndexObjectSupport",
     "IntrospectionSupport",
     "JSONSupport",

@@ -48,3 +48,31 @@ class PartitionRetentionSuggestion:
     """Suggested action chain to retire old partitions (by cutoff)."""
 
     operations: Union[Tuple["BaseExpression", ...], bool, None] = None
+
+
+@dataclass(frozen=True)
+class PartitionTableDropSuggestion:
+    """Suggested action chain to drop the whole partitioned table."""
+
+    operations: Union[Tuple["BaseExpression", ...], bool, None] = None
+
+
+@dataclass(frozen=True)
+class PartitionTableAlterSuggestion:
+    """Suggested action chain to alter the table's partitioning scheme."""
+
+    operations: Union[Tuple["BaseExpression", ...], bool, None] = None
+
+
+@dataclass(frozen=True)
+class PartitionSplitSuggestion:
+    """Suggested action chain to split one partition into two."""
+
+    operations: Union[Tuple["BaseExpression", ...], bool, None] = None
+
+
+@dataclass(frozen=True)
+class PartitionMergeSuggestion:
+    """Suggested action chain to merge two adjacent partitions."""
+
+    operations: Union[Tuple["BaseExpression", ...], bool, None] = None
