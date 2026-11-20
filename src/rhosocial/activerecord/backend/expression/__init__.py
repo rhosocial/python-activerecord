@@ -176,6 +176,8 @@ from .graph import (
 )
 from .statements import (
     IntegerAutoIncrementColumnSuggestion,
+    PartitionRetentionSuggestion,
+    partition_retention_parts,
     QueryStatement,
     SetOperationStatement,
     DeleteStatement,
@@ -661,6 +663,8 @@ __all__ = [
     "AutoIncrementClause",
     "IntegerAutoIncrementColumnSuggestion",
     "auto_increment_parts",
+    "PartitionRetentionSuggestion",
+    "partition_retention_parts",
     "ReferencesClause",
     "ColumnCommentClause",
     "TableCommentClause",

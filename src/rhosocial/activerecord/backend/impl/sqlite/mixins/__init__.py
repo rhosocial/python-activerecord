@@ -28,9 +28,11 @@ from .column_type import SQLiteColumnTypeMixin
 from .data_type_suggestions import SQLiteDataTypeSuggestionsMixin
 from .object_name import SQLiteObjectNameMixin
 from .integer_auto_increment_column_suggestion import SQLiteIntegerAutoIncrementColumnSuggestionMixin
+from .partition_retention_suggestion import SQLitePartitionRetentionSuggestionMixin
 
 __all__ = [
     'SQLiteIntegerAutoIncrementColumnSuggestionMixin',
+    'SQLitePartitionRetentionSuggestionMixin',
     'SQLiteExtensionMixin',
     'SQLiteVirtualTableMixin',
     'SQLitePragmaMixin',

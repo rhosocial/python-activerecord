@@ -121,6 +121,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
 )
 from rhosocial.activerecord.backend.dialect.protocols import (
     IntegerAutoIncrementColumnSuggestionSupport,
+    PartitionRetentionSuggestionSupport,
     # Named-object protocols
     TableObjectSupport,
     ViewObjectSupport,
@@ -416,6 +417,7 @@ class DummyDialect(
     AutoIncrementMixin,
     IdentityColumnMixin,
     IntegerAutoIncrementColumnSuggestionSupport,
+    PartitionRetentionSuggestionSupport,
     DatabaseMixin,
     # Introspection Mixin
     IntrospectionMixin,
@@ -1603,6 +1605,17 @@ class DummyDialect(
         )
 
         return IntegerAutoIncrementColumnSuggestion(default_type, None)
+
+    def suggest_partition_retention(self, strategy, plan):
+        """Decline partition-retention suggestions, keeping the portable baseline plain.
+
+        Dummy implements the protocol but returns the "no action" state; it is
+        the safe default, not a real backend answer. Concrete backends override
+        with their own retention action chain.
+        """
+        from rhosocial.activerecord.backend.expression import PartitionRetentionSuggestion
+
+        return PartitionRetentionSuggestion(None)
 
     def supports_database_assigned_integer_column(self) -> bool:
         return True

@@ -168,6 +168,7 @@ from .mixins import (
     # DDL probes. Placed ahead of the shared TableNameMixin in the class list.
     SQLiteObjectNameMixin,
     SQLiteIntegerAutoIncrementColumnSuggestionMixin,
+    SQLitePartitionRetentionSuggestionMixin,
     SQLiteTypeSupportMixin,
     # Value literals: SQLite's blob spelling, overriding the base's
     # format_binary_value / format_uuid_value by MRO position.
@@ -186,6 +187,7 @@ class SQLiteDialect(
     # key declared here" is SQLite's alone, and a mixin placed after a class it
     # overrides never wins MRO.
     SQLiteIntegerAutoIncrementColumnSuggestionMixin,
+    SQLitePartitionRetentionSuggestionMixin,
     # SQLite's column formatter spells AUTOINCREMENT; it must precede the core
     # AutoIncrementMixin, whose AUTO_INCREMENT formatter would otherwise win.
     SQLiteDDLColumnMixin,

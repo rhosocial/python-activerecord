@@ -222,6 +222,7 @@ SQLITE_PROTOCOLS = [
 
 
     dialect_protocols.IntegerAutoIncrementColumnSuggestionSupport,
+    dialect_protocols.PartitionRetentionSuggestionSupport,
 
 
     dialect_protocols.CollationSupport,
