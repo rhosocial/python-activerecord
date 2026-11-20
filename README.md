@@ -14,58 +14,46 @@
     <p><b>Built on Pydantic Only · Full Type Safety · True Sync-Async Parity · AI-Native Design</b></p>
 </div>
 
-> **⚠️ Development Stage:** This project is under active development. APIs may change, and some features are not yet production-ready.
+**Keywords:** orm, activerecord, pydantic, python, sqlite, async, type-safe
 
 ## Why This Project?
 
-### 1. ActiveRecord Pattern Is Intuitive
+### 1. The ActiveRecord pattern is intuitive
 
-The ActiveRecord pattern—where a class represents a table and an instance represents a row—maps directly to how developers think:
+A class represents a table; an instance represents a row. That maps directly to how developers think:
 
 ```python
 user = User(name="Alice")  # Create
 user.save()                # Persist
-user.name = "Bob"          # Modify  
+user.name = "Bob"          # Modify
 user.save()                # Update
 ```
 
-Simple, consistent, and easy to reason about. **This is what Python's been missing.**
+Simple, consistent, easy to reason about — with no Session object to manage.
 
-### 2. Python Lacks a Standalone ActiveRecord Ecosystem
+### 2. Python lacks a *standalone* ActiveRecord ecosystem
 
 | | rhosocial-activerecord | SQLAlchemy | Django ORM |
 |---|---|---|---|
 | **Pattern** | ActiveRecord | Data Mapper | ActiveRecord (coupled) |
 | **Standalone** | ✅ Yes | ✅ Yes | ❌ Django only |
-| **Dependencies** | Pydantic only | Self-contained | Django framework |
-| **Async** | Native parity | 2.0 via greenlet | Django 4.1+ only |
+| **Core dependency** | Pydantic only | Self-contained | Django framework |
+| **Session concept** | ❌ None | ✅ Required | ⚠️ Implicit |
+| **Query style** | Expression objects + `.to_sql()` | Expression language / ORM | QuerySet chaining |
+| **SQL transparency** | Every query exposes `.to_sql()` | Via `compile()` | Limited via `.query` |
+| **Async** | Native parity (same API + `await`) | 2.0 via greenlet | 4.1+ only |
 
-* **SQLAlchemy** is excellent but follows the Data Mapper pattern—not ActiveRecord
-* **Django ORM** is ActiveRecord but **tightly coupled** to Django; can't use it in FastAPI, Flask, or scripts without the entire Django stack
-* **We fill the gap**: A **standalone, modern, feature-complete ActiveRecord** for all Python applications
+* **SQLAlchemy** is excellent, but follows the Data Mapper pattern — not ActiveRecord.
+* **Django ORM** is ActiveRecord but **tightly coupled** to Django; you cannot use it in FastAPI, Flask, or a plain script without the whole framework.
+* **We fill the gap:** a standalone, modern, type-safe ActiveRecord for any Python application.
 
-### 3. Built From Scratch, Not a Wrapper
+### 3. Built from scratch, not a wrapper
 
-**Traditional ORM Architecture**: Your Code → ORM API → SQLAlchemy/Django → Database Driver → Database
+**Traditional ORM architecture:** Your Code → ORM API → SQLAlchemy/Django → Driver → Database
 
-**Our Architecture**: Your Code → rhosocial-activerecord → Database Driver → Database
+**Our architecture:** Your Code → rhosocial-activerecord → Driver → Database
 
-We built this from the ground up with **Pydantic as the only dependency**. No SQLAlchemy underneath. No Django ORM wrapper. This means zero hidden complexity, complete SQL control, a smaller footprint, and a simpler mental model — one layer to understand, not three.
-
-| | rhosocial-activerecord | SQLAlchemy | Django ORM |
-|---|---|---|---|
-| Core dependency | Pydantic only | Standalone | Django framework |
-| Query style | Expression objects + `.to_sql()` | Expression language or ORM | QuerySet chaining |
-| SQL transparency | Every query exposes `.to_sql()` | Via `compile()` | Limited via `.query` |
-| Sync/Async | Native parity (same API surface) | 2.0 async via greenlet | Async views (Django 4.1+) |
-
-## Architecture Highlights
-
-**Expression-Dialect Separation** — Query structure and SQL generation are completely decoupled. Expressions define _what_ you want; Dialects handle backend-specific SQL (SQLite, MySQL, PostgreSQL). Call `.to_sql()` on any query to inspect the generated SQL before execution.
-
-**True Sync-Async Parity** — Native implementations, not async wrappers around sync code. Same method names, same patterns, just add `await`.
-
-**Type-First Design with Pydantic v2** — Every field is type-safe, validated, and IDE-friendly. Full autocomplete support, runtime validation, and no `Any` types in public APIs.
+There is no SQLAlchemy underneath and no Django ORM wrapper — just Pydantic as the only dependency. That means zero hidden complexity, complete SQL control, a smaller footprint, and one layer to understand instead of three.
 
 ## Quick Start
 
@@ -75,265 +63,108 @@ We built this from the ground up with **Pydantic as the only dependency**. No SQ
 pip install rhosocial-activerecord
 ```
 
+Requires Python 3.8+. The example below uses the built-in, in-memory SQLite backend.
+
 ### End-to-End Example
 
 ```python
 """Save as demo.py and run with: python demo.py"""
-from rhosocial.activerecord.model import ActiveRecord
+from typing import Annotated, ClassVar
+
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.expression import CreateTableStatement
-from rhosocial.activerecord.backend.expression.statements import (
-    ColumnConstraint, ColumnConstraintType, ColumnDefinition,
-)
-from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
-from rhosocial.activerecord.base import FieldProxy
-from typing import ClassVar, Optional
-from pydantic import Field
+from rhosocial.activerecord.backend.expression.types import VarCharType
+from rhosocial.activerecord.base import FieldProxy, UseSqlType
+from rhosocial.activerecord.field import DefaultTimestampMixin, IntegerPKMixin
+from rhosocial.activerecord.model import ActiveRecord
 
 
-class User(ActiveRecord):
-    __table_name__ = "users"
-    id: Optional[int] = None # Primary key
-    name: str = Field(max_length=100)
-    email: str
+class User(IntegerPKMixin, DefaultTimestampMixin, ActiveRecord):
+    name: Annotated[str, UseSqlType(VarCharType(length=100))]
+    email: Annotated[str, UseSqlType(VarCharType(length=255))]
     age: int = 0
-    # Required: without it, `User.c.age` does not exist.
-    c: ClassVar[FieldProxy] = FieldProxy()
+
+    c: ClassVar[FieldProxy] = FieldProxy()  # enables User.c.<field> expressions
+
+    @classmethod
+    def table_name(cls) -> str:
+        return "users"
 
 
-# Configure backend (in-memory SQLite for demo)
-config = SQLiteConnectionConfig(database=":memory:")
-User.configure(config, SQLiteBackend)
+# Configure the backend and create the table from the model declaration
+User.configure(SQLiteConnectionConfig(database=":memory:"), SQLiteBackend)
+User.create_table()
 
-# Create table using DDL expressions. Every node takes the dialect as its
-# first argument, and column types are DataType instances rather than strings.
-dialect = User.__backend__.dialect
-create_table = CreateTableStatement(
-    dialect=dialect,
-    table="users",
-    columns=[
-        ColumnDefinition(dialect, "id", IntegerType(dialect),
-            constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY,
-                is_auto_increment=True)]),
-        ColumnDefinition(dialect, "name", VarCharType(dialect, 100),
-            constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
-        ColumnDefinition(dialect, "email", VarCharType(dialect, 255)),
-        ColumnDefinition(dialect, "age", IntegerType(dialect)),
-    ]
-)
-# execute() takes SQL text, not an expression node: render it first.
-User.__backend__.execute(*create_table.to_sql())
-
-# Insert
+# Create
 alice = User(name="Alice", email="alice@example.com", age=30)
 alice.save()
+print(alice.id)  # database-assigned integer primary key
 
 # Query with type-safe expressions
 adults = User.query().where(User.c.age >= 18).all()
+print([user.name for user in adults])
 
-# Inspect generated SQL without executing
+# Inspect the generated SQL without executing it
 sql, params = User.query().where(User.c.age >= 18).to_sql()
-# SQL: SELECT * FROM "users" WHERE "users"."age" >= ?
-# Params: (18,)
+print(sql, params)  # SELECT ... FROM "users" WHERE "users"."age" >= ?   (18,)
 ```
 
-> **Note**: `ColumnDefinition` and `ColumnConstraint` take the dialect as their
-> first positional argument. Older releases accepted `(name, "VARCHAR(100)")`
-> with plain SQL type strings; that signature is gone. `execute()` also takes
-> SQL text, not an expression node — render with `to_sql()` first.
+> **Async parity:** use `AsyncActiveRecord` with `AsyncSQLiteBackend` for the async model — same method names, same patterns, just add `await`.
 
-### Relationships
+## Project Architecture
 
-```python
-from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.expression import CreateTableStatement
-from rhosocial.activerecord.backend.expression.statements import (
-    ColumnConstraint, ColumnConstraintType, ColumnDefinition,
-    ForeignKeyConstraint, ReferentialAction,
-)
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
-from rhosocial.activerecord.base import FieldProxy
-from rhosocial.activerecord.relation import HasMany, BelongsTo
-from typing import ClassVar, Optional
-
-
-class Author(ActiveRecord):
-    __table_name__ = "authors"
-    id: Optional[int] = None
-    name: str
-    c: ClassVar[FieldProxy] = FieldProxy()
-    posts: ClassVar[HasMany["Post"]] = HasMany(foreign_key="author_id")
-
-
-class Post(ActiveRecord):
-    __table_name__ = "posts"
-    id: Optional[int] = None
-    title: str
-    author_id: int
-    c: ClassVar[FieldProxy] = FieldProxy()
-    author: ClassVar[BelongsTo["Author"]] = BelongsTo(foreign_key="author_id")
-
-
-# Configure backend
-config = SQLiteConnectionConfig(database=":memory:")
-Author.configure(config, SQLiteBackend)
-Post.__backend__ = Author.__backend__
-
-# Create tables using DDL expressions
-dialect = Author.__backend__.dialect
-
-Author.__backend__.execute(*CreateTableStatement(
-    dialect=dialect,
-    table="authors",
-    columns=[
-        ColumnDefinition(dialect, "id", IntegerType(dialect),
-            constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY,
-                is_auto_increment=True)]),
-        ColumnDefinition(dialect, "name", TextType(dialect)),
-    ]
-).to_sql())
-
-Author.__backend__.execute(*CreateTableStatement(
-    dialect=dialect,
-    table="posts",
-    columns=[
-        ColumnDefinition(dialect, "id", IntegerType(dialect),
-            constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY,
-                is_auto_increment=True)]),
-        ColumnDefinition(dialect, "title", TextType(dialect)),
-        ColumnDefinition(dialect, "author_id", IntegerType(dialect)),
-    ],
-    table_constraints=[
-        # ForeignKeyConstraint is a TableConstraint subclass, so it goes
-        # straight into the list.
-        ForeignKeyConstraint(
-            dialect,
-            columns=["author_id"],
-            foreign_key_table="authors",
-            foreign_key_columns=["id"],
-            on_delete=ReferentialAction.CASCADE,
-        )
-    ]
-).to_sql())
-
-# Eager loading — one query, no N+1
-authors = Author.query().with_("posts").all()
-for author in authors:
-    print(f"{author.name}: {[p.title for p in author.posts()]}")
+```
+Your Code
+   ↓
+Interface        models, field proxies, mixins, query builders, events
+   ↓
+ActiveRecord     lifecycle, persistence, relations
+   ↓
+Expressions      backend-agnostic declarations → generic statements
+   ↓
+Dialect          binds expressions to concrete SQL
+   ↓
+Driver           built-in SQLite backend → database
 ```
 
-> **Async Parity:** All sync APIs have async counterparts. For async models, use `AsyncActiveRecord`, `AsyncHasMany`, and `AsyncBelongsTo` instead. The API surface is identical—just add `await`.
->
-> ⚠️ **Note:** The built-in SQLite async backend is currently for testing only. For other backends (MySQL, PostgreSQL, etc.), async support depends on the specific implementation.
+For the full picture, start with the [Documentation](docs/en_US/README.md) and read [The ActiveRecord Definition](docs/en_US/modeling/definition.md) — the authoritative, up-to-date overview of how a model is declared.
 
-## Features
+**Expression–dialect separation.** Query structure and SQL generation are completely decoupled. Expressions describe *what* you want; a dialect decides *how* it is spelled in SQL. Nothing is rendered until an explicit `.to_sql()` call, so you can preview and verify every statement before it runs.
 
-All features support both **sync** and **async** APIs with identical method names—just add `await`.
+**True sync–async parity.** Both implementations are native, not async wrappers around sync code. Method names and patterns are identical; the async variant just adds `await`.
 
-### DDL Expressions
+**Type-first design with Pydantic v2.** Every field is typed, validated, and IDE-friendly, with autocomplete and runtime validation and no `Any` types in the public API.
 
-Type-safe schema definition without raw SQL:
+## Backend Support & Progress
 
-* **[CreateTableStatement](src/rhosocial/activerecord/backend/expression/statements/ddl_table.py)** — Create tables with columns and constraints
-* **[DropTableStatement](src/rhosocial/activerecord/backend/expression/statements/ddl_table.py)** — Drop tables with IF EXISTS support
-* **[AlterTableStatement](src/rhosocial/activerecord/backend/expression/statements/ddl_alter.py)** — Add/drop columns, rename tables
-* **[CreateIndexStatement](src/rhosocial/activerecord/backend/expression/statements/ddl_index.py)** — Create indexes with IF NOT EXISTS
-* **[CreateViewStatement](src/rhosocial/activerecord/backend/expression/statements/ddl_view.py)** — Create views from query expressions
+SQLite is built in and is the backend used throughout this README and the core documentation. Other database backends ship as separate packages, each documented in its own repository; the core library and its docs describe ActiveRecord and the built-in SQLite backend only.
 
-### Query Builders
+> **⚠️ Development Stage:** This project is under active development. APIs may change, and some features are not yet production-ready.
 
-Three core query types, each with full sync/async parity:
+## Contributing, License, Links
 
-* **[ActiveQuery](src/rhosocial/activerecord/query/active_query.py)** / **[AsyncActiveQuery](src/rhosocial/activerecord/query/active_query.py)** — Model-based queries with WHERE, JOIN, ORDER BY, LIMIT, aggregations, and [eager loading](src/rhosocial/activerecord/query/relational.py) via `.with_()`
-* **[CTEQuery](src/rhosocial/activerecord/query/cte_query.py)** / **[AsyncCTEQuery](src/rhosocial/activerecord/query/cte_query.py)** — Common Table Expressions (WITH clauses) for recursive queries and complex multi-step operations
-* **[SetOperationQuery](src/rhosocial/activerecord/query/set_operation.py)** / **[AsyncSetOperationQuery](src/rhosocial/activerecord/query/set_operation.py)** — UNION, INTERSECT, EXCEPT operations
+### Contributing
 
-### Relationships
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-Type-safe relationship descriptors with eager loading support:
+### License
 
-* **[BelongsTo](src/rhosocial/activerecord/relation/__init__.py)** / **[AsyncBelongsTo](src/rhosocial/activerecord/relation/__init__.py)** — Child-to-parent associations
-* **[HasOne](src/rhosocial/activerecord/relation/__init__.py)** / **[AsyncHasOne](src/rhosocial/activerecord/relation/__init__.py)** — One-to-one parent-to-child
-* **[HasMany](src/rhosocial/activerecord/relation/__init__.py)** / **[AsyncHasMany](src/rhosocial/activerecord/relation/__init__.py)** — One-to-many parent-to-children
+[Apache License 2.0](LICENSE) — Copyright © 2026 [vistart](https://github.com/vistart)
 
-### Field Mixins
+### Documentation
 
-Reusable mixins for common model behaviors:
+* **[Documentation Home](docs/en_US/README.md)** — the full documentation table of contents
+* **[The ActiveRecord Definition](docs/en_US/modeling/definition.md)** — authoritative model-declaration reference
+* **[Getting Started Guide](docs/en_US/getting_started/)** — installation and basic usage
+* **[Modeling Guide](docs/en_US/modeling/)** — defining models, fields, and relationships
+* **[Querying Guide](docs/en_US/querying/)** — complete query builder documentation
+* **[Backend Development](docs/en_US/backend/)** — creating custom database backends
+* **[Architecture Overview](docs/en_US/introduction/architecture.md)** — module structure and design decisions
+* **[AI-Assisted Development](docs/en_US/introduction/ai_assistance.md)** — using AI code agents with this project
+* **[LLM Context](docs/LLM_CONTEXT.md)** — structured context for AI assistants
+* **[API Reference](https://docs.python-activerecord.dev.rho.social/api/)** — full API documentation
 
-* **[OptimisticLockMixin](src/rhosocial/activerecord/field/version.py)** — Version-based concurrency control
-* **[SoftDeleteMixin](src/rhosocial/activerecord/field/soft_delete.py)** — Logical deletion with `deleted_at` timestamp
-* **[TimestampMixin](src/rhosocial/activerecord/field/timestamp.py)** — Auto-managed `created_at` and `updated_at`
-* **[UUIDMixin](src/rhosocial/activerecord/field/uuid.py)** — UUID primary keys
-
-### Model Events
-
-Lifecycle hooks for custom business logic:
-
-* **[Model Events](src/rhosocial/activerecord/interface/base.py)** — `before_insert`, `after_insert`, `before_update`, `after_update`, `before_delete`, `after_delete`
-
-For details, see the [documentation](docs/en_US/).
-
-## Backend Support
-
-All backends are pre-1.0 (`1.0.0.devN`). `requires-python` is the lower bound
-declared in each backend's `pyproject.toml`, and it is **not** uniform — the
-core library supports 3.8+, but some backends require more.
-
-| Backend | Package | Python | Sync | Async | PyPI |
-|---|---|---|---|---|---|
-| **SQLite** | built-in | `>=3.8` | ✅ | ✅ | — |
-| **MySQL** | `rhosocial-activerecord-mysql` | `>=3.8` | ✅ | ✅ | [dev19](https://pypi.org/project/rhosocial-activerecord-mysql/) |
-| **PostgreSQL** | `rhosocial-activerecord-postgres` | `>=3.8` | ✅ | ✅ | [dev16](https://pypi.org/project/rhosocial-activerecord-postgres/) |
-| **MariaDB** | `rhosocial-activerecord-mariadb` | `>=3.8` | ✅ | ✅ | [dev2](https://pypi.org/project/rhosocial-activerecord-mariadb/) |
-| **SQL Server** | `rhosocial-activerecord-sqlserver` | `>=3.9` | ✅ | ✅ | [dev2](https://pypi.org/project/rhosocial-activerecord-sqlserver/) |
-| **Oracle** | `rhosocial-activerecord-oracle` | `>=3.8` | ✅ | ✅ | [dev2](https://pypi.org/project/rhosocial-activerecord-oracle/) |
-| **Snowflake** | `rhosocial-activerecord-snowflake` | `>=3.8` | ✅ | ⚠️ thread-pool¹ | [dev1](https://pypi.org/project/rhosocial-activerecord-snowflake/) |
-| **Firebird** | `rhosocial-activerecord-firebird` | `>=3.11` | ✅ | ✅ | [dev1](https://pypi.org/project/rhosocial-activerecord-firebird/) |
-| **BigQuery** | `rhosocial-activerecord-bigquery` | `>=3.10` | ✅ | ✅ | _unpublished_ |
-| **ClickHouse** | `rhosocial-activerecord-clickhouse` | `>=3.10,<3.15` | ✅ | ❌² | _unpublished_ |
-
-¹ `snowflake-connector-python` has no native async driver, so
-`AsyncSnowflakeBackend` runs sync calls through `asyncio.run_in_executor()`.
-Same method names, but it is a wrapper, not a native implementation.
-
-² `clickhouse-connect` is sync-only. `AsyncClickHouseBackend` exists as an
-import placeholder and raises `NotImplementedError` on instantiation.
-
-Source: [rhosocial/python-activerecord](https://github.com/rhosocial/python-activerecord)
-
-## Requirements
-
-* **Python**: 3.8+ for the core library and the SQLite backend. Individual
-  backends raise this floor — see the Backend Support table above.
-* **SQLite**: 3.25+ (for the built-in backend)
-
-**The Pydantic pair follows the interpreter.** Where the newest release cannot
-be installed the core pins an exact pair, and where it can it leaves the range
-open — so the version you get is decided by your Python, not by a guess:
-
-| Python | pydantic | pydantic-core | Why |
-|---|---|---|---|
-| 3.8 | `==2.10.6` | `==2.27.2` | The last pair installable on 3.8 |
-| 3.9 – 3.12 | `>=2.12.0` | `>=2.41.0` | Open; major stays 2.x |
-| 3.13 **and** 3.13t | `==2.12.2` | `==2.41.4` | pydantic-core has **no cp313t wheel after 2.41.4**, and the newer sdists cannot be built there (PyO3 0.29 refuses a free-threaded CPython below 3.14). 2.12.2 is the last pydantic paired with 2.41.4 |
-| 3.14, 3.15 | `>=2.12.0` | `>=2.41.0` | Open; major stays 2.x |
-
-`python_version` markers distinguish release *lines*, not GIL configuration, so
-the 3.13 row pins both the GIL and the free-threaded build — installing on 3.13t
-resolves to the same exact pair, which is what keeps that interpreter installable
-at all.
-
-Free-threaded builds: the core library and the SQLite backend are tested on
-3.13t/3.14t. Per-backend status differs — Snowflake is **not** supported on
-3.13t (`cryptography` → `cffi` has no free-threaded 3.13 build), ClickHouse caps
-at `<3.15`, and PostgreSQL runs the GIL leg only because its driver, psycopg,
-does not support free-threaded builds. Backends whose driver ships no cp315
-wheel at all are capped below 3.15 — see the Backend Support table.
-
-## Get Started with AI Code Agents
+### Get Started with AI Code Agents
 
 This project ships with built-in configurations for AI code agents and editors. Clone the repo and launch your preferred tool — project-specific skills, commands, and context files are discovered automatically.
 
@@ -342,7 +173,7 @@ git clone https://github.com/rhosocial/python-activerecord.git
 cd python-activerecord
 ```
 
-### CLI Code Agents
+**CLI code agents**
 
 | Tool | How to start | What's included |
 |---|---|---|
@@ -350,36 +181,13 @@ cd python-activerecord
 | [OpenCode](https://github.com/opencode-ai/opencode) | `opencode` | `.opencode/commands/` (8 slash commands) + `.opencode/hints.yml` |
 | [Codex](https://github.com/openai/codex) | `codex` | `AGENTS.md` project context |
 
-### Editors
+**Editors**
 
-[Cursor](https://cursor.com) and [Windsurf](https://windsurf.com) users can open the project folder directly. Both editors benefit from the `CLAUDE.md` and `AGENTS.md` context files at the project root, as well as the `docs/LLM_CONTEXT.md` structured reference.
+[Cursor](https://cursor.com) and [Windsurf](https://windsurf.com) users can open the project folder directly. Both benefit from the `CLAUDE.md` and `AGENTS.md` context files at the project root, as well as the `docs/LLM_CONTEXT.md` structured reference.
 
-### For Any LLM
+**For any LLM**
 
-Feed [`docs/LLM_CONTEXT.md`](docs/LLM_CONTEXT.md) to your preferred LLM for a structured overview of the project's architecture, module map, and key concepts.
-
-### What can AI agents do?
-
-See the **[AI-Assisted Development Guide](docs/en_US/introduction/ai_assistance.md)** for concrete examples of what AI agents can help you accomplish with this project — from generating models and queries to implementing new backends and running tests.
-
-## Documentation
-
-* **[Getting Started Guide](docs/en_US/getting_started/)** — Installation and basic usage
-* **[AI-Assisted Development](docs/en_US/introduction/ai_assistance.md)** — Using AI code agents with this project
-* **[Modeling Guide](docs/en_US/modeling/)** — Defining models, fields, and relationships
-* **[Querying Guide](docs/en_US/querying/)** — Complete query builder documentation
-* **[Backend Development](docs/en_US/backend/)** — Creating custom database backends
-* **[Architecture Overview](docs/en_US/introduction/architecture.md)** — Module structure and design decisions
-* **[LLM Context](docs/LLM_CONTEXT.md)** — Structured context for AI assistants
-* **[API Reference](https://docs.python-activerecord.dev.rho.social/api/)** — Full API documentation
-
-## Contributing
-
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-## License
-
-[Apache License 2.0](LICENSE) — Copyright © 2026 [vistart](https://github.com/vistart)
+Feed [`docs/LLM_CONTEXT.md`](docs/LLM_CONTEXT.md) to your preferred LLM for a structured overview of the architecture, module map, and key concepts. See the **[AI-Assisted Development Guide](docs/en_US/introduction/ai_assistance.md)** for concrete examples of what agents can help with — from generating models and queries to implementing backends and running tests.
 
 ---
 
