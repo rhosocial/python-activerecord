@@ -2,6 +2,8 @@
 
 组合优于继承。`rhosocial-activerecord` 鼓励使用 Mixin 来复用通用的字段和逻辑。
 
+> 完整的能力矩阵与设计边界，请参阅 [The ActiveRecord Definition](definition.md)。
+
 ## 内置 Mixin
 
 框架提供了一些常用的 Mixin。
@@ -10,7 +12,7 @@
 >
 > 框架中凡是「需要字段」的行为 Mixin（时间戳、乐观锁、软删除）都拆分为**两个类**：
 >
-> * **语义基类**（如 `TimestampMixin`）：只提供**维护语义**（事件挂钩、SQL 条件、查询过滤等），**不声明任何字段**。它通过类属性（如 `__created_at_field__`）指向模型自己声明的字段。适用于需要**自定义字段名/列名**的场景。
+> * **语义基类**（如 `TimestampMixin`）：只提供**维护语义**（事件挂钩、SQL 条件、查询过滤等），**不声明任何字段**。它通过可覆写的访问器类方法（如 `created_at_field()`）指向模型自己声明的字段。适用于需要**自定义字段名/列名**的场景。
 > * **默认子类**（如 `DefaultTimestampMixin`）：在语义基类之上**补充约定俗成的字段**（`created_at`/`updated_at`、`version`、`deleted_at`），开箱即用。
 >
 > **绝大多数情况下直接使用 `Default*` 变体即可**；只有当字段名与默认约定不同（例如映射遗留数据库表）时，才使用语义基类并自行声明字段。
@@ -116,7 +118,7 @@ class Post(DefaultTimestampMixin, ActiveRecord):
 
 #### 自定义字段名：TimestampMixin
 
-当模型使用不同的字段名（例如映射遗留数据库）时，使用语义基类 `TimestampMixin`，自行声明字段，并通过 `__created_at_field__` / `__updated_at_field__` 告知框架：
+当模型使用不同的字段名（例如映射遗留数据库）时，使用语义基类 `TimestampMixin`，自行声明字段，并通过覆写 `created_at_field()` / `updated_at_field()` 告知框架：
 
 ```python
 from rhosocial.activerecord.field import TimestampMixin
@@ -300,8 +302,8 @@ class Article(OptimisticLockMixin, ActiveRecord):
 
 **自定义字段名时**：
 
-- `__version_field__`：指向模型声明的版本字段（Python 字段名）
-- `__version_increment_by__`：每次 UPDATE 的递增步长（可选，默认 1）
+- `version_field()`：可覆写的类方法，用于指向模型声明的版本字段（Python 字段名）
+- `version_increment_by()`：可覆写的类方法，用于指定每次 UPDATE 的递增步长（可选，默认 1）
 - 版本列的列名遵循 `UseColumn` 标准解析
 
 > 💡 **AI提示词示例**: "如何处理多人同时编辑同一篇文章的情况？乐观锁的工作原理是什么？"

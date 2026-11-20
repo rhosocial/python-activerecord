@@ -2,6 +2,8 @@
 
 在 `rhosocial-activerecord` 中，字段定义复用了 Pydantic 的语法，同时引入了 `FieldProxy` 来弥合 Python 对象与 SQL 查询之间的鸿沟。
 
+> 完整的能力矩阵与设计边界，请参阅 [The ActiveRecord Definition](definition.md)。
+
 ## 基础字段定义
 
 模型字段就是标准的 Python 类型注解，可以使用 `pydantic.Field` 来添加元数据和验证规则。

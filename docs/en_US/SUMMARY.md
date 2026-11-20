@@ -35,6 +35,7 @@
 ## Modeling Data
 
 * [Overview](modeling/README.md)
+* [Definition](modeling/definition.md)
 * [Fields & Proxies](modeling/fields.md)
 * [Derived Fields](modeling/derived_fields.md)
 * [Mixins](modeling/mixins.md)

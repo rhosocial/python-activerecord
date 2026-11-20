@@ -2,6 +2,8 @@
 
 Ensuring data integrity is a key responsibility of the model.
 
+> For the complete capability matrix and design boundaries, see [The ActiveRecord Definition](definition.md).
+
 ## Data Validation (Pydantic)
 
 Since models are Pydantic `BaseModel`s, you can use all Pydantic validation features.

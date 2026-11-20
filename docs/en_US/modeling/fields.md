@@ -2,6 +2,8 @@
 
 In `rhosocial-activerecord`, field definitions reuse Pydantic syntax while introducing `FieldProxy` to bridge the gap between Python objects and SQL queries.
 
+> For the complete capability matrix and design boundaries, see [The ActiveRecord Definition](definition.md).
+
 ## Basic Field Definition
 
 Model fields are standard Python type annotations, and you can use `pydantic.Field` to add metadata and validation rules.

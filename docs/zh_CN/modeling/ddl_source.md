@@ -2,6 +2,8 @@
 
 `DDLSource` 是 ActiveRecord 暴露 DDL 声明的结构化协议，`DDLSourceMixin` 是它在模型上的默认实现。它负责从模型类中收集 DDL 表达式和声明，并把结果呈现出来；它不选择后端、不生成 SQL、不创建语句计划，也不执行数据库操作。
 
+> 完整的能力矩阵与设计边界，请参阅 [The ActiveRecord Definition](definition.md)。
+
 ```python
 from rhosocial.activerecord.base import DDLSource
 from rhosocial.activerecord.model import ActiveRecord

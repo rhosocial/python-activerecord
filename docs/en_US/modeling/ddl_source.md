@@ -2,6 +2,8 @@
 
 `DDLSource` is the structural protocol through which ActiveRecord exposes DDL declarations. `DDLSourceMixin` is its default model implementation. The mixin collects DDL expressions and declarations from a model class and presents them through the protocol. It does not select a backend, generate SQL, create statement plans, or execute database operations.
 
+> For the complete capability matrix and design boundaries, see [The ActiveRecord Definition](definition.md).
+
 ```python
 from rhosocial.activerecord.base import DDLSource
 from rhosocial.activerecord.model import ActiveRecord
