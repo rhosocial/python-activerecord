@@ -20,14 +20,14 @@ class QualifyClauseSupport(Protocol):
         """Whether QUALIFY clause is supported."""
         ...  # pragma: no cover
 
-    def format_qualify_clause(self, clause: "QualifyClause") -> Tuple[str, tuple]:
+    def format_qualify_clause(self, expr: "QualifyClause") -> Tuple[str, tuple]:
         """
-        Formats a QUALIFY clause.
+        Formats a QUALIFY expr.
 
         Args:
-            clause: QualifyClause object
+            expr: QualifyClause object
 
         Returns:
-            Tuple of (SQL string, parameters tuple) for the formatted clause.
+            Tuple of (SQL string, parameters tuple) for the formatted expr.
         """
         ...  # pragma: no cover

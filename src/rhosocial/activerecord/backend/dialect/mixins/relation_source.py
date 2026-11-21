@@ -82,14 +82,14 @@ class RelationSourceMixin:
         """
         return False
 
-    def format_named_relation(self, ref: "NamedRelationRef") -> Tuple[str, tuple]:
+    def format_named_relation(self, expr: "NamedRelationRef") -> Tuple[str, tuple]:
         """Render a :class:`~...expression.sources.NamedRelationRef`.
 
         The relation's name comes from the relation itself; the temporal clause
         and the alias are the query's, and are the dialect's to spell.
 
         Args:
-            ref: The reference being rendered.
+            expr: The reference being rendered.
 
         Returns:
             A ``(sql, params)`` tuple. ``params`` carries the temporal clause's
@@ -100,28 +100,28 @@ class RelationSourceMixin:
             index or a sequence cannot be read from, yet either would still have
             rendered its own name into the FROM clause.
         """
-        if not isinstance(ref.relation, RelationObject):
+        if not isinstance(expr.relation, RelationObject):
             raise TypeError(
                 f"NamedRelationRef.relation must be a RelationObject, "
-                f"got {type(ref.relation).__name__}"
+                f"got {type(expr.relation).__name__}"
             )
-        name_sql, params = ref.relation.to_sql()
+        name_sql, params = expr.relation.to_sql()
 
-        if ref.temporal_options:
+        if expr.temporal_options:
             from ...expression.datetime import TemporalOptionsExpression
 
             temporal = self.format_temporal_options_expression(
-                TemporalOptionsExpression(self, ref.temporal_options)
+                TemporalOptionsExpression(self, expr.temporal_options)
             )
             if temporal is not None:
                 temporal_sql, temporal_params = temporal
                 name_sql = f"{name_sql} {temporal_sql}"
                 params += temporal_params
 
-        if ref.alias:
+        if expr.alias:
             name_sql = (
                 f"{name_sql}{self.source_alias_separator()}"
-                f"{self.format_identifier(ref.alias, ref.alias_need_quote)}"
+                f"{self.format_identifier(expr.alias, expr.alias_need_quote)}"
             )
 
         return name_sql, params
@@ -134,7 +134,7 @@ class RelationSourceMixin:
         """
         return " AS "
 
-    def format_source_alias(self, sql: str, source: "TableSource") -> str:
+    def append_source_alias(self, sql: str, source: "TableSource") -> str:
         """Append *source*'s alias to already-rendered *sql*.
 
         Every row source carries an alias but none of them may decide how it is
@@ -157,41 +157,41 @@ class RelationSourceMixin:
             f"{self.format_identifier(source.alias, source.alias_need_quote)}"
         )
 
-    def format_source_document(self, document: Union[BaseExpression, str]) -> Tuple[str, tuple]:
-        """Render the document a projection row source reads.
+    def format_source_document(self, expr: Union[BaseExpression, str]) -> Tuple[str, tuple]:
+        """Render the expr a projection row source reads.
 
         ``JSON_TABLE`` and ``XMLTABLE`` are handed either an expression
-        producing the document or the name of a column holding it, so this
+        producing the expr or the name of a column holding it, so this
         resolves the two forms in one place rather than in each renderer.
 
         Args:
-            document: A :class:`~...expression.bases.BaseExpression`, or the
-                name of a column holding the document.
+            expr: A :class:`~...expression.bases.BaseExpression`, or the
+                name of a column holding the expr.
 
         Returns:
             A ``(sql, params)`` tuple.
 
         Raises:
-            TypeError: *document* is neither an expression nor a column name.
+            TypeError: *expr* is neither an expression nor a column name.
         """
-        if isinstance(document, BaseExpression):
-            return document.to_sql()
-        if isinstance(document, str):
-            return self.format_identifier(document), ()
+        if isinstance(expr, BaseExpression):
+            return expr.to_sql()
+        if isinstance(expr, str):
+            return self.format_identifier(expr), ()
         raise TypeError(
-            f"A row source's document must be a BaseExpression or a column "
-            f"name, got {type(document).__name__}"
+            f"A row source's expr must be a BaseExpression or a column "
+            f"name, got {type(expr).__name__}"
         )
 
-    def format_derived_table(self, source: "DerivedTableSource") -> Tuple[str, tuple]:
+    def format_derived_table(self, expr: "DerivedTableSource") -> Tuple[str, tuple]:
         """Render a :class:`~...expression.sources.DerivedTableSource`.
 
         Args:
-            source: The derived table, exposing ``query`` and an optional alias.
+            expr: The derived table, exposing ``query`` and an optional alias.
 
         Returns:
             A ``(sql, params)`` tuple: the query parenthesised so it reads as a
-            row source, followed by the alias when there is one.
+            row expr, followed by the alias when there is one.
 
         Raises:
             UnsupportedFeatureError: If this dialect rejects subqueries in FROM.
@@ -199,10 +199,10 @@ class RelationSourceMixin:
         self.check_feature_support(
             "supports_derived_table", "derived table in FROM"
         )
-        query_sql, params = source.query.to_sql()
-        return self.format_source_alias(f"({query_sql})", source), params
+        query_sql, params = expr.query.to_sql()
+        return self.append_source_alias(f"({query_sql})", expr), params
 
-    def format_values_table(self, source: "ValuesTableSource") -> Tuple[str, tuple]:
+    def format_values_table(self, expr: "ValuesTableSource") -> Tuple[str, tuple]:
         """Render a :class:`~...expression.sources.ValuesTableSource`.
 
         Each cell is either an expression, which is rendered in place, or a
@@ -210,7 +210,7 @@ class RelationSourceMixin:
         itself as a parameter object.
 
         Args:
-            source: The row constructor, exposing ``rows``, optional
+            expr: The row constructor, exposing ``rows``, optional
                 ``column_names`` and an optional alias.
 
         Returns:
@@ -218,15 +218,15 @@ class RelationSourceMixin:
             column names, being identifiers, bind nothing.
 
         Raises:
-            UnsupportedFeatureError: If this dialect has no VALUES row source.
+            UnsupportedFeatureError: If this dialect has no VALUES row expr.
         """
         self.check_feature_support(
-            "supports_values_table_constructor", "VALUES row source"
+            "supports_values_table_constructor", "VALUES row expr"
         )
         placeholder = self.get_parameter_placeholder()
         all_params: List[Any] = []
         rows_sql = []
-        for row in source.rows:
+        for row in expr.rows:
             cells_sql = []
             for cell in row:
                 if isinstance(cell, BaseExpression):
@@ -238,18 +238,18 @@ class RelationSourceMixin:
                     cells_sql.append(placeholder)
             rows_sql.append(f"({', '.join(cells_sql)})")
         sql = f"(VALUES {', '.join(rows_sql)})"
-        if source.column_names:
+        if expr.column_names:
             names = ", ".join(
-                self.format_identifier(name) for name in source.column_names
+                self.format_identifier(name) for name in expr.column_names
             )
             sql = f"{sql} ({names})"
-        return self.format_source_alias(sql, source), tuple(all_params)
+        return self.append_source_alias(sql, expr), tuple(all_params)
 
-    def format_table_function(self, source: "TableFunctionSource") -> Tuple[str, tuple]:
+    def format_table_function(self, expr: "TableFunctionSource") -> Tuple[str, tuple]:
         """Render a :class:`~...expression.sources.TableFunctionSource`.
 
         Args:
-            source: The call, exposing ``function_name``, optional ``args``,
+            expr: The call, exposing ``function_name``, optional ``args``,
                 ``with_ordinality`` and an optional alias.
 
         Returns:
@@ -263,21 +263,21 @@ class RelationSourceMixin:
         self.check_feature_support("supports_table_function", "table function")
         args_sql = []
         all_params: List[Any] = []
-        for argument in source.args or ():
+        for argument in expr.args or ():
             argument_sql, argument_params = argument.to_sql()
             args_sql.append(argument_sql)
             all_params.extend(argument_params)
-        name = self.format_identifier(source.function_name, need_quote=False)
+        name = self.format_identifier(expr.function_name, need_quote=False)
         sql = f"{name}({', '.join(args_sql)})"
-        if source.with_ordinality:
+        if expr.with_ordinality:
             sql = f"{sql} WITH ORDINALITY"
-        return self.format_source_alias(sql, source), tuple(all_params)
+        return self.append_source_alias(sql, expr), tuple(all_params)
 
-    def format_graph_table(self, source: "GraphTableSource") -> Tuple[str, tuple]:
+    def format_graph_table(self, expr: "GraphTableSource") -> Tuple[str, tuple]:
         """Render a :class:`~...expression.sources.GraphTableSource`.
 
         Args:
-            source: The graph traversal, exposing ``query``, an optional
+            expr: The graph traversal, exposing ``query``, an optional
                 ``columns_clause`` and an optional alias.
 
         Returns:
@@ -287,19 +287,19 @@ class RelationSourceMixin:
             UnsupportedFeatureError: If this dialect has no GRAPH_TABLE.
         """
         self.check_feature_support("supports_graph_table", "GRAPH_TABLE")
-        query_sql, params = source.query.to_sql()
+        query_sql, params = expr.query.to_sql()
         sql = f"GRAPH_TABLE({query_sql}"
-        if source.columns_clause is not None:
-            columns_sql, columns_params = source.columns_clause.to_sql()
+        if expr.columns_clause is not None:
+            columns_sql, columns_params = expr.columns_clause.to_sql()
             sql = f"{sql} {columns_sql}"
             params += columns_params
-        return self.format_source_alias(f"{sql})", source), params
+        return self.append_source_alias(f"{sql})", expr), params
 
-    def format_json_table(self, source: "JsonTableSource") -> Tuple[str, tuple]:
+    def format_json_table(self, expr: "JsonTableSource") -> Tuple[str, tuple]:
         """Render a :class:`~...expression.sources.JsonTableSource`.
 
         Args:
-            source: The projection, exposing ``source`` (the document),
+            expr: The projection, exposing ``expr`` (the document),
                 ``path`` (the JSON path), ``columns`` and an optional alias.
 
         Returns:
@@ -310,16 +310,16 @@ class RelationSourceMixin:
             TypeError: A column entry declares neither a name nor a path.
         """
         self.check_feature_support("supports_json_table", "JSON_TABLE")
-        document_sql, params = self.format_source_document(source.source)
-        path = self.escape_sql_string(source.path)
-        columns_sql, columns_params = self.format_source_columns(
-            source.columns, self.format_json_table_column
+        document_sql, params = self.format_source_document(expr.source)
+        path = self.escape_sql_string(expr.path)
+        columns_sql, columns_params = self.join_source_columns(
+            expr.columns, self.format_json_table_column
         )
         params += columns_params
         sql = f"JSON_TABLE({document_sql}, '{path}' COLUMNS({columns_sql}))"
-        return self.format_source_alias(sql, source), params
+        return self.append_source_alias(sql, expr), params
 
-    def format_source_columns(self, columns: List[Any], render_column: Any) -> Tuple[str, tuple]:
+    def join_source_columns(self, columns: List[Any], render_column: Any) -> Tuple[str, tuple]:
         """Render a projection source's whole ``COLUMNS`` list.
 
         ``JSON_TABLE`` and ``XMLTABLE`` both take a list of column projections
@@ -343,11 +343,11 @@ class RelationSourceMixin:
             all_params.extend(entry_params)
         return ", ".join(entries_sql), tuple(all_params)
 
-    def format_json_table_column(self, column: "JSONTableColumn") -> Tuple[str, tuple]:
+    def format_json_table_column(self, expr: "JSONTableColumn") -> Tuple[str, tuple]:
         """Render one entry of a JSON_TABLE ``COLUMNS`` list.
 
         Args:
-            column: An entry exposing ``name``, ``path`` and ``data_type``.
+            expr: An entry exposing ``name``, ``path`` and ``data_type``.
 
         Returns:
             A ``(sql, params)`` tuple for the ``name type PATH 'path'``
@@ -355,45 +355,45 @@ class RelationSourceMixin:
             declared type can contribute a parameter.
 
         Raises:
-            TypeError: *column* is not a usable column projection.
+            TypeError: *expr* is not a usable expr projection.
         """
-        if not isinstance(column, JSONTableColumn):
+        if not isinstance(expr, JSONTableColumn):
             raise TypeError(
-                f"A JSON_TABLE column must be a JSONTableColumn, "
-                f"got {type(column).__name__}"
+                f"A JSON_TABLE expr must be a JSONTableColumn, "
+                f"got {type(expr).__name__}"
             )
-        name = column.name
-        path = column.path
-        type_sql, params = self.format_source_column_type(column)
+        name = expr.name
+        path = expr.path
+        type_sql, params = self.format_source_column_type(expr)
         escaped_path = self.escape_sql_string(path)
         sql = (
             f"{self.format_identifier(name)} {type_sql} PATH '{escaped_path}'"
         )
         return sql, params
 
-    def format_source_column_type(self, column: "JSONTableColumn | XMLTableColumn") -> Tuple[str, tuple]:
-        """Render the declared result type of a projection column.
+    def format_source_column_type(self, expr: "JSONTableColumn | XMLTableColumn") -> Tuple[str, tuple]:
+        """Render the declared result type of a projection expr.
 
-        A column's type is a clause of its own, so an expression type is asked
+        A expr's type is a clause of its own, so an expression type is asked
         to render.  A plain one is a name, and a name is claimed by the
         framework's name node -- whose name the grammar validates, because a
         type position cannot take a bound parameter.
 
         Args:
-            column: A column projection exposing ``data_type``.
+            expr: A expr projection exposing ``data_type``.
 
         Returns:
             A ``(sql, params)`` tuple; a type written as plain text binds
             nothing, while an expression type carries its own parameters.
 
         Raises:
-            TypeError: *column* declares no usable ``data_type``.
+            TypeError: *expr* declares no usable ``data_type``.
         """
-        data_type = column.data_type
+        data_type = expr.data_type
         if data_type is None:
             raise TypeError(
-                f"A {type(column).__name__} must declare a data_type, "
-                f"got {type(column).__name__}"
+                f"A {type(expr).__name__} must declare a data_type, "
+                f"got {type(expr).__name__}"
             )
         if isinstance(data_type, BaseExpression):
             return data_type.to_sql()
@@ -402,14 +402,14 @@ class RelationSourceMixin:
         type_sql, type_params = DataType.as_type(self, data_type).to_sql()
         return type_sql, type_params
 
-    def format_xml_table(self, source: "XmlTableSource") -> Tuple[str, tuple]:
+    def format_xml_table(self, expr: "XmlTableSource") -> Tuple[str, tuple]:
         """Render a :class:`~...expression.sources.XmlTableSource`.
 
         SQL/XML XMLTABLE takes the context item, any ``PASSING`` bindings, the
         row pattern, and the column list, in that order.
 
         Args:
-            source: The projection, exposing ``source`` (the document, or
+            expr: The projection, exposing ``expr`` (the document, or
                 ``None`` when ``passing`` supplies it), ``row_path`` (the
                 XPath), ``columns``, optional ``passing`` and an optional
                 alias.
@@ -419,59 +419,59 @@ class RelationSourceMixin:
 
         Raises:
             UnsupportedFeatureError: If this dialect has no XMLTABLE.
-            TypeError: No document is reachable -- neither ``source`` nor
+            TypeError: No document is reachable -- neither ``expr`` nor
                 ``passing`` supplies one.
         """
         self.check_feature_support("supports_xmltable", "XMLTABLE")
         parts: List[str] = []
         all_params: List[Any] = []
-        if source.source is not None:
-            document_sql, document_params = self.format_source_document(source.source)
+        if expr.source is not None:
+            document_sql, document_params = self.format_source_document(expr.source)
             parts.append(document_sql)
             all_params.extend(document_params)
-        elif not source.passing:
+        elif not expr.passing:
             raise TypeError(
-                "XmlTableSource needs a document: pass `source`, or a "
+                "XmlTableSource needs a document: pass `expr`, or a "
                 "`passing` binding that supplies one."
             )
-        for binding in source.passing or ():
+        for binding in expr.passing or ():
             binding_sql, binding_params = self.format_source_document(binding)
             parts.append(f"PASSING {binding_sql}")
             all_params.extend(binding_params)
-        row_path = self.escape_sql_string(source.row_path)
+        row_path = self.escape_sql_string(expr.row_path)
         parts.append(f"PASSING '{row_path}'")
-        columns_sql, columns_params = self.format_source_columns(
-            source.columns, self.format_xml_table_column
+        columns_sql, columns_params = self.join_source_columns(
+            expr.columns, self.format_xml_table_column
         )
         all_params.extend(columns_params)
         parts.append(f"COLUMNS({columns_sql})")
         sql = f"XMLTABLE({' '.join(parts)})"
-        return self.format_source_alias(sql, source), tuple(all_params)
+        return self.append_source_alias(sql, expr), tuple(all_params)
 
-    def format_xml_table_column(self, column: "XMLTableColumn") -> Tuple[str, tuple]:
+    def format_xml_table_column(self, expr: "XMLTableColumn") -> Tuple[str, tuple]:
         """Render one entry of an XMLTABLE ``COLUMNS`` list.
 
         Args:
-            column: An entry exposing ``name`` and ``data_type``, and
+            expr: An entry exposing ``name`` and ``data_type``, and
                 optionally ``path``, ``default`` and ``for_ordinality``.
 
         Returns:
             A ``(sql, params)`` tuple for this entry's fragment. Unlike a JSON
-            path, an XML column's ``PATH`` and ``DEFAULT`` are clauses that may
+            path, an XML expr's ``PATH`` and ``DEFAULT`` are clauses that may
             bind, so their parameters are carried up.
 
         Raises:
-            TypeError: *column* exposes no usable ``name``.
+            TypeError: *expr* exposes no usable ``name``.
         """
-        if not isinstance(column, XMLTableColumn):
+        if not isinstance(expr, XMLTableColumn):
             raise TypeError(
-                f"An XMLTABLE column must be an XMLTableColumn, "
-                f"got {type(column).__name__}"
+                f"An XMLTABLE expr must be an XMLTableColumn, "
+                f"got {type(expr).__name__}"
             )
-        name = column.name
-        type_sql, all_params = self.format_source_column_type(column)
+        name = expr.name
+        type_sql, all_params = self.format_source_column_type(expr)
         fragment = f"{self.format_identifier(name)} {type_sql}"
-        for spelling, value in (("PATH", column.path), ("DEFAULT", column.default)):
+        for spelling, value in (("PATH", expr.path), ("DEFAULT", expr.default)):
             if value is None:
                 continue
             value_sql, value_params = self.format_source_document(value)

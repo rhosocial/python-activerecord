@@ -616,123 +616,123 @@ class DummyDialect(
             ),
         )
 
-    def format_data_type_tinyint(self, data_type: TinyIntType) -> Tuple[str, tuple]:
-        self._refuse_unsigned(data_type, "TINYINT")
+    def format_data_type_tinyint(self, expr: TinyIntType) -> Tuple[str, tuple]:
+        self._refuse_unsigned(expr, "TINYINT")
         return "TINYINT", ()
 
-    def format_data_type_smallint(self, data_type: SmallIntType) -> Tuple[str, tuple]:
-        self._refuse_unsigned(data_type, "SMALLINT")
+    def format_data_type_smallint(self, expr: SmallIntType) -> Tuple[str, tuple]:
+        self._refuse_unsigned(expr, "SMALLINT")
         return "SMALLINT", ()
 
-    def format_data_type_integer(self, data_type: IntegerType) -> Tuple[str, tuple]:
+    def format_data_type_integer(self, expr: IntegerType) -> Tuple[str, tuple]:
         """The dummy dialect renders every spelling of this one type verbatim,
         which is what makes it useful for testing dispatch.
 
         ``unsigned`` is refused rather than ignored; see
         :meth:`_refuse_unsigned`."""
-        if data_type.spelling not in IntegerType.SPELLINGS:
+        if expr.spelling not in IntegerType.SPELLINGS:
             raise TypeError(
-                f"{type(self).__name__} cannot render {data_type.spelling!r}; "
+                f"{type(self).__name__} cannot render {expr.spelling!r}; "
                 f"it accepts {', '.join(IntegerType.SPELLINGS)}."
             )
-        self._refuse_unsigned(data_type, "INTEGER")
-        return "INT" if data_type.spelling == "int" else "INTEGER", ()
+        self._refuse_unsigned(expr, "INTEGER")
+        return "INT" if expr.spelling == "int" else "INTEGER", ()
 
-    def format_data_type_bigint(self, data_type: BigIntType) -> Tuple[str, tuple]:
-        self._refuse_unsigned(data_type, "BIGINT")
+    def format_data_type_bigint(self, expr: BigIntType) -> Tuple[str, tuple]:
+        self._refuse_unsigned(expr, "BIGINT")
         return "BIGINT", ()
 
-    def format_data_type_real(self, data_type: RealType) -> Tuple[str, tuple]:
+    def format_data_type_real(self, expr: RealType) -> Tuple[str, tuple]:
         # REAL is refused for unsigned for the same reason as every other
         # numeric here: the grammar this dialect renders has no UNSIGNED
         # modifier, so the flag cannot be honoured and must not be dropped.
-        self._refuse_unsigned(data_type, "REAL")
+        self._refuse_unsigned(expr, "REAL")
         return "REAL", ()
 
-    def format_data_type_double(self, data_type: DoubleType) -> Tuple[str, tuple]:
-        self._refuse_unsigned(data_type, "DOUBLE PRECISION")
+    def format_data_type_double(self, expr: DoubleType) -> Tuple[str, tuple]:
+        self._refuse_unsigned(expr, "DOUBLE PRECISION")
         return "DOUBLE PRECISION", ()
 
-    def format_data_type_text(self, data_type: TextType) -> Tuple[str, tuple]:
+    def format_data_type_text(self, expr: TextType) -> Tuple[str, tuple]:
         return "TEXT", ()
 
-    def format_data_type_boolean(self, data_type: BooleanType) -> Tuple[str, tuple]:
+    def format_data_type_boolean(self, expr: BooleanType) -> Tuple[str, tuple]:
         return "BOOLEAN", ()
 
-    def format_data_type_blob(self, data_type: BlobType) -> Tuple[str, tuple]:
+    def format_data_type_blob(self, expr: BlobType) -> Tuple[str, tuple]:
         return "BLOB", ()
 
-    def format_data_type_date(self, data_type: DateType) -> Tuple[str, tuple]:
+    def format_data_type_date(self, expr: DateType) -> Tuple[str, tuple]:
         return "DATE", ()
 
-    def format_data_type_json(self, data_type: JsonType) -> Tuple[str, tuple]:
+    def format_data_type_json(self, expr: JsonType) -> Tuple[str, tuple]:
         return "JSON", ()
 
-    def format_data_type_jsonb(self, data_type: JsonBType) -> Tuple[str, tuple]:
+    def format_data_type_jsonb(self, expr: JsonBType) -> Tuple[str, tuple]:
         return "JSONB", ()
 
-    def format_data_type_xml(self, data_type: XmlType) -> Tuple[str, tuple]:
+    def format_data_type_xml(self, expr: XmlType) -> Tuple[str, tuple]:
         return "XML", ()
 
-    def format_data_type_uuid(self, data_type: UUIDType) -> Tuple[str, tuple]:
+    def format_data_type_uuid(self, expr: UUIDType) -> Tuple[str, tuple]:
         return "UUID", ()
 
-    def format_data_type_char(self, data_type: CharType) -> Tuple[str, tuple]:
-        return (f"CHAR({data_type.length})" if data_type.length is not None else "CHAR"), ()
+    def format_data_type_char(self, expr: CharType) -> Tuple[str, tuple]:
+        return (f"CHAR({expr.length})" if expr.length is not None else "CHAR"), ()
 
-    def format_data_type_varchar(self, data_type: VarCharType) -> Tuple[str, tuple]:
-        return (f"VARCHAR({data_type.length})" if data_type.length is not None else "VARCHAR"), ()
+    def format_data_type_varchar(self, expr: VarCharType) -> Tuple[str, tuple]:
+        return (f"VARCHAR({expr.length})" if expr.length is not None else "VARCHAR"), ()
 
-    def format_data_type_binary(self, data_type: BinaryType) -> Tuple[str, tuple]:
-        return (f"BINARY({data_type.length})" if data_type.length is not None else "BINARY"), ()
+    def format_data_type_binary(self, expr: BinaryType) -> Tuple[str, tuple]:
+        return (f"BINARY({expr.length})" if expr.length is not None else "BINARY"), ()
 
-    def format_data_type_varbinary(self, data_type: VarBinaryType) -> Tuple[str, tuple]:
-        return (f"VARBINARY({data_type.length})" if data_type.length is not None else "VARBINARY"), ()
+    def format_data_type_varbinary(self, expr: VarBinaryType) -> Tuple[str, tuple]:
+        return (f"VARBINARY({expr.length})" if expr.length is not None else "VARBINARY"), ()
 
-    def format_data_type_enum(self, data_type: EnumType) -> Tuple[str, tuple]:
+    def format_data_type_enum(self, expr: EnumType) -> Tuple[str, tuple]:
         # format_literal rather than an f-string of quotes: it is the dialect's
         # own escaping, so a value containing a quote survives.
-        values = ",".join(self.format_literal(value) for value in data_type.values)
+        values = ",".join(self.format_literal(value) for value in expr.values)
         return f"ENUM({values})", ()
 
-    def format_data_type_float(self, data_type: FloatType) -> Tuple[str, tuple]:
-        self._refuse_unsigned(data_type, "FLOAT")
-        return (f"FLOAT({data_type.precision})" if data_type.precision is not None else "FLOAT"), ()
+    def format_data_type_float(self, expr: FloatType) -> Tuple[str, tuple]:
+        self._refuse_unsigned(expr, "FLOAT")
+        return (f"FLOAT({expr.precision})" if expr.precision is not None else "FLOAT"), ()
 
-    def format_data_type_decimal(self, data_type: DecimalType) -> Tuple[str, tuple]:
-        self._refuse_unsigned(data_type, "DECIMAL")
-        if data_type.precision is not None and data_type.scale is not None:
-            return f"DECIMAL({data_type.precision},{data_type.scale})", ()
-        if data_type.precision is not None:
-            return f"DECIMAL({data_type.precision})", ()
+    def format_data_type_decimal(self, expr: DecimalType) -> Tuple[str, tuple]:
+        self._refuse_unsigned(expr, "DECIMAL")
+        if expr.precision is not None and expr.scale is not None:
+            return f"DECIMAL({expr.precision},{expr.scale})", ()
+        if expr.precision is not None:
+            return f"DECIMAL({expr.precision})", ()
         return "DECIMAL", ()
 
-    def format_data_type_time(self, data_type: TimeType) -> Tuple[str, tuple]:
-        return (f"TIME({data_type.precision})" if data_type.precision is not None else "TIME"), ()
+    def format_data_type_time(self, expr: TimeType) -> Tuple[str, tuple]:
+        return (f"TIME({expr.precision})" if expr.precision is not None else "TIME"), ()
 
-    def format_data_type_timetz(self, data_type: TimeTzType) -> Tuple[str, tuple]:
-        base = f"TIME({data_type.precision})" if data_type.precision is not None else "TIME"
+    def format_data_type_timetz(self, expr: TimeTzType) -> Tuple[str, tuple]:
+        base = f"TIME({expr.precision})" if expr.precision is not None else "TIME"
         return f"{base} WITH TIME ZONE", ()
 
-    def format_data_type_datetime(self, data_type: DateTimeType) -> Tuple[str, tuple]:
-        return (f"DATETIME({data_type.precision})" if data_type.precision is not None else "DATETIME"), ()
+    def format_data_type_datetime(self, expr: DateTimeType) -> Tuple[str, tuple]:
+        return (f"DATETIME({expr.precision})" if expr.precision is not None else "DATETIME"), ()
 
-    def format_data_type_timestamp(self, data_type: TimestampType) -> Tuple[str, tuple]:
-        return (f"TIMESTAMP({data_type.precision})" if data_type.precision is not None else "TIMESTAMP"), ()
+    def format_data_type_timestamp(self, expr: TimestampType) -> Tuple[str, tuple]:
+        return (f"TIMESTAMP({expr.precision})" if expr.precision is not None else "TIMESTAMP"), ()
 
-    def format_data_type_timestamptz(self, data_type: TimestampTzType) -> Tuple[str, tuple]:
-        base = f"TIMESTAMP({data_type.precision})" if data_type.precision is not None else "TIMESTAMP"
+    def format_data_type_timestamptz(self, expr: TimestampTzType) -> Tuple[str, tuple]:
+        base = f"TIMESTAMP({expr.precision})" if expr.precision is not None else "TIMESTAMP"
         return f"{base} WITH TIME ZONE", ()
 
-    def format_data_type_interval(self, data_type: IntervalType) -> Tuple[str, tuple]:
-        return (f"INTERVAL {data_type.fields}" if data_type.fields else "INTERVAL"), ()
+    def format_data_type_interval(self, expr: IntervalType) -> Tuple[str, tuple]:
+        return (f"INTERVAL {expr.fields}" if expr.fields else "INTERVAL"), ()
 
-    def format_data_type_custom(self, data_type: CustomType) -> Tuple[str, tuple]:
-        return data_type.raw, ()
+    def format_data_type_custom(self, expr: CustomType) -> Tuple[str, tuple]:
+        return expr.raw, ()
 
-    def format_data_type_array(self, data_type: ArrayType) -> Tuple[str, tuple]:
-        element_sql, _ = self.format_data_type(data_type.element_type)
-        return element_sql + "[]" * data_type.dimensions, ()
+    def format_data_type_array(self, expr: ArrayType) -> Tuple[str, tuple]:
+        element_sql, _ = self.format_data_type(expr.element_type)
+        return element_sql + "[]" * expr.dimensions, ()
 
     def parse_type(self, raw: str) -> DataType:
         """Parse a SQL type name back into the concept it names.
@@ -1930,7 +1930,7 @@ class DummyDialect(
     # endregion
 
     # region Column Definition with Generated Columns
-    def format_column_definition(self, col_def: "ColumnDefinition") -> Tuple[str, tuple]:
+    def format_column_definition(self, expr: "ColumnDefinition") -> Tuple[str, tuple]:
         """Format a column definition including generated columns.
 
         Each constraint rides through :meth:`format_column_constraint` -- the
@@ -1939,7 +1939,7 @@ class DummyDialect(
         implementation of the same grammar here.
 
         Args:
-            col_def: Column definition object containing name, data type,
+            expr: Column definition object containing name, data type,
                      constraints, and optional generated column expression.
 
         Returns:
@@ -1947,26 +1947,26 @@ class DummyDialect(
         """
         all_params: list = []
 
-        col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type.to_sql()[0]}"
+        col_sql = f"{self.format_identifier(expr.name)} {expr.data_type.to_sql()[0]}"
 
-        for constraint in col_def.constraints:
+        for constraint in expr.constraints:
             constraint_sql, constraint_params = self.format_column_constraint(constraint)
             col_sql += constraint_sql
             all_params.extend(constraint_params)
 
-        if col_def.generated_expression is not None:
-            gen_sql, gen_params = col_def.generated_expression.to_sql()
+        if expr.generated_expression is not None:
+            gen_sql, gen_params = expr.generated_expression.to_sql()
             col_sql += gen_sql
             all_params.extend(gen_params)
 
-        for attr in col_def.attributes or ():
+        for attr in expr.attributes or ():
             attr_sql, attr_params = self.format_column_attribute(attr)
             col_sql += attr_sql
             all_params.extend(attr_params)
 
         # Add comment if present (inline column-comment clause).
-        if col_def.comment is not None:
-            comment_sql, comment_params = self.format_column_comment_clause(col_def.comment)
+        if expr.comment is not None:
+            comment_sql, comment_params = self.format_column_comment_clause(expr.comment)
             col_sql += comment_sql
             all_params.extend(comment_params)
 

@@ -369,15 +369,15 @@ class SQLDialectBase:
         return value.replace("'", "''")
 
     def format_literal(
-        self, value: "Optional[Union[bool, int, float, Decimal, _dt.datetime, _dt.date]]"
+        self, expr: "Optional[Union[bool, int, float, Decimal, _dt.datetime, _dt.date]]"
     ) -> str:
-        """Render a value as a safe inline SQL literal — the three-level
+        """Render a expr as a safe inline SQL literal — the three-level
         construction.
 
         Used by DDL clauses (CHECK / DEFAULT / partition boundaries /
         partial-index WHERE / generated columns), which accept no bind
         parameters, and by every inline-strategy literal node. Construction
-        is attempted at three levels, in order, and an unrenderable value
+        is attempted at three levels, in order, and an unrenderable expr
         fails explicitly — there is no ``str()`` fallback:
 
         1. **Dialect base class built-ins** — the host scalars whose inline
@@ -392,10 +392,10 @@ class SQLDialectBase:
            backend-specific (``bytes`` BLOB literals, ``UUID``,
            ``timedelta`` intervals, arrays, JSON). The base class does *not*
            guess them; a backend dialect must override this method for the
-           value types it supports, and leave the failure explicit for the
+           expr types it supports, and leave the failure explicit for the
            ones it does not.
         3. **The literal-construction protocol** — a user-defined or
-           backend-specific value type implements
+           backend-specific expr type implements
            :class:`SQLLiteral`: the returned text is embedded verbatim as an
            atom. The protocol is a rendering duty, distinct from
            ``DataType`` column-type declaration.
@@ -407,56 +407,56 @@ class SQLDialectBase:
         import datetime as _dt
         from decimal import Decimal
 
-        if value is None:
+        if expr is None:
             return "NULL"
-        if isinstance(value, bool):
+        if isinstance(expr, bool):
             # Portable boolean literal: 1/0 works everywhere; the
             # PostgreSQL-specific TRUE/FALSE spelling is a dialect override
             # for engines that reject 1/0 in a BOOLEAN context.
-            return "TRUE" if value else "FALSE"
-        if isinstance(value, Decimal):
+            return "TRUE" if expr else "FALSE"
+        if isinstance(expr, Decimal):
             # Exact decimal literal; `str` preserves precision/scale without
             # the exponent form `repr` could produce.
-            if not value.is_finite():
+            if not expr.is_finite():
                 raise ValueError("non-finite Decimal cannot be inlined into SQL")
-            return str(value)
-        if isinstance(value, (int, float)):
-            if isinstance(value, float):
-                if value != value:  # NaN
+            return str(expr)
+        if isinstance(expr, (int, float)):
+            if isinstance(expr, float):
+                if expr != expr:  # NaN
                     raise ValueError("NaN cannot be inlined into SQL")
-                if value == float("inf") or value == float("-inf"):
+                if expr == float("inf") or expr == float("-inf"):
                     raise ValueError("Inf cannot be inlined into SQL")
-                return repr(value)
-            return str(value)
-        if isinstance(value, _dt.datetime):
-            escaped = self.escape_sql_string(value.isoformat(sep=" "))
+                return repr(expr)
+            return str(expr)
+        if isinstance(expr, _dt.datetime):
+            escaped = self.escape_sql_string(expr.isoformat(sep=" "))
             return f"'{escaped}'"
-        if isinstance(value, _dt.date):
-            escaped = self.escape_sql_string(value.isoformat())
+        if isinstance(expr, _dt.date):
+            escaped = self.escape_sql_string(expr.isoformat())
             return f"'{escaped}'"
-        if isinstance(value, _dt.time):
+        if isinstance(expr, _dt.time):
             # A time of day is a portable quoted form like the other two, and
             # isoformat keeps the offset an aware time carries. It needs its own
             # branch because it shares neither base class with datetime/date.
-            escaped = self.escape_sql_string(value.isoformat())
+            escaped = self.escape_sql_string(expr.isoformat())
             return f"'{escaped}'"
-        if isinstance(value, str):
-            escaped = self.escape_sql_string(value)
+        if isinstance(expr, str):
+            escaped = self.escape_sql_string(expr)
             return f"'{escaped}'"
-        # Level 3: the value type defines its own literal construction.
+        # Level 3: the expr type defines its own literal construction.
         from ..expression.bases import SQLLiteral
 
-        if isinstance(value, SQLLiteral):
-            text = value.__sql_literal__(self)
+        if isinstance(expr, SQLLiteral):
+            text = expr.__sql_literal__(self)
             if not isinstance(text, str) or not text:
                 raise TypeError(
-                    f"{self.name}: {value!r} implements the literal-construction "
+                    f"{self.name}: {expr!r} implements the literal-construction "
                     f"protocol but returned {type(text).__name__}, expected a "
                     f"non-empty inline literal string."
                 )
             return text
         raise TypeError(
-            f"{self.name}: value {value!r} of type {type(value).__name__} "
+            f"{self.name}: expr {expr!r} of type {type(expr).__name__} "
             f"has no inline SQL literal form; use a backend-specific literal "
             f"or implement the literal-construction protocol."
         )

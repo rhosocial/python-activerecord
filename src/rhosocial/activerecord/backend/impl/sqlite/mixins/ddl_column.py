@@ -35,16 +35,16 @@ class SQLiteDDLColumnMixin:
     """
 
     def format_column_primary_key_constraint(
-        self, constraint: "ColumnPrimaryKeyConstraint"
+        self, expr: "ColumnPrimaryKeyConstraint"
     ) -> Tuple[str, tuple]:
         """SQLite's plain ``PRIMARY KEY``.
 
         ``AUTOINCREMENT`` follows ``PRIMARY KEY`` in SQLite's grammar, but it
         comes from the backend's column suggestion as an ``AutoIncrementClause``
-        attribute, not from a flag on this constraint. :meth:`format_column_definition`
+        attribute, not from a flag on this expr. :meth:`format_column_definition`
         places that clause immediately after the primary key.
         """
-        return super().format_column_primary_key_constraint(constraint)
+        return super().format_column_primary_key_constraint(expr)
 
     def format_sqlite_auto_increment_clause(self, expr) -> Tuple[str, tuple]:
         """SQLite's rowid-alias ``AUTOINCREMENT`` tail (after PRIMARY KEY)."""
@@ -71,7 +71,7 @@ class SQLiteDDLColumnMixin:
             return f"{'1' if value else '0'}", ()
         return super().format_default_value_clause(expr)
 
-    def format_column_definition(self, col_def: "ColumnDefinition") -> Tuple[str, tuple]:
+    def format_column_definition(self, expr: "ColumnDefinition") -> Tuple[str, tuple]:
         """Format a column definition for SQLite.
 
         SQLite needs no column-definition grammar of its own. What it does need
@@ -81,25 +81,25 @@ class SQLiteDDLColumnMixin:
         than in the renderer because both are facts about the column, and this
         override is the only place that sees the column type.
         """
-        if col_def.comment:
+        if expr.comment:
             raise UnsupportedFeatureError(
                 self.name, "COLUMN COMMENT",
                 "SQLite has no column comment mechanism; comments are not supported.",
             )
-        self._check_auto_increment_placement(col_def)
+        self._check_auto_increment_placement(expr)
 
         all_params: list = []
-        type_sql, _ = col_def.data_type.to_sql()
-        sql = f"{self.format_identifier(col_def.name)} {type_sql}"
+        type_sql, _ = expr.data_type.to_sql()
+        sql = f"{self.format_identifier(expr.name)} {type_sql}"
 
-        attributes = tuple(col_def.attributes or ())
+        attributes = tuple(expr.attributes or ())
         increment_attributes = [a for a in attributes if isinstance(a, SQLiteAutoIncrementClause)]
         other_attributes = [a for a in attributes if not isinstance(a, SQLiteAutoIncrementClause)]
         for attr in other_attributes:
             fragment, params = self.format_column_attribute(attr)
             sql += fragment
             all_params.extend(params)
-        for constraint in col_def.constraints:
+        for constraint in expr.constraints:
             fragment, params = self.format_column_constraint(constraint)
             sql += fragment
             all_params.extend(params)
@@ -108,15 +108,15 @@ class SQLiteDDLColumnMixin:
             # right after the primary-key constraint's own fragment.
             if any(
                 isinstance(c.branch, ColumnPrimaryKeyConstraint) and c is constraint
-                for c in col_def.constraints
+                for c in expr.constraints
             ):
                 for attr in increment_attributes:
                     increment_sql, increment_params = self.format_column_attribute(attr)
                     sql += increment_sql
                     all_params.extend(increment_params)
 
-        if col_def.generated_expression is not None:
-            gen_sql, gen_params = col_def.generated_expression.to_sql()
+        if expr.generated_expression is not None:
+            gen_sql, gen_params = expr.generated_expression.to_sql()
             sql += gen_sql
             all_params.extend(gen_params)
         return sql, tuple(all_params)

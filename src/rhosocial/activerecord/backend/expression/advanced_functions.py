@@ -397,6 +397,7 @@ class JSONDocumentValue(
         operation: str = "->",
         alias: Optional[str] = None,
         mode: Union[None, str, "JSONPathMode"] = None,
+        inline_path: bool = False,
     ):
         # BaseExpression rather than super(): the value class this inherits is a
         # wrapper and wants a node to hold, and this class is the node.
@@ -406,6 +407,13 @@ class JSONDocumentValue(
         self.operation = operation
         self.alias = alias
         self.mode = JSONPathMode.from_value(mode)
+        # DDL positions (a functional index on a JSON key, for instance) cannot
+        # carry bind parameters: the server rejects a parameter in an index
+        # expression before it can infer its type. Callers building such an
+        # expression opt into an escaped inline literal here. The default stays
+        # parameterized so an untrusted, document-driven path cannot change the
+        # shape of an ordinary query.
+        self.inline_path = inline_path
 
     @property
     def format_method(self) -> str:

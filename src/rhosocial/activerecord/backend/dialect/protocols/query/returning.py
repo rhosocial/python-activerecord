@@ -52,11 +52,11 @@ class ReturningSupport(Protocol):
         """Whether ``RETURNING ... INTO`` / ``OUTPUT ... INTO`` is supported."""
         ...  # pragma: no cover
 
-    def format_returning_clause(self, clause: "ReturningClause") -> Tuple[str, Tuple]:
-        """Format a RETURNING clause.
+    def format_returning_clause(self, expr: "ReturningClause") -> Tuple[str, Tuple]:
+        """Format a RETURNING expr.
 
         Args:
-            clause: ReturningClause object containing expressions to return
+            expr: ReturningClause object containing expressions to return
 
         Returns:
             Tuple of (SQL string, parameters tuple)

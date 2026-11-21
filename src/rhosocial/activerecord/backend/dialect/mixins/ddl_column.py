@@ -77,8 +77,8 @@ class DDLColumnMixin:
         """Whether COLUMN COMMENT is supported (defaults to False)."""
         return False
 
-    def format_column_comment_clause(self, clause: "ColumnCommentClause") -> Tuple[str, tuple]:
-        """Render the inline ``COMMENT '<text>'`` column clause.
+    def format_column_comment_clause(self, expr: "ColumnCommentClause") -> Tuple[str, tuple]:
+        """Render the inline ``COMMENT '<text>'`` column expr.
 
         Generic reusable implementation: ``COMMENT '<escaped>'`` with a
         leading space, so it composes directly after the column definition
@@ -87,7 +87,7 @@ class DDLColumnMixin:
         (BigQuery's ``OPTIONS(description='<text>')``) override the method.
 
         Args:
-            clause: The :class:`ColumnCommentClause` carrying the text.
+            expr: The :class:`ColumnCommentClause` carrying the text.
 
         Returns:
             Tuple of (SQL fragment with leading space, parameters tuple).
@@ -103,7 +103,7 @@ class DDLColumnMixin:
                 self.name, "COLUMN COMMENT",
                 f"{self.name} does not support COLUMN COMMENT."
             )
-        escaped = self.escape_sql_string(clause.comment)
+        escaped = self.escape_sql_string(expr.comment)
         return f" COMMENT '{escaped}'", ()
 
     def supports_column_collation(self) -> bool:
@@ -125,7 +125,7 @@ class DDLColumnMixin:
         """
         return False
 
-    def format_column_attribute(self, attr: "ColumnClause") -> Tuple[str, Tuple]:
+    def format_column_attribute(self, expr: "ColumnClause") -> Tuple[str, Tuple]:
         """Render one selected column clause as a definition fragment.
 
         The subject is an expression-layer node: :class:`CollationClause`,
@@ -148,40 +148,40 @@ class DDLColumnMixin:
             CollationClause,
         )
 
-        if not isinstance(attr, BaseExpression):
+        if not isinstance(expr, BaseExpression):
             # An AR-layer ColumnAttribute, not an expression. The test is the
-            # type, not `hasattr(attr, "format_method")`: that probed a field
+            # type, not `hasattr(expr, "format_method")`: that probed a field
             # every expression declares, and it also answered False for an
             # expression whose base property raises -- which is a different
             # question than "is this one of ours". §11.2: asserting to a known
             # base is the way to ask what an argument is.
-            original = attr
-            attr = self.translate_ar_attribute(original)
-            if attr is None:
+            original = expr
+            expr = self.translate_ar_attribute(original)
+            if expr is None:
                 raise UnsupportedFeatureError(
                     self.name,
                     f"COLUMN CLAUSE {type(original).__name__}",
                     f"{self.name} cannot render this column clause; declare it "
                     f"only on backends that support it.",
                 )
-        if isinstance(attr, CollationClause):
+        if isinstance(expr, CollationClause):
             if not self.supports_column_collation():
                 raise UnsupportedFeatureError(self.name, "column-level COLLATE")
-            return self.format_collation_clause(attr)
-        if isinstance(attr, CharacterSetClause):
+            return self.format_collation_clause(expr)
+        if isinstance(expr, CharacterSetClause):
             if not self.supports_column_character_set():
                 raise UnsupportedFeatureError(self.name, "column-level CHARACTER SET")
-            return self.format_character_set_clause(attr)
-        formatter = getattr(self, attr.format_method, None)
+            return self.format_character_set_clause(expr)
+        formatter = getattr(self, expr.format_method, None)
         if formatter is None:
             raise UnsupportedFeatureError(
                 self.name,
-                f"{type(attr).__name__} formatter",
+                f"{type(expr).__name__} formatter",
                 f"{self.name} has no formatter for the column clause "
-                f"{type(attr).__name__}; declare it only on backends that "
+                f"{type(expr).__name__}; declare it only on backends that "
                 f"support it.",
             )
-        return formatter(attr)
+        return formatter(expr)
 
     def translate_ar_attribute(self, attr: Any) -> Any:
         """Turn an AR-layer ``ColumnAttribute`` into an expression-layer clause.
@@ -283,7 +283,7 @@ class DDLColumnMixin:
         """
         return False
 
-    def format_column_attributes(self, col_def: "ColumnDefinition") -> Tuple[str, Tuple]:
+    def format_column_attributes(self, expr: "ColumnDefinition") -> Tuple[str, Tuple]:
         """Render all of a column's clauses as one definition fragment.
 
         Shared by the generic formatter and by backend ``format_column_definition``
@@ -295,81 +295,81 @@ class DDLColumnMixin:
         """
         sql = ""
         params: List[Any] = []
-        for attr in col_def.attributes or ():
+        for attr in expr.attributes or ():
             attr_sql, attr_params = self.format_column_attribute(attr)
             sql += attr_sql
             params.extend(attr_params)
         return sql, tuple(params)
 
-    def format_collation_clause(self, clause: "CollationClause") -> Tuple[str, Tuple]:
-        """Render a column's ``COLLATE <name>`` clause.
+    def format_collation_clause(self, expr: "CollationClause") -> Tuple[str, Tuple]:
+        """Render a column's ``COLLATE <name>`` expr.
 
         Generic reusable implementation: ``COLLATE <name>`` with the name
-        spelled bare, which is what every backend emitted before the clause
+        spelled bare, which is what every backend emitted before the expr
         became an expression node. Quoting it as an identifier would be the
         more defensive choice, but it changes the SQL of seven backends and is
         not this change's business. Backends that want a quoted specification
         rather than a bare name (Snowflake, BigQuery) override this.
 
         Args:
-            clause: The clause carrying the collation name.
+            expr: The expr carrying the collation name.
 
         Returns:
             A ``(sql, params)`` tuple (params is always empty for DDL).
         """
-        return f" COLLATE {clause.name}", ()
+        return f" COLLATE {expr.name}", ()
 
     def format_character_set_clause(
-        self, clause: "CharacterSetClause"
+        self, expr: "CharacterSetClause"
     ) -> Tuple[str, Tuple]:
-        """Render a column's ``CHARACTER SET <name>`` clause.
+        """Render a column's ``CHARACTER SET <name>`` expr.
 
         Generic reusable implementation: ``CHARACTER SET <name>`` with the name
         spelled bare, for the same reason as :meth:`format_collation_clause`.
 
         Args:
-            clause: The clause carrying the character set name.
+            expr: The expr carrying the character set name.
 
         Returns:
             A ``(sql, params)`` tuple (params is always empty for DDL).
         """
-        return f" CHARACTER SET {clause.name}", ()
+        return f" CHARACTER SET {expr.name}", ()
 
-    def format_column_definition(self, col_def: "ColumnDefinition") -> Tuple[str, Tuple]:
+    def format_column_definition(self, expr: "ColumnDefinition") -> Tuple[str, Tuple]:
         """Format a column definition clause (name, type, constraints, comment).
 
         Args:
-            col_def: The column definition expression to render.
+            expr: The column definition expression to render.
 
         Returns:
             A ``(sql, params)`` tuple. DDL accepts no bind parameters, so
             ``params`` is always empty.
         """
         all_params: List[Any] = []
-        type_sql, _ = col_def.data_type.to_sql()
-        col_sql = f"{self.format_identifier(col_def.name)} {type_sql}"
+        type_sql, _ = expr.data_type.to_sql()
+        col_sql = f"{self.format_identifier(expr.name)} {type_sql}"
 
-        attr_sql, attr_params = self.format_column_attributes(col_def)
+        attr_sql, attr_params = self.format_column_attributes(expr)
         col_sql += attr_sql
         all_params.extend(attr_params)
-        for constraint in col_def.constraints:
+        for constraint in expr.constraints:
             suffix, params = self.format_column_constraint(constraint)
             col_sql += suffix
             all_params.extend(params)
 
-        if col_def.generated_expression is not None:
-            gen_sql, gen_params = col_def.generated_expression.to_sql()
+        if expr.generated_expression is not None:
+            gen_sql, gen_params = expr.generated_expression.to_sql()
             col_sql += gen_sql
             all_params.extend(gen_params)
 
-        if col_def.comment is not None:
-            comment_sql, comment_params = self.format_column_comment_clause(col_def.comment)
+        if expr.comment is not None:
+            comment_sql, comment_params = self.format_column_comment_clause(expr.comment)
             col_sql += comment_sql
             all_params.extend(comment_params)
         return col_sql, tuple(all_params)
 
     def format_column_generated_constraint(
-        self, constraint: "ColumnGeneratedConstraint"
+        self, expr: "ColumnGeneratedConstraint"
     ) -> Tuple[str, Tuple]:
         """Format a column-level ``GENERATED ALWAYS AS`` branch.
 
@@ -382,7 +382,7 @@ class DDLColumnMixin:
         should override this method.
 
         Args:
-            constraint: The branch carrying the generating expression and the
+            expr: The branch carrying the generating expression and the
                 storage type.
 
         Returns:
@@ -402,9 +402,9 @@ class DDLColumnMixin:
                 f"{self.name} does not support generated (computed) columns.",
             )
 
-        inner_sql, inner_params = constraint.expression.to_sql()
+        inner_sql, inner_params = expr.expression.to_sql()
 
-        if constraint.storage_type == GeneratedColumnType.STORED:
+        if expr.storage_type == GeneratedColumnType.STORED:
             if not self.supports_stored_generated_columns():
                 raise UnsupportedFeatureError(
                     self.name,
@@ -423,29 +423,29 @@ class DDLColumnMixin:
 
         return f" GENERATED ALWAYS AS ({inner_sql}){storage}", ()
 
-    def format_constraint_enforcement(self, constraint: "ColumnConstraint") -> str:
-        """Render the ``[NOT] ENFORCED`` trait a constraint asked for.
+    def format_constraint_enforcement(self, expr: "ColumnConstraint") -> str:
+        """Render the ``[NOT] ENFORCED`` trait a expr asked for.
 
         The kinds that may carry the trait come from the standard-derived
         whitelist (SQL:2016 fixes them to PRIMARY KEY, UNIQUE, FOREIGN KEY,
-        and CHECK); a dialect narrows that set inside its own constraint
+        and CHECK); a dialect narrows that set inside its own expr
         formatter and may not widen it.
 
         Returns:
-            ``""`` when the constraint asked for neither spelling, else the
+            ``""`` when the expr asked for neither spelling, else the
             ``ENFORCED`` / ``NOT ENFORCED`` fragment.
 
         Raises:
             TypeError: The flags are not bools.
-            ValueError: The constraint asked for both spellings at once.
+            ValueError: The expr asked for both spellings at once.
             UnsupportedFeatureError: The dialect does not support the trait.
         """
-        enforced = constraint.enforced
-        not_enforced = constraint.not_enforced
+        enforced = expr.enforced
+        not_enforced = expr.not_enforced
         if not enforced and not not_enforced:
             return ""
         if not isinstance(enforced, bool) or not isinstance(not_enforced, bool):
-            raise TypeError("constraint enforced/not_enforced must be bools")
+            raise TypeError("expr enforced/not_enforced must be bools")
         # The clause refuses both spellings at construction, but an attribute
         # assigned afterwards bypasses __init__, so the pair is re-checked
         # here as the last line of defence.
@@ -457,18 +457,18 @@ class DDLColumnMixin:
         if not self.supports_constraint_enforced():
             from ..exceptions import UnsupportedFeatureError
 
-            raise UnsupportedFeatureError(self.name, "ENFORCED/NOT ENFORCED constraint")
+            raise UnsupportedFeatureError(self.name, "ENFORCED/NOT ENFORCED expr")
         return "ENFORCED" if enforced else "NOT ENFORCED"
 
-    def format_constraint_validation(self, constraint: "TableConstraint") -> str:
-        """Render the ``NOT VALID`` trait a table constraint asked for.
+    def format_constraint_validation(self, expr: "TableConstraint") -> str:
+        """Render the ``NOT VALID`` trait a table expr asked for.
 
         Serves ``ALTER TABLE ADD CONSTRAINT``; PostgreSQL accepts the trait on
         CHECK and FOREIGN KEY only, and that restriction lives here -- asked of
         the branch, which is what names the kind.
 
         Returns:
-            ``""`` when the constraint asked for no validation state or the
+            ``""`` when the expr asked for no validation state or the
             default VALIDATE, else ``" NOT VALID"``.
 
         Raises:
@@ -483,24 +483,24 @@ class DDLColumnMixin:
         )
         from ..exceptions import UnsupportedFeatureError
 
-        validation = constraint.validation
+        validation = expr.validation
         if validation is None:
             return ""
         if not isinstance(validation, ConstraintValidation):
             raise TypeError(
-                "constraint validation must be a ConstraintValidation, got "
+                "expr validation must be a ConstraintValidation, got "
                 f"{type(validation).__name__}"
             )
         if validation is ConstraintValidation.VALIDATE:
             return ""
-        if not isinstance(constraint.branch, (TableCheckConstraint, TableForeignKeyConstraint)):
+        if not isinstance(expr.branch, (TableCheckConstraint, TableForeignKeyConstraint)):
             raise ValueError("NOT VALID is only valid for CHECK and FOREIGN KEY constraints")
         if not self.supports_constraint_novalidate():
-            raise UnsupportedFeatureError(self.name, "NOT VALID constraint")
+            raise UnsupportedFeatureError(self.name, "NOT VALID expr")
         return " NOT VALID"
 
-    def format_column_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, Tuple]:
-        """Format one column-level constraint clause.
+    def format_column_constraint(self, expr: "ColumnConstraint") -> Tuple[str, Tuple]:
+        """Format one column-level expr clause.
 
         Renders what the grammar hangs on the **production** -- the
         ``CONSTRAINT <name>`` prefix, then the branch's own body, then the
@@ -511,7 +511,7 @@ class DDLColumnMixin:
         kind cannot carry (the clause refuses it at construction).
 
         Args:
-            constraint: The column constraint clause to render.
+            expr: The column expr clause to render.
 
         Returns:
             A ``(sql, params)`` tuple. The ``sql`` value is prefixed with a
@@ -523,44 +523,44 @@ class DDLColumnMixin:
                 trait, or the branch's own construct.
         """
         prefix = ""
-        if constraint.name:
+        if expr.name:
             if not self.supports_constraint_naming():
                 from ..exceptions import UnsupportedFeatureError
 
                 raise UnsupportedFeatureError(
-                    self.name, "CONSTRAINT name on a column constraint"
+                    self.name, "CONSTRAINT name on a column expr"
                 )
-            prefix = f" CONSTRAINT {self.format_identifier(constraint.name)}"
-        branch_sql, branch_params = self.format_constraint_branch(constraint.branch)
-        return f"{prefix}{branch_sql}{self.format_constraint_traits(constraint)}", tuple(
+            prefix = f" CONSTRAINT {self.format_identifier(expr.name)}"
+        branch_sql, branch_params = self.format_constraint_branch(expr.branch)
+        return f"{prefix}{branch_sql}{self.format_constraint_traits(expr)}", tuple(
             branch_params
         )
 
-    def format_constraint_branch(self, branch: "BaseExpression") -> Tuple[str, tuple]:
-        """Render a constraint branch through its own formatter.
+    def format_constraint_branch(self, expr: "BaseExpression") -> Tuple[str, tuple]:
+        """Render a constraint expr through its own formatter.
 
-        The branch declares which formatter spells it (``format_method``),
+        The expr declares which formatter spells it (``format_method``),
         so a dialect that spells one kind differently overrides that one
         formatter and nothing else.
 
         Args:
-            branch: The branch node to render.
+            expr: The expr node to render.
 
         Returns:
             A ``(sql, params)`` tuple, with a leading space for the
             column-level branches.
         """
-        formatter = getattr(self, branch.format_method, None)
+        formatter = getattr(self, expr.format_method, None)
         if formatter is None:
             raise NotImplementedError(
-                f"{self.name} has no {branch.format_method}() for "
-                f"{type(branch).__name__}; declare the constraint on backends "
+                f"{self.name} has no {expr.format_method}() for "
+                f"{type(expr).__name__}; declare the constraint on backends "
                 f"that support it."
             )
-        return formatter(branch)
+        return formatter(expr)
 
-    def format_constraint_traits(self, constraint: "ColumnConstraint") -> Tuple[str, str]:
-        """Render the production-level traits of a column constraint.
+    def format_constraint_traits(self, expr: "ColumnConstraint") -> Tuple[str, str]:
+        """Render the production-level traits of a column expr.
 
         Both halves of one trait: the deferral half (``DEFERRABLE`` /
         ``NOT DEFERRABLE``), which PostgreSQL's grammar puts on PRIMARY KEY,
@@ -570,7 +570,7 @@ class DDLColumnMixin:
         here is what the production level is for.
 
         Args:
-            constraint: The clause whose traits are rendered.
+            expr: The clause whose traits are rendered.
 
         Returns:
             The fragment to append, including its leading space, or ``""``.
@@ -581,33 +581,33 @@ class DDLColumnMixin:
         """
         parts = []
         wants_deferral = (
-            constraint.deferrable
-            or constraint.not_deferrable
-            or constraint.initially_deferred
-            or constraint.initially_immediate
+            expr.deferrable
+            or expr.not_deferrable
+            or expr.initially_deferred
+            or expr.initially_immediate
         )
         if wants_deferral:
             from ..exceptions import UnsupportedFeatureError
 
             if not self.supports_deferrable_constraint():
                 raise UnsupportedFeatureError(
-                    self.name, "DEFERRABLE / INITIALLY constraint trait"
+                    self.name, "DEFERRABLE / INITIALLY expr trait"
                 )
-            if constraint.deferrable or constraint.not_deferrable:
-                parts.append("DEFERRABLE" if constraint.deferrable else "NOT DEFERRABLE")
-            if constraint.initially_deferred or constraint.initially_immediate:
+            if expr.deferrable or expr.not_deferrable:
+                parts.append("DEFERRABLE" if expr.deferrable else "NOT DEFERRABLE")
+            if expr.initially_deferred or expr.initially_immediate:
                 parts.append(
                     "INITIALLY DEFERRED"
-                    if constraint.initially_deferred
+                    if expr.initially_deferred
                     else "INITIALLY IMMEDIATE"
                 )
-        enforcement = self.format_constraint_enforcement(constraint)
+        enforcement = self.format_constraint_enforcement(expr)
         if enforcement:
             parts.append(enforcement)
         return f" {' '.join(parts)}" if parts else ""
 
     def format_column_primary_key_constraint(
-        self, constraint: "ColumnPrimaryKeyConstraint"
+        self, expr: "ColumnPrimaryKeyConstraint"
     ) -> Tuple[str, Tuple]:
         """Format a column-level ``PRIMARY KEY`` branch.
 
@@ -615,7 +615,7 @@ class DDLColumnMixin:
         spells ``AUTOINCREMENT`` as part of this grammar and nowhere else.
 
         Args:
-            constraint: The branch to render.
+            expr: The branch to render.
 
         Returns:
             A ``(sql, params)`` tuple with a leading space.
@@ -626,34 +626,34 @@ class DDLColumnMixin:
         from ..exceptions import UnsupportedFeatureError
 
         if not self.supports_primary_key_constraint():
-            raise UnsupportedFeatureError(self.name, "PRIMARY KEY column constraint")
+            raise UnsupportedFeatureError(self.name, "PRIMARY KEY column expr")
         # The flag is not rendered here: AUTOINCREMENT is part of SQLite's
         # grammar, so the dialect that spells it says so in an override of
-        # this formatter. Core renders the constraint the standard defines.
+        # this formatter. Core renders the expr the standard defines.
         return " PRIMARY KEY", ()
 
     def format_column_unique_constraint(
-        self, constraint: "ColumnUniqueConstraint"
+        self, expr: "ColumnUniqueConstraint"
     ) -> Tuple[str, Tuple]:
         """Format a column-level ``UNIQUE`` branch."""
         from ..exceptions import UnsupportedFeatureError
 
         if not self.supports_unique_constraint():
-            raise UnsupportedFeatureError(self.name, "UNIQUE column constraint")
+            raise UnsupportedFeatureError(self.name, "UNIQUE column expr")
         return " UNIQUE", ()
 
     def format_column_not_null_constraint(
-        self, constraint: "ColumnNotNullConstraint"
+        self, expr: "ColumnNotNullConstraint"
     ) -> Tuple[str, Tuple]:
         """Format a column-level ``NOT NULL`` branch."""
         from ..exceptions import UnsupportedFeatureError
 
         if not self.supports_not_null_constraint():
-            raise UnsupportedFeatureError(self.name, "NOT NULL column constraint")
+            raise UnsupportedFeatureError(self.name, "NOT NULL column expr")
         return " NOT NULL", ()
 
     def format_column_nullable_constraint(
-        self, constraint: "ColumnNullableConstraint"
+        self, expr: "ColumnNullableConstraint"
     ) -> Tuple[str, Tuple]:
         """Format a column-level ``NULL`` branch.
 
@@ -663,12 +663,12 @@ class DDLColumnMixin:
         return " NULL", ()
 
     def format_column_check_constraint(
-        self, constraint: "ColumnCheckConstraint"
+        self, expr: "ColumnCheckConstraint"
     ) -> Tuple[str, Tuple]:
         """Format a column-level ``CHECK`` branch.
 
         Args:
-            constraint: The branch whose ``condition`` is rendered.
+            expr: The branch whose ``condition`` is rendered.
 
         Returns:
             A ``(sql, params)`` tuple with a leading space.
@@ -679,8 +679,8 @@ class DDLColumnMixin:
         from ..exceptions import UnsupportedFeatureError
 
         if not self.supports_check_constraint():
-            raise UnsupportedFeatureError(self.name, "CHECK column constraint")
-        check_sql, check_params = constraint.condition.to_sql()
+            raise UnsupportedFeatureError(self.name, "CHECK column expr")
+        check_sql, check_params = expr.condition.to_sql()
         return f" CHECK ({check_sql})", tuple(check_params)
 
     def format_default_value_clause(self, expr: "DefaultValueClause") -> Tuple[str, Tuple]:
@@ -710,7 +710,7 @@ class DDLColumnMixin:
         return value_sql, ()
 
     def format_column_default_constraint(
-        self, constraint: "ColumnDefaultConstraint"
+        self, expr: "ColumnDefaultConstraint"
     ) -> Tuple[str, Tuple]:
         """Format a column-level ``DEFAULT`` branch.
 
@@ -719,14 +719,14 @@ class DDLColumnMixin:
         value rendering is delegated to :meth:`format_default_value_clause`.
 
         Args:
-            constraint: The branch whose ``value`` is rendered.
+            expr: The branch whose ``value`` is rendered.
 
         Returns:
             A ``(sql, params)`` tuple with a leading space.
         """
         from ...expression.statements.ddl_table import DefaultValueClause
 
-        value = constraint.value
+        value = expr.value
         if isinstance(value, DefaultValueClause):
             value_clause = value
         else:
@@ -843,7 +843,7 @@ class DDLColumnMixin:
         )
 
     def format_column_fk_constraint(
-        self, constraint: "ColumnForeignKeyConstraint"
+        self, expr: "ColumnForeignKeyConstraint"
     ) -> Tuple[str, Tuple]:
         """Format a column-level ``REFERENCES`` branch.
 
@@ -852,7 +852,7 @@ class DDLColumnMixin:
         :meth:`format_constraint_traits`), so they are not passed down here.
 
         Args:
-            constraint: The branch whose ``references`` are rendered.
+            expr: The branch whose ``references`` are rendered.
 
         Returns:
             A ``(sql, params)`` tuple with a leading space.
@@ -868,28 +868,28 @@ class DDLColumnMixin:
         # unusable while its table-level FOREIGN KEY works (SQL Server) cannot
         # be expressed until the two levels get separate probes.
         if not self.supports_foreign_key_constraint():
-            raise UnsupportedFeatureError(self.name, "REFERENCES column constraint")
+            raise UnsupportedFeatureError(self.name, "REFERENCES column expr")
 
-        referenced_table, referenced_columns = constraint.references
+        referenced_table, referenced_columns = expr.references
 
         references = ReferencesClause(
             self,
             referenced_table,
             referenced_columns,
-            on_delete=constraint.on_delete,
-            on_update=constraint.on_update,
-            match_type=constraint.match_type,
+            on_delete=expr.on_delete,
+            on_update=expr.on_update,
+            match_type=expr.match_type,
         )
         ref_sql, ref_params = self.format_references_clause(references)
         return f" {ref_sql}", tuple(ref_params)
 
     def format_table_primary_key_constraint(
-        self, constraint: "TablePrimaryKeyConstraint"
+        self, expr: "TablePrimaryKeyConstraint"
     ) -> Tuple[str, tuple]:
-        """Format the body of a ``PRIMARY KEY`` table constraint.
+        """Format the body of a ``PRIMARY KEY`` table expr.
 
         Args:
-            t_const: The constraint whose ``columns`` are rendered.
+            t_const: The expr whose ``columns`` are rendered.
 
         Returns:
             A ``(sql, params)`` tuple; ``params`` is always empty.
@@ -897,18 +897,18 @@ class DDLColumnMixin:
         Raises:
             ValueError: If no columns are specified.
         """
-        if not constraint.columns:
-            raise ValueError("PRIMARY KEY constraint must have at least one column specified.")
-        cols_str = ", ".join(self.format_identifier(col) for col in constraint.columns)
+        if not expr.columns:
+            raise ValueError("PRIMARY KEY expr must have at least one column specified.")
+        cols_str = ", ".join(self.format_identifier(col) for col in expr.columns)
         return f"PRIMARY KEY ({cols_str})", ()
 
     def format_table_unique_constraint(
-        self, constraint: "TableUniqueConstraint"
+        self, expr: "TableUniqueConstraint"
     ) -> Tuple[str, tuple]:
-        """Format the body of a ``UNIQUE`` table constraint.
+        """Format the body of a ``UNIQUE`` table expr.
 
         Args:
-            t_const: The constraint whose ``columns`` are rendered.
+            t_const: The expr whose ``columns`` are rendered.
 
         Returns:
             A ``(sql, params)`` tuple; ``params`` is always empty.
@@ -916,18 +916,18 @@ class DDLColumnMixin:
         Raises:
             ValueError: If no columns are specified.
         """
-        if not constraint.columns:
-            raise ValueError("UNIQUE constraint must have at least one column specified.")
-        cols_str = ", ".join(self.format_identifier(col) for col in constraint.columns)
+        if not expr.columns:
+            raise ValueError("UNIQUE expr must have at least one column specified.")
+        cols_str = ", ".join(self.format_identifier(col) for col in expr.columns)
         return f"UNIQUE ({cols_str})", ()
 
     def format_table_check_constraint(
-        self, constraint: "TableCheckConstraint"
+        self, expr: "TableCheckConstraint"
     ) -> Tuple[str, Tuple]:
-        """Format a table-level ``CHECK`` constraint body.
+        """Format a table-level ``CHECK`` expr body.
 
         Args:
-            t_const: The constraint whose ``check_condition`` is rendered.
+            t_const: The expr whose ``check_condition`` is rendered.
 
         Returns:
             A ``(sql, params)`` tuple.
@@ -935,18 +935,18 @@ class DDLColumnMixin:
         Raises:
             ValueError: If ``check_condition`` is ``None``.
         """
-        if constraint.condition is None:
-            raise ValueError("CHECK constraint must have a check condition specified.")
-        check_sql, check_params = constraint.condition.to_sql()
+        if expr.condition is None:
+            raise ValueError("CHECK expr must have a check condition specified.")
+        check_sql, check_params = expr.condition.to_sql()
         return f"CHECK ({check_sql})", tuple(check_params)
 
     def format_table_foreign_key_constraint(
-        self, constraint: "TableForeignKeyConstraint"
+        self, expr: "TableForeignKeyConstraint"
     ) -> Tuple[str, Tuple]:
         """Format a table-level ``FOREIGN KEY`` branch.
 
         Args:
-            constraint: The branch carrying the local columns, the referenced
+            expr: The branch carrying the local columns, the referenced
                 table and columns, and the referential actions.
 
         Returns:
@@ -956,41 +956,41 @@ class DDLColumnMixin:
             ValueError: The local columns, the referenced columns or the
                 referenced table are missing.
         """
-        if not constraint.columns:
-            raise ValueError("FOREIGN KEY constraint must have at least one local column specified.")
-        referenced_table, referenced_columns = constraint.references
+        if not expr.columns:
+            raise ValueError("FOREIGN KEY expr must have at least one local column specified.")
+        referenced_table, referenced_columns = expr.references
         if not referenced_columns:
-            raise ValueError("FOREIGN KEY constraint must have at least one foreign key column specified.")
+            raise ValueError("FOREIGN KEY expr must have at least one foreign key column specified.")
         if not referenced_table:
-            raise ValueError("FOREIGN KEY constraint must have a foreign key table specified.")
+            raise ValueError("FOREIGN KEY expr must have a foreign key table specified.")
         from ...expression.statements.ddl_table import ReferencesClause
 
-        cols_str = ", ".join(self.format_identifier(col) for col in constraint.columns)
+        cols_str = ", ".join(self.format_identifier(col) for col in expr.columns)
 
         references = ReferencesClause(
             self,
             referenced_table,
             list(referenced_columns),
-            on_delete=constraint.on_delete,
-            on_update=constraint.on_update,
-            match_type=constraint.match_type,
+            on_delete=expr.on_delete,
+            on_update=expr.on_update,
+            match_type=expr.match_type,
         )
         ref_sql, ref_params = self.format_references_clause(references)
         return f"FOREIGN KEY ({cols_str}) {ref_sql}", tuple(ref_params)
 
     def format_table_exclude_constraint(
-        self, constraint: "TableExcludeConstraint"
+        self, expr: "TableExcludeConstraint"
     ) -> Tuple[str, Tuple]:
         """Format a table-level ``EXCLUDE`` branch.
 
         Core has no EXCLUDE grammar to fall back on, so the default refuses
         by name rather than rendering SQL a server would reject. The branch
-        exists because the constraint is enumerable (规范 4.9's table
-        constraint kinds), and a dialect whose server can spell it overrides
+        exists because the expr is enumerable (规范 4.9's table
+        expr kinds), and a dialect whose server can spell it overrides
         this formatter.
 
         Args:
-            constraint: The branch carrying the columns, the operator and the
+            expr: The branch carrying the columns, the operator and the
                 optional index method.
 
         Returns:
@@ -1002,8 +1002,8 @@ class DDLColumnMixin:
         from ..exceptions import UnsupportedFeatureError
 
         if not self.supports_exclude_constraint():
-            raise UnsupportedFeatureError(self.name, "EXCLUDE constraint")
-        raise UnsupportedFeatureError(self.name, "EXCLUDE constraint formatter")
+            raise UnsupportedFeatureError(self.name, "EXCLUDE expr")
+        raise UnsupportedFeatureError(self.name, "EXCLUDE expr formatter")
 
     def format_table_constraint(self, expr: "TableConstraint") -> Tuple[str, Tuple]:
         """Format a table-level constraint clause.
@@ -1083,11 +1083,11 @@ class DDLColumnMixin:
             return " WITH (" + ", ".join(storage_parts) + ")", ()
         return "", ()
 
-    def format_add_column_action(self, action: "AddColumnAction") -> Tuple[str, Tuple]:
-        """Format an ``ADD COLUMN`` ALTER TABLE action.
+    def format_add_column_action(self, expr: "AddColumnAction") -> Tuple[str, Tuple]:
+        """Format an ``ADD COLUMN`` ALTER TABLE expr.
 
         Args:
-            action: The action carrying the column definition to add.
+            expr: The expr carrying the column definition to add.
 
         Returns:
             A ``(sql, params)`` tuple.
@@ -1097,8 +1097,8 @@ class DDLColumnMixin:
                 supported by the dialect.
         """
         from ..exceptions import UnsupportedFeatureError
-        column_sql, column_params = self.format_column_definition(action.column)
-        if action.if_not_exists:
+        column_sql, column_params = self.format_column_definition(expr.column)
+        if expr.if_not_exists:
             if not self.supports_add_column_if_not_exists():
                 raise UnsupportedFeatureError(
                     self.name, "ADD COLUMN IF NOT EXISTS",
@@ -1107,13 +1107,13 @@ class DDLColumnMixin:
             return f"ADD COLUMN IF NOT EXISTS {column_sql}", column_params
         return f"ADD COLUMN {column_sql}", column_params
 
-    def format_drop_column_action(self, action: "DropColumnAction") -> Tuple[str, Tuple]:
-        """Format a ``DROP COLUMN`` ALTER TABLE action.
+    def format_drop_column_action(self, expr: "DropColumnAction") -> Tuple[str, Tuple]:
+        """Format a ``DROP COLUMN`` ALTER TABLE expr.
 
-        Emits ``DROP COLUMN IF EXISTS`` when the action requests it.
+        Emits ``DROP COLUMN IF EXISTS`` when the expr requests it.
 
         Args:
-            action: The action carrying the column name to drop.
+            expr: The expr carrying the column name to drop.
 
         Returns:
             A ``(sql, params)`` tuple with empty parameters.
@@ -1129,17 +1129,17 @@ class DDLColumnMixin:
                 self.name, "ALTER TABLE DROP COLUMN",
                 f"{self.name} does not support DROP COLUMN.",
             )
-        if action.if_exists:
+        if expr.if_exists:
             if not self.supports_drop_column_if_exists():
                 raise UnsupportedFeatureError(
                     self.name, "DROP COLUMN IF EXISTS",
                     f"{self.name} does not support DROP COLUMN IF EXISTS."
                 )
-            return f"DROP COLUMN IF EXISTS {self.format_identifier(action.column_name)}", ()
-        return f"DROP COLUMN {self.format_identifier(action.column_name)}", ()
+            return f"DROP COLUMN IF EXISTS {self.format_identifier(expr.column_name)}", ()
+        return f"DROP COLUMN {self.format_identifier(expr.column_name)}", ()
 
-    def format_alter_column_action(self, action: "AlterColumnAction") -> Tuple[str, Tuple]:
-        """Format an ``ALTER COLUMN`` ALTER TABLE action.
+    def format_alter_column_action(self, expr: "AlterColumnAction") -> Tuple[str, Tuple]:
+        """Format an ``ALTER COLUMN`` ALTER TABLE expr.
 
         Handles ``SET DATA TYPE`` (a type, rendered through the dialect),
         string values (escaped and inlined), expression values rendered
@@ -1147,7 +1147,7 @@ class DDLColumnMixin:
         ``inline_sql_literal``.
 
         Args:
-            action: The action carrying the column name, operation, and
+            expr: The expr carrying the column name, operation, and
                 optional new value.
 
         Returns:
@@ -1163,7 +1163,7 @@ class DDLColumnMixin:
         
         from ...expression.statements.ddl_alter import operation_spelling
 
-        operation_str = operation_spelling(action.operation)
+        operation_str = operation_spelling(expr.operation)
         if operation_str == "SET DATA TYPE":
             if not self.supports_alter_column_type():
                 raise UnsupportedFeatureError(
@@ -1176,44 +1176,44 @@ class DDLColumnMixin:
                 f"{self.name} does not support altering column properties "
                 "(SET/DROP DEFAULT, SET/DROP NOT NULL).",
             )
-        column_part = f"ALTER COLUMN {self.format_identifier(action.column_name)} {operation_str}"
-        if action.new_value is not None:
+        column_part = f"ALTER COLUMN {self.format_identifier(expr.column_name)} {operation_str}"
+        if expr.new_value is not None:
             if operation_str == "SET DATA TYPE":
-                type_sql, _ = action.new_value.to_sql()
+                type_sql, _ = expr.new_value.to_sql()
                 column_part += f" {type_sql}"
-            elif isinstance(action.new_value, str):
+            elif isinstance(expr.new_value, str):
                 # DDL accepts no bind parameters, so the value is written into
                 # the SQL text. The literal is the controlled path: it escapes
                 # and quotes exactly as DEFAULT does.
                 value_sql, value_params = Literal(
-                    self, action.new_value, inline=True
+                    self, expr.new_value, inline=True
                 ).to_sql()
                 column_part += f" {value_sql}"
-            elif isinstance(action.new_value, ToSQLProtocol):
-                if isinstance(action.new_value, Literal):
+            elif isinstance(expr.new_value, ToSQLProtocol):
+                if isinstance(expr.new_value, Literal):
                     # The value carries its own DDL decision; the controlled
                     # path escapes and quotes it exactly as DEFAULT does.
                     value_sql, value_params = Literal(
-                        self, action.new_value.value, inline=True
+                        self, expr.new_value.value, inline=True
                     ).to_sql()
                 else:
-                    value_sql, value_params = action.new_value.to_sql()
+                    value_sql, value_params = expr.new_value.to_sql()
                     if value_params:
                         raise ValueError(
                             "ALTER COLUMN value must render without bind parameters"
                         )
                 column_part += f" {value_sql}"
             else:
-                column_part += f" {self.inline_sql_literal(action.new_value)}"
-        if action.cascade:
+                column_part += f" {self.inline_sql_literal(expr.new_value)}"
+        if expr.cascade:
             column_part += " CASCADE"
         return column_part, tuple(all_params)
 
-    def format_add_table_constraint_action(self, action: "AddTableConstraintAction") -> Tuple[str, Tuple]:
-        """Format an ``ADD CONSTRAINT`` ALTER TABLE action.
+    def format_add_table_constraint_action(self, expr: "AddTableConstraintAction") -> Tuple[str, Tuple]:
+        """Format an ``ADD CONSTRAINT`` ALTER TABLE expr.
 
         Args:
-            action: The action carrying the table constraint to add.
+            expr: The expr carrying the table constraint to add.
 
         Returns:
             A ``(sql, params)`` tuple prefixed with ``ADD``.
@@ -1225,14 +1225,14 @@ class DDLColumnMixin:
         from ..exceptions import UnsupportedFeatureError
         if not self.supports_add_constraint():
             raise UnsupportedFeatureError(self.name, "ALTER TABLE ADD CONSTRAINT")
-        constraint_sql, params = self.format_table_constraint(action.constraint)
+        constraint_sql, params = self.format_table_constraint(expr.constraint)
         if not constraint_sql:
             return "ADD UNKNOWN CONSTRAINT", ()
-        validation_sql = self.format_constraint_validation(action.constraint)
+        validation_sql = self.format_constraint_validation(expr.constraint)
         return f"ADD {constraint_sql}{validation_sql}", tuple(params)
 
-    def format_alter_constraint_action(self, action: "AlterConstraintAction") -> Tuple[str, Tuple]:
-        """Format an ``ALTER CONSTRAINT`` enforcement action.
+    def format_alter_constraint_action(self, expr: "AlterConstraintAction") -> Tuple[str, Tuple]:
+        """Format an ``ALTER CONSTRAINT`` enforcement expr.
 
         The kind restriction — CHECK and FOREIGN KEY only — is this
         operation's own narrowing of the ENFORCABLE kinds and lives in the
@@ -1245,7 +1245,7 @@ class DDLColumnMixin:
                 enforcement control.
         """
 
-        branch = action.constraint_branch
+        branch = expr.constraint_branch
         if branch not in (TableCheckConstraint, TableForeignKeyConstraint):
             raise TypeError(
                 "constraint_branch must be TableCheckConstraint or "
@@ -1262,26 +1262,26 @@ class DDLColumnMixin:
                 self.name,
                 "ALTER CONSTRAINT ENFORCED/NOT ENFORCED",
             )
-        if not isinstance(action.enforced, bool):
+        if not isinstance(expr.enforced, bool):
             raise TypeError("enforced must be a bool")
-        keyword = "ENFORCED" if action.enforced else "NOT ENFORCED"
+        keyword = "ENFORCED" if expr.enforced else "NOT ENFORCED"
         return (
-            f"ALTER CONSTRAINT {self.format_identifier(action.constraint_name)} {keyword}",
+            f"ALTER CONSTRAINT {self.format_identifier(expr.constraint_name)} {keyword}",
             (),
         )
 
-    def format_validate_constraint_action(self, action: "ValidateConstraintAction") -> Tuple[str, Tuple]:
+    def format_validate_constraint_action(self, expr: "ValidateConstraintAction") -> Tuple[str, Tuple]:
         if not self.supports_validate_constraint():
             from ..exceptions import UnsupportedFeatureError
 
             raise UnsupportedFeatureError(self.name, "VALIDATE CONSTRAINT")
-        return f"VALIDATE CONSTRAINT {self.format_identifier(action.constraint_name)}", ()
+        return f"VALIDATE CONSTRAINT {self.format_identifier(expr.constraint_name)}", ()
 
-    def format_drop_table_constraint_action(self, action: "DropTableConstraintAction") -> Tuple[str, Tuple]:
-        """Format a ``DROP CONSTRAINT`` ALTER TABLE action.
+    def format_drop_table_constraint_action(self, expr: "DropTableConstraintAction") -> Tuple[str, Tuple]:
+        """Format a ``DROP CONSTRAINT`` ALTER TABLE expr.
 
         Args:
-            action: The action carrying the constraint name and optional
+            expr: The expr carrying the constraint name and optional
                 cascade flag.
 
         Returns:
@@ -1294,14 +1294,14 @@ class DDLColumnMixin:
         from ..exceptions import UnsupportedFeatureError
         if not self.supports_drop_constraint():
             raise UnsupportedFeatureError(self.name, "ALTER TABLE DROP CONSTRAINT")
-        if action.if_exists and not self.supports_drop_constraint_if_exists():
+        if expr.if_exists and not self.supports_drop_constraint_if_exists():
             raise UnsupportedFeatureError(
                 self.name, "DROP CONSTRAINT IF EXISTS",
                 f"{self.name} does not support DROP CONSTRAINT IF EXISTS."
             )
-        if_exists = "IF EXISTS " if action.if_exists else ""
-        result = f"DROP CONSTRAINT {if_exists}{self.format_identifier(action.constraint_name)}"
-        if action.cascade:
+        if_exists = "IF EXISTS " if expr.if_exists else ""
+        result = f"DROP CONSTRAINT {if_exists}{self.format_identifier(expr.constraint_name)}"
+        if expr.cascade:
             result += " CASCADE"
         return result, ()
 
@@ -1338,11 +1338,11 @@ class DDLColumnMixin:
             tuple(all_params),
         )
 
-    def format_add_index_action(self, action: "AddIndexAction") -> Tuple[str, Tuple]:
-        """Format an ``ADD INDEX`` ALTER TABLE action.
+    def format_add_index_action(self, expr: "AddIndexAction") -> Tuple[str, Tuple]:
+        """Format an ``ADD INDEX`` ALTER TABLE expr.
 
         Args:
-            action: The action carrying the index definition to add.
+            expr: The expr carrying the index definition to add.
 
         Returns:
             A ``(sql, params)`` tuple with empty parameters.
@@ -1358,20 +1358,20 @@ class DDLColumnMixin:
                 f"{self.name} does not support ALTER TABLE ADD INDEX.",
             )
         columns = ", ".join(
-            self.format_identifier(col) for col in action.index.columns
+            self.format_identifier(col) for col in expr.index.columns
         )
         return (
-            f"ADD INDEX {self.format_identifier(action.index.name)} ({columns})",
+            f"ADD INDEX {self.format_identifier(expr.index.name)} ({columns})",
             (),
         )
 
-    def format_drop_index_action(self, action: "DropIndexAction") -> Tuple[str, Tuple]:
-        """Format a ``DROP INDEX`` ALTER TABLE action.
+    def format_drop_index_action(self, expr: "DropIndexAction") -> Tuple[str, Tuple]:
+        """Format a ``DROP INDEX`` ALTER TABLE expr.
 
-        Emits ``DROP INDEX IF EXISTS`` when the action requests it.
+        Emits ``DROP INDEX IF EXISTS`` when the expr requests it.
 
         Args:
-            action: The action carrying the index to drop.
+            expr: The expr carrying the index to drop.
 
         Returns:
             A ``(sql, params)`` tuple with empty parameters.
@@ -1382,10 +1382,10 @@ class DDLColumnMixin:
             UnsupportedFeatureError: If the dialect does not support
                 ``ALTER TABLE DROP INDEX``.
         """
-        if not isinstance(action.index, Index):
+        if not isinstance(expr.index, Index):
             raise TypeError(
                 f"DropIndexAction.index must be an Index, "
-                f"got {type(action.index).__name__}"
+                f"got {type(expr.index).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError
         if not self.supports_alter_table_index_actions():
@@ -1393,15 +1393,15 @@ class DDLColumnMixin:
                 self.name, "ALTER TABLE DROP INDEX",
                 f"{self.name} does not support ALTER TABLE DROP INDEX.",
             )
-        index_sql, index_params = action.index.to_sql()
-        head = "DROP INDEX IF EXISTS" if action.if_exists else "DROP INDEX"
+        index_sql, index_params = expr.index.to_sql()
+        head = "DROP INDEX IF EXISTS" if expr.if_exists else "DROP INDEX"
         return f"{head} {index_sql}", index_params
 
-    def format_rename_column_action(self, action: "RenameColumnAction") -> Tuple[str, Tuple]:
-        """Format a ``RENAME COLUMN`` ALTER TABLE action.
+    def format_rename_column_action(self, expr: "RenameColumnAction") -> Tuple[str, Tuple]:
+        """Format a ``RENAME COLUMN`` ALTER TABLE expr.
 
         Args:
-            action: The action carrying the old and new column names.
+            expr: The expr carrying the old and new column names.
 
         Returns:
             A ``(sql, params)`` tuple with empty parameters.
@@ -1417,15 +1417,15 @@ class DDLColumnMixin:
                 f"{self.name} does not support RENAME COLUMN.",
             )
         return (
-            f"RENAME COLUMN {self.format_identifier(action.old_name)} TO {self.format_identifier(action.new_name)}",
+            f"RENAME COLUMN {self.format_identifier(expr.old_name)} TO {self.format_identifier(expr.new_name)}",
             (),
         )
 
-    def format_rename_table_action(self, action: "RenameTableAction") -> Tuple[str, Tuple]:
-        """Format a ``RENAME TO`` ALTER TABLE action.
+    def format_rename_table_action(self, expr: "RenameTableAction") -> Tuple[str, Tuple]:
+        """Format a ``RENAME TO`` ALTER TABLE expr.
 
         Args:
-            action: The action carrying the new table name.
+            expr: The expr carrying the new table name.
 
         Returns:
             A ``(sql, params)`` tuple with empty parameters.
@@ -1440,16 +1440,16 @@ class DDLColumnMixin:
                 self.name, "ALTER TABLE RENAME TO",
                 f"{self.name} does not support RENAME TABLE.",
             )
-        return f"RENAME TO {self.format_identifier(action.new_name)}", ()
+        return f"RENAME TO {self.format_identifier(expr.new_name)}", ()
 
-    def format_modify_column_action(self, action: "ModifyColumnAction") -> Tuple[str, Tuple]:
-        """Format a ``MODIFY COLUMN`` ALTER TABLE action.
+    def format_modify_column_action(self, expr: "ModifyColumnAction") -> Tuple[str, Tuple]:
+        """Format a ``MODIFY COLUMN`` ALTER TABLE expr.
 
         The core implementation always raises, since ``MODIFY COLUMN`` is
         MySQL/MariaDB-specific; those backends override this method.
 
         Args:
-            action: The action carrying the column definition to apply.
+            expr: The expr carrying the column definition to apply.
 
         Raises:
             UnsupportedFeatureError: Always, at the core layer.
@@ -1457,14 +1457,14 @@ class DDLColumnMixin:
         from ..exceptions import UnsupportedFeatureError
         raise UnsupportedFeatureError(self.name, "MODIFY COLUMN")
 
-    def format_change_column_action(self, action: "ChangeColumnAction") -> Tuple[str, Tuple]:
-        """Format a ``CHANGE COLUMN`` ALTER TABLE action.
+    def format_change_column_action(self, expr: "ChangeColumnAction") -> Tuple[str, Tuple]:
+        """Format a ``CHANGE COLUMN`` ALTER TABLE expr.
 
         The core implementation always raises, since ``CHANGE COLUMN`` is
         MySQL/MariaDB-specific; those backends override this method.
 
         Args:
-            action: The action carrying the old name and new column definition.
+            expr: The expr carrying the old name and new column definition.
 
         Raises:
             UnsupportedFeatureError: Always, at the core layer.

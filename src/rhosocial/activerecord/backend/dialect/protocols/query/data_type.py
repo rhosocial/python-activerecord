@@ -146,10 +146,10 @@ class DataTypeSupport(Protocol):
 
 
 
-    def format_data_type(self, data_type: "DataType") -> "Tuple[str, tuple]":
+    def format_data_type(self, expr: "DataType") -> "Tuple[str, tuple]":
         """Render a ``DataType`` expression into a SQL type string and params.
 
-        Total dispatcher: routes by ``data_type.name`` to the
+        Total dispatcher: routes by ``expr.name`` to the
         ``format_data_type_<name>`` naming-family member. Raises
         ``TypeError`` when the dialect does not support the type (no
         family member exists) — the honest unsupported-type signal.

@@ -2,7 +2,7 @@
 from typing import Any, Dict
 
 
-def format_with_length(base_type: str, params: Dict[str, Any]) -> str:
+def with_length(base_type: str, params: Dict[str, Any]) -> str:
     """Process type with length parameter
 
     Args:

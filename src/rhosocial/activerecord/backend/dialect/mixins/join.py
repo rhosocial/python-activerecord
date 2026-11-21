@@ -81,13 +81,48 @@ class LateralJoinMixin:
 
         cols_sql = ""
         if column_names:
-            cols_sql = f"({', '.join(self.format_identifier(name) for name in column_names)})"
+            from ...expression.query_sources import TableFunctionExpression
+
+            column_types = (
+                expr.column_types if isinstance(expr, TableFunctionExpression) else []
+            )
+            if column_types:
+                if len(column_types) != len(column_names):
+                    raise ValueError(
+                        "column_types and column_names must have the same length"
+                    )
+                pairs = ", ".join(
+                    f"{self.format_identifier(name)} {self._format_column_type(kind)}"
+                    for name, kind in zip(column_names, column_types)
+                )
+            else:
+                pairs = ", ".join(
+                    self.format_identifier(name) for name in column_names
+                )
+            cols_sql = f"({pairs})"
 
         if alias is not None:
             sql = f"{func_name.upper()}({args_str}) AS {self.format_identifier(alias)}{cols_sql}"
         else:
             sql = f"{func_name.upper()}({args_str}){cols_sql}"
         return sql, tuple(all_params)
+
+    def _format_column_type(self, type_name: str) -> str:
+        """Render a declared column type from a set-returning function.
+
+        Type names are DDL vocabulary (``int``, ``double precision``,
+        ``numeric(10, 2)``), not identifiers, so they cannot go through
+        ``format_identifier``. A conservative character check keeps a
+        caller-supplied type from becoming an extra SQL statement.
+        """
+        import re
+
+        if not isinstance(type_name, str) or not re.fullmatch(
+            r"[A-Za-z_][A-Za-z0-9_ ]*(?:\(\s*\d+(?:\s*,\s*\d+)?\s*\))?(?:\[\])*",
+            type_name.strip(),
+        ):
+            raise ValueError(f"Unsupported column type spelling: {type_name!r}")
+        return type_name.strip()
 
 
 class JoinMixin:
@@ -126,14 +161,14 @@ class JoinMixin:
         """Whether MySQL STRAIGHT_JOIN is supported. Defaults to False."""
         return False
 
-    def format_join_clause(self, join_expr: "JoinClause") -> Tuple[str, Tuple]:
+    def format_join_clause(self, expr: "JoinClause") -> Tuple[str, Tuple]:
         """Format a JOIN expression into dialect SQL.
 
         Validates support for the given join type using the ``supports_*``
         protocol methods before rendering the clause.
 
         Args:
-            join_expr: The JoinClause node to format.
+            expr: The JoinClause node to format.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the join clause.
@@ -152,7 +187,7 @@ class JoinMixin:
         # splitting "LEFT OUTER JOIN" on a space to rediscover that was how the
         # two could drift apart. STRAIGHT_JOIN is not probed -- it is MySQL-only,
         # so the backend that defines it is also the only one that would refuse.
-        join_type = join_expr.join_type
+        join_type = expr.join_type
 
         if join_type in (JoinType.INNER, JoinType.JOIN) and not self.supports_inner_join():
             raise UnsupportedFeatureError(self.name, join_type.phrase)
@@ -165,39 +200,39 @@ class JoinMixin:
         elif join_type is JoinType.CROSS and not self.supports_cross_join():
             raise UnsupportedFeatureError(self.name, join_type.phrase)
 
-        if join_expr.natural and not self.supports_natural_join():
+        if expr.natural and not self.supports_natural_join():
             raise UnsupportedFeatureError(self.name, "NATURAL JOIN")
 
         all_params = []
 
         # Format left and right sides of the join
-        left_sql, left_params = join_expr.left_table.to_sql()
-        if isinstance(join_expr.left_table, (QueryStatement, JoinClause)):
+        left_sql, left_params = expr.left_table.to_sql()
+        if isinstance(expr.left_table, (QueryStatement, JoinClause)):
             left_sql = f"({left_sql})"
         all_params.extend(left_params)
 
-        right_sql, right_params = join_expr.right_table.to_sql()
-        if isinstance(join_expr.right_table, (QueryStatement, JoinClause)):
+        right_sql, right_params = expr.right_table.to_sql()
+        if isinstance(expr.right_table, (QueryStatement, JoinClause)):
             right_sql = f"({right_sql})"
         all_params.extend(right_params)
 
         # Build the join clause
         join_parts = [left_sql]
 
-        if join_expr.natural:
+        if expr.natural:
             join_parts.append("NATURAL")
 
         join_parts.append(join_type.phrase)
         join_parts.append(right_sql)
 
         # Handle ON or USING clause, which are not used with NATURAL JOIN
-        if not join_expr.natural:
-            if join_expr.condition:
-                cond_sql, cond_params = join_expr.condition.to_sql()
+        if not expr.natural:
+            if expr.condition:
+                cond_sql, cond_params = expr.condition.to_sql()
                 join_parts.append(f"ON {cond_sql}")
                 all_params.extend(cond_params)
-            elif join_expr.using:
-                using_cols = ", ".join(self.format_identifier(col) for col in join_expr.using)
+            elif expr.using:
+                using_cols = ", ".join(self.format_identifier(col) for col in expr.using)
                 join_parts.append(f"USING ({using_cols})")
             elif join_type is not JoinType.CROSS:
                 raise ValueError(f"{join_type.phrase} requires a condition or USING clause.")
@@ -205,7 +240,7 @@ class JoinMixin:
         sql = " ".join(join_parts)
 
         # Add alias for the joined result if provided
-        if join_expr.alias:
-            sql = f"({sql}) AS {self.format_identifier(join_expr.alias)}"
+        if expr.alias:
+            sql = f"({sql}) AS {self.format_identifier(expr.alias)}"
 
         return sql, tuple(all_params)

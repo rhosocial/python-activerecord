@@ -471,6 +471,7 @@ class TableFunctionExpression(TableSource, BaseExpression):
         *args: "BaseExpression",
         alias: Optional[str] = None,
         column_names: Optional[List[str]] = None,
+        column_types: Optional[List[str]] = None,
     ):
         super().__init__(dialect)
         self.func_name, self.args, self.alias, self.column_names = (
@@ -479,6 +480,13 @@ class TableFunctionExpression(TableSource, BaseExpression):
             alias,
             column_names,
         )
+        # Set-returning functions declared as ``SETOF record`` (crosstab,
+        # connectby, ...) cannot be typed from their signature. The server needs
+        # ``AS alias(col TYPE, ...)``, so a column type list is part of the node
+        # rather than a caller-side raw SQL string.
+        self.column_types = list(column_types) if column_types else []
+        if self.column_types and not self.column_names:
+            raise ValueError("column_types requires column_names")
 
     @property
     def format_method(self) -> str:

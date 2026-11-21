@@ -42,46 +42,46 @@ class GraphSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_graph_vertex(self, vertex: "GraphVertex") -> Tuple[str, tuple]:
+    def format_graph_vertex(self, expr: "GraphVertex") -> Tuple[str, tuple]:
         """
-        Formats a graph vertex expression.
+        Formats a graph expr expression.
 
         Args:
-            vertex: GraphVertex object.
+            expr: GraphVertex object.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
         ...  # pragma: no cover
 
-    def format_graph_edge(self, edge: "GraphEdge") -> Tuple[str, tuple]:
+    def format_graph_edge(self, expr: "GraphEdge") -> Tuple[str, tuple]:
         """
-        Formats a graph edge expression.
+        Formats a graph expr expression.
 
         Args:
-            edge: GraphEdge object.
+            expr: GraphEdge object.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
         ...  # pragma: no cover
 
-    def format_quantified_path(self, quantified: "QuantifiedPath") -> Tuple[str, tuple]:
-        """Formats a quantified (variable-length) path pattern."""
+    def format_quantified_path(self, expr: "QuantifiedPath") -> Tuple[str, tuple]:
+        """Formats a expr (variable-length) path pattern."""
         ...  # pragma: no cover
 
-    def format_path_pattern(self, pattern: "PathPattern") -> Tuple[str, tuple]:
-        """Formats a single path pattern (sequence of vertices & edges)."""
+    def format_path_pattern(self, expr: "PathPattern") -> Tuple[str, tuple]:
+        """Formats a single path expr (sequence of vertices & edges)."""
         ...  # pragma: no cover
 
-    def format_match_clause(self, clause: "MatchClause") -> Tuple[str, tuple]:
+    def format_match_clause(self, expr: "MatchClause") -> Tuple[str, tuple]:
         """
-        Formats a MATCH clause with one or more patterns.
+        Formats a MATCH expr with one or more patterns.
 
         Args:
-            clause: MatchClause object.
+            expr: MatchClause object.
 
         Returns:
-            Tuple of (SQL string, parameters tuple) for the formatted clause.
+            Tuple of (SQL string, parameters tuple) for the formatted expr.
         """
         ...  # pragma: no cover

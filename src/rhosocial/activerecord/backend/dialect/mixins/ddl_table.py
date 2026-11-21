@@ -361,7 +361,7 @@ class TableMixin:
         """
         return False
 
-    def format_table_comment(self, comment: str) -> Tuple[str, tuple]:
+    def format_table_comment(self, expr: str) -> Tuple[str, tuple]:
         """Render a table-level ``COMMENT 'text'`` clause.
 
         Generic reusable implementation: ``COMMENT '<escaped>'``.  Dialects
@@ -371,11 +371,11 @@ class TableMixin:
         The statement renderer appends the returned clause after the column
         list and storage options, before any PARTITION BY clause.
         """
-        escaped = self.escape_sql_string(comment)
+        escaped = self.escape_sql_string(expr)
         return f"COMMENT '{escaped}'", ()
 
-    def format_table_comment_clause(self, clause: "TableCommentClause") -> Tuple[str, tuple]:
-        """Render the inline table-comment clause of ``CREATE TABLE``.
+    def format_table_comment_clause(self, expr: "TableCommentClause") -> Tuple[str, tuple]:
+        """Render the inline table-comment expr of ``CREATE TABLE``.
 
         Returns the fragment **with a leading space** so the statement
         renderer can append it directly after the column list / storage
@@ -384,7 +384,7 @@ class TableMixin:
         ``COMMENT = '<text>'``, BigQuery's ``OPTIONS(description='<text>')``).
 
         Args:
-            clause: The :class:`TableCommentClause` carrying the text.
+            expr: The :class:`TableCommentClause` carrying the text.
 
         Returns:
             Tuple of (SQL fragment with leading space, parameters tuple).
@@ -400,7 +400,7 @@ class TableMixin:
                 self.name, "TABLE COMMENT",
                 f"{self.name} does not support an inline table comment.",
             )
-        text_sql, params = self.format_table_comment(clause.comment)
+        text_sql, params = self.format_table_comment(expr.comment)
         return f" {text_sql}", params
 
     def format_create_table_options(self, expr: "CreateTableOptions") -> Tuple[str, tuple]:

@@ -75,10 +75,10 @@ class DataTypeMixin:
     invisible to it.
     """
 
-    def format_data_type(self, data_type: DataType) -> SQLQueryAndParams:
+    def format_data_type(self, expr: DataType) -> Tuple[str, tuple]:
         """Render a :class:`DataType` through the dialect's type family.
 
-        The **total dispatcher**: routes by ``data_type.name`` to the
+        The **total dispatcher**: routes by ``expr.name`` to the
         ``format_data_type_<name>`` member.  When no member exists the
         raise appends :meth:`substitute_advice`'s text, so a concept this
         dialect does not render still comes back as a ``TypeError`` that
@@ -91,17 +91,17 @@ class DataTypeMixin:
         """
         from ...expression.types._base import DataType
 
-        if not isinstance(data_type, DataType):
+        if not isinstance(expr, DataType):
             raise TypeError(
                 f"{type(self).__name__}.format_data_type() expects a "
-                f"DataType instance, got {type(data_type).__name__}."
+                f"DataType instance, got {type(expr).__name__}."
             )
         # `name` is declared on DataType and every concrete subclass has it
         # validated at class-definition time (see DataType.__init_subclass__),
         # so it is read directly: probing for a field the contract already
         # guarantees is the reflection §11.2 forbids, and the None check it
         # invites would only ever catch a class that never could have existed.
-        name = data_type.name
+        name = expr.name
         formatter = getattr(self, f"format_data_type_{name}", None)
         if formatter is None:
             raise UnsupportedDataTypeError(
@@ -109,7 +109,7 @@ class DataTypeMixin:
                 f"{name!r} (no format_data_type_{name})."
                 + self._suggested_type_advice(name)
             )
-        return cast(SQLQueryAndParams, formatter(data_type))
+        return cast(SQLQueryAndParams, formatter(expr))
 
     def substitute_advice(self, name: str) -> str:
         """Extra caveat for a substituted concept, empty by default.

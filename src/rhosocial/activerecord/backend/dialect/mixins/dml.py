@@ -79,15 +79,15 @@ class DMLMixin:
         """
         return False
 
-    def format_returning_clause(self, clause: "ReturningClause") -> Tuple[str, Tuple]:
-        """Format a RETURNING clause.
+    def format_returning_clause(self, expr: "ReturningClause") -> Tuple[str, Tuple]:
+        """Format a RETURNING expr.
 
         Validates the requested expressions against the dialect's capability
         switches and raises :class:`UnsupportedFeatureError` when a requested
         feature is not supported by the dialect.
 
         Args:
-            clause: ReturningClause object containing expressions to return
+            expr: ReturningClause object containing expressions to return
 
         Returns:
             Tuple of (SQL string, parameters tuple)
@@ -103,11 +103,11 @@ class DMLMixin:
 
         all_params: List[Any] = []
         expr_parts: List[str] = []
-        for expr in clause.expressions:
+        for item in expr.expressions:
             if (
-                (isinstance(expr, FunctionCall) and expr.is_aggregate)
-                or isinstance(expr, AggregateFunction)
-                or isinstance(expr, Subquery)
+                (isinstance(item, FunctionCall) and item.is_aggregate)
+                or isinstance(item, AggregateFunction)
+                or isinstance(item, Subquery)
             ):
                 raise UnsupportedFeatureError(
                     self.name,
@@ -115,7 +115,7 @@ class DMLMixin:
                     "A RETURNING clause is evaluated per row and cannot contain "
                     "aggregate functions or subqueries.",
                 )
-            if isinstance(expr, AllColumnsWildcard):
+            if isinstance(item, AllColumnsWildcard):
                 if not self.supports_returning_wildcard():
                     raise UnsupportedFeatureError(
                         self.name,
@@ -123,8 +123,8 @@ class DMLMixin:
                         "This dialect does not support '*' in a RETURNING clause; "
                         "list the columns explicitly.",
                     )
-            elif isinstance(expr, ColumnBase):
-                if expr.table and expr.table.upper() in ("OLD", "NEW"):
+            elif isinstance(item, ColumnBase):
+                if item.table and item.table.upper() in ("OLD", "NEW"):
                     if not self.supports_returning_old_new():
                         raise UnsupportedFeatureError(
                             self.name,
@@ -132,7 +132,7 @@ class DMLMixin:
                             "This dialect does not support OLD/NEW row references "
                             "in a RETURNING clause.",
                         )
-            elif not isinstance(expr, RawSQL):
+            elif not isinstance(item, RawSQL):
                 if not self.supports_returning_expressions():
                     raise UnsupportedFeatureError(
                         self.name,
@@ -141,30 +141,30 @@ class DMLMixin:
                         "RETURNING clause.",
                     )
 
-            expr_sql, expr_params = expr.to_sql()
+            expr_sql, expr_params = item.to_sql()
             expr_parts.append(expr_sql)
             all_params.extend(expr_params)
 
         returning_sql = f"RETURNING {', '.join(expr_parts)}"
 
-        if clause.output_into:
+        if expr.output_into:
             if not self.supports_returning_into():
                 raise UnsupportedFeatureError(
                     self.name,
                     "RETURNING ... INTO",
                     "This dialect does not support a RETURNING/OUTPUT ... INTO target.",
                 )
-            returning_sql += f" INTO {clause.output_into}"
+            returning_sql += f" INTO {expr.output_into}"
 
-        if clause.alias:
+        if expr.alias:
             if not self.supports_returning_alias():
                 raise UnsupportedFeatureError(
                     self.name,
                     "alias in RETURNING",
-                    "This dialect does not support a clause-level alias on a "
-                    "RETURNING clause.",
+                    "This dialect does not support a expr-level alias on a "
+                    "RETURNING expr.",
                 )
-            returning_sql += f" AS {self.format_identifier(clause.alias)}"
+            returning_sql += f" AS {self.format_identifier(expr.alias)}"
 
         return returning_sql, tuple(all_params)
 

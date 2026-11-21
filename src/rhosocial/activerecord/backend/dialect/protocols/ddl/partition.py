@@ -63,7 +63,7 @@ class PartitionSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_partition_definition(self, definition: "PartitionDefinitionExpression") -> Tuple[str, tuple]:
+    def format_partition_definition(self, expr: "PartitionDefinitionExpression") -> Tuple[str, tuple]:
         """Format an inline partition definition from a structural declaration.
 
         Backends that declare partitions inline in CREATE TABLE override this;
@@ -71,7 +71,7 @@ class PartitionSupport(Protocol):
         partition boundary syntax is backend-specific.
 
         Args:
-            definition: PartitionDefinitionExpression to render.
+            expr: PartitionDefinitionExpression to render.
 
         Returns:
             Tuple of (SQL string, parameters tuple).

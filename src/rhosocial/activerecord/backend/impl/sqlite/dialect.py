@@ -1104,7 +1104,7 @@ class SQLiteDialect(
             "or comma-separated values.",
         )
 
-    def format_json_table_expression(self, _expr: "JSONTableExpression") -> Tuple[str, Tuple]:
+    def format_json_table_expression(self, expr: "JSONTableExpression") -> Tuple[str, Tuple]:
         """Format JSON_TABLE expression — unsupported in SQLite."""
         # SQLite does not support JSON_TABLE function directly
         raise UnsupportedFeatureError(
@@ -1114,7 +1114,7 @@ class SQLiteDialect(
             "json_extract() with subqueries.",
         )
 
-    def format_match_clause(self, _clause: "MatchClause") -> Tuple[str, tuple]:
+    def format_match_clause(self, expr: "MatchClause") -> Tuple[str, tuple]:
         """
         Format MATCH clause with expression.
 
@@ -1129,7 +1129,7 @@ class SQLiteDialect(
             self.name, "graph MATCH clause", "SQLite does not support graph MATCH clause."
         )
 
-    def format_ordered_set_aggregation(self, _aggregation: "OrderedSetAggregation") -> Tuple[str, Tuple]:
+    def format_ordered_set_aggregation(self, expr: "OrderedSetAggregation") -> Tuple[str, Tuple]:
         """
         Format ordered-set aggregation function call.
 
@@ -1146,7 +1146,7 @@ class SQLiteDialect(
             "SQLite does not support ordered-set aggregate functions (WITHIN GROUP).",
         )
 
-    def format_qualify_clause(self, _clause: "QualifyClause") -> Tuple[str, tuple]:
+    def format_qualify_clause(self, expr: "QualifyClause") -> Tuple[str, tuple]:
         """Format QUALIFY clause."""
         # SQLite does not support QUALIFY clause
         raise UnsupportedFeatureError(

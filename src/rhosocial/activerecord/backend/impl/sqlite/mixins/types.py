@@ -169,7 +169,7 @@ class SQLiteTypeSupportMixin(DataTypeMixin, DataTypeSupport):
             ),
         )
 
-    def format_data_type_sqlite_integer(self, data_type: SQLiteIntegerType) -> Tuple[str, tuple]:
+    def format_data_type_sqlite_integer(self, expr: SQLiteIntegerType) -> Tuple[str, tuple]:
         """The INTEGER affinity class, so ``INTEGER`` whatever width was asked
         for -- SQLite's documented storage model, not a claim about range.
 
@@ -177,40 +177,40 @@ class SQLiteTypeSupportMixin(DataTypeMixin, DataTypeSupport):
         :meth:`_refuse_unsigned_integer`. The affinity collapse cannot stand in
         for it: signedness is not a width, so there is no narrower column for a
         wider range to collapse into."""
-        self._refuse_unsigned_integer(data_type, "INTEGER")
+        self._refuse_unsigned_integer(expr, "INTEGER")
         return "INTEGER", ()
 
-    def format_data_type_sqlite_text(self, data_type: SQLiteTextType) -> Tuple[str, tuple]:
-        length = data_type.length
+    def format_data_type_sqlite_text(self, expr: SQLiteTextType) -> Tuple[str, tuple]:
+        length = expr.length
         return (f"TEXT({length})" if length is not None else "TEXT"), ()
 
-    def format_data_type_sqlite_real(self, data_type: SQLiteRealType) -> Tuple[str, tuple]:
+    def format_data_type_sqlite_real(self, expr: SQLiteRealType) -> Tuple[str, tuple]:
         return "REAL", ()
 
-    def format_data_type_sqlite_numeric(self, data_type: SQLiteNumericType) -> Tuple[str, tuple]:
+    def format_data_type_sqlite_numeric(self, expr: SQLiteNumericType) -> Tuple[str, tuple]:
         return "NUMERIC", ()
 
-    def format_data_type_sqlite_blob(self, data_type: SQLiteBlobType) -> Tuple[str, tuple]:
+    def format_data_type_sqlite_blob(self, expr: SQLiteBlobType) -> Tuple[str, tuple]:
         return "BLOB", ()
 
     # --- Core types (pure names) rendered per SQLite affinity ---
 
-    def format_data_type_integer(self, data_type: IntegerType) -> Tuple[str, tuple]:
+    def format_data_type_integer(self, expr: IntegerType) -> Tuple[str, tuple]:
         """SQLite accepts both spellings of this one type (its affinity regex
         matches ``INT`` and ``INTEGER`` alike), so the spelling is honoured."""
-        if data_type.spelling not in IntegerType.SPELLINGS:
+        if expr.spelling not in IntegerType.SPELLINGS:
             raise TypeError(
                 f"{type(self).__name__} cannot render "
-                f"{data_type.spelling!r}; it accepts "
+                f"{expr.spelling!r}; it accepts "
                 f"{', '.join(IntegerType.SPELLINGS)}."
             )
-        self._refuse_unsigned_integer(data_type, data_type.spelling.upper())
-        return ("INT" if data_type.spelling == "int" else "INTEGER"), ()
+        self._refuse_unsigned_integer(expr, expr.spelling.upper())
+        return ("INT" if expr.spelling == "int" else "INTEGER"), ()
 
-    def format_data_type_text(self, data_type: TextType) -> Tuple[str, tuple]:
+    def format_data_type_text(self, expr: TextType) -> Tuple[str, tuple]:
         return "TEXT", ()
 
-    def format_data_type_real(self, data_type: RealType) -> Tuple[str, tuple]:
+    def format_data_type_real(self, expr: RealType) -> Tuple[str, tuple]:
         """``REAL``, and refuses ``unsigned``; see
         :meth:`_refuse_unsigned_numeric`.
 
@@ -227,103 +227,103 @@ class SQLiteTypeSupportMixin(DataTypeMixin, DataTypeSupport):
         column that stores the negatives the caller declared it would not.
         https://sqlite.org/datatype3.html
         """
-        self._refuse_unsigned_numeric(data_type, "REAL")
+        self._refuse_unsigned_numeric(expr, "REAL")
         return "REAL", ()
 
-    def format_data_type_blob(self, data_type: CoreBlobType) -> Tuple[str, tuple]:
+    def format_data_type_blob(self, expr: CoreBlobType) -> Tuple[str, tuple]:
         return "BLOB", ()
 
-    def format_data_type_bigint(self, data_type: BigIntType) -> Tuple[str, tuple]:
+    def format_data_type_bigint(self, expr: BigIntType) -> Tuple[str, tuple]:
         """Every integer width collapses to ``INTEGER``, which is SQLite's
         documented storage model rather than a claim about width.
 
         ``unsigned`` is refused rather than ignored; see
         :meth:`_refuse_unsigned_integer`."""
-        self._refuse_unsigned_integer(data_type, "INTEGER")
+        self._refuse_unsigned_integer(expr, "INTEGER")
         return "INTEGER", ()
 
-    def format_data_type_smallint(self, data_type: SmallIntType) -> Tuple[str, tuple]:
+    def format_data_type_smallint(self, expr: SmallIntType) -> Tuple[str, tuple]:
         """Collapses to ``INTEGER`` like every other integer width, and refuses
         ``unsigned``; see :meth:`_refuse_unsigned_integer`."""
-        self._refuse_unsigned_integer(data_type, "INTEGER")
+        self._refuse_unsigned_integer(expr, "INTEGER")
         return "INTEGER", ()
 
-    def format_data_type_varchar(self, data_type: VarCharType) -> Tuple[str, tuple]:
-        if data_type.spelling not in VarCharType.SPELLINGS:
+    def format_data_type_varchar(self, expr: VarCharType) -> Tuple[str, tuple]:
+        if expr.spelling not in VarCharType.SPELLINGS:
             raise TypeError(
-                f"{type(self).__name__} cannot render {data_type.spelling!r}; "
+                f"{type(self).__name__} cannot render {expr.spelling!r}; "
                 f"it accepts {', '.join(VarCharType.SPELLINGS)}."
             )
         return "TEXT", ()
 
-    def format_data_type_char(self, data_type: CharType) -> Tuple[str, tuple]:
+    def format_data_type_char(self, expr: CharType) -> Tuple[str, tuple]:
         return "TEXT", ()
 
-    def format_data_type_float(self, data_type: FloatType) -> Tuple[str, tuple]:
+    def format_data_type_float(self, expr: FloatType) -> Tuple[str, tuple]:
         """``FLOAT(p)`` collapses to ``REAL``, which is SQLite's documented
         storage class for approximate numerics, and refuses ``unsigned``; see
         :meth:`_refuse_unsigned_numeric`."""
-        self._refuse_unsigned_numeric(data_type, "REAL")
+        self._refuse_unsigned_numeric(expr, "REAL")
         return "REAL", ()
 
-    def format_data_type_decimal(self, data_type: DecimalType) -> Tuple[str, tuple]:
+    def format_data_type_decimal(self, expr: DecimalType) -> Tuple[str, tuple]:
         """``DECIMAL`` collapses to ``NUMERIC``, which is SQLite's documented
         storage class for fixed-point values, and refuses ``unsigned``; see
         :meth:`_refuse_unsigned_numeric`."""
-        if data_type.spelling not in DecimalType.SPELLINGS:
+        if expr.spelling not in DecimalType.SPELLINGS:
             raise TypeError(
-                f"{type(self).__name__} cannot render {data_type.spelling!r}; "
+                f"{type(self).__name__} cannot render {expr.spelling!r}; "
                 f"it accepts {', '.join(DecimalType.SPELLINGS)}."
             )
-        self._refuse_unsigned_numeric(data_type, "NUMERIC")
+        self._refuse_unsigned_numeric(expr, "NUMERIC")
         return "NUMERIC", ()
 
-    def format_data_type_boolean(self, data_type: BooleanType) -> Tuple[str, tuple]:
+    def format_data_type_boolean(self, expr: BooleanType) -> Tuple[str, tuple]:
         return "NUMERIC", ()
 
-    def format_data_type_date(self, data_type: DateType) -> Tuple[str, tuple]:
+    def format_data_type_date(self, expr: DateType) -> Tuple[str, tuple]:
         return "NUMERIC", ()
 
-    def format_data_type_datetime(self, data_type: DateTimeType) -> Tuple[str, tuple]:
+    def format_data_type_datetime(self, expr: DateTimeType) -> Tuple[str, tuple]:
         return "NUMERIC", ()
 
-    def format_data_type_timestamp(self, data_type: TimestampType) -> Tuple[str, tuple]:
+    def format_data_type_timestamp(self, expr: TimestampType) -> Tuple[str, tuple]:
         return "NUMERIC", ()
 
-    def format_data_type_time(self, data_type: TimeType) -> Tuple[str, tuple]:
+    def format_data_type_time(self, expr: TimeType) -> Tuple[str, tuple]:
         return "NUMERIC", ()
 
-    def format_data_type_tinyint(self, data_type: TinyIntType) -> Tuple[str, tuple]:
+    def format_data_type_tinyint(self, expr: TinyIntType) -> Tuple[str, tuple]:
 
         """Collapses to ``INTEGER`` like every other integer width, and
         refuses ``unsigned``; see :meth:`_refuse_unsigned_integer`."""
-        self._refuse_unsigned_integer(data_type, "INTEGER")
+        self._refuse_unsigned_integer(expr, "INTEGER")
         return "INTEGER", ()
 
-    def format_data_type_double(self, data_type: DoubleType) -> Tuple[str, tuple]:
+    def format_data_type_double(self, expr: DoubleType) -> Tuple[str, tuple]:
         """``DOUBLE PRECISION`` collapses to ``REAL``, which is SQLite's
         documented storage class for approximate numerics, and refuses
         ``unsigned``; see :meth:`_refuse_unsigned_numeric`."""
-        self._refuse_unsigned_numeric(data_type, "REAL")
+        self._refuse_unsigned_numeric(expr, "REAL")
         return "REAL", ()
 
-    def format_data_type_timetz(self, data_type: TimeTzType) -> Tuple[str, tuple]:
+    def format_data_type_timetz(self, expr: TimeTzType) -> Tuple[str, tuple]:
         return "NUMERIC", ()
 
-    def format_data_type_timestamptz(self, data_type: TimestampTzType) -> Tuple[str, tuple]:
+    def format_data_type_timestamptz(self, expr: TimestampTzType) -> Tuple[str, tuple]:
         return "NUMERIC", ()
 
-    def format_data_type_interval(self, data_type: IntervalType) -> Tuple[str, tuple]:
+    def format_data_type_interval(self, expr: IntervalType) -> Tuple[str, tuple]:
         return "NUMERIC", ()
 
-    def format_data_type_json(self, data_type: JsonType) -> Tuple[str, tuple]:
+    def format_data_type_json(self, expr: JsonType) -> Tuple[str, tuple]:
         return "TEXT", ()
 
-    def format_data_type_jsonb(self, data_type: JsonBType) -> Tuple[str, tuple]:
+    def format_data_type_jsonb(self, expr: JsonBType) -> Tuple[str, tuple]:
         return "TEXT", ()
 
-    def format_data_type_custom(self, data_type: CustomType) -> Tuple[str, tuple]:
-        return data_type.raw, ()
+    def format_data_type_custom(self, expr: CustomType) -> Tuple[str, tuple]:
+        return expr.raw, ()
 
     # ------------------------------------------------------------------
     #

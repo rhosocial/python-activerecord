@@ -12,8 +12,8 @@ import pytest
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 
-class TestSQLiteFormatLimitOffset:
-    # Discussion Point: Should format_limit_offset actively validate input as non-zero integers?
+class TestSQLiteBuildLimitOffset:
+    # Discussion Point: Should build_limit_offset actively validate input as non-zero integers?
     #
     # Rationale against active validation within this method:
     # 1. Separation of Concerns: This method's primary role is low-level SQL formatting and parameterization.
@@ -35,50 +35,51 @@ class TestSQLiteFormatLimitOffset:
         return SQLiteDialect()
 
     def test_format_limit_only(self, dialect: SQLiteDialect):
-        sql, params = dialect.format_limit_offset(limit=10)
+        sql, params = dialect.build_limit_offset(limit=10)
         assert sql == "LIMIT ?"
         assert params == [10]
 
     def test_format_offset_only(self, dialect: SQLiteDialect):
-        sql, params = dialect.format_limit_offset(offset=5)
+        sql, params = dialect.build_limit_offset(offset=5)
         assert sql == "OFFSET ?"
         assert params == [5]  # When only offset is provided, SQLite just uses OFFSET
 
     def test_format_limit_and_offset(self, dialect: SQLiteDialect):
-        sql, params = dialect.format_limit_offset(limit=10, offset=5)
+        sql, params = dialect.build_limit_offset(limit=10, offset=5)
         assert sql == "LIMIT ? OFFSET ?"
         assert params == [10, 5]
 
     def test_format_no_limit_or_offset(self, dialect: SQLiteDialect):
-        sql, params = dialect.format_limit_offset()
+        sql, params = dialect.build_limit_offset()
         assert sql is None
         assert params == []
 
     def test_format_limit_zero(self, dialect: SQLiteDialect):
-        sql, params = dialect.format_limit_offset(limit=0)
+        sql, params = dialect.build_limit_offset(limit=0)
         assert sql == "LIMIT ?"
         assert params == [0]
 
     def test_format_offset_zero(self, dialect: SQLiteDialect):
-        sql, params = dialect.format_limit_offset(offset=0)
+        sql, params = dialect.build_limit_offset(offset=0)
         assert sql == "OFFSET ?"
         assert params == [0]  # When only offset is provided, SQLite just uses OFFSET
 
     def test_format_limit_sql_injection(self, dialect: SQLiteDialect):
         malicious_limit = "10; DROP TABLE users;"
-        sql, params = dialect.format_limit_offset(limit=malicious_limit)
+        sql, params = dialect.build_limit_offset(limit=malicious_limit)
         assert sql == "LIMIT ?"
         assert params == [malicious_limit]
 
     def test_format_offset_sql_injection(self, dialect: SQLiteDialect):
         malicious_offset = "5 UNION SELECT 1, 2, 3"
-        sql, params = dialect.format_limit_offset(offset=malicious_offset)
+        sql, params = dialect.build_limit_offset(offset=malicious_offset)
         assert sql == "OFFSET ?"  # SQLite's behavior when only offset is given
         assert params == [malicious_offset]  # When only offset is provided, SQLite just uses OFFSET
 
-    def test_format_limit_offset_sql_injection_combined(self, dialect: SQLiteDialect):
+    def test_build_limit_offset_sql_injection_combined(self, dialect: SQLiteDialect):
         malicious_limit = "10; SELECT SLEEP(5)"
         malicious_offset = "5 OR 1=1"
-        sql, params = dialect.format_limit_offset(limit=malicious_limit, offset=malicious_offset)
+        sql, params = dialect.build_limit_offset(limit=malicious_limit, offset=malicious_offset)
         assert sql == "LIMIT ? OFFSET ?"
         assert params == [malicious_limit, malicious_offset]
+

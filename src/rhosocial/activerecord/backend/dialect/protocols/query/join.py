@@ -54,12 +54,12 @@ class JoinSupport(Protocol):
         """Whether NATURAL JOIN is supported."""
         ...  # pragma: no cover
 
-    def format_join_clause(self, join_expr: "JoinClause") -> Tuple[str, Tuple]:
+    def format_join_clause(self, expr: "JoinClause") -> Tuple[str, Tuple]:
         """
         Formats a JOIN expression.
 
         Args:
-            join_expr: JoinClause object.
+            expr: JoinClause object.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.

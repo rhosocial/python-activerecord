@@ -16,11 +16,11 @@ if TYPE_CHECKING:  # pragma: no cover
 class ColumnAttributeSupport(Protocol):
     """Protocol for rendering explicitly supplied column attributes."""
 
-    def format_column_attribute(self, attr: "ColumnAttribute") -> Tuple[str, tuple]:
+    def format_column_attribute(self, expr: "ColumnAttribute") -> Tuple[str, tuple]:
         """Render one selected attribute as a column-definition fragment.
 
         Args:
-            attr: A selected (renderable) column attribute.
+            expr: A selected (renderable) column attribute.
 
         Returns:
             A ``(sql, params)`` tuple with a leading space (DDL accepts no

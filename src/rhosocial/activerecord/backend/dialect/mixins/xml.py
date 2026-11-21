@@ -158,21 +158,21 @@ class SQLXMLConstructionMixin:
         """
         return False
 
-    def format_xml_name(self, name: str) -> str:
-        """Validate and format an SQL/XML name token.
+    def format_xml_name(self, expr: str) -> str:
+        """Validate and format an SQL/XML expr token.
 
         Args:
-            name: Name token to validate.
+            expr: Name token to validate.
 
         Returns:
-            The validated name unchanged.
+            The validated expr unchanged.
 
         Raises:
-            ValueError: If the name is not a valid SQL/XML identifier.
+            ValueError: If the expr is not a valid SQL/XML identifier.
         """
-        if not self._XML_NAME_PATTERN.fullmatch(name):
-            raise ValueError(f"Invalid SQL/XML name: {name}")
-        return name
+        if not self._XML_NAME_PATTERN.fullmatch(expr):
+            raise ValueError(f"Invalid SQL/XML expr: {expr}")
+        return expr
 
     def format_xml_attributes_expression(
         self,
@@ -416,33 +416,33 @@ class SQLXMLQueryingMixin:
         """
         return False
 
-    def format_passing_clause(self, clause: "PassingClause") -> Tuple[str, tuple]:
-        """Format a SQL/XML ``PASSING`` clause.
+    def format_passing_clause(self, expr: "PassingClause") -> Tuple[str, tuple]:
+        """Format a SQL/XML ``PASSING`` expr.
 
-        Public and overridable: the clause is a node all three querying XML
+        Public and overridable: the expr is a node all three querying XML
         expressions carry, so a backend that spells ``PASSING`` differently
         overrides this one formatter instead of the three that compose
         around it.
 
         Args:
-            clause: The ``PassingClause`` carrying the expressions to pass
+            expr: The ``PassingClause`` carrying the expressions to pass
                 and the optional mechanism (``BY VALUE`` / ``BY REF``).
 
         Returns:
-            Tuple of (SQL string, parameters tuple); empty when the clause
+            Tuple of (SQL string, parameters tuple); empty when the expr
             carries no expressions.
         """
-        if not clause.expressions:
+        if not expr.expressions:
             return "", ()
         all_params = []
         parts = []
-        for expression in clause.expressions:
+        for expression in expr.expressions:
             expr_sql, expr_params = expression.to_sql()
             parts.append(expr_sql)
             all_params.extend(expr_params)
         prefix = "PASSING"
-        if clause.mechanism is not None:
-            prefix += f" {clause.mechanism.value}"
+        if expr.mechanism is not None:
+            prefix += f" {expr.mechanism.value}"
         return f"{prefix} {', '.join(parts)}", tuple(all_params)
 
     def format_xml_query_expression(
