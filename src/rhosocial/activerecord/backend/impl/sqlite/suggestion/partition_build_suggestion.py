@@ -12,13 +12,13 @@ from typing import TYPE_CHECKING
 from ....suggestion import PartitionBuildSuggestion
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.statements import PartitionStrategy
+    from ....expression.statements import PartitionByClause
 
 
 class SQLitePartitionBuildSuggestionMixin:
     """Answer SQLite's lack of partition partition build explicitly."""
 
     def suggest_partition_build(
-        self, strategy: "PartitionStrategy", plan: object
+        self, strategy: "PartitionByClause", plan: object
     ) -> PartitionBuildSuggestion:
         return PartitionBuildSuggestion(False)

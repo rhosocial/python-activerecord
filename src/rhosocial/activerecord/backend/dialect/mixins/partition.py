@@ -12,7 +12,7 @@ from typing import Tuple, TYPE_CHECKING
 from ..exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.statements import PartitionClause, PartitionDefinition
+    from ...expression.statements import PartitionClause, PartitionDefinitionExpression
 
 
 class PartitionMixin:
@@ -116,7 +116,7 @@ class PartitionMixin:
             params.extend(key_params)
         return f" PARTITION BY {method} ({', '.join(key_parts)})", tuple(params)
 
-    def format_partition_definition(self, definition: "PartitionDefinition") -> Tuple[str, tuple]:
+    def format_partition_definition(self, definition: "PartitionDefinitionExpression") -> Tuple[str, tuple]:
         """Format an inline partition definition.
 
         There is no portable generic syntax for a partition boundary
@@ -125,7 +125,7 @@ class PartitionMixin:
         partitions inline must override this method.
 
         Args:
-            definition: PartitionDefinition (or backend subclass) to render.
+            definition: PartitionDefinitionExpression to render.
 
         Returns:
             Tuple of (SQL string, parameters tuple).

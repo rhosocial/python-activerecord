@@ -12,13 +12,13 @@ from typing import TYPE_CHECKING
 from ....suggestion import PartitionTableAlterSuggestion
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.statements import PartitionStrategy
+    from ....expression.statements import PartitionByClause
 
 
 class SQLitePartitionTableAlterSuggestionMixin:
     """Answer SQLite's lack of partition partition table alter explicitly."""
 
     def suggest_partition_table_alter(
-        self, strategy: "PartitionStrategy", plan: object
+        self, strategy: "PartitionByClause", plan: object
     ) -> PartitionTableAlterSuggestion:
         return PartitionTableAlterSuggestion(False)

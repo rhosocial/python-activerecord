@@ -3,9 +3,6 @@ from .fulltext_match import FulltextMatch
 from .filter_clause import FilterClause
 from .ddl_partition import (
     PartitionClause,
-    PartitionDefinition,
-    PartitionStrategy,
-    SubpartitionDefinition,
     PartitionByRangeClause,
     PartitionByListClause,
     PartitionByHashClause,
@@ -320,9 +317,6 @@ __all__ = [
     "CreateFunctionStatement",
     "DropFunctionStatement",
     "PartitionClause",
-    "PartitionDefinition",
-    "PartitionStrategy",
-    "SubpartitionDefinition",
     "PartitionByRangeClause",
     "PartitionByListClause",
     "PartitionByHashClause",

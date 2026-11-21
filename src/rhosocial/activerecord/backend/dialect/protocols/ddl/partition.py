@@ -11,7 +11,7 @@ from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 if TYPE_CHECKING:  # pragma: no cover
     from ....expression.statements import (
         PartitionClause,
-        PartitionDefinition,
+        PartitionDefinitionExpression,
     )
 
 
@@ -63,7 +63,7 @@ class PartitionSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_partition_definition(self, definition: "PartitionDefinition") -> Tuple[str, tuple]:
+    def format_partition_definition(self, definition: "PartitionDefinitionExpression") -> Tuple[str, tuple]:
         """Format an inline partition definition from a structural declaration.
 
         Backends that declare partitions inline in CREATE TABLE override this;
@@ -71,7 +71,7 @@ class PartitionSupport(Protocol):
         partition boundary syntax is backend-specific.
 
         Args:
-            definition: PartitionDefinition (or backend subclass) to render.
+            definition: PartitionDefinitionExpression to render.
 
         Returns:
             Tuple of (SQL string, parameters tuple).

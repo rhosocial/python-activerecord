@@ -12,13 +12,13 @@ from typing import TYPE_CHECKING
 from ....suggestion import PartitionRetentionSuggestion
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.statements import PartitionStrategy
+    from ....expression.statements import PartitionByClause
 
 
 class SQLitePartitionRetentionSuggestionMixin:
     """Answer SQLite's lack of partition retention explicitly."""
 
     def suggest_partition_retention(
-        self, strategy: "PartitionStrategy", plan: object
+        self, strategy: "PartitionByClause", plan: object
     ) -> PartitionRetentionSuggestion:
         return PartitionRetentionSuggestion(False)
