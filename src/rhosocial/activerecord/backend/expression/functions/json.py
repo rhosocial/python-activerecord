@@ -123,7 +123,13 @@ class JSONArrayAggregateFunction(
         return "format_json_arrayagg_function"
 
 
-def json_extract(dialect: "SQLDialectBase", column: "BaseExpression", path: str) -> "JSONDocumentValue":
+def json_extract(
+    dialect: "SQLDialectBase",
+    column: "BaseExpression",
+    path: str,
+    *,
+    inline_path: bool = False,
+) -> "JSONDocumentValue":
     """
     Creates a JSON extract operation (e.g., column->path).
 
@@ -140,10 +146,18 @@ def json_extract(dialect: "SQLDialectBase", column: "BaseExpression", path: str)
         A JSONDocumentValue instance representing the JSON extract operation
     """
     target_column = column if isinstance(column, BaseExpression) else Column(dialect, column)
-    return JSONDocumentValue(dialect, target_column, path, operation="->")
+    return JSONDocumentValue(
+        dialect, target_column, path, operation="->", inline_path=inline_path
+    )
 
 
-def json_extract_text(dialect: "SQLDialectBase", column: "BaseExpression", path: str) -> "JSONTextValue":
+def json_extract_text(
+    dialect: "SQLDialectBase",
+    column: "BaseExpression",
+    path: str,
+    *,
+    inline_path: bool = False,
+) -> "JSONTextValue":
     """
     Creates a JSON extract text operation (e.g., column->>path).
 
@@ -166,7 +180,9 @@ def json_extract_text(dialect: "SQLDialectBase", column: "BaseExpression", path:
     # as a string by a tag, which meant the JSON accessors it was meant to end
     # the chain with stayed reachable -- the node class served both arrow
     # directions and could not drop them per instance.
-    return JSONTextValue(dialect, target_column, path, operation="->>")
+    return JSONTextValue(
+        dialect, target_column, path, operation="->>", inline_path=inline_path
+    )
 
 
 def json_build_object(dialect: "SQLDialectBase", *key_value_pairs: "BaseExpression") -> "BaseExpression":
