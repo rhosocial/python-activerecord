@@ -1627,49 +1627,49 @@ class DummyDialect(
         the safe default, not a real backend answer. Concrete backends override
         with their own retention action chain.
         """
-        from rhosocial.activerecord.backend.expression import PartitionRetentionSuggestion
+        from rhosocial.activerecord.backend.suggestion import PartitionRetentionSuggestion
 
         return PartitionRetentionSuggestion(None)
 
     def suggest_partition_build(self, strategy, plan):
         """Decline partition-build suggestions, keeping the portable baseline plain."""
-        from rhosocial.activerecord.backend.expression import PartitionBuildSuggestion
+        from rhosocial.activerecord.backend.suggestion import PartitionBuildSuggestion
 
         return PartitionBuildSuggestion(None)
 
     def suggest_partition_add(self, strategy, plan):
         """Decline partition-add suggestions, keeping the portable baseline plain."""
-        from rhosocial.activerecord.backend.expression import PartitionAddSuggestion
+        from rhosocial.activerecord.backend.suggestion import PartitionAddSuggestion
 
         return PartitionAddSuggestion(None)
 
     def suggest_partition_drop(self, strategy, plan):
         """Decline partition-drop suggestions, keeping the portable baseline plain."""
-        from rhosocial.activerecord.backend.expression import PartitionDropSuggestion
+        from rhosocial.activerecord.backend.suggestion import PartitionDropSuggestion
 
         return PartitionDropSuggestion(None)
 
     def suggest_partition_table_drop(self, strategy, plan):
         """Decline partition table drop suggestions (portable baseline)."""
-        from rhosocial.activerecord.backend.expression import PartitionTableDropSuggestion
+        from rhosocial.activerecord.backend.suggestion import PartitionTableDropSuggestion
 
         return PartitionTableDropSuggestion(None)
 
     def suggest_partition_table_alter(self, strategy, plan):
         """Decline partition table alter suggestions (portable baseline)."""
-        from rhosocial.activerecord.backend.expression import PartitionTableAlterSuggestion
+        from rhosocial.activerecord.backend.suggestion import PartitionTableAlterSuggestion
 
         return PartitionTableAlterSuggestion(None)
 
     def suggest_partition_split(self, strategy, plan):
         """Decline partition split suggestions (portable baseline)."""
-        from rhosocial.activerecord.backend.expression import PartitionSplitSuggestion
+        from rhosocial.activerecord.backend.suggestion import PartitionSplitSuggestion
 
         return PartitionSplitSuggestion(None)
 
     def suggest_partition_merge(self, strategy, plan):
         """Decline partition merge suggestions (portable baseline)."""
-        from rhosocial.activerecord.backend.expression import PartitionMergeSuggestion
+        from rhosocial.activerecord.backend.suggestion import PartitionMergeSuggestion
 
         return PartitionMergeSuggestion(None)
 

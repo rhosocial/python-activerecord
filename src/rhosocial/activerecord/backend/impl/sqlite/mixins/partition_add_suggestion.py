@@ -9,7 +9,7 @@ consults no probe.
 
 from typing import TYPE_CHECKING
 
-from ....expression.statements import PartitionAddSuggestion
+from ....suggestion import PartitionAddSuggestion
 
 if TYPE_CHECKING:  # pragma: no cover
     from ....expression.statements import PartitionStrategy

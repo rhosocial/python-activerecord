@@ -14,9 +14,9 @@ import dataclasses
 
 from rhosocial.activerecord.backend.dialect import mixins as core_mixins
 from rhosocial.activerecord.backend.dialect.protocols import PartitionRetentionSuggestionSupport
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.suggestion import (
     PartitionRetentionSuggestion,
-    partition_retention_parts,
+    PartitionSuggestionRenderer,
 )
 from rhosocial.activerecord.backend.expression.statements import PartitionStrategy
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -64,8 +64,8 @@ def test_sqlite_answers_explicit_unsupported():
 
 
 def test_helper_returns_none_for_no_answer_and_unsupported():
-    assert partition_retention_parts(DummyDialect(), PartitionStrategy.RANGE, None) is None
-    assert partition_retention_parts(SQLiteDialect(), PartitionStrategy.RANGE, None) is None
+    assert PartitionSuggestionRenderer().retention(DummyDialect(), PartitionStrategy.RANGE, None) is None
+    assert PartitionSuggestionRenderer().retention(SQLiteDialect(), PartitionStrategy.RANGE, None) is None
 
 
 def test_helper_gates_on_structural_no():
@@ -73,4 +73,4 @@ def test_helper_gates_on_structural_no():
         pass
 
     # a dialect without the protocol is a structural "no", never an error
-    assert partition_retention_parts(_NoSuggestion(), PartitionStrategy.RANGE, None) is None
+    assert PartitionSuggestionRenderer().retention(_NoSuggestion(), PartitionStrategy.RANGE, None) is None

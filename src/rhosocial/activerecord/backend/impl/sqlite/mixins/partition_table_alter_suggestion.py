@@ -9,7 +9,7 @@ Unconditional, consults no probe.
 
 from typing import TYPE_CHECKING
 
-from ....expression.statements import PartitionTableAlterSuggestion
+from ....suggestion import PartitionTableAlterSuggestion
 
 if TYPE_CHECKING:  # pragma: no cover
     from ....expression.statements import PartitionStrategy

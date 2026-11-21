@@ -8,7 +8,7 @@ Covers bugs found in rbac cross-backend testing:
 - BooleanType with DEFAULT True must be accepted.
 - TimestampType must map to NUMERIC (SQLite affinity).
 """
-from rhosocial.activerecord.backend.expression.statements import auto_increment_parts  # noqa: E402
+from rhosocial.activerecord.backend.suggestion import IntegerAutoIncrementSuggestionRenderer  # noqa: E402
 
 import pytest
 from rhosocial.activerecord.backend.expression.statements import (
@@ -36,7 +36,7 @@ def dialect():
 
 def _id_column(dialect):
     """The id column, assembled from the backend's integer-key suggestion."""
-    data_type, attributes = auto_increment_parts(dialect, IntegerType(dialect))
+    data_type, attributes = IntegerAutoIncrementSuggestionRenderer().parts(dialect, IntegerType(dialect))
     return ColumnDefinition(
         dialect, "id", data_type,
         constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))],

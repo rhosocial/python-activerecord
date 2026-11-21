@@ -16,7 +16,7 @@ from typing import Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from ....expression.statements import PartitionStrategy
-    from ....expression.statements import PartitionSplitSuggestion
+    from ....suggestion import PartitionSplitSuggestion
 
 
 @runtime_checkable

@@ -1,4 +1,4 @@
-from rhosocial.activerecord.backend.expression.statements import auto_increment_parts  # noqa: E402
+from rhosocial.activerecord.backend.suggestion import IntegerAutoIncrementSuggestionRenderer  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnNotNullConstraint,
     ColumnPrimaryKeyConstraint,
@@ -30,11 +30,11 @@ dialect = backend.dialect
 columns = [
     ColumnDefinition(dialect, 
         name="id",
-        data_type=auto_increment_parts(dialect, IntegerType())[0],
+        data_type=IntegerAutoIncrementSuggestionRenderer().parts(dialect, IntegerType())[0],
         constraints=[
             ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect)),
         ],
-     attributes=auto_increment_parts(dialect, IntegerType())[1]),
+     attributes=IntegerAutoIncrementSuggestionRenderer().parts(dialect, IntegerType())[1]),
     ColumnDefinition(dialect, 
         name="name",
         data_type=TextType(),

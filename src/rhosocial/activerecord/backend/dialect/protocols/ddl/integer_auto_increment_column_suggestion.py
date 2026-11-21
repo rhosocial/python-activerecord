@@ -13,7 +13,7 @@ expressible.
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.statements import IntegerAutoIncrementColumnSuggestion
+    from ....suggestion import IntegerAutoIncrementColumnSuggestion
     from ....expression.types._base import DataType
 
 

@@ -1,16 +1,14 @@
-# src/rhosocial/activerecord/backend/expression/statements/partition_suggestion.py
-"""Backend *suggestion* data classes for partition lifecycle operations.
+# src/rhosocial/activerecord/backend/suggestion/dataclasses.py
+"""Backend *suggestion* data classes.
 
-A suggestion is the backend's answer to "how should this partition operation be
-done here". It is not an expression node and not a statement: it is a small
-immutable value the framework reads and turns into an ordered DDL action chain.
-The name carries ``Suggestion`` (not ``Operation``) to mark it as a
-backend-suggested value, matching ``IntegerAutoIncrementColumnSuggestion``.
+A suggestion is the backend's answer to "how should this be declared/done here".
+It is NOT an expression node and NOT a statement: it is a small immutable value
+with a tri-state payload that a renderer turns into expressions. Suggestions
+live in `backend.suggestion`, never in `backend.expression` (which is reserved
+for `BaseExpression` derivatives only).
 
-Tri-state ``operations`` (identical across all four points):
-- an ordered tuple of expression nodes -- apply them in order;
-- ``False`` -- this backend has no such mechanism for the strategy;
-- ``None`` -- no action needed.
+Each suggestion is a pure frozen dataclass with no methods; rendering is done
+by the renderer classes in this package.
 """
 
 from __future__ import annotations
@@ -19,7 +17,26 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Tuple, Union
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ..bases import BaseExpression
+    from ..expression.bases import BaseExpression
+    from ..expression.types._base import DataType
+
+
+@dataclass(frozen=True)
+class IntegerAutoIncrementColumnSuggestion:
+    """A backend's suggested DDL for an integer auto-increment column.
+
+    Attributes:
+        type: The storage type expression (``IntegerType``, a backend's own
+            integer subclass, or a pseudo-type such as PostgreSQL's SERIAL).
+        auto_increment: How the value is generated on INSERT:
+            - an expression node naming the mechanism the dialect renders;
+            - ``False``: the type already absorbs the attribute, no further
+              auto-increment clause may be added (SERIAL, SQLite rowid);
+            - ``None``: no auto-increment (a plain integer type).
+    """
+
+    type: "DataType"
+    auto_increment: Union["BaseExpression", bool, None] = None
 
 
 @dataclass(frozen=True)

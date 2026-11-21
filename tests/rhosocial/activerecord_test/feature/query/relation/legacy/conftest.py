@@ -32,7 +32,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnPrimaryKeyConstraint as PrimaryKey,
 )
 from rhosocial.activerecord.backend.expression.statements import TableUniqueConstraint as TableUnique
-from rhosocial.activerecord.backend.expression.statements import auto_increment_parts
+from rhosocial.activerecord.backend.suggestion import IntegerAutoIncrementSuggestionRenderer
 from rhosocial.activerecord.backend.expression.types import BooleanType as Bool
 from rhosocial.activerecord.backend.expression.types import DecimalType as Numeric
 from rhosocial.activerecord.backend.expression.types import FloatType as Float
@@ -117,7 +117,7 @@ class Definition:
         return Column(self.dialect, name, sql_type, constraints=constraints or [])
 
     def auto_pk(self, name="id"):
-        data_type, attributes = auto_increment_parts(self.dialect, Int(self.dialect))
+        data_type, attributes = IntegerAutoIncrementSuggestionRenderer().parts(self.dialect, Int(self.dialect))
         return Column(
             self.dialect,
             name,

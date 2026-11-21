@@ -9,7 +9,7 @@ rather than guessing. The mixin is unconditional and consults no probe.
 
 from typing import TYPE_CHECKING
 
-from ....expression.statements import PartitionRetentionSuggestion
+from ....suggestion import PartitionRetentionSuggestion
 
 if TYPE_CHECKING:  # pragma: no cover
     from ....expression.statements import PartitionStrategy

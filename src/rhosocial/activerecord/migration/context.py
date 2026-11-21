@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import Any, List, Optional, Sequence, TYPE_CHECKING
 
+from ..backend.suggestion import PartitionSuggestionRenderer
+
 if TYPE_CHECKING:  # pragma: no cover
     from ..backend.base import StorageBackend
     from ..backend.expression.bases import BaseExpression
@@ -20,55 +22,42 @@ if TYPE_CHECKING:  # pragma: no cover
 class _SuggestionMixin:
     """Backend-suggestion accessors, shared by sync and async contexts.
 
-    Each accessor returns ``None`` when the backend has no answer (either no
-    suggestion support, an explicit unsupported/⊥, or a no-op). The caller can
-    check ``None`` and skip, or pass straight to ``apply`` (which ignores None).
+    Each accessor delegates to an OO renderer. Returns ``None`` when the backend
+    has no answer (no suggestion support, explicit unsupported, or a no-op). The
+    caller can check ``None`` and skip, or pass straight to ``apply`` (which
+    ignores None).
     """
 
+    _renderer = PartitionSuggestionRenderer()
+
     def _suggest(
-        self, helper: Any, strategy: "PartitionStrategy", plan: object
+        self, intent: str, strategy: "PartitionStrategy", plan: object
     ) -> Optional[List["BaseExpression"]]:
-        return helper(self.backend, strategy, plan)
+        return self._renderer.parts(self.backend, intent, strategy, plan)
 
     def suggest_partition_build(self, strategy: "PartitionStrategy", plan: object):
-        from ..backend.expression import partition_build_parts
-
-        return self._suggest(partition_build_parts, strategy, plan)
+        return self._suggest("build", strategy, plan)
 
     def suggest_partition_table_drop(self, strategy: "PartitionStrategy", plan: object):
-        from ..backend.expression import partition_table_drop_parts
-
-        return self._suggest(partition_table_drop_parts, strategy, plan)
+        return self._suggest("table_drop", strategy, plan)
 
     def suggest_partition_table_alter(self, strategy: "PartitionStrategy", plan: object):
-        from ..backend.expression import partition_table_alter_parts
-
-        return self._suggest(partition_table_alter_parts, strategy, plan)
+        return self._suggest("table_alter", strategy, plan)
 
     def suggest_partition_add(self, strategy: "PartitionStrategy", plan: object):
-        from ..backend.expression import partition_add_parts
-
-        return self._suggest(partition_add_parts, strategy, plan)
+        return self._suggest("add", strategy, plan)
 
     def suggest_partition_drop(self, strategy: "PartitionStrategy", plan: object):
-        from ..backend.expression import partition_drop_parts
-
-        return self._suggest(partition_drop_parts, strategy, plan)
+        return self._suggest("drop", strategy, plan)
 
     def suggest_partition_split(self, strategy: "PartitionStrategy", plan: object):
-        from ..backend.expression import partition_split_parts
-
-        return self._suggest(partition_split_parts, strategy, plan)
+        return self._suggest("split", strategy, plan)
 
     def suggest_partition_merge(self, strategy: "PartitionStrategy", plan: object):
-        from ..backend.expression import partition_merge_parts
-
-        return self._suggest(partition_merge_parts, strategy, plan)
+        return self._suggest("merge", strategy, plan)
 
     def suggest_partition_retention(self, strategy: "PartitionStrategy", plan: object):
-        from ..backend.expression import partition_retention_parts
-
-        return self._suggest(partition_retention_parts, strategy, plan)
+        return self._suggest("retention", strategy, plan)
 
 
 class _ContextBase(_SuggestionMixin):

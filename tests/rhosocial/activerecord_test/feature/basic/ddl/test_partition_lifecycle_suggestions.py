@@ -18,13 +18,11 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     PartitionAddSuggestionSupport,
     PartitionDropSuggestionSupport,
 )
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.suggestion import (
     PartitionBuildSuggestion,
     PartitionAddSuggestion,
     PartitionDropSuggestion,
-    partition_build_parts,
-    partition_add_parts,
-    partition_drop_parts,
+    PartitionSuggestionRenderer,
 )
 from rhosocial.activerecord.backend.expression.statements import PartitionStrategy
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -40,7 +38,7 @@ CASES = [
         "build",
         PartitionBuildSuggestionSupport,
         PartitionBuildSuggestion,
-        partition_build_parts,
+        PartitionSuggestionRenderer().build,
         SQLitePartitionBuildSuggestionMixin,
         "suggest_partition_build",
     ),
@@ -48,7 +46,7 @@ CASES = [
         "add",
         PartitionAddSuggestionSupport,
         PartitionAddSuggestion,
-        partition_add_parts,
+        PartitionSuggestionRenderer().add,
         SQLitePartitionAddSuggestionMixin,
         "suggest_partition_add",
     ),
@@ -56,7 +54,7 @@ CASES = [
         "drop",
         PartitionDropSuggestionSupport,
         PartitionDropSuggestion,
-        partition_drop_parts,
+        PartitionSuggestionRenderer().drop,
         SQLitePartitionDropSuggestionMixin,
         "suggest_partition_drop",
     ),

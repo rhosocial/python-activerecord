@@ -5,7 +5,7 @@ Tests for SQLite VIEW functionality with actual database execution.
 These tests verify that generated SQL statements execute correctly
 against an actual SQLite database.
 """
-from rhosocial.activerecord.backend.expression.statements import auto_increment_parts  # noqa: E402
+from rhosocial.activerecord.backend.suggestion import IntegerAutoIncrementSuggestionRenderer  # noqa: E402
 
 import pytest
 from rhosocial.activerecord.backend.expression.statements import (
@@ -55,9 +55,9 @@ def sqlite_backend():
     users_columns = [
         ColumnDefinition(dialect, 
             name="id",
-            data_type=auto_increment_parts(dialect, SQLiteIntegerType(dialect))[0],
+            data_type=IntegerAutoIncrementSuggestionRenderer().parts(dialect, SQLiteIntegerType(dialect))[0],
             constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))],
-         attributes=auto_increment_parts(dialect, SQLiteIntegerType(dialect))[1]),
+         attributes=IntegerAutoIncrementSuggestionRenderer().parts(dialect, SQLiteIntegerType(dialect))[1]),
         ColumnDefinition(dialect, name="name", data_type=SQLiteTextType(dialect=dialect), constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
         ColumnDefinition(dialect, name="email", data_type=SQLiteTextType(dialect=dialect)),
         ColumnDefinition(dialect, 
@@ -78,9 +78,9 @@ def sqlite_backend():
     orders_columns = [
         ColumnDefinition(dialect, 
             name="id",
-            data_type=auto_increment_parts(dialect, SQLiteIntegerType(dialect))[0],
+            data_type=IntegerAutoIncrementSuggestionRenderer().parts(dialect, SQLiteIntegerType(dialect))[0],
             constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))],
-         attributes=auto_increment_parts(dialect, SQLiteIntegerType(dialect))[1]),
+         attributes=IntegerAutoIncrementSuggestionRenderer().parts(dialect, SQLiteIntegerType(dialect))[1]),
         ColumnDefinition(dialect, name="user_id", data_type=SQLiteIntegerType(dialect)),
         ColumnDefinition(dialect, name="amount", data_type=SQLiteRealType(dialect=dialect)),
         ColumnDefinition(dialect, name="order_date", data_type=SQLiteTextType(dialect=dialect)),

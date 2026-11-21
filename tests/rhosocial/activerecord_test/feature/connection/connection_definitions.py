@@ -4,7 +4,7 @@
 The definitions receive only a ``dialect``: they build the tables the
 connection fixtures need and know nothing about pools, backends or execution.
 """
-from rhosocial.activerecord.backend.expression.statements import auto_increment_parts  # noqa: E402
+from rhosocial.activerecord.backend.suggestion import IntegerAutoIncrementSuggestionRenderer  # noqa: E402
 
 from rhosocial.activerecord.backend.expression import (
     ColumnConstraint as Constraint,
@@ -43,7 +43,7 @@ class Definition:
         raise NotImplementedError
 
     def auto_pk(self, name="id"):
-        data_type, attributes = auto_increment_parts(self.dialect, Int(self.dialect))
+        data_type, attributes = IntegerAutoIncrementSuggestionRenderer().parts(self.dialect, Int(self.dialect))
         return Column(
             self.dialect, name, data_type,
             constraints=[Constraint(self.dialect, branch=PrimaryKey(self.dialect))],

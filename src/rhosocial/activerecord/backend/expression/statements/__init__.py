@@ -80,28 +80,6 @@ from .ddl_alter import (
     AlterTableStatement,
 )
 from .ddl_comment import CommentObjectType, CommentOnStatement
-from .ddl_suggestion import IntegerAutoIncrementColumnSuggestion
-from .auto_increment_ddl import auto_increment_parts
-from .partition_suggestion import (
-    PartitionBuildSuggestion,
-    PartitionAddSuggestion,
-    PartitionDropSuggestion,
-    PartitionRetentionSuggestion,
-    PartitionTableDropSuggestion,
-    PartitionTableAlterSuggestion,
-    PartitionSplitSuggestion,
-    PartitionMergeSuggestion,
-)
-from .partition_suggestion_ddl import (
-    partition_build_parts,
-    partition_add_parts,
-    partition_drop_parts,
-    partition_retention_parts,
-    partition_table_drop_parts,
-    partition_table_alter_parts,
-    partition_split_parts,
-    partition_merge_parts,
-)
 from .ddl_table import (
     ForeignKeyMatchType,
     ColumnConstraint,

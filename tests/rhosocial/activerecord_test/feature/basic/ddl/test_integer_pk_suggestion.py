@@ -15,7 +15,7 @@ from rhosocial.activerecord.field import IntegerPKMixin
 from typing import Optional
 
 from rhosocial.activerecord.backend.dialect.protocols import IntegerAutoIncrementColumnSuggestionSupport
-from rhosocial.activerecord.backend.expression import IntegerAutoIncrementColumnSuggestion
+from rhosocial.activerecord.backend.suggestion import IntegerAutoIncrementColumnSuggestion
 from rhosocial.activerecord.backend.expression.types import IntegerType
 from rhosocial.activerecord.backend.impl.sqlite.mixins import (
     SQLiteIntegerAutoIncrementColumnSuggestionMixin,

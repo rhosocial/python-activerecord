@@ -19,15 +19,12 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     PartitionSplitSuggestionSupport,
     PartitionMergeSuggestionSupport,
 )
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.suggestion import (
     PartitionTableDropSuggestion,
     PartitionTableAlterSuggestion,
     PartitionSplitSuggestion,
     PartitionMergeSuggestion,
-    partition_table_drop_parts,
-    partition_table_alter_parts,
-    partition_split_parts,
-    partition_merge_parts,
+    PartitionSuggestionRenderer,
 )
 from rhosocial.activerecord.backend.expression.statements import PartitionStrategy
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -44,28 +41,28 @@ CASES = [
         "table_drop",
         PartitionTableDropSuggestionSupport,
         PartitionTableDropSuggestion,
-        partition_table_drop_parts,
+        PartitionSuggestionRenderer().table_drop,
         SQLitePartitionTableDropSuggestionMixin,
     ),
     (
         "table_alter",
         PartitionTableAlterSuggestionSupport,
         PartitionTableAlterSuggestion,
-        partition_table_alter_parts,
+        PartitionSuggestionRenderer().table_alter,
         SQLitePartitionTableAlterSuggestionMixin,
     ),
     (
         "split",
         PartitionSplitSuggestionSupport,
         PartitionSplitSuggestion,
-        partition_split_parts,
+        PartitionSuggestionRenderer().split,
         SQLitePartitionSplitSuggestionMixin,
     ),
     (
         "merge",
         PartitionMergeSuggestionSupport,
         PartitionMergeSuggestion,
-        partition_merge_parts,
+        PartitionSuggestionRenderer().merge,
         SQLitePartitionMergeSuggestionMixin,
     ),
 ]
