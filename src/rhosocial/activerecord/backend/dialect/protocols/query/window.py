@@ -30,22 +30,22 @@ class WindowFunctionSupport(Protocol):
         """Whether window frame clauses (ROWS/RANGE) are supported."""
         ...  # pragma: no cover
 
-    def format_window_function_call(self, call: "WindowFunctionCall") -> Tuple[str, tuple]:
-        """Format window function call."""
+    def format_window_function_call(self, expr: "WindowFunctionCall") -> Tuple[str, tuple]:
+        """Format window function expr."""
         ...  # pragma: no cover
 
-    def format_window_specification(self, spec: "WindowSpecification") -> Tuple[str, tuple]:
+    def format_window_specification(self, expr: "WindowSpecification") -> Tuple[str, tuple]:
         """Format window specification."""
         ...  # pragma: no cover
 
-    def format_window_frame_specification(self, spec: "WindowFrameSpecification") -> Tuple[str, tuple]:
+    def format_window_frame_specification(self, expr: "WindowFrameSpecification") -> Tuple[str, tuple]:
         """Format window frame specification."""
         ...  # pragma: no cover
 
-    def format_window_clause(self, clause: "WindowClause") -> Tuple[str, tuple]:
-        """Format complete WINDOW clause."""
+    def format_window_clause(self, expr: "WindowClause") -> Tuple[str, tuple]:
+        """Format complete WINDOW expr."""
         ...  # pragma: no cover
 
-    def format_window_definition(self, spec: "WindowDefinition") -> Tuple[str, tuple]:
+    def format_window_definition(self, expr: "WindowDefinition") -> Tuple[str, tuple]:
         """Format named window definition."""
         ...  # pragma: no cover

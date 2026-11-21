@@ -39,8 +39,8 @@ class SQLXMLQueryingSupport(Protocol):
         """Whether SQL/XML XMLTABLE is supported."""
         ...  # pragma: no cover
 
-    def format_passing_clause(self, clause: "PassingClause") -> Tuple[str, tuple]:
-        """Format a SQL/XML ``PASSING`` clause.
+    def format_passing_clause(self, expr: "PassingClause") -> Tuple[str, tuple]:
+        """Format a SQL/XML ``PASSING`` expr.
 
         Public because all three querying expressions compose it: a backend
         that spells ``PASSING`` differently overrides this one formatter

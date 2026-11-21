@@ -5,7 +5,10 @@ Renders query expression tree nodes - identifiers, literals, operators,
 casts, CASE, subqueries, VALUES and aliases - to ``(sql, params)`` pairs.
 Function-call rendering is inherited from :class:`FunctionCallMixin`.
 """
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ...expression.core import RowCountWildcard
 
 from ...expression import bases
 from ...expression.core import (
@@ -348,20 +351,6 @@ class ExpressionMixin(FunctionCallMixin):
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
         return sql, expr.query_params
 
-    def format_alias(self, expression_sql: str, alias: str, expression_params: tuple) -> Tuple[str, tuple]:
-        """Attach an alias to already-formatted SQL.
-
-        Args:
-            expression_sql: The SQL text to alias.
-            alias: The alias identifier to append.
-            expression_params: Parameters belonging to ``expression_sql``.
-
-        Returns:
-            A ``(sql, params)`` tuple of ``<expression_sql> AS <alias>`` with
-            the original parameters unchanged.
-        """
-        return f"{expression_sql} AS {self.format_identifier(alias)}", expression_params
-
     def format_values_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
         """Format a :class:`~...expression.query_sources.ValuesExpression` node.
 
@@ -457,11 +446,11 @@ class ExpressionMixin(FunctionCallMixin):
         """
         return False
 
-    def format_ordered_set_aggregation(self, aggregation: "bases.BaseExpression") -> Tuple[str, Tuple]:
+    def format_ordered_set_aggregation(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """Format an ordered-set aggregate function call.
 
         Args:
-            aggregation: OrderedSetAggregation object to format.
+            expr: OrderedSetAggregation object to format.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
@@ -477,19 +466,19 @@ class ExpressionMixin(FunctionCallMixin):
 
         # Format function arguments
         func_args_sql, func_args_params = [], []
-        for arg in aggregation.args:
+        for arg in expr.args:
             arg_sql, arg_params = arg.to_sql()
             func_args_sql.append(arg_sql)
             func_args_params.extend(arg_params)
 
         # Get the ORDER BY SQL from the OrderByClause object
-        order_by_sql, order_by_params = aggregation.order_by.to_sql()
-        sql = f"{aggregation.func_name.upper()}({', '.join(func_args_sql)}) WITHIN GROUP ({order_by_sql})"
+        order_by_sql, order_by_params = expr.order_by.to_sql()
+        sql = f"{expr.func_name.upper()}({', '.join(func_args_sql)}) WITHIN GROUP ({order_by_sql})"
 
         all_params = func_args_params + list(order_by_params)
 
-        if aggregation.alias:
-            sql = f"{sql} AS {self.format_identifier(aggregation.alias)}"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
 
         return sql, tuple(all_params)
 

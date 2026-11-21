@@ -116,8 +116,8 @@ class PartitionMixin:
             params.extend(key_params)
         return f" PARTITION BY {method} ({', '.join(key_parts)})", tuple(params)
 
-    def format_partition_definition(self, definition: "PartitionDefinition") -> Tuple[str, tuple]:
-        """Format an inline partition definition.
+    def format_partition_definition(self, expr: "PartitionDefinition") -> Tuple[str, tuple]:
+        """Format an inline partition expr.
 
         There is no portable generic syntax for a partition boundary
         (``VALUES LESS THAN`` / ``VALUES IN`` / ``FOR VALUES`` all differ),
@@ -125,7 +125,7 @@ class PartitionMixin:
         partitions inline must override this method.
 
         Args:
-            definition: PartitionDefinition (or backend subclass) to render.
+            expr: PartitionDefinition (or backend subclass) to render.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
@@ -136,7 +136,7 @@ class PartitionMixin:
         """
         raise UnsupportedFeatureError(
             self.name,
-            "partition definition",
+            "partition expr",
             "partition definitions require a dialect implementing inline "
             "partition rendering; use a concrete backend such as MySQL or Oracle.",
         )

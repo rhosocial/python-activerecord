@@ -57,16 +57,11 @@ class DQLMixin:
         """
         return self.version_at_least((13, 0, 0))
 
-    def format_limit_offset(self, limit=None, offset=None) -> Tuple[str, List]:
-        """Format a LIMIT/OFFSET fragment.
+    def build_limit_offset(self, limit=None, offset=None) -> Tuple[str, List]:
+        """Build a LIMIT/OFFSET fragment from raw values.
 
-        Args:
-            limit: Optional row limit; rendered as a bind parameter when given.
-            offset: Optional row offset; rendered as a bind parameter when given.
-
-        Returns:
-            A ``(sql, params)`` tuple, or ``(None, [])`` when both arguments
-            are ``None``.
+        This is a helper, not a formatter: it is intentionally not named
+        ``format_*`` because dialect formatters take an expression node.
         """
         parts = []
         params = []
@@ -80,11 +75,11 @@ class DQLMixin:
             return None, []
         return " ".join(parts), params
 
-    def format_limit_offset_clause(self, clause: "LimitOffsetClause") -> Tuple[str, tuple]:
-        """Format a LIMIT/OFFSET clause object.
+    def format_limit_offset_clause(self, expr: "LimitOffsetClause") -> Tuple[str, tuple]:
+        """Format a LIMIT/OFFSET expr object.
 
         Args:
-            clause: Clause exposing ``limit``, ``offset`` and ``with_ties``
+            expr: Clause exposing ``limit``, ``offset`` and ``with_ties``
                 attributes, either raw values or objects implementing
                 ``ToSQLProtocol``.
 
@@ -99,71 +94,71 @@ class DQLMixin:
 
         all_params: List[Any] = []
         parts = []
-        if clause.with_ties:
+        if expr.with_ties:
             if not self.supports_fetch_with_ties():
                 raise UnsupportedFeatureError(
                     self.name,
                     "FETCH FIRST ... WITH TIES",
                     "This dialect does not support FETCH FIRST ... WITH TIES.",
                 )
-            if clause.limit is None:
+            if expr.limit is None:
                 raise UnsupportedFeatureError(
                     self.name,
                     "WITH TIES without a row limit",
                     "FETCH FIRST ... WITH TIES requires a row limit.",
                 )
-            if clause.offset is not None:
-                if isinstance(clause.offset, ToSQLProtocol):
-                    offset_sql, offset_params = clause.offset.to_sql()
+            if expr.offset is not None:
+                if isinstance(expr.offset, ToSQLProtocol):
+                    offset_sql, offset_params = expr.offset.to_sql()
                     parts.append(f"OFFSET {offset_sql} ROWS")
                     all_params.extend(offset_params)
                 else:
                     parts.append(f"OFFSET {self.get_parameter_placeholder()} ROWS")
-                    all_params.append(clause.offset)
-            if isinstance(clause.limit, ToSQLProtocol):
-                limit_sql, limit_params = clause.limit.to_sql()
+                    all_params.append(expr.offset)
+            if isinstance(expr.limit, ToSQLProtocol):
+                limit_sql, limit_params = expr.limit.to_sql()
                 parts.append(f"FETCH FIRST {limit_sql} ROWS WITH TIES")
                 all_params.extend(limit_params)
             else:
                 parts.append(f"FETCH FIRST {self.get_parameter_placeholder()} ROWS WITH TIES")
-                all_params.append(clause.limit)
+                all_params.append(expr.limit)
             return " ".join(parts), tuple(all_params)
 
-        if clause.limit is not None:
-            if isinstance(clause.limit, ToSQLProtocol):
-                limit_sql, limit_params = clause.limit.to_sql()
+        if expr.limit is not None:
+            if isinstance(expr.limit, ToSQLProtocol):
+                limit_sql, limit_params = expr.limit.to_sql()
                 parts.append(f"LIMIT {limit_sql}")
                 all_params.extend(limit_params)
             else:
                 parts.append(f"LIMIT {self.get_parameter_placeholder()}")
-                all_params.append(clause.limit)
-        if clause.offset is not None:
-            if isinstance(clause.offset, ToSQLProtocol):
-                offset_sql, offset_params = clause.offset.to_sql()
+                all_params.append(expr.limit)
+        if expr.offset is not None:
+            if isinstance(expr.offset, ToSQLProtocol):
+                offset_sql, offset_params = expr.offset.to_sql()
                 parts.append(f"OFFSET {offset_sql}")
                 all_params.extend(offset_params)
             else:
                 parts.append(f"OFFSET {self.get_parameter_placeholder()}")
-                all_params.append(clause.offset)
+                all_params.append(expr.offset)
         return " ".join(parts), tuple(all_params)
 
-    def format_where_clause(self, clause: "WhereClause") -> Tuple[str, tuple]:
-        """Format a WHERE clause.
+    def format_where_clause(self, expr: "WhereClause") -> Tuple[str, tuple]:
+        """Format a WHERE expr.
 
         Args:
-            clause: Clause exposing a ``condition`` expression.
+            expr: Clause exposing a ``condition`` expression.
 
         Returns:
             A ``(sql, params)`` tuple beginning with ``WHERE``.
         """
-        condition_sql, condition_params = clause.condition.to_sql()
+        condition_sql, condition_params = expr.condition.to_sql()
         return f"WHERE {condition_sql}", condition_params
 
-    def format_order_by_clause(self, clause: "OrderByClause") -> Tuple[str, tuple]:
-        """Format an ORDER BY clause.
+    def format_order_by_clause(self, expr: "OrderByClause") -> Tuple[str, tuple]:
+        """Format an ORDER BY expr.
 
         Args:
-            clause: Clause exposing ``expressions``; each item is either an
+            expr: Clause exposing ``expressions``; each item is either an
                 expression or a ``(expression, direction)`` tuple.
 
         Returns:
@@ -174,7 +169,7 @@ class DQLMixin:
         """
         all_params: List[Any] = []
         expr_parts = []
-        for item in clause.expressions:
+        for item in expr.expressions:
             if isinstance(item, tuple):
                 expr, direction = item
                 expr_sql, expr_params = expr.to_sql()
@@ -228,11 +223,11 @@ class DQLMixin:
             parts.append("NULLS FIRST" if expr.nulls == "first" else "NULLS LAST")
         return " ".join(parts), tuple(expr_params)
 
-    def format_group_by_having_clause(self, clause: "GroupByHavingClause") -> Tuple[str, tuple]:
-        """Format a combined GROUP BY / HAVING clause.
+    def format_group_by_having_clause(self, expr: "GroupByHavingClause") -> Tuple[str, tuple]:
+        """Format a combined GROUP BY / HAVING expr.
 
         Args:
-            clause: Clause exposing ``group_by`` (iterable of expressions) and
+            expr: Clause exposing ``group_by`` (iterable of expressions) and
                 an optional ``having`` expression.
 
         Returns:
@@ -241,15 +236,15 @@ class DQLMixin:
         """
         all_params: List[Any] = []
         group_parts = []
-        for expr in clause.group_by:
-            expr_sql, expr_params = expr.to_sql()
+        for item in expr.group_by:
+            expr_sql, expr_params = item.to_sql()
             group_parts.append(expr_sql)
             all_params.extend(expr_params)
         sql_parts = []
         if group_parts:
             sql_parts.append(f"GROUP BY {', '.join(group_parts)}")
-        if clause.having:
-            having_sql, having_params = clause.having.to_sql()
+        if expr.having:
+            having_sql, having_params = expr.having.to_sql()
             sql_parts.append(f"HAVING {having_sql}")
             all_params.extend(having_params)
         return " ".join(sql_parts), tuple(all_params)
@@ -390,15 +385,15 @@ class DQLMixin:
         """Whether the legacy LOCK IN SHARE MODE syntax is supported."""
         return False
 
-    def format_for_update_clause(self, clause: "ForUpdateClause") -> Tuple[str, tuple]:
-        """Format a FOR UPDATE / FOR SHARE clause into dialect SQL.
+    def format_for_update_clause(self, expr: "ForUpdateClause") -> Tuple[str, tuple]:
+        """Format a FOR UPDATE / FOR SHARE expr into dialect SQL.
 
         Args:
-            clause: The ForUpdateClause node carrying the lock ``strength``,
+            expr: The ForUpdateClause node carrying the lock ``strength``,
                 optional OF columns and the NOWAIT / SKIP LOCKED flags.
 
         Returns:
-            Tuple of (SQL string, parameters tuple) for the clause.
+            Tuple of (SQL string, parameters tuple) for the expr.
 
         Raises:
             UnsupportedFeatureError: If the requested lock strength or option
@@ -408,7 +403,7 @@ class DQLMixin:
         from ..exceptions import UnsupportedFeatureError
 
         all_params = []
-        strength = clause.strength
+        strength = expr.strength
 
         if strength == LockStrength.NO_KEY_UPDATE and not self.supports_for_no_key_update():
             raise UnsupportedFeatureError(self.name, "FOR NO KEY UPDATE")
@@ -419,14 +414,14 @@ class DQLMixin:
         if strength == LockStrength.LOCK_IN_SHARE_MODE and not self.supports_lock_in_share_mode():
             raise UnsupportedFeatureError(self.name, "LOCK IN SHARE MODE")
 
-        # The clause text comes from the enum's phrase, so the wire value stays the
+        # The expr text comes from the enum's phrase, so the wire value stays the
         # language-neutral strength word.
         sql_parts = [strength.phrase]
 
         # Handle OF columns if specified
-        if clause.of_columns:
+        if expr.of_columns:
             of_parts = []
-            for col in clause.of_columns:
+            for col in expr.of_columns:
                 if isinstance(col, str):
                     of_parts.append(self.format_identifier(col))
                 elif isinstance(col, ToSQLProtocol):  # BaseExpression
@@ -440,11 +435,11 @@ class DQLMixin:
         # does not have it produces a statement the database rejects at
         # execution time, which is a worse answer than refusing here: the
         # failure arrives with the caller's data already in flight (§6).
-        if clause.nowait:
+        if expr.nowait:
             if not self.supports_for_update_nowait():
                 raise UnsupportedFeatureError(self.name, "NOWAIT")
             sql_parts.append("NOWAIT")
-        elif clause.skip_locked:
+        elif expr.skip_locked:
             if not self.supports_for_update_skip_locked():
                 raise UnsupportedFeatureError(self.name, "SKIP LOCKED")
             sql_parts.append("SKIP LOCKED")
@@ -463,11 +458,11 @@ class DQLMixin:
         """
         return False
 
-    def format_qualify_clause(self, clause: "QualifyClause") -> Tuple[str, tuple]:
-        """Format a QUALIFY clause.
+    def format_qualify_clause(self, expr: "QualifyClause") -> Tuple[str, tuple]:
+        """Format a QUALIFY expr.
 
         Args:
-            clause: QualifyClause exposing a ``condition`` expression.
+            expr: QualifyClause exposing a ``condition`` expression.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
@@ -478,9 +473,9 @@ class DQLMixin:
         from ..exceptions import UnsupportedFeatureError
 
         if not self.supports_qualify_clause():
-            raise UnsupportedFeatureError(self.name, "QUALIFY clause")
+            raise UnsupportedFeatureError(self.name, "QUALIFY expr")
 
-        condition_sql, condition_params = clause.condition.to_sql()
+        condition_sql, condition_params = expr.condition.to_sql()
         return f"QUALIFY {condition_sql}", condition_params
 
     # endregion Qualify Clause

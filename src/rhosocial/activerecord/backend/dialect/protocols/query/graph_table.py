@@ -41,48 +41,48 @@ class GraphTableSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_graph_columns_clause(self, columns: "ColumnsClause") -> Tuple[str, tuple]:
+    def format_graph_columns_clause(self, expr: "ColumnsClause") -> Tuple[str, tuple]:
         """
         Formats a GRAPH_TABLE COLUMNS clause.
 
         Args:
-            columns: ColumnsClause object.
+            expr: ColumnsClause object.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
         ...  # pragma: no cover
 
-    def format_table_properties_clause(self, clause: "TablePropertiesClause") -> Tuple[str, tuple]:
+    def format_table_properties_clause(self, expr: "TablePropertiesClause") -> Tuple[str, tuple]:
         """
-        Formats a PROPERTIES clause for vertex/edge table definitions.
+        Formats a PROPERTIES expr for vertex/edge table definitions.
 
         Args:
-            clause: TablePropertiesClause object.
+            expr: TablePropertiesClause object.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
         ...  # pragma: no cover
 
-    def format_vertex_table(self, vt: "VertexTable") -> Tuple[str, tuple]:
+    def format_vertex_table(self, expr: "VertexTable") -> Tuple[str, tuple]:
         """
         Formats a vertex table definition for CREATE PROPERTY GRAPH.
 
         Args:
-            vt: VertexTable object.
+            expr: VertexTable object.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
         ...  # pragma: no cover
 
-    def format_edge_table_definition(self, et: "EdgeTableDefinition") -> Tuple[str, tuple]:
+    def format_edge_table_definition(self, expr: "EdgeTableDefinition") -> Tuple[str, tuple]:
         """
         Formats an edge table definition for CREATE PROPERTY GRAPH.
 
         Args:
-            et: EdgeTableDefinition object.
+            expr: EdgeTableDefinition object.
 
         Returns:
             Tuple of (SQL string, parameters tuple).

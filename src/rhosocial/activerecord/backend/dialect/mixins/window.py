@@ -38,11 +38,11 @@ class WindowFunctionMixin:
         """
         return False
 
-    def format_window_specification(self, spec: "WindowSpecification") -> Tuple[str, tuple]:
+    def format_window_specification(self, expr: "WindowSpecification") -> Tuple[str, tuple]:
         """Format a window specification (PARTITION BY / ORDER BY / frame).
 
         Args:
-            spec: WindowSpecification exposing ``partition_by``,
+            expr: WindowSpecification exposing ``partition_by``,
                 ``order_by``, and ``frame``.
 
         Returns:
@@ -60,9 +60,9 @@ class WindowFunctionMixin:
         parts = []
 
         # PARTITION BY
-        if spec.partition_by:
+        if expr.partition_by:
             partition_parts = []
-            for part in spec.partition_by:
+            for part in expr.partition_by:
                 if isinstance(part, bases.BaseExpression):
                     part_sql, part_params = part.to_sql()
                     partition_parts.append(part_sql)
@@ -72,17 +72,17 @@ class WindowFunctionMixin:
             parts.append("PARTITION BY " + ", ".join(partition_parts))
 
         # ORDER BY
-        if spec.order_by and spec.order_by.expressions:
-            # spec.order_by is now a single OrderByClause, so call its to_sql method
+        if expr.order_by and expr.order_by.expressions:
+            # expr.order_by is now a single OrderByClause, so call its to_sql method
             # The OrderByClause.to_sql() method already includes "ORDER BY" keyword
-            clause_sql, clause_params = spec.order_by.to_sql()
+            clause_sql, clause_params = expr.order_by.to_sql()
             parts.append(clause_sql)
             all_params.extend(clause_params)
 
         # Frame
-        if spec.frame:
+        if expr.frame:
             # We need to implement format_window_frame_specification in the mixin
-            frame_sql, frame_params = self.format_window_frame_specification(spec.frame)
+            frame_sql, frame_params = self.format_window_frame_specification(expr.frame)
             parts.append(frame_sql)
             all_params.extend(frame_params)
 
@@ -92,11 +92,11 @@ class WindowFunctionMixin:
 
         return " ".join(parts), tuple(all_params)
 
-    def format_window_frame_specification(self, spec: "WindowFrameSpecification") -> Tuple[str, tuple]:
+    def format_window_frame_specification(self, expr: "WindowFrameSpecification") -> Tuple[str, tuple]:
         """Format a window frame specification.
 
         Args:
-            spec: WindowFrameSpecification exposing ``frame_type``,
+            expr: WindowFrameSpecification exposing ``frame_type``,
                 ``start_frame``, and ``end_frame``.
 
         Returns:
@@ -108,47 +108,47 @@ class WindowFunctionMixin:
         if not self.supports_window_frame_clause():
             raise UnsupportedFeatureError(self.name, "window frame specification")
 
-        parts = [spec.frame_type]
-        if spec.end_frame:
-            parts.append(f"BETWEEN {spec.start_frame} AND {spec.end_frame}")
+        parts = [expr.frame_type]
+        if expr.end_frame:
+            parts.append(f"BETWEEN {expr.start_frame} AND {expr.end_frame}")
         else:
-            parts.append(spec.start_frame)
+            parts.append(expr.start_frame)
         return " ".join(parts), ()
 
-    def format_window_clause(self, clause: "WindowClause") -> Tuple[str, tuple]:
-        """Format a complete WINDOW clause.
+    def format_window_clause(self, expr: "WindowClause") -> Tuple[str, tuple]:
+        """Format a complete WINDOW expr.
 
         Args:
-            clause: WindowClause exposing ``definitions``.
+            expr: WindowClause exposing ``definitions``.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
 
         Raises:
             UnsupportedFeatureError: If window functions are unsupported.
-            ValueError: If the clause has no window definitions.
+            ValueError: If the expr has no window definitions.
         """
         if not self.supports_window_functions():
-            raise UnsupportedFeatureError(self.name, "WINDOW clause")
+            raise UnsupportedFeatureError(self.name, "WINDOW expr")
 
-        if not clause.definitions:
+        if not expr.definitions:
             raise ValueError("WindowClause must contain at least one window definition.")
 
         all_params = []
         def_parts = []
 
-        for defn in clause.definitions:
+        for defn in expr.definitions:
             def_sql, def_params = self.format_window_definition(defn)
             def_parts.append(def_sql)
             all_params.extend(def_params)
 
         return f"WINDOW {', '.join(def_parts)}", tuple(all_params)
 
-    def format_window_definition(self, spec: "WindowDefinition") -> Tuple[str, tuple]:
+    def format_window_definition(self, expr: "WindowDefinition") -> Tuple[str, tuple]:
         """Format a named window definition.
 
         Args:
-            spec: WindowDefinition exposing ``name`` and ``specification``.
+            expr: WindowDefinition exposing ``name`` and ``specification``.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
@@ -159,6 +159,6 @@ class WindowFunctionMixin:
         if not self.supports_window_functions():
             raise UnsupportedFeatureError(self.name, "window definition")
 
-        spec_sql, spec_params = self.format_window_specification(spec.specification)
-        window_def = f"{self.format_identifier(spec.name)} AS ({spec_sql})"
+        spec_sql, spec_params = self.format_window_specification(expr.specification)
+        window_def = f"{self.format_identifier(expr.name)} AS ({spec_sql})"
         return window_def, spec_params

@@ -63,15 +63,15 @@ class PartitionSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_partition_definition(self, definition: "PartitionDefinition") -> Tuple[str, tuple]:
-        """Format an inline partition definition from a structural declaration.
+    def format_partition_definition(self, expr: "PartitionDefinition") -> Tuple[str, tuple]:
+        """Format an inline partition expr from a structural declaration.
 
         Backends that declare partitions inline in CREATE TABLE override this;
         the generic implementation raises ``UnsupportedFeatureError`` because
         partition boundary syntax is backend-specific.
 
         Args:
-            definition: PartitionDefinition (or backend subclass) to render.
+            expr: PartitionDefinition (or backend subclass) to render.
 
         Returns:
             Tuple of (SQL string, parameters tuple).

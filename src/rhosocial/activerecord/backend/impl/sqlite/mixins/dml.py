@@ -85,19 +85,19 @@ class SQLiteDMLMixin:
 
         return sql, tuple(all_params)
 
-    def format_returning_clause(self, clause: "ReturningClause") -> Tuple[str, tuple]:
-        """Format RETURNING clause."""
+    def format_returning_clause(self, expr: "ReturningClause") -> Tuple[str, tuple]:
+        """Format RETURNING expr."""
         all_params = []
         expr_parts = []
-        for expr in clause.expressions:
-            expr_sql, expr_params = expr.to_sql()
+        for item in expr.expressions:
+            expr_sql, expr_params = item.to_sql()
             expr_parts.append(expr_sql)
             all_params.extend(expr_params)
 
         returning_sql = f"RETURNING {', '.join(expr_parts)}"
 
-        if clause.alias:
-            returning_sql += f" AS {self.format_identifier(clause.alias)}"
+        if expr.alias:
+            returning_sql += f" AS {self.format_identifier(expr.alias)}"
 
         return returning_sql, tuple(all_params)
 

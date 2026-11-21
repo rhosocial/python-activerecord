@@ -149,22 +149,22 @@ class ConstraintSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_foreign_key_constraint(self, t_const: "TableConstraint") -> Tuple[str, tuple]:
+    def format_foreign_key_constraint(self, expr: "TableConstraint") -> Tuple[str, tuple]:
         """Format a table-level FOREIGN KEY constraint, including ON DELETE / ON UPDATE.
 
         Args:
-            t_const: The table constraint to format (may be a ForeignKeyConstraint).
+            expr: The table constraint to format (may be a ForeignKeyConstraint).
 
         Returns:
             Tuple of (SQL string, empty params tuple).
         """
         ...  # pragma: no cover
 
-    def format_column_fk_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
+    def format_column_fk_constraint(self, expr: "ColumnConstraint") -> Tuple[str, tuple]:
         """Format a column-level FOREIGN KEY reference clause with actions.
 
         Args:
-            constraint: The column constraint with FK reference and actions.
+            expr: The column expr with FK reference and actions.
 
         Returns:
             Tuple of (SQL fragment, empty params tuple).
@@ -197,12 +197,12 @@ class ConstraintSupport(Protocol):
         """Whether VALIDATE CONSTRAINT is supported."""
         ...
 
-    def format_alter_constraint_action(self, action: "AlterConstraintAction") -> Tuple[str, tuple]:
-        """Format an ALTER CONSTRAINT enforcement action."""
+    def format_alter_constraint_action(self, expr: "AlterConstraintAction") -> Tuple[str, tuple]:
+        """Format an ALTER CONSTRAINT enforcement expr."""
         ...
 
-    def format_validate_constraint_action(self, action: "ValidateConstraintAction") -> Tuple[str, tuple]:
-        """Format a VALIDATE CONSTRAINT action."""
+    def format_validate_constraint_action(self, expr: "ValidateConstraintAction") -> Tuple[str, tuple]:
+        """Format a VALIDATE CONSTRAINT expr."""
         ...
 
     # ALTER TABLE constraint operations (SQL-92)

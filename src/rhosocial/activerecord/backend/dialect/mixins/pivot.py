@@ -28,8 +28,8 @@ class PivotMixin:
         """Whether the UNPIVOT clause is supported. Defaults to False."""
         return False
 
-    def format_pivot_value(self, value: "Union[BaseExpression, str, int, float]") -> Tuple[str, tuple]:
-        """Render a single value in a PIVOT ``IN (...)`` list.
+    def format_pivot_value(self, expr: "Union[BaseExpression, str, int, float]") -> Tuple[str, tuple]:
+        """Render a single expr in a PIVOT ``IN (...)`` list.
 
         Strings/numbers are rendered as inline SQL literals; expression
         instances are rendered through ``to_sql()``. Dialects whose PIVOT
@@ -37,10 +37,10 @@ class PivotMixin:
         """
         from ...expression.bases import BaseExpression
 
-        if isinstance(value, BaseExpression):
-            sql, params = value.to_sql()
+        if isinstance(expr, BaseExpression):
+            sql, params = expr.to_sql()
             return sql, tuple(params)
-        return self.format_literal(value), ()
+        return self.format_literal(expr), ()
 
     def format_pivot(self, expr: "Pivot") -> Tuple[str, tuple]:
         """Format a PIVOT clause.

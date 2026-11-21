@@ -51,14 +51,14 @@ class LockingSupport(Protocol):
         """Whether the legacy LOCK IN SHARE MODE syntax is supported."""
         ...  # pragma: no cover
 
-    def format_for_update_clause(self, clause: "ForUpdateClause") -> Tuple[str, tuple]:
+    def format_for_update_clause(self, expr: "ForUpdateClause") -> Tuple[str, tuple]:
         """
-        Formats a FOR UPDATE clause with optional locking modifiers.
+        Formats a FOR UPDATE expr with optional locking modifiers.
 
         Args:
-            clause: ForUpdateClause object containing locking options
+            expr: ForUpdateClause object containing locking options
 
         Returns:
-            Tuple of (SQL string, parameters tuple) for the formatted clause.
+            Tuple of (SQL string, parameters tuple) for the formatted expr.
         """
         ...  # pragma: no cover

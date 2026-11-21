@@ -87,160 +87,160 @@ class GraphMixin:
                 "and end with a vertex"
             )
 
-    def format_graph_vertex(self, vertex: "GraphVertex") -> Tuple[str, tuple]:
-        """Format a graph vertex expression.
+    def format_graph_vertex(self, expr: "GraphVertex") -> Tuple[str, tuple]:
+        """Format a graph expr expression.
 
         Args:
-            vertex: GraphVertex object, optionally carrying a variable, table
+            expr: GraphVertex object, optionally carrying a variable, table
                 and WHERE condition.
 
         Returns:
-            A ``(sql, params)`` tuple for the formatted vertex.
+            A ``(sql, params)`` tuple for the formatted expr.
 
         Raises:
             TypeError: ``GraphVertex.table`` is not a NodeTable. Another object kind
-            would have had its own name rendered as the vertex's table, and the
+            would have had its own name rendered as the expr's table, and the
             MATCH pattern would read the wrong relation.
             UnsupportedFeatureError: If the dialect does not support MATCH.
-            ValueError: If the vertex variable name contains invalid
+            ValueError: If the expr variable name contains invalid
                 characters.
         """
-        if not isinstance(vertex.table, NodeTable):
+        if not isinstance(expr.table, NodeTable):
             raise TypeError(
                 f"GraphVertex.table must be a NodeTable, "
-                f"got {type(vertex.table).__name__}"
+                f"got {type(expr.table).__name__}"
             )
         if not self.supports_graph_match():
             raise UnsupportedFeatureError(self.name, "graph MATCH clause")
 
         from ...expression.graph import GraphVertex
 
-        if not isinstance(vertex, GraphVertex):
+        if not isinstance(expr, GraphVertex):
             raise TypeError("GraphVertex must be a GraphVertex expression")
-        if vertex.variable is not None and not isinstance(vertex.variable, str):
+        if expr.variable is not None and not isinstance(expr.variable, str):
             raise ValueError(
-                f"Invalid variable name '{vertex.variable}': "
+                f"Invalid variable name '{expr.variable}': "
                 "must contain only alphanumeric characters and underscores."
             )
 
-        if vertex.variable is None:
+        if expr.variable is None:
             vertex_str = ""
-        elif re.fullmatch(r"[A-Za-z0-9_]+", vertex.variable):
-            vertex_str = f"{vertex.variable} IS "
+        elif re.fullmatch(r"[A-Za-z0-9_]+", expr.variable):
+            vertex_str = f"{expr.variable} IS "
         else:
             raise ValueError(
-                f"Invalid variable name '{vertex.variable}': "
+                f"Invalid variable name '{expr.variable}': "
                 "must contain only alphanumeric characters and underscores."
             )
 
-        if vertex.where is not None:
+        if expr.where is not None:
             from ...expression.query_parts import WhereClause
 
-            if not isinstance(vertex.where, WhereClause):
+            if not isinstance(expr.where, WhereClause):
                 raise TypeError("GraphVertex where must be a WhereClause expression")
 
-        if vertex.where is not None:
-            where_sql, where_params = vertex.where.to_sql()
-            sql = f"({vertex_str}{vertex.table.to_sql()[0]} {where_sql})"
+        if expr.where is not None:
+            where_sql, where_params = expr.where.to_sql()
+            sql = f"({vertex_str}{expr.table.to_sql()[0]} {where_sql})"
             return sql, where_params
 
-        sql = f"({vertex_str}{vertex.table.to_sql()[0]})"
+        sql = f"({vertex_str}{expr.table.to_sql()[0]})"
         return sql, ()
 
-    def format_graph_edge(self, edge: "GraphEdge") -> Tuple[str, tuple]:
-        """Format a graph edge expression.
+    def format_graph_edge(self, expr: "GraphEdge") -> Tuple[str, tuple]:
+        """Format a graph expr expression.
 
         Args:
-            edge: GraphEdge object carrying a direction and optional variable
+            expr: GraphEdge object carrying a direction and optional variable
                 and table.
 
         Returns:
-            A ``(sql, params)`` tuple for the formatted edge.
+            A ``(sql, params)`` tuple for the formatted expr.
 
         Raises:
             TypeError: ``GraphEdge.table`` is not an EdgeTableObject. Another object
-            kind would have had its own name rendered as the edge's.
+            kind would have had its own name rendered as the expr's.
             UnsupportedFeatureError: If the dialect does not support MATCH.
-            ValueError: If the edge variable name contains invalid characters.
+            ValueError: If the expr variable name contains invalid characters.
         """
-        if edge.table is not None and not isinstance(edge.table, EdgeTableObject):
+        if expr.table is not None and not isinstance(expr.table, EdgeTableObject):
             raise TypeError(
                 f"GraphEdge.table must be an EdgeTableObject, "
-                f"got {type(edge.table).__name__}"
+                f"got {type(expr.table).__name__}"
             )
         if not self.supports_graph_match():
             raise UnsupportedFeatureError(self.name, "graph MATCH clause")
 
         from ...expression.graph import GraphEdge, GraphEdgeDirection
 
-        if not isinstance(edge, GraphEdge):
+        if not isinstance(expr, GraphEdge):
             raise TypeError("GraphEdge must be a GraphEdge expression")
-        if edge.variable is not None and not isinstance(edge.variable, str):
+        if expr.variable is not None and not isinstance(expr.variable, str):
             raise ValueError(
-                f"Invalid variable name '{edge.variable}': "
+                f"Invalid variable name '{expr.variable}': "
                 "must contain only alphanumeric characters and underscores."
             )
-        if edge.table is not None and edge.variable is None:
+        if expr.table is not None and expr.variable is None:
             raise ValueError("GraphEdge table requires a variable")
-        if not isinstance(edge.direction, GraphEdgeDirection):
-            raise ValueError(f"Invalid graph edge direction: {edge.direction!r}")
-        if edge.direction == GraphEdgeDirection.RIGHT:
+        if not isinstance(expr.direction, GraphEdgeDirection):
+            raise ValueError(f"Invalid graph expr direction: {expr.direction!r}")
+        if expr.direction == GraphEdgeDirection.RIGHT:
             prefix, suffix = "-", "->"
-        elif edge.direction == GraphEdgeDirection.LEFT:
+        elif expr.direction == GraphEdgeDirection.LEFT:
             prefix, suffix = "<-", "-"
-        elif edge.direction == GraphEdgeDirection.ANY:
+        elif expr.direction == GraphEdgeDirection.ANY:
             prefix, suffix = "<-", "->"
-        elif edge.direction == GraphEdgeDirection.NONE:
+        elif expr.direction == GraphEdgeDirection.NONE:
             prefix, suffix = "-", "-"
         else:
-            raise ValueError(f"Invalid graph edge direction: {edge.direction!r}")
+            raise ValueError(f"Invalid graph expr direction: {expr.direction!r}")
 
-        if edge.variable is not None and edge.table is not None:
-            if not re.fullmatch(r"[A-Za-z0-9_]+", edge.variable):
+        if expr.variable is not None and expr.table is not None:
+            if not re.fullmatch(r"[A-Za-z0-9_]+", expr.variable):
                 raise ValueError(
-                    f"Invalid variable name '{edge.variable}': "
+                    f"Invalid variable name '{expr.variable}': "
                     "must contain only alphanumeric characters and underscores."
                 )
-            edge_body = f"[{edge.variable} IS {edge.table.to_sql()[0]}]"
-        elif edge.variable is not None:
-            if not re.fullmatch(r"[A-Za-z0-9_]+", edge.variable):
+            edge_body = f"[{expr.variable} IS {expr.table.to_sql()[0]}]"
+        elif expr.variable is not None:
+            if not re.fullmatch(r"[A-Za-z0-9_]+", expr.variable):
                 raise ValueError(
-                    f"Invalid variable name '{edge.variable}': "
+                    f"Invalid variable name '{expr.variable}': "
                     "must contain only alphanumeric characters and underscores."
                 )
-            edge_body = f"[{edge.variable}]"
+            edge_body = f"[{expr.variable}]"
         else:
             edge_body = "[]"
 
         sql = f"{prefix}{edge_body}{suffix}"
         return sql, ()
 
-    def format_quantified_path(self, quantified: "QuantifiedPath") -> Tuple[str, tuple]:
-        """Format a quantified (variable-length) path pattern.
+    def format_quantified_path(self, expr: "QuantifiedPath") -> Tuple[str, tuple]:
+        """Format a expr (variable-length) path pattern.
 
         Args:
-            quantified: QuantifiedPath object exposing the edge and the
+            expr: QuantifiedPath object exposing the edge and the
                 ``min_repeats`` / ``max_repeats`` bounds.
 
         Returns:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
-            UnsupportedFeatureError: If the dialect does not support quantified
+            UnsupportedFeatureError: If the dialect does not support expr
                 paths.
         """
         if not self.supports_quantified_path():
-            raise UnsupportedFeatureError(self.name, "quantified path pattern")
+            raise UnsupportedFeatureError(self.name, "expr path pattern")
 
         from ...expression.graph import GraphEdge, QuantifiedPath
 
-        if not isinstance(quantified, QuantifiedPath):
+        if not isinstance(expr, QuantifiedPath):
             raise TypeError("QuantifiedPath must be a QuantifiedPath expression")
-        if not isinstance(quantified.edge, GraphEdge):
+        if not isinstance(expr.edge, GraphEdge):
             raise TypeError("QuantifiedPath edge must be a GraphEdge expression")
 
-        min_repeats = quantified.min_repeats
-        max_repeats = quantified.max_repeats
+        min_repeats = expr.min_repeats
+        max_repeats = expr.max_repeats
         if min_repeats is not None and (
             type(min_repeats) is not int or min_repeats < 0
         ):
@@ -254,7 +254,7 @@ class GraphMixin:
         if min_repeats is not None and max_repeats is not None and min_repeats > max_repeats:
             raise ValueError("QuantifiedPath minimum repeats cannot exceed maximum repeats")
 
-        edge_sql, edge_params = quantified.edge.to_sql()
+        edge_sql, edge_params = expr.edge.to_sql()
         if edge_params:
             raise ValueError("QuantifiedPath edges must render without parameters")
 
@@ -271,15 +271,15 @@ class GraphMixin:
 
         return f"{edge_sql}{quantifier}", ()
 
-    def format_path_pattern(self, pattern: "PathPattern") -> Tuple[str, tuple]:
-        """Format a single path pattern by joining its elements with spaces.
+    def format_path_pattern(self, expr: "PathPattern") -> Tuple[str, tuple]:
+        """Format a single path expr by joining its elements with spaces.
 
         Args:
-            pattern: PathPattern object exposing a ``path`` iterable of
+            expr: PathPattern object exposing a ``path`` iterable of
                 elements.
 
         Returns:
-            A ``(sql, params)`` tuple for the joined pattern.
+            A ``(sql, params)`` tuple for the joined expr.
 
         Raises:
             UnsupportedFeatureError: If the dialect does not support MATCH.
@@ -287,16 +287,16 @@ class GraphMixin:
         if not self.supports_graph_match():
             raise UnsupportedFeatureError(self.name, "graph MATCH clause")
 
-        self._validate_graph_path(pattern)
+        self._validate_graph_path(expr)
         parts_sql, all_params = [], []
-        for element in pattern.path:
+        for element in expr.path:
             sql, params = element.to_sql()
             parts_sql.append(sql)
             all_params.extend(params)
         return " ".join(parts_sql), tuple(all_params)
 
-    def format_match_clause(self, clause: "MatchClause") -> Tuple[str, tuple]:
-        """Format a MATCH clause with one or more patterns.
+    def format_match_clause(self, expr: "MatchClause") -> Tuple[str, tuple]:
+        """Format a MATCH expr with one or more patterns.
 
         When multiple :class:`PathPattern` instances are present they are
         rendered as comma-separated patterns. If the dialect does not support
@@ -304,37 +304,37 @@ class GraphMixin:
         :class:`UnsupportedFeatureError` is raised.
 
         Args:
-            clause: MatchClause object containing the match expression.
+            expr: MatchClause object containing the match expression.
 
         Returns:
-            Tuple of (SQL string, parameters tuple) for the formatted clause.
+            Tuple of (SQL string, parameters tuple) for the formatted expr.
 
         Raises:
             UnsupportedFeatureError: If the dialect does not support MATCH, or
                 does not support multiple comma-separated patterns.
         """
         if not self.supports_graph_match():
-            raise UnsupportedFeatureError(self.name, "graph MATCH clause")
+            raise UnsupportedFeatureError(self.name, "graph MATCH expr")
 
         from ...expression.graph import MatchClause, PathPattern
 
-        if not isinstance(clause, MatchClause):
+        if not isinstance(expr, MatchClause):
             raise TypeError("MatchClause must be a MatchClause expression")
-        if not isinstance(clause.patterns, (list, tuple)):
+        if not isinstance(expr.patterns, (list, tuple)):
             raise TypeError("MatchClause.patterns must be a sequence")
-        if any(not isinstance(pattern, PathPattern) for pattern in clause.patterns):
+        if any(not isinstance(pattern, PathPattern) for pattern in expr.patterns):
             raise TypeError("MatchClause patterns must be PathPattern instances")
-        if not clause.patterns or any(not pattern.path for pattern in clause.patterns):
+        if not expr.patterns or any(not pattern.path for pattern in expr.patterns):
             raise ValueError("MatchClause must contain at least one path element")
 
-        has_multiple = len(clause.patterns) > 1
+        has_multiple = len(expr.patterns) > 1
         if has_multiple and not self.supports_comma_separated_patterns():
             raise UnsupportedFeatureError(
-                self.name, "comma-separated patterns in MATCH clause"
+                self.name, "comma-separated patterns in MATCH expr"
             )
 
         pattern_sqls, all_params = [], []
-        for pattern in clause.patterns:
+        for pattern in expr.patterns:
             sql, params = self.format_path_pattern(pattern)
             pattern_sqls.append(sql)
             all_params.extend(params)
@@ -429,11 +429,11 @@ class GraphTableMixin:
             sql += f" AS {self.format_identifier(expr.alias)}"
         return sql, match_params + columns_params
 
-    def format_graph_columns_clause(self, columns: "ColumnsClause") -> Tuple[str, tuple]:
+    def format_graph_columns_clause(self, expr: "ColumnsClause") -> Tuple[str, tuple]:
         """Format a COLUMNS clause for GRAPH_TABLE.
 
         Args:
-            columns: ColumnsClause object exposing a ``columns`` iterable of
+            expr: ColumnsClause object exposing a ``expr`` iterable of
                 variable/property pairs with optional aliases.
 
         Returns:
@@ -441,20 +441,20 @@ class GraphTableMixin:
         """
         if not self.supports_graph_table():
             raise UnsupportedFeatureError(self.name, "GRAPH_TABLE COLUMNS clause")
-        self._validate_graph_columns(columns)
+        self._validate_graph_columns(expr)
         parts = []
-        for col in columns.columns:
+        for col in expr.columns:
             col_str = f"{self.format_identifier(col.variable)}.{self.format_identifier(col.property_name)}"
             if col.alias:
                 col_str += f" AS {self.format_identifier(col.alias)}"
             parts.append(col_str)
         return f"COLUMNS ({', '.join(parts)})", ()
 
-    def format_table_properties_clause(self, clause: "TablePropertiesClause") -> Tuple[str, tuple]:
-        """Format a PROPERTIES clause for vertex/edge table definitions.
+    def format_table_properties_clause(self, expr: "TablePropertiesClause") -> Tuple[str, tuple]:
+        """Format a PROPERTIES expr for vertex/edge table definitions.
 
         Args:
-            clause: TablePropertiesClause whose ``columns`` is ``None`` for ALL
+            expr: TablePropertiesClause whose ``columns`` is ``None`` for ALL
                 COLUMNS, empty for NONE, or a list of column names.
 
         Returns:
@@ -465,20 +465,20 @@ class GraphTableMixin:
                 graph tables.
         """
         if not self.supports_graph_table():
-            raise UnsupportedFeatureError(self.name, "PROPERTIES clause")
+            raise UnsupportedFeatureError(self.name, "PROPERTIES expr")
 
-        if clause.columns is None:
+        if expr.columns is None:
             return "PROPERTIES ALL COLUMNS", ()
-        if not clause.columns:
+        if not expr.columns:
             return "PROPERTIES NONE", ()
-        cols = ", ".join(self.format_identifier(c) for c in clause.columns)
+        cols = ", ".join(self.format_identifier(c) for c in expr.columns)
         return f"PROPERTIES ({cols})", ()
 
-    def format_vertex_table(self, vt: "VertexTable") -> Tuple[str, tuple]:
+    def format_vertex_table(self, expr: "VertexTable") -> Tuple[str, tuple]:
         """Format a vertex table definition for CREATE PROPERTY GRAPH.
 
         Args:
-            vt: VertexTable object exposing table, optional alias, labels, key
+            expr: VertexTable object exposing table, optional alias, labels, key
                 columns and properties.
 
         Returns:
@@ -490,43 +490,43 @@ class GraphTableMixin:
             UnsupportedFeatureError: If the dialect does not support property
                 graph tables.
         """
-        if not isinstance(vt.table, NodeTable):
+        if not isinstance(expr.table, NodeTable):
             raise TypeError(
                 f"VertexTable.table must be a NodeTable, "
-                f"got {type(vt.table).__name__}"
+                f"got {type(expr.table).__name__}"
             )
         if not self.supports_graph_table():
             raise UnsupportedFeatureError(self.name, "vertex table definition")
 
-        parts = [vt.table.to_sql()[0]]
-        if vt.alias:
-            parts.append(f"AS {self.format_identifier(vt.alias)}")
+        parts = [expr.table.to_sql()[0]]
+        if expr.alias:
+            parts.append(f"AS {self.format_identifier(expr.alias)}")
 
         # KEY before LABEL: that is the order the grammar wants, and the
         # other order is a parse error rather than a wrong answer --
         # "missing right parenthesis", with the statement rejected whole.
-        if vt.key_columns:
-            keys = ", ".join(self.format_identifier(k) for k in vt.key_columns)
+        if expr.key_columns:
+            keys = ", ".join(self.format_identifier(k) for k in expr.key_columns)
             parts.append(f"KEY ({keys})")
 
-        if vt.labels:
+        if expr.labels:
             labels = " ".join(
-                f"LABEL {self.format_identifier(label)}" for label in vt.labels
+                f"LABEL {self.format_identifier(label)}" for label in expr.labels
             )
             parts.append(labels)
 
-        if vt.properties is not None:
-            sql, _ = vt.properties.to_sql()
+        if expr.properties is not None:
+            sql, _ = expr.properties.to_sql()
             parts.append(sql)
 
         sql = " ".join(parts)
         return sql, ()
 
-    def format_edge_table_definition(self, et: "EdgeTableDefinition") -> Tuple[str, tuple]:
+    def format_edge_table_definition(self, expr: "EdgeTableDefinition") -> Tuple[str, tuple]:
         """Format an edge table definition for CREATE PROPERTY GRAPH.
 
         Args:
-            et: EdgeTableDefinition object exposing table, optional alias, key columns,
+            expr: EdgeTableDefinition object exposing table, optional alias, key columns,
                 source/destination keys (with optional references), labels and
                 properties.
 
@@ -539,48 +539,48 @@ class GraphTableMixin:
             UnsupportedFeatureError: If the dialect does not support property
                 graph tables.
         """
-        if not isinstance(et.table, EdgeTableObject):
+        if not isinstance(expr.table, EdgeTableObject):
             raise TypeError(
                 f"EdgeTableDefinition.table must be an EdgeTableObject, "
-                f"got {type(et.table).__name__}"
+                f"got {type(expr.table).__name__}"
             )
         if not self.supports_graph_table():
             raise UnsupportedFeatureError(self.name, "edge table definition")
 
-        parts = [et.table.to_sql()[0]]
-        if et.alias:
-            parts.append(f"AS {self.format_identifier(et.alias)}")
+        parts = [expr.table.to_sql()[0]]
+        if expr.alias:
+            parts.append(f"AS {self.format_identifier(expr.alias)}")
 
-        if et.key_columns:
-            keys = ", ".join(self.format_identifier(k) for k in et.key_columns)
+        if expr.key_columns:
+            keys = ", ".join(self.format_identifier(k) for k in expr.key_columns)
             parts.append(f"KEY ({keys})")
 
-        src_keys = ", ".join(self.format_identifier(k) for k in et.source_key)
-        if et.references_source:
-            ref_table, ref_cols = et.references_source
+        src_keys = ", ".join(self.format_identifier(k) for k in expr.source_key)
+        if expr.references_source:
+            ref_table, ref_cols = expr.references_source
             ref_cols_str = ", ".join(self.format_identifier(c) for c in ref_cols)
             src_part = f"SOURCE KEY ({src_keys}) REFERENCES {self.format_identifier(ref_table)} ({ref_cols_str})"
         else:
             src_part = f"SOURCE KEY ({src_keys})"
         parts.append(src_part)
 
-        dst_keys = ", ".join(self.format_identifier(k) for k in et.destination_key)
-        if et.references_destination:
-            ref_table, ref_cols = et.references_destination
+        dst_keys = ", ".join(self.format_identifier(k) for k in expr.destination_key)
+        if expr.references_destination:
+            ref_table, ref_cols = expr.references_destination
             ref_cols_str = ", ".join(self.format_identifier(c) for c in ref_cols)
             dst_part = f"DESTINATION KEY ({dst_keys}) REFERENCES {self.format_identifier(ref_table)} ({ref_cols_str})"
         else:
             dst_part = f"DESTINATION KEY ({dst_keys})"
         parts.append(dst_part)
 
-        if et.labels:
+        if expr.labels:
             labels = " ".join(
-                f"LABEL {self.format_identifier(label)}" for label in et.labels
+                f"LABEL {self.format_identifier(label)}" for label in expr.labels
             )
             parts.append(labels)
 
-        if et.properties is not None:
-            sql, _ = et.properties.to_sql()
+        if expr.properties is not None:
+            sql, _ = expr.properties.to_sql()
             parts.append(sql)
 
         sql = " ".join(parts)

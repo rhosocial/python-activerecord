@@ -23,11 +23,11 @@ from typing import Any
 class LiteralValueMixin:
     """SQLite's tier-2 branches of :meth:`format_literal`."""
 
-    def format_literal(self, value: Any) -> str:
-        """Render *value* as inline SQL text, SQLite's spelling where it has one.
+    def format_literal(self, expr: Any) -> str:
+        """Render *expr* as inline SQL text, SQLite's spelling where it has one.
 
         Args:
-            value: The host value to write into the statement.
+            expr: The host expr to write into the statement.
 
         Returns:
             The escaped literal text, without a bind parameter.
@@ -36,8 +36,8 @@ class LiteralValueMixin:
             TypeError: The base implementation refuses a type SQLite has no
                 literal form for, and this is the same refusal.
         """
-        if isinstance(value, (bytes, bytearray)):
-            return f"X'{bytes(value).hex().upper()}'"
-        if isinstance(value, uuid.UUID):
-            return self.format_literal(str(value))
-        return super().format_literal(value)
+        if isinstance(expr, (bytes, bytearray)):
+            return f"X'{bytes(expr).hex().upper()}'"
+        if isinstance(expr, uuid.UUID):
+            return self.format_literal(str(expr))
+        return super().format_literal(expr)

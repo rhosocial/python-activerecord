@@ -91,7 +91,7 @@ class CTEMixin:
         sql = f"{name_part}{columns_part} AS {materialized_hint}({query_sql})"
         return sql, query_params
 
-    def format_with_statement(self, stmt: "WithStatement") -> Tuple[str, tuple]:
+    def format_with_statement(self, expr: "WithStatement") -> Tuple[str, tuple]:
         """Format a query with a ``WITH`` clause: ``WITH [RECURSIVE] cte [, ...] query``.
 
         The probes this construct consults used to be decorative: a dialect
@@ -105,7 +105,7 @@ class CTEMixin:
         rather than re-implementing the composition around it.
 
         Args:
-            stmt: The ``WithStatement`` carrying the ``ctes``, the
+            expr: The ``WithStatement`` carrying the ``ctes``, the
                 ``recursive`` modifier, and the trailing ``query``.
 
         Returns:
@@ -119,20 +119,20 @@ class CTEMixin:
         """
         from ..exceptions import UnsupportedFeatureError
 
-        if not stmt.ctes:
-            query_sql, query_params = stmt.query.to_sql()
+        if not expr.ctes:
+            query_sql, query_params = expr.query.to_sql()
             return query_sql, tuple(query_params)
         if not self.supports_basic_cte():
             raise UnsupportedFeatureError(self.name, "WITH clause (basic CTE)")
-        if stmt.recursive and not self.supports_recursive_cte():
+        if expr.recursive and not self.supports_recursive_cte():
             raise UnsupportedFeatureError(self.name, "WITH RECURSIVE clause")
         all_params: List[Any] = []
         cte_sql_parts: List[str] = []
-        for cte in stmt.ctes:
+        for cte in expr.ctes:
             cte_sql, cte_params = cte.to_sql()
             cte_sql_parts.append(cte_sql)
             all_params.extend(cte_params)
-        recursive_str = "RECURSIVE " if stmt.recursive else ""
-        query_sql, query_params = stmt.query.to_sql()
+        recursive_str = "RECURSIVE " if expr.recursive else ""
+        query_sql, query_params = expr.query.to_sql()
         all_params.extend(query_params)
         return f"WITH {recursive_str}{', '.join(cte_sql_parts)} {query_sql}", tuple(all_params)
