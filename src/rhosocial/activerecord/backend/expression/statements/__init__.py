@@ -6,6 +6,12 @@ from .ddl_partition import (
     PartitionDefinition,
     PartitionStrategy,
     SubpartitionDefinition,
+    PartitionByRangeClause,
+    PartitionByListClause,
+    PartitionByHashClause,
+    PartitionDefinitionExpression,
+    SubpartitionDefinitionExpression,
+    PartitionOptionsExpression,
 )
 from .ddl_function import CreateFunctionStatement, DropFunctionStatement
 from .ddl_trigger import (
@@ -317,6 +323,12 @@ __all__ = [
     "PartitionDefinition",
     "PartitionStrategy",
     "SubpartitionDefinition",
+    "PartitionByRangeClause",
+    "PartitionByListClause",
+    "PartitionByHashClause",
+    "PartitionDefinitionExpression",
+    "SubpartitionDefinitionExpression",
+    "PartitionOptionsExpression",
     "FilterClause",
     "FulltextMatch",
     "FromSourceType",
