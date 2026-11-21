@@ -34,8 +34,8 @@ from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     TableConstraint,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_partition import (
+    PartitionByHashClause,
     PartitionClause,
-    PartitionStrategy,
 )
 from rhosocial.activerecord.backend.expression.core import Column
 from typing import Optional
@@ -204,7 +204,7 @@ class WithForeignPartition(ActiveRecord):
     def table_partition(cls):
         return ForeignPartitionClause(
             None,
-            PartitionStrategy.HASH,
+            PartitionByHashClause.WORD,
             keys=[Column(None, "id")],
         )
 
@@ -434,7 +434,7 @@ def test_batch_interfaces_cover_all_or_selected_fields():
 def test_table_partition_declaration_is_returned_unchanged():
     declaration = WithForeignPartition.table_partition()
     assert isinstance(declaration, ForeignPartitionClause)
-    assert declaration.method == PartitionStrategy.HASH.value
+    assert declaration.method == PartitionByHashClause.WORD
     assert declaration.keys[0].name == "id"
 
 

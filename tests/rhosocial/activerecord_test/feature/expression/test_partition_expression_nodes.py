@@ -2,7 +2,7 @@
 """Phase 0 contracts for the expression-only partition nodes.
 
 These dedicated strategy clauses and definition expressions are the
-replacement for the `PartitionStrategy` enum and `PartitionDefinition` dataclass.
+replacement for the legacy strategy enum and definition dataclasses.
 They are real `BaseExpression` nodes: constructed with a dialect, rendering via
 `format_method`, and carrying a plain-string `.word` for artifact serialization.
 """

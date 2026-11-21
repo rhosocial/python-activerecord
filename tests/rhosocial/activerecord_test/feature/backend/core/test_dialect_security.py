@@ -17,7 +17,7 @@ from rhosocial.activerecord.backend.expression.functions.string import trim
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
     ColumnConstraint,
-    PartitionStrategy,
+    PartitionByRangeClause,
 )
 from rhosocial.activerecord.backend.dialect.mixins.data_type import DataTypeMixin
 from rhosocial.activerecord.backend.dialect.mixins import PartitionMixin, ExpressionMixin, DDLColumnMixin, TableMixin
@@ -348,7 +348,6 @@ def test_format_partition_method_validation(dialect):
     from rhosocial.activerecord.backend.expression.statements.ddl_table import (
         CreateTableStatement,
         ColumnDefinition,
-        PartitionClause,
     )
 
     col_def = ColumnDefinition(dialect, name="id", data_type=IntegerType(dialect))
@@ -356,9 +355,8 @@ def test_format_partition_method_validation(dialect):
         dialect=dialect,
         table=Table(dialect, 'test_table'),
         columns=[col_def],
-        partition=PartitionClause(
+        partition=PartitionByRangeClause(
             dialect=dialect,
-            method=PartitionStrategy.RANGE,
             keys=[Column(dialect, "id")],
         ),
     )
@@ -368,24 +366,21 @@ def test_format_partition_method_validation(dialect):
     assert params == ()
 
 
-def test_format_partition_method_rejects_invalid_method_without_echoing_value(dialect):
+def test_format_partition_method_rejects_invalid_method(dialect):
     """Invalid partition method is rejected before SQL generation."""
     from rhosocial.activerecord.backend.expression.statements.ddl_table import (
         PartitionClause,
     )
 
-    malicious_method = "RANGE); DROP TABLE users; --"
-
     with pytest.raises(TypeError) as exc_info:
         PartitionClause(
             dialect=dialect,
-            method=malicious_method,
+            method=None,
             keys=[Column(dialect, "id")],
         )
 
     message = str(exc_info.value)
-    assert "method must be a PartitionStrategy" in message
-    assert malicious_method not in message
+    assert "method must be a non-empty strategy word" in message
 
 
 @pytest.fixture

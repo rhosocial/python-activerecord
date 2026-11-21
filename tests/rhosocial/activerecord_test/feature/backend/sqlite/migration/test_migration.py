@@ -511,8 +511,7 @@ class TestMigrationRunner:
             ColumnConstraint,
         )
         from rhosocial.activerecord.backend.expression.statements.ddl_partition import (
-            PartitionClause,
-            PartitionStrategy,
+            PartitionByRangeClause,
         )
         from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
             SQLiteIntegerType,
@@ -530,11 +529,7 @@ class TestMigrationRunner:
                 dialect,
                 table=Table(dialect, 'test_unsupported'),
                 columns=[col_def],
-                partition=PartitionClause(
-                    dialect,
-                    method=PartitionStrategy.RANGE,
-                    keys=[col_expr],
-                ),
+                partition=PartitionByRangeClause(dialect, [col_expr]),
             )
 
         register_temp_module("dry_unsupported.expressions", {

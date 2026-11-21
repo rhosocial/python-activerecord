@@ -18,12 +18,17 @@ from rhosocial.activerecord.backend.suggestion import (
     PartitionRetentionSuggestion,
     PartitionSuggestionRenderer,
 )
-from rhosocial.activerecord.backend.expression.statements import PartitionStrategy
+from rhosocial.activerecord.backend.expression import Column, PartitionByRangeClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.sqlite.suggestion import (
     SQLitePartitionRetentionSuggestionMixin,
 )
+
+
+def _range_strategy():
+    dialect = DummyDialect()
+    return PartitionByRangeClause(dialect, [Column(dialect, "created_at")])
 
 
 def test_protocol_is_runtime_checkable_and_minimal():
@@ -52,20 +57,20 @@ def test_core_ships_no_default_mixin():
 
 
 def test_dummy_gives_safe_no_action_default():
-    suggestion = DummyDialect().suggest_partition_retention(PartitionStrategy.RANGE, None)
+    suggestion = DummyDialect().suggest_partition_retention(_range_strategy(), None)
     assert suggestion.operations is None
 
 
 def test_sqlite_answers_explicit_unsupported():
     assert issubclass(SQLiteDialect, SQLitePartitionRetentionSuggestionMixin)
-    suggestion = SQLiteDialect().suggest_partition_retention(PartitionStrategy.RANGE, None)
+    suggestion = SQLiteDialect().suggest_partition_retention(_range_strategy(), None)
     # SQLite has no table partitioning -> explicit False (⊥), not silence
     assert suggestion.operations is False
 
 
 def test_helper_returns_none_for_no_answer_and_unsupported():
-    assert PartitionSuggestionRenderer().retention(DummyDialect(), PartitionStrategy.RANGE, None) is None
-    assert PartitionSuggestionRenderer().retention(SQLiteDialect(), PartitionStrategy.RANGE, None) is None
+    assert PartitionSuggestionRenderer().retention(DummyDialect(), _range_strategy(), None) is None
+    assert PartitionSuggestionRenderer().retention(SQLiteDialect(), _range_strategy(), None) is None
 
 
 def test_helper_gates_on_structural_no():
@@ -73,4 +78,4 @@ def test_helper_gates_on_structural_no():
         pass
 
     # a dialect without the protocol is a structural "no", never an error
-    assert PartitionSuggestionRenderer().retention(_NoSuggestion(), PartitionStrategy.RANGE, None) is None
+    assert PartitionSuggestionRenderer().retention(_NoSuggestion(), _range_strategy(), None) is None

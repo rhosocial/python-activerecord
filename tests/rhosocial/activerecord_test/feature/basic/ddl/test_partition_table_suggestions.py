@@ -26,7 +26,7 @@ from rhosocial.activerecord.backend.suggestion import (
     PartitionMergeSuggestion,
     PartitionSuggestionRenderer,
 )
-from rhosocial.activerecord.backend.expression.statements import PartitionStrategy
+from rhosocial.activerecord.backend.expression import Column, PartitionByRangeClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.sqlite.suggestion import (
@@ -68,6 +68,11 @@ CASES = [
 ]
 
 
+def _range_strategy():
+    dialect = DummyDialect()
+    return PartitionByRangeClause(dialect, [Column(dialect, "created_at")])
+
+
 def test_protocols_minimal_and_runtime_checkable():
     for name, proto, *_ in CASES:
         methods = [n for n in vars(proto) if not n.startswith("_")]
@@ -96,25 +101,21 @@ def test_core_ships_no_default_mixins():
 
 def test_dummy_gives_safe_no_action_default():
     for name, *_ in CASES:
-        suggestion = getattr(DummyDialect(), f"suggest_partition_{name}")(
-            PartitionStrategy.RANGE, None
-        )
+        suggestion = getattr(DummyDialect(), f"suggest_partition_{name}")(_range_strategy(), None)
         assert suggestion.operations is None
 
 
 def test_sqlite_answers_explicit_unsupported():
     for name, _, _, _, sqlite_mixin in CASES:
         assert issubclass(SQLiteDialect, sqlite_mixin)
-        suggestion = getattr(SQLiteDialect(), f"suggest_partition_{name}")(
-            PartitionStrategy.RANGE, None
-        )
+        suggestion = getattr(SQLiteDialect(), f"suggest_partition_{name}")(_range_strategy(), None)
         assert suggestion.operations is False
 
 
 def test_helpers_return_none_for_no_answer_and_unsupported():
     for _, _, _, helper, _ in CASES:
-        assert helper(DummyDialect(), PartitionStrategy.RANGE, None) is None
-        assert helper(SQLiteDialect(), PartitionStrategy.RANGE, None) is None
+        assert helper(DummyDialect(), _range_strategy(), None) is None
+        assert helper(SQLiteDialect(), _range_strategy(), None) is None
 
 
 def test_helpers_gate_on_structural_no():
@@ -122,4 +123,4 @@ def test_helpers_gate_on_structural_no():
         pass
 
     for _, _, _, helper, _ in CASES:
-        assert helper(_NoSuggestion(), PartitionStrategy.RANGE, None) is None
+        assert helper(_NoSuggestion(), _range_strategy(), None) is None

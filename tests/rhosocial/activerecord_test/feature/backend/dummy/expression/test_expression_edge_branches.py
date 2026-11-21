@@ -53,8 +53,8 @@ from rhosocial.activerecord.backend.expression.introspection import (
 from rhosocial.activerecord.backend.expression.operators import ArithmeticOperation
 from rhosocial.activerecord.backend.expression.statements import (
     OnConflictClause,
+    PartitionByHashClause,
     PartitionClause,
-    PartitionStrategy,
 )
 from rhosocial.activerecord.backend.expression.functions.string import trim
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -180,23 +180,23 @@ class TestPartitionClauseValidation:
 
     def test_invalid_method_type(self, dialect):
         with pytest.raises(TypeError):
-            PartitionClause(dialect, "bad", [Column(dialect, "id")])
+            PartitionClause(dialect, 123, [Column(dialect, "id")])
 
     def test_missing_keys(self, dialect):
         with pytest.raises(ValueError):
-            PartitionClause(dialect, PartitionStrategy.HASH, [])
+            PartitionClause(dialect, "HASH", [])
 
     def test_non_expression_key(self, dialect):
         with pytest.raises(TypeError):
-            PartitionClause(dialect, PartitionStrategy.HASH, ["id"])
+            PartitionClause(dialect, "HASH", ["id"])
 
     def test_invalid_dialect_options(self, dialect):
         with pytest.raises(TypeError):
-            PartitionClause(dialect, PartitionStrategy.HASH, [Column(dialect, "id")], dialect_options="bad")
+            PartitionClause(dialect, "HASH", [Column(dialect, "id")], dialect_options="bad")
 
     def test_constructs_with_valid_args(self, dialect):
-        clause = PartitionClause(dialect, PartitionStrategy.HASH, [Column(dialect, "id")])
-        assert clause.method == PartitionStrategy.HASH.value
+        clause = PartitionByHashClause(dialect, [Column(dialect, "id")])
+        assert clause.method == PartitionByHashClause.WORD
         assert len(clause.keys) == 1
 
     def test_non_string_enum_value(self, dialect):
@@ -212,7 +212,7 @@ class TestPartitionClauseValidation:
             MyPartition(dialect, Weird.X, [Column(dialect, "id")])
 
     def test_to_sql_unsupported(self, dialect):
-        clause = PartitionClause(dialect, PartitionStrategy.HASH, [Column(dialect, "id")])
+        clause = PartitionByHashClause(dialect, [Column(dialect, "id")])
         with pytest.raises(Exception) as exc_info:
             clause.to_sql()
         assert "partition" in str(exc_info.value).lower()
@@ -224,7 +224,7 @@ class TestPartitionClauseValidation:
             name = "minimal"
 
         with pytest.raises(TypeError, match="SQLDialectBase instance"):
-            PartitionClause(MinimalDialect(), PartitionStrategy.HASH, [Column(dialect, "id")])
+            PartitionClause(MinimalDialect(), "HASH", [Column(dialect, "id")])
 
     def test_to_sql_protocol_partition_unsupported(self, dialect):
         # A SQLDialectBase subclass that lacks format_partition_clause raises
@@ -232,7 +232,7 @@ class TestPartitionClauseValidation:
         class MinimalDialect(DummyDialect):
             pass
 
-        clause = PartitionClause(MinimalDialect(), PartitionStrategy.HASH, [Column(dialect, "id")])
+        clause = PartitionClause(MinimalDialect(), "HASH", [Column(dialect, "id")])
         with pytest.raises(Exception) as exc_info:
             clause.to_sql()
         assert ("ProtocolNotImplementedError" in type(exc_info.value).__name__

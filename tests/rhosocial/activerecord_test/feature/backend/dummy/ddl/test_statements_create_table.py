@@ -60,8 +60,9 @@ from rhosocial.activerecord.backend.expression.statements import (
     ReferentialAction,
     ForeignKeyConstraint,
     ColumnConstraint,
+    PartitionByHashClause,
+    PartitionByRangeClause,
     PartitionClause,
-    PartitionStrategy,
     QueryStatement,
     StorageOptionsExpression,
 )
@@ -672,9 +673,8 @@ class TestCreateTableStatements:
             dummy_dialect,
             table=Table(dummy_dialect, 'log_entries'),
             columns=columns,
-            partition=PartitionClause(
+            partition=PartitionByRangeClause(
                 dialect=dummy_dialect,
-                method=PartitionStrategy.RANGE,
                 keys=[Column(dummy_dialect, "created_date")],
             ),
         )
@@ -685,9 +685,8 @@ class TestCreateTableStatements:
     def test_create_table_partition_success_path_uses_partition_protocol(self):
         """Tests CreateTableStatement appends PartitionClause SQL and params."""
         dialect = PartitionTestDialect()
-        partition = PartitionClause(
+        partition = PartitionByHashClause(
             dialect=dialect,
-            method=PartitionStrategy.HASH,
             keys=[FunctionCall(dialect, "bucket", Literal(dialect, "tenant"))],
         )
         create_table_expr = CreateTableStatement(
@@ -705,7 +704,7 @@ class TestCreateTableStatements:
     def test_partition_clause_delegates_to_partition_support(self):
         """Tests PartitionClause delegates to dialect.format_partition_clause()."""
         dialect = PartitionTestDialect()
-        partition = PartitionClause(dialect=dialect, method=PartitionStrategy.RANGE, keys=[Column(dialect, "created_at")])
+        partition = PartitionByRangeClause(dialect=dialect, keys=[Column(dialect, "created_at")])
 
         sql, params = partition.to_sql()
 
@@ -724,22 +723,17 @@ class TestCreateTableStatements:
                 partition="RANGE",
             )
 
-    def test_partition_clause_requires_strategy_enum(self, dummy_dialect: DummyDialect):
-        """Tests PartitionClause rejects non-enum method values.
-
-        PartitionClause accepts both the PartitionStrategy enum and its string
-        value (so deserialization round-trips), but arbitrary strings are
-        rejected.
-        """
-        with pytest.raises(TypeError, match="method must be a"):
+    def test_partition_clause_requires_non_empty_strategy_word(self, dummy_dialect: DummyDialect):
+        """Tests PartitionClause rejects an empty method word."""
+        with pytest.raises(TypeError, match="non-empty strategy word"):
             PartitionClause(
                 dialect=dummy_dialect,
-                method="NOT_A_STRATEGY",
+                method="",
                 keys=[Column(dummy_dialect, "created_date")],
             )
 
-    def test_partition_clause_accepts_enum_string_value(self, dummy_dialect: DummyDialect):
-        """Tests PartitionClause accepts the string form of a strategy value."""
+    def test_partition_clause_accepts_strategy_word(self, dummy_dialect: DummyDialect):
+        """Tests PartitionClause accepts a non-empty strategy word."""
         expr = PartitionClause(
             dialect=dummy_dialect,
             method="RANGE",
@@ -747,36 +741,26 @@ class TestCreateTableStatements:
         )
         assert expr.method == "RANGE"
 
-    def test_partition_clause_rejects_malicious_method_without_logging_value(self, dummy_dialect: DummyDialect):
-        """Tests malicious method values are rejected without echoing the value."""
-        malicious_method = "RANGE); DROP TABLE users; --"
-
-        with pytest.raises(TypeError) as exc_info:
+    def test_partition_clause_rejects_non_string_method(self, dummy_dialect: DummyDialect):
+        """Tests a non-string method is rejected with a clear TypeError."""
+        with pytest.raises(TypeError, match="non-empty strategy word"):
             PartitionClause(
                 dialect=dummy_dialect,
-                method=malicious_method,
+                method=123,
                 keys=[Column(dummy_dialect, "created_date")],
             )
-
-        message = str(exc_info.value)
-        # The message names the type and the vocabulary's own words, never the
-        # value that was passed in: an error can reach a log, and a log is not
-        # the place a caller-supplied string should be interpolated into.
-        assert "method must be a PartitionStrategy" in message
-        assert malicious_method not in message
-        assert "RANGE" in message  # the members, which we do control
 
     def test_partition_clause_requires_keys(self, dummy_dialect: DummyDialect):
         """Tests PartitionClause requires at least one key expression."""
         with pytest.raises(ValueError, match="keys are required"):
-            PartitionClause(dialect=dummy_dialect, method=PartitionStrategy.RANGE, keys=[])
+            PartitionClause(dialect=dummy_dialect, method="RANGE", keys=[])
 
     def test_partition_clause_rejects_dialect_options_kwarg(self, dummy_dialect: DummyDialect):
         """Tests PartitionClause no longer accepts a dialect_options bag."""
         with pytest.raises(TypeError):
             PartitionClause(
                 dialect=dummy_dialect,
-                method=PartitionStrategy.RANGE,
+                method="RANGE",
                 keys=[Column(dummy_dialect, "created_date")],
                 dialect_options="columns_mode",
             )
@@ -784,7 +768,7 @@ class TestCreateTableStatements:
     def test_partition_clause_requires_expression_keys(self, dummy_dialect: DummyDialect):
         """Tests PartitionClause keys must be expressions."""
         with pytest.raises(TypeError, match="BaseExpression"):
-            PartitionClause(dialect=dummy_dialect, method=PartitionStrategy.RANGE, keys=["created_date"])
+            PartitionClause(dialect=dummy_dialect, method="RANGE", keys=["created_date"])
 
     def test_partition_support_methods_are_disabled_by_dummy(self, dummy_dialect: DummyDialect):
         """Tests DummyDialect exposes PartitionSupport with disabled capabilities."""
@@ -816,7 +800,7 @@ class TestCreateTableStatements:
         with pytest.raises(TypeError, match="SQLDialectBase instance"):
             PartitionClause(
                 dialect=dialect,
-                method=PartitionStrategy.RANGE,
+                method="RANGE",
                 keys=[Column(dummy_dialect, "created_date")],
             )
 

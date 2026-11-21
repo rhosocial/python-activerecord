@@ -22,7 +22,13 @@ from rhosocial.activerecord.migration import (
     MigrationDependencyError,
     MigrationNotAppliedError,
 )
-from rhosocial.activerecord.backend.expression.statements import PartitionStrategy
+from rhosocial.activerecord.backend.expression import Column, PartitionByRangeClause
+from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+
+
+def _range_strategy():
+    dialect = DummyDialect()
+    return PartitionByRangeClause(dialect, [Column(dialect, "created_at")])
 
 
 class FakeExpr:
@@ -78,8 +84,8 @@ def test_context_exposes_eight_partition_suggestions():
     names = [n for n in dir(ctx) if n.startswith("suggest_partition_")]
     assert len(names) == 8
     # SQLite has no partitioning -> suggestion returns None (structural/no-op)
-    assert ctx.suggest_partition_add(PartitionStrategy.RANGE, None) is None
-    assert ctx.apply(ctx.suggest_partition_add(PartitionStrategy.RANGE, None)) == 0
+    assert ctx.suggest_partition_add(_range_strategy(), None) is None
+    assert ctx.apply(ctx.suggest_partition_add(_range_strategy(), None)) == 0
 
 
 def test_runner_up_records_and_down_reverses_and_clears():
