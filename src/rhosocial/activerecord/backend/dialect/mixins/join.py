@@ -81,13 +81,48 @@ class LateralJoinMixin:
 
         cols_sql = ""
         if column_names:
-            cols_sql = f"({', '.join(self.format_identifier(name) for name in column_names)})"
+            from ...expression.query_sources import TableFunctionExpression
+
+            column_types = (
+                expr.column_types if isinstance(expr, TableFunctionExpression) else []
+            )
+            if column_types:
+                if len(column_types) != len(column_names):
+                    raise ValueError(
+                        "column_types and column_names must have the same length"
+                    )
+                pairs = ", ".join(
+                    f"{self.format_identifier(name)} {self._format_column_type(kind)}"
+                    for name, kind in zip(column_names, column_types)
+                )
+            else:
+                pairs = ", ".join(
+                    self.format_identifier(name) for name in column_names
+                )
+            cols_sql = f"({pairs})"
 
         if alias is not None:
             sql = f"{func_name.upper()}({args_str}) AS {self.format_identifier(alias)}{cols_sql}"
         else:
             sql = f"{func_name.upper()}({args_str}){cols_sql}"
         return sql, tuple(all_params)
+
+    def _format_column_type(self, type_name: str) -> str:
+        """Render a declared column type from a set-returning function.
+
+        Type names are DDL vocabulary (``int``, ``double precision``,
+        ``numeric(10, 2)``), not identifiers, so they cannot go through
+        ``format_identifier``. A conservative character check keeps a
+        caller-supplied type from becoming an extra SQL statement.
+        """
+        import re
+
+        if not isinstance(type_name, str) or not re.fullmatch(
+            r"[A-Za-z_][A-Za-z0-9_ ]*(?:\(\s*\d+(?:\s*,\s*\d+)?\s*\))?(?:\[\])*",
+            type_name.strip(),
+        ):
+            raise ValueError(f"Unsupported column type spelling: {type_name!r}")
+        return type_name.strip()
 
 
 class JoinMixin:
