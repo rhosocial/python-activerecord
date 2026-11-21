@@ -15,7 +15,7 @@ no core mixin default -- per the backend-suggestion spec.
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.statements import PartitionStrategy
+    from ....expression.statements import PartitionByClause
     from ....suggestion import PartitionMergeSuggestion
 
 
@@ -24,7 +24,7 @@ class PartitionMergeSuggestionSupport(Protocol):
     """A dialect's suggested DDL action chain to merge two adjacent partitions."""
 
     def suggest_partition_merge(
-        self, strategy: "PartitionStrategy", plan: object
+        self, strategy: "PartitionByClause", plan: object
     ) -> "PartitionMergeSuggestion":
         """Suggest how to merge two adjacent partitions for ``strategy``.
 

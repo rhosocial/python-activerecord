@@ -15,7 +15,7 @@ no core mixin default -- per the backend-suggestion spec.
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.statements import PartitionStrategy
+    from ....expression.statements import PartitionByClause
     from ....suggestion import PartitionTableAlterSuggestion
 
 
@@ -24,7 +24,7 @@ class PartitionTableAlterSuggestionSupport(Protocol):
     """A dialect's suggested DDL action chain to alter the whole table's partitioning scheme."""
 
     def suggest_partition_table_alter(
-        self, strategy: "PartitionStrategy", plan: object
+        self, strategy: "PartitionByClause", plan: object
     ) -> "PartitionTableAlterSuggestion":
         """Suggest how to alter the whole table's partitioning scheme for ``strategy``.
 

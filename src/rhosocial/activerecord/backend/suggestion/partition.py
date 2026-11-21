@@ -16,7 +16,7 @@ from ..expression.bases import BaseExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect.base import SQLDialectBase
-    from ..expression.statements import PartitionStrategy
+    from ..expression.statements import PartitionByClause
 
 
 @dataclass(frozen=True)
@@ -95,7 +95,7 @@ class PartitionSuggestionRenderer:
     }
 
     def parts(
-        self, dialect: "SQLDialectBase", intent: str, strategy: "PartitionStrategy", plan: object
+        self, dialect: "SQLDialectBase", intent: str, strategy: "PartitionByClause", plan: object
     ) -> Optional[List["BaseExpression"]]:
         from ..dialect import protocols
 

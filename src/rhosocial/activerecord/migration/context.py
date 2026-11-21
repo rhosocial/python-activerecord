@@ -16,7 +16,7 @@ from ..backend.suggestion import PartitionSuggestionRenderer
 if TYPE_CHECKING:  # pragma: no cover
     from ..backend.base import StorageBackend
     from ..backend.expression.bases import BaseExpression
-    from ..backend.expression.statements import PartitionStrategy
+    from ..backend.expression.statements import PartitionByClause
 
 
 class _SuggestionMixin:
@@ -31,32 +31,32 @@ class _SuggestionMixin:
     _renderer = PartitionSuggestionRenderer()
 
     def _suggest(
-        self, intent: str, strategy: "PartitionStrategy", plan: object
+        self, intent: str, strategy: "PartitionByClause", plan: object
     ) -> Optional[List["BaseExpression"]]:
         return self._renderer.parts(self.backend, intent, strategy, plan)
 
-    def suggest_partition_build(self, strategy: "PartitionStrategy", plan: object):
+    def suggest_partition_build(self, strategy: "PartitionByClause", plan: object):
         return self._suggest("build", strategy, plan)
 
-    def suggest_partition_table_drop(self, strategy: "PartitionStrategy", plan: object):
+    def suggest_partition_table_drop(self, strategy: "PartitionByClause", plan: object):
         return self._suggest("table_drop", strategy, plan)
 
-    def suggest_partition_table_alter(self, strategy: "PartitionStrategy", plan: object):
+    def suggest_partition_table_alter(self, strategy: "PartitionByClause", plan: object):
         return self._suggest("table_alter", strategy, plan)
 
-    def suggest_partition_add(self, strategy: "PartitionStrategy", plan: object):
+    def suggest_partition_add(self, strategy: "PartitionByClause", plan: object):
         return self._suggest("add", strategy, plan)
 
-    def suggest_partition_drop(self, strategy: "PartitionStrategy", plan: object):
+    def suggest_partition_drop(self, strategy: "PartitionByClause", plan: object):
         return self._suggest("drop", strategy, plan)
 
-    def suggest_partition_split(self, strategy: "PartitionStrategy", plan: object):
+    def suggest_partition_split(self, strategy: "PartitionByClause", plan: object):
         return self._suggest("split", strategy, plan)
 
-    def suggest_partition_merge(self, strategy: "PartitionStrategy", plan: object):
+    def suggest_partition_merge(self, strategy: "PartitionByClause", plan: object):
         return self._suggest("merge", strategy, plan)
 
-    def suggest_partition_retention(self, strategy: "PartitionStrategy", plan: object):
+    def suggest_partition_retention(self, strategy: "PartitionByClause", plan: object):
         return self._suggest("retention", strategy, plan)
 
 

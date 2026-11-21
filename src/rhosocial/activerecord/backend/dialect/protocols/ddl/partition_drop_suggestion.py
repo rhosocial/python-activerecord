@@ -14,7 +14,7 @@ tri-state suggestion value, no core mixin default -- per the backend-suggestion 
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.statements import PartitionStrategy
+    from ....expression.statements import PartitionByClause
     from ....suggestion import PartitionDropSuggestion
 
 
@@ -23,7 +23,7 @@ class PartitionDropSuggestionSupport(Protocol):
     """A dialect's suggested DDL action chain to drop/detach a partition from a table."""
 
     def suggest_partition_drop(
-        self, strategy: "PartitionStrategy", plan: object
+        self, strategy: "PartitionByClause", plan: object
     ) -> "PartitionDropSuggestion":
         """Suggest how to drop/detach a partition from a table for ``strategy``.
 

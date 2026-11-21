@@ -15,7 +15,7 @@ no core mixin default -- per the backend-suggestion spec.
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.statements import PartitionStrategy
+    from ....expression.statements import PartitionByClause
     from ....suggestion import PartitionTableDropSuggestion
 
 
@@ -24,7 +24,7 @@ class PartitionTableDropSuggestionSupport(Protocol):
     """A dialect's suggested DDL action chain to drop the whole partitioned table."""
 
     def suggest_partition_table_drop(
-        self, strategy: "PartitionStrategy", plan: object
+        self, strategy: "PartitionByClause", plan: object
     ) -> "PartitionTableDropSuggestion":
         """Suggest how to drop the whole partitioned table for ``strategy``.
 

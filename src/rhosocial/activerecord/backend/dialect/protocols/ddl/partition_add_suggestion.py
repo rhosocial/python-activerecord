@@ -14,7 +14,7 @@ tri-state suggestion value, no core mixin default -- per the backend-suggestion 
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.statements import PartitionStrategy
+    from ....expression.statements import PartitionByClause
     from ....suggestion import PartitionAddSuggestion
 
 
@@ -23,7 +23,7 @@ class PartitionAddSuggestionSupport(Protocol):
     """A dialect's suggested DDL action chain to add/attach a new partition to an existing table."""
 
     def suggest_partition_add(
-        self, strategy: "PartitionStrategy", plan: object
+        self, strategy: "PartitionByClause", plan: object
     ) -> "PartitionAddSuggestion":
         """Suggest how to add/attach a new partition to an existing table for ``strategy``.
 

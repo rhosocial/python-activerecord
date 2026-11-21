@@ -17,7 +17,7 @@ suggestion value with a tri-state payload, and carries no core mixin default.
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.statements import PartitionStrategy
+    from ....expression.statements import PartitionByClause
     from ....suggestion import PartitionRetentionSuggestion
 
 
@@ -26,7 +26,7 @@ class PartitionRetentionSuggestionSupport(Protocol):
     """A dialect's suggested DDL action chain for retiring old partitions."""
 
     def suggest_partition_retention(
-        self, strategy: "PartitionStrategy", plan: object
+        self, strategy: "PartitionByClause", plan: object
     ) -> "PartitionRetentionSuggestion":
         """Suggest how to retire partitions older than the cutoff in ``plan``.
 

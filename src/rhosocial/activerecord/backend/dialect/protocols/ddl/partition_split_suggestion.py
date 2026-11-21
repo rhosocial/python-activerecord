@@ -15,7 +15,7 @@ no core mixin default -- per the backend-suggestion spec.
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.statements import PartitionStrategy
+    from ....expression.statements import PartitionByClause
     from ....suggestion import PartitionSplitSuggestion
 
 
@@ -24,7 +24,7 @@ class PartitionSplitSuggestionSupport(Protocol):
     """A dialect's suggested DDL action chain to split one partition into two."""
 
     def suggest_partition_split(
-        self, strategy: "PartitionStrategy", plan: object
+        self, strategy: "PartitionByClause", plan: object
     ) -> "PartitionSplitSuggestion":
         """Suggest how to split one partition into two for ``strategy``.
 
