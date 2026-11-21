@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/impl/sqlite/mixins/partition_retention_suggestion.py
+# src/rhosocial/activerecord/backend/impl/sqlite/suggestion/partition_retention_suggestion.py
 """SQLite's partition-retention suggestion.
 
 SQLite has no table partitioning, so there is no retirement mechanism to suggest

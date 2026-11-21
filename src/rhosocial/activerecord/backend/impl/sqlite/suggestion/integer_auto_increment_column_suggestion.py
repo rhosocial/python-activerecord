@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/impl/sqlite/mixins/integer_auto_increment_column_suggestion.py
+# src/rhosocial/activerecord/backend/impl/sqlite/suggestion/integer_auto_increment_column_suggestion.py
 """SQLite's integer auto-increment column suggestion.
 
 The answer is unconditional: SQLite always declares an auto-generated integer

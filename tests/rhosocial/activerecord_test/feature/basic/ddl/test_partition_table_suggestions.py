@@ -29,7 +29,7 @@ from rhosocial.activerecord.backend.suggestion import (
 from rhosocial.activerecord.backend.expression.statements import PartitionStrategy
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.impl.sqlite.mixins import (
+from rhosocial.activerecord.backend.impl.sqlite.suggestion import (
     SQLitePartitionTableDropSuggestionMixin,
     SQLitePartitionTableAlterSuggestionMixin,
     SQLitePartitionSplitSuggestionMixin,

@@ -25,28 +25,9 @@ from .geopoly import SQLiteGeopolyMixin
 from .types import SQLiteTypeSupportMixin
 from .literal import LiteralValueMixin
 from .column_type import SQLiteColumnTypeMixin
-from .data_type_suggestions import SQLiteDataTypeSuggestionsMixin
 from .object_name import SQLiteObjectNameMixin
-from .integer_auto_increment_column_suggestion import SQLiteIntegerAutoIncrementColumnSuggestionMixin
-from .partition_retention_suggestion import SQLitePartitionRetentionSuggestionMixin
-from .partition_build_suggestion import SQLitePartitionBuildSuggestionMixin
-from .partition_add_suggestion import SQLitePartitionAddSuggestionMixin
-from .partition_drop_suggestion import SQLitePartitionDropSuggestionMixin
-from .partition_table_drop_suggestion import SQLitePartitionTableDropSuggestionMixin
-from .partition_table_alter_suggestion import SQLitePartitionTableAlterSuggestionMixin
-from .partition_split_suggestion import SQLitePartitionSplitSuggestionMixin
-from .partition_merge_suggestion import SQLitePartitionMergeSuggestionMixin
 
 __all__ = [
-    'SQLiteIntegerAutoIncrementColumnSuggestionMixin',
-    'SQLitePartitionRetentionSuggestionMixin',
-    'SQLitePartitionBuildSuggestionMixin',
-    'SQLitePartitionAddSuggestionMixin',
-    'SQLitePartitionDropSuggestionMixin',
-    'SQLitePartitionTableDropSuggestionMixin',
-    'SQLitePartitionTableAlterSuggestionMixin',
-    'SQLitePartitionSplitSuggestionMixin',
-    'SQLitePartitionMergeSuggestionMixin',
     'SQLiteExtensionMixin',
     'SQLiteVirtualTableMixin',
     'SQLitePragmaMixin',
@@ -67,5 +48,4 @@ __all__ = [
     'SQLiteObjectNameMixin',
     'LiteralValueMixin',
     'SQLiteColumnTypeMixin',
-    'SQLiteDataTypeSuggestionsMixin',
 ]

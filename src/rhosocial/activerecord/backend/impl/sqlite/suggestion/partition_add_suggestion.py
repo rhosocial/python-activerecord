@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/impl/sqlite/mixins/partition_add_suggestion.py
+# src/rhosocial/activerecord/backend/impl/sqlite/suggestion/partition_add_suggestion.py
 """SQLite's partition add suggestion.
 
 SQLite has no table partitioning, so there is no mechanism to suggest for any

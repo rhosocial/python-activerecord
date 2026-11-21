@@ -1,5 +1,5 @@
-# src/rhosocial/activerecord/backend/impl/sqlite/mixins/partition_table_alter_suggestion.py
-"""SQLite's partition table alter suggestion.
+# src/rhosocial/activerecord/backend/impl/sqlite/suggestion/partition_table_drop_suggestion.py
+"""SQLite's partition table drop suggestion.
 
 SQLite has no table partitioning, so there is no mechanism to suggest for any
 strategy. The answer is the explicit "unsupported" state (``False``), not
@@ -9,16 +9,16 @@ Unconditional, consults no probe.
 
 from typing import TYPE_CHECKING
 
-from ....suggestion import PartitionTableAlterSuggestion
+from ....suggestion import PartitionTableDropSuggestion
 
 if TYPE_CHECKING:  # pragma: no cover
     from ....expression.statements import PartitionStrategy
 
 
-class SQLitePartitionTableAlterSuggestionMixin:
-    """Answer SQLite's lack of partition partition table alter explicitly."""
+class SQLitePartitionTableDropSuggestionMixin:
+    """Answer SQLite's lack of partition partition table drop explicitly."""
 
-    def suggest_partition_table_alter(
+    def suggest_partition_table_drop(
         self, strategy: "PartitionStrategy", plan: object
-    ) -> PartitionTableAlterSuggestion:
-        return PartitionTableAlterSuggestion(False)
+    ) -> PartitionTableDropSuggestion:
+        return PartitionTableDropSuggestion(False)

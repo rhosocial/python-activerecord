@@ -1,5 +1,5 @@
-# src/rhosocial/activerecord/backend/impl/sqlite/mixins/partition_split_suggestion.py
-"""SQLite's partition split suggestion.
+# src/rhosocial/activerecord/backend/impl/sqlite/suggestion/partition_table_alter_suggestion.py
+"""SQLite's partition table alter suggestion.
 
 SQLite has no table partitioning, so there is no mechanism to suggest for any
 strategy. The answer is the explicit "unsupported" state (``False``), not
@@ -9,16 +9,16 @@ Unconditional, consults no probe.
 
 from typing import TYPE_CHECKING
 
-from ....suggestion import PartitionSplitSuggestion
+from ....suggestion import PartitionTableAlterSuggestion
 
 if TYPE_CHECKING:  # pragma: no cover
     from ....expression.statements import PartitionStrategy
 
 
-class SQLitePartitionSplitSuggestionMixin:
-    """Answer SQLite's lack of partition partition split explicitly."""
+class SQLitePartitionTableAlterSuggestionMixin:
+    """Answer SQLite's lack of partition partition table alter explicitly."""
 
-    def suggest_partition_split(
+    def suggest_partition_table_alter(
         self, strategy: "PartitionStrategy", plan: object
-    ) -> PartitionSplitSuggestion:
-        return PartitionSplitSuggestion(False)
+    ) -> PartitionTableAlterSuggestion:
+        return PartitionTableAlterSuggestion(False)

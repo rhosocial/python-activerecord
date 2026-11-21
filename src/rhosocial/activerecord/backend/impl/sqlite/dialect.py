@@ -147,6 +147,18 @@ from .protocols import (
     SQLiteMaintenanceSupport,
 )
 from .reserved_words import SQLITE_RESERVED_WORDS
+from .suggestion import (
+    SQLiteIntegerAutoIncrementColumnSuggestionMixin,
+    SQLitePartitionRetentionSuggestionMixin,
+    SQLitePartitionBuildSuggestionMixin,
+    SQLitePartitionAddSuggestionMixin,
+    SQLitePartitionDropSuggestionMixin,
+    SQLitePartitionTableDropSuggestionMixin,
+    SQLitePartitionTableAlterSuggestionMixin,
+    SQLitePartitionSplitSuggestionMixin,
+    SQLitePartitionMergeSuggestionMixin,
+    SQLiteDataTypeSuggestionsMixin,
+)
 from .mixins import (
     SQLitePragmaMixin,
     SQLiteIntrospectionCapabilityMixin,
@@ -167,15 +179,6 @@ from .mixins import (
     # the SQL-standard construct, so naming is answered here rather than by the
     # DDL probes. Placed ahead of the shared TableNameMixin in the class list.
     SQLiteObjectNameMixin,
-    SQLiteIntegerAutoIncrementColumnSuggestionMixin,
-    SQLitePartitionRetentionSuggestionMixin,
-    SQLitePartitionBuildSuggestionMixin,
-    SQLitePartitionAddSuggestionMixin,
-    SQLitePartitionDropSuggestionMixin,
-    SQLitePartitionTableDropSuggestionMixin,
-    SQLitePartitionTableAlterSuggestionMixin,
-    SQLitePartitionSplitSuggestionMixin,
-    SQLitePartitionMergeSuggestionMixin,
     SQLiteTypeSupportMixin,
     # Value literals: SQLite's blob spelling, overriding the base's
     # format_binary_value / format_uuid_value by MRO position.
@@ -185,14 +188,11 @@ from .mixins import (
     # NumericColumn. There is no generic table in core to compose.
     SQLiteColumnTypeMixin,
     # Suggested storage declarations: the DDL half, also answered in full here.
-    SQLiteDataTypeSuggestionsMixin,
 )
 from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression
 
 class SQLiteDialect(
-    # Backend suggestion first: the answer to "how is an integer auto-increment
-    # key declared here" is SQLite's alone, and a mixin placed after a class it
-    # overrides never wins MRO.
+    SQLiteDataTypeSuggestionsMixin,
     SQLiteIntegerAutoIncrementColumnSuggestionMixin,
     SQLitePartitionRetentionSuggestionMixin,
     SQLitePartitionBuildSuggestionMixin,
@@ -202,6 +202,9 @@ class SQLiteDialect(
     SQLitePartitionTableAlterSuggestionMixin,
     SQLitePartitionSplitSuggestionMixin,
     SQLitePartitionMergeSuggestionMixin,
+    # Backend suggestion first: the answer to "how is an integer auto-increment
+    # key declared here" is SQLite's alone, and a mixin placed after a class it
+    # overrides never wins MRO.
     # SQLite's column formatter spells AUTOINCREMENT; it must precede the core
     # AutoIncrementMixin, whose AUTO_INCREMENT formatter would otherwise win.
     SQLiteDDLColumnMixin,
@@ -222,7 +225,6 @@ class SQLiteDialect(
     LiteralValueMixin,
     # Suggested data types: the DDL half of the same answer. A method
     # `SQLDialectBase` also answers has to be won here, ahead of it.
-    SQLiteDataTypeSuggestionsMixin,
     SQLDialectBase,
     RelationSourceMixin,
     # Named objects: each *NameMixin inherits NamespaceMixin, so they precede it.

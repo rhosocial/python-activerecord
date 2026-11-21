@@ -1,5 +1,5 @@
-# src/rhosocial/activerecord/backend/impl/sqlite/mixins/partition_drop_suggestion.py
-"""SQLite's partition drop suggestion.
+# src/rhosocial/activerecord/backend/impl/sqlite/suggestion/partition_build_suggestion.py
+"""SQLite's partition build suggestion.
 
 SQLite has no table partitioning, so there is no mechanism to suggest for any
 strategy. The answer is the explicit "unsupported" state (``False``), not silence:
@@ -9,16 +9,16 @@ consults no probe.
 
 from typing import TYPE_CHECKING
 
-from ....suggestion import PartitionDropSuggestion
+from ....suggestion import PartitionBuildSuggestion
 
 if TYPE_CHECKING:  # pragma: no cover
     from ....expression.statements import PartitionStrategy
 
 
-class SQLitePartitionDropSuggestionMixin:
-    """Answer SQLite's lack of partition partition drop explicitly."""
+class SQLitePartitionBuildSuggestionMixin:
+    """Answer SQLite's lack of partition partition build explicitly."""
 
-    def suggest_partition_drop(
+    def suggest_partition_build(
         self, strategy: "PartitionStrategy", plan: object
-    ) -> PartitionDropSuggestion:
-        return PartitionDropSuggestion(False)
+    ) -> PartitionBuildSuggestion:
+        return PartitionBuildSuggestion(False)

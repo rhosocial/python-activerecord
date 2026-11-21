@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/impl/sqlite/mixins/data_type_suggestions.py
+# src/rhosocial/activerecord/backend/impl/sqlite/suggestion/data_type_suggestions.py
 """SQLite's **suggested data types**: the declaration a bare field gets here.
 
 This is the DDL half of SQLite's type answer, and it is deliberately separate
