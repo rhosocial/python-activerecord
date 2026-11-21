@@ -1,33 +1,88 @@
-# src/rhosocial/activerecord/backend/suggestion/renderers.py
-"""Object-oriented renderers that consume backend suggestions into expressions.
+# src/rhosocial/activerecord/backend/suggestion/partition.py
+"""Partition-lifecycle suggestions: values + renderer.
 
-This replaces the old pure helper functions (`partition_*_parts`,
-`auto_increment_parts`) with classes/methods. A renderer asks the dialect for a
-suggestion and turns its tri-state payload into an ordered expression list.
-A dialect with no matching suggestion support has no answer: the structural
-"no" (no probing, no fallback string).
+One suggestion GROUP per file. The eight partition suggestion values are pure
+frozen dataclasses; the renderer turns a suggestion into an ordered expression
+list by asking the dialect for the matching suggestion. Suggestions live in
+`backend.suggestion`, never in `backend.expression`.
 """
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 from ..expression.bases import BaseExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect.base import SQLDialectBase
-    from ..expression.types import DataType
-    from .dataclasses import IntegerAutoIncrementColumnSuggestion
+    from ..expression.statements import PartitionStrategy
+
+
+@dataclass(frozen=True)
+class PartitionBuildSuggestion:
+    """Suggested action chain to declare a partitioned table at CREATE time."""
+
+    operations: Union[Tuple["BaseExpression", ...], bool, None] = None
+
+
+@dataclass(frozen=True)
+class PartitionAddSuggestion:
+    """Suggested action chain to add/attach a partition to an existing table."""
+
+    operations: Union[Tuple["BaseExpression", ...], bool, None] = None
+
+
+@dataclass(frozen=True)
+class PartitionDropSuggestion:
+    """Suggested action chain to drop/detach a partition from a table."""
+
+    operations: Union[Tuple["BaseExpression", ...], bool, None] = None
+
+
+@dataclass(frozen=True)
+class PartitionRetentionSuggestion:
+    """Suggested action chain to retire old partitions (by cutoff)."""
+
+    operations: Union[Tuple["BaseExpression", ...], bool, None] = None
+
+
+@dataclass(frozen=True)
+class PartitionTableDropSuggestion:
+    """Suggested action chain to drop the whole partitioned table."""
+
+    operations: Union[Tuple["BaseExpression", ...], bool, None] = None
+
+
+@dataclass(frozen=True)
+class PartitionTableAlterSuggestion:
+    """Suggested action chain to alter the table's partitioning scheme."""
+
+    operations: Union[Tuple["BaseExpression", ...], bool, None] = None
+
+
+@dataclass(frozen=True)
+class PartitionSplitSuggestion:
+    """Suggested action chain to split one partition into two."""
+
+    operations: Union[Tuple["BaseExpression", ...], bool, None] = None
+
+
+@dataclass(frozen=True)
+class PartitionMergeSuggestion:
+    """Suggested action chain to merge two adjacent partitions."""
+
+    operations: Union[Tuple["BaseExpression", ...], bool, None] = None
 
 
 class PartitionSuggestionRenderer:
     """Render a partition-lifecycle suggestion into an ordered expression list.
 
-    One renderer for all eight intents; the intent-to-protocol mapping is a
-    class-level strategy table, so adding an intent needs no new function.
+    One renderer for all eight intents; intent-to-protocol mapping is a class
+    strategy table. A dialect with no matching support answers the structural
+    "no" (no probing, no fallback string).
     """
 
-    # intent -> (protocol attribute name on backend.dialect.protocols, suggest method)
     _INTENTS: Dict[str, Tuple[str, str]] = {
         "build": ("PartitionBuildSuggestionSupport", "suggest_partition_build"),
         "add": ("PartitionAddSuggestionSupport", "suggest_partition_add"),
@@ -40,9 +95,8 @@ class PartitionSuggestionRenderer:
     }
 
     def parts(
-        self, dialect: "SQLDialectBase", intent: str, strategy, plan: object
+        self, dialect: "SQLDialectBase", intent: str, strategy: "PartitionStrategy", plan: object
     ) -> Optional[List["BaseExpression"]]:
-        """Return the expression chain for ``intent``, or None for no-answer."""
         from ..dialect import protocols
 
         try:
@@ -58,7 +112,6 @@ class PartitionSuggestionRenderer:
             return [expr for expr in operations if isinstance(expr, BaseExpression)]
         return None  # False (unsupported) or None (no-op)
 
-    # Convenience methods keep call sites readable without free functions.
     def build(self, dialect, strategy, plan):
         return self.parts(dialect, "build", strategy, plan)
 
@@ -82,27 +135,3 @@ class PartitionSuggestionRenderer:
 
     def merge(self, dialect, strategy, plan):
         return self.parts(dialect, "merge", strategy, plan)
-
-
-class IntegerAutoIncrementSuggestionRenderer:
-    """Render an integer auto-increment suggestion into ``(type, attributes)``."""
-
-    def parts(self, dialect: "SQLDialectBase", data_type: "DataType") -> Tuple["DataType", List]:
-        """Return ``(type, attributes)`` for a generated integer key.
-
-        A dialect with no ``IntegerAutoIncrementColumnSuggestionSupport`` has no
-        answer: the type is left alone and no attribute added (structural "no").
-        """
-        from ..dialect.protocols import IntegerAutoIncrementColumnSuggestionSupport
-
-        if not isinstance(dialect, IntegerAutoIncrementColumnSuggestionSupport):
-            return data_type, []
-        suggestion: "IntegerAutoIncrementColumnSuggestion" = (
-            dialect.suggest_integer_auto_increment_column(data_type)
-        )
-        attributes = (
-            [suggestion.auto_increment]
-            if isinstance(suggestion.auto_increment, BaseExpression)
-            else []
-        )
-        return suggestion.type, attributes

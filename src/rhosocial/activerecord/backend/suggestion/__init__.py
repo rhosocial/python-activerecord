@@ -1,15 +1,16 @@
 # src/rhosocial/activerecord/backend/suggestion/__init__.py
-"""Backend suggestions: immutable suggestion values + OO renderers.
+"""Backend suggestions: immutable values + OO renderers, one target group per file.
 
-Suggestions are NOT expressions — this package is deliberately separate from
-`backend.expression`, which holds only `BaseExpression` derivatives. The
-suggestion protocols live in `backend.dialect.protocols` (the backend abstract
-layer holds only protocols); concrete backends implement them under their own
-`backend.impl.<name>.suggestion` namespace.
+Suggestions are NOT expressions — this package is separate from `backend.expression`.
+Suggestion protocols live in `backend.dialect.protocols`; concrete backends implement
+them under `backend.impl.<name>.suggestion`.
 """
 
-from .dataclasses import (
+from .integer_auto_increment import (
     IntegerAutoIncrementColumnSuggestion,
+    IntegerAutoIncrementSuggestionRenderer,
+)
+from .partition import (
     PartitionBuildSuggestion,
     PartitionAddSuggestion,
     PartitionDropSuggestion,
@@ -18,11 +19,12 @@ from .dataclasses import (
     PartitionTableAlterSuggestion,
     PartitionSplitSuggestion,
     PartitionMergeSuggestion,
+    PartitionSuggestionRenderer,
 )
-from .renderers import IntegerAutoIncrementSuggestionRenderer, PartitionSuggestionRenderer
 
 __all__ = [
     "IntegerAutoIncrementColumnSuggestion",
+    "IntegerAutoIncrementSuggestionRenderer",
     "PartitionBuildSuggestion",
     "PartitionAddSuggestion",
     "PartitionDropSuggestion",
@@ -31,6 +33,5 @@ __all__ = [
     "PartitionTableAlterSuggestion",
     "PartitionSplitSuggestion",
     "PartitionMergeSuggestion",
-    "IntegerAutoIncrementSuggestionRenderer",
     "PartitionSuggestionRenderer",
 ]
