@@ -27,6 +27,8 @@ itself is never rebound. Copying the whole table per call was measured at
 ~100 us (``copy.copy`` costs more than constructing a fresh instance), and the
 derivation path copies the single entry anyway.
 """
+from rhosocial.activerecord.backend.suggestion.definitions import DataTypeSuggestion, ExtraDataTypeSuggestion, SubstituteAdviceSuggestion, SubstituteTypeSuggestion
+
 import datetime
 import decimal
 import enum
@@ -96,18 +98,18 @@ class SQLiteDataTypeSuggestionsMixin:
     """SQLite's answer to "what declaration does a bare field get here"."""
 
     def suggest_data_types(self) -> Dict[Any, Optional[Any]]:
-        return dict(SQLITE_DATA_TYPE_SUGGESTIONS)
+        return DataTypeSuggestion(table=dict(SQLITE_DATA_TYPE_SUGGESTIONS))
 
 
 
     def suggest_substitute_types(self) -> Dict[str, type]:
-        return {}
+        return SubstituteTypeSuggestion(mapping={})
 
     def suggest_substitute_advice(self, name: str) -> str:
-        return ""
+        return SubstituteAdviceSuggestion(advice="")
 
     def suggest_extra_data_types(self) -> Dict[type, "DataType"]:
-        return {}
+        return ExtraDataTypeSuggestion(table={})
 
 
 __all__ = ["SQLITE_DATA_TYPE_SUGGESTIONS", "SQLiteDataTypeSuggestionsMixin"]

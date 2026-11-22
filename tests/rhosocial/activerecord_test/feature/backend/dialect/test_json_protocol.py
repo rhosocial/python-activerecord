@@ -5,6 +5,8 @@ Test for JSONSupport protocol implementation.
 This test creates a dialect that does not support JSON features and verifies that
 the JSON formatting methods raise appropriate errors.
 """
+from rhosocial.activerecord.backend.suggestion.definitions import JSONAccessOperatorSuggestion  # noqa: E402
+
 
 import pytest
 
@@ -19,7 +21,7 @@ class NoJSONDialect(SQLDialectBase, JSONMixin, JSONSupport):
         return False
 
     def suggest_json_access_operator(self) -> str:
-        return "->"
+        return JSONAccessOperatorSuggestion(operator="->")
 
     def supports_json_table(self) -> bool:
         return False  # Disable JSON_TABLE support for this dialect
@@ -32,7 +34,7 @@ def test_no_json_dialect_does_not_support_json_features():
     # Verify protocol implementation
     assert isinstance(dialect, JSONSupport)
     assert not dialect.supports_json_type()
-    assert dialect.suggest_json_access_operator() == "->"
+    assert dialect.suggest_json_access_operator().operator == "->"
     assert not dialect.supports_json_table()
 
 

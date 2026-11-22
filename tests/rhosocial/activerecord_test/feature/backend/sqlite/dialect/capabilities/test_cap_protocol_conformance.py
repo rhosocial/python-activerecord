@@ -32,7 +32,7 @@ from rhosocial.activerecord.backend.impl.sqlite import protocols as sqlite_proto
 def test_sqlite_column_type_mixin_answers_no_extras():
     """The standalone mixin supplies the no-extras answer the removed core mixin gave."""
     d = sqlite_dialect.SQLiteDialect()
-    assert d.suggest_extra_column_types() == {}
+    assert d.suggest_extra_column_types().table == {}
 
 
 def get_all_protocol_methods(proto: type) -> set:

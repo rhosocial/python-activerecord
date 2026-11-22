@@ -12,6 +12,7 @@ tri-state suggestion value, no core mixin default -- per the backend-suggestion 
 """
 
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
+from ..definitions import PartitionBuildSuggestion
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.expression.statements import PartitionByClause
@@ -24,7 +25,7 @@ class PartitionBuildSuggestionSupport(Protocol):
 
     def suggest_partition_build(
         self, strategy: "PartitionByClause", plan: object
-    ) -> "PartitionBuildSuggestion":
+    ) -> 'PartitionBuildSuggestion':
         """Suggest how to declare a partitioned table at CREATE TABLE time for ``strategy``.
 
         ``plan`` is caller-supplied and opaque here to stay engine-neutral.

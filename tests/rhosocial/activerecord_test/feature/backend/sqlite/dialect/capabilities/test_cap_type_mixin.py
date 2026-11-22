@@ -150,6 +150,6 @@ def test_parse_type_affinity_branches():
 
 def test_suggested_data_types_returns_fresh_copy():
     """SQLite's DDL suggestions are the affinities it really stores."""
-    table = DIALECT.suggest_data_types()
+    table = DIALECT.suggest_data_types().table
     assert table == SQLITE_DATA_TYPE_SUGGESTIONS
     assert table is not SQLITE_DATA_TYPE_SUGGESTIONS

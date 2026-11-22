@@ -18,6 +18,8 @@ entry or the field declares ``UseSqlType``.
 Each call returns a fresh dict whose values are this module's read-only
 templates; a caller binds a dialect on a copy of the entry it uses.
 """
+from rhosocial.activerecord.backend.suggestion.definitions import DataTypeSuggestion, ExtraDataTypeSuggestion, SubstituteAdviceSuggestion, SubstituteTypeSuggestion
+
 import datetime
 import decimal
 import enum
@@ -85,17 +87,17 @@ class DummyDataTypeSuggestionsMixin:
     """The dialect-less baseline data-type suggestion, for tests to read."""
 
     def suggest_data_types(self) -> Dict[Any, Optional[Any]]:
-        return dict(DUMMY_DATA_TYPE_SUGGESTIONS)
+        return DataTypeSuggestion(table=dict(DUMMY_DATA_TYPE_SUGGESTIONS))
 
 
     def suggest_substitute_types(self) -> Dict[str, type]:
-        return {}
+        return SubstituteTypeSuggestion(mapping={})
 
     def suggest_substitute_advice(self, name: str) -> str:
-        return ""
+        return SubstituteAdviceSuggestion(advice="")
 
     def suggest_extra_data_types(self) -> Dict[type, "DataType"]:
-        return {}
+        return ExtraDataTypeSuggestion(table={})
 
 
 

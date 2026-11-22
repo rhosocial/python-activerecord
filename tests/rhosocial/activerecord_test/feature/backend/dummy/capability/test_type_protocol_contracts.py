@@ -122,7 +122,7 @@ def test_every_core_type_is_rendered_or_suggested(dialect_id, dialect_class):
     """
     dialect = dialect_class()
     rendered = set(_rendered_names(dialect))
-    suggested = dialect.suggest_substitute_types()
+    suggested = dialect.suggest_substitute_types().mapping
     undeclared = [
         klass.name for klass in _core_type_classes()
         if klass.name not in rendered and klass.name not in suggested
@@ -210,7 +210,7 @@ def test_suggested_types_are_declared_and_disjoint(dialect_id, dialect_class):
     """
     dialect = dialect_class()
     supported = _rendered_names(dialect)
-    suggested = dialect.suggest_substitute_types()
+    suggested = dialect.suggest_substitute_types().mapping
 
     overlap = set(supported) & set(suggested)
     assert not overlap, (

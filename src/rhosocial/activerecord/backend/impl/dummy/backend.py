@@ -2,6 +2,8 @@
 """
 Dummy Backend for SQL generation without a real database connection.
 """
+from rhosocial.activerecord.backend.suggestion.definitions import DataAdapterSuggestion, ExtraDataAdapterSuggestion
+
 
 import logging
 from typing import Any, Dict, List, Optional, Tuple, Type
@@ -46,11 +48,11 @@ class DummyBackend(StorageBackend):
         """Dummy reuses the portable baseline resolved through its registry."""
         from rhosocial.activerecord.backend.adapters.portable import PORTABLE_TYPE_MAPPINGS
         from rhosocial.activerecord.backend.base.type_adaption import merge_adapter_suggestions
-        return merge_adapter_suggestions({}, PORTABLE_TYPE_MAPPINGS, self.adapter_registry)
+        return DataAdapterSuggestion(table=merge_adapter_suggestions({}, PORTABLE_TYPE_MAPPINGS, self.adapter_registry))
 
     def suggest_extra_data_adapters(self) -> Dict[Type, Tuple[SQLTypeAdapter, Type]]:
         """No backend-owned extra adapter types."""
-        return {}
+        return ExtraDataAdapterSuggestion(table={})
 
     @property
     def dialect(self) -> SQLDialectBase:
@@ -120,11 +122,11 @@ class AsyncDummyBackend(AsyncStorageBackend):
         """Dummy reuses the portable baseline resolved through its registry."""
         from rhosocial.activerecord.backend.adapters.portable import PORTABLE_TYPE_MAPPINGS
         from rhosocial.activerecord.backend.base.type_adaption import merge_adapter_suggestions
-        return merge_adapter_suggestions({}, PORTABLE_TYPE_MAPPINGS, self.adapter_registry)
+        return DataAdapterSuggestion(table=merge_adapter_suggestions({}, PORTABLE_TYPE_MAPPINGS, self.adapter_registry))
 
     def suggest_extra_data_adapters(self) -> Dict[Type, Tuple[SQLTypeAdapter, Type]]:
         """No backend-owned extra adapter types."""
-        return {}
+        return ExtraDataAdapterSuggestion(table={})
 
     @property
     def dialect(self) -> SQLDialectBase:

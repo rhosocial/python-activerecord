@@ -22,7 +22,6 @@ from rhosocial.activerecord.backend.suggestion import (
     PartitionBuildSuggestion,
     PartitionAddSuggestion,
     PartitionDropSuggestion,
-    PartitionSuggestionRenderer,
 )
 from rhosocial.activerecord.backend.expression import Column, PartitionByRangeClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -33,12 +32,20 @@ from rhosocial.activerecord.backend.impl.sqlite.suggestion import (
     SQLitePartitionDropSuggestionMixin,
 )
 
+
+
+from rhosocial.activerecord.base.derivation import partition_suggestion_operations  # noqa: E402
+def _helper(intent):
+    def fn(dialect, strategy, plan):
+        return partition_suggestion_operations(dialect, intent, strategy, plan)
+    return fn
+
 CASES = [
     (
         "build",
         PartitionBuildSuggestionSupport,
         PartitionBuildSuggestion,
-        PartitionSuggestionRenderer().build,
+        _helper("build"),
         SQLitePartitionBuildSuggestionMixin,
         "suggest_partition_build",
     ),
@@ -46,7 +53,7 @@ CASES = [
         "add",
         PartitionAddSuggestionSupport,
         PartitionAddSuggestion,
-        PartitionSuggestionRenderer().add,
+        _helper("add"),
         SQLitePartitionAddSuggestionMixin,
         "suggest_partition_add",
     ),
@@ -54,7 +61,7 @@ CASES = [
         "drop",
         PartitionDropSuggestionSupport,
         PartitionDropSuggestion,
-        PartitionSuggestionRenderer().drop,
+        _helper("drop"),
         SQLitePartitionDropSuggestionMixin,
         "suggest_partition_drop",
     ),

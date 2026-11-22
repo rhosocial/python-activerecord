@@ -148,9 +148,9 @@ def test_declared_version_and_backend_helpers():
     assert _dialect()._declared_version() == tuple(__import__("sqlite3").sqlite_version_info[:3])
     differ = _dialect().create_schema_differ()
     assert differ.__class__.__name__ == "SQLiteSchemaDiffer"
-    suggested = _dialect().suggest_substitute_types()
+    suggested = _dialect().suggest_substitute_types().mapping
     assert set(suggested) == {"uuid", "enum", "xml", "array", "binary", "varbinary"}
-    assert _dialect().suggest_json_access_operator() == "->"
+    assert _dialect().suggest_json_access_operator().operator == "->"
 
 
 def test_lateral_probe_caches_both_outcomes(monkeypatch):

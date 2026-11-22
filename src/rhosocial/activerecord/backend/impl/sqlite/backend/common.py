@@ -5,6 +5,8 @@ Common base classes and mixins for SQLite backend implementations.
 This module provides shared functionality between sync and async SQLite backends,
 including type adapters, error handling, and common utilities.
 """
+from rhosocial.activerecord.backend.suggestion.definitions import DataAdapterSuggestion, ExtraDataAdapterSuggestion
+
 
 import logging
 import sqlite3
@@ -122,7 +124,7 @@ class SQLiteBackendMixin:
         (the neutral families it stores as TEXT) on top of them.
         """
         if self._default_suggestions_cache is not None:
-            return self._default_suggestions_cache
+            return DataAdapterSuggestion(table=self._default_suggestions_cache)
 
         overrides = list(PORTABLE_TYPE_MAPPINGS) + get_type_mappings()
         suggestions = merge_adapter_suggestions({}, overrides, self.adapter_registry)
@@ -131,11 +133,11 @@ class SQLiteBackendMixin:
                 self.logger.debug(f"No adapter found for ({py_type.__name__}, {db_type.__name__}).")
 
         self._default_suggestions_cache = suggestions
-        return suggestions
+        return DataAdapterSuggestion(table=suggestions)
 
     def suggest_extra_data_adapters(self) -> Dict[Type, Tuple['SQLTypeAdapter', Type]]:
         """No backend-owned extra adapter types."""
-        return {}
+        return ExtraDataAdapterSuggestion(table={})
 
     def get_type_adapters(self) -> List["SQLTypeAdapter"]:
         """Return the adapter instances this backend provides.

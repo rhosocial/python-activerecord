@@ -11,6 +11,7 @@ The suggestion is a value (a ``DataType``), not SQL -- formatting stays in the
 capability-side ``DataTypeSupport``.
 """
 from typing import Dict, Optional, Protocol, TYPE_CHECKING, runtime_checkable
+from ..definitions import DataTypeSuggestion, ExtraDataTypeSuggestion, SubstituteAdviceSuggestion, SubstituteTypeSuggestion
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.expression.types._base import DataType
@@ -20,7 +21,7 @@ if TYPE_CHECKING:  # pragma: no cover
 class DataTypeSuggestionSupport(Protocol):
     """The storage-type suggestion table for the 24 framework types."""
 
-    def suggest_data_types(self) -> "Dict[type, Optional[DataType]]":
+    def suggest_data_types(self) -> 'DataTypeSuggestion':
         """The declaration suggested for each framework-modelled type.
 
         Keys must cover ``FRAMEWORK_PYTHON_TYPES`` (24 entries); every key must
@@ -30,14 +31,14 @@ class DataTypeSuggestionSupport(Protocol):
         ...  # pragma: no cover
 
 
-    def suggest_substitute_types(self) -> Dict[str, type]:
+    def suggest_substitute_types(self) -> 'SubstituteTypeSuggestion':
         """Concept-name -> class this backend stores when it cannot render the concept."""
         ...  # pragma: no cover
 
-    def suggest_substitute_advice(self, name: str) -> str:
+    def suggest_substitute_advice(self, name: str) -> 'SubstituteAdviceSuggestion':
         """Extra caveat for a substituted concept (empty when lossless)."""
         ...  # pragma: no cover
 
-    def suggest_extra_data_types(self) -> Dict[type, "DataType"]:
+    def suggest_extra_data_types(self) -> 'ExtraDataTypeSuggestion':
         """Suggestions for this backend's own Python types."""
         ...  # pragma: no cover

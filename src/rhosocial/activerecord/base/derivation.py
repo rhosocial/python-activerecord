@@ -450,11 +450,11 @@ def _suggested_storage_type(
     silent fallback to text.
     """
     python_type = source.field_python_type(field)
-    table = dialect.suggest_data_types()
+    table = dialect.suggest_data_types().table
     entry = table_entry_for(python_type, table)
     suggested = table.get(entry) if entry is not None else None
     if suggested is None:
-        extras = dialect.suggest_extra_data_types()
+        extras = dialect.suggest_extra_data_types().table
         suggested = extras.get(strip_annotation(python_type))
     if suggested is None:
         raise ValueError(
@@ -495,3 +495,61 @@ def _bind(node: Any, dialect: Any) -> Any:
     if isinstance(node, BaseExpression):
         node.dialect = dialect
     return node
+
+
+# ---------------------------------------------------------------------------
+# Suggestion consumers. A suggestion is a complete decision returned as a
+# frozen value; these helpers only gate on protocol support and turn the
+# value's expression payload into the list the caller applies. No rendering
+# layer lives in backend.suggestion.
+# ---------------------------------------------------------------------------
+
+_PARTITION_INTENTS = {
+    "build": ("PartitionBuildSuggestionSupport", "suggest_partition_build"),
+    "add": ("PartitionAddSuggestionSupport", "suggest_partition_add"),
+    "drop": ("PartitionDropSuggestionSupport", "suggest_partition_drop"),
+    "retention": ("PartitionRetentionSuggestionSupport", "suggest_partition_retention"),
+    "table_drop": ("PartitionTableDropSuggestionSupport", "suggest_partition_table_drop"),
+    "table_alter": ("PartitionTableAlterSuggestionSupport", "suggest_partition_table_alter"),
+    "split": ("PartitionSplitSuggestionSupport", "suggest_partition_split"),
+    "merge": ("PartitionMergeSuggestionSupport", "suggest_partition_merge"),
+}
+
+
+def partition_suggestion_operations(
+    dialect: Any, intent: str, strategy: Any, plan: object
+) -> Optional[List[Any]]:
+    """The ordered expression chain a backend suggests for a partition intent.
+
+    Returns ``None`` when the dialect has no matching suggestion protocol, or
+    when the suggestion is a structural "no" (``False``/``None`` operations).
+    """
+    from ..backend.suggestion import protocols as suggestion_protocols
+
+    try:
+        protocol_name, method_name = _PARTITION_INTENTS[intent]
+    except KeyError as exc:
+        raise ValueError(f"unknown partition suggestion intent: {intent!r}") from exc
+    protocol = getattr(suggestion_protocols, protocol_name)
+    if not isinstance(dialect, protocol):
+        return None
+    suggestion = getattr(dialect, method_name)(strategy, plan)
+    operations = suggestion.operations
+    if isinstance(operations, (list, tuple)):
+        return [expr for expr in operations if isinstance(expr, BaseExpression)]
+    return None
+
+
+def integer_auto_increment_parts(dialect: Any, data_type: "DataType") -> tuple:
+    """Return ``(storage type, auto-increment attributes)`` for a bare int field."""
+    from ..backend.suggestion.protocols import IntegerAutoIncrementColumnSuggestionSupport
+
+    if not isinstance(dialect, IntegerAutoIncrementColumnSuggestionSupport):
+        return data_type, []
+    suggestion = dialect.suggest_integer_auto_increment_column(data_type)
+    attributes = (
+        [suggestion.auto_increment]
+        if isinstance(suggestion.auto_increment, BaseExpression)
+        else []
+    )
+    return suggestion.type, attributes

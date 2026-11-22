@@ -13,6 +13,7 @@ no core mixin default -- per the backend-suggestion spec.
 """
 
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
+from ..definitions import PartitionTableAlterSuggestion
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.expression.statements import PartitionByClause
@@ -25,7 +26,7 @@ class PartitionTableAlterSuggestionSupport(Protocol):
 
     def suggest_partition_table_alter(
         self, strategy: "PartitionByClause", plan: object
-    ) -> "PartitionTableAlterSuggestion":
+    ) -> 'PartitionTableAlterSuggestion':
         """Suggest how to alter the whole table's partitioning scheme for ``strategy``.
 
         ``plan`` is caller-supplied and opaque to stay engine-neutral.

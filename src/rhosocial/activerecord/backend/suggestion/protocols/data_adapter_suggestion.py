@@ -15,6 +15,7 @@ omission the field's declared ``UseAdapter`` can cover.
 from typing import Dict, Tuple, Type, TYPE_CHECKING, runtime_checkable
 
 from typing import Protocol
+from ..definitions import DataAdapterSuggestion, ExtraDataAdapterSuggestion
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..type_adapter import SQLTypeAdapter
@@ -24,7 +25,7 @@ if TYPE_CHECKING:  # pragma: no cover
 class DataAdapterSuggestionSupport(Protocol):
     """Adapter suggestions for a backend, keyed by Python value type."""
 
-    def suggest_data_adapters(self) -> Dict[Type, Tuple["SQLTypeAdapter", Type]]:
+    def suggest_data_adapters(self) -> 'DataAdapterSuggestion':
         """Suggested ``(adapter, driver type)`` per Python type needing conversion.
 
         Return a fresh dict. Keys are Python value types; a key absent from
@@ -32,7 +33,7 @@ class DataAdapterSuggestionSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def suggest_extra_data_adapters(self) -> Dict[Type, Tuple["SQLTypeAdapter", Type]]:
+    def suggest_extra_data_adapters(self) -> 'ExtraDataAdapterSuggestion':
         """Suggestions for this backend's own value types.
 
         Keys must be disjoint from the framework-modelled type list.

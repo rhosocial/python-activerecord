@@ -487,7 +487,7 @@ class TestXmlType:
 
         sqlite = SQLiteDialect()
         assert "xml" not in _rendered_names(sqlite)
-        assert "xml" in sqlite.suggest_substitute_types()
+        assert "xml" in sqlite.suggest_substitute_types().mapping
 
 
 # ---------------------------------------------------------------------------

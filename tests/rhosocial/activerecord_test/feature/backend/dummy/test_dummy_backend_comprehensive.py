@@ -50,7 +50,7 @@ class TestDummyBackendComprehensive:
     def test_async_dummy_backend_suggest_data_adapters(self):
         """A dummy backend still inherits the framework's core suggestions."""
         backend = AsyncDummyBackend()
-        suggestions = backend.suggest_data_adapters()
+        suggestions = backend.suggest_data_adapters().table
         # No adapters of its own, but the core default table still applies.
         assert backend.get_type_adapters() == []
         assert suggestions
@@ -146,6 +146,6 @@ class TestDummyDialectComprehensive:
         assert dialect.supports_graph_match() is True
 
         # Test other methods
-        assert dialect.suggest_upsert_syntax_type() == "ON CONFLICT"
-        assert dialect.suggest_json_access_operator() == "->"
+        assert dialect.suggest_upsert_syntax_type().syntax == "ON CONFLICT"
+        assert dialect.suggest_json_access_operator().operator == "->"
         assert dialect.supports_explain_format("ANY") is True

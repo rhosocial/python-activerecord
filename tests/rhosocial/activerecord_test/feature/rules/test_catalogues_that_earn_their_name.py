@@ -47,7 +47,10 @@ import pytest
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect import protocols as _dialect_protocols
-from rhosocial.activerecord.backend.suggestion.partition import PartitionSuggestionRenderer
+from rhosocial.activerecord.base.derivation import (
+    _PARTITION_INTENTS,
+    partition_suggestion_operations,
+)
 from rhosocial.activerecord.base.fields import UseFieldGenerator
 from rhosocial.activerecord.backend.dialect.mixins.graph import GraphTableMixin
 from rhosocial.activerecord.backend.expression.core import Column, Literal
@@ -280,13 +283,13 @@ class TestPartitionIntentCatalogue:
     def test_each_intent_resolves_to_a_real_protocol_method(self):
         from rhosocial.activerecord.backend import suggestion as _suggestion_pkg
         protocols_mod = _suggestion_pkg.protocols
-        for intent, (protocol_name, method_name) in PartitionSuggestionRenderer._INTENTS.items():
+        for intent, (protocol_name, method_name) in _PARTITION_INTENTS.items():
             assert intent == method_name[len("suggest_partition_"):], intent
             protocol = getattr(protocols_mod, protocol_name)
             assert hasattr(protocol, method_name), f"{protocol_name}.{method_name} missing"
 
     def test_the_eight_intents_cover_the_builtin_partition_strategies(self):
-        assert set(PartitionSuggestionRenderer._INTENTS) == {
+        assert set(_PARTITION_INTENTS) == {
             "build", "add", "drop", "retention",
             "table_drop", "table_alter", "split", "merge",
         }

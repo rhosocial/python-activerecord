@@ -7,6 +7,7 @@ tests enforce.
 """
 
 from typing import Any, Dict, Optional, Protocol, Type, TYPE_CHECKING, runtime_checkable
+from ..definitions import ColumnTypeSuggestion, ExtraColumnTypeSuggestion
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.expression.column_types import ColumnBase
@@ -52,6 +53,6 @@ class ColumnTypeSuggestionSupport(Protocol):
     core would be a guess about a server core has never seen.
     """
 
-    def suggest_column_types(self) -> Dict[Any, Optional[Type["ColumnBase"]]]: ...
+    def suggest_column_types(self) -> 'ColumnTypeSuggestion': ...
 
-    def suggest_extra_column_types(self) -> Dict[Any, Type["ColumnBase"]]: ...
+    def suggest_extra_column_types(self) -> 'ExtraColumnTypeSuggestion': ...

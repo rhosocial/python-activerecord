@@ -15,6 +15,7 @@ suggestion value with a tri-state payload, and carries no core mixin default.
 """
 
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
+from ..definitions import PartitionRetentionSuggestion
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.expression.statements import PartitionByClause
@@ -27,7 +28,7 @@ class PartitionRetentionSuggestionSupport(Protocol):
 
     def suggest_partition_retention(
         self, strategy: "PartitionByClause", plan: object
-    ) -> "PartitionRetentionSuggestion":
+    ) -> 'PartitionRetentionSuggestion':
         """Suggest how to retire partitions older than the cutoff in ``plan``.
 
         ``strategy`` is the partition strategy word (``RANGE``, ``LIST``,

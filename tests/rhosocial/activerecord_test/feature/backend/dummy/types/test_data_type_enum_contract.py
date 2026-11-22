@@ -11,6 +11,8 @@ A backend that *can* render the type renders the values through its own literal
 formatter, because that is where each dialect's escaping lives: a value holding
 a quote is the case where a hand-rolled f-string of quotes goes wrong.
 """
+from rhosocial.activerecord.backend.suggestion.definitions import SubstituteAdviceSuggestion, SubstituteTypeSuggestion  # noqa: E402
+
 
 # tests/rhosocial/activerecord_test/feature/backend/dummy/types/test_data_type_enum_contract.py
 import pytest
@@ -97,7 +99,7 @@ class Narrow(DataTypeMixin):
         return f"VARCHAR({data_type.length})", ()
 
     def suggest_substitute_types(self):
-        return {}
+        return SubstituteTypeSuggestion(mapping={})
 
 
 class Suggester(Narrow):
@@ -106,7 +108,7 @@ class Suggester(Narrow):
     def suggest_substitute_types(self):
         from rhosocial.activerecord.backend.expression.types import VarCharType
 
-        return {"enum": VarCharType}
+        return SubstituteTypeSuggestion(mapping={"enum": VarCharType})
 
 
 class Lossy(Suggester):
@@ -120,7 +122,7 @@ class Lossy(Suggester):
     """
 
     def suggest_substitute_advice(self, name):
-        return "Note that this drops the zone."
+        return SubstituteAdviceSuggestion(advice="Note that this drops the zone.")
 
 
 def test_an_unrenderable_type_is_a_type_error(dialect):

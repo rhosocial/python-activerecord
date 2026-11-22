@@ -131,7 +131,7 @@ class TestIntrospectionCapabilities:
         """Test that all expected introspection scopes are supported."""
         from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
 
-        scopes = sqlite_backend.dialect.suggest_introspection_scopes()
+        scopes = sqlite_backend.dialect.suggest_introspection_scopes().scopes
 
         expected_scopes = [
             IntrospectionScope.DATABASE,

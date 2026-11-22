@@ -5,6 +5,8 @@ Test for UpsertSupport protocol implementation.
 This test creates a dialect that does not support upsert operations and verifies that
 the corresponding formatting methods raise appropriate errors.
 """
+from rhosocial.activerecord.backend.suggestion.definitions import UpsertSyntaxSuggestion  # noqa: E402
+
 
 from rhosocial.activerecord.backend.dialect import SQLDialectBase, UpsertMixin, UpsertSupport
 
@@ -16,7 +18,7 @@ class NoUpsertDialect(SQLDialectBase, UpsertMixin, UpsertSupport):
         return False
 
     def suggest_upsert_syntax_type(self) -> str:
-        return "ON CONFLICT"
+        return UpsertSyntaxSuggestion(syntax="ON CONFLICT")
 
 
 def test_no_upsert_dialect_does_not_support_features():
@@ -26,7 +28,7 @@ def test_no_upsert_dialect_does_not_support_features():
     # Verify protocol implementation
     assert isinstance(dialect, UpsertSupport)
     assert not dialect.supports_upsert()
-    assert dialect.suggest_upsert_syntax_type() == "ON CONFLICT"
+    assert dialect.suggest_upsert_syntax_type().syntax == "ON CONFLICT"
 
 
 def test_format_on_conflict_clause_reports_no_support():

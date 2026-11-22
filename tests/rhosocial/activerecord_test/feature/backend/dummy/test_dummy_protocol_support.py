@@ -77,7 +77,7 @@ class TestDummyProtocolSupport:
     def test_upsert_support_methods(self, dialect):
         """Test UpsertSupport protocol methods."""
         assert dialect.supports_upsert() is True
-        assert dialect.suggest_upsert_syntax_type() == "ON CONFLICT"
+        assert dialect.suggest_upsert_syntax_type().syntax == "ON CONFLICT"
 
     # endregion
 
@@ -101,7 +101,7 @@ class TestDummyProtocolSupport:
     def test_json_support_methods(self, dialect):
         """Test JSONSupport protocol methods."""
         assert dialect.supports_json_type() is True
-        assert dialect.suggest_json_access_operator() == "->"
+        assert dialect.suggest_json_access_operator().operator == "->"
         assert dialect.supports_json_table() is True
 
     # endregion
@@ -295,7 +295,7 @@ class TestDummyProtocolSupport:
         assert dialect.supports_index_tablespace() is True
         assert dialect.supports_concurrent_index() is True
         # Check supported index types
-        index_types = dialect.suggest_index_types()
+        index_types = dialect.suggest_index_types().types
         assert isinstance(index_types, list)
         assert len(index_types) > 0
         assert "BTREE" in index_types

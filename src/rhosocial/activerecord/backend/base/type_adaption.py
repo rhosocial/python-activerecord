@@ -20,7 +20,7 @@ from ..type_adapter import (
 #: This is the *generic* layer of the two-level suggestion scheme: the core
 #: describes what a backend-agnostic driver is expected to accept for the
 #: common Python types. Every backend starts from this table, then merges its
-#: own entries on top (``super().suggest_data_adapters()``), because
+#: own entries on top (``super().suggest_data_adapters().table``), because
 #: the concrete backend knows its driver better than the framework does.
 #:
 #: Types that a driver binds natively without any conversion (``str``, ``int``,
@@ -281,7 +281,7 @@ class TypeAdaptionMixin:
         Returns:
             A new list with one instance per adapter class, in deterministic order.
         """
-        suggestions = self.suggest_data_adapters()
+        suggestions = self.suggest_data_adapters().table
         return sort_and_deduplicate_adapters(suggestion[0] for suggestion in suggestions.values())
 
 

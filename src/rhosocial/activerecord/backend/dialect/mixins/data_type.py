@@ -159,10 +159,12 @@ class DataTypeMixin:
         looking. A backend with something to add says it through
         :meth:`substitute_advice`, which lands in the same error.
         """
-        substitute = (getattr(self, 'suggest_substitute_types', None) or (lambda: {}))().get(name)
+        _sub = getattr(self, 'suggest_substitute_types', None)
+        substitute = (_sub().mapping if _sub else {}).get(name)
         if substitute is None:
             return " Use a type this backend supports."
-        caveat = (getattr(self, 'suggest_substitute_advice', None) or (lambda n: ''))(name).strip()
+        _adv = getattr(self, 'suggest_substitute_advice', None)
+        caveat = (_adv(name).advice if _adv else '').strip()
         message = f" It suggests {substitute.__name__} instead, which is what this backend uses."
         return f"{message} {caveat}" if caveat else message
 

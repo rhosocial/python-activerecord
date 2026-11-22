@@ -12,6 +12,7 @@ tri-state suggestion value, no core mixin default -- per the backend-suggestion 
 """
 
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
+from ..definitions import PartitionDropSuggestion
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.expression.statements import PartitionByClause
@@ -24,7 +25,7 @@ class PartitionDropSuggestionSupport(Protocol):
 
     def suggest_partition_drop(
         self, strategy: "PartitionByClause", plan: object
-    ) -> "PartitionDropSuggestion":
+    ) -> 'PartitionDropSuggestion':
         """Suggest how to drop/detach a partition from a table for ``strategy``.
 
         ``plan`` is caller-supplied and opaque here to stay engine-neutral.

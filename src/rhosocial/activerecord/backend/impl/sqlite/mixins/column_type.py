@@ -78,6 +78,8 @@ the detection already lives on the dialect
 This table claims the pairing; the build is the dialect's fact to report when
 the JSON operations are consulted.
 """
+from rhosocial.activerecord.backend.suggestion.definitions import ColumnTypeSuggestion, ExtraColumnTypeSuggestion
+
 
 import datetime
 import decimal
@@ -160,12 +162,12 @@ class SQLiteColumnTypeMixin:
     """SQLite's answer to "which column class does this annotation mean here"."""
 
     def suggest_column_types(self) -> Dict[Any, Type[ColumnBase]]:
-        return dict(SQLITE_COLUMN_TYPES)
+        return ColumnTypeSuggestion(table=dict(SQLITE_COLUMN_TYPES))
 
 
     def suggest_extra_column_types(self):
         """No backend-owned extra column types."""
-        return {}
+        return ExtraColumnTypeSuggestion(table={})
 
 
 __all__ = ["SQLITE_COLUMN_TYPES", "SQLiteColumnTypeMixin"]

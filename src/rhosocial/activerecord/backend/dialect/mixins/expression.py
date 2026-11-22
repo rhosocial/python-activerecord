@@ -161,7 +161,7 @@ class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregatio
             """
             left_sql, left_params = expr.left.to_sql()
             right_sql, right_params = expr.right.to_sql()
-            function = self.suggest_concatenation_function()
+            function = self.suggest_concatenation_function().function
             if function is None:
                 sql = f"{left_sql} || {right_sql}"
             else:

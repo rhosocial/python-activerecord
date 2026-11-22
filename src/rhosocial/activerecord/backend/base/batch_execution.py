@@ -318,7 +318,7 @@ class BatchExecutionMixin:
         # Prepare parameters with type conversion
         prepared_params = params
         if params:
-            all_suggestions = self.suggest_data_adapters()
+            all_suggestions = self.suggest_data_adapters().table
             param_adapters = []
             for param_value in params:
                 py_type = type(param_value)
@@ -544,7 +544,7 @@ class BatchExecutionMixin:
             # Prepare parameters with type conversion
             prepared_params = params
             if params:
-                all_suggestions = self.suggest_data_adapters()
+                all_suggestions = self.suggest_data_adapters().table
                 param_adapters = []
                 for param_value in params:
                     py_type = type(param_value)
@@ -756,7 +756,7 @@ class AsyncBatchExecutionMixin:
 
         prepared_params = params
         if params:
-            all_suggestions = self.suggest_data_adapters()
+            all_suggestions = self.suggest_data_adapters().table
             param_adapters = []
             for param_value in params:
                 py_type = type(param_value)
@@ -922,7 +922,7 @@ class AsyncBatchExecutionMixin:
         for params in params_list:
             prepared_params = params
             if params:
-                all_suggestions = self.suggest_data_adapters()
+                all_suggestions = self.suggest_data_adapters().table
                 param_adapters = []
                 for param_value in params:
                     py_type = type(param_value)

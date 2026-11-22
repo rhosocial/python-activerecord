@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any, List, Optional, Sequence, TYPE_CHECKING
 
-from ..backend.suggestion import PartitionSuggestionRenderer
+from ..base.derivation import partition_suggestion_operations
 from .core import DEFAULT_DIRECTION
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -23,18 +23,16 @@ if TYPE_CHECKING:  # pragma: no cover
 class _SuggestionMixin:
     """Backend-suggestion accessors, shared by sync and async contexts.
 
-    Each accessor delegates to an OO renderer. Returns ``None`` when the backend
-    has no answer (no suggestion support, explicit unsupported, or a no-op). The
-    caller can check ``None`` and skip, or pass straight to ``apply`` (which
-    ignores None).
+    Each accessor reads a backend suggestion value's expression chain. Returns
+    ``None`` when the backend has no answer (no suggestion support, explicit
+    unsupported, or a no-op). The caller can check ``None`` and skip, or pass
+    straight to ``apply`` (which ignores None).
     """
-
-    _renderer = PartitionSuggestionRenderer()
 
     def _suggest(
         self, intent: str, strategy: "PartitionByClause", plan: object
     ) -> Optional[List["BaseExpression"]]:
-        return self._renderer.parts(self.backend, intent, strategy, plan)
+        return partition_suggestion_operations(self.backend, intent, strategy, plan)
 
     def suggest_partition_build(self, strategy: "PartitionByClause", plan: object):
         return self._suggest("build", strategy, plan)

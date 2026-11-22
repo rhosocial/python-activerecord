@@ -8,6 +8,8 @@ conflate. It is the dialect-less default a unit test reads, not a copy of any
 one backend: where a real backend has stated its own answer (sequences as
 JSONColumn, for instance), the dummy keeps the standard-shaped one.
 """
+from rhosocial.activerecord.backend.suggestion.definitions import ColumnTypeSuggestion, ExtraColumnTypeSuggestion
+
 
 import datetime
 import decimal
@@ -81,12 +83,12 @@ class DummyColumnTypeMixin:
     """The dialect-less baseline table, for tests to read."""
 
     def suggest_column_types(self) -> Dict[Any, Optional[Type[ColumnBase]]]:
-        return dict(DUMMY_COLUMN_TYPES)
+        return ColumnTypeSuggestion(table=dict(DUMMY_COLUMN_TYPES))
 
 
     def suggest_extra_column_types(self):
         """No backend-owned extra column types."""
-        return {}
+        return ExtraColumnTypeSuggestion(table={})
 
 
 __all__ = ["DUMMY_COLUMN_TYPES", "DummyColumnTypeMixin"]

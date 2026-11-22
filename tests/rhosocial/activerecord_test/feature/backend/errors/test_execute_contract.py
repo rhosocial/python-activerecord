@@ -1,5 +1,7 @@
 # tests/rhosocial/activerecord_test/feature/backend/errors/test_execute_contract.py
 """Core execute contract: phase-specific error types and no swallowed failures."""
+from rhosocial.activerecord.backend.suggestion.definitions import DataAdapterSuggestion  # noqa: E402
+
 
 import logging
 
@@ -68,7 +70,7 @@ class _BaseStub:
         return cursor
 
     def suggest_data_adapters(self):
-        return {}
+        return DataAdapterSuggestion(table={})
 
     def prepare_parameters(self, params, adapters):
         if self.convert_error is not None:

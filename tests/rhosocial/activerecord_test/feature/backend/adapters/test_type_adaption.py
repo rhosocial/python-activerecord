@@ -18,6 +18,8 @@ No backend instance is needed: a minimal host supplies the two attributes the
 mixin reads (``adapter_registry`` and ``logger``), so the tests exercise the
 generic layer on its own.
 """
+from rhosocial.activerecord.backend.suggestion.definitions import DataAdapterSuggestion  # noqa: E402
+
 
 import datetime
 import logging
@@ -28,6 +30,7 @@ from enum import Enum
 import pytest
 
 from rhosocial.activerecord.backend.adapters.portable import PORTABLE_TYPE_MAPPINGS as CORE_DEFAULT_TYPE_MAPPINGS
+from rhosocial.activerecord.backend.suggestion.definitions import DataAdapterSuggestion  # noqa: E402
 from rhosocial.activerecord.backend.base.type_adaption import (
     TypeAdaptionMixin,
     merge_adapter_suggestions,
@@ -54,7 +57,7 @@ class _Host(TypeAdaptionMixin):
 
     def suggest_data_adapters(self):
         from rhosocial.activerecord.backend.adapters.portable import PORTABLE_TYPE_MAPPINGS
-        return merge_adapter_suggestions({}, PORTABLE_TYPE_MAPPINGS, self.adapter_registry)
+        return DataAdapterSuggestion(table=merge_adapter_suggestions({}, PORTABLE_TYPE_MAPPINGS, self.adapter_registry))
 
 
 def _registered(*adapters: SQLTypeAdapter) -> TypeRegistry:
@@ -187,7 +190,7 @@ def test_the_suggestions_resolve_exactly_what_the_registry_holds():
     host = _Host()
     host._register_default_adapters()
 
-    suggestions = host.suggest_data_adapters()
+    suggestions = host.suggest_data_adapters().table
 
     # The core table has nine rows and every one of them resolves.
     assert set(suggestions) == {
@@ -209,7 +212,7 @@ def test_the_suggestions_resolve_exactly_what_the_registry_holds():
 def test_a_backend_with_an_empty_registry_suggests_nothing():
     """No adapter is not an error: it is a backend that declined every core
     pairing, and the lookup returns an empty mapping rather than raising."""
-    assert _Host().suggest_data_adapters() == {}
+    assert _Host().suggest_data_adapters().table == {}
 
 
 # ---------------------------------------------------------------------------

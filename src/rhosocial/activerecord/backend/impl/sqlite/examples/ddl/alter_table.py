@@ -1,4 +1,4 @@
-from rhosocial.activerecord.backend.suggestion import IntegerAutoIncrementSuggestionRenderer  # noqa: E402
+from rhosocial.activerecord.base.derivation import integer_auto_increment_parts  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnNotNullConstraint,
     ColumnPrimaryKeyConstraint,
@@ -44,12 +44,12 @@ create_table = CreateTableStatement(
     columns=[
         ColumnDefinition(dialect, 
             "id"[0],
-            IntegerAutoIncrementSuggestionRenderer().parts(dialect, IntegerType())[0],
+            integer_auto_increment_parts(dialect, IntegerType())[0],
             constraints=[
                 ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect)),
                 ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
-         attributes=IntegerAutoIncrementSuggestionRenderer().parts(dialect, IntegerType())[1]),
+         attributes=integer_auto_increment_parts(dialect, IntegerType())[1]),
         ColumnDefinition(dialect, 
             "name",
             TextType(),

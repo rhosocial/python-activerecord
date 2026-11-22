@@ -34,8 +34,8 @@ class TestSQLiteDialectComprehensive:
         # Test basic methods
         assert dialect.get_parameter_placeholder() == "?"
         assert dialect.get_server_version() == (3, 38, 0)
-        assert dialect.suggest_json_access_operator() == "->"
-        assert dialect.suggest_upsert_syntax_type() == "ON CONFLICT"
+        assert dialect.suggest_json_access_operator().operator == "->"
+        assert dialect.suggest_upsert_syntax_type().syntax == "ON CONFLICT"
 
     @pytest.mark.parametrize(
         "version,expected",

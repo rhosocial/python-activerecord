@@ -12,7 +12,6 @@ from .data_type_suggestion import DataTypeSuggestionSupport
 from .index_suggestion import IndexSuggestionSupport
 from .integer_auto_increment_column_suggestion import IntegerAutoIncrementColumnSuggestionSupport
 from .introspection_suggestion import IntrospectionSuggestionSupport
-from .async_introspection_suggestion import AsyncIntrospectionSuggestionSupport
 from .json_suggestion import JSONSuggestionSupport
 from .string_concatenation_suggestion import StringConcatenationSuggestionSupport
 from .table_suggestion import TableSuggestionSupport
@@ -33,7 +32,6 @@ __all__ = [
     "IndexSuggestionSupport",
     "IntegerAutoIncrementColumnSuggestionSupport",
     "IntrospectionSuggestionSupport",
-    "AsyncIntrospectionSuggestionSupport",
     "JSONSuggestionSupport",
     "StringConcatenationSuggestionSupport",
     "TableSuggestionSupport",

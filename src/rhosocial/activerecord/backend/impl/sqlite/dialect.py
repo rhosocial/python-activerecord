@@ -5,6 +5,8 @@ SQLite backend SQL dialect implementation.
 This dialect implements only the protocols for features that SQLite actually supports,
 based on the SQLite version provided at initialization.
 """
+from rhosocial.activerecord.backend.suggestion.definitions import SubstituteTypeSuggestion
+
 
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
@@ -523,14 +525,14 @@ class SQLiteDialect(
         """
         from .expression.types import SQLiteBlobType, SQLiteTextType
 
-        return {
+        return SubstituteTypeSuggestion(mapping={
             "uuid": SQLiteTextType,
             "enum": SQLiteTextType,
             "xml": SQLiteTextType,
             "array": SQLiteTextType,
             "binary": SQLiteBlobType,
             "varbinary": SQLiteBlobType,
-        }
+        })
 
     # region Protocol Support Checks based on version
     def supports_basic_cte(self) -> bool:

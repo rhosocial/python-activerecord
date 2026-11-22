@@ -1,37 +1,15 @@
 # src/rhosocial/activerecord/backend/suggestion/__init__.py
-"""Backend suggestions: immutable values + OO renderers, one target group per file.
+"""Backend suggestions.
 
-Suggestions are NOT expressions — this package is separate from `backend.expression`.
-Suggestion protocols live in `backend.dialect.protocols`; concrete backends implement
-them under `backend.impl.<name>.suggestion`.
+The two halves live in sibling packages:
+
+* ``backend.suggestion.protocols`` -- the ``*SuggestionSupport`` interfaces
+  (core declares only these; concrete backends implement them).
+* ``backend.suggestion.definitions`` -- one frozen dataclass per ``suggest_*``
+  method, describing the shape of a backend's answer.
+
+A suggestion is a complete decision returned as a value. There is no renderer
+layer here: consumers read the value's fields directly (see
+``base.derivation`` for partition / auto-increment consumers).
 """
-
-from .integer_auto_increment import (
-    IntegerAutoIncrementColumnSuggestion,
-    IntegerAutoIncrementSuggestionRenderer,
-)
-from .partition import (
-    PartitionBuildSuggestion,
-    PartitionAddSuggestion,
-    PartitionDropSuggestion,
-    PartitionRetentionSuggestion,
-    PartitionTableDropSuggestion,
-    PartitionTableAlterSuggestion,
-    PartitionSplitSuggestion,
-    PartitionMergeSuggestion,
-    PartitionSuggestionRenderer,
-)
-
-__all__ = [
-    "IntegerAutoIncrementColumnSuggestion",
-    "IntegerAutoIncrementSuggestionRenderer",
-    "PartitionBuildSuggestion",
-    "PartitionAddSuggestion",
-    "PartitionDropSuggestion",
-    "PartitionRetentionSuggestion",
-    "PartitionTableDropSuggestion",
-    "PartitionTableAlterSuggestion",
-    "PartitionSplitSuggestion",
-    "PartitionMergeSuggestion",
-    "PartitionSuggestionRenderer",
-]
+from .definitions import *  # noqa: F401,F403

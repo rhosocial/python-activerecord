@@ -15,7 +15,7 @@ foreign-key formatter read them), and a request for a trait a branch cannot
 carry is refused where the node is built instead of being accepted and
 dropped.
 """
-from rhosocial.activerecord.backend.suggestion import IntegerAutoIncrementSuggestionRenderer  # noqa: E402
+from rhosocial.activerecord.base.derivation import integer_auto_increment_parts  # noqa: E402
 
 import pytest
 from rhosocial.activerecord.backend.expression.statements import (
@@ -83,7 +83,7 @@ class TestColumnConstraintBaseline:
 
         for dialect, expected in ((dummy_dialect, '"id" INTEGER PRIMARY KEY'),
                                   (SQLiteDialect(), '"id" INTEGER PRIMARY KEY AUTOINCREMENT')):
-            data_type, attributes = IntegerAutoIncrementSuggestionRenderer().parts(dialect, IntegerType(dialect))
+            data_type, attributes = integer_auto_increment_parts(dialect, IntegerType(dialect))
             column = ColumnDefinition(
                 dialect, "id", data_type,
                 constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))],

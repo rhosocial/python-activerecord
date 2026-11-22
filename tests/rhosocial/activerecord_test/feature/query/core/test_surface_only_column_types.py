@@ -12,6 +12,8 @@ follows from:
 3. every dialect table that names it -- SQLite and the dummy baseline -- stays
    complete (all twenty-four entries) and answers nothing with ``None``.
 """
+from rhosocial.activerecord.backend.suggestion.definitions import ColumnTypeSuggestion, ExtraColumnTypeSuggestion  # noqa: E402
+
 
 import datetime
 import inspect
@@ -30,7 +32,7 @@ class ColumnTypeMixin:
     """Minimal host: only the no-extras default the removed core mixin supplied."""
     def suggest_column_types(self):
         raise NotImplementedError("no inherited table")
-    def suggest_extra_column_types(self): return {}
+    def suggest_extra_column_types(self): return ExtraColumnTypeSuggestion(table={})
 
 from rhosocial.activerecord.backend.expression import (
     BitStringColumn,
@@ -202,4 +204,4 @@ def test_the_base_mixin_still_states_no_table():
     class Bare(ColumnTypeMixin):
         pass
 
-    assert Bare().suggest_extra_column_types() == {}
+    assert Bare().suggest_extra_column_types().table == {}

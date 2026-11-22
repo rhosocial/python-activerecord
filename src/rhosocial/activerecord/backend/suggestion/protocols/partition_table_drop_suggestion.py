@@ -13,6 +13,7 @@ no core mixin default -- per the backend-suggestion spec.
 """
 
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
+from ..definitions import PartitionTableDropSuggestion
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.expression.statements import PartitionByClause
@@ -25,7 +26,7 @@ class PartitionTableDropSuggestionSupport(Protocol):
 
     def suggest_partition_table_drop(
         self, strategy: "PartitionByClause", plan: object
-    ) -> "PartitionTableDropSuggestion":
+    ) -> 'PartitionTableDropSuggestion':
         """Suggest how to drop the whole partitioned table for ``strategy``.
 
         ``plan`` is caller-supplied and opaque to stay engine-neutral.

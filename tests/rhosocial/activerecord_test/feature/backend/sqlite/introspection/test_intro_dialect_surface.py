@@ -16,10 +16,10 @@ def test_structure_probes_are_false():
 
 def test_foreign_key_scope_is_gated_by_version():
     old = SQLiteDialect(version=(3, 6, 18))
-    assert IntrospectionScope.FOREIGN_KEY not in old.suggest_introspection_scopes()
+    assert IntrospectionScope.FOREIGN_KEY not in old.suggest_introspection_scopes().scopes
 
     new = SQLiteDialect(version=(3, 6, 19))
-    assert IntrospectionScope.FOREIGN_KEY in new.suggest_introspection_scopes()
+    assert IntrospectionScope.FOREIGN_KEY in new.suggest_introspection_scopes().scopes
 
 
 def test_pragma_set_with_an_argument_spells_it_before_the_equals():

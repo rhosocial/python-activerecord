@@ -261,7 +261,7 @@ class FieldAccessor:
         if declared is not None:
             return cls._class_from_declaration(declared)
 
-        table = dialect.suggest_column_types()
+        table = dialect.suggest_column_types().table
         entry = cls._table_entry_for(annotation, table)
 
         if entry is not None:
@@ -269,7 +269,7 @@ class FieldAccessor:
                 # Reachable only through the enum branch: the subclass walk
                 # can only return a key the table already has.
                 raise ColumnTypeResolutionError(
-                    f"{type(dialect).__name__}.suggest_column_types() does "
+                    f"{type(dialect).__name__}.suggest_column_types().table does "
                     f"not answer for {cls._entry_name(entry)}, which is one "
                     f"of the framework-modelled types. Every entry must be "
                     f"answered -- with a column class, or with None when the "
@@ -287,7 +287,7 @@ class FieldAccessor:
                 type(dialect).__name__, "suggest_column_types", entry, suggested
             )
 
-        extras = dialect.suggest_extra_column_types()
+        extras = dialect.suggest_extra_column_types().table
         suggested = extras.get(cls._strip_annotation(annotation))
         if suggested is not None:
             return cls._require_column_class(

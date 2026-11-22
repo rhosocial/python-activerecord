@@ -13,6 +13,7 @@ no core mixin default -- per the backend-suggestion spec.
 """
 
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
+from ..definitions import PartitionMergeSuggestion
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.expression.statements import PartitionByClause
@@ -25,7 +26,7 @@ class PartitionMergeSuggestionSupport(Protocol):
 
     def suggest_partition_merge(
         self, strategy: "PartitionByClause", plan: object
-    ) -> "PartitionMergeSuggestion":
+    ) -> 'PartitionMergeSuggestion':
         """Suggest how to merge two adjacent partitions for ``strategy``.
 
         ``plan`` is caller-supplied and opaque to stay engine-neutral.

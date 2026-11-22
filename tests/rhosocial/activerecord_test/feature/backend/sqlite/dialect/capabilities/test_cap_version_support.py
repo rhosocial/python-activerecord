@@ -60,7 +60,7 @@ class TestSQLiteDialectVersionSupport:
         """Test feature support for version 3.24.0 (UPSERT)"""
         dialect = sqlite_dialect_3_24_0
         assert dialect.supports_upsert()
-        assert dialect.suggest_upsert_syntax_type() == "ON CONFLICT"
+        assert dialect.suggest_upsert_syntax_type().syntax == "ON CONFLICT"
         assert not dialect.supports_window_functions()
         assert not dialect.supports_returning_insert()
         assert not dialect.supports_returning_update()
@@ -111,7 +111,7 @@ class TestSQLiteDialectVersionSupport:
         """Test feature support for version 3.38.0 (JSON)"""
         dialect = SQLiteDialect((3, 38, 0))
         assert dialect.supports_json_type()
-        assert dialect.suggest_json_access_operator() == "->"
+        assert dialect.suggest_json_access_operator().operator == "->"
 
     def test_unsupported_features_always_false(self):
         """Test features that are always unsupported"""

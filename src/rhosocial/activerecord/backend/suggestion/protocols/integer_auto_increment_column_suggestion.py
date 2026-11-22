@@ -11,6 +11,7 @@ expressible.
 """
 
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
+from ..definitions import IntegerAutoIncrementColumnSuggestion
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.suggestion import IntegerAutoIncrementColumnSuggestion
@@ -23,7 +24,7 @@ class IntegerAutoIncrementColumnSuggestionSupport(Protocol):
 
     def suggest_integer_auto_increment_column(
         self, default_type: "DataType"
-    ) -> "IntegerAutoIncrementColumnSuggestion":
+    ) -> 'IntegerAutoIncrementColumnSuggestion':
         """Suggest the type + auto-increment mechanism for this dialect.
 
         ``default_type`` is the framework's integer type for the field; a

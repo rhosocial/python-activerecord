@@ -69,7 +69,7 @@ class TestAsyncDummyBackendRemainingCoverage:
         backend = AsyncDummyBackend()
 
         # Test suggest_data_adapters: no own adapters, core defaults remain
-        suggestions = backend.suggest_data_adapters()
+        suggestions = backend.suggest_data_adapters().table
         assert backend.get_type_adapters() == []
         assert suggestions
         assert set(suggestions) <= {
@@ -156,7 +156,7 @@ class TestDummyDialectRemainingCoverage:
             assert method() == expected
 
         # Test other methods
-        assert dialect.suggest_upsert_syntax_type() == "ON CONFLICT"
-        assert dialect.suggest_json_access_operator() == "->"
+        assert dialect.suggest_upsert_syntax_type().syntax == "ON CONFLICT"
+        assert dialect.suggest_json_access_operator().operator == "->"
         assert dialect.supports_explain_format("ANY") is True
         assert dialect.name == "Dummy"
