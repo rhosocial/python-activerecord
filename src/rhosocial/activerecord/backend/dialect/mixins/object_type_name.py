@@ -21,7 +21,7 @@ __all__ = ["TypeNameMixin"]
 class TypeNameMixin(NamespaceMixin):
     """Renders a type as its name."""
 
-    def format_type_object(self, expr: "Type") -> Tuple[str, tuple]:
+    def format_type_object(self, expr: "Type") -> "Tuple[str, tuple]":
         """Render *expr* as a type name.
 
         Args:

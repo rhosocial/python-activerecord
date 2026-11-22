@@ -77,7 +77,7 @@ class TestDummyProtocolSupport:
     def test_upsert_support_methods(self, dialect):
         """Test UpsertSupport protocol methods."""
         assert dialect.supports_upsert() is True
-        assert dialect.get_upsert_syntax_type() == "ON CONFLICT"
+        assert dialect.suggest_upsert_syntax_type() == "ON CONFLICT"
 
     # endregion
 
@@ -101,7 +101,7 @@ class TestDummyProtocolSupport:
     def test_json_support_methods(self, dialect):
         """Test JSONSupport protocol methods."""
         assert dialect.supports_json_type() is True
-        assert dialect.get_json_access_operator() == "->"
+        assert dialect.suggest_json_access_operator() == "->"
         assert dialect.supports_json_table() is True
 
     # endregion
@@ -295,7 +295,7 @@ class TestDummyProtocolSupport:
         assert dialect.supports_index_tablespace() is True
         assert dialect.supports_concurrent_index() is True
         # Check supported index types
-        index_types = dialect.get_supported_index_types()
+        index_types = dialect.suggest_index_types()
         assert isinstance(index_types, list)
         assert len(index_types) > 0
         assert "BTREE" in index_types
@@ -360,7 +360,7 @@ class TestDummyProtocolSupport:
     def test_auto_increment_support_methods(self, dialect):
         """Test AutoIncrementColumnSupport protocol methods.
 
-        DummyDialect composes AutoIncrementMixin and overrides the probe to
+        DummyDialect composes AutoIncrementColumnMixin and overrides the probe to
         True: the generic mixin fails closed, and Dummy is the switchboard.
         """
         assert dialect.supports_auto_increment_column() is True
@@ -512,7 +512,7 @@ class TestDummyProtocolCompleteness:
             ):
                 if obj is Protocol or name.startswith("_"):
                     continue
-                if name == "DDLTypeSupport":
+                if name == "DataTypeSupport":
                     assert obj is protocols_module.DataTypeSupport
                     continue
                 assert name == obj.__name__, f"unexpected protocol alias: {name}"

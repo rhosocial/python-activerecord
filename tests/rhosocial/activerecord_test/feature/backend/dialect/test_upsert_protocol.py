@@ -15,7 +15,7 @@ class NoUpsertDialect(SQLDialectBase, UpsertMixin, UpsertSupport):
     def supports_upsert(self) -> bool:
         return False
 
-    def get_upsert_syntax_type(self) -> str:
+    def suggest_upsert_syntax_type(self) -> str:
         return "ON CONFLICT"
 
 
@@ -26,7 +26,7 @@ def test_no_upsert_dialect_does_not_support_features():
     # Verify protocol implementation
     assert isinstance(dialect, UpsertSupport)
     assert not dialect.supports_upsert()
-    assert dialect.get_upsert_syntax_type() == "ON CONFLICT"
+    assert dialect.suggest_upsert_syntax_type() == "ON CONFLICT"
 
 
 def test_format_on_conflict_clause_reports_no_support():

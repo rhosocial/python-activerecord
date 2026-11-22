@@ -297,7 +297,7 @@ tests asserting `"method" not in ConcreteDialect.__dict__` for dialects that
 match the generic behaviour.
 
 The identity / auto-increment probes fail closed: `IdentityColumnMixin` and
-`AutoIncrementMixin` default every probe to `False` (a probe answering `True` by
+`AutoIncrementColumnMixin` default every probe to `False` (a probe answering `True` by
 default would emit SQL the server rejects), so each dialect declares only what it
 really has and `DummyDialect` overrides them to `True`.
 

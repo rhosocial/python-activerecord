@@ -61,7 +61,7 @@ class SetOperationMixin:
         """
         return False
 
-    def format_set_operation(self, expr: "SetOperation") -> Tuple[str, Tuple]:
+    def format_set_operation(self, expr: "SetOperation") -> "Tuple[str, tuple]":
         """Format a set operation node (UNION, INTERSECT, EXCEPT).
 
         Args:
@@ -99,7 +99,7 @@ class SetOperationMixin:
 
     def format_set_operation_statement(
         self, expr: "SetOperationStatement"
-    ) -> Tuple[str, Tuple]:
+    ) -> "Tuple[str, tuple]":
         """Format a compound SELECT: its parts joined by the operator word.
 
         The only text this method contributes is the keyword itself, mapped

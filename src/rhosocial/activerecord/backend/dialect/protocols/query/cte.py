@@ -6,7 +6,7 @@ see that package for the full protocol surface and the rules the conformance
 tests enforce.
 """
 
-from typing import Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable, Tuple
 
 @runtime_checkable
 class CTESupport(Protocol):
@@ -30,4 +30,10 @@ class CTESupport(Protocol):
         SQL Server prohibits ORDER BY in CTEs unless accompanied by
         TOP, OFFSET, or FOR XML. Most other backends support it.
         """
+        ...  # pragma: no cover
+
+    def format_cte_clause(self, expr: "CTEClause") -> Tuple[str, tuple]:
+        ...  # pragma: no cover
+
+    def format_with_statement(self, expr: "WithStatement") -> Tuple[str, tuple]:
         ...  # pragma: no cover

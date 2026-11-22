@@ -41,6 +41,14 @@ from .ddl.auto_increment import AutoIncrementColumnSupport
 from .ddl.database_assigned_column import DatabaseAssignedColumnSupport
 from .ddl.identity_column import IdentityColumnSupport
 from .ddl.integer_auto_increment_column_suggestion import IntegerAutoIncrementColumnSuggestionSupport
+from .ddl.data_type_suggestion import DataTypeSuggestionSupport
+from .ddl.index.index_suggestion import IndexSuggestionSupport
+from .query.string_concatenation_suggestion import StringConcatenationSuggestionSupport
+from .introspect.async_introspection_suggestion import AsyncIntrospectionSuggestionSupport
+from .introspect.introspection_suggestion import IntrospectionSuggestionSupport
+from .query.upsert_suggestion import UpsertSuggestionSupport
+from .query.json_suggestion import JSONSuggestionSupport
+from .query.table_suggestion import TableSuggestionSupport
 from .ddl.partition_retention_suggestion import PartitionRetentionSuggestionSupport
 from .ddl.partition_build_suggestion import PartitionBuildSuggestionSupport
 from .ddl.partition_add_suggestion import PartitionAddSuggestionSupport
@@ -121,6 +129,7 @@ from .query.window import WindowFunctionSupport
 
 # --- Introspection and sessions ---
 from .introspect.introspection import IntrospectionSupport
+from .introspect.async_introspection import AsyncIntrospectionSupport
 from .introspect.transaction import TransactionControlSupport
 
 # --- SQL/XML ---
@@ -131,11 +140,19 @@ from .sqlxml.xml_querying import SQLXMLQueryingSupport
 from .sqlxml.xml_querying import SQLXMLSupport
 from .sqlxml.xml_serialization import SQLXMLSerializationSupport
 
-# DDLTypeSupport was the former name of DataTypeSupport. It is kept as an
-# alias because backends referenced it; a dialect is typed by its data types,
-# not by whether it declares DDL for them.
-DDLTypeSupport = DataTypeSupport
+from .family import FunctionCallSupport, PredicateSupport, DateTimeSupport, RelationSourceSupport
 
+from .query.expression_support import ExpressionSupport
+from .query.dql_support import DQLSupport
+from .object.database_name_support import DatabaseNameSupport
+from .object.property_graph_name_support import PropertyGraphNameSupport
+from .object.schema_name_support import SchemaNameSupport
+from .query.lpad_support import LpadSupport
+from .query.repeat_support import RepeatSupport
+from .query.rpad_support import RpadSupport
+from .query.trim_support import TrimSupport
+from .query.dml_support import DMLSupport
+from .ddl.ddl_column_support import DDLColumnSupport
 __all__ = [
     "AdvancedGroupingSupport",
     "AlterDatabaseSupport",
@@ -166,7 +183,6 @@ __all__ = [
     "CreateTypeSupport",
     "CreateViewSupport",
     "DatabaseAssignedColumnSupport",
-    "DDLTypeSupport",
     "ColumnTypeSupport",
     "DataTypeSupport",
     "TimestampSupport",
@@ -191,6 +207,14 @@ __all__ = [
     "ILIKESupport",
     "IdentityColumnSupport",
     "IntegerAutoIncrementColumnSuggestionSupport",
+    "DataTypeSuggestionSupport",
+    "IndexSuggestionSupport",
+    "StringConcatenationSuggestionSupport",
+    "AsyncIntrospectionSuggestionSupport",
+    "IntrospectionSuggestionSupport",
+    "UpsertSuggestionSupport",
+    "JSONSuggestionSupport",
+    "TableSuggestionSupport",
     "PartitionRetentionSuggestionSupport",
     "PartitionBuildSuggestionSupport",
     "PartitionAddSuggestionSupport",
@@ -201,6 +225,7 @@ __all__ = [
     "PartitionMergeSuggestionSupport",
     "IndexObjectSupport",
     "IntrospectionSupport",
+    "AsyncIntrospectionSupport",
     "JSONSupport",
     "JoinSupport",
     "LateralJoinSupport",
@@ -237,4 +262,19 @@ __all__ = [
     "ViewObjectSupport",
     "WildcardSupport",
     "WindowFunctionSupport",
+    "RelationSourceSupport",
+    "DateTimeSupport",
+    "PredicateSupport",
+    "FunctionCallSupport",
+    "ExpressionSupport",
+    "DQLSupport",
+    "DatabaseNameSupport",
+    "PropertyGraphNameSupport",
+    "SchemaNameSupport",
+    "LpadSupport",
+    "RepeatSupport",
+    "RpadSupport",
+    "TrimSupport",
+    "DMLSupport",
+    "DDLColumnSupport",
 ]

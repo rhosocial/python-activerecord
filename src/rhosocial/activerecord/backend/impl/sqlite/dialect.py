@@ -10,6 +10,13 @@ from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.protocols import (
+    TableSuggestionSupport,
+    JSONSuggestionSupport,
+    UpsertSuggestionSupport,
+    IntrospectionSuggestionSupport,
+    StringConcatenationSuggestionSupport,
+    IndexSuggestionSupport,
+    DataTypeSuggestionSupport,
     CollationSupport,
     CTESupport,
     FilterClauseSupport,
@@ -55,18 +62,16 @@ from rhosocial.activerecord.backend.dialect.protocols import (
 from rhosocial.activerecord.backend.dialect.mixins import (
     RelationSourceMixin,
     NamespaceMixin,
-    TableNameMixin,
-    ViewNameMixin,
-    MaterializedViewNameMixin,
-    ForeignTableNameMixin,
-    IndexNameMixin,
-    SequenceNameMixin,
-    TriggerNameMixin,
-    FunctionNameMixin,
-    ProcedureNameMixin,
-    TypeNameMixin,
-    DomainNameMixin,
-    SynonymNameMixin,
+    TableObjectMixin,
+    ViewObjectMixin,
+    MaterializedViewObjectMixin,
+    ForeignTableObjectMixin,
+    IndexObjectMixin,
+    SequenceObjectMixin,
+    TriggerObjectMixin,
+    RoutineObjectMixin,
+    TypeObjectMixin,
+    SynonymObjectMixin,
     SchemaNameMixin,
     DatabaseNameMixin,
     PropertyGraphNameMixin,
@@ -94,11 +99,11 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     # DDL Mixins
     TableMixin,
     ConstraintMixin,
-    CommentOnMixin,
+    CommentMixin,
     SchemaMixin,
     IndexMixin,
     GeneratedColumnMixin,
-    AutoIncrementMixin,
+    AutoIncrementColumnMixin,
     IdentityColumnMixin,
     PartitionMixin,
     # New Mixins
@@ -111,6 +116,8 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     DQLMixin,
     DateTimeMixin,
     DDLColumnMixin,
+    ColumnAttributeMixin,
+    AlterTableModifierMixin,
     UserDefinedTypeMixin,
     DomainMixin,
     DMLMixin,
@@ -148,6 +155,7 @@ from .protocols import (
 )
 from .reserved_words import SQLITE_RESERVED_WORDS
 from .suggestion import (
+    SQLiteIndexSuggestionMixin,
     SQLiteIntegerAutoIncrementColumnSuggestionMixin,
     SQLitePartitionRetentionSuggestionMixin,
     SQLitePartitionBuildSuggestionMixin,
@@ -177,7 +185,7 @@ from .mixins import (
     SQLiteGeopolyMixin,
     # Object naming: SQLite's schema is an attached-database name, which is not
     # the SQL-standard construct, so naming is answered here rather than by the
-    # DDL probes. Placed ahead of the shared TableNameMixin in the class list.
+    # DDL probes. Placed ahead of the shared TableObjectMixin in the class list.
     SQLiteObjectNameMixin,
     SQLiteTypeSupportMixin,
     # Value literals: SQLite's blob spelling, overriding the base's
@@ -190,9 +198,24 @@ from .mixins import (
     # Suggested storage declarations: the DDL half, also answered in full here.
 )
 from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression
+from .suggestion.general_suggestions import (
+    SQLiteIntrospectionSuggestionMixin,
+    SQLiteJSONSuggestionMixin,
+    SQLiteStringConcatenationSuggestionMixin,
+    SQLiteTableSuggestionMixin,
+    SQLiteUpsertSuggestionMixin,
+)
 
 class SQLiteDialect(
     SQLiteDataTypeSuggestionsMixin,
+    SQLiteTableSuggestionMixin,
+    SQLiteJSONSuggestionMixin,
+    SQLiteUpsertSuggestionMixin,
+    SQLiteIntrospectionSuggestionMixin,
+    SQLiteStringConcatenationSuggestionMixin,
+    SQLiteIndexSuggestionMixin,
+    IndexSuggestionSupport,
+    DataTypeSuggestionSupport,
     SQLiteIntegerAutoIncrementColumnSuggestionMixin,
     SQLitePartitionRetentionSuggestionMixin,
     SQLitePartitionBuildSuggestionMixin,
@@ -206,7 +229,7 @@ class SQLiteDialect(
     # key declared here" is SQLite's alone, and a mixin placed after a class it
     # overrides never wins MRO.
     # SQLite's column formatter spells AUTOINCREMENT; it must precede the core
-    # AutoIncrementMixin, whose AUTO_INCREMENT formatter would otherwise win.
+    # AutoIncrementColumnMixin, whose AUTO_INCREMENT formatter would otherwise win.
     SQLiteDDLColumnMixin,
     # The bases below come in bundles: a backend mixin, then the core bundle
     # it stands in for. The backend's answer has to come first -- a mixin
@@ -229,18 +252,16 @@ class SQLiteDialect(
     RelationSourceMixin,
     # Named objects: each *NameMixin inherits NamespaceMixin, so they precede it.
     SQLiteObjectNameMixin,
-    TableNameMixin,
-    ViewNameMixin,
-    MaterializedViewNameMixin,
-    ForeignTableNameMixin,
-    IndexNameMixin,
-    SequenceNameMixin,
-    TriggerNameMixin,
-    FunctionNameMixin,
-    ProcedureNameMixin,
-    TypeNameMixin,
-    DomainNameMixin,
-    SynonymNameMixin,
+    TableObjectMixin,
+    ViewObjectMixin,
+    MaterializedViewObjectMixin,
+    ForeignTableObjectMixin,
+    IndexObjectMixin,
+    SequenceObjectMixin,
+    TriggerObjectMixin,
+    RoutineObjectMixin,
+    TypeObjectMixin,
+    SynonymObjectMixin,
     SchemaNameMixin,
     DatabaseNameMixin,
     PropertyGraphNameMixin,
@@ -272,7 +293,7 @@ class SQLiteDialect(
     SQLiteViewMixin,
     TableMixin,
     ConstraintMixin,
-    CommentOnMixin,
+    CommentMixin,
     SchemaMixin,
     IndexMixin,
     # No SequenceMixin here, and its absence is deliberate: SQLite has no
@@ -280,10 +301,10 @@ class SQLiteDialect(
     # DROP and ALTER SEQUENCE are not statements the engine parses. Leaving the
     # mixin out makes the absence structural -- the dispatch finds no formatter
     # and raises UnsupportedFeatureError naming the dialect and the statement,
-    # rather than rendering SQL SQLite would reject. SequenceNameMixin above
+    # rather than rendering SQL SQLite would reject. SequenceObjectMixin above
     # stays: naming a Sequence and creating one are separate jobs.
     GeneratedColumnMixin,
-    AutoIncrementMixin,
+    AutoIncrementColumnMixin,
     IdentityColumnMixin,
     # Both nodes stay fail-closed on SQLite as standalone column clauses: it
     # has no GENERATED ... AS IDENTITY grammar, and AUTOINCREMENT lives only
@@ -330,6 +351,8 @@ class SQLiteDialect(
     # Generic mixins (fallback for methods not overridden by SQLite)
     DateTimeMixin,
     DDLColumnMixin,
+    ColumnAttributeMixin,
+    AlterTableModifierMixin,
     DMLMixin,
     TransactionControlMixin,
     ViewMixin,
@@ -411,7 +434,8 @@ class SQLiteDialect(
                 backend.introspect_and_adapt() before version-dependent
                 features can be used.
         """
-        super().__init__()
+        from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+        SQLDialectBase.__init__(self)
         self._reserved_words = SQLITE_RESERVED_WORDS
         if version is not None:
             self.version = version
@@ -446,7 +470,7 @@ class SQLiteDialect(
 
         return SQLiteSchemaDiffer()
 
-    def substitute_data_types(self) -> Dict[str, type]:
+    def suggest_substitute_types(self) -> Dict[str, type]:
         """Cross-backend type-consistency suggestions for SQLite.
 
         Values are the suggested replacement DataType **classes** (same
@@ -533,7 +557,7 @@ class SQLiteDialect(
         """SQLite supports -> and ->> operators from version 3.38.0+."""
         return self.version_at_least((3, 38, 0))
 
-    def format_json_function_expression(self, expr: "JSONDocumentValue") -> Tuple[str, tuple]:
+    def format_json_function_expression(self, expr: "JSONDocumentValue") -> "Tuple[str, tuple]":
         """Render a JSON path access with SQLite's own JSON1 functions.
 
         Without this, ``JSONPathMode.FUNCTION`` fell through to the core
@@ -564,10 +588,6 @@ class SQLiteDialect(
         if expr.alias:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
         return sql, params
-
-    def get_json_access_operator(self) -> str:
-        """SQLite uses '->' for JSON access."""
-        return "->"
 
     def supports_json_table(self) -> bool:
         """SQLite does not directly support JSON_TABLE as a table function."""
@@ -612,7 +632,7 @@ class SQLiteDialect(
         # SQLite has limited support for different EXPLAIN formats
         return format_type.upper() in ["TEXT", "DOT"]
 
-    def format_explain_statement(self, expr: "ExplainStatement") -> Tuple[str, tuple]:
+    def format_explain_statement(self, expr: "ExplainStatement") -> "Tuple[str, tuple]":
         """Format EXPLAIN / EXPLAIN QUERY PLAN for SQLite.
 
         SQLite supports two forms:
@@ -673,15 +693,6 @@ class SQLiteDialect(
         # UPSERT (ON CONFLICT) is supported since SQLite 3.24.0
         return self.version_at_least((3, 24, 0))
 
-    def get_upsert_syntax_type(self) -> str:
-        """
-        Get UPSERT syntax type.
-
-        Returns:
-            'ON CONFLICT' (PostgreSQL/SQLite) or 'ON DUPLICATE KEY' (MySQL)
-        """
-        return "ON CONFLICT"
-
     def supports_on_conflict_clause(self) -> bool:
         """Whether the ON CONFLICT clause form is supported in INSERT."""
         return True
@@ -725,7 +736,7 @@ class SQLiteDialect(
         """Whether SQLite accepts ``IS [NOT] DISTINCT FROM`` (3.39.0+)."""
         return self.version_at_least((3, 39, 0))
 
-    def format_distinct_from_predicate(self, expr: "DistinctFromPredicate") -> Tuple[str, tuple]:
+    def format_distinct_from_predicate(self, expr: "DistinctFromPredicate") -> "Tuple[str, tuple]":
         """Format a NULL-safe distinctness check, refusing below SQLite 3.39.0.
 
         SQLite has had the standard spelling since 3.39.0 (2022-06-25). Below
@@ -755,7 +766,7 @@ class SQLiteDialect(
             f"{left_sql} IS{not_str} DISTINCT FROM {right_sql}", expr
         ), left_params + right_params
 
-    def format_trim_expression(self, expr: "TrimExpression") -> Tuple[str, tuple]:
+    def format_trim_expression(self, expr: "TrimExpression") -> "Tuple[str, tuple]":
         """Render TRIM as SQLite's function form.
 
         SQLite parses no ``trim(<chars> from <string>)`` syntax at all -- the
@@ -780,7 +791,7 @@ class SQLiteDialect(
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
         return sql, params
 
-    def format_values_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+    def format_values_expression(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """SQLite override: VALUES does not support ``AS alias(col, ...)`` syntax.
 
         The base ``ExpressionMixin`` implementation appends a parenthesised
@@ -812,7 +823,7 @@ class SQLiteDialect(
         """SQLite does not support TRUNCATE TABLE (use DELETE FROM instead)."""
         return False
 
-    def format_truncate_statement(self, expr: "TruncateStatement") -> Tuple[str, tuple]:
+    def format_truncate_statement(self, expr: "TruncateStatement") -> "Tuple[str, tuple]":
         """SQLite does not support TRUNCATE TABLE."""
         raise UnsupportedFeatureError(self.name, "TRUNCATE TABLE", "Use DELETE FROM instead.")
 
@@ -1075,7 +1086,7 @@ class SQLiteDialect(
         """SQLite does not support explicit NULLS FIRST/LAST ordering."""
         return False
 
-    def format_grouping_clause(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_grouping_clause(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Format grouping expression (ROLLUP, CUBE, GROUPING SETS)."""
         operation = expr.operation
         # Check feature support based on operation type
@@ -1094,7 +1105,7 @@ class SQLiteDialect(
             self.name, f"{operation} grouping operation", f"{operation} is not supported by SQLite."
         )
 
-    def format_array_expression(self, expr: "ArrayValue") -> Tuple[str, Tuple]:
+    def format_array_expression(self, expr: "ArrayValue") -> "Tuple[str, tuple]":
         """Format array expression."""
         # SQLite does not support native array types
         raise UnsupportedFeatureError(
@@ -1104,7 +1115,7 @@ class SQLiteDialect(
             "or comma-separated values.",
         )
 
-    def format_json_table_expression(self, expr: "JSONTableExpression") -> Tuple[str, Tuple]:
+    def format_json_table_expression(self, expr: "JSONTableExpression") -> "Tuple[str, tuple]":
         """Format JSON_TABLE expression — unsupported in SQLite."""
         # SQLite does not support JSON_TABLE function directly
         raise UnsupportedFeatureError(
@@ -1114,7 +1125,7 @@ class SQLiteDialect(
             "json_extract() with subqueries.",
         )
 
-    def format_match_clause(self, expr: "MatchClause") -> Tuple[str, tuple]:
+    def format_match_clause(self, expr: "MatchClause") -> "Tuple[str, tuple]":
         """
         Format MATCH clause with expression.
 
@@ -1129,7 +1140,7 @@ class SQLiteDialect(
             self.name, "graph MATCH clause", "SQLite does not support graph MATCH clause."
         )
 
-    def format_ordered_set_aggregation(self, expr: "OrderedSetAggregation") -> Tuple[str, Tuple]:
+    def format_ordered_set_aggregation(self, expr: "OrderedSetAggregation") -> "Tuple[str, tuple]":
         """
         Format ordered-set aggregation function call.
 
@@ -1146,7 +1157,7 @@ class SQLiteDialect(
             "SQLite does not support ordered-set aggregate functions (WITHIN GROUP).",
         )
 
-    def format_qualify_clause(self, expr: "QualifyClause") -> Tuple[str, tuple]:
+    def format_qualify_clause(self, expr: "QualifyClause") -> "Tuple[str, tuple]":
         """Format QUALIFY clause."""
         # SQLite does not support QUALIFY clause
         raise UnsupportedFeatureError(

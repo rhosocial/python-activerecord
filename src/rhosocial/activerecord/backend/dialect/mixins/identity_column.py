@@ -26,7 +26,7 @@ class IdentityColumnMixin:
     how the sequence formatter's Oracle override lost its gates).
 
     This is not ``AUTO_INCREMENT`` (a parameterless marker, carried by
-    :class:`AutoIncrementClause` and :class:`AutoIncrementMixin`) and not
+    :class:`AutoIncrementClause` and :class:`AutoIncrementColumnMixin`) and not
     ``SERIAL`` (a PostgreSQL *type*, not a column clause).
 
     Every probe defaults to ``False``. The direction is deliberate: a probe

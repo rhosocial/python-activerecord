@@ -28,6 +28,7 @@ from typing import Any, List, Tuple, Union, TYPE_CHECKING
 from ...expression.bases import BaseExpression
 from ...expression.objects import RelationObject
 from ...expression.query_sources import JSONTableColumn
+from ..protocols.family import FunctionCallSupport, PredicateSupport, DateTimeSupport, RelationSourceSupport
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.sources import (
@@ -45,7 +46,7 @@ if TYPE_CHECKING:  # pragma: no cover
 __all__ = ["RelationSourceMixin"]
 
 
-class RelationSourceMixin:
+class RelationSourceMixin(RelationSourceSupport):
     """Renders a ``FROM`` clause reference to any kind of row source."""
 
     def supports_derived_table(self) -> bool:

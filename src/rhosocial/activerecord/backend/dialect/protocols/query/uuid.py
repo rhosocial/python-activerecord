@@ -82,3 +82,5 @@ class UUIDSupport(Protocol):
             Tuple of (SQL string, parameters tuple).
         """
         ...  # pragma: no cover
+    UUID_SQL: dict
+    UUID_SUGGESTIONS: dict

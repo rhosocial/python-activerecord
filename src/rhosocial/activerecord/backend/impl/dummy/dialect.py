@@ -47,18 +47,16 @@ import re
 from rhosocial.activerecord.backend.dialect.mixins import (
     RelationSourceMixin,
     NamespaceMixin,
-    TableNameMixin,
-    ViewNameMixin,
-    MaterializedViewNameMixin,
-    ForeignTableNameMixin,
-    IndexNameMixin,
-    SequenceNameMixin,
-    TriggerNameMixin,
-    FunctionNameMixin,
-    ProcedureNameMixin,
-    TypeNameMixin,
-    DomainNameMixin,
-    SynonymNameMixin,
+    TableObjectMixin,
+    ViewObjectMixin,
+    MaterializedViewObjectMixin,
+    ForeignTableObjectMixin,
+    IndexObjectMixin,
+    SequenceObjectMixin,
+    TriggerObjectMixin,
+    RoutineObjectMixin,
+    TypeObjectMixin,
+    SynonymObjectMixin,
     SchemaNameMixin,
     DatabaseNameMixin,
     PropertyGraphNameMixin,
@@ -89,7 +87,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     TableMixin,
     PartitionMixin,
     ConstraintMixin,
-    CommentOnMixin,
+    CommentMixin,
     ViewMixin,
     TruncateMixin,
     SchemaMixin,
@@ -98,11 +96,13 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     TriggerMixin,
     FunctionMixin,
     GeneratedColumnMixin,
-    AutoIncrementMixin,
+    AutoIncrementColumnMixin,
     IdentityColumnMixin,
     DatabaseMixin,
     # Introspection Mixin
     IntrospectionMixin,
+    AsyncIntrospectionMixin,
+    AsyncIntrospectionMixin,
     # New Mixins
     PredicateMixin,
     TrimMixin,
@@ -114,12 +114,20 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     DQLMixin,
     DMLMixin,
     DDLColumnMixin,
+    ColumnAttributeMixin,
+    AlterTableModifierMixin,
     DataTypeMixin,
     UserDefinedTypeMixin,
     DomainMixin,
     TransactionControlMixin,
 )
 from rhosocial.activerecord.backend.dialect.protocols import (
+    TableSuggestionSupport,
+    JSONSuggestionSupport,
+    UpsertSuggestionSupport,
+    StringConcatenationSuggestionSupport,
+    IndexSuggestionSupport,
+    DataTypeSuggestionSupport,
     IntegerAutoIncrementColumnSuggestionSupport,
     PartitionRetentionSuggestionSupport,
     PartitionBuildSuggestionSupport,
@@ -230,6 +238,9 @@ from rhosocial.activerecord.backend.dialect.protocols import (
 )
 from .column_type import DummyColumnTypeMixin
 from .data_type_suggestions import DummyDataTypeSuggestionsMixin
+from .index_suggestion import DummyIndexSuggestionMixin
+from .general_suggestions import (DummyJSONSuggestionMixin, DummyStringConcatenationSuggestionMixin,
+    DummyTableSuggestionMixin, DummyUpsertSuggestionMixin)
 from .expression import _DummyTypeAlterAction, _DummyTypeDefinition
 from rhosocial.activerecord.backend.expression.statements.ddl_type import (
     TypeAlterAction,
@@ -255,77 +266,11 @@ from typing import Dict, List, Tuple, Type, TYPE_CHECKING
 _COLLATION_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 # ---------------------------------------------------------------------------
-# parse_type: the closed vocabulary this dialect can read back
-# ---------------------------------------------------------------------------
-#
-# DummyDialect renders SQL-standard type names (the ``format_data_type_*``
-# family on the class below), so those names are exactly what it can parse.
-# The point of parsing at all is canonicality: **one concept in, exactly one
-# class out, carrying the spelling it was written with**.  ``character varying``
-# must come back as the variable-length concept and never as the fixed-length
-# one, and ``DOUBLE`` and ``DOUBLE PRECISION`` must come back as the same class
-# — the whole reason ``SPELLINGS`` exists is that a second class per synonym
-# would make the differ report a change that is not there.
-#
-# The table is derived from the classes' own ``SPELLINGS`` rather than written
-# out, so it cannot drift from the closed list the formatters validate against.
-
-#: The core concepts ``parse_type`` recognises.  ``IntervalType`` is handled
-#: before the table lookup because its qualifier is a suffix rather than a name.
-#: ``EnumType`` is absent because ``ENUM('a','b')`` is a value list, not a type
-#: name — the part that says which values is not the part that says which type,
-#: and ``CustomType`` keeps it verbatim.
-_PARSE_CONCEPTS = (
-    BigIntType, BinaryType, BlobType, BooleanType, CharType, DateTimeType, DateType,
-    DecimalType, DoubleType, FloatType, IntegerType, JsonBType, JsonType, RealType,
-    SmallIntType, TextType, TimeType, TimeTzType, TimestampType, TimestampTzType,
-    TinyIntType, UUIDType, VarBinaryType, VarCharType, XmlType,
-)
-
-#: ``{UPPER-CASED type name: concept}``.  A concept with several spellings
-#: contributes each of them and a concept with one contributes that one, so
-#: ``CHAR`` and ``CHARACTER`` land on ``CharType`` while ``CHARACTER VARYING``
-#: lands on ``VarCharType`` — three names, two concepts, no ambiguity.
-_PARSE_VOCABULARY: Dict[str, Type] = {
-    spelling.upper(): concept
-    for concept in _PARSE_CONCEPTS
-    for spelling in (concept.SPELLINGS or (concept.name,))
-}
-
-#: The four names the zoned concepts are *written* as.  Their dispatch names are
-#: ``timetz`` / ``timestamptz``, which is what PostgreSQL calls them; the
-#: standard spells them out and dummy renders the standard form, so both reach
-#: the concept.  ``WITHOUT TIME ZONE`` is the standard's name for the
-#: un-suffixed type, so it lands on the un-zoned concept.
-_PARSE_VOCABULARY.update({
-    "TIME WITH TIME ZONE": TimeTzType,
-    "TIMESTAMP WITH TIME ZONE": TimestampTzType,
-    "TIME WITHOUT TIME ZONE": TimeType,
-    "TIMESTAMP WITHOUT TIME ZONE": TimestampType,
-})
 
 #: One precision group, digits only, wherever it appears in the name: the
 #: standard writes it before the zone suffix (``TIMESTAMP(3) WITH TIME ZONE``)
 #: as well as at the end (``DECIMAL(10,2)``).
-_PARSE_PRECISION_RE = re.compile(r"\(\s*(\d+(?:\s*,\s*\d+)*)?\s*\)")
-
 #: A trailing array marker, one per dimension.
-_PARSE_ARRAY_MARKER_RE = re.compile(r"\[\s*\]\s*$")
-
-
-def _split_precision(raw: str) -> Tuple[str, Tuple[int, ...]]:
-    """Split ``TIMESTAMP(3) WITH TIME ZONE`` into its name and its numbers.
-
-    Returns the name with the precision group removed and the numbers as ints,
-    in the order they were written.  A name with no precision group comes back
-    unchanged with no numbers.
-    """
-    match = _PARSE_PRECISION_RE.search(raw)
-    if match is None:
-        return raw, ()
-    written = match.group(1) or ""
-    numbers = tuple(int(part) for part in written.split(",")) if written.strip() else ()
-    return (raw[:match.start()] + raw[match.end():]).strip(), numbers
 
 
 if TYPE_CHECKING:
@@ -357,18 +302,16 @@ class DummyDialect(
     # protocols name the format_*_object methods and inherit NamespaceSupport,
     # so they precede it too. Both groups sit ahead of the DDL mixins because
     # naming an object and changing one are independent capabilities.
-    TableNameMixin,
-    ViewNameMixin,
-    MaterializedViewNameMixin,
-    ForeignTableNameMixin,
-    IndexNameMixin,
-    SequenceNameMixin,
-    TriggerNameMixin,
-    FunctionNameMixin,
-    ProcedureNameMixin,
-    TypeNameMixin,
-    DomainNameMixin,
-    SynonymNameMixin,
+    TableObjectMixin,
+    ViewObjectMixin,
+    MaterializedViewObjectMixin,
+    ForeignTableObjectMixin,
+    IndexObjectMixin,
+    SequenceObjectMixin,
+    TriggerObjectMixin,
+    RoutineObjectMixin,
+    TypeObjectMixin,
+    SynonymObjectMixin,
     SchemaNameMixin,
     DatabaseNameMixin,
     PropertyGraphNameMixin,
@@ -412,7 +355,7 @@ class DummyDialect(
     TableMixin,
     PartitionMixin,
     ConstraintMixin,
-    CommentOnMixin,
+    CommentMixin,
     ViewMixin,
     TruncateMixin,
     SchemaMixin,
@@ -421,7 +364,7 @@ class DummyDialect(
     TriggerMixin,
     FunctionMixin,
     GeneratedColumnMixin,
-    AutoIncrementMixin,
+    AutoIncrementColumnMixin,
     IdentityColumnMixin,
     IntegerAutoIncrementColumnSuggestionSupport,
     PartitionRetentionSuggestionSupport,
@@ -435,6 +378,7 @@ class DummyDialect(
     DatabaseMixin,
     # Introspection Mixin
     IntrospectionMixin,
+    AsyncIntrospectionMixin,
     # New Mixins
     PredicateMixin,
     TrimMixin,
@@ -450,6 +394,13 @@ class DummyDialect(
     # Suggested data types: the DDL half of the same answer, installed ahead of
     # the mixin that withholds the table.
     DummyDataTypeSuggestionsMixin,
+    DummyIndexSuggestionMixin,
+    DummyTableSuggestionMixin,
+    DummyJSONSuggestionMixin,
+    DummyUpsertSuggestionMixin,
+    DummyStringConcatenationSuggestionMixin,
+    IndexSuggestionSupport,
+    DataTypeSuggestionSupport,
     DataTypeMixin,
     DummyColumnTypeMixin,
     UserDefinedTypeMixin,
@@ -457,6 +408,8 @@ class DummyDialect(
     DataTypeSupport,
     ColumnTypeSupport,
     DDLColumnMixin,
+    ColumnAttributeMixin,
+    AlterTableModifierMixin,
     TransactionControlMixin,
     # Protocols for type checking
     SQLXMLSupport,
@@ -549,7 +502,8 @@ class DummyDialect(
 
     def __init__(self) -> None:
         """Initialize dummy dialect with a placeholder version."""
-        super().__init__()
+        from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+        SQLDialectBase.__init__(self)
         # Set a default version since dummy doesn't represent a real database
         self._version = (1, 0, 0)
 
@@ -616,15 +570,15 @@ class DummyDialect(
             ),
         )
 
-    def format_data_type_tinyint(self, expr: TinyIntType) -> Tuple[str, tuple]:
+    def format_data_type_tinyint(self, expr: TinyIntType) -> "Tuple[str, tuple]":
         self._refuse_unsigned(expr, "TINYINT")
         return "TINYINT", ()
 
-    def format_data_type_smallint(self, expr: SmallIntType) -> Tuple[str, tuple]:
+    def format_data_type_smallint(self, expr: SmallIntType) -> "Tuple[str, tuple]":
         self._refuse_unsigned(expr, "SMALLINT")
         return "SMALLINT", ()
 
-    def format_data_type_integer(self, expr: IntegerType) -> Tuple[str, tuple]:
+    def format_data_type_integer(self, expr: IntegerType) -> "Tuple[str, tuple]":
         """The dummy dialect renders every spelling of this one type verbatim,
         which is what makes it useful for testing dispatch.
 
@@ -638,68 +592,68 @@ class DummyDialect(
         self._refuse_unsigned(expr, "INTEGER")
         return "INT" if expr.spelling == "int" else "INTEGER", ()
 
-    def format_data_type_bigint(self, expr: BigIntType) -> Tuple[str, tuple]:
+    def format_data_type_bigint(self, expr: BigIntType) -> "Tuple[str, tuple]":
         self._refuse_unsigned(expr, "BIGINT")
         return "BIGINT", ()
 
-    def format_data_type_real(self, expr: RealType) -> Tuple[str, tuple]:
+    def format_data_type_real(self, expr: RealType) -> "Tuple[str, tuple]":
         # REAL is refused for unsigned for the same reason as every other
         # numeric here: the grammar this dialect renders has no UNSIGNED
         # modifier, so the flag cannot be honoured and must not be dropped.
         self._refuse_unsigned(expr, "REAL")
         return "REAL", ()
 
-    def format_data_type_double(self, expr: DoubleType) -> Tuple[str, tuple]:
+    def format_data_type_double(self, expr: DoubleType) -> "Tuple[str, tuple]":
         self._refuse_unsigned(expr, "DOUBLE PRECISION")
         return "DOUBLE PRECISION", ()
 
-    def format_data_type_text(self, expr: TextType) -> Tuple[str, tuple]:
+    def format_data_type_text(self, expr: TextType) -> "Tuple[str, tuple]":
         return "TEXT", ()
 
-    def format_data_type_boolean(self, expr: BooleanType) -> Tuple[str, tuple]:
+    def format_data_type_boolean(self, expr: BooleanType) -> "Tuple[str, tuple]":
         return "BOOLEAN", ()
 
-    def format_data_type_blob(self, expr: BlobType) -> Tuple[str, tuple]:
+    def format_data_type_blob(self, expr: BlobType) -> "Tuple[str, tuple]":
         return "BLOB", ()
 
-    def format_data_type_date(self, expr: DateType) -> Tuple[str, tuple]:
+    def format_data_type_date(self, expr: DateType) -> "Tuple[str, tuple]":
         return "DATE", ()
 
-    def format_data_type_json(self, expr: JsonType) -> Tuple[str, tuple]:
+    def format_data_type_json(self, expr: JsonType) -> "Tuple[str, tuple]":
         return "JSON", ()
 
-    def format_data_type_jsonb(self, expr: JsonBType) -> Tuple[str, tuple]:
+    def format_data_type_jsonb(self, expr: JsonBType) -> "Tuple[str, tuple]":
         return "JSONB", ()
 
-    def format_data_type_xml(self, expr: XmlType) -> Tuple[str, tuple]:
+    def format_data_type_xml(self, expr: XmlType) -> "Tuple[str, tuple]":
         return "XML", ()
 
-    def format_data_type_uuid(self, expr: UUIDType) -> Tuple[str, tuple]:
+    def format_data_type_uuid(self, expr: UUIDType) -> "Tuple[str, tuple]":
         return "UUID", ()
 
-    def format_data_type_char(self, expr: CharType) -> Tuple[str, tuple]:
+    def format_data_type_char(self, expr: CharType) -> "Tuple[str, tuple]":
         return (f"CHAR({expr.length})" if expr.length is not None else "CHAR"), ()
 
-    def format_data_type_varchar(self, expr: VarCharType) -> Tuple[str, tuple]:
+    def format_data_type_varchar(self, expr: VarCharType) -> "Tuple[str, tuple]":
         return (f"VARCHAR({expr.length})" if expr.length is not None else "VARCHAR"), ()
 
-    def format_data_type_binary(self, expr: BinaryType) -> Tuple[str, tuple]:
+    def format_data_type_binary(self, expr: BinaryType) -> "Tuple[str, tuple]":
         return (f"BINARY({expr.length})" if expr.length is not None else "BINARY"), ()
 
-    def format_data_type_varbinary(self, expr: VarBinaryType) -> Tuple[str, tuple]:
+    def format_data_type_varbinary(self, expr: VarBinaryType) -> "Tuple[str, tuple]":
         return (f"VARBINARY({expr.length})" if expr.length is not None else "VARBINARY"), ()
 
-    def format_data_type_enum(self, expr: EnumType) -> Tuple[str, tuple]:
+    def format_data_type_enum(self, expr: EnumType) -> "Tuple[str, tuple]":
         # format_literal rather than an f-string of quotes: it is the dialect's
         # own escaping, so a value containing a quote survives.
         values = ",".join(self.format_literal(value) for value in expr.values)
         return f"ENUM({values})", ()
 
-    def format_data_type_float(self, expr: FloatType) -> Tuple[str, tuple]:
+    def format_data_type_float(self, expr: FloatType) -> "Tuple[str, tuple]":
         self._refuse_unsigned(expr, "FLOAT")
         return (f"FLOAT({expr.precision})" if expr.precision is not None else "FLOAT"), ()
 
-    def format_data_type_decimal(self, expr: DecimalType) -> Tuple[str, tuple]:
+    def format_data_type_decimal(self, expr: DecimalType) -> "Tuple[str, tuple]":
         self._refuse_unsigned(expr, "DECIMAL")
         if expr.precision is not None and expr.scale is not None:
             return f"DECIMAL({expr.precision},{expr.scale})", ()
@@ -707,118 +661,32 @@ class DummyDialect(
             return f"DECIMAL({expr.precision})", ()
         return "DECIMAL", ()
 
-    def format_data_type_time(self, expr: TimeType) -> Tuple[str, tuple]:
+    def format_data_type_time(self, expr: TimeType) -> "Tuple[str, tuple]":
         return (f"TIME({expr.precision})" if expr.precision is not None else "TIME"), ()
 
-    def format_data_type_timetz(self, expr: TimeTzType) -> Tuple[str, tuple]:
+    def format_data_type_timetz(self, expr: TimeTzType) -> "Tuple[str, tuple]":
         base = f"TIME({expr.precision})" if expr.precision is not None else "TIME"
         return f"{base} WITH TIME ZONE", ()
 
-    def format_data_type_datetime(self, expr: DateTimeType) -> Tuple[str, tuple]:
+    def format_data_type_datetime(self, expr: DateTimeType) -> "Tuple[str, tuple]":
         return (f"DATETIME({expr.precision})" if expr.precision is not None else "DATETIME"), ()
 
-    def format_data_type_timestamp(self, expr: TimestampType) -> Tuple[str, tuple]:
+    def format_data_type_timestamp(self, expr: TimestampType) -> "Tuple[str, tuple]":
         return (f"TIMESTAMP({expr.precision})" if expr.precision is not None else "TIMESTAMP"), ()
 
-    def format_data_type_timestamptz(self, expr: TimestampTzType) -> Tuple[str, tuple]:
+    def format_data_type_timestamptz(self, expr: TimestampTzType) -> "Tuple[str, tuple]":
         base = f"TIMESTAMP({expr.precision})" if expr.precision is not None else "TIMESTAMP"
         return f"{base} WITH TIME ZONE", ()
 
-    def format_data_type_interval(self, expr: IntervalType) -> Tuple[str, tuple]:
+    def format_data_type_interval(self, expr: IntervalType) -> "Tuple[str, tuple]":
         return (f"INTERVAL {expr.fields}" if expr.fields else "INTERVAL"), ()
 
-    def format_data_type_custom(self, expr: CustomType) -> Tuple[str, tuple]:
+    def format_data_type_custom(self, expr: CustomType) -> "Tuple[str, tuple]":
         return expr.raw, ()
 
-    def format_data_type_array(self, expr: ArrayType) -> Tuple[str, tuple]:
+    def format_data_type_array(self, expr: ArrayType) -> "Tuple[str, tuple]":
         element_sql, _ = self.format_data_type(expr.element_type)
         return element_sql + "[]" * expr.dimensions, ()
-
-    def parse_type(self, raw: str) -> DataType:
-        """Parse a SQL type name back into the concept it names.
-
-        Dummy renders SQL-standard type names, so those names are exactly what
-        it can read back, and the answer is **canonical**: one concept in,
-        exactly one class out, carrying the spelling it was written with.
-
-        That last part is what keeps the schema differ honest.
-        ``parse_type("character varying")`` is a ``VarCharType`` — the
-        variable-length concept — and never a ``CharType``: they are different
-        storage, and a parser that conflated them would report a column as
-        changed when nothing about it had.  Conversely ``parse_type("DOUBLE")``
-        and ``parse_type("DOUBLE PRECISION")`` are the *same* class, because
-        they are the same type written two ways.
-
-        A name this dialect does not render comes back as ``CustomType``.  That
-        is the honest answer for a type the framework has no class for, and it
-        is what lets an introspected schema be written back verbatim; it is
-        *not* an answer for a name in the table above, which is why the table
-        is checked against every core ``SPELLINGS`` entry by
-        ``tests/.../dummy/types/test_type_spelling_parse.py``.
-        """
-        stripped = raw.strip()
-        if not stripped:
-            return CustomType(self, raw=stripped)
-
-        # Array markers are not part of the element's name: ``VARCHAR(30)[]`` is
-        # one-dimensional and ``VARCHAR(30)[][]`` two.
-        element_name = stripped
-        dimensions = 0
-        while True:
-            marker = _PARSE_ARRAY_MARKER_RE.search(element_name)
-            if marker is None:
-                break
-            element_name = element_name[:marker.start()]
-            dimensions += 1
-
-        name, numbers = _split_precision(element_name)
-        upper = name.upper()
-
-        # Which constructor keyword each numeric parameter of a type name fills,
-        # in the order the numbers are written.  A concept absent from it takes
-        # no numbers, so ``INT(11)`` is *not* silently read as ``INT`` — a width
-        # the type cannot carry is not a type name dummy writes, and it is
-        # reported as the raw text instead.  It belongs to this function: this is
-        # the one place that reads it.
-        numeric_params: Dict[Type, Tuple[str, ...]] = {
-            BinaryType: ("length",),
-            CharType: ("length",),
-            DateTimeType: ("precision",),
-            DecimalType: ("precision", "scale"),
-            FloatType: ("precision",),
-            TimeType: ("precision",),
-            TimeTzType: ("precision",),
-            TimestampType: ("precision",),
-            TimestampTzType: ("precision",),
-            VarBinaryType: ("length",),
-            VarCharType: ("length",),
-        }
-
-        # ``INTERVAL`` carries a qualifier rather than a name, so it is matched
-        # as a prefix.  IntervalType validates the qualifier itself.
-        if upper == "INTERVAL" or upper.startswith("INTERVAL "):
-            element = IntervalType(
-                self, fields=name[len("INTERVAL"):].strip() or None,
-            )
-        else:
-            concept = _PARSE_VOCABULARY.get(upper)
-            fields = numeric_params.get(concept, ()) if concept else ()
-            if concept is None or len(numbers) > len(fields):
-                # Either a name dummy does not render, or numbers the concept
-                # cannot carry (``INT(11)``). Both are reported verbatim rather
-                # than guessed at.
-                element = CustomType(self, raw=stripped)
-            else:
-                kwargs = dict(zip(fields, numbers))
-                if concept.SPELLINGS:
-                    kwargs["spelling"] = upper.lower()
-                element = concept(self, **kwargs)
-
-        if not dimensions:
-            return element
-        return ArrayType(
-            self, element_type=element, dimensions=dimensions,
-        )
 
     def supports_type_objects(self) -> bool:
         return True
@@ -856,7 +724,7 @@ class DummyDialect(
     def supports_multiple_type_alter_actions(self) -> bool:
         return False
 
-    def format_type_definition(self, expr: TypeDefinition) -> Tuple[str, tuple]:
+    def format_type_definition(self, expr: TypeDefinition) -> "Tuple[str, tuple]":
         if not self.supports_type_objects():
             raise UnsupportedFeatureError(self.name, "TYPE definition")
         if not self.supports_type_definition(type(expr)):
@@ -872,7 +740,7 @@ class DummyDialect(
             f"TYPE definition {expr.definition_kind}",
         )
 
-    def format_type_alter_action(self, expr: TypeAlterAction) -> Tuple[str, tuple]:
+    def format_type_alter_action(self, expr: TypeAlterAction) -> "Tuple[str, tuple]":
         if not self.supports_type_objects() or not self.supports_alter_type():
             raise UnsupportedFeatureError(self.name, "ALTER TYPE action")
         if not self.supports_type_alter_action(type(expr)):
@@ -1016,9 +884,6 @@ class DummyDialect(
     def supports_upsert(self) -> bool:
         return True
 
-    def get_upsert_syntax_type(self) -> str:
-        return "ON CONFLICT"
-
     def supports_on_conflict_clause(self) -> bool:
         return True
 
@@ -1039,9 +904,6 @@ class DummyDialect(
 
     def supports_json_type(self) -> bool:
         return True
-
-    def get_json_access_operator(self) -> str:
-        return "->"
 
     def supports_json_table(self) -> bool:
         return True
@@ -1227,7 +1089,7 @@ class DummyDialect(
     def supports_comment_on(self) -> bool:
         """Whether standalone ``COMMENT ON`` statements are supported.
 
-        DummyDialect exercises the generic ``CommentOnMixin`` rendering path.
+        DummyDialect exercises the generic ``CommentMixin`` rendering path.
         """
         return True
 
@@ -1449,9 +1311,6 @@ class DummyDialect(
     def supports_fulltext_query_expansion(self) -> bool:
         return True
 
-    def get_supported_index_types(self) -> List[str]:
-        return ["BTREE", "HASH", "GIN", "GIST", "SPGIST", "BRIN"]
-
     # endregion
 
     # region Sequence DDL Support
@@ -1614,7 +1473,7 @@ class DummyDialect(
         marker's own render test; the column suggestion is a separate channel
         and here declines, keeping the portable column baseline plain.
         """
-        from rhosocial.activerecord.backend.expression import (
+        from rhosocial.activerecord.backend.suggestion import (
             IntegerAutoIncrementColumnSuggestion,
         )
 
@@ -1818,7 +1677,7 @@ class DummyDialect(
         """Dummy backend supports savepoints."""
         return True
 
-    def format_begin_transaction_statement(self, expr: "BeginTransactionStatement") -> Tuple[str, tuple]:
+    def format_begin_transaction_statement(self, expr: "BeginTransactionStatement") -> "Tuple[str, tuple]":
         """Format BEGIN TRANSACTION statement for dummy dialect."""
         params = expr.get_params()
         parts = ["BEGIN"]
@@ -1856,11 +1715,11 @@ class DummyDialect(
 
         return " ".join(parts), ()
 
-    def format_commit_statement(self, expr: "CommitStatement") -> Tuple[str, tuple]:
+    def format_commit_statement(self, expr: "CommitStatement") -> "Tuple[str, tuple]":
         """Format COMMIT TRANSACTION statement for dummy dialect."""
         return "COMMIT", ()
 
-    def format_rollback_statement(self, expr: "RollbackStatement") -> Tuple[str, tuple]:
+    def format_rollback_statement(self, expr: "RollbackStatement") -> "Tuple[str, tuple]":
         """Format ROLLBACK TRANSACTION statement for dummy dialect."""
         params = expr.get_params()
         savepoint = params.get("savepoint")
@@ -1868,19 +1727,19 @@ class DummyDialect(
             return f"ROLLBACK TO SAVEPOINT {self.format_identifier(savepoint)}", ()
         return "ROLLBACK", ()
 
-    def format_savepoint_statement(self, expr: "SavepointStatement") -> Tuple[str, tuple]:
+    def format_savepoint_statement(self, expr: "SavepointStatement") -> "Tuple[str, tuple]":
         """Format SAVEPOINT statement for dummy dialect."""
         params = expr.get_params()
         name = params.get("name", "")
         return f"SAVEPOINT {self.format_identifier(name)}", ()
 
-    def format_release_savepoint_statement(self, expr: "ReleaseSavepointStatement") -> Tuple[str, tuple]:
+    def format_release_savepoint_statement(self, expr: "ReleaseSavepointStatement") -> "Tuple[str, tuple]":
         """Format RELEASE SAVEPOINT statement for dummy dialect."""
         params = expr.get_params()
         name = params.get("name", "")
         return f"RELEASE SAVEPOINT {self.format_identifier(name)}", ()
 
-    def format_set_transaction_statement(self, expr: "SetTransactionStatement") -> Tuple[str, tuple]:
+    def format_set_transaction_statement(self, expr: "SetTransactionStatement") -> "Tuple[str, tuple]":
         """Format SET TRANSACTION statement for dummy dialect."""
         params = expr.get_params()
         parts = []
@@ -1930,7 +1789,7 @@ class DummyDialect(
     # endregion
 
     # region Column Definition with Generated Columns
-    def format_column_definition(self, expr: "ColumnDefinition") -> Tuple[str, tuple]:
+    def format_column_definition(self, expr: "ColumnDefinition") -> "Tuple[str, tuple]":
         """Format a column definition including generated columns.
 
         Each constraint rides through :meth:`format_column_constraint` -- the

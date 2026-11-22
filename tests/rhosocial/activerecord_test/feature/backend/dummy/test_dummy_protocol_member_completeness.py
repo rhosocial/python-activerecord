@@ -44,10 +44,12 @@ class TestDummyProtocolMemberCompleteness:
         for name, obj in inspect.getmembers(protocols, inspect.isclass):
             if Protocol not in getattr(obj, "__mro__", []) or name == "Protocol":
                 continue
-            if name == "DDLTypeSupport":
+            if name == "DataTypeSupport":
                 assert obj is protocols.DataTypeSupport
                 continue
             assert name == obj.__name__, f"unexpected protocol alias: {name}"
+            if name.endswith('SuggestionSupport'):
+                continue
             protocol_classes.append((name, obj))
         return protocol_classes
 

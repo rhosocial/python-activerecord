@@ -15,13 +15,13 @@ from typing import Tuple
 from .schema_namespace import NamespaceMixin
 from ...expression.objects import Sequence
 
-__all__ = ["SequenceNameMixin"]
+__all__ = ["SequenceObjectMixin"]
 
 
-class SequenceNameMixin(NamespaceMixin):
+class SequenceObjectMixin(NamespaceMixin):
     """Renders a sequence as its name."""
 
-    def format_sequence_object(self, expr: "Sequence") -> Tuple[str, tuple]:
+    def format_sequence_object(self, expr: "Sequence") -> "Tuple[str, tuple]":
         """Render *expr* as a sequence name.
 
         Args:

@@ -26,7 +26,6 @@ from __future__ import annotations
 from typing import Optional
 
 from ._base import DataType, UNSIGNED_PARAMETERS
-from ._defaults import declared_parameter
 
 
 class FloatType(DataType):
@@ -66,9 +65,7 @@ class FloatType(DataType):
         a dialect is bound, so bind one before using it as a dictionary key or a
         set member, exactly as rendering already requires.
         """
-        return self._precision if self._precision is not None else declared_parameter(
-            self.name, "precision", self._dialect
-        )
+        return self._precision
 
     @precision.setter
     def precision(self, value: Optional[int]) -> None:
@@ -190,9 +187,7 @@ class DecimalType(DataType):
         once a dialect is bound, so bind one before using it as a dictionary key
         or a set member, exactly as rendering already requires.
         """
-        return self._precision if self._precision is not None else declared_parameter(
-            self.name, "precision", self._dialect
-        )
+        return self._precision
 
     @precision.setter
     def precision(self, value: Optional[int]) -> None:
@@ -209,8 +204,7 @@ class DecimalType(DataType):
         carries both halves of the documented pair.  Writing this as "only fill
         the scale in when the precision is absent too" would leave the
         precision-only declaration comparing unequal to the column it produced
-        — the same defect one parameter over — and ``type_parameter_defaults``
-        is keyed per parameter for exactly this reason.
+        — the same defect one parameter over — so each parameter is resolved from the value the declaration carries.
 
         A dialect that declares nothing keeps ``None``, and so does an unbound
         instance; both are the honest answer when no server has said what its
@@ -218,9 +212,7 @@ class DecimalType(DataType):
         a dialect bound after construction counts, and identity is settled only
         once a dialect is bound.
         """
-        return self._scale if self._scale is not None else declared_parameter(
-            self.name, "scale", self._dialect
-        )
+        return self._scale
 
     @scale.setter
     def scale(self, value: Optional[int]) -> None:

@@ -53,7 +53,7 @@ class NamespaceSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_qualified_name(self, expr: "SchemaObject") -> tuple:
+    def format_qualified_name(self, expr: "SchemaObject") -> "Tuple[str, tuple]":
         """Build the qualified name of *expr*, levels joined by the separator.
 
         The spelling half. It assumes the levels have been accepted, so call
@@ -100,3 +100,4 @@ class NamespaceSupport(Protocol):
         :meth:`validate_catalog_name`.
         """
         ...  # pragma: no cover
+    separator: str

@@ -6,7 +6,7 @@ see that package for the full protocol surface and the rules the conformance
 tests enforce.
 """
 
-from typing import Dict, Optional, Protocol, TYPE_CHECKING, Tuple, runtime_checkable
+from typing import Dict, Optional, Protocol, TYPE_CHECKING, Tuple, runtime_checkable, Any
 
 if TYPE_CHECKING:  # pragma: no cover
     from ....expression.types._base import DataType
@@ -156,72 +156,7 @@ class DataTypeSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def parse_type(self, raw: str) -> "DataType":
-        """Parse a raw SQL type string into a ``DataType``."""
-        ...  # pragma: no cover
-
-    def supports_data_types(self) -> Dict[str, type]:
-        """Mapping ``{<generic name>: concrete DataType class}`` of every
-        type supported by this dialect.
-
-        Keys are the generic type names (the dispatch keys of the
-        ``format_data_type_<name>`` naming family); values are the concrete
-        ``DataType`` subclasses whose :attr:`~DataType.name` equals the
-        key. Backend dialects that define namespaced types must merge
-        their own entries into the inherited mapping (``super()`` + own).
-        """
-        ...  # pragma: no cover
-
-    def suggested_data_types(self) -> "Dict[type, Optional[DataType]]":
-        """The declaration this dialect suggests for each framework-modelled type.
-
-        Keys: the framework-modelled Python types (``FRAMEWORK_PYTHON_TYPES``),
-        the same closed list the column-class table is keyed by.
-        Values: a ``DataType`` **instance**, so the answer can carry the
-        parameters a column needs (a timestamp's precision, a text width).
-        Every key must be answered: a bare field always has a declaration, so
-        the table is complete by contract rather than by convention.
-
-        The table belongs to the dialect: a backend overrides it with its own
-        choices, and the user layer (ActiveRecord) adopts those choices by
-        default -- a ``UseSqlType`` declaration on the field wins over them.
-
-        Return a fresh dict; the values are read-only templates for the
-        dialect to bind a rendering on a copy.
-        """
-        ...  # pragma: no cover
-
-    def suggested_extra_data_types(self) -> "Dict[type, DataType]":
-        """Suggestions for Python types the dialect offers beyond the framework's.
-
-        Empty when the backend has none. The key space is the backend's own;
-        a type it does not offer is absent rather than ``None``.
-        """
-        ...  # pragma: no cover
-
-    def substitute_data_types(self) -> "Dict[str, type]":
-        """Cross-backend type-consistency suggestion map.
-
-        Keys: generic type name — same namespace as ``format_data_type_*`` /
-        ``supports_data_type_*`` (e.g. ``"uuid"``).
-        Values: the suggested replacement ``DataType`` **class** (same value
-        type as :meth:`supports_data_types` — consumers get usable class
-        objects directly, no import resolution needed).
-
-        Contract: suggested keys and supported keys are **disjoint** — a
-        type this dialect renders needs no suggestion. Suggestions only —
-        the user layer (ActiveRecord) decides whether to adopt them.
-
-        This map is one half of the **concept coverage** rule (D9, see the
-        class docstring): every core concept must be rendered or listed
-        here, and silence is not an answer.  It is therefore **not**
-        optional politeness — an entry here is how a caller who declares a
-        concept this dialect stores some other way learns what to declare
-        instead.  Return an empty dict when there is nothing to suggest —
-        which, under D9, says "this dialect renders every core concept it
-        was asked about", not "not yet filled in".
-        """
+    def _check_spelling(self, data_type, accepted) -> None:
         ...  # pragma: no cover
 
 
-DDLTypeSupport = DataTypeSupport

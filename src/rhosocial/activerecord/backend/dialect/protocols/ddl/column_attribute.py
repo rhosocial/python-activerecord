@@ -16,7 +16,7 @@ if TYPE_CHECKING:  # pragma: no cover
 class ColumnAttributeSupport(Protocol):
     """Protocol for rendering explicitly supplied column attributes."""
 
-    def format_column_attribute(self, expr: "ColumnAttribute") -> Tuple[str, tuple]:
+    def format_column_attribute(self, expr: "ColumnClause") -> "Tuple[str, tuple]":
         """Render one selected attribute as a column-definition fragment.
 
         Args:

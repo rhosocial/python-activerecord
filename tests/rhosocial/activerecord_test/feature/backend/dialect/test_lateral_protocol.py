@@ -18,7 +18,7 @@ from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.dialect.mixins import (
     NamespaceMixin,
     RelationSourceMixin,
-    TableNameMixin,
+    TableObjectMixin,
 )
 
 
@@ -27,7 +27,7 @@ class NoLateralDialect(
     RelationSourceMixin,
     ExpressionMixin,
     DDLColumnMixin,
-    TableNameMixin,
+    TableObjectMixin,
     NamespaceMixin,
     TableMixin,
     DQLMixin,

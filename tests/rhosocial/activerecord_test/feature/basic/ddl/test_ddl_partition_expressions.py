@@ -136,4 +136,4 @@ def test_generic_format_partition_definition_fails_fast():
     dialect = DefinitionMixinDialect()
     definition = PartitionDefinitionExpression(DummyDialect(), "p0")
     with pytest.raises(UnsupportedFeatureError, match="partition definition"):
-        dialect.format_partition_definition(definition)
+        dialect.format_partition_definition_expression(definition)

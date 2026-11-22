@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any, List, Optional, Sequence, TYPE_CHECKING
 
 from ..backend.suggestion import PartitionSuggestionRenderer
+from .core import DEFAULT_DIRECTION
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..backend.base import StorageBackend
@@ -65,7 +66,7 @@ class _ContextBase(_SuggestionMixin):
         self,
         backend: "StorageBackend",
         *,
-        direction: str = "up",
+        direction: str = DEFAULT_DIRECTION,
         version: str = "",
         dry_run: bool = False,
     ):

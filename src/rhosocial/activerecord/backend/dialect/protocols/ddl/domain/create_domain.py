@@ -47,7 +47,7 @@ class CreateDomainSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def supports_domain_nullability(self) -> bool:
+    def supports_domain_nullability(self, nullability: "DomainNullability") -> bool:
         """Whether the engine accepts the form ``domain_nullability``.
 
         Defaults to ``False``; a dialect that accepts it returns ``True``.

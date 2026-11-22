@@ -7,7 +7,7 @@ from rhosocial.activerecord.backend.dialect import protocols as dialect_protocol
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.dialect.mixins import (
     DataTypeMixin,
-    DDLTypeMixin,
+    DataTypeMixin,
     DomainMixin,
     UserDefinedTypeMixin,
 )
@@ -75,8 +75,8 @@ def _condition(dialect):
 
 
 def test_legacy_names_are_same_objects():
-    assert DDLTypeMixin is DataTypeMixin
-    assert dialect_protocols.DDLTypeSupport is dialect_protocols.DataTypeSupport
+    assert DataTypeMixin is DataTypeMixin
+    assert dialect_protocols.DataTypeSupport is dialect_protocols.DataTypeSupport
 
 
 def test_dummy_protocols_and_mixins_are_concrete(dummy_dialect):

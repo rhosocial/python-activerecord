@@ -127,11 +127,11 @@ class TestIntrospectionCapabilities:
         """Test that SQLite backend supports trigger introspection."""
         assert sqlite_backend.dialect.supports_trigger_introspection() is True
 
-    def test_get_supported_introspection_scopes(self, sqlite_backend):
+    def test_suggest_introspection_scopes(self, sqlite_backend):
         """Test that all expected introspection scopes are supported."""
         from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
 
-        scopes = sqlite_backend.dialect.get_supported_introspection_scopes()
+        scopes = sqlite_backend.dialect.suggest_introspection_scopes()
 
         expected_scopes = [
             IntrospectionScope.DATABASE,

@@ -46,6 +46,9 @@ import logging
 import pytest
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+from rhosocial.activerecord.backend.dialect import protocols as _dialect_protocols
+from rhosocial.activerecord.backend.suggestion.partition import PartitionSuggestionRenderer
+from rhosocial.activerecord.base.fields import UseFieldGenerator
 from rhosocial.activerecord.backend.dialect.mixins.graph import GraphTableMixin
 from rhosocial.activerecord.backend.expression.core import Column, Literal
 from rhosocial.activerecord.backend.expression.datetime import (
@@ -269,3 +272,37 @@ class TestTheFormatterDefaultFormat:
         assert Terse().format(self._record()) != ActiveRecordFormatter().format(
             self._record()
         )
+
+
+class TestPartitionIntentCatalogue:
+    """Every partition intent names a real suggestion protocol and method."""
+
+    def test_each_intent_resolves_to_a_real_protocol_method(self):
+        from rhosocial.activerecord.backend import dialect as _dialect_pkg
+        protocols_mod = _dialect_pkg.protocols
+        for intent, (protocol_name, method_name) in PartitionSuggestionRenderer._INTENTS.items():
+            assert intent == method_name[len("suggest_partition_"):], intent
+            protocol = getattr(protocols_mod, protocol_name)
+            assert hasattr(protocol, method_name), f"{protocol_name}.{method_name} missing"
+
+    def test_the_eight_intents_cover_the_builtin_partition_strategies(self):
+        assert set(PartitionSuggestionRenderer._INTENTS) == {
+            "build", "add", "drop", "retention",
+            "table_drop", "table_alter", "split", "merge",
+        }
+
+
+class TestUseFieldGeneratorSlots:
+    """The hook slots are exactly the four write operations."""
+
+    def test_slots_match_the_generator_map(self):
+        from rhosocial.activerecord.types import WriteOperation
+        g = UseFieldGenerator()
+        # _SLOTS and the generator map must describe the same four slots
+        assert set(UseFieldGenerator._SLOTS) == {
+            "before_insert", "before_update", "before_soft_delete", "before_restore"
+        }
+        assert set(g._generators) == {
+            WriteOperation.INSERT, WriteOperation.UPDATE,
+            WriteOperation.SOFT_DELETE, WriteOperation.RESTORE,
+        }

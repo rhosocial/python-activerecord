@@ -22,6 +22,9 @@ from .routine import RoutineObjectSupport
 from .type_ import TypeObjectSupport
 from .synonym import SynonymObjectSupport
 
+from .database_name_support import DatabaseNameSupport
+from .property_graph_name_support import PropertyGraphNameSupport
+from .schema_name_support import SchemaNameSupport
 __all__ = [
     "ForeignTableObjectSupport",
     "IndexObjectSupport",
@@ -34,4 +37,7 @@ __all__ = [
     "TriggerObjectSupport",
     "TypeObjectSupport",
     "ViewObjectSupport",
+    "DatabaseNameSupport",
+    "PropertyGraphNameSupport",
+    "SchemaNameSupport",
 ]

@@ -110,3 +110,13 @@ class CreateTableSupport(Protocol):
         engine cannot parse is not a statement worth producing.
         """
         ...  # pragma: no cover
+
+
+    def format_table_comment(self, expr: str) -> Tuple[str, tuple]:
+        """Mirror of the dialect method; see the concrete implementation."""
+        ...  # pragma: no cover
+
+    def format_table_comment_clause(self, expr: "TableCommentClause") -> Tuple[str, tuple]:
+        """Mirror of the dialect method; see the concrete implementation."""
+        ...  # pragma: no cover
+

@@ -3,7 +3,7 @@
 
 The answer is unconditional: SQLite always declares an auto-generated integer
 key as ``INTEGER PRIMARY KEY AUTOINCREMENT``. Note this is *not* the bare
-``AUTO_INCREMENT`` marker -- ``AutoIncrementMixin.supports_auto_increment_column()``
+``AUTO_INCREMENT`` marker -- ``AutoIncrementColumnMixin.supports_auto_increment_column()``
 is deliberately False on SQLite -- so this mixin does not consult that probe;
 it returns the mechanism SQLite actually spells and leaves rendering to
 :meth:`format_sqlite_auto_increment_clause`.

@@ -18,7 +18,7 @@ class NoJSONDialect(SQLDialectBase, JSONMixin, JSONSupport):
     def supports_json_type(self) -> bool:
         return False
 
-    def get_json_access_operator(self) -> str:
+    def suggest_json_access_operator(self) -> str:
         return "->"
 
     def supports_json_table(self) -> bool:
@@ -32,7 +32,7 @@ def test_no_json_dialect_does_not_support_json_features():
     # Verify protocol implementation
     assert isinstance(dialect, JSONSupport)
     assert not dialect.supports_json_type()
-    assert dialect.get_json_access_operator() == "->"
+    assert dialect.suggest_json_access_operator() == "->"
     assert not dialect.supports_json_table()
 
 

@@ -5,9 +5,10 @@ from typing import Tuple
 
 from ...expression import bases
 from ...expression.mixins import AliasableMixin
+from ..protocols.family import FunctionCallSupport, PredicateSupport, DateTimeSupport, RelationSourceSupport
 
 
-class DateTimeMixin:
+class DateTimeMixin(DateTimeSupport):
     """Mixin for date/time expression formatting."""
 
     def apply_alias(self, sql: str, params: tuple, expr) -> Tuple[str, tuple]:

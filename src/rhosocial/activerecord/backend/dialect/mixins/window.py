@@ -38,6 +38,10 @@ class WindowFunctionMixin:
         """
         return False
 
+    def format_window_function_call(self, expr: "WindowFunctionCall") -> Tuple[str, tuple]:
+        raise UnsupportedFeatureError(self.name, "format_window_function_call")
+        return window_def, spec_params
+
     def format_window_specification(self, expr: "WindowSpecification") -> Tuple[str, tuple]:
         """Format a window specification (PARTITION BY / ORDER BY / frame).
 

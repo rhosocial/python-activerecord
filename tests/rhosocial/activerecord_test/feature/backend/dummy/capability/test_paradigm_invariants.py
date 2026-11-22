@@ -296,7 +296,7 @@ def test_no_grouping_nodes_or_orphans():
         rendered |= {m[len("format_data_type_"):] for m in dir(type(dialect))
                      if m.startswith("format_data_type_")}
         try:
-            suggested |= set(dialect.substitute_data_types() or {})
+            suggested |= set(dialect.suggest_substitute_types() or {})
         except Exception:                             # noqa: BLE001
             pass
 
@@ -404,7 +404,7 @@ def test_rendered_and_suggested_keys_are_disjoint(dialect_param):
     rendered = {m[len("format_data_type_"):] for m in dir(type(dialect))
                 if m.startswith("format_data_type_")}
     try:
-        suggested = set(dialect.substitute_data_types() or {})
+        suggested = set(dialect.suggest_substitute_types() or {})
     except Exception:                                 # noqa: BLE001
         suggested = set()
     both = rendered & suggested

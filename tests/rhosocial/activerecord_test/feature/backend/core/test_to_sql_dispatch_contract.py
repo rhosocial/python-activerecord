@@ -12,7 +12,7 @@ independently before it was closed:
   list without implementing their formatters;
 * ``Domain.to_sql()`` answering ``None`` on snowflake, where
   ``TypeObjectSupport`` satisfied ``format_domain_object`` through
-  ``TypeNameMixin`` and the protocol body answered instead;
+  ``TypeObjectMixin`` and the protocol body answered instead;
 * a formatter returning a bare string rather than ``(sql, params)``, so the
   bind parameters were dropped without a word.
 
@@ -43,7 +43,7 @@ class ProtocolWinsTheLookup(DeclaresTableObjectFormat, DummyDialect):
     """A dialect whose base list puts the protocol ahead of the mixin.
 
     Order matters and this is the case that was broken: ``DummyDialect`` already
-    provides ``format_table_object`` through ``TableNameMixin``, so listing the
+    provides ``format_table_object`` through ``TableObjectMixin``, so listing the
     protocol *after* it changes nothing. Listing it first is what a backend does
     when a probe-only protocol is added to a base list, and then the protocol is
     what ``getattr`` finds.

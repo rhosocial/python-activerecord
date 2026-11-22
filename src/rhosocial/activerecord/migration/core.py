@@ -10,6 +10,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Sequence, TYPE_CHECKING
 
+#: The default migration direction; shared by context and runner defaults.
+DEFAULT_DIRECTION = "up"
+
 if TYPE_CHECKING:  # pragma: no cover
     from .context import AsyncMigrationContext, MigrationContext
 

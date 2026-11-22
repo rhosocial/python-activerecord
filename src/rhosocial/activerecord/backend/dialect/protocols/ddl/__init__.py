@@ -55,6 +55,7 @@ from .partition import PartitionSupport
 from .transactional_ddl import TransactionalDDLSupport
 from .truncate import TruncateSupport
 
+from .ddl_column_support import DDLColumnSupport
 __all__ = [
     "AlterDatabaseSupport",
     "AlterDomainSupport",
@@ -98,4 +99,5 @@ __all__ = [
     "PartitionSupport",
     "TransactionalDDLSupport",
     "TruncateSupport",
+    "DDLColumnSupport",
 ]

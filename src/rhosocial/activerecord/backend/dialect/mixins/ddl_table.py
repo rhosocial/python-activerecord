@@ -1,3 +1,6 @@
+# .../ddl_table.py
+"""Composition base for TableMixin. Feature groups live in per-statement mixins."""
+
 from rhosocial.activerecord.backend.expression.statements import (
     TableCheckConstraint,
     TableForeignKeyConstraint,
@@ -6,297 +9,19 @@ from ...expression.statements.ddl_alter import AlterTableAction
 from ...expression.objects import Table
 from typing import Any, List, Tuple, TYPE_CHECKING
 from enum import Enum
-# src/rhosocial/activerecord/backend/dialect/mixins/ddl_table.py
-"""Dialect mixins for table DDL and constraint capability detection."""
+from .create_table_mixin import CreateTableMixin
+from .drop_table_mixin import DropTableMixin
+from .alter_table_mixin import AlterTableMixin
+from .create_table_as_mixin import CreateTableAsMixin
+from .create_table_like_mixin import CreateTableLikeMixin
+from .create_table_clone_mixin import CreateTableCloneMixin
+from .create_table_using_template_mixin import CreateTableUsingTemplateMixin
+
+class TableMixin(CreateTableMixin, DropTableMixin, AlterTableMixin, CreateTableAsMixin, CreateTableLikeMixin, CreateTableCloneMixin, CreateTableUsingTemplateMixin):
+    """Composition of per-statement table mixins. No own members (not a feature group)."""
+
+    pass
 
-
-
-
-def _normalize_constraint_type(constraint_type: Any, constraint_enum: type, label: str) -> Any:
-    if isinstance(constraint_type, constraint_enum):
-        return constraint_type
-    # Accepts the enum or its spelling, and a spelling may arrive as an enum of
-    # another family that spells the same words -- which is a type question, so
-    # it is asked with isinstance instead of probed for ``value`` / ``name``.
-    if isinstance(constraint_type, Enum):
-        raw_value, raw_name = constraint_type.value, constraint_type.name
-    else:
-        raw_value = raw_name = constraint_type
-    candidates = []
-    for candidate in (raw_value, raw_name):
-        if isinstance(candidate, str):
-            normalized = " ".join(candidate.strip().split()).upper()
-            candidates.extend((normalized, normalized.replace(" ", "_")))
-    for candidate in candidates:
-        try:
-            return constraint_enum(candidate)
-        except ValueError:
-            continue
-    raise ValueError(
-        f"{label} must be a {constraint_enum.__name__} or its string value"
-    )
-
-
-def normalize_foreign_key_match_type(match_type: Any) -> Any:
-    """Return the :class:`ForeignKeyMatchType` for ``match_type``.
-
-    ``None`` passes through: a constraint that names no MATCH type is asking for
-    the SQL default, which is not the same as asking for ``SIMPLE`` explicitly
-    (a dialect may spell the default and the explicit form differently, or
-    refuse one of them).
-    """
-    from ...expression.statements.ddl_table import ForeignKeyMatchType
-
-    if match_type is None:
-        return None
-    return _normalize_constraint_type(
-        match_type,
-        ForeignKeyMatchType,
-        "foreign key MATCH type",
-    )
-
-
-if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.statements import (
-        CreateTableStatement,
-        CreateTableAsStatement,
-        CreateTableLikeStatement,
-        CreateTableCloneStatement,
-        CreateTableFromTemplateStatement,
-        CreateTableOptions,
-        DropTableStatement,
-        TableCommentClause,
-        AlterTableStatement,
-    )
-
-
-class TableMixin:
-    """Mixin adding support for table DDL statements.
-
-    Provides capability probes for the various table features and generic
-    rendering of CREATE TABLE, DROP TABLE, and ALTER TABLE statements.
-
-    Naming an existing table is not here; that is
-    :class:`~...mixins.object_table_name.TableNameMixin`.
-    """
-
-    def supports_create_table(self) -> bool:
-        """Whether CREATE TABLE is supported.
-
-        Defaults to True.
-        """
-        return True
-
-    def supports_drop_table(self) -> bool:
-        """Whether DROP TABLE is supported.
-
-        Defaults to True.
-        """
-        return True
-
-    def supports_alter_table(self) -> bool:
-        """Whether ALTER TABLE is supported.
-
-        Defaults to True.
-        """
-        return True
-
-    def supports_temporary_table(self) -> bool:
-        """Whether TEMPORARY tables are supported.
-
-        Defaults to True.
-        """
-        return True
-
-    def supports_if_not_exists_table(self) -> bool:
-        """Whether CREATE TABLE IF NOT EXISTS is supported.
-
-        Defaults to False.
-        """
-        return False
-
-    def supports_if_exists_table(self) -> bool:
-        """Whether DROP TABLE IF EXISTS is supported.
-
-        Defaults to False.
-        """
-        return False
-
-    def supports_drop_table_cascade(self) -> bool:
-        """Whether DROP TABLE accepts the CASCADE keyword (SQL-standard form).
-
-        Defaults to True (optimistic) so that DummyDialect exercises the full
-        generic rendering path; actual backends override to reflect whether the
-        CASCADE token is valid syntax for their DROP TABLE statement. The
-        switch governs syntax only and is silent on whether the database truly
-        drops dependent objects (e.g. MySQL/MariaDB parse-but-ignore CASCADE
-        still report True).
-
-        Oracle-specific CASCADE CONSTRAINTS / PURGE handling lives in the Oracle
-        backend protocol and overrides format_drop_table_statement; this default
-        only renders the standard CASCADE token.
-        """
-        return True
-
-    def supports_drop_table_restrict(self) -> bool:
-        """Whether DROP TABLE accepts the RESTRICT keyword.
-
-        Defaults to True (optimistic); backends that do not recognize RESTRICT
-        override to False, in which case the generic helper raises
-        UnsupportedFeatureError when a caller asks for restrict behavior.
-        """
-        return True
-
-    def supports_purge_on_drop_table(self) -> bool:
-        """Whether DROP TABLE accepts the PURGE option (bypass the recycle bin).
-
-        Defaults to False; Oracle (and compatible dialects) override to True.
-        When a caller requests ``purge`` and this is False, the generic helper
-        raises ``UnsupportedFeatureError`` instead of silently dropping it.
-        """
-        return False
-
-    def supports_table_tablespace(self) -> bool:
-        """Whether tablespace specification is supported.
-
-        Defaults to False.
-        """
-        return False
-
-    def supports_table_inheritance(self) -> bool:
-        """Whether table inheritance (``INHERITS (parent, ...)``) is supported.
-
-        Defaults to False; PostgreSQL (and compatible dialects) override to
-        True. When a declaration carries ``inherits`` and this is False, the
-        generic helper raises ``UnsupportedFeatureError`` instead of emitting
-        a clause the database would reject.
-        """
-        return False
-
-    def supports_inline_index(self) -> bool:
-        """Whether CREATE TABLE accepts inline index definitions.
-
-        Inline index clauses inside CREATE TABLE are a dialect convenience of
-        MySQL/MariaDB/ClickHouse; the SQL-standard form is the standalone
-        CREATE INDEX statement. The generic ``format_create_table_statement``
-        raises UnsupportedFeatureError when an expression carries inline
-        indexes but this switch is False.
-
-        Defaults to False (SQL-standard behavior).
-        """
-        return False
-
-    def preferred_create_table_statement(self):
-        """The backend's preferred CREATE TABLE statement class (§5.12).
-
-        Defaults to ``None`` — the generic ``CreateTableStatement`` is the
-        candidate fallback. Backends that render their own statement subclass
-        override this to return it (first candidate, order = priority); the
-        deriver composes ``[preferred, generic]`` and selects through
-        Gate 1 (ownership) + Gate 2 (renderability).
-        """
-        return None
-
-    def preferred_drop_table_statement(self):
-        """The backend's preferred DROP TABLE statement class (§5.12).
-
-        Defaults to ``None`` — the generic ``DropTableStatement``.
-        """
-        return None
-
-    def supports_drop_column(self) -> bool:
-        """Whether DROP COLUMN is supported.
-
-        Defaults to True.
-        """
-        return True
-
-    def supports_alter_column_type(self) -> bool:
-        """Whether altering column data type is supported.
-
-        Defaults to True.
-        """
-        return True
-
-    def supports_alter_column_properties(self) -> bool:
-        """Whether ALTER COLUMN SET DEFAULT / DROP DEFAULT etc. is supported.
-
-        Defaults to False.
-        """
-        return False
-
-    def supports_alter_table_index_actions(self) -> bool:
-        """Whether ADD/DROP INDEX via ALTER TABLE is supported.
-
-        Defaults to False.
-        """
-        return False
-
-    def supports_multi_action_alter_table(self) -> bool:
-        """Whether ALTER TABLE supports multiple comma-separated actions.
-
-        Defaults to True. SQL Server requires one action per statement.
-        """
-        return True
-
-    def supports_rename_column(self) -> bool:
-        """Whether RENAME COLUMN is supported.
-
-        Defaults to True.
-        """
-        return True
-
-    def supports_rename_table(self) -> bool:
-        """Whether RENAME TABLE is supported.
-
-        Defaults to True.
-        """
-        return True
-
-    def supports_create_table_like(self) -> bool:
-        """Whether ``CREATE TABLE ... LIKE`` is supported.
-
-        Defaults to ``False``. Backends that support the vendor extension
-        override this to return ``True`` and inherit the generic
-        :meth:`format_create_table_like_statement` rendering; backends with a
-        different grammar override the formatter instead.
-        """
-        return False
-
-    def supports_create_table_as(self) -> bool:
-        """Whether ``CREATE TABLE ... AS <query>`` (CTAS) is supported.
-
-        Defaults to ``True``: CTAS is broadly portable and the generic
-        renderer emits the portable ``AS <query>`` form (no parentheses).
-        """
-        return True
-
-    def supports_create_table_as_bind_parameters(self) -> bool:
-        """Whether a CTAS body may carry bind parameters.
-
-        Defaults to ``False``. A DDL statement carries no bind parameters
-        unless the dialect says it can, and the body of a CTAS is the one
-        DDL body that is a query, so this is the question this probe
-        answers.
-
-        The two differ by engine, and the answer is measured rather than
-        assumed:
-
-        * PostgreSQL accepts them -- the body is executed once, so a bound
-          value is meaningful (19beta4: ``CREATE TABLE t AS SELECT $1 FROM
-          s`` creates the table).
-        * MySQL and MariaDB accept them; their "parameters" are
-          interpolated client-side, so the value is baked into the text.
-        * ClickHouse accepts them, for the same reason.
-        * Oracle refuses them: Oracle's DDL statements never take bind
-          variables, and the driver rejects the statement before the
-          server sees it (``DPY-4009: 0 positional bind values are
-          required but 1 were provided``).
-
-        A dialect that does not answer refuses the statement by name, with
-        the way out named -- build the query with an inlined literal.
-        """
-        return False
 
     def _ddl_bind_parameter_reason(self, feature: str) -> str:
         """Why this dialect does not carry bind parameters in a CTAS body.
@@ -307,601 +32,6 @@ class TableMixin:
         """
         return f"{self.name} does not carry bind parameters in a CTAS body."
 
-    def supports_with_data_clause(self) -> bool:
-        """Whether ``WITH [NO] DATA`` is supported on CTAS.
-
-        The clause is shared with materialized views (where
-        :class:`MaterializedViewSupport` declares the same probe); the CTAS
-        renderer consults it too, so a dialect whose grammar has no such clause
-        refuses the request by name instead of emitting server-rejected SQL.
-        Defaults to ``False``.
-        """
-        return False
-
-    def supports_create_table_clone(self) -> bool:
-        """Whether ``CREATE TABLE ... CLONE/COPY`` is supported.
-
-        Defaults to ``False``; backends with zero-copy clone (Snowflake,
-        BigQuery, ClickHouse) override this to return ``True``.
-        """
-        return False
-
-    def supports_create_table_using_template(self) -> bool:
-        """Whether ``CREATE TABLE ... USING TEMPLATE`` is supported.
-
-        Defaults to ``False``; only Snowflake implements it.
-        """
-        return False
-
-    def supports_create_or_replace_table(self) -> bool:
-        """Whether ``CREATE OR REPLACE TABLE`` is supported.
-
-        Defaults to ``False``; Snowflake/BigQuery/MariaDB override to True.
-        """
-        return False
-
-    def supports_unlogged_table(self) -> bool:
-        """Whether ``CREATE UNLOGGED TABLE`` is supported.
-
-        Defaults to ``False``; PostgreSQL overrides to True.
-        """
-        return False
-
-    def supports_transient_table(self) -> bool:
-        """Whether ``CREATE TRANSIENT TABLE`` is supported.
-
-        Defaults to ``False``; Snowflake overrides to True.
-        """
-        return False
-
-    def supports_table_comment(self) -> bool:
-        """Whether inline ``COMMENT 'text'`` on ``CREATE TABLE`` is supported.
-
-        Defaults to ``False``; MySQL, MariaDB, and ClickHouse override to True.
-        """
-        return False
-
-    def format_table_comment(self, expr: str) -> Tuple[str, tuple]:
-        """Render a table-level ``COMMENT 'text'`` clause.
-
-        Generic reusable implementation: ``COMMENT '<escaped>'``.  Dialects
-        that advertise :meth:`supports_table_comment` inherit this rendering
-        as-is; dialects with a different grammar override the method.
-
-        The statement renderer appends the returned clause after the column
-        list and storage options, before any PARTITION BY clause.
-        """
-        escaped = self.escape_sql_string(expr)
-        return f"COMMENT '{escaped}'", ()
-
-    def format_table_comment_clause(self, expr: "TableCommentClause") -> Tuple[str, tuple]:
-        """Render the inline table-comment expr of ``CREATE TABLE``.
-
-        Returns the fragment **with a leading space** so the statement
-        renderer can append it directly after the column list / storage
-        options.  The text grammar is delegated to :meth:`format_table_comment`
-        so backends override only the text form (e.g. Snowflake's
-        ``COMMENT = '<text>'``, BigQuery's ``OPTIONS(description='<text>')``).
-
-        Args:
-            expr: The :class:`TableCommentClause` carrying the text.
-
-        Returns:
-            Tuple of (SQL fragment with leading space, parameters tuple).
-
-        Raises:
-            UnsupportedFeatureError: If :meth:`supports_table_comment` is
-                False for the dialect.
-        """
-        from ..exceptions import UnsupportedFeatureError
-
-        if not self.supports_table_comment():
-            raise UnsupportedFeatureError(
-                self.name, "TABLE COMMENT",
-                f"{self.name} does not support an inline table comment.",
-            )
-        text_sql, params = self.format_table_comment(expr.comment)
-        return f" {text_sql}", params
-
-    def format_create_table_options(self, expr: "CreateTableOptions") -> Tuple[str, tuple]:
-        """Format the generic ``CREATE`` header modifier.
-
-        The generic layer renders only the standard ``OR REPLACE`` qualifier
-        (capability-gated by :meth:`supports_create_or_replace_table`).
-        Backend-specific header modifiers (``UNLOGGED`` / ``TRANSIENT`` / …)
-        are added by the owning backend's ``XxxCreateTableOptions`` override,
-        which must accept both the generic and its own instance.
-
-        Args:
-            expr: The CreateTableOptions clause carrying the flags.
-
-        Returns:
-            Tuple of (qualifier string, parameters tuple); empty string when no
-            flag is set.
-
-        Raises:
-            UnsupportedFeatureError: If ``or_replace`` is requested but the
-                dialect does not support it.
-        """
-        from ..exceptions import UnsupportedFeatureError
-
-        parts: List[str] = []
-        if expr.or_replace:
-            if not self.supports_create_or_replace_table():
-                raise UnsupportedFeatureError(self.name, "CREATE OR REPLACE TABLE")
-            parts.append("OR REPLACE")
-        return " ".join(parts), ()
-
-    def format_create_table_like_statement(self, expr: "CreateTableLikeStatement") -> Tuple[str, tuple]:
-        """Format ``CREATE TABLE ... LIKE`` (generic reusable implementation).
-
-        Renders the common vendor form::
-
-            CREATE [TEMPORARY] TABLE [IF NOT EXISTS] <table> LIKE <source>
-
-        Dialects that advertise :meth:`supports_create_table_like` inherit
-        this rendering as-is (e.g. MySQL/MariaDB/Snowflake/BigQuery);
-        dialects with a different grammar (PostgreSQL's column-list
-        ``(LIKE ... [INCLUDING ...])`` clause, ClickHouse's ``AS``) override
-        it. Dialects that do not support the form keep
-        :meth:`supports_create_table_like` at ``False``.
-
-        ``expr.like_options`` (PostgreSQL INCLUDING/EXCLUDING) is intentionally
-        ignored here; PostgreSQL overrides this method.
-
-        Args:
-            expr: The LIKE expression carrying the target ``table`` and the
-                source ``like_table``.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple) for the statement.
-
-        Raises:
-            TypeError: ``CreateTableLikeStatement.table`` is not a Table. Another
-            object kind would have had its own name rendered as the table's.
-            TypeError: ``CreateTableLikeStatement.like_table`` is not a Table.
-            Another object kind would have had its own name rendered as the copied
-            table's.
-            UnsupportedFeatureError: If :meth:`supports_create_table_like` is
-                False for the dialect.
-        """
-        if not isinstance(expr.table, Table):
-            raise TypeError(
-                f"CreateTableLikeStatement.table must be a Table, "
-                f"got {type(expr.table).__name__}"
-            )
-
-        if not isinstance(expr.like_table, Table):
-            raise TypeError(
-                f"CreateTableLikeStatement.like_table must be a Table, "
-                f"got {type(expr.like_table).__name__}"
-            )
-        from ..exceptions import UnsupportedFeatureError
-        if not self.supports_create_table_like():
-            raise UnsupportedFeatureError(self.name, "CREATE TABLE ... LIKE")
-        temp_part = "TEMPORARY " if expr.temporary else ""
-        not_exists_part = "IF NOT EXISTS " if expr.if_not_exists else ""
-        table_sql, table_params = expr.table.to_sql()
-        source_sql, source_params = expr.like_table.to_sql()
-        parts = [
-            f"CREATE {temp_part}TABLE {not_exists_part}{table_sql}",
-            f"LIKE {source_sql}",
-        ]
-        return " ".join(parts), tuple(table_params) + tuple(source_params)
-
-    def format_create_table_clone_statement(self, expr: "CreateTableCloneStatement") -> Tuple[str, tuple]:
-        """Format ``CREATE TABLE ... CLONE/COPY`` (generic reusable implementation).
-
-        Renders::
-
-            CREATE [TEMPORARY] TABLE [IF NOT EXISTS] <table> {CLONE|COPY} <source>
-                [COPY GRANTS]
-
-        Backends with different grammar (ClickHouse ``CLONE AS``, BigQuery /
-        Snowflake time-travel suffixes) override this method. Dialects that do
-        not support the form keep :meth:`supports_create_table_clone` at
-        ``False``.
-
-        Args:
-            expr: The clone expression carrying the target ``table``, the
-                ``source_table``, the ``mode`` (CLONE/COPY) and ``copy_grants``.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple) for the statement.
-
-        Raises:
-            TypeError: ``CreateTableCloneStatement.table`` is not a Table. Another
-            object kind would have had its own name rendered as the table's.
-            TypeError: ``CreateTableCloneStatement.source_table`` is not a Table.
-            Another object kind would have had its own name rendered as the
-            source's.
-            UnsupportedFeatureError: If :meth:`supports_create_table_clone` is
-                False for the dialect.
-        """
-        if not isinstance(expr.table, Table):
-            raise TypeError(
-                f"CreateTableCloneStatement.table must be a Table, "
-                f"got {type(expr.table).__name__}"
-            )
-
-        if not isinstance(expr.source_table, Table):
-            raise TypeError(
-                f"CreateTableCloneStatement.source_table must be a Table, "
-                f"got {type(expr.source_table).__name__}"
-            )
-        from ..exceptions import UnsupportedFeatureError
-        if not self.supports_create_table_clone():
-            raise UnsupportedFeatureError(self.name, "CREATE TABLE ... CLONE/COPY")
-        temp_part = "TEMPORARY " if expr.temporary else ""
-        not_exists_part = "IF NOT EXISTS " if expr.if_not_exists else ""
-        table_sql, table_params = expr.table.to_sql()
-        source_sql, source_params = expr.source_table.to_sql()
-        parts = [
-            f"CREATE {temp_part}TABLE {not_exists_part}{table_sql}",
-            f"{expr.mode.value} {source_sql}",
-        ]
-        if expr.copy_grants:
-            parts.append("COPY GRANTS")
-        return " ".join(parts), tuple(table_params) + tuple(source_params)
-
-    def format_create_table_from_template_statement(
-        self, expr: "CreateTableFromTemplateStatement"
-    ) -> Tuple[str, tuple]:
-        """Format ``CREATE TABLE ... USING TEMPLATE`` (generic reusable implementation).
-
-        Renders::
-
-            CREATE [TEMPORARY] TABLE [IF NOT EXISTS] <table>
-                USING TEMPLATE <template>
-
-        Args:
-            expr: The template expression carrying the target ``table`` and the
-                ``template`` query.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple) for the statement.
-
-        Raises:
-            TypeError: ``CreateTableFromTemplateStatement.table`` is not a Table.
-            Another object kind would have had its own name rendered as the table's.
-            UnsupportedFeatureError: If
-                :meth:`supports_create_table_using_template` is False for the
-                dialect.
-        """
-        if not isinstance(expr.table, Table):
-            raise TypeError(
-                f"CreateTableFromTemplateStatement.table must be a Table, "
-                f"got {type(expr.table).__name__}"
-            )
-        from ..exceptions import UnsupportedFeatureError
-        if not self.supports_create_table_using_template():
-            raise UnsupportedFeatureError(self.name, "CREATE TABLE ... USING TEMPLATE")
-        temp_part = "TEMPORARY " if expr.temporary else ""
-        not_exists_part = "IF NOT EXISTS " if expr.if_not_exists else ""
-        table_sql, table_params = expr.table.to_sql()
-        template_sql, template_params = expr.template.to_sql()
-        parts = [
-            f"CREATE {temp_part}TABLE {not_exists_part}{table_sql}",
-            f"USING TEMPLATE {template_sql}",
-        ]
-        return " ".join(parts), tuple(table_params) + tuple(template_params)
-
-    def format_create_table_statement(self, expr: "CreateTableStatement") -> Tuple[str, tuple]:
-        """Format CREATE TABLE statement (generic implementation).
-
-        Handles the explicit-schema form only (columns, constraints, storage,
-        table comment, tablespace, inherits, partition). CTAS / LIKE / CLONE
-        have their own expressions and formatters -- this method does not
-        touch them.
-
-        The ``table_options.comment`` inline clause is rendered after the
-        column list and storage options, before any PARTITION BY clause, and
-        only on dialects whose :meth:`supports_table_comment` is True; on the
-        others a declared comment raises ``UnsupportedFeatureError`` instead
-        of being silently dropped.
-
-        Args:
-            expr: CreateTableStatement carrying the table reference, column
-                definitions, constraints, and optional storage, table comment,
-                tablespace, inherits, and partition clauses.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple) for the statement.
-
-        Raises:
-            TypeError: ``CreateTableStatement.table`` is not a Table. Another
-            object kind would have had its own name rendered as the table's.
-        """
-        if not isinstance(expr.table, Table):
-            raise TypeError(
-                f"CreateTableStatement.table must be a Table, "
-                f"got {type(expr.table).__name__}"
-            )
-        all_params: List[Any] = []
-        options_part = ""
-        table_options = expr.table_options
-        if table_options is not None:
-            options_sql, options_params = table_options.to_sql()
-            if options_sql:
-                options_part = options_sql + " "
-            all_params.extend(options_params)
-        from ..exceptions import UnsupportedFeatureError
-        if expr.temporary and not self.supports_temporary_table():
-            raise UnsupportedFeatureError(
-                self.name, "TEMPORARY TABLE",
-                f"{self.name} does not support TEMPORARY tables.",
-            )
-        if expr.if_not_exists and not self.supports_if_not_exists_table():
-            raise UnsupportedFeatureError(
-                self.name, "CREATE TABLE IF NOT EXISTS",
-                f"{self.name} does not support CREATE TABLE IF NOT EXISTS.",
-            )
-        temp_part = "TEMPORARY " if expr.temporary else ""
-        not_exists_part = "IF NOT EXISTS " if expr.if_not_exists else ""
-        table_sql, table_params = expr.table.to_sql()
-        all_params.extend(table_params)
-        table_part = f"CREATE {options_part}{temp_part}TABLE {not_exists_part}{table_sql} "
-        column_parts = []
-        for col_def in expr.columns:
-            col_sql, col_params = self.format_column_definition(col_def)
-            column_parts.append(col_sql)
-            all_params.extend(col_params)
-        all_def_parts = [", ".join(column_parts)]
-        from ...expression.statements import (
-            ConstraintValidation,
-        )
-
-        for t_const in expr.table_constraints:
-            # NOT VALID only means something when the constraint is *added*;
-            # CREATE TABLE validates as it goes, so it is refused here. The
-            # guard is about the trait alone: a constraint without one is
-            # rendered like any other.
-            if t_const.validation is not None and isinstance(
-                t_const.branch, (TableCheckConstraint, TableForeignKeyConstraint)
-            ):
-                validation = t_const.validation
-                value = (
-                    validation.value
-                    if isinstance(validation, ConstraintValidation)
-                    else validation
-                )
-                if "".join(str(value).strip().upper().split()) in {"NOTVALID", "NOVALIDATE"}:
-                    raise ValueError("NOT VALID is only valid when adding a constraint")
-            const_sql, const_params = self.format_table_constraint(t_const)
-            if const_sql:
-                all_def_parts.append(const_sql)
-                all_params.extend(const_params)
-        full_column_def = "(" + ", ".join(all_def_parts) + ")"
-        parts = [table_part + full_column_def]
-        if expr.storage_options is not None:
-            storage_sql, storage_params = expr.storage_options.to_sql()
-            if storage_sql:
-                parts.append(storage_sql)
-                all_params.extend(storage_params)
-        table_comment = table_options.comment if table_options is not None else None
-        if table_comment is not None:
-            comment_sql, comment_params = self.format_table_comment_clause(table_comment)
-            parts.append(comment_sql)
-            all_params.extend(comment_params)
-        if expr.tablespace:
-            if not self.supports_table_tablespace():
-                raise UnsupportedFeatureError(
-                    self.name, "TABLESPACE",
-                    f"{self.name} does not support table tablespaces.",
-                )
-            parts.append(f" TABLESPACE {self.format_identifier(expr.tablespace)}")
-        if expr.inherits:
-            if not self.supports_table_inheritance():
-                raise UnsupportedFeatureError(
-                    self.name, "INHERITS",
-                    f"{self.name} does not support table inheritance.",
-                )
-            inherits_str = ", ".join(self.format_identifier(table) for table in expr.inherits)
-            parts.append(f" INHERITS ({inherits_str})")
-        if expr.partition is not None:
-            partition_sql, partition_params = expr.partition.to_sql()
-            if partition_sql:
-                parts.append(partition_sql)
-                all_params.extend(partition_params)
-        if expr.indexes:
-            raise UnsupportedFeatureError(
-                self.name,
-                "inline index in CREATE TABLE",
-                f"{self.name} does not support inline index definitions in "
-                "CREATE TABLE. Emit standalone CreateIndexStatement instead.",
-            )
-        return "".join(parts), tuple(all_params)
-
-    def format_create_table_as_statement(self, expr: "CreateTableAsStatement") -> Tuple[str, tuple]:
-        """Format ``CREATE TABLE ... AS <query>`` (generic CTAS implementation).
-
-        Emits the portable form::
-
-            CREATE [TEMPORARY] TABLE [IF NOT EXISTS] <table>
-                [<storage options>] AS <query> [WITH [NO] DATA]
-
-        The query is rendered **without parentheses** -- parenthesising is
-        rejected by SQLite (and several other engines). ``WITH [NO] DATA`` is
-        only appended when :attr:`CreateTableAsStatement.with_data` is set
-        (PostgreSQL semantics).
-
-        Args:
-            expr: CreateTableAsStatement carrying the target table and query.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple) for the statement.
-
-        Raises:
-            TypeError: ``CreateTableAsStatement.table`` is not a Table. Another
-            object kind would have had its own name rendered as the table's.
-        """
-        if not isinstance(expr.table, Table):
-            raise TypeError(
-                f"CreateTableAsStatement.table must be a Table, "
-                f"got {type(expr.table).__name__}"
-            )
-        from ..exceptions import UnsupportedFeatureError
-
-        if not self.supports_create_table_as():
-            raise UnsupportedFeatureError(self.name, "CREATE TABLE ... AS")
-
-        if (expr.with_data or expr.no_data) and not self.supports_with_data_clause():
-            feature = "WITH DATA" if expr.with_data else "WITH NO DATA"
-            raise UnsupportedFeatureError(
-                self.name, feature,
-                f"{self.name} does not support {feature} for CREATE TABLE AS."
-            )
-
-        all_params: List[Any] = []
-        temp_part = "TEMPORARY " if expr.temporary else ""
-        not_exists_part = "IF NOT EXISTS " if expr.if_not_exists else ""
-        table_sql, table_params = expr.table.to_sql()
-        all_params.extend(table_params)
-        parts = [f"CREATE {temp_part}TABLE {not_exists_part}{table_sql}"]
-
-        if expr.storage_options is not None:
-            storage_sql, storage_params = expr.storage_options.to_sql()
-            if storage_sql:
-                parts.append(storage_sql)
-                all_params.extend(storage_params)
-
-        query_sql, query_params = expr.as_query.to_sql()
-        if query_params and not self.supports_create_table_as_bind_parameters():
-            self.refuse_ddl_bind_parameters("CREATE TABLE ... AS with bound parameters")
-        parts.append(f"AS {query_sql}")
-        all_params.extend(query_params)
-
-        if expr.with_data:
-            parts.append(" WITH DATA")
-        elif expr.no_data:
-            parts.append(" WITH NO DATA")
-
-        return " ".join(parts), tuple(all_params)
-
-    def format_drop_table_statement(self, expr: "DropTableStatement") -> Tuple[str, tuple]:
-        """Format DROP TABLE statement (generic implementation).
-
-        Renders ``DROP TABLE [IF EXISTS] <table> [CASCADE | RESTRICT]`` with
-        capability gating: if the dialect reports ``supports_drop_table_cascade``
-        (resp. ``supports_drop_table_restrict``) as False, asking for the
-        corresponding behavior raises ``UnsupportedFeatureError`` instead of
-        emitting a token the database would reject (or silently drop).
-
-        Backend-specific cascade forms that have no cross-vendor commonality
-        (e.g. Oracle's CASCADE CONSTRAINTS plus PURGE) are NOT handled here;
-        backends override this method to render their own form.
-
-        Args:
-            expr: DropTableStatement carrying the table reference, optional
-                ``if_exists`` flag, and optional ``cascade`` flag.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple) for the statement.
-
-        Raises:
-            TypeError: ``DropTableStatement.table`` is not a Table. Another object
-            kind would have had its own name rendered as the table's.
-            UnsupportedFeatureError: If CASCADE or RESTRICT is requested but not
-                supported by the dialect.
-        """
-        if not isinstance(expr.table, Table):
-            raise TypeError(
-                f"DropTableStatement.table must be a Table, "
-                f"got {type(expr.table).__name__}"
-            )
-        from ..exceptions import UnsupportedFeatureError
-
-        parts = ["DROP TABLE"]
-        if expr.if_exists:
-            if not self.supports_if_exists_table():
-                raise UnsupportedFeatureError(
-                    self.name,
-                    "DROP TABLE IF EXISTS",
-                )
-            parts.append("IF EXISTS")
-        table_sql, table_params = expr.table.to_sql()
-        parts.append(table_sql)
-        if expr.cascade:
-            if not self.supports_drop_table_cascade():
-                raise UnsupportedFeatureError(
-                    self.name,
-                    "DROP TABLE ... CASCADE",
-                )
-            parts.append("CASCADE")
-        elif expr.restrict:
-            if not self.supports_drop_table_restrict():
-                raise UnsupportedFeatureError(
-                    self.name,
-                    "DROP TABLE ... RESTRICT",
-                )
-            parts.append("RESTRICT")
-        if expr.purge:
-            if not self.supports_purge_on_drop_table():
-                raise UnsupportedFeatureError(
-                    self.name,
-                    "DROP TABLE ... PURGE",
-                )
-            parts.append("PURGE")
-        return " ".join(parts), table_params
-
-    def format_alter_table_statement(self, expr: "AlterTableStatement") -> Tuple[str, tuple]:
-        """Format ALTER TABLE statement (generic implementation).
-
-        When the dialect does not support multiple actions in one ALTER TABLE
-        (e.g. SQL Server), each action produces a separate statement joined
-        by semicolons.
-
-        Args:
-            expr: AlterTableStatement carrying the table name and the list of
-                actions to render.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple) for the statement.
-
-        Raises:
-            TypeError: ``AlterTableStatement.table`` is not a Table. Another object
-            kind would have had its own name rendered as the table's.
-            TypeError: An entry of ``AlterTableStatement.actions`` is not an
-            implementation of AlterTableAction. An entry of another kind has no
-            action clause to dispatch on, so nothing would be rendered for it.
-        """
-        if not isinstance(expr.table, Table):
-            raise TypeError(
-                f"AlterTableStatement.table must be a Table, "
-                f"got {type(expr.table).__name__}"
-            )
-
-        # AlterTableAction is an abstract base and cannot be instantiated, so
-        # this reports that the entry is not an implementation of it
-        # rather than naming a concrete type.
-        for position, entry in enumerate(expr.actions):
-            if not isinstance(entry, AlterTableAction):
-                raise TypeError(
-                    f"AlterTableStatement.actions must hold AlterTableAction implementations, "
-                    f"got {type(entry).__name__} at position {position}"
-                )
-        all_params: List[Any] = []
-        action_parts = []
-        for action in expr.actions:
-            action_part, action_params = action.to_sql()
-            action_parts.append(action_part)
-            all_params.extend(action_params)
-
-        table_sql = expr.table.to_sql()[0]
-
-        if not action_parts:
-            return f"ALTER TABLE {table_sql}", ()
-
-        if self.supports_multi_action_alter_table():
-            combined = ", ".join(action_parts)
-            return f"ALTER TABLE {table_sql} {combined}", tuple(all_params)
-
-        stmts = []
-        for part in action_parts:
-            stmts.append(f"ALTER TABLE {table_sql} {part}")
-        return "; ".join(stmts), tuple(all_params)
-
-
 class ConstraintMixin:
     """Mixin for DDL constraint capability detection.
 
@@ -911,6 +41,48 @@ class ConstraintMixin:
     """
 
     # Basic constraint types (SQL-86/SQL-92)
+
+    def supports_constraint_novalidate(self) -> bool:
+        return False
+
+    def supports_exclude_constraint(self) -> bool:
+        """Whether EXCLUDE table constraints are supported."""
+        return False
+
+    def supports_drop_column(self) -> bool:
+        return False
+        return True
+
+    def supports_foreign_key_on_delete(self) -> bool:
+        """Whether FOREIGN KEY ON DELETE is supported (defaults to True)."""
+        return True
+
+    def supports_foreign_key_on_update(self) -> bool:
+        """Whether FOREIGN KEY ON UPDATE is supported (defaults to True)."""
+        return True
+
+    def supports_column_character_set(self) -> bool:
+        """Whether a column-level ``CHARACTER SET <name>`` attribute is
+        supported.
+
+        Defaults to False — character sets are a MySQL/MariaDB concept, not
+        part of the generic dialect; those backends override this to return
+        True.
+        """
+        return False
+
+    def supports_column_collation(self) -> bool:
+        """Whether a column-level ``COLLATE <name>`` attribute is supported.
+
+        Defaults to True — the SQL-standard form is valid on every backend
+        that renders column definitions; backends whose column COLLATE is
+        meaningless override this to return False.
+        """
+        return True
+
+    def supports_column_comment(self) -> bool:
+        """Whether COLUMN COMMENT is supported (defaults to False)."""
+        return False
 
     def supports_primary_key_constraint(self) -> bool:
         """Whether PRIMARY KEY constraints are supported.
@@ -947,7 +119,15 @@ class ConstraintMixin:
         """
         return True
 
-    # FK referential actions (SQL-92)
+    def supports_constraint_naming(self) -> bool:
+        """Whether a constraint may carry a ``CONSTRAINT <name>`` prefix.
+
+        The SQL-92 grammar opens both constraint productions with
+        ``[CONSTRAINT <constraint name>]``, so this defaults to ``True`` —
+        a constructor is something every grammar has. A dialect overrides
+        it only to refuse the prefix.
+        """
+        return True
 
     def supports_fk_on_delete(self) -> bool:
         """Whether ON DELETE referential actions are supported.
@@ -963,7 +143,137 @@ class ConstraintMixin:
         """
         return True
 
-    # FK match modes (SQL:1999)
+    def format_references_clause(self, expr: "ReferencesClause") -> Tuple[str, Tuple]:
+        """Format a ``REFERENCES`` clause (shared by column/table foreign keys).
+
+        Renders ``REFERENCES <table>(<cols>)`` plus the referential actions and
+        deferrability. Backends with different syntax override this.
+
+        Args:
+            expr: The ``ReferencesClause`` carrying the referenced table/columns
+                and optional actions.
+
+        Returns:
+            A ``(sql, params)`` tuple (params is always empty for DDL).
+
+        Raises:
+            TypeError: ``ReferencesClause.referenced_table`` is not a Table. Another
+            object kind would have had its own name rendered as the referenced
+            relation.
+            ValueError: If the referenced table has no columns.
+        """
+        from ..exceptions import UnsupportedFeatureError
+        from ...expression.statements import ReferentialAction
+
+        if not isinstance(expr.referenced_table, Table):
+            raise TypeError(
+                f"ReferencesClause.referenced_table must be a Table, "
+                f"got {type(expr.referenced_table).__name__}"
+            )
+        if not expr.referenced_columns:
+            raise ValueError("REFERENCES clause requires at least one referenced column.")
+        ref_cols_str = ", ".join(self.format_identifier(col) for col in expr.referenced_columns)
+        result = f"REFERENCES {expr.referenced_table.to_sql()[0]}({ref_cols_str})"
+        if expr.match_type is not None:
+            match_type = normalize_foreign_key_match_type(expr.match_type)
+            if not self.supports_fk_match():
+                raise UnsupportedFeatureError(
+                    self.name, "FOREIGN KEY MATCH",
+                    f"{self.name} does not support MATCH for foreign keys."
+                )
+            result += f" MATCH {match_type.value}"
+        on_delete = (
+            self._referential_action_value(expr.on_delete)
+            if expr.on_delete is not None
+            else None
+        )
+        if on_delete is not None and on_delete != ReferentialAction.NO_ACTION.value:
+            if not self.supports_foreign_key_on_delete():
+                raise UnsupportedFeatureError(
+                    self.name, "FOREIGN KEY ON DELETE",
+                    f"{self.name} does not support ON DELETE for foreign keys."
+                )
+            result += f" ON DELETE {on_delete}"
+        on_update = (
+            self._referential_action_value(expr.on_update)
+            if expr.on_update is not None
+            else None
+        )
+        if on_update is not None and on_update != ReferentialAction.NO_ACTION.value:
+            if not self.supports_foreign_key_on_update():
+                raise UnsupportedFeatureError(
+                    self.name, "FOREIGN KEY ON UPDATE",
+                    f"{self.name} does not support ON UPDATE for foreign keys."
+                )
+            result += f" ON UPDATE {on_update}"
+        # INITIALLY ... is an independent constraint attribute in the SQL
+        # grammar (PostgreSQL accepts it alone), so it is rendered whenever it
+        # was requested rather than dropped when DEFERRABLE is absent. Both
+        # spellings are authorised by the same capability.
+        has_deferral = (
+            expr.deferrable
+            or expr.not_deferrable
+            or expr.initially_deferred
+            or expr.initially_immediate
+        )
+        if has_deferral and not self.supports_deferrable_constraint():
+
+            raise UnsupportedFeatureError(
+                self.name, "DEFERRABLE / INITIALLY clause on a foreign key"
+            )
+        if expr.deferrable or expr.not_deferrable:
+            result += " DEFERRABLE" if expr.deferrable else " NOT DEFERRABLE"
+        if expr.initially_deferred or expr.initially_immediate:
+            result += (
+                " INITIALLY DEFERRED"
+                if expr.initially_deferred
+                else " INITIALLY IMMEDIATE"
+            )
+        return result, ()
+
+    def format_foreign_key_constraint(self, expr: 'TableConstraint') -> Tuple[str, tuple]:
+        raise NotImplementedError("format_foreign_key_constraint")
+
+    def format_column_fk_constraint(
+        self, expr: "ColumnForeignKeyConstraint"
+    ) -> Tuple[str, Tuple]:
+        """Format a column-level ``REFERENCES`` branch.
+
+        Delegates the reference body to :meth:`format_references_clause`. The
+        deferral traits are the production's to render (see
+        :meth:`format_constraint_traits`), so they are not passed down here.
+
+        Args:
+            expr: The branch whose ``references`` are rendered.
+
+        Returns:
+            A ``(sql, params)`` tuple with a leading space.
+
+        Raises:
+            UnsupportedFeatureError: The dialect has no foreign keys.
+        """
+        from ..exceptions import UnsupportedFeatureError
+        from ...expression.statements.ddl_table import ReferencesClause
+
+        # Known coupling: this is the table-level probe reused for the
+        # column-level grammar. A dialect whose *column* REFERENCES clause is
+        # unusable while its table-level FOREIGN KEY works (SQL Server) cannot
+        # be expressed until the two levels get separate probes.
+        if not self.supports_foreign_key_constraint():
+            raise UnsupportedFeatureError(self.name, "REFERENCES column expr")
+
+        referenced_table, referenced_columns = expr.references
+
+        references = ReferencesClause(
+            self,
+            referenced_table,
+            referenced_columns,
+            on_delete=expr.on_delete,
+            on_update=expr.on_update,
+            match_type=expr.match_type,
+        )
+        ref_sql, ref_params = self.format_references_clause(references)
+        return f" {ref_sql}", tuple(ref_params)
 
     def supports_fk_match(self) -> bool:
         """Whether MATCH {SIMPLE|PARTIAL|FULL} is supported.
@@ -971,20 +281,6 @@ class ConstraintMixin:
         Defaults to True.
         """
         return True
-
-    # Named constraints (SQL-92)
-
-    def supports_constraint_naming(self) -> bool:
-        """Whether a constraint may carry a ``CONSTRAINT <name>`` prefix.
-
-        The SQL-92 grammar opens both constraint productions with
-        ``[CONSTRAINT <constraint name>]``, so this defaults to ``True`` —
-        a constructor is something every grammar has. A dialect overrides
-        it only to refuse the prefix.
-        """
-        return True
-
-    # Constraint deferral (SQL:1999)
 
     def supports_deferrable_constraint(self) -> bool:
         """Whether DEFERRABLE / INITIALLY DEFERRED/IMMEDIATE is supported.
@@ -995,8 +291,6 @@ class ConstraintMixin:
         SQLite).
         """
         return False
-
-    # Constraint enforcement control (SQL:2016)
 
     def supports_constraint_enforced(self) -> bool:
         """Whether ENFORCED / NOT ENFORCED constraint control is supported.
@@ -1012,15 +306,55 @@ class ConstraintMixin:
         """Whether ALTER CONSTRAINT enforcement control is supported."""
         return False
 
-    def supports_exclude_constraint(self) -> bool:
-        """Whether EXCLUDE table constraints are supported."""
-        return False
-
     def supports_validate_constraint(self) -> bool:
         """Whether VALIDATE CONSTRAINT is supported."""
         return False
 
-    # ALTER TABLE constraint operations (SQL-92)
+    def format_alter_constraint_action(self, expr: "AlterConstraintAction") -> Tuple[str, Tuple]:
+        """Format an ``ALTER CONSTRAINT`` enforcement expr.
+
+        The kind restriction — CHECK and FOREIGN KEY only — is this
+        operation's own narrowing of the ENFORCABLE kinds and lives in the
+        formatter, not in the capability probe.
+
+        Raises:
+            TypeError: ``constraint_branch`` is not a CHECK or FOREIGN KEY branch.
+            ValueError: The kind cannot carry the ALTER CONSTRAINT trait.
+            UnsupportedFeatureError: The dialect has no ALTER CONSTRAINT
+                enforcement control.
+        """
+
+        branch = expr.constraint_branch
+        if branch not in (TableCheckConstraint, TableForeignKeyConstraint):
+            raise TypeError(
+                "constraint_branch must be TableCheckConstraint or "
+                f"TableForeignKeyConstraint, got {type(branch).__name__}"
+            )
+        if branch not in (TableCheckConstraint, TableForeignKeyConstraint):
+            raise ValueError(
+                "ALTER CONSTRAINT enforcement is only valid for CHECK and FOREIGN KEY constraints"
+            )
+        if not self.supports_alter_constraint_enforced():
+            from ..exceptions import UnsupportedFeatureError
+
+            raise UnsupportedFeatureError(
+                self.name,
+                "ALTER CONSTRAINT ENFORCED/NOT ENFORCED",
+            )
+        if not isinstance(expr.enforced, bool):
+            raise TypeError("enforced must be a bool")
+        keyword = "ENFORCED" if expr.enforced else "NOT ENFORCED"
+        return (
+            f"ALTER CONSTRAINT {self.format_identifier(expr.constraint_name)} {keyword}",
+            (),
+        )
+
+    def format_validate_constraint_action(self, expr: "ValidateConstraintAction") -> Tuple[str, Tuple]:
+        if not self.supports_validate_constraint():
+            from ..exceptions import UnsupportedFeatureError
+
+            raise UnsupportedFeatureError(self.name, "VALIDATE CONSTRAINT")
+        return f"VALIDATE CONSTRAINT {self.format_identifier(expr.constraint_name)}", ()
 
     def supports_add_constraint(self) -> bool:
         """Whether ALTER TABLE ADD CONSTRAINT is supported.
@@ -1035,3 +369,45 @@ class ConstraintMixin:
         Defaults to True.
         """
         return True
+
+def _normalize_constraint_type(constraint_type: Any, constraint_enum: type, label: str) -> Any:
+    if isinstance(constraint_type, constraint_enum):
+        return constraint_type
+    # Accepts the enum or its spelling, and a spelling may arrive as an enum of
+    # another family that spells the same words -- which is a type question, so
+    # it is asked with isinstance instead of probed for ``value`` / ``name``.
+    if isinstance(constraint_type, Enum):
+        raw_value, raw_name = constraint_type.value, constraint_type.name
+    else:
+        raw_value = raw_name = constraint_type
+    candidates = []
+    for candidate in (raw_value, raw_name):
+        if isinstance(candidate, str):
+            normalized = " ".join(candidate.strip().split()).upper()
+            candidates.extend((normalized, normalized.replace(" ", "_")))
+    for candidate in candidates:
+        try:
+            return constraint_enum(candidate)
+        except ValueError:
+            continue
+    raise ValueError(
+        f"{label} must be a {constraint_enum.__name__} or its string value"
+    )
+
+def normalize_foreign_key_match_type(match_type: Any) -> Any:
+    """Return the :class:`ForeignKeyMatchType` for ``match_type``.
+
+    ``None`` passes through: a constraint that names no MATCH type is asking for
+    the SQL default, which is not the same as asking for ``SIMPLE`` explicitly
+    (a dialect may spell the default and the explicit form differently, or
+    refuse one of them).
+    """
+    from ...expression.statements.ddl_table import ForeignKeyMatchType
+
+    if match_type is None:
+        return None
+    return _normalize_constraint_type(
+        match_type,
+        ForeignKeyMatchType,
+        "foreign key MATCH type",
+    )

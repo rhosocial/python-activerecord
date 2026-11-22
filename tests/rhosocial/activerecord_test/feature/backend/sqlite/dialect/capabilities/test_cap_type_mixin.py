@@ -4,6 +4,7 @@
 import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.impl.sqlite.introspection.type_parser import SQLiteTypeParser
 from rhosocial.activerecord.backend.expression.types import (
     BigIntType,
     BooleanType,
@@ -36,7 +37,7 @@ from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
     SQLiteRealType,
     SQLiteTextType,
 )
-from rhosocial.activerecord.backend.impl.sqlite.mixins.data_type_suggestions import (
+from rhosocial.activerecord.backend.impl.sqlite.suggestion.data_type_suggestions import (
     SQLITE_DATA_TYPE_SUGGESTIONS,
 )
 
@@ -135,20 +136,20 @@ def test_invalid_spellings_are_refused():
 
 
 def test_parse_type_affinity_branches():
-    assert isinstance(DIALECT.parse_type("UNSIGNED INTEGER"), SQLiteIntegerType)
-    assert isinstance(DIALECT.parse_type("VARCHAR(20)"), SQLiteTextType)
-    assert DIALECT.parse_type("VARCHAR(20)").length == 20
-    assert isinstance(DIALECT.parse_type("REAL(10)"), SQLiteRealType)
-    assert isinstance(DIALECT.parse_type("REAL"), SQLiteRealType)
-    assert isinstance(DIALECT.parse_type("DECIMAL(10, 2)"), SQLiteNumericType)
-    assert isinstance(DIALECT.parse_type("DECIMAL(10)"), SQLiteNumericType)
-    assert isinstance(DIALECT.parse_type("DECIMAL"), SQLiteNumericType)
-    assert isinstance(DIALECT.parse_type("BLOB"), SQLiteBlobType)
-    assert isinstance(DIALECT.parse_type("MYSTERY"), CustomType)
+    assert isinstance(SQLiteTypeParser(DIALECT).parse("UNSIGNED INTEGER"), SQLiteIntegerType)
+    assert isinstance(SQLiteTypeParser(DIALECT).parse("VARCHAR(20)"), SQLiteTextType)
+    assert SQLiteTypeParser(DIALECT).parse("VARCHAR(20)").length == 20
+    assert isinstance(SQLiteTypeParser(DIALECT).parse("REAL(10)"), SQLiteRealType)
+    assert isinstance(SQLiteTypeParser(DIALECT).parse("REAL"), SQLiteRealType)
+    assert isinstance(SQLiteTypeParser(DIALECT).parse("DECIMAL(10, 2)"), SQLiteNumericType)
+    assert isinstance(SQLiteTypeParser(DIALECT).parse("DECIMAL(10)"), SQLiteNumericType)
+    assert isinstance(SQLiteTypeParser(DIALECT).parse("DECIMAL"), SQLiteNumericType)
+    assert isinstance(SQLiteTypeParser(DIALECT).parse("BLOB"), SQLiteBlobType)
+    assert isinstance(SQLiteTypeParser(DIALECT).parse("MYSTERY"), CustomType)
 
 
 def test_suggested_data_types_returns_fresh_copy():
     """SQLite's DDL suggestions are the affinities it really stores."""
-    table = DIALECT.suggested_data_types()
+    table = DIALECT.suggest_data_types()
     assert table == SQLITE_DATA_TYPE_SUGGESTIONS
     assert table is not SQLITE_DATA_TYPE_SUGGESTIONS

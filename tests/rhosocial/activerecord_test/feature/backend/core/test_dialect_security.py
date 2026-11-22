@@ -10,7 +10,7 @@ import pytest
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefaultConstraint,
 )
-from rhosocial.activerecord.backend.dialect.mixins import NamespaceMixin, TableNameMixin
+from rhosocial.activerecord.backend.dialect.mixins import NamespaceMixin, TableObjectMixin
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
 from rhosocial.activerecord.backend.expression.functions.string import trim
@@ -34,7 +34,7 @@ class SecurityDialect(
     DDLColumnMixin,
     PartitionMixin,
     DataTypeMixin,
-    TableNameMixin,
+    TableObjectMixin,
     NamespaceMixin,
     TableMixin,
 ):

@@ -16,7 +16,6 @@ from __future__ import annotations
 from typing import Optional
 
 from ._base import LENGTH_PARAMETERS, DataType
-from ._defaults import declared_parameter
 
 
 class JsonType(DataType):
@@ -36,9 +35,7 @@ class JsonType(DataType):
         dialect bound after the fact resolves the same way as one passed at
         construction.
         """
-        return self._length if self._length is not None else declared_parameter(
-            self.name, "length", self._dialect
-        )
+        return self._length
 
     @length.setter
     def length(self, value: Optional[int]) -> None:
@@ -62,9 +59,7 @@ class JsonBType(DataType):
 
         Resolved rather than stored, exactly as on :class:`JsonType`.
         """
-        return self._length if self._length is not None else declared_parameter(
-            self.name, "length", self._dialect
-        )
+        return self._length
 
     @length.setter
     def length(self, value: Optional[int]) -> None:

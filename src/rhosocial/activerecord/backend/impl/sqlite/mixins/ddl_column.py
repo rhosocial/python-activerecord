@@ -36,7 +36,7 @@ class SQLiteDDLColumnMixin:
 
     def format_column_primary_key_constraint(
         self, expr: "ColumnPrimaryKeyConstraint"
-    ) -> Tuple[str, tuple]:
+    ) -> "Tuple[str, tuple]":
         """SQLite's plain ``PRIMARY KEY``.
 
         ``AUTOINCREMENT`` follows ``PRIMARY KEY`` in SQLite's grammar, but it
@@ -46,11 +46,11 @@ class SQLiteDDLColumnMixin:
         """
         return super().format_column_primary_key_constraint(expr)
 
-    def format_sqlite_auto_increment_clause(self, expr) -> Tuple[str, tuple]:
+    def format_sqlite_auto_increment_clause(self, expr) -> "Tuple[str, tuple]":
         """SQLite's rowid-alias ``AUTOINCREMENT`` tail (after PRIMARY KEY)."""
         return " AUTOINCREMENT", ()
 
-    def format_default_value_clause(self, expr: "DefaultValueClause") -> Tuple[str, tuple]:
+    def format_default_value_clause(self, expr: "DefaultValueClause") -> "Tuple[str, tuple]":
         """Format the value clause of a DEFAULT constraint (SQLite).
 
         SQLite does not support parameterized DEFAULT in CREATE TABLE, so
@@ -71,7 +71,7 @@ class SQLiteDDLColumnMixin:
             return f"{'1' if value else '0'}", ()
         return super().format_default_value_clause(expr)
 
-    def format_column_definition(self, expr: "ColumnDefinition") -> Tuple[str, tuple]:
+    def format_column_definition(self, expr: "ColumnDefinition") -> "Tuple[str, tuple]":
         """Format a column definition for SQLite.
 
         SQLite needs no column-definition grammar of its own. What it does need

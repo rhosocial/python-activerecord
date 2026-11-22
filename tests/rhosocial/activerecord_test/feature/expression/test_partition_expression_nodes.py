@@ -56,7 +56,7 @@ def test_definition_expression_is_renderable_node(dialect):
     de = PartitionDefinitionExpression(dialect, "p0", less_than=[Column(dialect, "id")])
     assert isinstance(de, BaseExpression)
     assert de.name == "p0"
-    assert de.format_method == "format_partition_definition"
+    assert de.format_method == "format_partition_definition_expression"
     assert de.dialect is dialect
 
 
@@ -72,8 +72,8 @@ def test_definition_expression_validates_name_and_exclusive_boundaries(dialect):
 def test_subpartition_and_options_expressions(dialect):
     sub = SubpartitionDefinitionExpression(dialect, "sp0")
     assert isinstance(sub, BaseExpression)
-    assert sub.format_method == "format_subpartition_definition"
+    assert sub.format_method == "format_subpartition_definition_expression"
     opts = PartitionOptionsExpression(dialect, {"engine": "InnoDB"})
     assert isinstance(opts, BaseExpression)
-    assert opts.format_method == "format_partition_definition_options"
+    assert opts.format_method == "format_partition_options_expression"
     assert opts.options["engine"] == "InnoDB"

@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/backend/dialect/protocols/object/type_.py
 """Rendering a type or domain name -- the ``data_type`` position."""
 
-from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
+from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING, Type
 
 from .namespace import NamespaceSupport
 

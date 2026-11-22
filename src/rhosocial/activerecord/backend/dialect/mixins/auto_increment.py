@@ -7,7 +7,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements import AutoIncrementClause
 
 
-class AutoIncrementMixin:
+class AutoIncrementColumnMixin:
     """Mixin for the parameterless ``AUTO_INCREMENT`` column marker.
 
     ``AUTO_INCREMENT`` is one mechanism, not three spellings of one thing: it

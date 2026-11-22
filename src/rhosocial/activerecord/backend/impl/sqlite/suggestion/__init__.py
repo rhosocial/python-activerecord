@@ -2,6 +2,7 @@
 """SQLite backend-suggestion implementations."""
 
 from .data_type_suggestions import SQLiteDataTypeSuggestionsMixin
+from .index_suggestion import SQLiteIndexSuggestionMixin
 from .integer_auto_increment_column_suggestion import SQLiteIntegerAutoIncrementColumnSuggestionMixin
 from .partition_add_suggestion import SQLitePartitionAddSuggestionMixin
 from .partition_build_suggestion import SQLitePartitionBuildSuggestionMixin
@@ -14,6 +15,7 @@ from .partition_table_drop_suggestion import SQLitePartitionTableDropSuggestionM
 
 __all__ = [
     "SQLiteDataTypeSuggestionsMixin",
+    "SQLiteIndexSuggestionMixin",
     "SQLiteIntegerAutoIncrementColumnSuggestionMixin",
     "SQLitePartitionAddSuggestionMixin",
     "SQLitePartitionBuildSuggestionMixin",

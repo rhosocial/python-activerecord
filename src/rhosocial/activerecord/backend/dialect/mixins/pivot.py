@@ -28,20 +28,6 @@ class PivotMixin:
         """Whether the UNPIVOT clause is supported. Defaults to False."""
         return False
 
-    def format_pivot_value(self, expr: "Union[BaseExpression, str, int, float]") -> Tuple[str, tuple]:
-        """Render a single expr in a PIVOT ``IN (...)`` list.
-
-        Strings/numbers are rendered as inline SQL literals; expression
-        instances are rendered through ``to_sql()``. Dialects whose PIVOT
-        values are identifiers (e.g. SQL Server) override this.
-        """
-        from ...expression.bases import BaseExpression
-
-        if isinstance(expr, BaseExpression):
-            sql, params = expr.to_sql()
-            return sql, tuple(params)
-        return self.format_literal(expr), ()
-
     def format_pivot(self, expr: "Pivot") -> Tuple[str, tuple]:
         """Format a PIVOT clause.
 
@@ -74,6 +60,20 @@ class PivotMixin:
             sql += f" {self.format_identifier(expr.alias)}"
 
         return sql, tuple(all_params)
+
+    def format_pivot_value(self, expr: "Union[BaseExpression, str, int, float]") -> Tuple[str, tuple]:
+        """Render a single expr in a PIVOT ``IN (...)`` list.
+
+        Strings/numbers are rendered as inline SQL literals; expression
+        instances are rendered through ``to_sql()``. Dialects whose PIVOT
+        values are identifiers (e.g. SQL Server) override this.
+        """
+        from ...expression.bases import BaseExpression
+
+        if isinstance(expr, BaseExpression):
+            sql, params = expr.to_sql()
+            return sql, tuple(params)
+        return self.format_literal(expr), ()
 
     def format_unpivot(self, expr: "Unpivot") -> Tuple[str, tuple]:
         """Format an UNPIVOT clause.

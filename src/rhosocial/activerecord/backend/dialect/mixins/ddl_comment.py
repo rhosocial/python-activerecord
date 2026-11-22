@@ -4,7 +4,7 @@
 ``COMMENT ON`` is a standalone statement that annotates an existing schema
 object — it is *not* an inline CREATE TABLE clause.  Backends whose only
 comment mechanism is the standalone statement (PostgreSQL / Oracle /
-Firebird / Snowflake) advertise :meth:`CommentOnMixin.supports_comment_on`
+Firebird / Snowflake) advertise :meth:`CommentMixin.supports_comment_on`
 and inherit the generic rendering here, overriding only when their grammar
 differs (version gates, parameter binding, extra object kinds).
 """
@@ -17,7 +17,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements.ddl_comment import CommentOnStatement
 
 
-class CommentOnMixin:
+class CommentMixin:
     """Standalone ``COMMENT ON`` capability check and generic formatter."""
 
     def supports_comment_on(self) -> bool:
@@ -83,4 +83,4 @@ class CommentOnMixin:
         return f"{head} '{escaped}'", object_params
 
 
-__all__ = ["CommentOnMixin"]
+__all__ = ["CommentMixin"]

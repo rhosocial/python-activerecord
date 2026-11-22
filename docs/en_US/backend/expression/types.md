@@ -205,7 +205,7 @@ class Product(ActiveRecord):
 
 ### Introspection and Sync (parse_type)
 
-When a dialect implements `parse_type(raw)` (the `DataTypeSupport` protocol), it can parse a raw type string returned by the database back into a `DataType` object for schema introspection and comparison. Dialects without this interface fall back to `CustomType(raw=raw)`. The former names `DDLTypeSupport` and `DDLTypeMixin` remain deprecated compatibility aliases for `DataTypeSupport` and `DataTypeMixin`.
+When a dialect implements `parse_type(raw)` (the `DataTypeSupport` protocol), it can parse a raw type string returned by the database back into a `DataType` object for schema introspection and comparison. Dialects without this interface fall back to `CustomType(raw=raw)`. The former names `DataTypeSupport` and `DataTypeMixin` remain deprecated compatibility aliases for `DataTypeSupport` and `DataTypeMixin`.
 
 A `parse_type` answer has to be **canonical**, and both halves of that are enforced by `tests/.../dummy/types/test_type_spelling_parse.py`:
 

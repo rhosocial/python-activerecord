@@ -208,7 +208,7 @@ class Product(ActiveRecord):
 
 ### 内省与同步 (parse_type)
 
-方言实现 `parse_type(raw)`（`DataTypeSupport` 协议）时，可将数据库返回的原始类型字符串解析回 `DataType` 对象，用于 schema 内省与比对。未实现该接口的方言回退为 `CustomType(raw=raw)`。旧名 `DDLTypeSupport` / `DDLTypeMixin` 仅作为对应新名的 deprecated 兼容别名保留。
+方言实现 `parse_type(raw)`（`DataTypeSupport` 协议）时，可将数据库返回的原始类型字符串解析回 `DataType` 对象，用于 schema 内省与比对。未实现该接口的方言回退为 `CustomType(raw=raw)`。旧名 `DataTypeSupport` / `DataTypeMixin` 仅作为对应新名的 deprecated 兼容别名保留。
 
 `parse_type` 的结果必须是**规范**的，其两半都由 `tests/.../dummy/types/test_type_spelling_parse.py` 强制：
 

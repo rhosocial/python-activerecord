@@ -29,7 +29,7 @@ class LateralJoinMixin:
         """Whether LATERAL joins are supported. Defaults to False."""
         return False
 
-    def format_lateral_expression(self, expr: "LateralExpression") -> Tuple[str, tuple]:
+    def format_lateral_expression(self, expr: "LateralExpression") -> "Tuple[str, tuple]":
         """Format a :class:`~...expression.query_sources.LateralExpression` node.
 
         Args:
@@ -58,7 +58,7 @@ class LateralJoinMixin:
             sql = f"{join_phrase} LATERAL {expr_sql}"
         return sql, expr_params
 
-    def format_table_function_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+    def format_table_function_expression(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Format a :class:`~...expression.query_sources.TableFunctionExpression` node.
 
         Args:
@@ -133,6 +133,14 @@ class JoinMixin:
     clause while validating that support.
     """
 
+    def supports_explicit_inner_join(self) -> bool:
+        return False  # default: not supported
+        return sql, tuple(all_params)
+
+    def supports_straight_join(self) -> bool:
+        """Whether MySQL STRAIGHT_JOIN is supported. Defaults to False."""
+        return False
+
     def supports_inner_join(self) -> bool:
         """Whether INNER JOIN is supported. Defaults to True."""
         return True
@@ -157,11 +165,7 @@ class JoinMixin:
         """Whether NATURAL JOIN is supported. Defaults to True."""
         return True
 
-    def supports_straight_join(self) -> bool:
-        """Whether MySQL STRAIGHT_JOIN is supported. Defaults to False."""
-        return False
-
-    def format_join_clause(self, expr: "JoinClause") -> Tuple[str, Tuple]:
+    def format_join_clause(self, expr: "JoinClause") -> "Tuple[str, tuple]":
         """Format a JOIN expression into dialect SQL.
 
         Validates support for the given join type using the ``supports_*``
@@ -242,5 +246,4 @@ class JoinMixin:
         # Add alias for the joined result if provided
         if expr.alias:
             sql = f"({sql}) AS {self.format_identifier(expr.alias)}"
-
         return sql, tuple(all_params)

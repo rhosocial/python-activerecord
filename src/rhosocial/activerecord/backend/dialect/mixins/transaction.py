@@ -20,6 +20,25 @@ if TYPE_CHECKING:
 class TransactionControlMixin:
     """Mixin providing transaction control statement formatting."""
 
+    def supports_transaction_mode(self) -> bool:
+        return False  # default: not supported
+
+    def supports_isolation_level_in_begin(self) -> bool:
+        return False  # default: not supported
+
+    def supports_read_only_transaction(self) -> bool:
+        return False  # default: not supported
+
+    def supports_deferrable_transaction(self) -> bool:
+        return False  # default: not supported
+
+    def supports_transaction_wait(self) -> bool:
+        return False  # default: not supported
+        raise NotImplementedError(f"{self.name} dialect does not support SET TRANSACTION statement")
+
+    def supports_savepoint(self) -> bool:
+        return False  # default: not supported
+
     def format_begin_transaction_statement(self, expr: "BeginTransactionStatement") -> Tuple[str, tuple]:
         """Format a BEGIN transaction statement.
 

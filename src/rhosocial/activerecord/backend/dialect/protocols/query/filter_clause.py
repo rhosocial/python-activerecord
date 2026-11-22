@@ -20,12 +20,12 @@ class FilterClauseSupport(Protocol):
         """Whether FILTER (WHERE ...) clause is supported in aggregate functions."""
         ...  # pragma: no cover
 
-    def format_filter_clause(self, expr: "FilterClause") -> Tuple[str, tuple]:
+    def format_filter_clause(self, expr: "FilterClause") -> "Tuple[str, tuple]":
         """
         Format a FILTER (WHERE ...) clause.
 
         Args:
-            expr: FilterClause wrapping the condition.
+            expr: "FilterClause" wrapping the condition.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.

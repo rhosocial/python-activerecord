@@ -15,13 +15,13 @@ from typing import Tuple
 from .schema_namespace import NamespaceMixin
 from ...expression.objects import Index
 
-__all__ = ["IndexNameMixin"]
+__all__ = ["IndexObjectMixin"]
 
 
-class IndexNameMixin(NamespaceMixin):
+class IndexObjectMixin(NamespaceMixin):
     """Renders a index as its name."""
 
-    def format_index_object(self, expr: "Index") -> Tuple[str, tuple]:
+    def format_index_object(self, expr: "Index") -> "Tuple[str, tuple]":
         """Render *expr* as an index name.
 
         Args:

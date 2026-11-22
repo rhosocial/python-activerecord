@@ -1,5 +1,5 @@
-# tests/rhosocial/activerecord_test/feature/backend/core/test_core_substitute_data_types.py
-"""Tests for the substitute_data_types() type-consistency suggestion map.
+# tests/rhosocial/activerecord_test/feature/backend/core/test_core_suggest_substitute_types.py
+"""Tests for the suggest_substitute_types() type-consistency suggestion map.
 
 Covers:
 - Values are DataType **classes** (same value type as supports_data_types —
@@ -52,12 +52,18 @@ def _dummy_dialect():
 _GENERIC_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
+def _rendered_names(dialect):
+    import re as _re
+    return {m.group(1) for n in dir(type(dialect))
+            if (m := _re.match(r"^format_data_type_([a-z][a-z0-9_]*)$", n))}
+
+
 class TestSQLiteSuggestions:
-    """SQLiteDialect.substitute_data_types() reflects SQLite's real storage."""
+    """SQLiteDialect.suggest_substitute_types() reflects SQLite's real storage."""
 
     @pytest.fixture
     def suggestions(self):
-        return _sqlite_dialect().substitute_data_types()
+        return _sqlite_dialect().suggest_substitute_types()
 
     def test_values_are_data_type_classes(self, suggestions):
         assert suggestions
@@ -92,15 +98,15 @@ class TestSQLiteSuggestions:
     def test_rendered_types_are_not_suggested(self, suggestions):
         """Types SQLite's type mixin renders natively get no suggestion."""
         dialect = _sqlite_dialect()
-        rendered = set(dialect.supports_data_types())
+        rendered = _rendered_names(dialect)
         assert "json" in rendered and "jsonb" in rendered
         assert not {"json", "jsonb", "varchar", "date"} & set(suggestions)
 
     def test_suggested_and_supported_keys_are_disjoint(self):
         """Contract invariant: a type the dialect renders needs no suggestion."""
         dialect = _sqlite_dialect()
-        supported = set(dialect.supports_data_types())
-        suggested = set(dialect.substitute_data_types())
+        supported = _rendered_names(dialect)
+        suggested = set(dialect.suggest_substitute_types())
         overlap = supported & suggested
         assert not overlap, f"keys appear in both maps: {sorted(overlap)}"
 
@@ -109,8 +115,8 @@ class TestDummyHonesty:
     """A dialect that formats everything it knows has nothing to suggest."""
 
     def test_dummy_suggests_nothing(self):
-        assert _dummy_dialect().substitute_data_types() == {}
+        assert _dummy_dialect().suggest_substitute_types() == {}
 
     def test_mixin_default_is_empty(self):
-        from rhosocial.activerecord.backend.dialect.mixins.data_type import DataTypeMixin
-        assert DataTypeMixin().substitute_data_types() == {}
+        from rhosocial.activerecord.backend.impl.dummy.data_type_suggestions import DummyDataTypeSuggestionsMixin
+        assert DummyDataTypeSuggestionsMixin().suggest_substitute_types() == {}

@@ -278,23 +278,6 @@ class SQLiteIntrospectionCapabilityMixin:
         """
         return self.version_at_least((3, 9, 0))
 
-    def get_supported_introspection_scopes(self) -> List["IntrospectionScope"]:
-        """Get list of supported introspection scopes."""
-        from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
-
-        scopes = [
-            IntrospectionScope.DATABASE,
-            IntrospectionScope.TABLE,
-            IntrospectionScope.COLUMN,
-            IntrospectionScope.INDEX,
-            IntrospectionScope.VIEW,
-            IntrospectionScope.TRIGGER,
-        ]
-        # Foreign key introspection requires SQLite 3.6.19+
-        if self.supports_foreign_key_introspection():
-            scopes.append(IntrospectionScope.FOREIGN_KEY)
-        return scopes
-
     # ========== Query Formatting ==========
 
     # ------------------------------------------------------------------

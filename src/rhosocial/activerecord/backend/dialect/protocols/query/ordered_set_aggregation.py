@@ -20,12 +20,12 @@ class OrderedSetAggregationSupport(Protocol):
         """Whether ordered-set aggregate functions are supported."""
         ...  # pragma: no cover
 
-    def format_ordered_set_aggregation(self, expr: "OrderedSetAggregation") -> Tuple[str, Tuple]:
+    def format_ordered_set_aggregation(self, expr: "OrderedSetAggregation") -> "Tuple[str, tuple]":
         """
         Formats an ordered-set aggregate function call.
 
         Args:
-            expr: OrderedSetAggregation object to format
+            expr: "OrderedSetAggregation" object to format
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.

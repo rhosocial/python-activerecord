@@ -15,13 +15,13 @@ from typing import Tuple
 from .schema_namespace import NamespaceMixin
 from ...expression.objects import View
 
-__all__ = ["ViewNameMixin"]
+__all__ = ["ViewObjectMixin"]
 
 
-class ViewNameMixin(NamespaceMixin):
+class ViewObjectMixin(NamespaceMixin):
     """Renders a view as its name."""
 
-    def format_view_object(self, expr: "View") -> Tuple[str, tuple]:
+    def format_view_object(self, expr: "View") -> "Tuple[str, tuple]":
         """Render *expr* as a view name.
 
         Args:

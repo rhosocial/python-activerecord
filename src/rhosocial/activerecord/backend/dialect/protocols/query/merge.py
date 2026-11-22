@@ -31,3 +31,6 @@ class MergeSupport(Protocol):
             Tuple of (SQL string, parameters tuple) for the formatted statement.
         """
         ...  # pragma: no cover
+
+    def format_merge_action(self, expr: "MergeAction") -> Tuple[str, tuple]:
+        ...  # pragma: no cover

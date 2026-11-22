@@ -60,4 +60,4 @@ class TestSQLiteDialectOtherFeatures:
     def test_get_upsert_syntax_type(self):
         """Test UPSERT syntax type retrieval"""
         dialect = SQLiteDialect()
-        assert dialect.get_upsert_syntax_type() == "ON CONFLICT"
+        assert dialect.suggest_upsert_syntax_type() == "ON CONFLICT"

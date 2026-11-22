@@ -20,15 +20,6 @@ class UpsertSupport(Protocol):
         """Whether UPSERT is supported."""
         ...  # pragma: no cover
 
-    def get_upsert_syntax_type(self) -> str:
-        """
-        Get UPSERT syntax type.
-
-        Returns:
-            'ON CONFLICT' (PostgreSQL) or 'ON DUPLICATE KEY' (MySQL)
-        """
-        ...  # pragma: no cover
-
     def supports_on_conflict_clause(self) -> bool:
         """
         Whether INSERT statements can carry an ON CONFLICT (or backend

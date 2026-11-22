@@ -8,7 +8,7 @@ Naming an object is not here -- that is
 :mod:`~rhosocial.activerecord.backend.dialect.protocols.object`.
 """
 
-from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
+from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING, Type, Type as TypingType
 
 if TYPE_CHECKING:  # pragma: no cover
     from .....expression.statements import (
@@ -53,7 +53,7 @@ class CreateTypeSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def supports_type_definition(self) -> bool:
+    def supports_type_definition(self, definition_type: Type["TypeDefinition"]) -> bool:
         """Whether the engine accepts the form ``type_definition``.
 
         Defaults to ``False``; a dialect that accepts it returns ``True``.
@@ -74,4 +74,9 @@ class CreateTypeSupport(Protocol):
         Raises rather than emitting an unsupported form: a statement the
         engine cannot parse is not a statement worth producing.
         """
+        ...  # pragma: no cover
+
+
+    def supported_type_definitions(self) -> Tuple[TypingType["TypeDefinition"], ...]:
+        """Mirror of the dialect method; see the concrete implementation."""
         ...  # pragma: no cover

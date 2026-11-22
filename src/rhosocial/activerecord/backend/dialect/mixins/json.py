@@ -4,7 +4,7 @@
 Provides capability probes for JSON types and operators, and formats JSON
 path access using either arrow operators or function-based equivalents.
 """
-from typing import Tuple, TYPE_CHECKING
+from typing import Tuple, TYPE_CHECKING, Dict, Any
 
 from ..exceptions import UnsupportedFeatureError
 from ...expression import bases
@@ -25,25 +25,6 @@ class JSONMixin:
         """Whether JSON type is supported. Defaults to False."""
         return False
 
-    def supports_json_path(self) -> bool:
-        """Whether a JSON path can be rendered at all.
-
-        Separate from :meth:`supports_json_type` on purpose. A dialect can
-        have the functions that read a path without having a native JSON type
-        — MySQL 5.7.0 has JSON_EXTRACT, and the JSON *type* arrived in 5.7.8 —
-        and it can have a JSON type with no way to read a path, which is
-        Firebird's situation with JSON_ARRAY and JSON_OBJECT.
-
-        Conflating the two makes a backend refuse a query its server would
-        have answered, and the refusal looks like a missing feature rather
-        than a wrong gate.
-
-        Defaults to True because a dialect that says nothing is expected to
-        render paths; a dialect whose server has no such function should
-        override this to False and refuse with a suggestion.
-        """
-        return True
-
     def supports_json_arrow_operators(self) -> bool:
         """Whether JSON arrow operators (-> and ->>) are supported.
 
@@ -56,105 +37,9 @@ class JSONMixin:
         """
         return False
 
-    def get_json_access_operator(self) -> str:
-        """Get the JSON access operator used by this dialect.
-
-        Returns:
-            '->' (PostgreSQL/MySQL/SQLite) or another dialect-specific operator.
-        """
-        return "->"
-
-    def supports_json_table(self) -> bool:
+    def supports_json_table(self, dialect_options: Dict[str, Any] | None = None) -> bool:
         """Whether JSON_TABLE function is supported. Defaults to False."""
         return False
-
-    # ------------------------------------------------------------------
-    # Arrow-operator formatting (-> / ->>)
-    # ------------------------------------------------------------------
-
-    def format_json_arrow_expression(self, expr: "JSONDocumentValue") -> Tuple[str, Tuple]:
-        """Format JSON expression using arrow operators (-> / ->>).
-
-        This method always uses arrow operator syntax. If the dialect does
-        not support arrow operators, it raises UnsupportedFeatureError.
-
-        Args:
-            expr: The JSONDocumentValue node with column, path, operation, and
-                optional alias.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple) for the expression.
-
-        Raises:
-            UnsupportedFeatureError: If arrow operators are not supported.
-        """
-        if not self.supports_json_arrow_operators():
-            raise UnsupportedFeatureError(
-                self.name,
-                "JSON arrow operators (-> / ->>)",
-                f"{self.name} does not support JSON arrow operators. "
-                "Use function-based JSON extraction instead.",
-            )
-
-        if isinstance(expr.column, bases.BaseExpression):
-            col_sql, col_params = expr.column.to_sql()
-        else:
-            col_sql, col_params = self.format_identifier(str(expr.column)), ()
-
-        escaped_path = self.escape_sql_string(expr.path)
-        sql = f"{col_sql}{expr.operation}'{escaped_path}'"
-        params = col_params
-
-        if expr.alias:
-            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
-
-        return sql, params
-
-    # ------------------------------------------------------------------
-    # Function-based formatting (JSON_EXTRACT / JSON_UNQUOTE etc.)
-    # ------------------------------------------------------------------
-
-    def format_json_function_expression(self, expr: "JSONDocumentValue") -> Tuple[str, Tuple]:
-        """Format JSON expression using function-based equivalents.
-
-        Default implementation uses JSON_EXTRACT for -> and
-        JSON_UNQUOTE(JSON_EXTRACT(...)) for ->>.
-
-        Backends without arrow operator support should override this
-        method to provide the correct function-based SQL.
-
-        Args:
-            expr: The JSONDocumentValue node with column, path, operation, and
-                optional alias.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple) for the expression.
-        """
-        if isinstance(expr.column, bases.BaseExpression):
-            col_sql, col_params = expr.column.to_sql()
-        else:
-            col_sql, col_params = self.format_identifier(str(expr.column)), ()
-
-        escaped_path = self.escape_sql_string(expr.path)
-
-        if expr.operation == "->":
-            sql = f"JSON_EXTRACT({col_sql}, '{escaped_path}')"
-            params = col_params
-        elif expr.operation == "->>":
-            sql = f"JSON_UNQUOTE(JSON_EXTRACT({col_sql}, '{escaped_path}'))"
-            params = col_params
-        else:
-            sql = f"{col_sql} {expr.operation} '{escaped_path}'"
-            params = col_params
-
-        if expr.alias:
-            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
-
-        return sql, params
-
-    # ------------------------------------------------------------------
-    # Dispatch entry point
-    # ------------------------------------------------------------------
 
     def format_json_expression(self, expr: "JSONDocumentValue") -> Tuple[str, Tuple]:
         """Format JSON expression, dispatching on mode and capability.
@@ -229,6 +114,82 @@ class JSONMixin:
             return self.format_json_arrow_expression(expr)
         return self.format_json_function_expression(expr)
 
+    def format_json_arrow_expression(self, expr: "JSONDocumentValue") -> Tuple[str, Tuple]:
+        """Format JSON expression using arrow operators (-> / ->>).
+
+        This method always uses arrow operator syntax. If the dialect does
+        not support arrow operators, it raises UnsupportedFeatureError.
+
+        Args:
+            expr: The JSONDocumentValue node with column, path, operation, and
+                optional alias.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the expression.
+
+        Raises:
+            UnsupportedFeatureError: If arrow operators are not supported.
+        """
+        if not self.supports_json_arrow_operators():
+            raise UnsupportedFeatureError(
+                self.name,
+                "JSON arrow operators (-> / ->>)",
+                f"{self.name} does not support JSON arrow operators. "
+                "Use function-based JSON extraction instead.",
+            )
+
+        if isinstance(expr.column, bases.BaseExpression):
+            col_sql, col_params = expr.column.to_sql()
+        else:
+            col_sql, col_params = self.format_identifier(str(expr.column)), ()
+
+        escaped_path = self.escape_sql_string(expr.path)
+        sql = f"{col_sql}{expr.operation}'{escaped_path}'"
+        params = col_params
+
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+
+        return sql, params
+
+    def format_json_function_expression(self, expr: "JSONDocumentValue") -> Tuple[str, Tuple]:
+        """Format JSON expression using function-based equivalents.
+
+        Default implementation uses JSON_EXTRACT for -> and
+        JSON_UNQUOTE(JSON_EXTRACT(...)) for ->>.
+
+        Backends without arrow operator support should override this
+        method to provide the correct function-based SQL.
+
+        Args:
+            expr: The JSONDocumentValue node with column, path, operation, and
+                optional alias.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the expression.
+        """
+        if isinstance(expr.column, bases.BaseExpression):
+            col_sql, col_params = expr.column.to_sql()
+        else:
+            col_sql, col_params = self.format_identifier(str(expr.column)), ()
+
+        escaped_path = self.escape_sql_string(expr.path)
+
+        if expr.operation == "->":
+            sql = f"JSON_EXTRACT({col_sql}, '{escaped_path}')"
+            params = col_params
+        elif expr.operation == "->>":
+            sql = f"JSON_UNQUOTE(JSON_EXTRACT({col_sql}, '{escaped_path}'))"
+            params = col_params
+        else:
+            sql = f"{col_sql} {expr.operation} '{escaped_path}'"
+            params = col_params
+
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+
+        return sql, params
+
     def format_json_table_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """Format a :class:`~...expression.query_sources.JSONTableExpression` node.
 
@@ -269,3 +230,22 @@ class JSONMixin:
         else:
             sql = f"JSON_TABLE({json_col_sql}, '{escaped_path}' {columns_sql})"
         return sql, params
+
+    def supports_json_path(self) -> bool:
+        """Whether a JSON path can be rendered at all.
+
+        Separate from :meth:`supports_json_type` on purpose. A dialect can
+        have the functions that read a path without having a native JSON type
+        — MySQL 5.7.0 has JSON_EXTRACT, and the JSON *type* arrived in 5.7.8 —
+        and it can have a JSON type with no way to read a path, which is
+        Firebird's situation with JSON_ARRAY and JSON_OBJECT.
+
+        Conflating the two makes a backend refuse a query its server would
+        have answered, and the refusal looks like a missing feature rather
+        than a wrong gate.
+
+        Defaults to True because a dialect that says nothing is expected to
+        render paths; a dialect whose server has no such function should
+        override this to False and refuse with a suggestion.
+        """
+        return True

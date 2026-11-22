@@ -136,7 +136,7 @@ class PartitionDefinitionExpression(BaseExpression):
 
     @property
     def format_method(self) -> str:
-        return "format_partition_definition"
+        return "format_partition_definition_expression"
 
 
 class SubpartitionDefinitionExpression(BaseExpression):
@@ -159,7 +159,7 @@ class SubpartitionDefinitionExpression(BaseExpression):
 
     @property
     def format_method(self) -> str:
-        return "format_subpartition_definition"
+        return "format_subpartition_definition_expression"
 
 
 class PartitionOptionsExpression(BaseExpression):
@@ -175,4 +175,4 @@ class PartitionOptionsExpression(BaseExpression):
 
     @property
     def format_method(self) -> str:
-        return "format_partition_definition_options"
+        return "format_partition_options_expression"

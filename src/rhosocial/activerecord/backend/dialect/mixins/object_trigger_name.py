@@ -15,13 +15,13 @@ from typing import Tuple
 from .schema_namespace import NamespaceMixin
 from ...expression.objects import Trigger
 
-__all__ = ["TriggerNameMixin"]
+__all__ = ["TriggerObjectMixin"]
 
 
-class TriggerNameMixin(NamespaceMixin):
+class TriggerObjectMixin(NamespaceMixin):
     """Renders a trigger as its name."""
 
-    def format_trigger_object(self, expr: "Trigger") -> Tuple[str, tuple]:
+    def format_trigger_object(self, expr: "Trigger") -> "Tuple[str, tuple]":
         """Render *expr* as a trigger name.
 
         Args:

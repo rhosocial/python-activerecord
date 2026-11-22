@@ -10,14 +10,15 @@ from typing import Tuple
 
 from .schema_namespace import NamespaceMixin
 from ...expression.objects import Schema
+from rhosocial.activerecord.backend.dialect.protocols.object import SchemaNameSupport
 
 __all__ = ["SchemaNameMixin"]
 
 
-class SchemaNameMixin(NamespaceMixin):
+class SchemaNameMixin(NamespaceMixin, SchemaNameSupport):
     """Renders a schema as its name."""
 
-    def format_schema_object(self, expr: "Schema") -> Tuple[str, tuple]:
+    def format_schema_object(self, expr: "Schema") -> "Tuple[str, tuple]":
         """Render *expr* as a schema name.
 
         Args:

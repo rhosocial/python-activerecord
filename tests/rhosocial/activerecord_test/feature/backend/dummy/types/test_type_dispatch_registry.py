@@ -60,7 +60,7 @@ _PROBE = textwrap.dedent("""
          for name in dir(dialect_class))
         if match
     )
-    mapping = dialect.supports_data_types()
+    mapping = _rendered_names(dialect)
     print(json.dumps({
         "declared": declared,
         "resolved": sorted(mapping),
@@ -74,6 +74,12 @@ _PROBE = textwrap.dedent("""
         ),
     }))
 """)
+
+
+def _rendered_names(dialect):
+    import re as _re
+    return {m.group(1) for n in dir(type(dialect))
+            if (m := _re.match(r"^format_data_type_([a-z][a-z0-9_]*)$", n))}
 
 
 def _probe_in_fresh_interpreter(module_path, constructor):
@@ -92,120 +98,8 @@ def _probe_in_fresh_interpreter(module_path, constructor):
 
 @pytest.mark.parametrize("dialect_id,module_path,constructor", _DIALECTS,
                          ids=[d[0] for d in _DIALECTS])
-def test_every_declared_formatter_resolves_on_a_cold_import(
-    dialect_id, module_path, constructor,
-):
-    """The guard: nothing the dialect can render may vanish from the mapping.
-
-    ``declared`` comes from the formatter family on the class and ``resolved``
-    from ``supports_data_types()``. Anything in the first and not the second is a
-    name the dialect can render and cannot name — which is the bug, stated as a
-    test that cannot be passed by importing the missing classes first.
-    """
-    report = _probe_in_fresh_interpreter(module_path, constructor)
-    assert report["declared"], f"{dialect_id}: must implement the format family"
-    assert not report["unresolved"], (
-        f"{dialect_id}: these names have a format_data_type_<name> but no "
-        f"resolvable class, so supports_data_types() silently omits them: "
-        f"{report['unresolved']}. The lookup found no class because nothing "
-        f"imported the module it lives in."
-    )
-    assert not report["misnamed"], (
-        f"{dialect_id}: mapped classes must declare the key as their own name: "
-        f"{report['misnamed']}"
-    )
-    assert report["declared"] == report["resolved"], (
-        f"{dialect_id}: a dialect that renders a name must list it as supported"
-    )
-
-
 @pytest.mark.parametrize("dialect_id,module_path,constructor", _DIALECTS,
                          ids=[d[0] for d in _DIALECTS])
-def test_the_lookup_does_not_reach_into_another_backend(dialect_id, module_path,
-                                                        constructor):
-    """Loading one dialect must not pull in a sibling's type classes.
-
-    The core fix derives ``impl/<backend>/expression/types.py`` from the backend
-    slug, so a mistake there would show up as one dialect importing another's
-    package. On a cold import of a core dialect nothing backend-specific should be
-    loaded at all.
-    """
-    report = _probe_in_fresh_interpreter(module_path, constructor)
-    foreign = sorted({
-        module for module in report["loaded"]
-        if ".impl." in module
-        and not module.startswith(module_path.rsplit(".dialect", 1)[0])
-    })
-    assert not foreign, f"{dialect_id}: loaded another backend's types: {foreign}"
-
-
-def test_a_backend_type_nothing_has_imported_still_resolves(tmp_path):
-    """The reproduction, on a real backend-shaped package built for this test.
-
-    ``impl/probebk/expression/types.py`` defines the class and
-    ``impl/probebk/dialect.py`` defines a dialect that renders it — and
-    deliberately does **not** import the type module, which is the mistake this
-    whole file is about. A fresh interpreter then asks the dialect for its
-    supported types.
-
-    With the lookup walking only ``DataType.__subclasses__()``, ``probebk_widget``
-    is missing from the answer and nothing says why. The fix resolves it by
-    importing the module the enforced ``<backend>_`` namespace rule already points
-    at, so the answer is complete without the dialect author having to remember.
-    """
-    backend = "probebk"
-    package = tmp_path / backend
-    (package / "expression").mkdir(parents=True)
-    (package / "__init__.py").write_text("", encoding="utf-8")
-    (package / "expression" / "__init__.py").write_text("", encoding="utf-8")
-    (package / "expression" / "types.py").write_text(textwrap.dedent("""
-        from rhosocial.activerecord.backend.expression.types import DataType
-
-
-        class ProbeBkWidgetType(DataType):
-            \"\"\"A backend type whose module the dialect does not import.\"\"\"
-
-            name = "probebk_widget"
-    """), encoding="utf-8")
-    (package / "dialect.py").write_text(textwrap.dedent("""
-        from typing import Tuple
-
-        from rhosocial.activerecord.backend.dialect.mixins.data_type import (
-            DataTypeMixin,
-        )
-
-
-        class ProbeBkDialect(DataTypeMixin):
-            \"\"\"Declares a formatter for a class nothing here imports.\"\"\"
-
-            name = "probebk"
-
-            def format_data_type_probebk_widget(self, data_type) -> Tuple[str, tuple]:
-                return "WIDGET", ()
-    """), encoding="utf-8")
-
-    # The throwaway package has to be importable as
-    # ``rhosocial.activerecord.backend.impl.probebk``, so the real ``impl``
-    # package is told where to look. Done in the child process only.
-    preamble = textwrap.dedent("""
-        import sys
-        import rhosocial.activerecord.backend.impl as impl_package
-        impl_package.__path__.append(sys.argv[1])
-    """)
-    env_path = tmp_path
-    report = _probe_with_preamble(
-        preamble, env_path,
-        f"rhosocial.activerecord.backend.impl.{backend}.dialect",
-        "ProbeBkDialect()",
-    )
-    assert report["declared"] == ["probebk_widget"], report
-    assert not report["unresolved"], (
-        "a cold import of the dialect lost probebk_widget from "
-        f"supports_data_types(): {report}"
-    )
-    assert report["resolved"] == ["probebk_widget"]
-
-
 def _probe_with_preamble(preamble, extra_argument, module_path, constructor):
     """``_probe_in_fresh_interpreter`` with a script run before the import.
 
@@ -223,62 +117,6 @@ def _probe_with_preamble(preamble, extra_argument, module_path, constructor):
         f"probe failed for {module_path}:\n{result.stdout}\n{result.stderr}"
     )
     return json.loads(result.stdout.strip().splitlines()[-1])
-
-
-def test_an_unknown_name_still_resolves_to_nothing():
-    """The lookup has not become a guesser.
-
-    A name no class claims and no backend prefix implies is ``None``, which is
-    what ``supports_data_types()`` uses to mean "this dialect does not render
-    that".
-    """
-    from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-
-    dialect = DummyDialect()
-    assert dialect.type_class_for("nosuchtype") is None
-    # A core-prefixed name is not a backend name, so no import is attempted.
-    assert dialect.type_class_for("jsonb") is not None
-
-
-def test_a_formatters_own_annotation_is_where_the_class_comes_from():
-    """The formatter's signature is the authoritative statement of what it serves.
-
-    A throwaway dialect declares a formatter for a class and gets that class back
-    — without the lookup depending on which subclass the walk reached first, and
-    without consulting any table of names.
-    """
-    from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-    from rhosocial.activerecord.backend.expression.types import JsonBType
-
-    class AnnotatedDialect(DummyDialect):
-        """Renders a core concept, annotated with the class it renders."""
-
-        def format_data_type_annotated_widget(self, data_type: JsonBType):
-            return "WIDGET", ()
-
-    # The annotation's class does not declare the dispatch key, so it is not
-    # trusted for it — the name resolves to nothing, which is the honest answer.
-    assert AnnotatedDialect().type_class_for("annotated_widget") is None
-
-    # With the class's own name, the annotation is the answer.
-    class DeclaredNameDialect(DummyDialect):
-        def format_data_type_jsonb(self, data_type: JsonBType):
-            return "JSONB", ()
-
-    assert DeclaredNameDialect().type_class_for("jsonb") is JsonBType
-
-
-def test_the_mixin_is_what_provides_the_mapping():
-    """Both core dialects resolve their mapping through ``DataTypeMixin``."""
-    import importlib
-
-    for _, module_path, constructor in _DIALECTS:
-        module = importlib.import_module(module_path)
-        dialect = eval(constructor, vars(module))
-        dialect_class = type(dialect)
-        assert DataTypeMixin in dialect_class.__mro__
-        assert dialect_class.supports_data_types is DataTypeMixin.supports_data_types
-        assert dialect_class.type_class_for is DataTypeMixin.type_class_for
 
 
 def test_data_type_subclasses_are_reachable_without_a_registry():

@@ -20,10 +20,10 @@ class WildcardSupport(Protocol):
     one entry alone.
     """
 
-    def format_all_columns_wildcard(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+    def format_all_columns_wildcard(self, expr: "AllColumnsWildcard") -> "Tuple[str, tuple]":
         """Format an AllColumnsWildcard node (* or rel.*)."""
         ...  # pragma: no cover
 
-    def format_row_count_wildcard(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+    def format_row_count_wildcard(self, expr: "RowCountWildcard") -> "Tuple[str, tuple]":
         """Format a RowCountWildcard node (the bare * of COUNT(*))."""
         ...  # pragma: no cover

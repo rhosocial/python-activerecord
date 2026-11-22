@@ -36,6 +36,13 @@ from .set_operation import SetOperationSupport
 from .ilike import ILIKESupport
 from .sql_function import SQLFunctionSupport
 
+from .dql_support import DQLSupport
+from .expression_support import ExpressionSupport
+from .lpad_support import LpadSupport
+from .repeat_support import RepeatSupport
+from .rpad_support import RpadSupport
+from .trim_support import TrimSupport
+from .dml_support import DMLSupport
 __all__ = [
     "AdvancedGroupingSupport",
     "ArraySupport",
@@ -63,4 +70,11 @@ __all__ = [
     "UUIDSupport",
     "WildcardSupport",
     "WindowFunctionSupport",
+    "DQLSupport",
+    "ExpressionSupport",
+    "LpadSupport",
+    "RepeatSupport",
+    "RpadSupport",
+    "TrimSupport",
+    "DMLSupport",
 ]

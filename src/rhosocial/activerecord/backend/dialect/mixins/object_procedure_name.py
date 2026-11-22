@@ -21,7 +21,7 @@ __all__ = ["ProcedureNameMixin"]
 class ProcedureNameMixin(NamespaceMixin):
     """Renders a procedure as its name."""
 
-    def format_procedure_object(self, expr: "Procedure") -> Tuple[str, tuple]:
+    def format_procedure_object(self, expr: "Procedure") -> "Tuple[str, tuple]":
         """Render *expr* as a procedure name.
 
         Args:

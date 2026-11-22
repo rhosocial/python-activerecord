@@ -17,7 +17,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     IdentityColumnSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
-    AutoIncrementMixin,
+    AutoIncrementColumnMixin,
     IdentityColumnMixin,
 )
 
@@ -45,7 +45,7 @@ class TestAutoIncrementColumnProtocol:
         ``AUTO_INCREMENT`` on a server that rejects it.
         """
 
-        class GenericDialect(AutoIncrementMixin):
+        class GenericDialect(AutoIncrementColumnMixin):
             pass
 
         assert GenericDialect().supports_auto_increment_column() is False

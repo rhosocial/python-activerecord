@@ -15,13 +15,13 @@ from typing import Tuple
 from .schema_namespace import NamespaceMixin
 from ...expression.objects import MaterializedView
 
-__all__ = ["MaterializedViewNameMixin"]
+__all__ = ["MaterializedViewObjectMixin"]
 
 
-class MaterializedViewNameMixin(NamespaceMixin):
+class MaterializedViewObjectMixin(NamespaceMixin):
     """Renders a materialized view as its name."""
 
-    def format_materialized_view_object(self, expr: "MaterializedView") -> Tuple[str, tuple]:
+    def format_materialized_view_object(self, expr: "MaterializedView") -> "Tuple[str, tuple]":
         """Render *expr* as a materialized view name.
 
         Args:

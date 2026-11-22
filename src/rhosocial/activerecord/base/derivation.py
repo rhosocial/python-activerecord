@@ -59,7 +59,7 @@ def build_create_table_statement(
     """Build a CREATE TABLE statement from *source*.
 
     A field with no SQL declaration of its own takes the dialect's **suggested**
-    storage declaration (``suggested_data_types``), which is a default and
+    storage declaration (``suggest_data_types``), which is a default and
     never overrides a declaration. A single-column integer primary key the
     model says the database generates gets an identity declaration, so the DDL
     agrees with the write path (``required_pk_fields`` asks the caller for
@@ -450,11 +450,11 @@ def _suggested_storage_type(
     silent fallback to text.
     """
     python_type = source.field_python_type(field)
-    table = dialect.suggested_data_types()
+    table = dialect.suggest_data_types()
     entry = table_entry_for(python_type, table)
     suggested = table.get(entry) if entry is not None else None
     if suggested is None:
-        extras = dialect.suggested_extra_data_types()
+        extras = dialect.suggest_extra_data_types()
         suggested = extras.get(strip_annotation(python_type))
     if suggested is None:
         raise ValueError(
@@ -462,7 +462,7 @@ def _suggested_storage_type(
             f"{type(dialect).__name__} suggests none for "
             f"{describe_annotation(python_type)}. Declare the field with "
             f"UseSqlType(...), or add this Python type to the dialect's "
-            f"suggested_data_types()."
+            f"suggest_data_types()."
         )
     bound = copy.copy(suggested)
     _bind(bound, dialect)

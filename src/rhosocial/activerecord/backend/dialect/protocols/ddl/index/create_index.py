@@ -8,7 +8,7 @@ Naming an object is not here -- that is
 :mod:`~rhosocial.activerecord.backend.dialect.protocols.object`.
 """
 
-from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
+from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING, List
 
 if TYPE_CHECKING:  # pragma: no cover
     from .....expression.statements import (
@@ -94,3 +94,4 @@ class CreateIndexSupport(Protocol):
         engine cannot parse is not a statement worth producing.
         """
         ...  # pragma: no cover
+

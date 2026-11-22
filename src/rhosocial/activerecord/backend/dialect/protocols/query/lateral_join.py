@@ -19,13 +19,13 @@ class LateralJoinSupport(Protocol):
         ...  # pragma: no cover
 
     def format_lateral_expression(
-        self, expr: "bases.BaseExpression"
-    ) -> Tuple[str, Tuple]:
+        self, expr: "LateralExpression"
+    ) -> "Tuple[str, tuple]":
         """Format a LateralExpression node."""
         ...  # pragma: no cover
 
     def format_table_function_expression(
         self, expr: "bases.BaseExpression"
-    ) -> Tuple[str, Tuple]:
+    ) -> "Tuple[str, tuple]":
         """Format table-valued function expression."""
         ...  # pragma: no cover

@@ -15,13 +15,13 @@ from typing import Tuple
 from .schema_namespace import NamespaceMixin
 from ...expression.objects import Table
 
-__all__ = ["TableNameMixin"]
+__all__ = ["TableObjectMixin"]
 
 
-class TableNameMixin(NamespaceMixin):
+class TableObjectMixin(NamespaceMixin):
     """Renders a table as its name."""
 
-    def format_table_object(self, expr: "Table") -> Tuple[str, tuple]:
+    def format_table_object(self, expr: "Table") -> "Tuple[str, tuple]":
         """Render *expr* as a table name.
 
         Args:

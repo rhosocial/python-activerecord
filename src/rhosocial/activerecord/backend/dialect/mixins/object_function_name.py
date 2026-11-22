@@ -21,7 +21,7 @@ __all__ = ["FunctionNameMixin"]
 class FunctionNameMixin(NamespaceMixin):
     """Renders a function as its name."""
 
-    def format_function_object(self, expr: "Function") -> Tuple[str, tuple]:
+    def format_function_object(self, expr: "Function") -> "Tuple[str, tuple]":
         """Render *expr* as a function name.
 
         Args:

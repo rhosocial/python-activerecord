@@ -76,7 +76,9 @@ def test_a_value_containing_a_quote_is_escaped(dialect):
 def test_a_rendered_enum_is_an_advertised_type(dialect):
     """A formatter the dialect does not advertise would be a capability
     claimed in one place and absent in the other."""
-    assert "enum" in dialect.supports_data_types()
+    import re as _re
+    assert "enum" in {m.group(1) for n in dir(type(dialect))
+                      if (m := _re.match(r"^format_data_type_([a-z][a-z0-9_]*)$", n))}
 
 
 # ---------------------------------------------------------------------------
@@ -94,14 +96,14 @@ class Narrow(DataTypeMixin):
     def format_data_type_varchar(self, data_type):
         return f"VARCHAR({data_type.length})", ()
 
-    def substitute_data_types(self):
+    def suggest_substitute_types(self):
         return {}
 
 
 class Suggester(Narrow):
     """A dialect that cannot render it but knows what it stores instead."""
 
-    def substitute_data_types(self):
+    def suggest_substitute_types(self):
         from rhosocial.activerecord.backend.expression.types import VarCharType
 
         return {"enum": VarCharType}
@@ -117,7 +119,7 @@ class Lossy(Suggester):
     told so in the error they are already reading.
     """
 
-    def substitute_advice(self, name):
+    def suggest_substitute_advice(self, name):
         return "Note that this drops the zone."
 
 
@@ -135,7 +137,7 @@ def test_the_refusal_names_the_substitute(dialect):
     stands in for ``TimeType``, which drops the zone -- and a message that is
     usually right is worse than one that never says it, because the caller
     reads it and stops looking. A backend with something to add puts it in
-    ``substitute_advice``; the mechanism is exercised below.
+    ``suggest_substitute_advice``; the mechanism is exercised below.
     """
     with pytest.raises(TypeError) as excinfo:
         Suggester().format_data_type(EnumType(dialect, values=["a"]))

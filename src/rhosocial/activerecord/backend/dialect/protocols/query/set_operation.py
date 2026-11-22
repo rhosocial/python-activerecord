@@ -31,13 +31,13 @@ class SetOperationSupport(Protocol):
         ...  # pragma: no cover
 
     def format_set_operation(
-        self, expr: "bases.BaseExpression"
-    ) -> Tuple[str, Tuple]:
+        self, expr: "SetOperation"
+    ) -> "Tuple[str, tuple]":
         """Format a SetOperation node (UNION, INTERSECT, EXCEPT)."""
         ...  # pragma: no cover
 
     def format_set_operation_statement(
-        self, expr: "bases.BaseExpression"
-    ) -> Tuple[str, Tuple]:
+        self, expr: "SetOperationStatement"
+    ) -> "Tuple[str, tuple]":
         """Format a SetOperationStatement node (a compound SELECT)."""
         ...  # pragma: no cover

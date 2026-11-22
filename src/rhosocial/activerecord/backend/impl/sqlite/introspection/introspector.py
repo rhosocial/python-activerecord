@@ -329,7 +329,8 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             is_pk = row.get("pk", 0) > 0
             # Parse raw type string into a DataType expression
             from rhosocial.activerecord.backend.expression.types._base import DataType
-            parsed = DataType.parse_data_type_str(self._backend.dialect, raw_type)
+            from .type_parser import SQLiteTypeParser
+            parsed = SQLiteTypeParser(self._backend.dialect).parse(raw_type)
             # Auto-increment: only applies to INTEGER PRIMARY KEY with AUTOINCREMENT keyword
             is_auto_inc = is_pk and has_auto_increment
             # Generated columns (hidden=2 => virtual, hidden=3 => stored).

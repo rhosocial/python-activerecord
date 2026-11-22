@@ -10,11 +10,12 @@ from typing import Tuple
 
 from .schema_namespace import NamespaceMixin
 from ...expression.objects import Database
+from rhosocial.activerecord.backend.dialect.protocols.object import DatabaseNameSupport
 
 __all__ = ["DatabaseNameMixin"]
 
 
-class DatabaseNameMixin(NamespaceMixin):
+class DatabaseNameMixin(NamespaceMixin, DatabaseNameSupport):
     """Renders a database as its name."""
 
     def format_database_object(self, expr: "Database") -> Tuple[str, tuple]:

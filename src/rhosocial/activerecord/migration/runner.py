@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from typing import List, Optional, Sequence, TYPE_CHECKING
 
 from .context import AsyncMigrationContext, MigrationContext
-from .core import AsyncMigration, Migration
+from .core import AsyncMigration, Migration, DEFAULT_DIRECTION
 from .record import InMemoryMigrationRecordStore, MigrationRecord, MigrationRecordStore
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -98,7 +98,7 @@ class MigrationRunner(_RunnerBase):
         self,
         migrations: Sequence[Migration],
         *,
-        direction: str = "up",
+        direction: str = DEFAULT_DIRECTION,
         store: Optional[MigrationRecordStore] = None,
         dry_run: bool = False,
     ) -> MigrationGroupResult:
@@ -134,7 +134,7 @@ class AsyncMigrationRunner(_RunnerBase):
         self,
         migrations: Sequence[AsyncMigration],
         *,
-        direction: str = "up",
+        direction: str = DEFAULT_DIRECTION,
         store: Optional[MigrationRecordStore] = None,
         dry_run: bool = False,
     ) -> MigrationGroupResult:

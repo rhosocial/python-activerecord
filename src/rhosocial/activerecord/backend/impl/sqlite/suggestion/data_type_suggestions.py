@@ -95,8 +95,19 @@ SQLITE_DATA_TYPE_SUGGESTIONS: Dict[Any, Optional[Any]] = {
 class SQLiteDataTypeSuggestionsMixin:
     """SQLite's answer to "what declaration does a bare field get here"."""
 
-    def suggested_data_types(self) -> Dict[Any, Optional[Any]]:
+    def suggest_data_types(self) -> Dict[Any, Optional[Any]]:
         return dict(SQLITE_DATA_TYPE_SUGGESTIONS)
+
+
+
+    def suggest_substitute_types(self) -> Dict[str, type]:
+        return {}
+
+    def suggest_substitute_advice(self, name: str) -> str:
+        return ""
+
+    def suggest_extra_data_types(self) -> Dict[type, "DataType"]:
+        return {}
 
 
 __all__ = ["SQLITE_DATA_TYPE_SUGGESTIONS", "SQLiteDataTypeSuggestionsMixin"]

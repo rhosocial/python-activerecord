@@ -19,6 +19,7 @@ from ...expression.predicates import (
     LikePredicate,
     LogicalPredicate,
 )
+from ..protocols.family import FunctionCallSupport, PredicateSupport, DateTimeSupport, RelationSourceSupport
 
 if TYPE_CHECKING:  # pragma: no cover
     pass
@@ -51,7 +52,7 @@ def _connective_precedence(predicate: Any) -> int:
     return _BINDS_TIGHTEST
 
 
-class PredicateMixin:
+class PredicateMixin(PredicateSupport):
     """Mixin for formatting SQL predicate expressions.
 
     Formatting functions receive the expression instance only; every value

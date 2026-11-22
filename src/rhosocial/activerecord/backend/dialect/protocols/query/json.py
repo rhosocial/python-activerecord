@@ -30,15 +30,6 @@ class JSONSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def get_json_access_operator(self) -> str:
-        """
-        Get JSON access operator.
-
-        Returns:
-            '->' (PostgreSQL/MySQL/SQLite) or other dialect-specific operator
-        """
-        ...  # pragma: no cover
-
     def supports_json_table(self, dialect_options: Optional[Dict[str, Any]] = None) -> bool:
         """Whether JSON_TABLE function is supported.
 
@@ -101,4 +92,7 @@ class JSONSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
+        ...  # pragma: no cover
+
+    def supports_json_path(self) -> bool:
         ...  # pragma: no cover

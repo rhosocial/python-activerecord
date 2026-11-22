@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/backend/dialect/protocols/object/sequence.py
 """Rendering a sequence name."""
 
-from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
+from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING, Sequence
 
 from .namespace import NamespaceSupport
 

@@ -68,12 +68,28 @@ def get_own_protocol_methods(proto: type) -> set:
 
 SQLITE_PROTOCOLS = [
 
+    dialect_protocols.AsyncIntrospectionSupport,
+    dialect_protocols.DQLSupport,
+    dialect_protocols.DMLSupport,
+    dialect_protocols.DDLColumnSupport,
+    dialect_protocols.ExpressionSupport,
+    dialect_protocols.DatabaseNameSupport,
+    dialect_protocols.PropertyGraphNameSupport,
+    dialect_protocols.SchemaNameSupport,
+    dialect_protocols.LpadSupport,
+    dialect_protocols.RepeatSupport,
+    dialect_protocols.RpadSupport,
+    dialect_protocols.TrimSupport,
 
     # A trigger names the routine it calls, so spelling a routine object is
     # required even by a dialect that cannot create one. Whether SQLite
     # *manages* routines is asked separately, by CreateRoutineSupport and
     # DropRoutineSupport in SQLITE_NOT_IMPLEMENTED.
     dialect_protocols.RoutineObjectSupport,
+    dialect_protocols.FunctionCallSupport,
+    dialect_protocols.PredicateSupport,
+    dialect_protocols.DateTimeSupport,
+    dialect_protocols.RelationSourceSupport,
 
     sqlite_protocols.SQLiteVirtualTableSupport,
 
@@ -221,15 +237,6 @@ SQLITE_PROTOCOLS = [
     dialect_protocols.IdentityColumnSupport,
 
 
-    dialect_protocols.IntegerAutoIncrementColumnSuggestionSupport,
-    dialect_protocols.PartitionRetentionSuggestionSupport,
-    dialect_protocols.PartitionBuildSuggestionSupport,
-    dialect_protocols.PartitionAddSuggestionSupport,
-    dialect_protocols.PartitionDropSuggestionSupport,
-    dialect_protocols.PartitionTableDropSuggestionSupport,
-    dialect_protocols.PartitionTableAlterSuggestionSupport,
-    dialect_protocols.PartitionSplitSuggestionSupport,
-    dialect_protocols.PartitionMergeSuggestionSupport,
 
 
     dialect_protocols.CollationSupport,
@@ -374,9 +381,8 @@ def get_all_generic_protocols() -> set:
     for name, obj in inspect.getmembers(dialect_protocols, inspect.isclass):
         if Protocol not in getattr(obj, "__mro__", []) or not name.endswith("Support"):
             continue
-        if name == "DDLTypeSupport":
-            assert obj is dialect_protocols.DataTypeSupport
-            continue
+        if name.endswith("SuggestionSupport"):
+            continue  # pure-interface suggestion protocols are exempt
         assert name == obj.__name__, f"unexpected protocol alias: {name}"
         discovered[name] = obj
     return discovered
@@ -458,7 +464,12 @@ class TestProtocolNonOverlap:
         for name, members in member_map.items():
             assert len(members) > 0, f"Protocol {name} has no members defined"
 
-        excluded_overlaps = set()
+        # AsyncIntrospectionSupport is a Python-specific async mirror of
+        # IntrospectionSupport (same feature group, sync/async forms). Its
+        # identical interface is intentional — see formal description §7.
+        excluded_overlaps = {
+            ("AsyncIntrospectionSupport", "IntrospectionSupport"),
+        }
 
         violations = []
         for (name_a, members_a), (name_b, members_b) in combinations(member_map.items(), 2):

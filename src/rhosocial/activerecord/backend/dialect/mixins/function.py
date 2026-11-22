@@ -1,24 +1,19 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/function.py
-"""Function-related dialect mixins.
+"""Composition base for FunctionMixin. Feature groups live in per-statement mixins."""
 
-Contains :class:`FunctionCallMixin` for rendering scalar/aggregate function
-*call* expressions in queries, and :class:`FunctionMixin` for SQL/PSM
-function *DDL* (``CREATE FUNCTION`` / ``DROP FUNCTION``).
-"""
 import re
 from typing import Any, Dict, List, Tuple, TYPE_CHECKING
+from rhosocial.activerecord.backend.expression.objects import Function
+from ..protocols.family import FunctionCallSupport
+from .create_routine_mixin import CreateRoutineMixin
+from .drop_routine_mixin import DropRoutineMixin
+from .sql_function_mixin import SQLFunctionMixin
 
-from ...expression.objects import Function
+class FunctionMixin(CreateRoutineMixin, DropRoutineMixin, SQLFunctionMixin):
+    """Composition of CreateRoutineMixin, DropRoutineMixin, SQLFunctionMixin. No own members."""
+    pass
 
-if TYPE_CHECKING:  # pragma: no cover
-    from ...expression import bases
-    from ...expression.statements import (
-        CreateFunctionStatement,
-        DropFunctionStatement,
-    )
-
-
-class FunctionCallMixin:
+class FunctionCallMixin(FunctionCallSupport):
     """Mixin for formatting scalar and aggregate function call expressions.
 
     Distinct from :class:`FunctionMixin`, which covers SQL/PSM function DDL
@@ -27,7 +22,7 @@ class FunctionCallMixin:
     :class:`~.expression.ExpressionMixin`.
     """
 
-    def format_function_call(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_function_call(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Format a function call expression, scalar or aggregate.
 
         Renders ``NAME(args)`` with optional ``DISTINCT``, a trailing
@@ -140,7 +135,7 @@ class FunctionCallMixin:
     # Standard function nodes (catalog §3.4): one entry point per node kind.
     # ------------------------------------------------------------------
 
-    def format_row_number_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_row_number_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``ROW_NUMBER()``."""
         sql = f"{expr.function_name}()"
         if expr.alias:
@@ -148,7 +143,7 @@ class FunctionCallMixin:
         return sql, ()
 
 
-    def format_rank_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_rank_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``RANK()``."""
         sql = f"{expr.function_name}()"
         if expr.alias:
@@ -156,7 +151,7 @@ class FunctionCallMixin:
         return sql, ()
 
 
-    def format_dense_rank_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_dense_rank_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``DENSE_RANK()``."""
         sql = f"{expr.function_name}()"
         if expr.alias:
@@ -164,7 +159,7 @@ class FunctionCallMixin:
         return sql, ()
 
 
-    def format_json_objectagg_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_json_objectagg_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``JSON_OBJECTAGG(key, value)``.
 
         Written here rather than through the shared aggregate renderer because
@@ -179,7 +174,7 @@ class FunctionCallMixin:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
         return sql, tuple(key_params) + tuple(value_params)
 
-    def format_json_arrayagg_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_json_arrayagg_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``JSON_ARRAYAGG([DISTINCT] value)``."""
         from rhosocial.activerecord.backend.expression.core import RowCountWildcard
 
@@ -194,7 +189,7 @@ class FunctionCallMixin:
         return sql, tuple(operand_params)
 
 
-    def format_absolute_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_absolute_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``ABSOLUTE(...)`` from the node's own operand list."""
         parts_sql, parts_params = [], []
         for operand in expr.arguments:
@@ -208,7 +203,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_round_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_round_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``ROUND(...)`` from the node's own operand list."""
         parts_sql, parts_params = [], []
         for operand in expr.arguments:
@@ -222,7 +217,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_ceil_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_ceil_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``CEIL(...)`` from the node's own operand list."""
         parts_sql, parts_params = [], []
         for operand in expr.arguments:
@@ -236,7 +231,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_floor_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_floor_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``FLOOR(...)`` from the node's own operand list."""
         parts_sql, parts_params = [], []
         for operand in expr.arguments:
@@ -250,7 +245,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_truncate_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_truncate_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``TRUNCATE(...)`` from the node's own operand list."""
         parts_sql, parts_params = [], []
         for operand in expr.arguments:
@@ -264,7 +259,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_square_root_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_square_root_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``SQUARE ROOT(...)`` from the node's own operand list."""
         parts_sql, parts_params = [], []
         for operand in expr.arguments:
@@ -278,7 +273,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_power_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_power_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``POWER(...)`` from the node's own operand list."""
         parts_sql, parts_params = [], []
         for operand in expr.arguments:
@@ -292,7 +287,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_exponential_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_exponential_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``EXPONENTIAL(...)`` from the node's own operand list."""
         parts_sql, parts_params = [], []
         for operand in expr.arguments:
@@ -306,7 +301,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_logarithm_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_logarithm_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``LOGARITHM(...)`` from the node's own operand list."""
         parts_sql, parts_params = [], []
         for operand in expr.arguments:
@@ -320,7 +315,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_sine_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_sine_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``SINE(...)`` from the node's own operand list."""
         parts_sql, parts_params = [], []
         for operand in expr.arguments:
@@ -334,7 +329,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_cosine_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_cosine_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``COSINE(...)`` from the node's own operand list."""
         parts_sql, parts_params = [], []
         for operand in expr.arguments:
@@ -348,7 +343,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_tangent_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_tangent_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``TANGENT(...)`` from the node's own operand list."""
         parts_sql, parts_params = [], []
         for operand in expr.arguments:
@@ -362,7 +357,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_modulo_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_modulo_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``MODULO(...)`` from the node's own operand list."""
         parts_sql, parts_params = [], []
         for operand in expr.arguments:
@@ -376,7 +371,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_sign_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_sign_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``SIGN(...)`` from the node's own operand list."""
         parts_sql, parts_params = [], []
         for operand in expr.arguments:
@@ -390,7 +385,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_array_agg_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_array_agg_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``ARRAY_AGG([DISTINCT] operand)``."""
         from rhosocial.activerecord.backend.expression.core import RowCountWildcard
 
@@ -405,7 +400,7 @@ class FunctionCallMixin:
         return sql, tuple(operand_params)
 
 
-    def format_count_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_count_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``COUNT(*)`` or ``COUNT([DISTINCT] operand)``."""
         from rhosocial.activerecord.backend.expression.core import RowCountWildcard
 
@@ -420,7 +415,7 @@ class FunctionCallMixin:
         return sql, tuple(operand_params)
 
 
-    def format_sum_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_sum_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``SUM([DISTINCT] operand)``."""
         from rhosocial.activerecord.backend.expression.core import RowCountWildcard
 
@@ -435,7 +430,7 @@ class FunctionCallMixin:
         return sql, tuple(operand_params)
 
 
-    def format_avg_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_avg_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``AVG([DISTINCT] operand)``."""
         from rhosocial.activerecord.backend.expression.core import RowCountWildcard
 
@@ -450,7 +445,7 @@ class FunctionCallMixin:
         return sql, tuple(operand_params)
 
 
-    def format_min_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_min_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``MIN([DISTINCT] operand)``."""
         from rhosocial.activerecord.backend.expression.core import RowCountWildcard
 
@@ -465,7 +460,7 @@ class FunctionCallMixin:
         return sql, tuple(operand_params)
 
 
-    def format_max_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_max_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``MAX([DISTINCT] operand)``."""
         from rhosocial.activerecord.backend.expression.core import RowCountWildcard
 
@@ -480,7 +475,7 @@ class FunctionCallMixin:
         return sql, tuple(operand_params)
 
 
-    def format_upper_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_upper_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``UPPER(operand)``."""
         operand_sql, operand_params = expr.operand.to_sql()
         sql = f"UPPER({operand_sql})"
@@ -489,7 +484,7 @@ class FunctionCallMixin:
         return sql, tuple(operand_params)
 
 
-    def format_lower_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_lower_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``LOWER(operand)``."""
         operand_sql, operand_params = expr.operand.to_sql()
         sql = f"LOWER({operand_sql})"
@@ -498,7 +493,7 @@ class FunctionCallMixin:
         return sql, tuple(operand_params)
 
 
-    def format_char_length_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_char_length_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``CHAR_LENGTH(operand)`` — the spelling here is ``LENGTH``.
 
         ``expr.unit`` is deliberately **not read**: it records which length
@@ -515,7 +510,7 @@ class FunctionCallMixin:
         return sql, tuple(operand_params)
 
 
-    def format_current_user_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_current_user_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``CURRENT_USER``."""
         sql = "CURRENT_USER"
         if expr.alias:
@@ -523,7 +518,7 @@ class FunctionCallMixin:
         return sql, ()
 
 
-    def format_session_user_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_session_user_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``SESSION_USER``."""
         sql = "SESSION_USER"
         if expr.alias:
@@ -531,7 +526,7 @@ class FunctionCallMixin:
         return sql, ()
 
 
-    def format_system_user_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_system_user_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``SYSTEM_USER``."""
         sql = "SYSTEM_USER"
         if expr.alias:
@@ -539,7 +534,7 @@ class FunctionCallMixin:
         return sql, ()
 
 
-    def format_declared_result(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_declared_result(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render a declared-result annotation by rendering what it annotates.
 
         The node underneath is left exactly as it was: the statement was already
@@ -558,7 +553,7 @@ class FunctionCallMixin:
             return f"{source_sql} AS {self.format_identifier(expr.alias)}", tuple(source_params)
         return source_sql, tuple(source_params)
 
-    def format_concat_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_concat_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``CONCAT(a, b, ...)``.
 
         A backend whose ``CONCAT`` ignores NULL, or treats it as an empty
@@ -577,7 +572,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_coalesce_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_coalesce_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``COALESCE(a, b, ...)``."""
         parts_sql, parts_params = [], []
         for operand in expr.operands:
@@ -591,7 +586,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_substring_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_substring_expression(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``SUBSTRING(text FROM start [FOR length])``.
 
         The base spells it as a plain call, which is what most backends accept
@@ -613,7 +608,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_overlay_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_overlay_expression(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``OVERLAY(text, replacement, start [, length])``."""
         operands = [expr.target, expr.replacement, expr.start, expr.length]
         if operands and operands[-1] is None:
@@ -630,7 +625,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_position_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_position_expression(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render the position of a substring, in whichever spelling was asked.
 
         The two spellings put the operands in opposite orders, which is the
@@ -656,7 +651,7 @@ class FunctionCallMixin:
             ordered_params.extend(part)
         return sql, tuple(ordered_params)
 
-    def format_replace_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_replace_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``REPLACE(text, pattern, replacement)``."""
         parts_sql, parts_params = [], []
         for operand in (expr.target, expr.pattern, expr.replacement):
@@ -670,7 +665,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_initcap_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_initcap_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``INITCAP(text)``."""
         parts_sql, parts_params = [], []
         for operand in (expr.target,):
@@ -684,7 +679,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_left_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_left_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``LEFT(text, n)``."""
         parts_sql, parts_params = [], []
         for operand in (expr.target, expr.count):
@@ -698,7 +693,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_right_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_right_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``RIGHT(text, n)``."""
         parts_sql, parts_params = [], []
         for operand in (expr.target, expr.count):
@@ -712,7 +707,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_reverse_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_reverse_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``REVERSE(text)``."""
         parts_sql, parts_params = [], []
         for operand in (expr.target,):
@@ -726,7 +721,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_translate_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_translate_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``TRANSLATE(text, from, to)``."""
         parts_sql, parts_params = [], []
         for operand in (expr.target, expr.from_chars, expr.to_chars):
@@ -740,7 +735,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_space_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_space_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``SPACE(n)``."""
         parts_sql, parts_params = [], []
         for operand in (expr.count,):
@@ -754,7 +749,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_chr_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_chr_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``CHR(code)``."""
         parts_sql, parts_params = [], []
         for operand in (expr.code,):
@@ -768,7 +763,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_ascii_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_ascii_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``ASCII(text)``."""
         parts_sql, parts_params = [], []
         for operand in (expr.target,):
@@ -782,7 +777,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_octet_length_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_octet_length_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``OCTET_LENGTH(text)``."""
         parts_sql, parts_params = [], []
         for operand in (expr.target,):
@@ -796,7 +791,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_bit_length_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_bit_length_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``BIT_LENGTH(text)``."""
         parts_sql, parts_params = [], []
         for operand in (expr.target,):
@@ -812,7 +807,7 @@ class FunctionCallMixin:
 
     # -- nodes with declared operands, rendered by name -----------------------
 
-    def format_to_char_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_to_char_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``TO_CHAR(value[, format])`` -- text.
 
         The *format* operand is optional and its absence is the difference
@@ -834,7 +829,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_to_number_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_to_number_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``TO_NUMBER(value[, format])`` -- a number."""
         operands = [expr.target]
         if expr.format is not None:
@@ -851,7 +846,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_to_date_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_to_date_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``TO_DATE(value[, format])`` -- a **date**.
 
         Not a timestamp: every backend's ``TO_DATE`` answers with a calendar
@@ -873,7 +868,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_unnest_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_unnest_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``UNNEST(array)`` -- one row per element."""
         parts_sql, parts_params = [], []
         for operand in (expr.target,):
@@ -887,7 +882,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_array_length_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_array_length_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``ARRAY_LENGTH(array[, dimension])`` -- a count."""
         operands = [expr.target]
         if expr.dimension is not None:
@@ -904,7 +899,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_json_build_object_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_json_build_object_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``JSON_BUILD_OBJECT(key, value, ...)`` -- pairs, in order."""
         parts_sql, parts_params = [], []
         for operand in expr.pairs:
@@ -918,7 +913,7 @@ class FunctionCallMixin:
         return sql, tuple(parts_params)
 
 
-    def format_json_array_elements_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+    def format_json_array_elements_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``JSON_ARRAY_ELEMENTS(json)`` -- the array's elements, one per row."""
         parts_sql, parts_params = [], []
         for operand in (expr.target,):
@@ -930,188 +925,3 @@ class FunctionCallMixin:
         if expr.alias:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
         return sql, tuple(parts_params)
-
-
-class FunctionMixin:
-    """Format SQL/PSM function DDL statements (CREATE FUNCTION / DROP FUNCTION).
-
-    Capability probes default to ``False`` and are overridden by dialects that
-    support user-defined functions.
-    """
-
-    def supports_function(self) -> bool:
-        """Whether user-defined functions are supported (defaults to False)."""
-        return False
-
-    def supports_create_function(self) -> bool:
-        """Whether CREATE FUNCTION is supported (defaults to False)."""
-        return False
-
-    def supports_drop_function(self) -> bool:
-        """Whether DROP FUNCTION is supported (defaults to False)."""
-        return False
-
-    def supports_function_or_replace(self) -> bool:
-        """Whether CREATE OR REPLACE FUNCTION is supported (defaults to False)."""
-        return False
-
-    def supports_function_parameters(self) -> bool:
-        """Whether function parameter lists are supported (defaults to False)."""
-        return False
-
-    def supports_drop_function_if_exists(self) -> bool:
-        """Whether DROP FUNCTION IF EXISTS is supported (defaults to False)."""
-        return False
-
-    def supports_drop_function_cascade(self) -> bool:
-        """Whether DROP FUNCTION CASCADE is supported (defaults to False)."""
-        return False
-
-    def supports_drop_function_restrict(self) -> bool:
-        """Whether DROP FUNCTION RESTRICT is supported (defaults to False)."""
-        return False
-
-    def supports_functions(self) -> Dict[str, bool]:
-        """Return supported SQL functions as function_name -> bool mapping.
-
-        Default implementation returns empty dict. Subclasses should override
-        to provide actual function list from both core and backend-specific sources.
-
-        Returns:
-            Dict mapping function names to True/False. Default: empty dict.
-        """
-        return {}
-
-    def format_create_function_statement(self, expr: "CreateFunctionStatement") -> Tuple[str, tuple]:
-        """Format a CREATE FUNCTION statement per SQL/PSM.
-
-        Args:
-            expr: The CreateFunctionStatement to render.
-
-        Returns:
-            A ``(sql, params)`` tuple; ``params`` is always empty.
-
-        Raises:
-            TypeError: ``CreateFunctionStatement.function`` is not a Function.
-            Another object kind would have had its own name rendered as the
-            function's.
-            UnsupportedFeatureError: If the dialect does not support functions.
-            ValueError: If a parameter or return type contains invalid
-                characters.
-        """
-        if not isinstance(expr.function, Function):
-            raise TypeError(
-                f"CreateFunctionStatement.function must be a Function, "
-                f"got {type(expr.function).__name__}"
-            )
-        from ..exceptions import UnsupportedFeatureError
-
-        if not self.supports_function():
-            raise UnsupportedFeatureError(self.name, "functions")
-
-        parts = ["CREATE FUNCTION"]
-
-        if expr.or_replace:
-            if not self.supports_function_or_replace():
-                raise UnsupportedFeatureError(
-                    self.name, "CREATE OR REPLACE FUNCTION",
-                    f"{self.name} does not support CREATE OR REPLACE FUNCTION."
-                )
-            parts.insert(1, "OR REPLACE")
-
-        parts.append(expr.function.to_sql()[0])
-
-        if expr.parameters:
-            if not self.supports_function_parameters():
-                raise UnsupportedFeatureError(
-                    self.name, "CREATE FUNCTION parameters",
-                    f"{self.name} does not support CREATE FUNCTION parameters."
-                )
-            param_strs = []
-            for p in expr.parameters:
-                name = p.get("name", "")
-                param_type = p.get("type", "")
-                if name and param_type:
-                    # Validate parameter name and type.
-                    param_name = self.format_identifier(name)
-                    if not re.fullmatch(r"[A-Za-z0-9\s(),]+", param_type):
-                        raise ValueError(f"Invalid parameter type '{param_type}'")
-                    param_strs.append(f"{param_name} {param_type}")
-                elif param_type:
-                    param_strs.append(param_type)
-            parts.append(f"({', '.join(param_strs)})")
-        else:
-            parts.append("()")
-
-        if expr.returns:
-            # Validate return type.
-            if not re.fullmatch(r"[A-Za-z0-9\s(),]+", expr.returns):
-                raise ValueError(f"Invalid return type '{expr.returns}'")
-            parts.append(f"RETURNS {expr.returns}")
-
-        if expr.language:
-            parts.append(f"LANGUAGE {expr.language}")
-
-        if expr.body:
-            parts.append("AS")
-            parts.append(f"$${expr.body}$$")
-
-        return " ".join(parts), ()
-
-    def format_drop_function_statement(self, expr: "DropFunctionStatement") -> Tuple[str, tuple]:
-        """Format a DROP FUNCTION statement per SQL/PSM.
-
-        Args:
-            expr: The DropFunctionStatement to render.
-
-        Returns:
-            A ``(sql, params)`` tuple; ``params`` is always empty.
-
-        Raises:
-            TypeError: ``DropFunctionStatement.function`` is not a Function.
-            Another object kind would have had its own name rendered as the
-            function's.
-            UnsupportedFeatureError: If the dialect does not support functions.
-        """
-        if not isinstance(expr.function, Function):
-            raise TypeError(
-                f"DropFunctionStatement.function must be a Function, "
-                f"got {type(expr.function).__name__}"
-            )
-        from ..exceptions import UnsupportedFeatureError
-
-        if not self.supports_function():
-            raise UnsupportedFeatureError(self.name, "functions")
-
-        parts = ["DROP FUNCTION"]
-
-        if expr.if_exists:
-            if not self.supports_drop_function_if_exists():
-                raise UnsupportedFeatureError(
-                    self.name, "DROP FUNCTION IF EXISTS",
-                    f"{self.name} does not support DROP FUNCTION IF EXISTS."
-                )
-            parts.append("IF EXISTS")
-
-        parts.append(expr.function.to_sql()[0])
-
-        if expr.parameters:
-            param_types = ", ".join(expr.parameters)
-            parts.append(f"({param_types})")
-
-        if expr.cascade:
-            if not self.supports_drop_function_cascade():
-                raise UnsupportedFeatureError(
-                    self.name, "DROP FUNCTION CASCADE",
-                    f"{self.name} does not support DROP FUNCTION CASCADE."
-                )
-            parts.append("CASCADE")
-        elif expr.restrict:
-            if not self.supports_drop_function_restrict():
-                raise UnsupportedFeatureError(
-                    self.name, "DROP FUNCTION RESTRICT",
-                    f"{self.name} does not support DROP FUNCTION RESTRICT."
-                )
-            parts.append("RESTRICT")
-
-        return " ".join(parts), ()

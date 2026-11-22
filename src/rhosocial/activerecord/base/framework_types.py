@@ -3,7 +3,7 @@
 
 Two dialect tables are keyed by these -- the column-class table
 (``suggested_column_types``) and the suggested data-type table
-(``suggested_data_types``) -- and the DDL derivation falls back to them
+(``suggest_data_types``) -- and the DDL derivation falls back to them
 when a field declares no SQL type. Keeping the list in one place is what
 makes "every key must be answered" checkable in both layers without a test
 having to restate the population.

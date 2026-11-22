@@ -11,14 +11,15 @@ from typing import Tuple
 
 from .schema_namespace import NamespaceMixin
 from ...expression.objects import PropertyGraph
+from rhosocial.activerecord.backend.dialect.protocols.object import PropertyGraphNameSupport
 
 __all__ = ["PropertyGraphNameMixin"]
 
 
-class PropertyGraphNameMixin(NamespaceMixin):
+class PropertyGraphNameMixin(NamespaceMixin, PropertyGraphNameSupport):
     """Renders a property graph as its name."""
 
-    def format_property_graph_object(self, expr: "PropertyGraph") -> Tuple[str, tuple]:
+    def format_property_graph_object(self, expr: "PropertyGraph") -> "Tuple[str, tuple]":
         """Render *expr* as a property graph name.
 
         Args:

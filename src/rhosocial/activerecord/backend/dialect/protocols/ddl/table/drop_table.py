@@ -66,3 +66,5 @@ class DropTableSupport(Protocol):
         engine cannot parse is not a statement worth producing.
         """
         ...  # pragma: no cover
+
+

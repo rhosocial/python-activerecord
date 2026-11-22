@@ -25,50 +25,6 @@ class MergeMixin:
         """Whether MERGE statement is supported. Defaults to False."""
         return False
 
-    def format_merge_action(self, expr: "MergeAction") -> Tuple[str, tuple]:
-        """Format a single WHEN [NOT] MATCHED action clause.
-
-        The ``matched`` context (e.g. ``"WHEN MATCHED"``) is read from
-        ``expr.matched``, set by the caller before dispatching.
-
-        Args:
-            expr: The MergeAction node describing the match context, optional
-                condition, action type, and assignments.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple) for the action clause.
-        """
-        from ...expression.statements import MergeActionType
-
-        all_params: List[Any] = []
-        parts = [expr.matched]
-        if expr.condition is not None:
-            cond_sql, cond_params = expr.condition.to_sql()
-            parts.append(f"AND {cond_sql}")
-            all_params.extend(cond_params)
-
-        if expr.action_type == MergeActionType.UPDATE:
-            assignments = []
-            for col, as_expr in expr.assignments.items():
-                as_sql, as_params = as_expr.to_sql()
-                assignments.append(f"{self.format_identifier(col)} = {as_sql}")
-                all_params.extend(as_params)
-            parts.append(f"THEN UPDATE SET {', '.join(assignments)}")
-        elif expr.action_type == MergeActionType.DELETE:
-            parts.append("THEN DELETE")
-        elif expr.action_type == MergeActionType.INSERT:
-            insert_cols, insert_vals = [], []
-            for col, val_expr in expr.assignments.items():
-                insert_cols.append(self.format_identifier(col))
-                val_sql, val_params = val_expr.to_sql()
-                insert_vals.append(val_sql)
-                all_params.extend(val_params)
-            if insert_cols:
-                parts.append(f"THEN INSERT ({', '.join(insert_cols)}) VALUES ({', '.join(insert_vals)})")
-            else:
-                parts.append("THEN INSERT DEFAULT VALUES")
-        return " ".join(parts), tuple(all_params)
-
     def format_merge_statement(self, expr: "MergeStatement") -> Tuple[str, tuple]:
         """Format a MERGE statement into dialect SQL.
 
@@ -117,3 +73,47 @@ class MergeMixin:
             all_params.extend(action_params)
 
         return " ".join(merge_sql_parts), tuple(all_params)
+
+    def format_merge_action(self, expr: "MergeAction") -> Tuple[str, tuple]:
+        """Format a single WHEN [NOT] MATCHED action clause.
+
+        The ``matched`` context (e.g. ``"WHEN MATCHED"``) is read from
+        ``expr.matched``, set by the caller before dispatching.
+
+        Args:
+            expr: The MergeAction node describing the match context, optional
+                condition, action type, and assignments.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the action clause.
+        """
+        from ...expression.statements import MergeActionType
+
+        all_params: List[Any] = []
+        parts = [expr.matched]
+        if expr.condition is not None:
+            cond_sql, cond_params = expr.condition.to_sql()
+            parts.append(f"AND {cond_sql}")
+            all_params.extend(cond_params)
+
+        if expr.action_type == MergeActionType.UPDATE:
+            assignments = []
+            for col, as_expr in expr.assignments.items():
+                as_sql, as_params = as_expr.to_sql()
+                assignments.append(f"{self.format_identifier(col)} = {as_sql}")
+                all_params.extend(as_params)
+            parts.append(f"THEN UPDATE SET {', '.join(assignments)}")
+        elif expr.action_type == MergeActionType.DELETE:
+            parts.append("THEN DELETE")
+        elif expr.action_type == MergeActionType.INSERT:
+            insert_cols, insert_vals = [], []
+            for col, val_expr in expr.assignments.items():
+                insert_cols.append(self.format_identifier(col))
+                val_sql, val_params = val_expr.to_sql()
+                insert_vals.append(val_sql)
+                all_params.extend(val_params)
+            if insert_cols:
+                parts.append(f"THEN INSERT ({', '.join(insert_cols)}) VALUES ({', '.join(insert_vals)})")
+            else:
+                parts.append("THEN INSERT DEFAULT VALUES")
+        return " ".join(parts), tuple(all_params)

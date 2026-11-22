@@ -238,10 +238,6 @@ class IntrospectionSupport(Protocol):
         """Whether native DDL extraction is supported (False means assembly required)."""
         ...  # pragma: no cover
 
-    def get_supported_introspection_scopes(self) -> List["IntrospectionScope"]:
-        """Get list of supported introspection scopes."""
-        ...  # pragma: no cover
-
     # ========== Query Formatting ==========
 
     def format_database_info_query_statement(self, expr: "DatabaseInfoQueryStatement") -> Tuple[str, tuple]:

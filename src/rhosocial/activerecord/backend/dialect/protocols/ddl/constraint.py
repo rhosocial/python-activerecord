@@ -160,7 +160,7 @@ class ConstraintSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_column_fk_constraint(self, expr: "ColumnConstraint") -> Tuple[str, tuple]:
+    def format_column_fk_constraint(self, expr: "ColumnForeignKeyConstraint") -> Tuple[str, tuple]:
         """Format a column-level FOREIGN KEY reference clause with actions.
 
         Args:

@@ -156,7 +156,7 @@ class TestDummyDialectRemainingCoverage:
             assert method() == expected
 
         # Test other methods
-        assert dialect.get_upsert_syntax_type() == "ON CONFLICT"
-        assert dialect.get_json_access_operator() == "->"
+        assert dialect.suggest_upsert_syntax_type() == "ON CONFLICT"
+        assert dialect.suggest_json_access_operator() == "->"
         assert dialect.supports_explain_format("ANY") is True
         assert dialect.name == "Dummy"

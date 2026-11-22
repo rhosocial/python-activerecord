@@ -116,7 +116,7 @@ class PartitionMixin:
             params.extend(key_params)
         return f" PARTITION BY {method} ({', '.join(key_parts)})", tuple(params)
 
-    def format_partition_definition(self, expr: "PartitionDefinitionExpression") -> Tuple[str, tuple]:
+    def format_partition_definition_expression(self, expr: "PartitionDefinitionExpression") -> Tuple[str, tuple]:
         """Format an inline partition definition.
 
         There is no portable generic syntax for a partition boundary
@@ -139,4 +139,19 @@ class PartitionMixin:
             "partition definition",
             "partition definitions require a dialect implementing inline "
             "partition rendering; use a concrete backend such as MySQL or Oracle.",
+        )
+
+
+    def format_subpartition_definition_expression(self, expr: "SubpartitionDefinitionExpression") -> Tuple[str, tuple]:
+        """Format a subpartition definition; backends with inline partitioning override."""
+        raise UnsupportedFeatureError(
+            self.name, "subpartition definition",
+            "subpartition definitions require a dialect implementing inline partition rendering.",
+        )
+
+    def format_partition_options_expression(self, expr: "PartitionOptionsExpression") -> Tuple[str, tuple]:
+        """Format partition storage options; backends with inline partitioning override."""
+        raise UnsupportedFeatureError(
+            self.name, "partition options",
+            "partition options require a dialect implementing inline partition rendering.",
         )

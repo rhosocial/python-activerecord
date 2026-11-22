@@ -23,6 +23,7 @@ from rhosocial.activerecord.backend.options import ExecutionOptions, LogContext
 from rhosocial.activerecord.backend.schema import StatementType
 from rhosocial.activerecord.logging import LogEvent, SensitiveValue
 from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.field import IntegerPKMixin
 
 
 CREATE_TABLE = (
@@ -72,12 +73,11 @@ def restore_framework_logger_state():
 def log_model(tmp_path):
     """Configure an isolated SQLite model with a fresh table."""
 
-    class LogUser(ActiveRecord):
+    class LogUser(IntegerPKMixin, ActiveRecord):
         @classmethod
         def table_name(cls):
             return "log_users"
 
-        id: Optional[int] = None
         name: str = ""
         secret: str = ""
 

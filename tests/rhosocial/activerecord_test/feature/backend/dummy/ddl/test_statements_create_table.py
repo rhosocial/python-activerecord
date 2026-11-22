@@ -25,7 +25,7 @@ from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.dialect.mixins import (
     PartitionMixin,
     DDLColumnMixin,
-    TableNameMixin,
+    TableObjectMixin,
     NamespaceMixin,
     TableMixin,
     ExpressionMixin,
@@ -74,7 +74,7 @@ class PartitionTestDialect(
     DDLColumnMixin,
     DataTypeMixin,
     PartitionMixin,
-    TableNameMixin,
+    TableObjectMixin,
     NamespaceMixin,
     TableMixin,
 ):

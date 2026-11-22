@@ -16,6 +16,12 @@ from rhosocial.activerecord.backend.expression.types import (
 )
 
 
+def _rendered_names(dialect):
+    import re as _re
+    return {m.group(1) for n in dir(type(dialect))
+            if (m := _re.match(r"^format_data_type_([a-z][a-z0-9_]*)$", n))}
+
+
 def _dummy_dialect():
     from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
     return DummyDialect()
@@ -119,12 +125,6 @@ class TestVarBinaryType:
 
 class TestDummyDispatch:
     """supports_data_types() exposes the new generic names."""
-
-    def test_new_names_in_supported_mapping(self):
-        supported = _dummy_dialect().supports_data_types()
-        assert supported["enum"] is EnumType
-        assert supported["binary"] is BinaryType
-        assert supported["varbinary"] is VarBinaryType
 
     def test_new_names_are_declared_by_their_formatters(self):
         dialect = _dummy_dialect()

@@ -158,22 +158,6 @@ class SQLXMLConstructionMixin:
         """
         return False
 
-    def format_xml_name(self, expr: str) -> str:
-        """Validate and format an SQL/XML expr token.
-
-        Args:
-            expr: Name token to validate.
-
-        Returns:
-            The validated expr unchanged.
-
-        Raises:
-            ValueError: If the expr is not a valid SQL/XML identifier.
-        """
-        if not self._XML_NAME_PATTERN.fullmatch(expr):
-            raise ValueError(f"Invalid SQL/XML expr: {expr}")
-        return expr
-
     def format_xml_attributes_expression(
         self,
         expr: "XMLAttributesExpression",
@@ -353,6 +337,22 @@ class SQLXMLConstructionMixin:
         if expr.standalone is not None:
             parts.append(f"STANDALONE {expr.standalone.value}")
         return f"XMLROOT({', '.join(parts)})", tuple(params)
+
+    def format_xml_name(self, expr: str) -> str:
+        """Validate and format an SQL/XML expr token.
+
+        Args:
+            expr: Name token to validate.
+
+        Returns:
+            The validated expr unchanged.
+
+        Raises:
+            ValueError: If the expr is not a valid SQL/XML identifier.
+        """
+        if not self._XML_NAME_PATTERN.fullmatch(expr):
+            raise ValueError(f"Invalid SQL/XML expr: {expr}")
+        return expr
 
 
 class SQLXMLAggregationMixin:

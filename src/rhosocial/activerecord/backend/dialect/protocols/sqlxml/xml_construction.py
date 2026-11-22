@@ -79,3 +79,6 @@ class SQLXMLConstructionSupport(Protocol):
     def format_xml_root_expression(self, expr: "XMLRootExpression") -> Tuple[str, tuple]:
         """Format a SQL/XML XMLROOT expression."""
         ...  # pragma: no cover
+
+    def format_xml_name(self, expr: str) -> str:
+        ...  # pragma: no cover

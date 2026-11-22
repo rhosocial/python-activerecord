@@ -15,13 +15,13 @@ from typing import Tuple
 from .schema_namespace import NamespaceMixin
 from ...expression.objects import ForeignTable
 
-__all__ = ["ForeignTableNameMixin"]
+__all__ = ["ForeignTableObjectMixin"]
 
 
-class ForeignTableNameMixin(NamespaceMixin):
+class ForeignTableObjectMixin(NamespaceMixin):
     """Renders a foreign table as its name."""
 
-    def format_foreign_table_object(self, expr: "ForeignTable") -> Tuple[str, tuple]:
+    def format_foreign_table_object(self, expr: "ForeignTable") -> "Tuple[str, tuple]":
         """Render *expr* as a foreign table name.
 
         Args:

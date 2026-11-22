@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/basic/ddl/test_ddl_suggested_data_types.py
+# tests/rhosocial/activerecord_test/feature/basic/ddl/test_ddl_suggest_data_types.py
 """The suggested data-type layer: the table, the lookup, and derived identity.
 
 Three things are under contract here:
@@ -42,7 +42,7 @@ from rhosocial.activerecord.backend.impl.dummy.data_type_suggestions import (
     DUMMY_DATA_TYPE_SUGGESTIONS,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.impl.sqlite.mixins.data_type_suggestions import (
+from rhosocial.activerecord.backend.impl.sqlite.suggestion.data_type_suggestions import (
     SQLITE_DATA_TYPE_SUGGESTIONS,
 )
 from rhosocial.activerecord.base.framework_types import FRAMEWORK_PYTHON_TYPES
@@ -135,25 +135,28 @@ class NonIntegerKey(ActiveRecord):
 
 
 def test_the_mixin_withholds_the_suggested_table():
+    """Capability mixin carries no suggestion members; those live in the
+    suggestion protocol implemented by backend suggestion mixins."""
     class Bare(DataTypeMixin):
         pass
 
-    with pytest.raises(NotImplementedError, match="suggested data-type"):
-        Bare().suggested_data_types()
-    assert Bare().suggested_extra_data_types() == {}
+    bare = Bare()
+    for name in ("suggest_data_types", "suggest_extra_data_types",
+                 "suggest_substitute_types", "suggest_substitute_advice"):
+        assert not hasattr(bare, name), name
 
 
 def test_the_protocol_is_structural():
     dialect = SQLiteDialect()
     assert isinstance(dialect, DataTypeSupport)
-    assert callable(dialect.suggested_data_types)
-    assert callable(dialect.suggested_extra_data_types)
+    assert callable(dialect.suggest_data_types)
+    assert callable(dialect.suggest_extra_data_types)
 
 
 @pytest.mark.parametrize("dialect_factory", [SQLiteDialect, DummyDialect])
 def test_every_framework_type_is_answered(dialect_factory):
     dialect = dialect_factory()
-    table = dialect.suggested_data_types()
+    table = dialect.suggest_data_types()
     missing = [entry for entry in FRAMEWORK_PYTHON_TYPES if entry not in table]
     assert missing == []
 
@@ -164,14 +167,14 @@ def test_nothing_is_left_unanswered(dialect_factory):
     away from the caller. The commitment is that every framework-modelled type
     has a declaration; a precise spelling is the field's business."""
     dialect = dialect_factory()
-    unanswered = [entry.__name__ for entry, value in dialect.suggested_data_types().items() if value is None]
+    unanswered = [entry.__name__ for entry, value in dialect.suggest_data_types().items() if value is None]
     assert unanswered == []
 
 
 @pytest.mark.parametrize("dialect_factory", [SQLiteDialect, DummyDialect])
 def test_every_answer_is_renderable(dialect_factory):
     dialect = dialect_factory()
-    for suggestion in dialect.suggested_data_types().values():
+    for suggestion in dialect.suggest_data_types().values():
         # Renderable: the suggestion is a declaration the dialect can spell.
         dialect.format_data_type(suggestion)
 
@@ -179,8 +182,8 @@ def test_every_answer_is_renderable(dialect_factory):
 @pytest.mark.parametrize("dialect_factory", [SQLiteDialect, DummyDialect])
 def test_each_call_returns_a_fresh_dict(dialect_factory):
     dialect = dialect_factory()
-    first = dialect.suggested_data_types()
-    second = dialect.suggested_data_types()
+    first = dialect.suggest_data_types()
+    second = dialect.suggest_data_types()
 
     assert first is not second
     assert first == second
@@ -190,18 +193,18 @@ def test_the_tables_agree_with_the_module_level_constants():
     """One table, one source: each dialect answers the documented constant, so a
     future edit that makes one of them compute something else fails here,
     naming the drift."""
-    assert SQLiteDialect().suggested_data_types() == SQLITE_DATA_TYPE_SUGGESTIONS
-    assert SQLiteDialect().suggested_data_types() is not SQLITE_DATA_TYPE_SUGGESTIONS
-    assert DummyDialect().suggested_data_types() == DUMMY_DATA_TYPE_SUGGESTIONS
-    assert DummyDialect().suggested_data_types() is not DUMMY_DATA_TYPE_SUGGESTIONS
+    assert SQLiteDialect().suggest_data_types() == SQLITE_DATA_TYPE_SUGGESTIONS
+    assert SQLiteDialect().suggest_data_types() is not SQLITE_DATA_TYPE_SUGGESTIONS
+    assert DummyDialect().suggest_data_types() == DUMMY_DATA_TYPE_SUGGESTIONS
+    assert DummyDialect().suggest_data_types() is not DUMMY_DATA_TYPE_SUGGESTIONS
 
 
 def test_the_values_are_the_read_only_templates():
     """The table is not rebuilt per call: its values are the module's templates.
     A caller binds a rendering on a **copy**, which is why the derivation never
     reaches them (next test)."""
-    assert SQLiteDialect().suggested_data_types()[str] is SQLITE_DATA_TYPE_SUGGESTIONS[str]
-    assert DummyDialect().suggested_data_types()[str] is DUMMY_DATA_TYPE_SUGGESTIONS[str]
+    assert SQLiteDialect().suggest_data_types()[str] is SQLITE_DATA_TYPE_SUGGESTIONS[str]
+    assert DummyDialect().suggest_data_types()[str] is DUMMY_DATA_TYPE_SUGGESTIONS[str]
 
 
 def test_a_derivation_does_not_bind_the_template():
@@ -216,9 +219,9 @@ def test_a_derivation_does_not_bind_the_template():
 
 def test_the_extra_table_is_empty_and_disjoint():
     dialect = SQLiteDialect()
-    assert dialect.suggested_extra_data_types() == {}
-    assert set(dialect.suggested_data_types()).isdisjoint(
-        dialect.suggested_extra_data_types()
+    assert dialect.suggest_extra_data_types() == {}
+    assert set(dialect.suggest_data_types()).isdisjoint(
+        dialect.suggest_extra_data_types()
     )
 
 

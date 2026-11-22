@@ -8,7 +8,7 @@ Covers the deliberate separation the DDL layer draws:
   family, BigQuery, Snowflake);
 * ``CommentOnStatement`` — the standalone ``COMMENT ON`` *statement* that
   annotates existing objects (PostgreSQL/Oracle/Firebird/Snowflake), rendered
-  by the generic ``CommentOnMixin``.
+  by the generic ``CommentMixin``.
 
 The two are **not** interchangeable, and the tests pin the generic rendering,
 capability gating, and the fixed spacing between the column list and the

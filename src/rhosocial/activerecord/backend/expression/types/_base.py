@@ -250,21 +250,17 @@ class DataType(BaseExpression, ABC):
     # ----- factory (delegated by dialect) -----
 
     @staticmethod
+    @staticmethod
     def parse_data_type_str(dialect: "SQLDialectBase", raw: str) -> "DataType":
-        """Backend-specific factory.
+        """Fallback-only parse: no dialect protocol parse exists; returns CustomType.
 
-        Delegates to ``dialect.parse_type(raw)`` when the dialect implements
-        ``DataTypeSupport``.  Falls back to ``CustomType(raw)``.
-
-        This is the **read** direction: the server reported a spelling, and
-        the framework needs the concept behind it.  Nothing in the write
-        direction comes through here -- see :meth:`as_type`.
+        Type-spelling parsing is a backend-local, introspection-only concern
+        (see SQLiteTypeParser). Without such a parser, the honest answer is the
+        raw spelling preserved as a CustomType.
         """
-        from ...dialect.protocols import DataTypeSupport
-        if isinstance(dialect, DataTypeSupport):
-            return dialect.parse_type(raw)
         from .custom import CustomType
         return CustomType(dialect, raw=raw)
+
 
     @staticmethod
     def as_type(dialect: "SQLDialectBase", value: Any) -> "DataType":

@@ -21,7 +21,7 @@ __all__ = ["DomainNameMixin"]
 class DomainNameMixin(NamespaceMixin):
     """Renders a domain as its name."""
 
-    def format_domain_object(self, expr: "Domain") -> Tuple[str, tuple]:
+    def format_domain_object(self, expr: "Domain") -> "Tuple[str, tuple]":
         """Render *expr* as a domain name.
 
         Args:

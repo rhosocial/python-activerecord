@@ -10,6 +10,10 @@ exactly that -- rather than the factory assembling a SQL string no hook could
 ever reach.
 """
 from typing import Tuple, TYPE_CHECKING
+from rhosocial.activerecord.backend.dialect.protocols.query import LpadSupport
+from rhosocial.activerecord.backend.dialect.protocols.query import RepeatSupport
+from rhosocial.activerecord.backend.dialect.protocols.query import RpadSupport
+from rhosocial.activerecord.backend.dialect.protocols.query import TrimSupport
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.advanced_functions import (
@@ -19,7 +23,7 @@ if TYPE_CHECKING:  # pragma: no cover
     )
 
 
-class RepeatMixin:
+class RepeatMixin(RepeatSupport):
     """Mixin rendering ``REPEAT(expr, count)`` in the common spelling."""
 
     def format_repeat_expression(self, expr: "RepeatFunction") -> Tuple[str, tuple]:
@@ -39,7 +43,7 @@ class RepeatMixin:
         return sql, tuple(expr_params) + tuple(count_params)
 
 
-class LpadMixin:
+class LpadMixin(LpadSupport):
     """Mixin rendering ``LPAD(expr, length, pad)`` in the common spelling."""
 
     def format_lpad_expression(self, expr: "LpadFunction") -> Tuple[str, tuple]:
@@ -61,7 +65,7 @@ class LpadMixin:
         return sql, tuple(expr_params) + tuple(length_params) + tuple(pad_params)
 
 
-class RpadMixin:
+class RpadMixin(RpadSupport):
     """Mixin rendering ``RPAD(expr, length, pad)`` in the common spelling."""
 
     def format_rpad_expression(self, expr: "RpadFunction") -> Tuple[str, tuple]:

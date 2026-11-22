@@ -22,15 +22,6 @@ class UpsertMixin:
         """
         return False
 
-    def get_upsert_syntax_type(self) -> str:
-        """
-        Get UPSERT syntax type.
-
-        Returns:
-            'ON CONFLICT' (PostgreSQL) or 'ON DUPLICATE KEY' (MySQL)
-        """
-        return "ON CONFLICT"
-
     def supports_on_conflict_clause(self) -> bool:
         """
         Whether the ON CONFLICT clause form is supported.

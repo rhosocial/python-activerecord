@@ -15,13 +15,13 @@ from typing import Tuple
 from .schema_namespace import NamespaceMixin
 from ...expression.objects import Synonym
 
-__all__ = ["SynonymNameMixin"]
+__all__ = ["SynonymObjectMixin"]
 
 
-class SynonymNameMixin(NamespaceMixin):
+class SynonymObjectMixin(NamespaceMixin):
     """Renders a synonym as its name."""
 
-    def format_synonym_object(self, expr: "Synonym") -> Tuple[str, tuple]:
+    def format_synonym_object(self, expr: "Synonym") -> "Tuple[str, tuple]":
         """Render *expr* as a synonym name.
 
         Args:

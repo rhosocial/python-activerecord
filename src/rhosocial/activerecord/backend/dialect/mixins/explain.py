@@ -17,6 +17,10 @@ class ExplainMixin:
     dialects may override the probes to enable ANALYZE or specific formats.
     """
 
+    def supports_explain_plan(self) -> bool:
+        return False  # default: not supported
+        return f"{' '.join(parts)} {statement_sql}", statement_params
+
     def supports_explain_analyze(self) -> bool:
         """Whether EXPLAIN ANALYZE is supported (defaults to False)."""
         return False
@@ -71,5 +75,4 @@ class ExplainMixin:
             parts.append("SETTINGS")  # PostgreSQL-specific option, not SQL standard
         if options.wal:
             parts.append("WAL")  # PostgreSQL-specific option, not SQL standard
-
         return f"{' '.join(parts)} {statement_sql}", statement_params

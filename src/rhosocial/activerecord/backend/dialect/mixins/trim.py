@@ -8,13 +8,15 @@ it differently overrides the formatter rather than assembling SQL by hand --
 SQLite does exactly that, because it parses no ``trim(... from ...)`` syntax
 at all.
 """
+
+from rhosocial.activerecord.backend.dialect.protocols.query import TrimSupport
 from typing import Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.advanced_functions import TrimExpression
 
 
-class TrimMixin:
+class TrimMixin(TrimSupport):
     """Mixin rendering the standard TRIM expression."""
 
     def format_trim_expression(self, expr: "TrimExpression") -> Tuple[str, Tuple]:

@@ -8,6 +8,7 @@ backend layer.
 from typing import List, Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
+from ..protocols.introspect.async_introspection import AsyncIntrospectionSupport
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...introspection.types import IntrospectionScope
@@ -77,18 +78,16 @@ class IntrospectionMixin:
         """Whether trigger introspection is supported. Defaults to False."""
         return False
 
-    # ========== Runtime Statistics ==========
-
     def supports_runtime_stats(self) -> bool:
         """Whether runtime statistics introspection is supported. Defaults to False."""
         return False
 
-    def supports_table_stats(self) -> bool:
-        """Whether table statistics introspection is supported. Defaults to False."""
-        return False
-
     def supports_index_stats(self) -> bool:
         """Whether index statistics introspection is supported. Defaults to False."""
+        return False
+
+    def supports_table_stats(self) -> bool:
+        """Whether table statistics introspection is supported. Defaults to False."""
         return False
 
     def supports_unused_indexes_detection(self) -> bool:
@@ -101,32 +100,12 @@ class IntrospectionMixin:
         """
         return False
 
-    # ========== Structure Information ==========
-
     def supports_partition_info(self) -> bool:
         """Whether partition information introspection is supported. Defaults to False."""
         return False
 
     def supports_object_dependencies(self) -> bool:
         """Whether object dependencies introspection is supported. Defaults to False."""
-        return False
-
-    def supports_extensions(self) -> bool:
-        """Whether this engine exposes a catalogue of installed add-on components.
-
-        Defaults to ``False``. ``extension`` is not SQL-standard vocabulary and
-        the concept differs per engine -- PostgreSQL's are ``CREATE EXTENSION``
-        packages with a version and a schema, SQLite's are registered virtual
-        table modules -- so a ``True`` promises that the engine *will answer*,
-        not *what shape the answer takes*. Read the backend's own docs and
-        result type before relying on any field; see
-        :class:`~...protocols.introspect.introspection.IntrospectionSupport`
-        for why the name stays in core despite that.
-        """
-        return False
-
-    def supports_table_storage_introspection(self) -> bool:
-        """Whether per-table storage metrics introspection is supported. Defaults to False."""
         return False
 
     def supports_column_data_profile(self) -> bool:
@@ -158,10 +137,26 @@ class IntrospectionMixin:
         """
         return False
 
-    # ========== DDL Extraction ==========
-
     def supports_ddl_extraction(self) -> bool:
         """Whether DDL extraction is supported. Defaults to False."""
+        return False
+
+    def supports_extensions(self) -> bool:
+        """Whether this engine exposes a catalogue of installed add-on components.
+
+        Defaults to ``False``. ``extension`` is not SQL-standard vocabulary and
+        the concept differs per engine -- PostgreSQL's are ``CREATE EXTENSION``
+        packages with a version and a schema, SQLite's are registered virtual
+        table modules -- so a ``True`` promises that the engine *will answer*,
+        not *what shape the answer takes*. Read the backend's own docs and
+        result type before relying on any field; see
+        :class:`~...protocols.introspect.introspection.IntrospectionSupport`
+        for why the name stays in core despite that.
+        """
+        return False
+
+    def supports_table_storage_introspection(self) -> bool:
+        """Whether per-table storage metrics introspection is supported. Defaults to False."""
         return False
 
     def supports_ddl_extraction_native(self) -> bool:
@@ -170,12 +165,6 @@ class IntrospectionMixin:
         Defaults to False.
         """
         return False
-
-    def get_supported_introspection_scopes(self) -> List["IntrospectionScope"]:
-        """Get list of supported introspection scopes."""
-        return []
-
-    # ========== Query Formatting ==========
 
     def format_database_info_query_statement(self, expr: "DatabaseInfoQueryStatement") -> Tuple[str, tuple]:
         """
@@ -347,8 +336,54 @@ class IntrospectionMixin:
             raise UnsupportedFeatureError(self.name, "trigger introspection")
         raise NotImplementedError("Subclass must implement format_trigger_info_query_statement")
 
+    def format_unused_indexes_query_statement(
+    self, expr: "UnusedIndexesQueryStatement"
+    ) -> Tuple[str, tuple]:
+        raise UnsupportedFeatureError(self.name, "format_unused_indexes_query_statement")
+        raise NotImplementedError("Subclass must implement format_trigger_info_query_statement")
 
-class AsyncIntrospectionMixin:
+    def format_table_usage_stats_query_statement(
+    self, expr: "TableUsageStatsQueryStatement"
+    ) -> Tuple[str, tuple]:
+        raise UnsupportedFeatureError(self.name, "format_table_usage_stats_query_statement")
+
+    def format_runtime_metrics_query_statement(
+    self, expr: "RuntimeMetricsQueryStatement"
+    ) -> Tuple[str, tuple]:
+        raise UnsupportedFeatureError(self.name, "format_runtime_metrics_query_statement")
+
+    def format_index_usage_stats_query_statement(
+    self, expr: "IndexUsageStatsQueryStatement"
+    ) -> Tuple[str, tuple]:
+        raise UnsupportedFeatureError(self.name, "format_index_usage_stats_query_statement")
+
+    def format_object_dependency_query_statement(
+    self, expr: "ObjectDependencyQueryStatement"
+    ) -> Tuple[str, tuple]:
+        raise UnsupportedFeatureError(self.name, "format_object_dependency_query_statement")
+
+    def format_column_data_profile_query_statement(
+    self, expr: "ColumnDataProfileQueryStatement"
+    ) -> Tuple[str, tuple]:
+        raise UnsupportedFeatureError(self.name, "format_column_data_profile_query_statement")
+
+    def format_column_value_sample_query_statement(
+    self, expr: "ColumnValueSampleQueryStatement"
+    ) -> Tuple[str, tuple]:
+        raise UnsupportedFeatureError(self.name, "format_column_value_sample_query_statement")
+
+    def format_join_coverage_query_statement(
+    self, expr: "JoinCoverageQueryStatement"
+    ) -> Tuple[str, tuple]:
+        raise UnsupportedFeatureError(self.name, "format_join_coverage_query_statement")
+
+    def format_ddl_statement_query_statement(
+    self, expr: "DDLStatementQueryStatement"
+    ) -> Tuple[str, tuple]:
+        raise UnsupportedFeatureError(self.name, "format_ddl_statement_query_statement")
+
+
+class AsyncIntrospectionMixin(AsyncIntrospectionSupport):
     """
     Mixin for async database introspection capability declaration.
 
@@ -490,10 +525,6 @@ class AsyncIntrospectionMixin:
         Defaults to False.
         """
         return False
-
-    def get_supported_introspection_scopes(self) -> List["IntrospectionScope"]:
-        """Get list of supported introspection scopes."""
-        return []
 
     # ========== Query Formatting ==========
 

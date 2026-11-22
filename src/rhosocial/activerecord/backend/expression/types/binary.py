@@ -6,7 +6,6 @@ from __future__ import annotations
 from typing import Optional
 
 from ._base import DataType, LENGTH_PARAMETERS
-from ._defaults import declared_parameter
 
 
 class BlobType(DataType):
@@ -39,9 +38,7 @@ class BlobType(DataType):
         dialect bound after the fact resolves the same way as one passed at
         construction.
         """
-        return self._length if self._length is not None else declared_parameter(
-            self.name, "length", self._dialect
-        )
+        return self._length
 
     @length.setter
     def length(self, value: Optional[int]) -> None:

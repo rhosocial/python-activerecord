@@ -109,7 +109,7 @@ class NamespaceMixin:
             self.validate_schema_name(expr)
         return None
 
-    def format_qualified_name(self, expr: "SchemaObject") -> Tuple[str, tuple]:
+    def format_qualified_name(self, expr: "SchemaObject") -> "Tuple[str, tuple]":
         """Build the qualified name of *expr*, levels joined by the separator.
 
         The spelling half of what ``render_namespace`` used to do. The levels and

@@ -265,7 +265,7 @@ class TestVersionSpecificFeatures:
     def test_json_support_3_38_0(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test that JSON functions are supported from version 3.38.0."""
         assert sqlite_dialect_3_38_0.supports_json_type() is True
-        assert sqlite_dialect_3_38_0.get_json_access_operator() == "->"
+        assert sqlite_dialect_3_38_0.suggest_json_access_operator() == "->"
 
     def test_filter_clause_3_30_0(self, sqlite_dialect_3_30_0: SQLiteDialect):
         """Test that FILTER clause is supported from version 3.30.0."""

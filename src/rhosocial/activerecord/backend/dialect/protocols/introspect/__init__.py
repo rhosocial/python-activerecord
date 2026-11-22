@@ -12,7 +12,9 @@ session rather than a statement about objects.
 from .introspection import IntrospectionSupport
 from .transaction import TransactionControlSupport
 
+from .async_introspection import AsyncIntrospectionSupport
 __all__ = [
     "IntrospectionSupport",
     "TransactionControlSupport",
+    "AsyncIntrospectionSupport",
 ]

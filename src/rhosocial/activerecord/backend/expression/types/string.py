@@ -29,7 +29,6 @@ from __future__ import annotations
 from typing import Optional
 
 from ._base import DataType, LENGTH_PARAMETERS
-from ._defaults import declared_parameter
 
 
 class CharType(DataType):
@@ -69,9 +68,7 @@ class CharType(DataType):
         a dialect is bound, so bind one before using it as a dictionary key or a
         set member, exactly as rendering already requires.
         """
-        return self._length if self._length is not None else declared_parameter(
-            self.name, "length", self._dialect
-        )
+        return self._length
 
     @length.setter
     def length(self, value: Optional[int]) -> None:
@@ -123,9 +120,7 @@ class VarCharType(DataType):
         bound after construction counts, and the consequence is that identity is
         settled only once a dialect is bound.
         """
-        return self._length if self._length is not None else declared_parameter(
-            self.name, "length", self._dialect
-        )
+        return self._length
 
     @length.setter
     def length(self, value: Optional[int]) -> None:
@@ -167,9 +162,7 @@ class TextType(DataType):
         construction -- and for the same reason identity is settled only once a
         dialect is bound.
         """
-        return self._length if self._length is not None else declared_parameter(
-            self.name, "length", self._dialect
-        )
+        return self._length
 
     @length.setter
     def length(self, value: Optional[int]) -> None:

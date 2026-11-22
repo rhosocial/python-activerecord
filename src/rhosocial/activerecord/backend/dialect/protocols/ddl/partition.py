@@ -63,7 +63,7 @@ class PartitionSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_partition_definition(self, expr: "PartitionDefinitionExpression") -> Tuple[str, tuple]:
+    def format_partition_definition_expression(self, expr: "PartitionDefinitionExpression") -> Tuple[str, tuple]:
         """Format an inline partition definition from a structural declaration.
 
         Backends that declare partitions inline in CREATE TABLE override this;
@@ -76,4 +76,13 @@ class PartitionSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
+        ...  # pragma: no cover
+
+
+    def format_subpartition_definition_expression(self, expr: "SubpartitionDefinitionExpression") -> Tuple[str, tuple]:
+        """Format a subpartition definition (backend-specific; generic refuses)."""
+        ...  # pragma: no cover
+
+    def format_partition_options_expression(self, expr: "PartitionOptionsExpression") -> Tuple[str, tuple]:
+        """Format partition storage options (backend-specific; generic refuses)."""
         ...  # pragma: no cover
