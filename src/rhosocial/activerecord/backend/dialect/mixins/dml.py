@@ -8,7 +8,7 @@ from ...expression.objects import Table
 from ..protocols.query.dml_support import DMLSupport
 from .returning_mixin import ReturningMixin
 
-class DMLMixin(ReturningMixin, DMLSupport):
+class DMLMixin(ReturningMixin):
         def format_insert_statement(self, expr: "InsertStatement") -> Tuple[str, tuple]:
             """Format an INSERT statement.
 

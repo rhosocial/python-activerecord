@@ -383,7 +383,7 @@ class IntrospectionMixin:
         raise UnsupportedFeatureError(self.name, "format_ddl_statement_query_statement")
 
 
-class AsyncIntrospectionMixin(AsyncIntrospectionSupport):
+class AsyncIntrospectionMixin():
     """
     Mixin for async database introspection capability declaration.
 

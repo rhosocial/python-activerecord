@@ -250,7 +250,6 @@ class DataType(BaseExpression, ABC):
     # ----- factory (delegated by dialect) -----
 
     @staticmethod
-    @staticmethod
     def parse_data_type_str(dialect: "SQLDialectBase", raw: str) -> "DataType":
         """Fallback-only parse: no dialect protocol parse exists; returns CustomType.
 

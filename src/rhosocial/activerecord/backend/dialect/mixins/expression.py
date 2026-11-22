@@ -26,7 +26,7 @@ from .wildcard_mixin import WildcardMixin
 
 from ..protocols.query.expression_support import ExpressionSupport
 
-class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregationMixin, WildcardMixin, ExpressionSupport):
+class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregationMixin, WildcardMixin):
     def format_identifier_expression(self, expr: Identifier) -> Tuple[str, tuple]:
             """Format an :class:`~...expression.literals.Identifier` node.
 

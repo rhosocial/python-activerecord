@@ -11,7 +11,7 @@ from .qualify_clause_mixin import QualifyClauseMixin
 
 from ..protocols.query.dql_support import DQLSupport
 
-class DQLMixin(DqlOrderMixin, AdvancedGroupingMixin, LockingMixin, QualifyClauseMixin, DQLSupport):
+class DQLMixin(DqlOrderMixin, AdvancedGroupingMixin, LockingMixin, QualifyClauseMixin):
     def build_limit_offset(self, limit=None, offset=None) -> Tuple[str, List]:
             """Build a LIMIT/OFFSET fragment from raw values.
 

@@ -16,7 +16,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...expression.advanced_functions import TrimExpression
 
 
-class TrimMixin(TrimSupport):
+class TrimMixin():
     """Mixin rendering the standard TRIM expression."""
 
     def format_trim_expression(self, expr: "TrimExpression") -> Tuple[str, Tuple]:

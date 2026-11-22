@@ -58,6 +58,22 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     DataTypeSupport,
     # Column Class Support Protocol
     ColumnTypeSupport,
+    DateTimeSupport,
+    DQLSupport,
+    DMLSupport,
+    ExpressionSupport,
+    FunctionCallSupport,
+    PredicateSupport,
+    RelationSourceSupport,
+    SchemaNameSupport,
+    DatabaseNameSupport,
+    PropertyGraphNameSupport,
+    DDLColumnSupport,
+    LpadSupport,
+    RepeatSupport,
+    RpadSupport,
+    TrimSupport,
+    AsyncIntrospectionSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     RelationSourceMixin,
@@ -412,6 +428,22 @@ class SQLiteDialect(
     # body would otherwise win over the mixin that actually renders.
     CreateSchemaSupport,
     DropSchemaSupport,
+    DateTimeSupport,
+    DQLSupport,
+    DMLSupport,
+    ExpressionSupport,
+    FunctionCallSupport,
+    PredicateSupport,
+    RelationSourceSupport,
+    SchemaNameSupport,
+    DatabaseNameSupport,
+    PropertyGraphNameSupport,
+    DDLColumnSupport,
+    LpadSupport,
+    RepeatSupport,
+    RpadSupport,
+    TrimSupport,
+    AsyncIntrospectionSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.

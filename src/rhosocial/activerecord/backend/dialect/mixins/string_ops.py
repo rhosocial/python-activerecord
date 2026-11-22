@@ -23,7 +23,7 @@ if TYPE_CHECKING:  # pragma: no cover
     )
 
 
-class RepeatMixin(RepeatSupport):
+class RepeatMixin():
     """Mixin rendering ``REPEAT(expr, count)`` in the common spelling."""
 
     def format_repeat_expression(self, expr: "RepeatFunction") -> Tuple[str, tuple]:
@@ -43,7 +43,7 @@ class RepeatMixin(RepeatSupport):
         return sql, tuple(expr_params) + tuple(count_params)
 
 
-class LpadMixin(LpadSupport):
+class LpadMixin():
     """Mixin rendering ``LPAD(expr, length, pad)`` in the common spelling."""
 
     def format_lpad_expression(self, expr: "LpadFunction") -> Tuple[str, tuple]:
@@ -65,7 +65,7 @@ class LpadMixin(LpadSupport):
         return sql, tuple(expr_params) + tuple(length_params) + tuple(pad_params)
 
 
-class RpadMixin(RpadSupport):
+class RpadMixin():
     """Mixin rendering ``RPAD(expr, length, pad)`` in the common spelling."""
 
     def format_rpad_expression(self, expr: "RpadFunction") -> Tuple[str, tuple]:

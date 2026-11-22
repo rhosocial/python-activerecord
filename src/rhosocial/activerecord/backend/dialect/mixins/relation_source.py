@@ -46,7 +46,7 @@ if TYPE_CHECKING:  # pragma: no cover
 __all__ = ["RelationSourceMixin"]
 
 
-class RelationSourceMixin(RelationSourceSupport):
+class RelationSourceMixin():
     """Renders a ``FROM`` clause reference to any kind of row source."""
 
     def supports_derived_table(self) -> bool:

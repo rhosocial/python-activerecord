@@ -15,7 +15,7 @@ from rhosocial.activerecord.backend.dialect.protocols.object import SchemaNameSu
 __all__ = ["SchemaNameMixin"]
 
 
-class SchemaNameMixin(NamespaceMixin, SchemaNameSupport):
+class SchemaNameMixin(NamespaceMixin):
     """Renders a schema as its name."""
 
     def format_schema_object(self, expr: "Schema") -> "Tuple[str, tuple]":

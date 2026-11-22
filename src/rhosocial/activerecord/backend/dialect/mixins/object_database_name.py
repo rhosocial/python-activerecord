@@ -15,7 +15,7 @@ from rhosocial.activerecord.backend.dialect.protocols.object import DatabaseName
 __all__ = ["DatabaseNameMixin"]
 
 
-class DatabaseNameMixin(NamespaceMixin, DatabaseNameSupport):
+class DatabaseNameMixin(NamespaceMixin):
     """Renders a database as its name."""
 
     def format_database_object(self, expr: "Database") -> Tuple[str, tuple]:

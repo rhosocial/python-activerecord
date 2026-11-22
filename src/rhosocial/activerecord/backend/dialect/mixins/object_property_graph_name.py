@@ -16,7 +16,7 @@ from rhosocial.activerecord.backend.dialect.protocols.object import PropertyGrap
 __all__ = ["PropertyGraphNameMixin"]
 
 
-class PropertyGraphNameMixin(NamespaceMixin, PropertyGraphNameSupport):
+class PropertyGraphNameMixin(NamespaceMixin):
     """Renders a property graph as its name."""
 
     def format_property_graph_object(self, expr: "PropertyGraph") -> "Tuple[str, tuple]":

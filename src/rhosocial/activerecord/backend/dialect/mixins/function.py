@@ -13,7 +13,7 @@ class FunctionMixin(CreateRoutineMixin, DropRoutineMixin, SQLFunctionMixin):
     """Composition of CreateRoutineMixin, DropRoutineMixin, SQLFunctionMixin. No own members."""
     pass
 
-class FunctionCallMixin(FunctionCallSupport):
+class FunctionCallMixin():
     """Mixin for formatting scalar and aggregate function call expressions.
 
     Distinct from :class:`FunctionMixin`, which covers SQL/PSM function DDL

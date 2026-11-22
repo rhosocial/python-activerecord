@@ -52,7 +52,7 @@ def _connective_precedence(predicate: Any) -> int:
     return _BINDS_TIGHTEST
 
 
-class PredicateMixin(PredicateSupport):
+class PredicateMixin():
     """Mixin for formatting SQL predicate expressions.
 
     Formatting functions receive the expression instance only; every value

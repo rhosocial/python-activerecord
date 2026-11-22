@@ -59,7 +59,7 @@ if TYPE_CHECKING:  # pragma: no cover
     )
 
 
-class DDLColumnMixin(DDLColumnSupport):
+class DDLColumnMixin():
     """Mixin for DDL column definition and ALTER TABLE action formatting."""
 
 
