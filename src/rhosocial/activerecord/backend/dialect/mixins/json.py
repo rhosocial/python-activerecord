@@ -4,9 +4,7 @@
 Provides capability probes for JSON types and operators, and formats JSON
 path access using either arrow operators or function-based equivalents.
 """
-from __future__ import annotations
-
-from typing import Tuple, TYPE_CHECKING, Dict, Any
+from typing import Tuple, TYPE_CHECKING, Dict, Any, Optional
 
 from ..exceptions import UnsupportedFeatureError
 from ...expression import bases
@@ -39,7 +37,7 @@ class JSONMixin:
         """
         return False
 
-    def supports_json_table(self, dialect_options: Dict[str, Any] | None = None) -> bool:
+    def supports_json_table(self, dialect_options: Optional[Dict[str, Any]] = None) -> bool:
         """Whether JSON_TABLE function is supported. Defaults to False."""
         return False
 
