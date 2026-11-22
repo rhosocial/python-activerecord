@@ -4,6 +4,8 @@
 Provides capability probes for JSON types and operators, and formats JSON
 path access using either arrow operators or function-based equivalents.
 """
+from __future__ import annotations
+
 from typing import Tuple, TYPE_CHECKING, Dict, Any
 
 from ..exceptions import UnsupportedFeatureError
