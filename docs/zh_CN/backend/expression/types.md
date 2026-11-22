@@ -13,7 +13,7 @@
 因此数据类型具有 **declare → bind → render** 的生命周期：
 
 1. **declare**（声明）：类型可以在不携带方言的情况下构造——用于模型字段声明、迁移、`UseSqlType` 注解。省略方言时，其余参数必须**具名传参**（如 `VarCharType(length=255)`）；位置传参的值会落入方言槽位并被构造校验拒绝
-2. **bind**（绑定）：按节点附加方言——或在构造时传入（`VarCharType(dialect, length=255)`），或稍后通过 `dialect` 属性 setter 赋值；方言的 `parse_type()` 工厂（内省）返回的也是已绑定的实例
+2. **bind**（绑定）：按节点附加方言——或在构造时传入（`VarCharType(dialect, length=255)`），或稍后通过 `dialect` 属性 setter 赋值；后端的内省类型解析器（如 `SQLiteTypeParser`）返回的也是已绑定的实例
 3. **render**（渲染）：`to_sql()` **无参数**；它读取节点自身绑定的方言，委托给其 `format_data_type()`。对未绑定方言的类型调用渲染会抛出 `ValueError`（"... has no dialect bound ..."）——这是刻意的 fail-fast 护栏
 
 ```python
@@ -164,35 +164,31 @@ class SQLiteIntegerType(IntegerType):
 
 ### 能力检测
 
-方言通过同一命名族加上两个映射查询暴露类型能力面：
+方言的受支持类型面**就是**它的 `format_data_type_*` / `supports_data_type_*` 命名族；不存在汇总的「受支持类型映射表」。单类型检测直接用命名族：
 
 ```python
 # 单类型检测：supports_data_type_<name>() 命名族
 if dialect.supports_data_type_text():
     ...
-
-# 完整映射：{通用名: 具体 DataType 类}，覆盖方言支持的所有类型
-for name, dt_cls in dialect.supports_data_types().items():
-    print(name, dt_cls.__name__)
 ```
 
-`supports_data_types()` 由方言自身的命名族成员自动发现（后端方言会把带自己前缀的条目合并进继承的映射）。它的键与 `format_data_type_*` 命名族的分发键完全一致。
+格式化函数是「受支持」的声明：方言只为它真正渲染的名字实现 `format_data_type_<name>`（后端方言在继承的命名族之上追加自己带前缀的条目）。`supports_data_type_<name>() -> bool` 探针是版本/特性开关，可把某个已能渲染的名字排除在外。不支持的名字就是**缺席**，分发时会抛 `TypeError`。「该存成什么」这类问题的唯一回答处是下方的类型建议。
 
-### 跨后端建议 (substitute_data_types)
+### 跨后端建议 (suggest_substitute_types)
 
-`substitute_data_types() -> Dict[str, type]` 是**跨后端类型一致性**的对应机制：对于方言**不**原生支持的通用类型，它可以建议一个替代的 `DataType` 类。
+建议协议位于 `rhosocial.activerecord.backend.suggestion.protocols`，其返回值是 `rhosocial.activerecord.backend.suggestion.definitions` 中的 frozen dataclass。`DataTypeSuggestionSupport.suggest_substitute_types()` 是**跨后端类型一致性**的对应机制：对于方言**不**原生支持的通用类型，它建议替代类，返回 `SubstituteTypeSuggestion(mapping={...})`。同族的 `suggest_substitute_advice(name)` 返回 `SubstituteAdviceSuggestion(advice=...)`，携带该替代的附加说明（无损时为空）。
 
-不要与 `suggested_data_types()` 混淆：后者把 `FRAMEWORK_PYTHON_TYPES` 中的 24 个 Python 类型映射到
+不要与 `suggest_data_types()` 混淆：后者返回 `DataTypeSuggestion(table=...)`，把 `FRAMEWORK_PYTHON_TYPES` 中的 24 个 Python 类型映射到
 `DataType` 实例，用作裸字段的默认 DDL 声明。
 
-- 键使用相同的通用名命名空间（`"uuid"`、`"enum"`、……），且与 `supports_data_types()` 的键**互不相交**——方言能渲染的类型无需建议
+- 键使用相同的通用名命名空间（`"uuid"`、`"enum"`、……），且与方言能渲染的名字**互不相交**——方言能渲染的类型无需替代
 - 值是具体的 `DataType` 类（例如 SQLite 建议 `uuid`/`enum` → `SQLiteTextType`，`binary`/`varbinary` → `SQLiteBlobType`）
 - 仅为建议——用户层（ActiveRecord/应用代码）决定是否采纳
-- 默认返回空字典；这里同样适用如实原则：绝不伪装建议
+- 默认返回空映射；这里同样适用如实原则：绝不伪装建议
 
 ### 与模型字段的集成
 
-普通 Python 注解不会由 `DDLSourceMixin` 自动转换为 `DataType`。没有 `UseSqlType` 时，`column_data_type()` 返回 `None`。显式声明使用 `UseSqlType`，它会按声明顺序保留候选：
+声明是两段式的：字段上显式的 `UseSqlType` 优先；裸字段在 source 层没有声明（`column_data_type()` 返回 `None`），DDL 消费方会按字段的 Python 类型查询方言的 `suggest_data_types().table`（必要时再查 `suggest_extra_data_types().table`）作为默认声明。若要覆盖该默认值，请使用 `UseSqlType`，它会按声明顺序保留候选：
 
 ```python
 from typing import Annotated
@@ -206,11 +202,11 @@ class Product(ActiveRecord):
 
 `DDLSourceMixin` 不执行候选选择或后端回退；这些工作由后续方言消费者完成。
 
-### 内省与同步 (parse_type)
+### 内省与类型解析
 
-方言实现 `parse_type(raw)`（`DataTypeSupport` 协议）时，可将数据库返回的原始类型字符串解析回 `DataType` 对象，用于 schema 内省与比对。未实现该接口的方言回退为 `CustomType(raw=raw)`。旧名 `DataTypeSupport` / `DataTypeMixin` 仅作为对应新名的 deprecated 兼容别名保留。
+把数据库报出的类型字符串解析回 `DataType` 是**后端本地、仅供内省**的职责，不是方言的构造能力——原先方言协议上的 `parse_type()` 方法已删除。后端提供自己的解析器（例如 SQLite 后端 `introspection` 包里的 `SQLiteTypeParser`），返回已绑定的 `DataType` 实例，用于 schema 内省与比对。`DataType.parse_data_type_str(dialect, raw)` 现在只是兜底：返回 `CustomType(dialect, raw=raw)`，在没有后端解析器时原样保留拼写。
 
-`parse_type` 的结果必须是**规范**的，其两半都由 `tests/.../dummy/types/test_type_spelling_parse.py` 强制：
+解析器的结果必须是**规范**的，其两半都由 `tests/.../dummy/types/test_type_spelling_parse.py` 强制：
 
 - **覆盖** —— 核心 `SPELLINGS` 中的每一个拼写都必须解析成某个类型。`CustomType` 只对框架根本没有概念的名字才是诚实答案；若用在 `INT1`、`CHARACTER`、`DEC`、`BOOL` 上，就会把框架自己声明的类型报成厂商类型，并把原文写回 DDL。
 - **一个概念进、一个类出** —— 同一概念的所有拼写解析到同一个类，且 `character varying`（变长）绝不解析到定长的 `CharType`。每个同义词一个类正是 `spelling` 参数要消除的东西，而把两者混为一谈的解析器会报出并不存在的 schema 变更。

@@ -478,9 +478,15 @@ payload: Annotated[str, payload_marker]
 消费者可以查询能力面后显式选择：
 
 ```python
-supported = dialect.supports_data_types()
+def is_supported(dialect, name):
+    # 受支持 = 存在对应的 formatter，并允许探针再否决
+    return hasattr(dialect, f"format_data_type_{name}") and getattr(
+        dialect, f"supports_data_type_{name}", lambda: True
+    )()
+
+
 selected = next(
-    item for item in payload_marker.data_types if item.name in supported
+    item for item in payload_marker.data_types if is_supported(dialect, item.name)
 )
 selected = bind(selected, dialect)
 ```
@@ -541,7 +547,7 @@ SQLServerDialect does not support the generic type 'oracle_varchar2'
 这个错误说明三件事：
 
 1. `DDLSourceMixin` 不会在模型导入时验证表达式是否属于当前方言。
-2. `supports_data_types()` 和 `substitute_data_types()` 是能力查询，不是自动替换器。
+2. 类型受支持与否是能力查询（`format_data_type_*` / `supports_data_type_*` 命名族），而 `suggest_substitute_types()` / `suggest_substitute_advice()` 是建议查询——两者都不会自动替换。
 3. 如果模型只有不兼容的后端表达式，调用方必须明确处理 `TypeError`；不能期待 source 隐式退回 `VARCHAR`、`TEXT` 或其他通用类型。
 
 ## 后端专属选项的额外注意事项
@@ -567,7 +573,7 @@ SQLServerDialect does not support the generic type 'oracle_varchar2'
 
 - 没有 DDL 注记时，source 仍能返回表名、主键、字段集合和自动组合的约束，但不会产生 `DataType`。
 - 通用核心表达式和后端表达式都只是 `UseSqlType` 的候选；source 保留声明顺序，不做选择。
-- 跨后端候选必须由消费者结合 `supports_data_types()` 明确选择。
+- 跨后端候选必须由消费者结合 `format_data_type_*` / `supports_data_type_*` 能力命名族明确选择。
 - 只有不兼容后端表达式时，模型和 source 读取可以成功，错误会延迟到方言绑定/表达式渲染阶段，并以 `TypeError` 暴露。
 - 后端选项属于额外的表达式/方言能力，不是 source 自动推断的结果。
 

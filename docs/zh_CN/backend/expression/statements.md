@@ -784,15 +784,15 @@ sql, params = refresh_mv.to_sql()
 
 #### Partition DDL（表分区）
 
-`PartitionClause`（定义在 `rhosocial.activerecord.backend.expression.statements.ddl_partition`）为 `CREATE TABLE` 语句添加 `PARTITION BY` 子句。
+`PartitionClause`（定义在 `rhosocial.activerecord.backend.expression.statements.ddl_partition`）为 `CREATE TABLE` 语句添加 `PARTITION BY` 子句。分区策略不再由枚举表示，而由专用表达式节点表达。
 
-支持三种分区策略：
+支持三种分区策略（各有对应的子句节点）：
 
-| 策略 | 说明 | 示例 |
-|------|------|------|
-| `RANGE` | 范围分区 | `PARTITION BY RANGE (created_at)` |
-| `LIST` | 列表分区 | `PARTITION BY LIST (region)` |
-| `HASH` | 哈希分区 | `PARTITION BY HASH (user_id)` |
+| 策略 | 子句节点 | 示例 |
+|------|----------|------|
+| `RANGE` | `PartitionByRangeClause` | `PARTITION BY RANGE (created_at)` |
+| `LIST` | `PartitionByListClause` | `PARTITION BY LIST (region)` |
+| `HASH` | `PartitionByHashClause` | `PARTITION BY HASH (user_id)` |
 
 ```python
 from rhosocial.activerecord.backend.expression import (
@@ -804,15 +804,13 @@ from rhosocial.activerecord.backend.expression import (
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.statements import CreateTableStatement
 from rhosocial.activerecord.backend.expression.statements.ddl_partition import (
-    PartitionClause,
-    PartitionStrategy,
+    PartitionByRangeClause,
 )
 from rhosocial.activerecord.backend.expression.types import DecimalType, IntegerType, TimestampType
 
-# RANGE 分区 —— keys 是表达式，不是字符串
-partition = PartitionClause(
+# RANGE 分区 —— 用专用子句节点表达策略，keys 是表达式，不是字符串
+partition = PartitionByRangeClause(
     dialect,
-    method=PartitionStrategy.RANGE,
     keys=[Column(dialect, "created_at")]
 )
 

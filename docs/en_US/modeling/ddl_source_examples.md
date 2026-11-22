@@ -442,7 +442,7 @@ Observed fragment:
 
 ## Scenario 3: Cross-Backend Candidates in One Field
 
-The important point of a cross-backend declaration is not automatic selection. It is to make the candidate order explicit and let the consumer select using the dialect's capability map.
+The important point of a cross-backend declaration is not automatic selection. It is to make the candidate order explicit and let the consumer select using the dialect's `format_data_type_*` / `supports_data_type_*` capability naming family (there is no aggregate capability map).
 
 ```python
 from typing import Annotated
@@ -474,9 +474,15 @@ The source preserves the same ordered candidates regardless of the eventual dial
 A consumer can select explicitly:
 
 ```python
-supported = dialect.supports_data_types()
+def is_supported(dialect, name):
+    # Support is the presence of a formatter, optionally gated by a probe.
+    return hasattr(dialect, f"format_data_type_{name}") and getattr(
+        dialect, f"supports_data_type_{name}", lambda: True
+    )()
+
+
 selected = next(
-    item for item in payload_marker.data_types if item.name in supported
+    item for item in payload_marker.data_types if is_supported(dialect, item.name)
 )
 selected = bind(selected, dialect)
 ```
@@ -537,7 +543,7 @@ SQLServerDialect does not support the generic type 'oracle_varchar2'
 This demonstrates three rules:
 
 1. `DDLSourceMixin` does not validate a backend expression against the active dialect at model import time.
-2. `supports_data_types()` and `substitute_data_types()` are capability queries, not automatic substitution mechanisms.
+2. Type support is a capability query (`format_data_type_*` / `supports_data_type_*` naming family), and `suggest_substitute_types()` / `suggest_substitute_advice()` are suggestion queries — neither performs automatic substitution.
 3. If a model has only an incompatible backend expression, the consumer must handle `TypeError`; the source will not silently fall back to `VARCHAR`, `TEXT`, or another core type.
 
 ## Backend-Specific Options
@@ -563,7 +569,7 @@ Applying one backend's `ColumnOptions` to another backend's core `ColumnDefiniti
 
 - Without DDL annotations, the source still exposes table, key, field, and composed constraint metadata, but it does not create a `DataType`.
 - Core and backend expressions are both candidates in `UseSqlType`; the source preserves order and does not select.
-- Cross-backend candidates must be selected explicitly with the dialect capability map.
+- Cross-backend candidates must be selected explicitly using the dialect's `format_data_type_*` / `supports_data_type_*` capability family.
 - With only an incompatible backend expression, model declaration and source reading can succeed; binding/rendering raises `TypeError`.
 - Backend options are additional expression/dialect capabilities, not automatically inferred source results.
 

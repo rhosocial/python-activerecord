@@ -13,7 +13,7 @@ All data types inherit from `DataType` in `rhosocial.activerecord.backend.expres
 Lifecycle: **declare → bind → render** (binding is per-node, like every expression)
 
 1. **Declare** — Construct without a dialect (model field declarations, migrations). When the dialect is omitted, the remaining arguments must be passed **by keyword** (a positional value would land in the dialect slot)
-2. **Bind** — Attach a dialect per node: pass it as the conventional first constructor argument, or set it later via the `dialect` property (the setter affects **only this node** — no propagation). The dialect's `parse_type()` factory also returns bound instances
+2. **Bind** — Attach a dialect per node: pass it as the conventional first constructor argument, or set it later via the `dialect` property (the setter affects **only this node** — no propagation). A backend's introspection type parser (e.g. `SQLiteTypeParser`) also returns bound instances
 3. **Render** — `to_sql()` takes **no arguments**; it reads the node's own bound dialect and delegates to `dialect.format_data_type(self)`. Rendering unbound raises `ValueError` ("... has no dialect bound ...")
 
 ## Creating a Simple DataType
@@ -139,7 +139,7 @@ class MyCustomDialect(PostgresDialect, MyTypeSupportMixin):
     pass
 ```
 
-The naming-family methods **are** the registration: `dialect.format_data_type()` routes to `format_data_type_<name>` by the type's generic name, and `supports_data_types()` discovers the supported map from these members (fold your namespaced entries into it when overriding).
+The naming-family methods **are** the registration: `dialect.format_data_type()` routes to `format_data_type_<name>` by the type's generic name, and `supports_data_type_<name>()` probes declare support (keep the 1:1 discipline: one probe per formatter). There is no aggregate supported-type map; a backend extends the family by adding its own namespaced `format_data_type_<backend>_*` / `supports_data_type_<backend>_*` members.
 
 ## Using Custom Types in Models
 

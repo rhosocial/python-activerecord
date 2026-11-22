@@ -48,7 +48,7 @@ from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     CreateTableStatement, ColumnDefinition, ColumnConstraint, ColumnPrimaryKeyConstraint,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_partition import (
-    PartitionClause, PartitionStrategy,
+    PartitionByRangeClause,
 )
 from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType
 from rhosocial.activerecord.backend.expression.core import Column as ColExpr
@@ -60,7 +60,7 @@ col_expr = ColExpr(dialect, "id")
 expr = CreateTableStatement(
     dialect, table="partitioned",
     columns=[col_def],
-    partition=PartitionClause(dialect, method=PartitionStrategy.RANGE, keys=[col_expr]),
+    partition=PartitionByRangeClause(dialect, keys=[col_expr]),
 )
 try:
     sql, params = expr.to_sql()

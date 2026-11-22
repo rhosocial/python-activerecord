@@ -13,7 +13,7 @@ Data types follow the same **generic / backend-specific** layering as the expres
 A data type therefore has a **declare → bind → render** lifecycle:
 
 1. **declare**: a type may be constructed without a dialect — for model field declarations, migrations, and `UseSqlType` annotations. When the dialect is omitted, the remaining arguments must be passed **by keyword** (e.g. `VarCharType(length=255)`); a positional value would land in the dialect slot and be rejected by construction-time validation
-2. **bind**: a dialect is attached per node — either at construction (`VarCharType(dialect, length=255)`) or later via the `dialect` property setter; a dialect's `parse_type()` factory (introspection) also returns bound instances
+2. **bind**: a dialect is attached per node — either at construction (`VarCharType(dialect, length=255)`) or later via the `dialect` property setter; a backend's introspection type parser (e.g. `SQLiteTypeParser`) also returns bound instances
 3. **render**: `to_sql()` takes **no arguments**; it reads the node's own bound dialect and delegates to its `format_data_type()`. Rendering a type with no bound dialect raises `ValueError` ("... has no dialect bound ...") — a deliberate fail-fast guard
 
 ```python
@@ -159,37 +159,33 @@ Generic auto-increment is a typical example: declaring a generic auto-increment 
 
 ### Capability Detection
 
-Dialects expose their type surface through the same naming family plus two mapping queries:
+A dialect's supported-type surface **is** its `format_data_type_*` / `supports_data_type_*` naming family; there is no aggregate supported-type map. Probe a single type with the naming family:
 
 ```python
 # Single-type check: supports_data_type_<name>() naming family
 if dialect.supports_data_type_text():
     ...
-
-# Full map: {<generic name>: concrete DataType class} of every supported type
-for name, dt_cls in dialect.supports_data_types().items():
-    print(name, dt_cls.__name__)
 ```
 
-`supports_data_types()` is discovered from the dialect's own naming-family members (and backend dialects merge their namespaced entries into the inherited map). Its keys are exactly the dispatch keys of the `format_data_type_*` family.
+The formatters are the declaration of support: a dialect implements `format_data_type_<name>` for exactly the names it renders (backend dialects add their namespaced entries on top of the inherited family). A `supports_data_type_<name>() -> bool` probe is a version/feature gate that may opt a rendered name out. Unsupported names are simply **absent**, and dispatching one raises `TypeError`. The type-suggestion side below is the only place that answers "what should I store instead".
 
-### Cross-Backend Suggestions (substitute_data_types)
+### Cross-Backend Suggestions (suggest_substitute_types)
 
-`substitute_data_types() -> Dict[str, type]` is the counterpart for **cross-backend type consistency**: for generic types the dialect does **not** natively support, it may suggest a replacement `DataType` class.
+The suggestion protocols live in `rhosocial.activerecord.backend.suggestion.protocols`, and their return values are frozen dataclasses in `rhosocial.activerecord.backend.suggestion.definitions`. `DataTypeSuggestionSupport.suggest_substitute_types()` is the counterpart for **cross-backend type consistency**: for generic types the dialect does **not** natively support, it suggests replacement classes, returned as `SubstituteTypeSuggestion(mapping={...})`. Its sibling `suggest_substitute_advice(name)` returns a `SubstituteAdviceSuggestion(advice=...)` carrying any caveat for the substitution (empty when lossless).
 
-Do not confuse it with `suggested_data_types()`, which maps the 24 Python types in
+Do not confuse it with `suggest_data_types()`, which returns `DataTypeSuggestion(table=...)` mapping the 24 Python types in
 `FRAMEWORK_PYTHON_TYPES` to `DataType` instances used as the default DDL declaration for bare fields.
 
-- Keys use the same generic-name namespace (`"uuid"`, `"enum"`, ...) and are **disjoint** from the keys of `supports_data_types()` — a type the dialect renders needs no suggestion
+- Keys use the same generic-name namespace (`"uuid"`, `"enum"`, ...) and are **disjoint** from the names the dialect renders — a type the dialect renders needs no substitute
 - Values are concrete `DataType` classes (e.g. SQLite suggests `uuid`/`enum` → `SQLiteTextType`, `binary`/`varbinary` → `SQLiteBlobType`)
-- Suggestions only — how (and whether) the user layer adopts them is up to ActiveRecord/application code
-- Empty dict by default; honesty principle applies here too: never fake a suggestion
+- These are suggestions only — how (and whether) the user layer adopts them is up to ActiveRecord/application code
+- An empty mapping by default; the honesty principle applies here too: never fake a suggestion
 
 ### Integration with Model Fields
 
 ### Integration with Model Fields
 
-A plain Python annotation is not converted into a `DataType` by `DDLSourceMixin`. Without `UseSqlType`, `column_data_type()` returns `None`. Use `UseSqlType` for an explicit declaration; it preserves candidates in declaration order:
+Declaration is two-stage: an explicit `UseSqlType` on the field wins; a bare field has no declaration at the source level (`column_data_type()` returns `None`) and the DDL consumer falls back to the dialect's `suggest_data_types().table` (then `suggest_extra_data_types().table`) for the field's Python type. Use `UseSqlType` to override that default; it preserves candidates in declaration order:
 
 ```python
 from typing import Annotated
@@ -203,11 +199,11 @@ class Product(ActiveRecord):
 
 `DDLSourceMixin` does not select candidates or perform backend fallback; those steps belong to the later dialect consumer.
 
-### Introspection and Sync (parse_type)
+### Introspection and Type Parsing
 
-When a dialect implements `parse_type(raw)` (the `DataTypeSupport` protocol), it can parse a raw type string returned by the database back into a `DataType` object for schema introspection and comparison. Dialects without this interface fall back to `CustomType(raw=raw)`. The former names `DataTypeSupport` and `DataTypeMixin` remain deprecated compatibility aliases for `DataTypeSupport` and `DataTypeMixin`.
+Parsing a database-reported type string is a **backend-local, introspection-only** concern, not a dialect construction capability — the former `parse_type()` protocol method on the dialect has been removed. A backend supplies its own parser (e.g. `SQLiteTypeParser` in the SQLite backend's `introspection` package), which returns bound `DataType` instances for schema introspection and comparison. `DataType.parse_data_type_str(dialect, raw)` is now a fallback only: it returns `CustomType(dialect, raw=raw)`, preserving the raw spelling when no backend parser exists.
 
-A `parse_type` answer has to be **canonical**, and both halves of that are enforced by `tests/.../dummy/types/test_type_spelling_parse.py`:
+A parser's answer has to be **canonical**, and both halves of that are enforced by `tests/.../dummy/types/test_type_spelling_parse.py`:
 
 - **Coverage** — every entry of every core `SPELLINGS` tuple reaches a type. `CustomType` is the honest answer only for a name the framework has no concept for; used on `INT1`, `CHARACTER`, `DEC` or `BOOL` it would report a type the framework itself declares as a vendor-specific one, and write the raw text back.
 - **One concept in, one class out** — all spellings of one concept reach the same class, and `character varying` (variable length) never reaches the fixed-length `CharType`. Two classes per synonym is what the `spelling` parameter exists to prevent, and a parser that conflated the two would report a schema change that is not there.
