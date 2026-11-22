@@ -3,6 +3,7 @@
 Tests to verify SQLiteDialect protocol conformance and protocol non-overlap.
 
 This test ensures:
+0. SQLiteDialect's standalone column-type mixin answers the no-extras default
 1. SQLiteDialect implements all methods defined in the protocols it claims to support
 2. All protocols have at least one member
 3. No two protocols share the same method name (no overlap)
@@ -26,6 +27,12 @@ from rhosocial.activerecord.backend.suggestion import protocols as suggestion_pr
 from rhosocial.activerecord.backend.impl.sqlite import dialect as sqlite_dialect
 from rhosocial.activerecord.backend.impl.sqlite import mixins as sqlite_mixins
 from rhosocial.activerecord.backend.impl.sqlite import protocols as sqlite_protocols
+
+
+def test_sqlite_column_type_mixin_answers_no_extras():
+    """The standalone mixin supplies the no-extras answer the removed core mixin gave."""
+    d = sqlite_dialect.SQLiteDialect()
+    assert d.suggest_extra_column_types() == {}
 
 
 def get_all_protocol_methods(proto: type) -> set:

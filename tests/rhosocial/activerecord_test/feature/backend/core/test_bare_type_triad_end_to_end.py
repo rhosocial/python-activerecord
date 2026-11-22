@@ -14,7 +14,14 @@ the three tables was actually consulted. These tests use a genuinely bare model
 and assert each leg resolves to what its table says; a mutation check proves
 the assertions really read the tables rather than a hard-coded expectation.
 """
-from typing import Annotated, ClassVar, Optional
+import sys
+
+from typing import ClassVar, Optional
+
+if sys.version_info >= (3, 9):
+    from typing import Annotated
+else:  # pragma: no cover
+    from typing_extensions import Annotated
 
 from rhosocial.activerecord.base.field_proxy import FieldProxy
 
