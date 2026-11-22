@@ -86,6 +86,6 @@ def test_sqlite_catalogue_is_unique_and_deterministic(sqlite_backend):
 def test_generic_mixin_inventory_derives_from_suggestions(sqlite_backend):
     """The mixin default is exactly the deduped/sorted suggestion adapters."""
     inventory = TypeAdaptionMixin.get_type_adapters(sqlite_backend)
-    expected = _suggestion_class_keys(sqlite_backend.get_default_adapter_suggestions())
+    expected = _suggestion_class_keys(sqlite_backend.suggest_data_adapters())
 
     assert [_adapter_class_key(adapter) for adapter in inventory] == expected

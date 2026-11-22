@@ -21,6 +21,7 @@ from ..adapters import (
     SQLiteUUIDAdapter,
     SQLiteVectorAdapter,
 )
+from rhosocial.activerecord.backend.adapters.portable import PORTABLE_TYPE_MAPPINGS
 from rhosocial.activerecord.backend.base.type_adaption import (
     merge_adapter_suggestions,
     sort_and_deduplicate_adapters,
@@ -114,7 +115,7 @@ class SQLiteBackendMixin:
                     self.adapter_registry.register(adapter, py_type, db_type, allow_override=True)
         self.logger.debug("Registered SQLite-specific type adapters.")
 
-    def get_default_adapter_suggestions(self) -> Dict[Type, Tuple["SQLTypeAdapter", Type]]:
+    def suggest_data_adapters(self) -> Dict[Type, Tuple["SQLTypeAdapter", Type]]:
         """Provides default type adapter suggestions for SQLite.
 
         The framework defaults are the base; SQLite merges its own pairs
@@ -123,14 +124,18 @@ class SQLiteBackendMixin:
         if self._default_suggestions_cache is not None:
             return self._default_suggestions_cache
 
-        base = super().get_default_adapter_suggestions()
-        suggestions = merge_adapter_suggestions(base, get_type_mappings(), self.adapter_registry)
+        overrides = list(PORTABLE_TYPE_MAPPINGS) + get_type_mappings()
+        suggestions = merge_adapter_suggestions({}, overrides, self.adapter_registry)
         for py_type, (adapter, db_type) in suggestions.items():
             if adapter is None:
                 self.logger.debug(f"No adapter found for ({py_type.__name__}, {db_type.__name__}).")
 
         self._default_suggestions_cache = suggestions
         return suggestions
+
+    def suggest_extra_data_adapters(self) -> Dict[Type, Tuple['SQLTypeAdapter', Type]]:
+        """No backend-owned extra adapter types."""
+        return {}
 
     def get_type_adapters(self) -> List["SQLTypeAdapter"]:
         """Return the adapter instances this backend provides.

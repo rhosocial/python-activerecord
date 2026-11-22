@@ -26,7 +26,12 @@ from rhosocial.activerecord.backend.adapters import (
     Range,
     Vector,
 )
-from rhosocial.activerecord.backend.dialect.mixins import ColumnTypeMixin
+class ColumnTypeMixin:
+    """Minimal host: only the no-extras default the removed core mixin supplied."""
+    def suggest_column_types(self):
+        raise NotImplementedError("no inherited table")
+    def suggest_extra_column_types(self): return {}
+
 from rhosocial.activerecord.backend.expression import (
     BitStringColumn,
     ColumnBase,
@@ -197,4 +202,4 @@ def test_the_base_mixin_still_states_no_table():
     class Bare(ColumnTypeMixin):
         pass
 
-    assert Bare().suggested_extra_column_types() == {}
+    assert Bare().suggest_extra_column_types() == {}

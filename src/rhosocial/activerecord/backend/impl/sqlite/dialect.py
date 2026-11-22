@@ -10,13 +10,6 @@ from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.protocols import (
-    TableSuggestionSupport,
-    JSONSuggestionSupport,
-    UpsertSuggestionSupport,
-    IntrospectionSuggestionSupport,
-    StringConcatenationSuggestionSupport,
-    IndexSuggestionSupport,
-    DataTypeSuggestionSupport,
     CollationSupport,
     CTESupport,
     FilterClauseSupport,
@@ -38,7 +31,6 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     WildcardSupport,
     JoinSupport,
     SetOperationSupport,
-    # DDL statement protocols
     ConstraintSupport,
     TruncateSupport,
     TransactionalDDLSupport,
@@ -48,16 +40,10 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     AutoIncrementColumnSupport,
     IdentityColumnSupport,
     ColumnAttributeSupport,
-    # Introspection Protocol
     IntrospectionSupport,
-    # Transaction Control Protocol
     TransactionControlSupport,
-    # Function Support Protocol
     SQLFunctionSupport,
-    # Type Support Protocol
     DataTypeSupport,
-    # Column Class Support Protocol
-    ColumnTypeSupport,
     DateTimeSupport,
     DQLSupport,
     DMLSupport,
@@ -74,6 +60,16 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     RpadSupport,
     TrimSupport,
     AsyncIntrospectionSupport,
+)
+from rhosocial.activerecord.backend.suggestion.protocols import (
+    ColumnTypeSuggestionSupport,
+    DataTypeSuggestionSupport,
+    IndexSuggestionSupport,
+    IntrospectionSuggestionSupport,
+    JSONSuggestionSupport,
+    StringConcatenationSuggestionSupport,
+    TableSuggestionSupport,
+    UpsertSuggestionSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     RelationSourceMixin,
@@ -423,7 +419,7 @@ class SQLiteDialect(
     # DataType Support Protocol
     DataTypeSupport,
     # Column Class Support Protocol
-    ColumnTypeSupport,
+    ColumnTypeSuggestionSupport,
     # DDL statement protocols follow the DDL mixins: a protocol's empty
     # body would otherwise win over the mixin that actually renders.
     CreateSchemaSupport,

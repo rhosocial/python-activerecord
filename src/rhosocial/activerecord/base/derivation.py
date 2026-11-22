@@ -16,7 +16,7 @@ from ..backend.dialect.exceptions import (
     UnsupportedDataTypeError,
     UnsupportedFeatureError,
 )
-from ..backend.dialect.protocols import IntegerAutoIncrementColumnSuggestionSupport
+from ..backend.suggestion.protocols import IntegerAutoIncrementColumnSuggestionSupport
 from ..backend.expression.bases import BaseExpression
 from ..backend.expression.objects import Index, Table
 from ..backend.expression.statements import (

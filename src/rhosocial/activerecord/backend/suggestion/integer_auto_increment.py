@@ -39,7 +39,7 @@ class IntegerAutoIncrementSuggestionRenderer:
 
     def parts(self, dialect: "SQLDialectBase", data_type: "DataType") -> Tuple["DataType", List]:
         """Return ``(type, attributes)``; structural "no" leaves type alone."""
-        from ..dialect.protocols import IntegerAutoIncrementColumnSuggestionSupport
+        from ..suggestion.protocols import IntegerAutoIncrementColumnSuggestionSupport
 
         if not isinstance(dialect, IntegerAutoIncrementColumnSuggestionSupport):
             return data_type, []

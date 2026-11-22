@@ -27,8 +27,8 @@ from enum import Enum
 
 import pytest
 
+from rhosocial.activerecord.backend.adapters.portable import PORTABLE_TYPE_MAPPINGS as CORE_DEFAULT_TYPE_MAPPINGS
 from rhosocial.activerecord.backend.base.type_adaption import (
-    CORE_DEFAULT_TYPE_MAPPINGS,
     TypeAdaptionMixin,
     merge_adapter_suggestions,
     sort_and_deduplicate_adapters,
@@ -46,11 +46,15 @@ from rhosocial.activerecord.backend.type_registry import TypeRegistry
 
 
 class _Host(TypeAdaptionMixin):
-    """The two attributes the mixin reads, and nothing else."""
+    """A minimal backend host; reuses the portable helper for its suggestions."""
 
     def __init__(self):
         self.adapter_registry = TypeRegistry()
         self.logger = logging.getLogger("rhosocial.activerecord.tests.type_adaption")
+
+    def suggest_data_adapters(self):
+        from rhosocial.activerecord.backend.adapters.portable import PORTABLE_TYPE_MAPPINGS
+        return merge_adapter_suggestions({}, PORTABLE_TYPE_MAPPINGS, self.adapter_registry)
 
 
 def _registered(*adapters: SQLTypeAdapter) -> TypeRegistry:
@@ -183,7 +187,7 @@ def test_the_suggestions_resolve_exactly_what_the_registry_holds():
     host = _Host()
     host._register_default_adapters()
 
-    suggestions = host.get_default_adapter_suggestions()
+    suggestions = host.suggest_data_adapters()
 
     # The core table has nine rows and every one of them resolves.
     assert set(suggestions) == {
@@ -205,7 +209,7 @@ def test_the_suggestions_resolve_exactly_what_the_registry_holds():
 def test_a_backend_with_an_empty_registry_suggests_nothing():
     """No adapter is not an error: it is a backend that declined every core
     pairing, and the lookup returns an empty mapping rather than raising."""
-    assert _Host().get_default_adapter_suggestions() == {}
+    assert _Host().suggest_data_adapters() == {}
 
 
 # ---------------------------------------------------------------------------

@@ -13,7 +13,7 @@ P0 sample of the backend-suggestion spec applied to migration (DDL/DML):
 import dataclasses
 
 from rhosocial.activerecord.backend.dialect import mixins as core_mixins
-from rhosocial.activerecord.backend.dialect.protocols import PartitionRetentionSuggestionSupport
+from rhosocial.activerecord.backend.suggestion.protocols import PartitionRetentionSuggestionSupport
 from rhosocial.activerecord.backend.suggestion import (
     PartitionRetentionSuggestion,
     PartitionSuggestionRenderer,

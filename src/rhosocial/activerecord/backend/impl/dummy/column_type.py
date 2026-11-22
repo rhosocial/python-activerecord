@@ -23,7 +23,6 @@ from rhosocial.activerecord.backend.adapters import (
     Range,
     Vector,
 )
-from rhosocial.activerecord.backend.dialect.mixins.column_type import ColumnTypeMixin
 from rhosocial.activerecord.backend.expression.column_types import (
     ArrayColumn,
     BinaryColumn,
@@ -78,11 +77,16 @@ DUMMY_COLUMN_TYPES: Dict[Any, Optional[Type[ColumnBase]]] = {
 }
 
 
-class DummyColumnTypeMixin(ColumnTypeMixin):
+class DummyColumnTypeMixin:
     """The dialect-less baseline table, for tests to read."""
 
-    def suggested_column_types(self) -> Dict[Any, Optional[Type[ColumnBase]]]:
+    def suggest_column_types(self) -> Dict[Any, Optional[Type[ColumnBase]]]:
         return dict(DUMMY_COLUMN_TYPES)
+
+
+    def suggest_extra_column_types(self):
+        """No backend-owned extra column types."""
+        return {}
 
 
 __all__ = ["DUMMY_COLUMN_TYPES", "DummyColumnTypeMixin"]

@@ -9,7 +9,7 @@ import pytest
 from rhosocial.activerecord.backend.impl.dummy.backend import DummyBackend, AsyncDummyBackend
 from rhosocial.activerecord.backend.errors import DatabaseError
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-from rhosocial.activerecord.backend.base.type_adaption import CORE_DEFAULT_TYPE_MAPPINGS
+from rhosocial.activerecord.backend.adapters.portable import PORTABLE_TYPE_MAPPINGS as CORE_DEFAULT_TYPE_MAPPINGS
 
 
 class TestDummyBackendComprehensive:
@@ -47,10 +47,10 @@ class TestDummyBackendComprehensive:
         # Should be able to initialize without error
         assert backend is not None
 
-    def test_async_dummy_backend_get_default_adapter_suggestions(self):
+    def test_async_dummy_backend_suggest_data_adapters(self):
         """A dummy backend still inherits the framework's core suggestions."""
         backend = AsyncDummyBackend()
-        suggestions = backend.get_default_adapter_suggestions()
+        suggestions = backend.suggest_data_adapters()
         # No adapters of its own, but the core default table still applies.
         assert backend.get_type_adapters() == []
         assert suggestions

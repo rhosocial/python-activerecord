@@ -190,7 +190,7 @@ def test_the_dummy_dialect_states_the_portable_baseline():
     table into it would make "what does the portable baseline say" unanswerable.
     """
     dummy = dummy_dialect()
-    assert dummy.suggested_column_types() == DUMMY_COLUMN_TYPES
+    assert dummy.suggest_column_types() == DUMMY_COLUMN_TYPES
     for entry in COMMON_TYPES:
         assert resolve_column_class(dummy, entry) is DUMMY_COLUMN_TYPES[entry]
 

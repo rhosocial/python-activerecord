@@ -2,7 +2,7 @@
 from typing import List, Protocol, TYPE_CHECKING, runtime_checkable
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...introspection.types import IntrospectionScope
+    from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
 
 
 @runtime_checkable

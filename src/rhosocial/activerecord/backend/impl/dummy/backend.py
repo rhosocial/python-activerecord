@@ -4,7 +4,7 @@ Dummy Backend for SQL generation without a real database connection.
 """
 
 import logging
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 from rhosocial.activerecord.backend.base import StorageBackend, AsyncStorageBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig
@@ -41,6 +41,16 @@ class DummyBackend(StorageBackend):
     def get_type_adapters(self) -> List[SQLTypeAdapter]:
         """Dummy backends provide no adapters: the catalogue is explicitly empty."""
         return []
+
+    def suggest_data_adapters(self) -> Dict[Type, Tuple[SQLTypeAdapter, Type]]:
+        """Dummy reuses the portable baseline resolved through its registry."""
+        from rhosocial.activerecord.backend.adapters.portable import PORTABLE_TYPE_MAPPINGS
+        from rhosocial.activerecord.backend.base.type_adaption import merge_adapter_suggestions
+        return merge_adapter_suggestions({}, PORTABLE_TYPE_MAPPINGS, self.adapter_registry)
+
+    def suggest_extra_data_adapters(self) -> Dict[Type, Tuple[SQLTypeAdapter, Type]]:
+        """No backend-owned extra adapter types."""
+        return {}
 
     @property
     def dialect(self) -> SQLDialectBase:
@@ -105,6 +115,16 @@ class AsyncDummyBackend(AsyncStorageBackend):
     def get_type_adapters(self) -> List[SQLTypeAdapter]:
         """Dummy backends provide no adapters: the catalogue is explicitly empty."""
         return []
+
+    def suggest_data_adapters(self) -> Dict[Type, Tuple[SQLTypeAdapter, Type]]:
+        """Dummy reuses the portable baseline resolved through its registry."""
+        from rhosocial.activerecord.backend.adapters.portable import PORTABLE_TYPE_MAPPINGS
+        from rhosocial.activerecord.backend.base.type_adaption import merge_adapter_suggestions
+        return merge_adapter_suggestions({}, PORTABLE_TYPE_MAPPINGS, self.adapter_registry)
+
+    def suggest_extra_data_adapters(self) -> Dict[Type, Tuple[SQLTypeAdapter, Type]]:
+        """No backend-owned extra adapter types."""
+        return {}
 
     @property
     def dialect(self) -> SQLDialectBase:

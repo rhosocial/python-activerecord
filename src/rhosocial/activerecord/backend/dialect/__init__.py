@@ -141,7 +141,6 @@ from .mixins import (
     AutoIncrementColumnMixin,
     IdentityColumnMixin,
     DataTypeMixin,
-    ColumnTypeMixin,
     UserDefinedTypeMixin,
     DomainMixin,
     RelationSourceMixin,
@@ -253,7 +252,6 @@ __all__ = [
     "AutoIncrementColumnMixin",
     "IdentityColumnMixin",
     "DataTypeMixin",
-    "ColumnTypeMixin",
     "UserDefinedTypeMixin",
     "DomainMixin",
     # Re-exported types from expression module

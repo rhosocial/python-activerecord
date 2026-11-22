@@ -167,7 +167,7 @@ class FieldAdapterMixin:
             for adapter in inventory_getter():
                 inventory.add(adapter_class_identity(adapter))
 
-        suggestions = backend.get_default_adapter_suggestions()
+        suggestions = backend.suggest_data_adapters()
 
         adapters_by_field: Dict[str, Optional[Tuple[SQLTypeAdapter, Type]]] = {}
         for field_name, field_info in cls.model_fields.items():

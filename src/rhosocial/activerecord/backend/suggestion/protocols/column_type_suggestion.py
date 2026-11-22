@@ -1,7 +1,7 @@
-# src/rhosocial/activerecord/backend/dialect/protocols/query/column_type.py
-"""ColumnTypeSupport protocol.
+# src/rhosocial/activerecord/backend/suggestion/protocols/column_type_suggestion.py
+"""ColumnTypeSuggestionSupport protocol.
 
-Re-exported from :mod:`rhosocial.activerecord.backend.dialect.protocols`;
+Re-exported from :mod:`rhosocial.activerecord.backend.suggestion.protocols`;
 see that package for the full protocol surface and the rules the conformance
 tests enforce.
 """
@@ -9,11 +9,11 @@ tests enforce.
 from typing import Any, Dict, Optional, Protocol, Type, TYPE_CHECKING, runtime_checkable
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.column_types import ColumnBase
+    from rhosocial.activerecord.backend.expression.column_types import ColumnBase
 
 
 @runtime_checkable
-class ColumnTypeSupport(Protocol):
+class ColumnTypeSuggestionSupport(Protocol):
     """Which column class each common Python type means on this dialect.
 
     The protocol answers two questions and chooses nothing. Choosing a class
@@ -21,7 +21,7 @@ class ColumnTypeSupport(Protocol):
     annotation against the keys of these tables and fails, naming the field,
     when neither table answers.
 
-    ``suggested_column_types()``
+    ``suggest_column_types()``
         The table the model layer reads when a field does not declare its own
         column class. Keys are the Python types the framework models
         (:data:`...base.framework_types.FRAMEWORK_PYTHON_TYPES`): the common
@@ -39,7 +39,7 @@ class ColumnTypeSupport(Protocol):
         resort, for a value no workaround can express, never a first answer.
         A missing key is an omission, not a decision.
 
-    ``suggested_extra_column_types()``
+    ``suggest_extra_column_types()``
         The backend's own vocabulary. Keys are Python types the framework does
         not model (a backend's own value class, such as a ``MarketTick``);
         values are ``ColumnBase`` subclasses. A type the backend does not offer
@@ -52,6 +52,6 @@ class ColumnTypeSupport(Protocol):
     core would be a guess about a server core has never seen.
     """
 
-    def suggested_column_types(self) -> Dict[Any, Optional[Type["ColumnBase"]]]: ...
+    def suggest_column_types(self) -> Dict[Any, Optional[Type["ColumnBase"]]]: ...
 
-    def suggested_extra_column_types(self) -> Dict[Any, Type["ColumnBase"]]: ...
+    def suggest_extra_column_types(self) -> Dict[Any, Type["ColumnBase"]]: ...

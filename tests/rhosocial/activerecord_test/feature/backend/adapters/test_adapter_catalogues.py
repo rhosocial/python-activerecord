@@ -25,9 +25,7 @@ from rhosocial.activerecord.backend.adapters.range import (
     ELEMENT_TYPE_LABELS,
     _TYPE_TO_LABEL,
 )
-from rhosocial.activerecord.backend.base.type_adaption import (
-    CORE_DEFAULT_TYPE_MAPPINGS,
-)
+from rhosocial.activerecord.backend.adapters.portable import PORTABLE_TYPE_MAPPINGS as CORE_DEFAULT_TYPE_MAPPINGS
 from rhosocial.activerecord.backend.impl.sqlite.adapters.spatial import (
     _GEOMETRY_TYPES,
 )

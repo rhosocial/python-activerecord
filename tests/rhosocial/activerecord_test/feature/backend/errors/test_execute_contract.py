@@ -67,7 +67,7 @@ class _BaseStub:
         cursor.error = self.execute_error
         return cursor
 
-    def get_default_adapter_suggestions(self):
+    def suggest_data_adapters(self):
         return {}
 
     def prepare_parameters(self, params, adapters):

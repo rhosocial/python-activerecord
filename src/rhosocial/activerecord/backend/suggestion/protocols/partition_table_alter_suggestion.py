@@ -1,7 +1,7 @@
-# src/rhosocial/activerecord/backend/dialect/protocols/ddl/partition_table_alter_suggestion.py
+# src/rhosocial/activerecord/backend/suggestion/protocols/partition_table_alter_suggestion.py
 """PartitionTableAlterSuggestionSupport protocol.
 
-Re-exported from :mod:`rhosocial.activerecord.backend.dialect.protocols`.
+Re-exported from :mod:`rhosocial.activerecord.backend.suggestion.protocols`.
 
 Backend suggestion capability: the dialect answers how to alter the whole table's partitioning scheme.
 Mechanism examples:
@@ -15,8 +15,8 @@ no core mixin default -- per the backend-suggestion spec.
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.statements import PartitionByClause
-    from ....suggestion import PartitionTableAlterSuggestion
+    from rhosocial.activerecord.backend.expression.statements import PartitionByClause
+    from rhosocial.activerecord.backend.suggestion import PartitionTableAlterSuggestion
 
 
 @runtime_checkable

@@ -20,25 +20,12 @@ from ..type_adapter import (
 #: This is the *generic* layer of the two-level suggestion scheme: the core
 #: describes what a backend-agnostic driver is expected to accept for the
 #: common Python types. Every backend starts from this table, then merges its
-#: own entries on top (``super().get_default_adapter_suggestions()``), because
+#: own entries on top (``super().suggest_data_adapters()``), because
 #: the concrete backend knows its driver better than the framework does.
 #:
 #: Types that a driver binds natively without any conversion (``str``, ``int``,
 #: ``float``, ``bytes``) are intentionally absent: their absence means
 #: "pass through untouched".
-CORE_DEFAULT_TYPE_MAPPINGS: Tuple[Tuple[Type, Type], ...] = (
-    (bool, int),
-    (datetime, str),
-    (date, str),
-    (time, str),
-    (Decimal, float),
-    (UUID, str),
-    (dict, str),
-    (list, str),
-    (Enum, str),
-)
-
-
 def merge_adapter_suggestions(
     base: Dict[Type, Tuple[SQLTypeAdapter, Type]],
     overrides: Iterable[Tuple[Type, Type]],
@@ -267,36 +254,17 @@ class TypeAdaptionMixin:
             self.logger.error(f"Error processing result set: {str(e)}", exc_info=True)
             raise
 
-    def get_default_adapter_suggestions(self) -> Dict[Type, Tuple[SQLTypeAdapter, Type]]:
-        """Provide the framework-level default type adapter suggestions.
+    def suggest_data_adapters(self) -> Dict[Type, Tuple[SQLTypeAdapter, Type]]:
+        """Backend hook: suggest ``(adapter, driver type)`` per Python type.
 
-        This is the generic layer of the two-level scheme. It maps the common
-        Python types to the driver representations described by
-        :data:`CORE_DEFAULT_TYPE_MAPPINGS`, resolving them through this
-        backend's adapter registry (an adapter that is not registered is simply
-        not suggested).
-
-        Backends extend it by overriding this method, merging their own
-        entries onto the return value of ``super().get_default_adapter_suggestions()``
-        (see :func:`merge_adapter_suggestions`): the core table is the base
-        every backend builds on, and the backend completes it with what its
-        driver actually accepts.
-
-        Returns:
-            Dictionary where keys are original Python types and values are
-            tuples containing a SQLTypeAdapter instance and the target
-            Python type expected by the driver.
+        Core supplies no default table. A backend implements this by reusing
+        ``PORTABLE_TYPE_MAPPINGS`` (or its own table) via
+        :func:`merge_adapter_suggestions` against its adapter registry.
         """
-        suggestions: Dict[Type, Tuple[SQLTypeAdapter, Type]] = {}
-        for py_type, db_type in CORE_DEFAULT_TYPE_MAPPINGS:
-            adapter = self.adapter_registry.get_adapter(py_type, db_type)
-            if adapter is not None:
-                suggestions[py_type] = (adapter, db_type)
-            else:
-                self.logger.debug(
-                    f"No core default adapter for ({py_type.__name__}, {db_type.__name__})."
-                )
-        return suggestions
+        raise NotImplementedError(
+            f"{type(self).__name__} does not implement suggest_data_adapters(); "
+            "implement DataAdapterSuggestionSupport for this backend."
+        )
 
     def get_type_adapters(self) -> List[SQLTypeAdapter]:
         """Return the adapter instances this backend provides.
@@ -305,7 +273,7 @@ class TypeAdaptionMixin:
         It carries no suggestion/default/priority semantics; the caller decides.
 
         The default implementation derives the inventory from
-        :meth:`get_default_adapter_suggestions`, keeping only the adapter
+        :meth:`suggest_data_adapters`, keeping only the adapter
         (first element of each tuple), deduplicated by adapter class and sorted
         by ``(module, qualname)``. Backends with a richer registry should
         override this method and enumerate that registry directly.
@@ -313,7 +281,7 @@ class TypeAdaptionMixin:
         Returns:
             A new list with one instance per adapter class, in deterministic order.
         """
-        suggestions = self.get_default_adapter_suggestions()
+        suggestions = self.suggest_data_adapters()
         return sort_and_deduplicate_adapters(suggestion[0] for suggestion in suggestions.values())
 
 

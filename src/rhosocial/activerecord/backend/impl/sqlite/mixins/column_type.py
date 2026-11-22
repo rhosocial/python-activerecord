@@ -85,7 +85,6 @@ import enum
 import uuid
 from typing import Any, Dict, Optional, Type
 
-from rhosocial.activerecord.backend.dialect.mixins.column_type import ColumnTypeMixin
 from rhosocial.activerecord.backend.adapters import (
     BitString,
     Geometry,
@@ -157,11 +156,16 @@ SQLITE_COLUMN_TYPES: Dict[Any, Optional[Type[ColumnBase]]] = {
 }
 
 
-class SQLiteColumnTypeMixin(ColumnTypeMixin):
+class SQLiteColumnTypeMixin:
     """SQLite's answer to "which column class does this annotation mean here"."""
 
-    def suggested_column_types(self) -> Dict[Any, Type[ColumnBase]]:
+    def suggest_column_types(self) -> Dict[Any, Type[ColumnBase]]:
         return dict(SQLITE_COLUMN_TYPES)
+
+
+    def suggest_extra_column_types(self):
+        """No backend-owned extra column types."""
+        return {}
 
 
 __all__ = ["SQLITE_COLUMN_TYPES", "SQLiteColumnTypeMixin"]

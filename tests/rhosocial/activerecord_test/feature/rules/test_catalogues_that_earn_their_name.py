@@ -278,8 +278,8 @@ class TestPartitionIntentCatalogue:
     """Every partition intent names a real suggestion protocol and method."""
 
     def test_each_intent_resolves_to_a_real_protocol_method(self):
-        from rhosocial.activerecord.backend import dialect as _dialect_pkg
-        protocols_mod = _dialect_pkg.protocols
+        from rhosocial.activerecord.backend import suggestion as _suggestion_pkg
+        protocols_mod = _suggestion_pkg.protocols
         for intent, (protocol_name, method_name) in PartitionSuggestionRenderer._INTENTS.items():
             assert intent == method_name[len("suggest_partition_"):], intent
             protocol = getattr(protocols_mod, protocol_name)

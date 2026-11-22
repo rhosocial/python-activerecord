@@ -1,0 +1,49 @@
+# src/rhosocial/activerecord/backend/suggestion/protocols/__init__.py
+"""Suggestion protocols -- the second half of the dialect split.
+
+Every ``*SuggestionSupport`` lives here; capability protocols
+(``format_*`` / ``supports_*``) live in ``backend.dialect.protocols``.
+Core declares only these interfaces and supplies no default implementation:
+concrete backends implement them under ``backend.impl.<name>.suggestion``.
+"""
+from .column_type_suggestion import ColumnTypeSuggestionSupport
+from .data_adapter_suggestion import DataAdapterSuggestionSupport
+from .data_type_suggestion import DataTypeSuggestionSupport
+from .index_suggestion import IndexSuggestionSupport
+from .integer_auto_increment_column_suggestion import IntegerAutoIncrementColumnSuggestionSupport
+from .introspection_suggestion import IntrospectionSuggestionSupport
+from .async_introspection_suggestion import AsyncIntrospectionSuggestionSupport
+from .json_suggestion import JSONSuggestionSupport
+from .string_concatenation_suggestion import StringConcatenationSuggestionSupport
+from .table_suggestion import TableSuggestionSupport
+from .upsert_suggestion import UpsertSuggestionSupport
+from .partition_add_suggestion import PartitionAddSuggestionSupport
+from .partition_build_suggestion import PartitionBuildSuggestionSupport
+from .partition_drop_suggestion import PartitionDropSuggestionSupport
+from .partition_merge_suggestion import PartitionMergeSuggestionSupport
+from .partition_retention_suggestion import PartitionRetentionSuggestionSupport
+from .partition_split_suggestion import PartitionSplitSuggestionSupport
+from .partition_table_alter_suggestion import PartitionTableAlterSuggestionSupport
+from .partition_table_drop_suggestion import PartitionTableDropSuggestionSupport
+
+__all__ = [
+    "ColumnTypeSuggestionSupport",
+    "DataAdapterSuggestionSupport",
+    "DataTypeSuggestionSupport",
+    "IndexSuggestionSupport",
+    "IntegerAutoIncrementColumnSuggestionSupport",
+    "IntrospectionSuggestionSupport",
+    "AsyncIntrospectionSuggestionSupport",
+    "JSONSuggestionSupport",
+    "StringConcatenationSuggestionSupport",
+    "TableSuggestionSupport",
+    "UpsertSuggestionSupport",
+    "PartitionAddSuggestionSupport",
+    "PartitionBuildSuggestionSupport",
+    "PartitionDropSuggestionSupport",
+    "PartitionMergeSuggestionSupport",
+    "PartitionRetentionSuggestionSupport",
+    "PartitionSplitSuggestionSupport",
+    "PartitionTableAlterSuggestionSupport",
+    "PartitionTableDropSuggestionSupport",
+]

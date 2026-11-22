@@ -13,9 +13,9 @@ Same 8-part spec as the retention (B11) sample:
 import dataclasses
 
 from rhosocial.activerecord.backend.dialect import mixins as core_mixins
-from rhosocial.activerecord.backend.dialect.protocols import (
-    PartitionBuildSuggestionSupport,
+from rhosocial.activerecord.backend.suggestion.protocols import (
     PartitionAddSuggestionSupport,
+    PartitionBuildSuggestionSupport,
     PartitionDropSuggestionSupport,
 )
 from rhosocial.activerecord.backend.suggestion import (

@@ -22,6 +22,7 @@ elif sys.version_info >= (3, 12):
 
 import pytest
 from rhosocial.activerecord.backend.dialect import protocols as dialect_protocols
+from rhosocial.activerecord.backend.suggestion import protocols as suggestion_protocols
 from rhosocial.activerecord.backend.impl.sqlite import dialect as sqlite_dialect
 from rhosocial.activerecord.backend.impl.sqlite import mixins as sqlite_mixins
 from rhosocial.activerecord.backend.impl.sqlite import protocols as sqlite_protocols
@@ -261,7 +262,7 @@ SQLITE_PROTOCOLS = [
 
     # Column classes: which operations a value carries, where DataTypeSupport
     # answers how it is stored.
-    dialect_protocols.ColumnTypeSupport,
+    suggestion_protocols.ColumnTypeSuggestionSupport,
 
 
     dialect_protocols.PartitionSupport,

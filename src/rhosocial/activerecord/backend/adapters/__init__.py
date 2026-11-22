@@ -1,6 +1,7 @@
 # src/rhosocial/activerecord/backend/adapters/__init__.py
 """Neutral, driver-independent types and their adapter base classes."""
 
+from .portable import PORTABLE_TYPE_MAPPINGS
 from .bitstring import BitString, BitStringAdapterBase
 from .geometry import (
     Geometry,

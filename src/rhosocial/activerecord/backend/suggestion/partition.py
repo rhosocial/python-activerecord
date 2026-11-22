@@ -97,7 +97,7 @@ class PartitionSuggestionRenderer:
     def parts(
         self, dialect: "SQLDialectBase", intent: str, strategy: "PartitionByClause", plan: object
     ) -> Optional[List["BaseExpression"]]:
-        from ..dialect import protocols
+        from . import protocols
 
         try:
             protocol_name, method_name = self._INTENTS[intent]

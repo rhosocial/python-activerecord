@@ -1,7 +1,7 @@
-# src/rhosocial/activerecord/backend/dialect/protocols/ddl/partition_retention_suggestion.py
+# src/rhosocial/activerecord/backend/suggestion/protocols/partition_retention_suggestion.py
 """PartitionRetentionSuggestionSupport protocol.
 
-Re-exported from :mod:`rhosocial.activerecord.backend.dialect.protocols`.
+Re-exported from :mod:`rhosocial.activerecord.backend.suggestion.protocols`.
 
 This is a **backend suggestion** capability: the dialect answers how to retire
 partitions older than a cutoff for a given partition strategy. It answers only
@@ -17,8 +17,8 @@ suggestion value with a tri-state payload, and carries no core mixin default.
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.statements import PartitionByClause
-    from ....suggestion import PartitionRetentionSuggestion
+    from rhosocial.activerecord.backend.expression.statements import PartitionByClause
+    from rhosocial.activerecord.backend.suggestion import PartitionRetentionSuggestion
 
 
 @runtime_checkable

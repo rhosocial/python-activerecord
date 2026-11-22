@@ -1,7 +1,7 @@
-# src/rhosocial/activerecord/backend/dialect/protocols/ddl/partition_drop_suggestion.py
+# src/rhosocial/activerecord/backend/suggestion/protocols/partition_drop_suggestion.py
 """PartitionDropSuggestionSupport protocol.
 
-Re-exported from :mod:`rhosocial.activerecord.backend.dialect.protocols`.
+Re-exported from :mod:`rhosocial.activerecord.backend.suggestion.protocols`.
 
 This is a **backend suggestion** capability: the dialect answers how to
 drop/detach a partition (DROP PARTITION / DROP TABLE child / MERGE RANGE /
@@ -14,8 +14,8 @@ tri-state suggestion value, no core mixin default -- per the backend-suggestion 
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.statements import PartitionByClause
-    from ....suggestion import PartitionDropSuggestion
+    from rhosocial.activerecord.backend.expression.statements import PartitionByClause
+    from rhosocial.activerecord.backend.suggestion import PartitionDropSuggestion
 
 
 @runtime_checkable

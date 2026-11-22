@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/dialect/protocols/ddl/index/index_suggestion.py
+# src/rhosocial/activerecord/backend/suggestion/protocols/index_suggestion.py
 """IndexSuggestionSupport -- backend's index-related production suggestions.
 
 The core declares only the protocol; each backend supplies its own answers:

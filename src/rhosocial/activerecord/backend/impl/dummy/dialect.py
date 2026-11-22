@@ -122,22 +122,6 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     TransactionControlMixin,
 )
 from rhosocial.activerecord.backend.dialect.protocols import (
-    TableSuggestionSupport,
-    JSONSuggestionSupport,
-    UpsertSuggestionSupport,
-    StringConcatenationSuggestionSupport,
-    IndexSuggestionSupport,
-    DataTypeSuggestionSupport,
-    IntegerAutoIncrementColumnSuggestionSupport,
-    PartitionRetentionSuggestionSupport,
-    PartitionBuildSuggestionSupport,
-    PartitionAddSuggestionSupport,
-    PartitionDropSuggestionSupport,
-    PartitionTableDropSuggestionSupport,
-    PartitionTableAlterSuggestionSupport,
-    PartitionSplitSuggestionSupport,
-    PartitionMergeSuggestionSupport,
-    # Named-object protocols
     TableObjectSupport,
     ViewObjectSupport,
     MaterializedViewObjectSupport,
@@ -149,10 +133,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     TypeObjectSupport,
     SynonymObjectSupport,
     NamespaceSupport,
-    # DDL statement protocols
     DataTypeSupport,
-    # Column Class Support Protocol
-    ColumnTypeSupport,
     DateTimeSupport,
     DQLSupport,
     DMLSupport,
@@ -169,7 +150,6 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     RpadSupport,
     TrimSupport,
     AsyncIntrospectionSupport,
-    # Suggested storage types (the DDL half)
     SQLXMLSupport,
     SQLXMLParsingSupport,
     SQLXMLSerializationSupport,
@@ -215,13 +195,9 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     CreateDatabaseSupport,
     DropDatabaseSupport,
     AlterDatabaseSupport,
-    # Introspection Protocols
     IntrospectionSupport,
-    # Transaction Control Protocol
     TransactionControlSupport,
-    # Function Support Protocol
     SQLFunctionSupport,
-    # One protocol per DDL statement expression.
     CreateTableSupport,
     CreateTableLikeSupport,
     CreateTableAsSupport,
@@ -251,6 +227,24 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     TimestampSupport,
     DqlOrderSupport,
     PivotSupport,
+)
+from rhosocial.activerecord.backend.suggestion.protocols import (
+    ColumnTypeSuggestionSupport,
+    DataTypeSuggestionSupport,
+    IndexSuggestionSupport,
+    IntegerAutoIncrementColumnSuggestionSupport,
+    JSONSuggestionSupport,
+    PartitionAddSuggestionSupport,
+    PartitionBuildSuggestionSupport,
+    PartitionDropSuggestionSupport,
+    PartitionMergeSuggestionSupport,
+    PartitionRetentionSuggestionSupport,
+    PartitionSplitSuggestionSupport,
+    PartitionTableAlterSuggestionSupport,
+    PartitionTableDropSuggestionSupport,
+    StringConcatenationSuggestionSupport,
+    TableSuggestionSupport,
+    UpsertSuggestionSupport,
 )
 from .column_type import DummyColumnTypeMixin
 from .data_type_suggestions import DummyDataTypeSuggestionsMixin
@@ -422,7 +416,7 @@ class DummyDialect(
     UserDefinedTypeMixin,
     DomainMixin,
     DataTypeSupport,
-    ColumnTypeSupport,
+    ColumnTypeSuggestionSupport,
     DDLColumnMixin,
     ColumnAttributeMixin,
     AlterTableModifierMixin,

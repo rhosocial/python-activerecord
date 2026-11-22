@@ -13,11 +13,11 @@ Same 8-part spec as the retention (B11) sample and P1 lifecycle points:
 import dataclasses
 
 from rhosocial.activerecord.backend.dialect import mixins as core_mixins
-from rhosocial.activerecord.backend.dialect.protocols import (
-    PartitionTableDropSuggestionSupport,
-    PartitionTableAlterSuggestionSupport,
-    PartitionSplitSuggestionSupport,
+from rhosocial.activerecord.backend.suggestion.protocols import (
     PartitionMergeSuggestionSupport,
+    PartitionSplitSuggestionSupport,
+    PartitionTableAlterSuggestionSupport,
+    PartitionTableDropSuggestionSupport,
 )
 from rhosocial.activerecord.backend.suggestion import (
     PartitionTableDropSuggestion,

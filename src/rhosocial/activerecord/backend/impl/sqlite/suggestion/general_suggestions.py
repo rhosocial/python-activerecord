@@ -2,9 +2,12 @@
 """SQLite's non-type production suggestions."""
 from typing import List, Optional
 
-from rhosocial.activerecord.backend.dialect.protocols import (
-    IntrospectionSuggestionSupport, JSONSuggestionSupport, StringConcatenationSuggestionSupport,
-    TableSuggestionSupport, UpsertSuggestionSupport,
+from rhosocial.activerecord.backend.suggestion.protocols import (
+    IntrospectionSuggestionSupport,
+    JSONSuggestionSupport,
+    StringConcatenationSuggestionSupport,
+    TableSuggestionSupport,
+    UpsertSuggestionSupport,
 )
 
 

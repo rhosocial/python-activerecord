@@ -104,7 +104,7 @@ class ExecutionMixin:
             prepared_params = params
             if params:
                 # Get default adapter suggestions from backend
-                all_suggestions = self.get_default_adapter_suggestions()
+                all_suggestions = self.suggest_data_adapters()
 
                 # Build param_adapters for prepare_parameters for sequence parameters
                 param_adapters = []
@@ -280,7 +280,7 @@ class AsyncExecutionMixin:
             prepared_params = params
             if params:
                 # Get default adapter suggestions from backend
-                all_suggestions = self.get_default_adapter_suggestions()
+                all_suggestions = self.suggest_data_adapters()
 
                 # Build param_adapters for prepare_parameters for sequence parameters
                 param_adapters = []

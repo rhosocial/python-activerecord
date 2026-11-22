@@ -2,7 +2,7 @@
 """Dummy dialect's index suggestions."""
 from typing import List
 
-from rhosocial.activerecord.backend.dialect.protocols import IndexSuggestionSupport
+from rhosocial.activerecord.backend.suggestion.protocols import IndexSuggestionSupport
 
 
 class DummyIndexSuggestionMixin(IndexSuggestionSupport):

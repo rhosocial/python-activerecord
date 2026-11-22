@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/dialect/protocols/ddl/data_type_suggestion.py
+# src/rhosocial/activerecord/backend/suggestion/protocols/data_type_suggestion.py
 """DataTypeSuggestionSupport -- the DDL-side type suggestion (second layer).
 
 The core declares only the shape of the answer: a table keyed by the 24
@@ -13,7 +13,7 @@ capability-side ``DataTypeSupport``.
 from typing import Dict, Optional, Protocol, TYPE_CHECKING, runtime_checkable
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.types._base import DataType
+    from rhosocial.activerecord.backend.expression.types._base import DataType
 
 
 @runtime_checkable
