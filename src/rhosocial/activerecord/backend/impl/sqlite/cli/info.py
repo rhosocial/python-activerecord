@@ -11,6 +11,7 @@ import inspect
 import json
 from typing import Dict, List, Any
 
+from rhosocial.activerecord.backend.dialect import capabilities as _cap
 from rhosocial.activerecord.backend.impl.sqlite.pragma import get_all_pragma_infos, PragmaCategory
 from rhosocial.activerecord.backend.impl.sqlite.protocols import SQLiteExtensionSupport, SQLitePragmaSupport
 from rhosocial.activerecord.backend.dialect.protocols import (
@@ -178,14 +179,30 @@ def handle(args):
     finally:
         backend.disconnect()
 
-    # Build info structure using helper functions
+    # Build info structure using the shared core helper.
+    capabilities = _cap.build_capability_report(
+        dialect,
+        family_groups=PROTOCOL_FAMILY_GROUPS,
+        dialect_specific_groups=DIALECT_SPECIFIC_GROUPS,
+        all_args=SUPPORT_METHOD_ALL_ARGS,
+        verbose=args.verbose,
+    )
     info = {
         "database": _build_database_info(version_tuple),
+        "server": {
+            "version": ".".join(map(str, version_tuple)),
+            "variables": {},
+            "source": "PRAGMA (static catalogue; live values are in the status command)",
+            "connected": False,
+        },
         "features": {
             "extensions": _build_extension_info(version_tuple, dialect),
             "pragmas": _build_pragma_info(),
         },
-        "protocols": _build_protocol_info(dialect, args.verbose),
+        "capabilities": capabilities,
+        "suggestions": _cap.build_suggestion_report(dialect, args.verbose),
+        # compatibility alias for one release cycle
+        "protocols": capabilities,
     }
 
     # Add connection info (always memory for info)
@@ -422,8 +439,10 @@ def _display_info_rich(
 
             sup = stats["supported"]
             tot = stats["total"]
+            origin = stats.get("origin", "")
+            origin_tag = f" [dim][{origin}][/dim]" if origin else ""
             console.print(
-                f"    [{color}]{symbol}[/{color}] {protocol_name}: [{color}]{bar}[/{color}] {pct:.0f}% ({sup}/{tot})"
+                f"    [{color}]{symbol}[/{color}] {protocol_name}{origin_tag}: [{color}]{bar}[/{color}] {pct:.0f}% ({sup}/{tot})"
             )
 
             if verbose >= 2 and "methods" in stats:
@@ -439,5 +458,15 @@ def _display_info_rich(
                     else:
                         m_status = "[green][OK][/green]" if value else "[red][X][/red]"
                         console.print(f"        {m_status} {method_display}")
+
+    # Suggestion support (independent of capability support)
+    suggestions = info.get("suggestions", {})
+    if suggestions:
+        console.print("\n[bold green]Suggestion Support:[/bold green]")
+        for proto_name, entry in suggestions.items():
+            supported = entry.get("supported", False)
+            symbol = SYM_OK if supported else SYM_FAIL
+            color = "green" if supported else "red"
+            console.print(f"    [{color}]{symbol}[/{color}] {proto_name}")
 
     console.print()
