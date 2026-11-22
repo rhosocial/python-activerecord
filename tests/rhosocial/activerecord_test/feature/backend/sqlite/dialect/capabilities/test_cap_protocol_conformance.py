@@ -49,6 +49,20 @@ def get_all_protocol_methods(proto: type) -> set:
     return members
 
 
+def _own_annotations(cls: type) -> dict:
+    """Annotations declared on cls itself, minus ones inherited from a base.
+
+    Python 3.8/3.9's typing.Protocol copies a base protocol's annotations into
+    the subclass' __annotations__; 3.10+ do not. Subtracting annotations that
+    also appear on any MRO base makes member extraction version-stable.
+    """
+    own = dict(getattr(cls, "__annotations__", {}))
+    for base in getattr(cls, "__mro__", ())[1:]:
+        for key in getattr(base, "__annotations__", {}):
+            own.pop(key, None)
+    return own
+
+
 def get_own_protocol_methods(proto: type) -> set:
     """Extract public method names declared directly on a protocol (not inherited).
 
@@ -62,7 +76,7 @@ def get_own_protocol_methods(proto: type) -> set:
         val = proto.__dict__[name]
         if callable(val) or isinstance(val, (property, classmethod, staticmethod)):
             members.add(name)
-    members.update(k for k in getattr(proto, "__annotations__", {}) if not k.startswith("_"))
+    members.update(k for k in _own_annotations(proto) if not k.startswith("_"))
     return members
 
 

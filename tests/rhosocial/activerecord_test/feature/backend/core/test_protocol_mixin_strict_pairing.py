@@ -58,6 +58,20 @@ def _stem(name):
     return name.lower()
 
 
+def _own_annotations(cls):
+    """Annotations declared on cls itself, minus ones inherited from a base.
+
+    Python 3.8/3.9's typing.Protocol copies a base protocol's annotations into
+    the subclass' __annotations__; 3.10+ do not. Subtracting annotations that
+    also appear on any MRO base makes member extraction version-stable.
+    """
+    own = dict(getattr(cls, "__annotations__", {}))
+    for base in getattr(cls, "__mro__", ())[1:]:
+        for key in getattr(base, "__annotations__", {}):
+            own.pop(key, None)
+    return own
+
+
 def _members(cls):
     """Public member names in declaration order."""
     out = []
@@ -66,7 +80,7 @@ def _members(cls):
             continue
         if callable(val) or isinstance(val, (property, classmethod, staticmethod)):
             out.append(name)
-    for name in getattr(cls, "__annotations__", {}):
+    for name in _own_annotations(cls):
         if not name.startswith("_") and name not in out:
             out.append(name)
     return out
