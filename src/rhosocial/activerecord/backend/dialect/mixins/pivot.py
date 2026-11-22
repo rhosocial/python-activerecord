@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/pivot.py
 """Dialect mixin for PIVOT / UNPIVOT clause support.
 
-Provides the capability switches and the core SQL rendering shared by the
+Provides the support switches and the core SQL rendering shared by the
 backends that support PIVOT / UNPIVOT. Dialects override
 :meth:`format_pivot_value` and/or the whole formatter when their value
 semantics or extensions differ.

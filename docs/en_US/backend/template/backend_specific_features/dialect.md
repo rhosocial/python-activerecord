@@ -62,7 +62,7 @@ Not every backend supports every feature. PostgreSQL has JSONB arrays and LATERA
 
 ### Protocol Classes
 
-Every feature category is defined as a `@runtime_checkable` Protocol in `rhosocial.activerecord.backend.dialect.protocols`. These protocols describe the interface a dialect must implement to claim support for a feature group.
+Every feature group is defined as a `@runtime_checkable` Protocol in `rhosocial.activerecord.backend.dialect.protocols`. These protocols describe the interface a dialect must implement to claim support for a feature group.
 
 ```python
 from rhosocial.activerecord.backend.dialect.protocols import (

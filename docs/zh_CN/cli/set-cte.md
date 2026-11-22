@@ -68,7 +68,7 @@ rhosocial-activerecord cte run --model app.models:User \
 ## 后端支持
 
 `intersect` / `except` 和递归 CTE 依赖数据库能力。方言不支持时后端抛出错误，CLI 以退出码 1
-报告。CLI 没有能力开关：应在应用层用框架的 dialect 协议判断。
+报告。CLI 没有支持开关：应在应用层用框架的 dialect 协议判断。
 
 ## 让 AI 使用这些命令
 

@@ -354,7 +354,7 @@ User.query().is_not_null(User.c.email)       # WHERE email IS NOT NULL
 
 * **注意事项**：
 * `like` 和 `ilike` 需要自行在 pattern 中包含通配符 `%` 或 `_`。
-* `in_list` 如果传入空列表，可能会生成 `FALSE` 条件（取决于数据库方言）。
+* `in_list` 如果传入空列表，可能会生成 `FALSE` 条件（取决于方言）。
 
 ### NULL 值比较的正确方式
 
@@ -677,7 +677,7 @@ print(sql, params)
 
 为了更好地理解 `ActiveQuery` 是如何工作的，以下展示了 `all()`、`one()` 和 `aggregate()` 方法的执行生命周期。
 
-**重要说明**：`ActiveQuery` 本身并不负责拼接 SQL 字符串，它仅仅是调用底层**表达式系统**（Expression System）来构建查询。所有的 SQL 生成工作都委托给了表达式系统，确保了 SQL 的安全性和对不同数据库方言的兼容性。
+**重要说明**：`ActiveQuery` 本身并不负责拼接 SQL 字符串，它仅仅是调用底层**表达式系统**（Expression System）来构建查询。所有的 SQL 生成工作都委托给了表达式系统，确保了 SQL 的安全性和对不同方言的兼容性。
 
 ### 1. `all()` 和 `one()` 的生命周期
 

@@ -35,7 +35,7 @@ def format_method(self) -> str:
 
 `BaseExpression.to_sql()` **只在根部实现一次**，是唯一的渲染入口。具体表达式类
 绝不复写它。渲染过程在节点自身绑定的方言上解析声明的 `format_method`，并把**当前
-表达式**交给格式化器——没有重新实例化、没有副本；`dialect` setter 只影响被赋值的
+表达式**交给格式化函数——没有重新实例化、没有副本；`dialect` setter 只影响被赋值的
 节点本身（绑定是逐节点的，在构造时完成，或之后逐个重新绑定）：
 
 ```python
@@ -247,7 +247,7 @@ pool.stop()  # 优雅停机：DRAINING → STOPPING → KILLING → STOPPED
 
 ## 6. 推导 DDL、DDL 锁定与版本对比（roadmap）
 
-该能力组正在开发中，目标是让 rhosocial-activerecord 拥有业界目前三种范式之外的
+这组能力正在开发中，目标是让 rhosocial-activerecord 拥有业界目前三种范式之外的
 **第四种迁移范式**。其构件已存在于后端（`schema/`、`expression/statements/ddl_*.py`
 以及 `ddl_*` 方言 mixin）。
 

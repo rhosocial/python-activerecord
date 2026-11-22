@@ -303,7 +303,7 @@ A shared `output` abstraction renders results uniformly as
 
 ## 6. Derived DDL, DDL Locking, and Version Diffing (roadmap)
 
-Under active development, this capability group aims to give
+Under active development, this set of capabilities aims to give
 rhosocial-activerecord a fourth migration paradigm, distinct from the three
 the industry currently offers. Its building blocks already exist in the
 backend (`schema/`, `expression/statements/ddl_*.py`, and the `ddl_*`

@@ -178,7 +178,7 @@ def handle(args):
     # Both checks run before any real work: a NAME the type cannot use is a
     # malformed request, and a family this dialect cannot answer is one this
     # build does not offer. ``create_backend`` adapts the dialect, so the
-    # capability switch below answers for the SQLite in front of us.
+    # support switch below answers for the SQLite in front of us.
     _validate_name(args)
 
     backend = create_backend(args)

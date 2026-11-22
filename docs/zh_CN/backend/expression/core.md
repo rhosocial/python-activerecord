@@ -53,7 +53,7 @@ class ToSQLProtocol(Protocol):
 
 ### BaseExpression
 
-`BaseExpression` 是所有表达式组件的根基类。它以结构方式满足 `ToSQLProtocol`，持有**逐节点**的方言引用，并且**只在基类集中实现一次** `to_sql()`——子类绝不复写它，只通过只读的 `format_method` 属性声明渲染自己的方言格式化方法名。
+`BaseExpression` 是所有表达式组件的根基类。它以结构方式满足 `ToSQLProtocol`，持有**逐节点**的方言引用，并且**只在基类集中实现一次** `to_sql()`——子类绝不复写它，只通过只读的 `format_method` 属性声明渲染自己的方言格式化函数名。
 
 ```python
 from typing import Optional, Tuple

@@ -322,7 +322,7 @@ JSONTableExpression(
 
 ### 关注格式化函数
 
-混入协议后，请验证相应的格式化方法。例如，如果您混入了 `WindowFunctionMixin`，请检查 Mixin/基类中的 `format_window_specification`；`OVER (...)` 子句本身由所有函数调用共用的 `format_function_call` 组装。
+混入协议后，请验证相应的格式化函数。例如，如果您混入了 `WindowFunctionMixin`，请检查 Mixin/基类中的 `format_window_specification`；`OVER (...)` 子句本身由所有函数调用共用的 `format_function_call` 组装。
 
 *   如果您的数据库遵循标准 SQL（例如 `OVER (...)`），默认实现即可工作。
 *   如果有差异，请覆盖该特定方法。
@@ -343,7 +343,7 @@ JSONTableExpression(
 **如果数据库支持 RETURNING 子句**（如 PostgreSQL、SQLite 3.35+、MariaDB 10.5+）：
 
 `ReturningMixin` 的方法已并入通用 `DMLMixin`；后端只需为自身支持的语句类型
-覆写 `supports_returning_*()` 探测方法（并可选地覆写下列通用能力开关）。
+覆盖 `supports_returning_*()` 探测方法（并可选地覆盖下列通用支持开关）。
 
 ```python
 from rhosocial.activerecord.backend.dialect.mixins import DMLMixin
@@ -355,7 +355,7 @@ class MyDialect(DMLMixin, ReturningSupport):
         return self.version >= (x, y, z)  # 替换为实际版本号
 ```
 
-可选地覆写以下通用能力开关以反映方言限制（默认均为乐观值）：
+可选地覆盖以下通用支持开关以反映方言限制（默认均为乐观值）：
 
 | 开关 | 默认值 | 含义 |
 |------|--------|------|
@@ -596,7 +596,7 @@ def test_match_against_expression(self):
 
 1. 特性是后端特定的（非 SQL 标准）
 2. 特性需要版本检测
-3. 需要多种格式化方法（如创建索引 + 查询）
+3. 需要多种格式化函数（如创建索引 + 查询）
 4. 表达式需要与查询构建器集成
 
 ### 将协议实现分离到 Mixin
@@ -657,7 +657,7 @@ class MySQLDialect(
 
 1. **Protocol**：在对应的 Protocol 类中声明接口签名（`supports_*` + `format_*`）
 2. **Mixin**：在对应的 Mixin 类中提供默认实现（不支持的抛 `UnsupportedFeatureError`，`supports_*` 默认返回 `False`）
-3. **Dialect**：在具体方言类中混入 Protocol + Mixin，覆写需要的方法
+3. **Dialect**：在具体方言类中混入 Protocol + Mixin，覆盖需要的方法
 
 **原因**：探查工具（`devtools/inspect`）依赖 Protocol 和 Mixin 来发现能力声明和方法签名。跳过任何一步会导致探查工具遗漏该方法，使得后端能力无法被正确检测。
 
@@ -702,7 +702,7 @@ class MySQLDialect(
     MySQLModifyColumnMixin,
     MySQLModifyColumnSupport,
 ):
-    pass  # Mixin 中已有实现，无需额外覆写
+    pass  # Mixin 中已有实现，无需额外覆盖
 ```
 
 > **注意**：核心包的 `SQLDialectBase`（`base.py`）中可以提供抛 `UnsupportedFeatureError` 的默认实现，确保 `AlterTableAction.to_sql()` 等调用路径不会因方法缺失而崩溃。但这**不替代** Protocol/Mixin 步骤——默认实现只是安全兜底，真正的接口声明和能力检测仍需通过 Protocol/Mixin 完成。

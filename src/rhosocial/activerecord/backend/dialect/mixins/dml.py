@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/dml.py
 """DML mixin for INSERT, UPDATE and DELETE statement formatting.
 
-Renders the corresponding expression trees, honoring capability switches for
+Renders the corresponding expression trees, honoring support switches for
 optional clauses such as RETURNING and ON CONFLICT.
 """
 from typing import Any, List, Tuple, TYPE_CHECKING
@@ -273,7 +273,7 @@ class DMLMixin:
         return "DEFAULT VALUES", ()
 
     def format_on_conflict_clauses(self, expr: "InsertStatement") -> Tuple[str, tuple]:
-        """Format one or more ON CONFLICT clauses, gated by capability switches.
+        """Format one or more ON CONFLICT clauses, gated by support switches.
 
         Args:
             expr: InsertStatement carrying ``on_conflict`` (list of clauses or None).

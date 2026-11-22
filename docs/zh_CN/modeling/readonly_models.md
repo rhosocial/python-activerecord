@@ -1,7 +1,7 @@
 # 只读模型 (Read-Only Models)
 
 在数据分析、报表和只读副本场景中，往往需要**只能查询、绝对不能写入**的模型类。
-`ReadOnlyMixin` 把这件事变成一个声明，而不是一组覆写方法：框架的每条写路径都会在发出
+`ReadOnlyMixin` 把这件事变成一个声明，而不是一组覆盖方法：框架的每条写路径都会在发出
 任何 SQL 之前拒绝操作。
 
 > **AI 提示词：** "我想要一个连接分析数据库的模型类，一旦有人不小心尝试写入就立即报错。
@@ -184,7 +184,7 @@ class Conflict(ActiveRecord, ReadOnlyMixin, TimestampMixin):
 - [ ] 只读模型配置到副本 / 分析后端，而非主库
 - [ ] 重复字段通过 `BaseModel` Mixin 共享
 - [ ] 计算指标通过 `@property` 表达，而非存储列
-- [ ] 模型映射视图时覆写 `object_type()`
+- [ ] 模型映射视图时覆盖 `object_type()`
 
 ---
 

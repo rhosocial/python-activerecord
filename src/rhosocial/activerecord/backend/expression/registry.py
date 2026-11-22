@@ -254,7 +254,7 @@ class ExpressionRegistry:
 
         Different from :meth:`unregister_node`: the kind stays in
         :meth:`node_kinds` and can be re-enabled, which is what a per-request
-        capability switch needs. An unregistered kind is absent from the build;
+        support switch needs. An unregistered kind is absent from the build;
         a disabled one is present and declined.
         """
         if kind not in self._nodes:

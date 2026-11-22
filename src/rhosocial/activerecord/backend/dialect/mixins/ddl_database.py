@@ -17,7 +17,7 @@ if TYPE_CHECKING:  # pragma: no cover
 class DatabaseMixin:
     """Mixin adding support for DATABASE DDL statements.
 
-    Provides default capability switches (all False) and formatting methods
+    Provides default support switches (all False) and formatting methods
     that raise UnsupportedFeatureError. Backends override the relevant
     methods to provide actual SQL generation.
     """

@@ -1156,7 +1156,7 @@ class DDLColumnMixin:
         Raises:
             UnsupportedFeatureError: If the dialect does not support the
                 requested alteration (data-type changes and column-property
-                changes are gated by separate capability switches).
+                changes are gated by separate support switches).
         """
         from ..exceptions import UnsupportedFeatureError
         all_params: List[Any] = []

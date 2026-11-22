@@ -80,7 +80,7 @@ framework API; the CLI only executes the resulting object.
 
 `intersect` / `except` and recursive CTEs depend on the database. When the
 dialect does not support a feature the backend raises an error, which the CLI
-reports with exit code 1. There is no CLI-level capability switch: use the
+reports with exit code 1. There is no CLI-level support switch: use the
 framework's dialect protocols to decide at the application level.
 
 ## Using these commands from an AI agent

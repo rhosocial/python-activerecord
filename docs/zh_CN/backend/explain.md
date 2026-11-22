@@ -325,7 +325,7 @@ assert isinstance(async_backend, AsyncExplainBackendProtocol)
 
 1. **根据后端类型导入对应的混入类**（同步或异步）。
 2. **将其加入类的 MRO**，放在存储后端基类之前。
-3. **覆写 `_parse_explain_result()`**，返回您的后端专属结果类。
+3. **覆盖 `_parse_explain_result()`**，返回您的后端专属结果类。
 
 ```python
 from pydantic import BaseModel
@@ -356,7 +356,7 @@ class MyBackend(SyncExplainBackendMixin, StorageBackend):
         return MyExplainResult(raw_rows=raw_rows, sql=sql, duration=duration, rows=rows)
 ```
 
-如果您的数据库使用非标准 EXPLAIN 语法，还需要在 Dialect 中覆写 `format_explain_statement()`。
+如果您的数据库使用非标准 EXPLAIN 语法，还需要在 Dialect 中覆盖 `format_explain_statement()`。
 
 ## API 参考
 

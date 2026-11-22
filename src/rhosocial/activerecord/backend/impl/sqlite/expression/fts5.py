@@ -43,7 +43,7 @@ class SQLiteFTS5MatchPredicate(SQLPredicate):
         return "format_fts5_match_expression"
     """SQLite FTS5 MATCH predicate expression.
 
-    Wraps the parameters for an FTS5 MATCH expression so the format method
+    Wraps the parameters for an FTS5 MATCH expression so the format function
     receives a single expression object instead of individual arguments.
 
     Example:

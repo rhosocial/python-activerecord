@@ -29,7 +29,7 @@ worth reading before modelling anything.
 | **A4** | The return is `Tuple[str, tuple]`. A formatter returning bare `str` is doing half a job and forces every caller to re-wrap. |
 | **A5** | Dialect formatters are public. A `_format_*` helper in a dialect mixin is a design mistake, not a visibility choice. |
 | **A6** | Shared rendering logic lives on the **expression side**, never on the dialect. See "Where shared logic lives" below. |
-| **A7** | A formatter lives in the same protocol as its capability switches, and protocols are grouped by feature group — one protocol per constraint level, one per alter-action family, one for the index seam. |
+| **A7** | A formatter lives in the same protocol as its support switches, and protocols are grouped by feature group — one protocol per constraint level, one per alter-action family, one for the index seam. |
 
 A3 and A4 are what make A1 checkable. Measured:
 
@@ -51,7 +51,7 @@ production — by B1 it should already be a node.
 
 ### Where shared logic lives
 
-The dialect surface has exactly two members: capability switches
+The dialect surface has exactly two members: support switches
 (`supports_*()`, no arguments beyond `self`) and formatters (`format_*(self,
 expr)`, A3). There is no third kind, and no name to invent for one.
 

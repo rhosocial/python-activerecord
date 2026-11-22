@@ -342,7 +342,7 @@ When saving new records (INSERT), the framework needs to retrieve the database-g
 
 The `ReturningMixin` methods are provided by the generic `DMLMixin`; a backend
 only overrides the `supports_returning_*()` probes for the statement types it
-supports (and, optionally, the generic capability switches below).
+supports (and, optionally, the generic support switches below).
 
 ```python
 from rhosocial.activerecord.backend.dialect.mixins import DMLMixin
@@ -354,7 +354,7 @@ class MyDialect(DMLMixin, ReturningSupport):
         return self.version >= (x, y, z)  # Replace with actual version
 ```
 
-Optionally override the generic capability switches to reflect dialect
+Optionally override the generic support switches to reflect dialect
 limitations (all default optimistically):
 
 | Switch | Default | Meaning |

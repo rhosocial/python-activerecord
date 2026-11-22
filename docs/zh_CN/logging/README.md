@@ -382,7 +382,7 @@ backend.execute(
 
 当调用方知道位置参数与字段的对应关系时，可通过 `LogContext.param_meta`
 传入 `ParamMeta`；没有元数据时，`DEBUG` 只输出参数数量和 Python 类型。
-自定义 backend 若覆写 `fetch_all()`/`fetch_one()`，必须接受 `log_context`
+自定义 backend 若覆盖 `fetch_all()`/`fetch_one()`，必须接受 `log_context`
 并把它继续传给 `ExecutionOptions`。
 
 ## 本地 ELK 验证

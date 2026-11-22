@@ -44,7 +44,7 @@ the enum. The rule is the same in both cases: the introspector is the only
 layer that saw the catalog's distinction, so nothing may be folded away there
 and recovered later.
 
-### 2a. A capability switch buys discoverability, never semantics.
+### 2a. A support switch buys discoverability, never semantics.
 
 A `supports_*` name in core is a question worth asking through one spelling,
 **not** a promise that every engine answers it the same way. That distinction
