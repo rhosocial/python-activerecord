@@ -6,7 +6,7 @@ backend answers which adapter (and driver target type) it suggests for each
 Python type; core defines only the interface and supplies no default table.
 
 Unlike the two SQL-structure tables (``suggest_data_types`` /
-``suggest_column_types``, keyed by all 24 framework-modelled types), this
+``suggest_column_types``, keyed by all framework-committed types), this
 table is sparse: types a driver binds natively without conversion (``str``,
 ``int``, ``float``, ``bytes``) are absent, and their absence means "pass
 through untouched". A missing adapter for a type that needs one is an

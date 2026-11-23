@@ -5,7 +5,7 @@ The protocol tests assert that the *rules* hold; this file asserts SQLite's
 *answers*, so that a change to them has to be a deliberate edit with its reason
 written down rather than a drift nobody notices:
 
-1. all twenty-four common entries resolve, and to SQLite's classes;
+1. all framework-committed types resolve, and to SQLite's classes;
 2. the table differs from the portable dummy baseline in exactly the places the
    evidence says it does -- the four sequence entries -- and nowhere else;
 3. the dummy dialect is *not* this table: it states the portable baseline.
@@ -22,8 +22,10 @@ import uuid
 import pytest
 
 from rhosocial.activerecord.backend.adapters import (
+    AwareDatetime,
     BitString,
     Geometry,
+    IPAddress,
     MacAddress,
     Multirange,
     Range,
@@ -38,6 +40,7 @@ from rhosocial.activerecord.backend.expression.column_types import (
     GeometryColumn,
     IntegerColumn,
     IntervalColumn,
+    IPAddressColumn,
     JSONColumn,
     MacAddressColumn,
     MultirangeColumn,
@@ -85,6 +88,7 @@ _SQLITE_ANSWERS = [
     (bytearray, BinaryColumn),
     (datetime.date, TimestampColumn),
     (datetime.time, TimestampColumn),
+    (AwareDatetime, TimestampColumn),
     (datetime.datetime, TimestampColumn),
     (datetime.timedelta, IntervalColumn),
     (uuid.UUID, UUIDColumn),
@@ -100,6 +104,7 @@ _SQLITE_ANSWERS = [
     (Range, RangeColumn),
     (Multirange, MultirangeColumn),
     (MacAddress, MacAddressColumn),
+    (IPAddress, IPAddressColumn),
 ]
 
 _ENTRY_IDS = [getattr(entry, "__name__", str(entry)) for entry, _ in _SQLITE_ANSWERS]
@@ -108,7 +113,7 @@ _ENTRY_IDS = [getattr(entry, "__name__", str(entry)) for entry, _ in _SQLITE_ANS
 def test_the_table_answers_every_entry_of_the_contract():
     """Completeness is the contract; a hole is a test failure, not a silent gap.
 
-    SQLite is not special here -- every backend owes the same twenty-four answers,
+    SQLite is not special here -- every backend owes the same framework answers,
     and the ten backends are held to it in their own CI. Core can enforce it
     for the backend it ships, so it does.
     """
@@ -127,7 +132,7 @@ def test_the_table_has_no_entry_beyond_the_contract():
 
 
 def test_no_entry_is_answered_with_none():
-    """The probe found a working pairing for all twenty-four, so none is refused.
+    """The probe found a working pairing for all framework types, so none is refused.
 
     ``None`` would mean "this backend has no column for this value", and SQLite
     demonstrably does: a date is a TEXT column ``strftime`` reads, a dict is a

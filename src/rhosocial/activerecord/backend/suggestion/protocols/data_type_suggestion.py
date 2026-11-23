@@ -6,7 +6,8 @@ framework-modelled Python types (``FRAMEWORK_PYTHON_TYPES``), each mapped to
 the ``DataType`` a bare field should be declared with. Every key must be
 answered -- the framework promises a bare field always has a declaration.
 
-Each backend supplies its own 24-key table; the core supplies no implementation.
+Each backend supplies its own table keyed by FRAMEWORK_PYTHON_TYPES; the core
+supplies no implementation.
 The suggestion is a value (a ``DataType``), not SQL -- formatting stays in the
 capability-side ``DataTypeSupport``.
 """
@@ -19,7 +20,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 @runtime_checkable
 class DataTypeSuggestionSupport(Protocol):
-    """The storage-type suggestion table for the 24 framework types."""
+    """The storage-type suggestion table for the framework-committed types."""
 
     def suggest_data_types(self) -> 'DataTypeSuggestion':
         """The declaration suggested for each framework-modelled type.

@@ -10,7 +10,7 @@ follows from:
 2. it offers the column surface (alias, null tests, casting) and no family
    operation, in particular no comparison;
 3. every dialect table that names it -- SQLite and the dummy baseline -- stays
-   complete (all twenty-four entries) and answers nothing with ``None``.
+   complete (all framework-committed entries) and answers nothing with ``None``.
 """
 from rhosocial.activerecord.backend.suggestion.definitions import ColumnTypeSuggestion, ExtraColumnTypeSuggestion  # noqa: E402
 
@@ -23,6 +23,7 @@ import pytest
 from rhosocial.activerecord.backend.adapters import (
     BitString,
     Geometry,
+    IPAddress,
     MacAddress,
     Multirange,
     Range,
@@ -38,6 +39,7 @@ from rhosocial.activerecord.backend.expression import (
     BitStringColumn,
     ColumnBase,
     GeometryColumn,
+    IPAddressColumn,
     IntervalColumn,
     MacAddressColumn,
     MultirangeColumn,
@@ -68,6 +70,7 @@ SURFACE_ONLY = [
     (RangeColumn, Range),
     (MultirangeColumn, Multirange),
     (MacAddressColumn, MacAddress),
+    (IPAddressColumn, IPAddress),
     (IntervalColumn, datetime.timedelta),
 ]
 

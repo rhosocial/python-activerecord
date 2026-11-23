@@ -548,17 +548,18 @@ def _annotations():
         # in common and nothing else, so both land on the opaque annotation.
         BinaryColumn: BinaryAnnotation,
         UUIDColumn: UUIDAnnotation,
-        # The six complex families and a duration share one answer: the
-        # framework promises no family operation for any of them, so an
-        # operation handing one back is typed as what it holds and offers
-        # only the column surface. A backend that models the operations
-        # declares its own column class and resolves through this entry.
+        # The complex families and a duration share one answer: the framework
+        # promises no family operation for any of them, so an operation handing
+        # one back is typed as what it holds and offers only the column surface.
+        # A backend that models the operations declares its own column class and
+        # resolves through this entry.
         GeometryColumn: SurfaceOnlyAnnotation,
         VectorColumn: SurfaceOnlyAnnotation,
         BitStringColumn: SurfaceOnlyAnnotation,
         RangeColumn: SurfaceOnlyAnnotation,
         MultirangeColumn: SurfaceOnlyAnnotation,
         MacAddressColumn: SurfaceOnlyAnnotation,
+        IPAddressColumn: SurfaceOnlyAnnotation,
         IntervalColumn: SurfaceOnlyAnnotation,
     }
 
