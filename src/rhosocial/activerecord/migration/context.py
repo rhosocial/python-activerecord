@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any, List, Optional, Sequence, TYPE_CHECKING
 
-from ..base.derivation import partition_suggestion_operations
+from ..base.derivation import partition_suggestion_operations, partition_suggestion_outcome
 from .core import DEFAULT_DIRECTION
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -23,40 +23,80 @@ if TYPE_CHECKING:  # pragma: no cover
 class _SuggestionMixin:
     """Backend-suggestion accessors, shared by sync and async contexts.
 
-    Each accessor reads a backend suggestion value's expression chain. Returns
-    ``None`` when the backend has no answer (no suggestion support, explicit
-    unsupported, or a no-op). The caller can check ``None`` and skip, or pass
-    straight to ``apply`` (which ignores None).
+    Each ``suggest_partition_*`` accessor reads a backend suggestion value's
+    expression chain. Returns ``None`` when the backend has no answer (no
+    suggestion support, explicit unsupported, or a no-op) — the historical,
+    convenience behaviour; ``apply`` ignores ``None``.
+
+    Each ``suggest_partition_*_raw`` counterpart returns the full
+    ``PartitionSuggestionOutcome`` instead, keeping "explicitly unsupported"
+    distinct from "no action", for callers that must report that difference.
     """
+
+    def _suggestion_target(self):
+        """The object carrying partition-suggestion protocols.
+
+        Suggestion protocols live on the dialect, but a lightweight backend
+        double in tests may carry them directly. Prefer the dialect when the
+        backend exposes one; fall back to the backend itself otherwise.
+        """
+        return getattr(self.backend, "dialect", self.backend)
 
     def _suggest(
         self, intent: str, strategy: "PartitionByClause", plan: object
     ) -> Optional[List["BaseExpression"]]:
-        return partition_suggestion_operations(self.backend, intent, strategy, plan)
+        return partition_suggestion_operations(self._suggestion_target(), intent, strategy, plan)
+
+    def _outcome(self, intent: str, strategy: "PartitionByClause", plan: object):
+        return partition_suggestion_outcome(self._suggestion_target(), intent, strategy, plan)
 
     def suggest_partition_build(self, strategy: "PartitionByClause", plan: object):
         return self._suggest("build", strategy, plan)
 
+    def suggest_partition_build_raw(self, strategy: "PartitionByClause", plan: object):
+        return self._outcome("build", strategy, plan)
+
     def suggest_partition_table_drop(self, strategy: "PartitionByClause", plan: object):
         return self._suggest("table_drop", strategy, plan)
+
+    def suggest_partition_table_drop_raw(self, strategy: "PartitionByClause", plan: object):
+        return self._outcome("table_drop", strategy, plan)
 
     def suggest_partition_table_alter(self, strategy: "PartitionByClause", plan: object):
         return self._suggest("table_alter", strategy, plan)
 
+    def suggest_partition_table_alter_raw(self, strategy: "PartitionByClause", plan: object):
+        return self._outcome("table_alter", strategy, plan)
+
     def suggest_partition_add(self, strategy: "PartitionByClause", plan: object):
         return self._suggest("add", strategy, plan)
+
+    def suggest_partition_add_raw(self, strategy: "PartitionByClause", plan: object):
+        return self._outcome("add", strategy, plan)
 
     def suggest_partition_drop(self, strategy: "PartitionByClause", plan: object):
         return self._suggest("drop", strategy, plan)
 
+    def suggest_partition_drop_raw(self, strategy: "PartitionByClause", plan: object):
+        return self._outcome("drop", strategy, plan)
+
     def suggest_partition_split(self, strategy: "PartitionByClause", plan: object):
         return self._suggest("split", strategy, plan)
+
+    def suggest_partition_split_raw(self, strategy: "PartitionByClause", plan: object):
+        return self._outcome("split", strategy, plan)
 
     def suggest_partition_merge(self, strategy: "PartitionByClause", plan: object):
         return self._suggest("merge", strategy, plan)
 
+    def suggest_partition_merge_raw(self, strategy: "PartitionByClause", plan: object):
+        return self._outcome("merge", strategy, plan)
+
     def suggest_partition_retention(self, strategy: "PartitionByClause", plan: object):
         return self._suggest("retention", strategy, plan)
+
+    def suggest_partition_retention_raw(self, strategy: "PartitionByClause", plan: object):
+        return self._outcome("retention", strategy, plan)
 
 
 class _ContextBase(_SuggestionMixin):

@@ -10,7 +10,10 @@ are inlined is the caller's explicit choice.
 from __future__ import annotations
 
 import copy
-from typing import Any, List, Optional, Sequence, Tuple
+from typing import Any, List, Optional, Sequence, Tuple, TYPE_CHECKING
+
+if TYPE_CHECKING:  # pragma: no cover
+    from ..backend.suggestion.definitions import PartitionSuggestionOutcome
 
 from ..backend.dialect.exceptions import (
     UnsupportedDataTypeError,
@@ -516,15 +519,19 @@ _PARTITION_INTENTS = {
 }
 
 
-def partition_suggestion_operations(
+def partition_suggestion_outcome(
     dialect: Any, intent: str, strategy: Any, plan: object
-) -> Optional[List[Any]]:
-    """The ordered expression chain a backend suggests for a partition intent.
+) -> "PartitionSuggestionOutcome":
+    """Consume a partition suggestion keeping all three states distinct.
 
-    Returns ``None`` when the dialect has no matching suggestion protocol, or
-    when the suggestion is a structural "no" (``False``/``None`` operations).
+    Unlike :func:`partition_suggestion_operations`, this never collapses the
+    backend's ``False`` ("explicitly unsupported") into ``None`` ("no action").
+    The returned outcome's ``state`` is one of ``actions`` / ``unsupported`` /
+    ``no-action`` / ``no-protocol`` so an operator-facing caller can report an
+    unsupported operation instead of silently skipping it.
     """
     from ..backend.suggestion import protocols as suggestion_protocols
+    from ..backend.suggestion.definitions import PartitionSuggestionOutcome
 
     try:
         protocol_name, method_name = _PARTITION_INTENTS[intent]
@@ -532,12 +539,29 @@ def partition_suggestion_operations(
         raise ValueError(f"unknown partition suggestion intent: {intent!r}") from exc
     protocol = getattr(suggestion_protocols, protocol_name)
     if not isinstance(dialect, protocol):
-        return None
+        return PartitionSuggestionOutcome(state="no-protocol")
     suggestion = getattr(dialect, method_name)(strategy, plan)
     operations = suggestion.operations
     if isinstance(operations, (list, tuple)):
-        return [expr for expr in operations if isinstance(expr, BaseExpression)]
-    return None
+        exprs = tuple(expr for expr in operations if isinstance(expr, BaseExpression))
+        return PartitionSuggestionOutcome(state="actions", operations=exprs)
+    if operations is False:
+        return PartitionSuggestionOutcome(state="unsupported")
+    return PartitionSuggestionOutcome(state="no-action")
+
+
+def partition_suggestion_operations(
+    dialect: Any, intent: str, strategy: Any, plan: object
+) -> Optional[List[Any]]:
+    """The ordered expression chain a backend suggests for a partition intent.
+
+    Returns ``None`` when the dialect has no matching suggestion protocol, or
+    when the suggestion is a structural "no" (``False``/``None`` operations).
+    For callers that need to tell "unsupported" from "no action", use
+    :func:`partition_suggestion_outcome` instead.
+    """
+    outcome = partition_suggestion_outcome(dialect, intent, strategy, plan)
+    return list(outcome.operations) if outcome.is_actionable else None
 
 
 def integer_auto_increment_parts(dialect: Any, data_type: "DataType") -> tuple:

@@ -82,10 +82,17 @@ def test_context_apply_real_executes():
 def test_context_exposes_eight_partition_suggestions():
     ctx = MigrationContext(FakeBackend())
     names = [n for n in dir(ctx) if n.startswith("suggest_partition_")]
-    assert len(names) == 8
-    # SQLite has no partitioning -> suggestion returns None (structural/no-op)
+    # Eight intent accessors plus eight *_raw counterparts (tri-state outcome).
+    assert len(names) == 16
+    raw_names = [n for n in names if n.endswith("_raw")]
+    assert len(raw_names) == 8
+    assert len(set(names) - set(raw_names)) == 8
+    # FakeBackend has no dialect/protocol -> suggestion returns None (structural/no)
     assert ctx.suggest_partition_add(_range_strategy(), None) is None
     assert ctx.apply(ctx.suggest_partition_add(_range_strategy(), None)) == 0
+    # The raw counterpart keeps the state distinct (no-protocol for a fake backend).
+    raw = ctx.suggest_partition_add_raw(_range_strategy(), None)
+    assert raw.state == "no-protocol"
 
 
 def test_runner_up_records_and_down_reverses_and_clears():

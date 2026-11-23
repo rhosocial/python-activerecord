@@ -24,6 +24,7 @@ from .general import (
 )
 from .integer_auto_increment import IntegerAutoIncrementColumnSuggestion
 from .partition import (
+    PartitionSuggestionOutcome,
     PartitionAddSuggestion,
     PartitionBuildSuggestion,
     PartitionDropSuggestion,
@@ -52,6 +53,7 @@ __all__ = [
     "UpsertSyntaxSuggestion",
     "IntegerAutoIncrementColumnSuggestion",
     "PartitionAddSuggestion",
+    "PartitionSuggestionOutcome",
     "PartitionBuildSuggestion",
     "PartitionDropSuggestion",
     "PartitionMergeSuggestion",

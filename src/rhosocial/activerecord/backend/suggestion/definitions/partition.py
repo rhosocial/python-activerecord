@@ -57,7 +57,38 @@ class PartitionMergeSuggestion:
     operations: Union[Tuple["BaseExpression", ...], bool, None] = None
 
 
+@dataclass(frozen=True)
+class PartitionSuggestionOutcome:
+    """The consumed result of a partition suggestion, with all three states kept distinct.
+
+    A backend's ``operations`` is ``tuple`` (do this), ``False`` (this backend
+    explicitly has no mechanism) or ``None`` (no action needed). Consumers that
+    only want the expression list can use :meth:`operations_or_none`, but an
+    operator-facing caller must read ``state`` to report "unsupported" rather
+    than silently skipping it as "no action". The "no-protocol" state means the
+    dialect does not implement the suggestion protocol at all.
+    """
+
+    # One of: "actions", "unsupported", "no-action", "no-protocol".
+    state: str
+    operations: Tuple["BaseExpression", ...] = ()
+
+    @property
+    def is_actionable(self) -> bool:
+        """True only when there is a concrete expression chain to apply."""
+        return self.state == "actions"
+
+    def operations_or_none(self) -> Tuple["BaseExpression", ...] | None:
+        """Return the expression chain, or ``None`` for every non-action state.
+
+        Kept for callers that only need "something to apply or not" and want
+        the historical ``None``-means-skip behaviour.
+        """
+        return self.operations if self.state == "actions" else None
+
+
 __all__ = [
+    "PartitionSuggestionOutcome",
     "PartitionBuildSuggestion",
     "PartitionAddSuggestion",
     "PartitionDropSuggestion",
