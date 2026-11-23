@@ -178,13 +178,38 @@ if dialect.supports_data_type_text():
 
 建议协议位于 `rhosocial.activerecord.backend.suggestion.protocols`，其返回值是 `rhosocial.activerecord.backend.suggestion.definitions` 中的 frozen dataclass。`DataTypeSuggestionSupport.suggest_substitute_types()` 是**跨后端类型一致性**的对应机制：对于方言**不**原生支持的通用类型，它建议替代类，返回 `SubstituteTypeSuggestion(mapping={...})`。同族的 `suggest_substitute_advice(name)` 返回 `SubstituteAdviceSuggestion(advice=...)`，携带该替代的附加说明（无损时为空）。
 
-不要与 `suggest_data_types()` 混淆：后者返回 `DataTypeSuggestion(table=...)`，把 `FRAMEWORK_PYTHON_TYPES` 中的 24 个 Python 类型映射到
+不要与 `suggest_data_types()` 混淆：后者返回 `DataTypeSuggestion(table=...)`，把 `FRAMEWORK_PYTHON_TYPES` 中的 26 个 Python 类型映射到
 `DataType` 实例，用作裸字段的默认 DDL 声明。
 
 - 键使用相同的通用名命名空间（`"uuid"`、`"enum"`、……），且与方言能渲染的名字**互不相交**——方言能渲染的类型无需替代
 - 值是具体的 `DataType` 类（例如 SQLite 建议 `uuid`/`enum` → `SQLiteTextType`，`binary`/`varbinary` → `SQLiteBlobType`）
 - 仅为建议——用户层（ActiveRecord/应用代码）决定是否采纳
 - 默认返回空映射；这里同样适用如实原则：绝不伪装建议
+### 框架承诺类型 (FRAMEWORK_PYTHON_TYPES)
+
+`FRAMEWORK_PYTHON_TYPES` 是框架承诺为每一成员给出声明的闭合集合：每个后端的 `suggest_data_types()` 与 `suggest_column_types()` 表都必须覆盖全部键。它共 26 个成员——18 个内建/标准库类型，加 8 个框架值类（`Geometry`、`Vector`、`BitString`、`Range`、`Multirange`、`MacAddress`、`IPAddress` 以及时间标记 `AwareDatetime`）。其中两个需要特别说明：
+
+- **`AwareDatetime`**（`rhosocial.activerecord.backend.adapters.temporal`）是 `datetime.datetime` 子类，用于存储时间点（instant）而非墙上时间的字段。裸 `datetime` 无法在类型层区分是否带时区（`tzinfo` 是实例属性），因此它的建议是无时区时间戳。将字段标注为 `AwareDatetime` 即可选择带时区的声明（PostgreSQL 上为 `TIMESTAMPTZ`、SQL Server 上为 `DATETIMEOFFSET` 等）；Pydantic 验证会给无时区值附上 UTC，并保留已带的偏移。对没有时区类型的后端（如 ClickHouse），建议如实退化为可渲染的无时区声明——此时值由应用层保持为 UTC。
+- **`IPAddress`**（`rhosocial.activerecord.backend.adapters.network`）是对标准库 `ipaddress` 对象的不可变包装，同时覆盖 IPv4 与 IPv6。有原生网络类型的后端存为原生类型（PostgreSQL `INET`），否则存为规范文本（`VARCHAR(45)` / `String`）。
+与其它不可变值类（如 `MacAddress`）一样，请用 `IPAddress.parse(...)` 构造——字符串与 IPAddress 的转换由数据库边界的 adapter 处理。
+
+```python
+from datetime import datetime, timezone
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.backend.adapters import AwareDatetime, IPAddress
+
+class Event(ActiveRecord):
+    occurred_at: AwareDatetime          # DDL: TIMESTAMPTZ（时间点）
+    source_ip: IPAddress                # DDL: INET / VARCHAR(45)
+    label: str                          # 裸类型 -> suggest_data_types()[str]
+
+e = Event(occurred_at=datetime(2026, 1, 1, 8, 0), source_ip=IPAddress.parse("192.0.2.1"), label="x")
+assert e.occurred_at.tzinfo is timezone.utc   # 无时区输入归一化为 UTC
+assert str(e.source_ip) == "192.0.2.1"
+```
+
+两张建议表的承诺范围不同：`suggest_data_types()` 的键是这些框架承诺类型（core 钉死键，后端给值）；`suggest_extra_data_types()` 的键是各后端自有的值类（如 PostgreSQL 的 `PostgresMacaddr`），不在跨后端承诺范围内。同一值语义可能以不同键出现在两表（`MacAddress` 为框架类型、`PostgresMacaddr` 为后端类型），但只有前者在每个后端都被承诺。`test_data_type_suggestion_contract.py` 强制两者互斥且覆盖全部框架键。
+
 
 ### 与模型字段的集成
 

@@ -173,13 +173,55 @@ The formatters are the declaration of support: a dialect implements `format_data
 
 The suggestion protocols live in `rhosocial.activerecord.backend.suggestion.protocols`, and their return values are frozen dataclasses in `rhosocial.activerecord.backend.suggestion.definitions`. `DataTypeSuggestionSupport.suggest_substitute_types()` is the counterpart for **cross-backend type consistency**: for generic types the dialect does **not** natively support, it suggests replacement classes, returned as `SubstituteTypeSuggestion(mapping={...})`. Its sibling `suggest_substitute_advice(name)` returns a `SubstituteAdviceSuggestion(advice=...)` carrying any caveat for the substitution (empty when lossless).
 
-Do not confuse it with `suggest_data_types()`, which returns `DataTypeSuggestion(table=...)` mapping the 24 Python types in
+Do not confuse it with `suggest_data_types()`, which returns `DataTypeSuggestion(table=...)` mapping the 26 Python types in
 `FRAMEWORK_PYTHON_TYPES` to `DataType` instances used as the default DDL declaration for bare fields.
 
 - Keys use the same generic-name namespace (`"uuid"`, `"enum"`, ...) and are **disjoint** from the names the dialect renders — a type the dialect renders needs no substitute
 - Values are concrete `DataType` classes (e.g. SQLite suggests `uuid`/`enum` → `SQLiteTextType`, `binary`/`varbinary` → `SQLiteBlobType`)
 - These are suggestions only — how (and whether) the user layer adopts them is up to ActiveRecord/application code
 - An empty mapping by default; the honesty principle applies here too: never fake a suggestion
+
+### Framework-Committed Types (FRAMEWORK_PYTHON_TYPES)
+
+`FRAMEWORK_PYTHON_TYPES` is the closed set of Python types the framework promises a declaration for: every
+backend's `suggest_data_types()` and `suggest_column_types()` tables must answer every key. It has 26 members —
+18 built-in/stdlib types plus 8 framework value classes (`Geometry`, `Vector`, `BitString`, `Range`,
+`Multirange`, `MacAddress`, `IPAddress` and the datetime marker `AwareDatetime`). Two members deserve a note:
+
+- **`AwareDatetime`** (`rhosocial.activerecord.backend.adapters.temporal`) is a `datetime.datetime` subclass for
+  fields that store an **instant** rather than a wall-clock reading. A bare `datetime` cannot encode awareness
+  (`tzinfo` is an instance attribute, not a type), so its suggestion is a naive timestamp. Annotate a field with
+  `AwareDatetime` to opt into a timezone-aware declaration (`TIMESTAMPTZ` on PostgreSQL, `DATETIMEOFFSET` on SQL
+  Server, etc.); Pydantic validation attaches UTC to naive values while preserving an incoming offset. On a
+  backend with no timezone type (e.g. ClickHouse) the suggestion honestly degrades to the renderable naive
+  declaration — the value is then kept in UTC by the application.
+- **`IPAddress`** (`rhosocial.activerecord.backend.adapters.network`) is a frozen wrapper around the stdlib
+  `ipaddress` object, covering both IPv4 and IPv6. It is stored as the backend's native network type where one
+  exists (PostgreSQL `INET`), otherwise as canonical text (`VARCHAR(45)` / `String`).
+  Like the other frozen value classes (e.g. `MacAddress`), construct it with `IPAddress.parse(...)` —
+  the adapter handles the str↔IPAddress conversion at the database boundary.
+
+```python
+from datetime import datetime, timezone
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.backend.adapters import AwareDatetime, IPAddress
+
+class Event(ActiveRecord):
+    occurred_at: AwareDatetime          # DDL: TIMESTAMPTZ (an instant)
+    source_ip: IPAddress                # DDL: INET / VARCHAR(45)
+    label: str                          # bare -> suggest_data_types()[str]
+
+e = Event(occurred_at=datetime(2026, 1, 1, 8, 0), source_ip=IPAddress.parse("192.0.2.1"), label="x")
+assert e.occurred_at.tzinfo is timezone.utc   # naive input normalized to UTC
+assert str(e.source_ip) == "192.0.2.1"
+```
+
+The two suggestion tables have different promises: `suggest_data_types()` is keyed by these framework-committed
+types (core pins the keys, backends answer them); `suggest_extra_data_types()` is keyed by each backend's *own*
+value classes (e.g. PostgreSQL's `PostgresMacaddr`), which are outside the cross-backend promise. A value class
+may appear in both tables under different keys — `MacAddress` as a framework type and `PostgresMacaddr` as a
+backend type — but only the former is guaranteed on every backend. `test_data_type_suggestion_contract.py`
+enforces the disjointness and the "every framework key is answered" rule.
 
 ### Integration with Model Fields
 
