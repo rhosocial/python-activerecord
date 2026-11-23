@@ -72,7 +72,7 @@ def get_type_mappings():
         Point,
         Polygon,
     )
-    from rhosocial.activerecord.backend.adapters.network import MacAddress
+    from rhosocial.activerecord.backend.adapters.network import IPAddress, MacAddress
     from rhosocial.activerecord.backend.adapters.range import Multirange, Range
     from rhosocial.activerecord.backend.adapters.vector import Vector
 
@@ -91,6 +91,7 @@ def get_type_mappings():
         (Range, str),
         (Multirange, str),
         (MacAddress, str),
+        (IPAddress, str),
     ]
 
 
