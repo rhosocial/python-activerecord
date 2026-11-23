@@ -105,7 +105,13 @@ Output includes:
 - SQLite version number
 - Extension support (FTS5, JSON1, R-Tree, etc.)
 - Pragma system category counts
-- Protocol implementation status
+- Capability support matrix (grouped protocols, each with supported/total/percentage and an origin of `reuse`, `override`, or `proprietary`)
+- Suggestion support (the `*SuggestionSupport` protocols the dialect implements)
+- Server variables (SQLite reports none via `info`; live PRAGMA values are in the `status` command)
+
+`info` uses an in-memory database and needs no connection. Use `-o json` for the full structured report and `-v` / `-vv` for method-level detail. The JSON output has `database`, `server`, `features`, `capabilities`, `suggestions`, and a `protocols` compatibility alias of `capabilities`.
+
+A capability's `origin` answers "who implemented it": `reuse` (inherited unchanged from core), `override` (core defines it but the backend replaces it), `proprietary` (backend-only capability). `not-supported` means the dialect does not implement that protocol.
 
 ### query
 

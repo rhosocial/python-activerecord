@@ -104,11 +104,35 @@ These commands are implemented by the {backend} backend and interact directly wi
 
 ### info
 
-Display environment information without requiring a database connection:
+Display environment information. A connection is optional: without one the
+capability and suggestion reports are still computed from the constructed
+dialect, while the live server version and variables are omitted.
 
 ```bash
 rhosocial-activerecord-{backend} info
+rhosocial-activerecord-{backend} info -o json     # full structured report
+rhosocial-activerecord-{backend} info -v          # per-protocol detail
+rhosocial-activerecord-{backend} info -vv         # per-method detail
 ```
+
+The `--output json` report has these sections:
+
+| Section | Content |
+|---------|---------|
+| `database` | Backend type, version, `version_tuple`, `connected` |
+| `server` | `version`, `variables`, their `source`, `connected`. Variables come from the backend's existing status introspector (e.g. `SHOW VARIABLES`, `pg_settings`, `sys.configurations`, `V$PARAMETER`, PRAGMA); a backend with no such facility reports an empty `variables` map with a note. |
+| `features` | Backend-specific extras (extensions, pragmas, …) |
+| `capabilities` | Capability support matrix, grouped by protocol family. Each protocol has `supported`, `total`, `percentage`, and an `origin` |
+| `suggestions` | The `*SuggestionSupport` protocols the dialect implements |
+| `protocols` | Compatibility alias of `capabilities` (kept for one release cycle) |
+
+A capability's `origin` answers "who implemented it": `reuse` (inherited
+unchanged from core), `override` (core defines it but the backend replaces it),
+`proprietary` (backend-only capability). `not-supported` means the dialect does
+not implement that protocol. The rich (default table) display shows each
+protocol's origin in brackets and a "Suggestion Support" block.
+
+Each backend documents its own server-variable source in its CLI README.
 
 ### query
 

@@ -105,7 +105,13 @@ rhosocial-activerecord-sqlite info
 - SQLite 版本号
 - 扩展支持（FTS5、JSON1、R-Tree 等）
 - Pragma 系统类别计数
-- 协议实现状态
+- 能力支持矩阵（按协议分组，每项含 supported/total/percentage 及 origin：`reuse`、`override`、`proprietary`）
+- 建议支持（方言实现的 `*SuggestionSupport` 协议）
+- 服务器变量（SQLite 的 `info` 不报告；实时 PRAGMA 值见 `status` 命令）
+
+`info` 使用内存数据库，无需连接。`-o json` 输出完整结构化报告，`-v` / `-vv` 显示方法级细节。JSON 含 `database`、`server`、`features`、`capabilities`、`suggestions`，以及 `capabilities` 的兼容别名 `protocols`。
+
+能力的 `origin` 表示"由谁实现"：`reuse`（原样继承 core）、`override`（core 定义但后端覆写）、`proprietary`（后端专有能力）。`not-supported` 表示方言未实现该协议。
 
 ### query
 
