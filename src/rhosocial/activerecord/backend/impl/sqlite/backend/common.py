@@ -17,6 +17,7 @@ from ..adapters import (
     SQLiteBitStringAdapter,
     SQLiteBlobAdapter,
     SQLiteGeometryAdapter,
+    SQLiteIPAddressAdapter,
     SQLiteJSONAdapter,
     SQLiteMacAddressAdapter,
     SQLiteRangeAdapter,
@@ -110,6 +111,7 @@ class SQLiteBackendMixin:
             SQLiteBitStringAdapter(),
             SQLiteRangeAdapter(),
             SQLiteMacAddressAdapter(),
+            SQLiteIPAddressAdapter(),
         ]
         for adapter in sqlite_adapters:
             for py_type, db_types in adapter.supported_types.items():

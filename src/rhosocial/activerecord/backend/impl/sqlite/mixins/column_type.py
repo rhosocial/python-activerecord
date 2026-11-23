@@ -62,7 +62,7 @@ The evidence, per entry group (all measured on SQLite 3.50.4)
   length, element access via ``$[n]``, containment via ``json_each`` all work.
   ``ArrayColumn`` here would offer ``array_length()`` / ``unnest()`` as if a
   native array existed.
-* **Geometry / Vector / BitString / Range / Multirange / MacAddress** -> their
+* **Geometry / Vector / BitString / Range / Multirange / MacAddress / IPAddress** -> their
   core column classes. SQLite has no spatial, vector, range or bit operation,
   but those classes promise none: they carry only alias, null tests, casting
   and collation, which SQLite does execute on a value it stores as text or
@@ -88,8 +88,10 @@ import uuid
 from typing import Any, Dict, Optional, Type
 
 from rhosocial.activerecord.backend.adapters import (
+    AwareDatetime,
     BitString,
     Geometry,
+    IPAddress,
     MacAddress,
     Multirange,
     Range,
@@ -103,6 +105,7 @@ from rhosocial.activerecord.backend.expression.column_types import (
     GeometryColumn,
     IntegerColumn,
     IntervalColumn,
+    IPAddressColumn,
     JSONColumn,
     MacAddressColumn,
     MultirangeColumn,
@@ -135,6 +138,7 @@ SQLITE_COLUMN_TYPES: Dict[Any, Optional[Type[ColumnBase]]] = {
     bytearray: BinaryColumn,
     datetime.date: TimestampColumn,
     datetime.time: TimestampColumn,
+    AwareDatetime: TimestampColumn,
     datetime.datetime: TimestampColumn,
     # A duration is a duration even when the storage is a number of units: the
     # class names the value, and ``IntervalColumn`` promises no arithmetic.
@@ -155,6 +159,7 @@ SQLITE_COLUMN_TYPES: Dict[Any, Optional[Type[ColumnBase]]] = {
     Range: RangeColumn,
     Multirange: MultirangeColumn,
     MacAddress: MacAddressColumn,
+    IPAddress: IPAddressColumn,
 }
 
 

@@ -28,6 +28,7 @@ Adapters provided:
 - :class:`SQLiteBitStringAdapter` -- neutral bit string vs a ``0``/``1`` text.
 - :class:`SQLiteRangeAdapter` -- neutral ``Range``/``Multirange`` vs TEXT JSON.
 - :class:`SQLiteMacAddressAdapter` -- neutral ``MacAddress`` vs canonical text.
+- :class:`SQLiteIPAddressAdapter` -- neutral ``IPAddress`` vs canonical text.
 
 The neutral family adapters derive from the bases in
 ``rhosocial.activerecord.backend.adapters``; they only add a concrete SQLite
@@ -40,7 +41,7 @@ from .binary import SQLiteBlobAdapter
 from .bitstring import SQLiteBitStringAdapter
 from .document import SQLiteJSONAdapter
 from .identifiers import SQLiteUUIDAdapter
-from .network import SQLiteMacAddressAdapter
+from .network import SQLiteIPAddressAdapter, SQLiteMacAddressAdapter
 from .range import SQLiteRangeAdapter
 from .spatial import SQLiteGeometryAdapter
 from .vector import SQLiteVectorAdapter
@@ -49,6 +50,7 @@ __all__ = [
     "SQLiteBitStringAdapter",
     "SQLiteBlobAdapter",
     "SQLiteGeometryAdapter",
+    "SQLiteIPAddressAdapter",
     "SQLiteJSONAdapter",
     "SQLiteMacAddressAdapter",
     "SQLiteRangeAdapter",

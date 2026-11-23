@@ -36,8 +36,10 @@ import uuid
 from typing import Any, Dict, Optional
 
 from rhosocial.activerecord.backend.adapters import (
+    AwareDatetime,
     BitString,
     Geometry,
+    IPAddress,
     MacAddress,
     Multirange,
     Range,
@@ -55,6 +57,7 @@ from rhosocial.activerecord.backend.expression.types import (
     TextType,
     TimeType,
     TimestampType,
+    TimestampTzType,
     VarCharType,
 )
 from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteTextType
@@ -70,6 +73,9 @@ SQLITE_DATA_TYPE_SUGGESTIONS: Dict[Any, Optional[Any]] = {
     bytearray: BlobType(),
     datetime.date: DateType(),
     datetime.time: TimeType(),
+    # An instant: SQLite's formatter spells this TIMESTAMP WITH TIME ZONE even
+    # though the affinity is numeric -- the declaration carries the semantics.
+    AwareDatetime: TimestampTzType(precision=3),
     # Milliseconds, the framework's timestamp default: SQLite stores the value
     # as NUMERIC either way, so declaring precision costs nothing here and
     # keeps the declaration identical across backends.
@@ -91,6 +97,7 @@ SQLITE_DATA_TYPE_SUGGESTIONS: Dict[Any, Optional[Any]] = {
     Range: TextType(),
     Multirange: TextType(),
     MacAddress: TextType(),
+    IPAddress: TextType(),
 }
 
 

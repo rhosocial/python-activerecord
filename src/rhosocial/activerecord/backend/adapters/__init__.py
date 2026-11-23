@@ -15,8 +15,9 @@ from .geometry import (
     Polygon,
 )
 from .json_codec import AdapterJSONCodec
-from .network import MacAddress, MacAddressAdapterBase
+from .network import IPAddress, IPAddressAdapterBase, MacAddress, MacAddressAdapterBase
 from .range import Multirange, Range, RangeAdapterBase
+from .temporal import AwareDatetime, UtcDatetime
 from .vector import Vector, VectorAdapterBase
 
 __all__ = [
@@ -25,7 +26,10 @@ __all__ = [
     "BitStringAdapterBase",
     "Geometry",
     "GeometryAdapterBase",
+    "AwareDatetime",
     "GeometryCollection",
+    "IPAddress",
+    "IPAddressAdapterBase",
     "LineString",
     "MacAddress",
     "MacAddressAdapterBase",
@@ -37,6 +41,7 @@ __all__ = [
     "Polygon",
     "Range",
     "RangeAdapterBase",
+    "UtcDatetime",
     "Vector",
     "VectorAdapterBase",
 ]

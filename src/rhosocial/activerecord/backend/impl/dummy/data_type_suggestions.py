@@ -27,8 +27,10 @@ import uuid
 from typing import Any, Dict, Optional
 
 from rhosocial.activerecord.backend.adapters import (
+    AwareDatetime,
     BitString,
     Geometry,
+    IPAddress,
     MacAddress,
     Multirange,
     Range,
@@ -46,6 +48,7 @@ from rhosocial.activerecord.backend.expression.types import (
     TextType,
     TimeType,
     TimestampType,
+    TimestampTzType,
     UUIDType,
     VarCharType,
 )
@@ -61,6 +64,7 @@ DUMMY_DATA_TYPE_SUGGESTIONS: Dict[Any, Optional[Any]] = {
     bytearray: BlobType(),
     datetime.date: DateType(),
     datetime.time: TimeType(),
+    AwareDatetime: TimestampTzType(precision=3),
     datetime.datetime: TimestampType(precision=3),
     datetime.timedelta: IntervalType(),
     uuid.UUID: UUIDType(),
@@ -80,6 +84,7 @@ DUMMY_DATA_TYPE_SUGGESTIONS: Dict[Any, Optional[Any]] = {
     Range: JsonType(),
     Multirange: JsonType(),
     MacAddress: VarCharType(length=17),
+    IPAddress: VarCharType(length=45),
 }
 
 

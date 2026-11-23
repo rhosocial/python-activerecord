@@ -436,6 +436,7 @@ from .column_types import (
     RangeColumn,
     MultirangeColumn,
     MacAddressColumn,
+    IPAddressColumn,
     IntervalColumn,
 )
 from .operators import (
@@ -534,6 +535,7 @@ __all__ = [
     "RangeColumn",
     "MultirangeColumn",
     "MacAddressColumn",
+    "IPAddressColumn",
     "IntervalColumn",
     "FunctionCall",
     "Subquery",

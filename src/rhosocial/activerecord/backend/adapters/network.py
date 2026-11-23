@@ -1,11 +1,15 @@
 # src/rhosocial/activerecord/backend/adapters/network.py
-"""Neutral MAC address type and its adapter base.
+"""Neutral network address types and their adapter bases.
 
-This module provides a driver-independent representation of a MAC address
-(48-bit EUI-48 or 64-bit EUI-64) plus a base adapter that backend adapters
-derive from. It depends only on the standard library.
+This module provides driver-independent representations of a MAC address
+(48-bit EUI-48 or 64-bit EUI-64) and of an IP address (IPv4 or IPv6), plus base
+adapters that backend adapters derive from. It depends only on the standard
+library: :class:`IPAddress` carries a standard-library ``ipaddress`` object so
+parsing, validation and compression are the stdlib's, not a second
+implementation.
 """
 
+import ipaddress
 from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Type, Union
@@ -194,4 +198,146 @@ class MacAddressAdapterBase(BaseSQLTypeAdapter):
     @abstractmethod
     def _decode(self, value: Any, options: Optional[Dict[str, Any]]) -> MacAddress:
         """Decode a backend/driver value into a neutral MAC address."""
+        raise NotImplementedError
+
+
+_IP_ADDRESS_TYPES = (ipaddress.IPv4Address, ipaddress.IPv6Address)
+
+
+@dataclass(frozen=True)
+class IPAddress:
+    """A driver-independent IPv4 or IPv6 address.
+
+    ``value`` holds a standard-library ``ipaddress.IPv4Address`` or
+    ``IPv6Address``. The wrapper is a distinct framework type so it can be a
+    key in the suggestion tables (the stdlib classes are *backend-neutral*
+    value classes, not framework-committed types).
+    """
+
+    value: Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.value, _IP_ADDRESS_TYPES):
+            raise TypeError(
+                "value must be ipaddress.IPv4Address or IPv6Address, "
+                f"got {type(self.value).__name__}"
+            )
+
+    @property
+    def version(self) -> int:
+        """4 for IPv4, 6 for IPv6."""
+        return self.value.version
+
+    @classmethod
+    def parse(cls, value: Union[str, bytes, int, "IPAddress", Any]) -> "IPAddress":
+        """Parse text, packed bytes, an integer, or a stdlib address object.
+
+        ``str`` is parsed by ``ipaddress.ip_address``; ``bytes`` of length 4 or
+        16 is unpacked; an ``int`` is interpreted by ``ipaddress.ip_address``;
+        a stdlib address (or an existing :class:`IPAddress`) is passed through.
+        """
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, _IP_ADDRESS_TYPES):
+            return cls(value)
+        if isinstance(value, bool):
+            raise TypeError("IP address cannot be parsed from bool")
+        if isinstance(value, bytes):
+            value = ipaddress.ip_address(value)
+        elif isinstance(value, str):
+            value = ipaddress.ip_address(value.strip())
+        elif isinstance(value, int):
+            value = ipaddress.ip_address(value)
+        if isinstance(value, _IP_ADDRESS_TYPES):
+            return cls(value)
+        raise TypeError(
+            "IP address must be parsed from str, bytes, int, or an ipaddress "
+            f"object, got {type(value).__name__}"
+        )
+
+    def __str__(self) -> str:
+        """Return the canonical compressed text form."""
+        return str(self.value)
+
+    def to_json_value(self) -> str:
+        """Return the canonical string used for JSON serialization."""
+        return str(self)
+
+    @classmethod
+    def from_json_value(cls, value: str) -> "IPAddress":
+        """Rebuild an :class:`IPAddress` from its canonical JSON string."""
+        if not isinstance(value, str):
+            raise TypeError("IP address JSON value must be str, " f"got {type(value).__name__}")
+        return cls.parse(value)
+
+
+class IPAddressAdapterBase(BaseSQLTypeAdapter):
+    """Base adapter for backends exposing IP addresses.
+
+    Backends derive from this class and implement :meth:`_encode` and
+    :meth:`_decode`. Conversion failures from those hooks are wrapped in
+    :class:`TypeConversionError` by the base class.
+    """
+
+    neutral_type = IPAddress
+
+    def _do_to_database(
+        self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]
+    ) -> Any:
+        ip_addr = self._coerce_ip(value)
+        try:
+            return self._encode(ip_addr, target_type, options)
+        except TypeConversionError:
+            raise
+        except (TypeError, ValueError, OverflowError) as exc:
+            self._conversion_error(value, str(exc), target=target_type)
+
+    def _do_from_database(
+        self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]
+    ) -> Any:
+        try:
+            ip_addr = self._decode(value, options)
+        except TypeConversionError:
+            raise
+        except (TypeError, ValueError, OverflowError) as exc:
+            self._conversion_error(value, str(exc))
+
+        if not isinstance(ip_addr, IPAddress):
+            self._conversion_error(
+                value,
+                "decoder must return IPAddress, " f"got {type(ip_addr).__name__}",
+            )
+        return ip_addr
+
+    def _coerce_ip(self, value: Any) -> IPAddress:
+        """Convert a supported Python value into an :class:`IPAddress`."""
+        if isinstance(value, IPAddress):
+            return value
+        if isinstance(value, bool):
+            self._conversion_error(value, "bool is not a valid IP address input")
+        if isinstance(value, (str, bytes, bytearray, int)) or isinstance(
+            value, _IP_ADDRESS_TYPES
+        ):
+            try:
+                return IPAddress.parse(value)
+            except (TypeError, ValueError) as exc:
+                self._conversion_error(value, str(exc))
+        self._conversion_error(
+            value,
+            "expected IPAddress, str, bytes, int, or an ipaddress object",
+        )
+
+    @abstractmethod
+    def _encode(
+        self,
+        ip_addr: IPAddress,
+        target_type: Type,
+        options: Optional[Dict[str, Any]],
+    ) -> Any:
+        """Encode a neutral IP address into the backend/driver value."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def _decode(self, value: Any, options: Optional[Dict[str, Any]]) -> IPAddress:
+        """Decode a backend/driver value into a neutral IP address."""
         raise NotImplementedError

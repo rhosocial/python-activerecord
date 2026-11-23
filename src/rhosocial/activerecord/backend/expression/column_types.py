@@ -436,6 +436,20 @@ class MacAddressColumn(ColumnBase):
         return "format_column"
 
 
+class IPAddressColumn(ColumnBase):
+    """A column holding an IP address (IPv4 or IPv6): alias, null tests, casting.
+
+    The native type is PostgreSQL's ``inet`` or ClickHouse's ``IPv4``/``IPv6``;
+    elsewhere an address is stored as text with no shared function surface, so
+    there is nothing portable to promise beyond the column surface itself.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column"
+
+
 class IntervalColumn(ColumnBase):
     """A column holding a duration: alias, null tests, casting.
 
@@ -570,6 +584,7 @@ __all__ = [
     "RangeColumn",
     "MultirangeColumn",
     "MacAddressColumn",
+    "IPAddressColumn",
     "IntervalColumn",
     "annotation_for",
 ]
