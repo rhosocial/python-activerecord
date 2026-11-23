@@ -42,6 +42,13 @@ class BaseConfig:
     def to_dict(self) -> Dict[str, Any]:
         """Convert configuration to dictionary, excluding None values.
 
+        The ``options`` mapping is kept **nested** under its own key rather than
+        flattened into top-level entries. A bare field whose name collides with
+        an option key (e.g. ``timezone``) must not be silently replaced during a
+        ``to_dict()`` -> ``clone()`` round trip; nesting makes the round trip
+        lossless. Backend ``to_dict()`` overrides that add their own top-level
+        keys are unaffected.
+
         Warning:
             The returned dict includes the ``password`` field in plaintext.
             Avoid logging or serializing this dict to insecure destinations.
@@ -51,9 +58,9 @@ class BaseConfig:
             if value is not None and key not in ("options",):
                 result[key] = value
 
-        # Include non-empty options
+        # Include non-empty options as a nested mapping (not flattened).
         if self.options:
-            result.update(self.options)
+            result["options"] = dict(self.options)
 
         return result
 
