@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import Any, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.bases import BaseExpression
     from ...introspection.types import IntrospectionScope
 
 
@@ -25,10 +24,23 @@ class IndexStatementSuggestion:
 
 
 @dataclass(frozen=True)
-class TableStatementSuggestion:
-    """Preferred CREATE/DROP TABLE statement form (None = generic)."""
+class CreateTableLayoutSuggestion:
+    """How a backend declares a partitioned/plain table at CREATE time.
 
-    statement: Optional[Any]
+    ``strategy`` is ``"single"`` when the backend can inline all definitions
+    (indexes, comments) into one CREATE TABLE statement, or ``"split"`` when
+    those must be emitted as separate statements (CreateIndex / CommentOn).
+    ``inline_index`` / ``inline_comment`` report the individual capabilities.
+    ``state`` is one of ``"actions"`` (use the flags), ``"unsupported"`` (this
+    backend cannot render a table of this shape), ``"no-action"`` or
+    ``"no-protocol"`` — kept distinct so a caller can report an unsupported
+    layout instead of silently skipping it.
+    """
+
+    strategy: str = "split"
+    inline_index: bool = False
+    inline_comment: bool = False
+    state: str = "actions"
 
 
 @dataclass(frozen=True)
@@ -62,7 +74,7 @@ class ConcatenationFunctionSuggestion:
 __all__ = [
     "IndexTypeSuggestion",
     "IndexStatementSuggestion",
-    "TableStatementSuggestion",
+    "CreateTableLayoutSuggestion",
     "IntrospectionScopeSuggestion",
     "JSONAccessOperatorSuggestion",
     "UpsertSyntaxSuggestion",

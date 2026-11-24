@@ -14,7 +14,7 @@ from .integer_auto_increment_column_suggestion import IntegerAutoIncrementColumn
 from .introspection_suggestion import IntrospectionSuggestionSupport
 from .json_suggestion import JSONSuggestionSupport
 from .string_concatenation_suggestion import StringConcatenationSuggestionSupport
-from .table_suggestion import TableSuggestionSupport
+from .create_table_layout_suggestion import CreateTableLayoutSuggestionSupport
 from .upsert_suggestion import UpsertSuggestionSupport
 from .partition_add_suggestion import PartitionAddSuggestionSupport
 from .partition_build_suggestion import PartitionBuildSuggestionSupport
@@ -34,7 +34,7 @@ __all__ = [
     "IntrospectionSuggestionSupport",
     "JSONSuggestionSupport",
     "StringConcatenationSuggestionSupport",
-    "TableSuggestionSupport",
+    "CreateTableLayoutSuggestionSupport",
     "UpsertSuggestionSupport",
     "PartitionAddSuggestionSupport",
     "PartitionBuildSuggestionSupport",

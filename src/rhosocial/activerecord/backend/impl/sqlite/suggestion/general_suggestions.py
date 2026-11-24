@@ -1,21 +1,30 @@
 # src/rhosocial/activerecord/backend/impl/sqlite/suggestion/general_suggestions.py
 """SQLite's non-type production suggestions."""
-from rhosocial.activerecord.backend.suggestion.definitions import ConcatenationFunctionSuggestion, IntrospectionScopeSuggestion, JSONAccessOperatorSuggestion, TableStatementSuggestion, UpsertSyntaxSuggestion
+from rhosocial.activerecord.backend.suggestion.definitions import (
+    ConcatenationFunctionSuggestion,
+    CreateTableLayoutSuggestion,
+    IntrospectionScopeSuggestion,
+    JSONAccessOperatorSuggestion,
+    UpsertSyntaxSuggestion,
+)
 
 from typing import List, Optional
 
 from rhosocial.activerecord.backend.suggestion.protocols import (
+    CreateTableLayoutSuggestionSupport,
     IntrospectionSuggestionSupport,
     JSONSuggestionSupport,
     StringConcatenationSuggestionSupport,
-    TableSuggestionSupport,
     UpsertSuggestionSupport,
 )
 
 
-class SQLiteTableSuggestionMixin(TableSuggestionSupport):
-    def suggest_create_table_statement(self): return TableStatementSuggestion(statement=None)
-    def suggest_drop_table_statement(self): return TableStatementSuggestion(statement=None)
+class SQLiteCreateTableLayoutSuggestionMixin(CreateTableLayoutSuggestionSupport):
+    def suggest_create_table_layout(self):
+        # SQLite renders neither inline indexes nor inline comments in CREATE TABLE.
+        return CreateTableLayoutSuggestion(
+            strategy="split", inline_index=False, inline_comment=False, state="actions"
+        )
 
 
 class SQLiteJSONSuggestionMixin(JSONSuggestionSupport):

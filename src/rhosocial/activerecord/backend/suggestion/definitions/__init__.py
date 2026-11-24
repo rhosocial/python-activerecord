@@ -19,7 +19,7 @@ from .general import (
     IndexTypeSuggestion,
     IntrospectionScopeSuggestion,
     JSONAccessOperatorSuggestion,
-    TableStatementSuggestion,
+    CreateTableLayoutSuggestion,
     UpsertSyntaxSuggestion,
 )
 from .integer_auto_increment import IntegerAutoIncrementColumnSuggestion
@@ -49,7 +49,7 @@ __all__ = [
     "IndexTypeSuggestion",
     "IntrospectionScopeSuggestion",
     "JSONAccessOperatorSuggestion",
-    "TableStatementSuggestion",
+    "CreateTableLayoutSuggestion",
     "UpsertSyntaxSuggestion",
     "IntegerAutoIncrementColumnSuggestion",
     "PartitionAddSuggestion",

@@ -1,20 +1,28 @@
 # src/rhosocial/activerecord/backend/impl/dummy/general_suggestions.py
 """Dummy dialect's non-type production suggestions."""
-from rhosocial.activerecord.backend.suggestion.definitions import ConcatenationFunctionSuggestion, JSONAccessOperatorSuggestion, TableStatementSuggestion, UpsertSyntaxSuggestion
+from rhosocial.activerecord.backend.suggestion.definitions import (
+    ConcatenationFunctionSuggestion,
+    CreateTableLayoutSuggestion,
+    JSONAccessOperatorSuggestion,
+    UpsertSyntaxSuggestion,
+)
 
 from typing import List, Optional
 
 from rhosocial.activerecord.backend.suggestion.protocols import (
+    CreateTableLayoutSuggestionSupport,
     JSONSuggestionSupport,
     StringConcatenationSuggestionSupport,
-    TableSuggestionSupport,
     UpsertSuggestionSupport,
 )
 
 
-class DummyTableSuggestionMixin(TableSuggestionSupport):
-    def suggest_create_table_statement(self): return TableStatementSuggestion(statement=None)
-    def suggest_drop_table_statement(self): return TableStatementSuggestion(statement=None)
+class DummyCreateTableLayoutSuggestionMixin(CreateTableLayoutSuggestionSupport):
+    def suggest_create_table_layout(self):
+        # The dummy dialect renders neither inline indexes nor inline comments.
+        return CreateTableLayoutSuggestion(
+            strategy="split", inline_index=False, inline_comment=False, state="actions"
+        )
 
 
 class DummyJSONSuggestionMixin(JSONSuggestionSupport):

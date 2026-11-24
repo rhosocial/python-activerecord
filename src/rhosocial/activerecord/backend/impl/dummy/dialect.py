@@ -243,14 +243,13 @@ from rhosocial.activerecord.backend.suggestion.protocols import (
     PartitionTableAlterSuggestionSupport,
     PartitionTableDropSuggestionSupport,
     StringConcatenationSuggestionSupport,
-    TableSuggestionSupport,
     UpsertSuggestionSupport,
 )
 from .column_type import DummyColumnTypeMixin
 from .data_type_suggestions import DummyDataTypeSuggestionsMixin
 from .index_suggestion import DummyIndexSuggestionMixin
-from .general_suggestions import (DummyJSONSuggestionMixin, DummyStringConcatenationSuggestionMixin,
-    DummyTableSuggestionMixin, DummyUpsertSuggestionMixin)
+from .general_suggestions import (DummyCreateTableLayoutSuggestionMixin, DummyJSONSuggestionMixin,
+    DummyStringConcatenationSuggestionMixin, DummyUpsertSuggestionMixin)
 from .expression import _DummyTypeAlterAction, _DummyTypeDefinition
 from rhosocial.activerecord.backend.expression.statements.ddl_type import (
     TypeAlterAction,
@@ -404,8 +403,8 @@ class DummyDialect(
     # Suggested data types: the DDL half of the same answer, installed ahead of
     # the mixin that withholds the table.
     DummyDataTypeSuggestionsMixin,
+    DummyCreateTableLayoutSuggestionMixin,
     DummyIndexSuggestionMixin,
-    DummyTableSuggestionMixin,
     DummyJSONSuggestionMixin,
     DummyUpsertSuggestionMixin,
     DummyStringConcatenationSuggestionMixin,

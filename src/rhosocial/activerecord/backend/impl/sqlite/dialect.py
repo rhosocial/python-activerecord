@@ -70,7 +70,6 @@ from rhosocial.activerecord.backend.suggestion.protocols import (
     IntrospectionSuggestionSupport,
     JSONSuggestionSupport,
     StringConcatenationSuggestionSupport,
-    TableSuggestionSupport,
     UpsertSuggestionSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
@@ -213,16 +212,16 @@ from .mixins import (
 )
 from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression
 from .suggestion.general_suggestions import (
+    SQLiteCreateTableLayoutSuggestionMixin,
     SQLiteIntrospectionSuggestionMixin,
     SQLiteJSONSuggestionMixin,
     SQLiteStringConcatenationSuggestionMixin,
-    SQLiteTableSuggestionMixin,
     SQLiteUpsertSuggestionMixin,
 )
 
 class SQLiteDialect(
     SQLiteDataTypeSuggestionsMixin,
-    SQLiteTableSuggestionMixin,
+    SQLiteCreateTableLayoutSuggestionMixin,
     SQLiteJSONSuggestionMixin,
     SQLiteUpsertSuggestionMixin,
     SQLiteIntrospectionSuggestionMixin,

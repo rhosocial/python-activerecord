@@ -43,7 +43,9 @@ from .ddl import DDLSource, IdentityAttribute
 from .fields import UseFieldGenerator, UseSqlType
 
 __all__ = [
+    "build_column_definitions",
     "build_create_table_statement",
+    "build_create_table_statements",
     "build_drop_table_statement",
     "build_create_index_statements",
     "build_drop_index_statements",
@@ -51,27 +53,19 @@ __all__ = [
 ]
 
 
-def build_create_table_statement(
+def build_column_definitions(
     source: DDLSource,
     dialect: Any,
     *,
     column_order: Optional[Sequence[str]] = None,
-    include_indexes: bool = False,
     include_comments: bool = False,
-) -> CreateTableStatement:
-    """Build a CREATE TABLE statement from *source*.
+) -> Tuple[ColumnDefinition, ...]:
+    """Build the column-definition clauses for *source* (the "sub-clause" step).
 
-    A field with no SQL declaration of its own takes the dialect's **suggested**
-    storage declaration (``suggest_data_types``), which is a default and
-    never overrides a declaration. A single-column integer primary key the
-    model says the database generates gets an identity declaration, so the DDL
-    agrees with the write path (``required_pk_fields`` asks the caller for
-    nothing there).
-
-    ``column_order`` names database columns; it must cover every column
-    exactly once (an incomplete list would silently append the rest).
-    ``include_indexes`` / ``include_comments`` are explicit policy choices:
-    this function never consults dialect capabilities to decide them.
+    Each field resolves its storage type (declared first, dialect suggestion as
+    a default), consumes the integer-auto-increment suggestion for a generated
+    integer key, and carries its constraints/attributes/comment/generated
+    expression. This is the reusable half of :func:`build_create_table_statement`.
     """
     fields = _ordered_fields(source, column_order)
     columns: List[ColumnDefinition] = []
@@ -91,10 +85,6 @@ def build_create_table_statement(
         generated_expression = (
             generated(dialect) if generated is not None else None
         )
-        # A database-generated integer key is the one place the backend's
-        # column suggestion is consumed: it supplies both the storage type
-        # and the auto-increment mechanism (an expression node the dialect
-        # renders). The primary key stays an independent constraint.
         identity = _has_identity(source, field, data_type)
         auto_increment = None
         if identity and isinstance(dialect, IntegerAutoIncrementColumnSuggestionSupport):
@@ -122,6 +112,34 @@ def build_create_table_statement(
                 attributes=attributes,
             )
         )
+    return tuple(columns)
+
+
+def build_create_table_statement(
+    source: DDLSource,
+    dialect: Any,
+    *,
+    column_order: Optional[Sequence[str]] = None,
+    include_indexes: bool = False,
+    include_comments: bool = False,
+) -> CreateTableStatement:
+    """Build a CREATE TABLE statement from *source*.
+
+    A field with no SQL declaration of its own takes the dialect's **suggested**
+    storage declaration (``suggest_data_types``), which is a default and
+    never overrides a declaration. A single-column integer primary key the
+    model says the database generates gets an identity declaration, so the DDL
+    agrees with the write path (``required_pk_fields`` asks the caller for
+    nothing there).
+
+    ``column_order`` names database columns; it must cover every column
+    exactly once (an incomplete list would silently append the rest).
+    ``include_indexes`` / ``include_comments`` are explicit policy choices:
+    this function never consults dialect capabilities to decide them.
+    """
+    columns = build_column_definitions(
+        source, dialect, column_order=column_order, include_comments=include_comments
+    )
 
     indexes: List[IndexDefinition] = []
     if include_indexes:
@@ -151,6 +169,56 @@ def build_create_table_statement(
         tablespace=source.table_tablespace(),
         inherits=source.table_inherits(),
     )
+
+
+def build_create_table_statements(
+    source: DDLSource,
+    dialect: Any,
+    *,
+    column_order: Optional[Sequence[str]] = None,
+    prefer_inline: Optional[bool] = None,
+) -> Tuple[Any, ...]:
+    """Build the ordered statements that create a table on *dialect*.
+
+    The layout (one statement with inline indexes/comments, or a CREATE TABLE
+    followed by standalone CREATE INDEX / COMMENT ON statements) comes from the
+    backend's ``CreateTableLayoutSuggestionSupport``. ``prefer_inline`` overrides
+    that decision explicitly: ``True`` inlines, ``False`` splits.
+
+    When the dialect implements no layout protocol, the safe SQL-standard
+    default is split. A suggestion whose ``state`` is "unsupported" raises so
+    the caller gets a clear signal rather than a silently skipped table.
+    """
+    from ..backend.suggestion.protocols import CreateTableLayoutSuggestionSupport
+
+    if prefer_inline is None:
+        if isinstance(dialect, CreateTableLayoutSuggestionSupport):
+            layout = dialect.suggest_create_table_layout()
+            if layout.state == "unsupported":
+                raise ValueError(
+                    f"{type(dialect).__name__} reports no CREATE TABLE layout for "
+                    f"{source.table_name()}"
+                )
+            inline = layout.strategy == "single"
+        else:
+            inline = False  # SQL-standard safe default: split
+    else:
+        inline = prefer_inline
+
+    create = build_create_table_statement(
+        source,
+        dialect,
+        column_order=column_order,
+        include_indexes=inline,
+        include_comments=inline,
+    )
+    if inline:
+        return (create,)
+
+    statements: List[Any] = [create]
+    statements.extend(build_create_index_statements(source, dialect))
+    statements.extend(build_comment_statements(source, dialect))
+    return tuple(statements)
 
 
 def build_drop_table_statement(
