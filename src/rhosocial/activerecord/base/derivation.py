@@ -118,29 +118,35 @@ def build_column_definitions(
         generated_expression = (
             generated(dialect) if generated is not None else None
         )
+        # Distinguish an explicit IdentityAttribute from a framework-inferred
+        # identity (Optional[int] single-column PK). An inferred key degrades to
+        # a plain column when the backend has no mechanism — that is the default
+        # many models and shared fixtures rely on. Only an explicit declaration
+        # that cannot be honoured is an error (decision-graph step 5).
+        declared_identity = _has_declared_identity(source, field)
         identity = _has_identity(source, field, data_type)
         auto_increment = None
         if identity:
+            suggestion = None
             if isinstance(dialect, GeneratedValueSuggestionSupport):
                 suggestion = dialect.suggest_generated_value(data_type)
-            else:
-                # A generated key on a backend with no mechanism: fail loudly
-                # rather than silently emitting a plain column.
+            actionable = suggestion is not None and suggestion.state not in (
+                "unsupported",
+                "no-action",
+            )
+            if actionable:
+                if suggestion.storage_type is not None:
+                    data_type = suggestion.storage_type
+                if suggestion.clause is not None:
+                    auto_increment = suggestion.clause
+            elif declared_identity:
+                state = suggestion.state if suggestion is not None else "no-protocol"
                 raise ValueError(
-                    f"{source.table_name()}.{field} is a database-generated key, "
-                    f"but {type(dialect).__name__} has no generated-value suggestion. "
-                    f"Cancel the auto-increment marker or declare the mechanism explicitly."
+                    f"{source.table_name()}.{field} is explicitly declared as a "
+                    f"database-generated key, but {type(dialect).__name__} reports "
+                    f"'{state}'. Cancel the auto-increment marker or declare the "
+                    f"mechanism explicitly."
                 )
-            if suggestion.state == "unsupported":
-                raise ValueError(
-                    f"{source.table_name()}.{field} needs a database-generated value, "
-                    f"but {type(dialect).__name__} reports no supported mechanism. "
-                    f"Cancel the auto-increment marker or declare the mechanism explicitly."
-                )
-            if suggestion.storage_type is not None:
-                data_type = suggestion.storage_type
-            if suggestion.clause is not None:
-                auto_increment = suggestion.clause
 
         attributes = _translated_column_attributes(source, field, dialect)
         if auto_increment is not None:

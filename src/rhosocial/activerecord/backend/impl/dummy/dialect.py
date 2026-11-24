@@ -1492,14 +1492,15 @@ class DummyDialect(
         return True
 
     def suggest_generated_value(self, default_type):
-        """Report no generated-value mechanism (the dummy renders no real DDL).
+        """Decline a generated value (the dummy renders no real DDL).
 
-        A generated key on the dummy therefore fails loudly, as on any backend
-        without a mechanism — decision-graph step 5.
+        ``no-action`` keeps the portable column baseline plain for inferred
+        ``Optional[int]`` PKs; an explicitly declared identity still fails
+        loudly in the deriver (decision-graph step 5).
         """
         from rhosocial.activerecord.backend.suggestion import GeneratedValueSuggestion
 
-        return GeneratedValueSuggestion(state="unsupported")
+        return GeneratedValueSuggestion(state="no-action")
 
     def suggest_partition_retention(self, strategy, plan):
         """Decline partition-retention suggestions, keeping the portable baseline plain.

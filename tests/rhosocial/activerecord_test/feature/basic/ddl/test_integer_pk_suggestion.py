@@ -105,14 +105,33 @@ def test_sqlite_suggestion_carries_the_autoincrement_clause():
     assert isinstance(suggestion.clause, SQLiteAutoIncrementClause)
 
 
-def test_generated_key_on_unsupporting_dialect_raises():
-    """A generated key with no backend mechanism fails loudly (decision graph step 5)."""
-    import pytest
+def test_inferred_identity_degrades_to_plain_column_without_a_mechanism():
+    """An inferred Optional[int] PK stays plain when the backend has no mechanism.
 
-    from rhosocial.activerecord.base.derivation import build_create_table_statement
+    Shared fixtures rely on this: ClickHouse/BigQuery int PKs are client-generated,
+    so a no-action/unsupported answer must not block table creation.
+    """
     from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
-    # _WithMixin has an Optional[int] PK -> a generated key; dummy reports no-action
-    # (it has no real mechanism), so the consumer must raise a clear error.
-    with pytest.raises(ValueError, match="generated"):
-        build_create_table_statement(_WithMixin, DummyDialect())
+    sql, _ = build_create_table_statement(_WithMixin, DummyDialect()).to_sql()
+    assert "id" in sql
+
+
+def test_explicit_identity_without_a_mechanism_raises():
+    """An explicit IdentityAttribute that cannot be honoured fails loudly (step 5)."""
+    import pytest
+
+    from typing import Annotated
+
+    from rhosocial.activerecord.base import IdentityAttribute, UseColumnAttributes
+    from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+
+    class _DeclaredIdentity(ActiveRecord):
+        @classmethod
+        def table_name(cls):
+            return "declared_identity"
+
+        id: Annotated[Optional[int], UseColumnAttributes(IdentityAttribute())] = None
+
+    with pytest.raises(ValueError, match="explicitly declared"):
+        build_create_table_statement(_DeclaredIdentity, DummyDialect())
