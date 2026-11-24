@@ -64,8 +64,11 @@ class AlterTableMixin:
             """Format ALTER TABLE statement (generic implementation).
 
             When the dialect does not support multiple actions in one ALTER TABLE
-            (e.g. SQL Server), each action produces a separate statement joined
-            by semicolons.
+            (e.g. SQL Server), a multi-action statement fails fast with
+            UnsupportedFeatureError. An expression maps to one SQL statement, so
+            joining actions with semicolons would hand cursor.execute() an
+            unexecutable string; the caller must emit one AlterTableStatement per
+            action instead.
 
             Args:
                 expr: AlterTableStatement carrying the table name and the list of
