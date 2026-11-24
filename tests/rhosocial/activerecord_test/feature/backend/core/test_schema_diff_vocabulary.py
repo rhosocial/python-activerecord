@@ -80,3 +80,46 @@ def test_table_diff_additive_fields_default_empty():
     assert td.requires_rebuild is False
     assert td.rebuild_reason is None
     assert td.has_changes  # is_added
+
+
+def test_column_equivalence_detects_comment_and_generated_changes():
+    """Comment / charset / identity are compared, not silently ignored."""
+    differ = SchemaDiffer()
+    base = _col("c")
+    base.comment = "old"
+    base.collation = "BINARY"
+
+    by_comment = _col("c")
+    by_comment.comment = "new"
+    by_comment.collation = "BINARY"
+    assert not differ._columns_equivalent(base, by_comment)
+
+    by_collation = _col("c")
+    by_collation.comment = "old"
+    by_collation.collation = "NOCASE"
+    assert not differ._columns_equivalent(base, by_collation)
+
+    by_generated = _col("c")
+    by_generated.comment = "old"
+    by_generated.collation = "BINARY"
+    by_generated.is_generated = True
+    assert not differ._columns_equivalent(base, by_generated)
+
+    # Equal on all compared fields -> equivalent
+    same = _col("c")
+    same.comment = "old"
+    same.collation = "BINARY"
+    assert differ._columns_equivalent(base, same)
+
+
+def test_string_fields_compared_only_when_both_present():
+    """A backend that cannot read a field must not create a spurious diff."""
+    differ = SchemaDiffer()
+    a = _col("c")
+    b = _col("c")
+    b.comment = None  # both effectively unread
+    a.comment = None
+    assert differ._columns_equivalent(a, b)
+    # one side has a value, other is None -> not a false positive
+    b.comment = "x"
+    assert differ._columns_equivalent(a, b)  # old unread, so no spurious diff

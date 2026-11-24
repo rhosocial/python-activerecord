@@ -223,10 +223,16 @@ class SchemaDiffer(ABC):
         return td
 
     def _columns_equivalent(self, old_col, new_col) -> bool:
-        """Column equivalence: type + nullability + default value.
+        """Column equivalence: type + nullability + default + declared properties.
 
-        Override in subclasses to add backend-specific rules
-        (e.g. ``ordinal_position`` check for MySQL).
+        Override in subclasses to add backend-specific rules (e.g.
+        ``ordinal_position`` check for MySQL).
+
+        Beyond type/nullable/default, a planner must see changes to a column's
+        comment, charset, collation, and generated/identity nature — otherwise a
+        model edit to any of those produces an empty diff (a false negative).
+        String fields are compared only when both sides carry a value, so a
+        backend that cannot read a field does not create a spurious diff.
         """
         old_dt, new_dt = old_col.parsed_data_type, new_col.parsed_data_type
         if old_dt is not None and new_dt is not None:
@@ -242,6 +248,14 @@ class SchemaDiffer(ABC):
             return False
         if old_col.default_value != new_col.default_value:
             return False
+        if old_col.is_generated != new_col.is_generated:
+            return False
+        if old_col.is_auto_increment != new_col.is_auto_increment:
+            return False
+        for field_name in ("comment", "charset", "collation", "generated_expression"):
+            old_v, new_v = getattr(old_col, field_name, None), getattr(new_col, field_name, None)
+            if old_v is not None and new_v is not None and old_v != new_v:
+                return False
         return True
 
     def _indexes_equivalent(self, old_idx, new_idx) -> bool:
