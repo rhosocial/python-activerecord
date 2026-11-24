@@ -121,7 +121,10 @@ def test_explicit_identity_without_a_mechanism_raises():
     """An explicit IdentityAttribute that cannot be honoured fails loudly (step 5)."""
     import pytest
 
-    from typing_extensions import Annotated
+    try:
+        from typing import Annotated
+    except ImportError:  # Python 3.8
+        from typing_extensions import Annotated
 
     from rhosocial.activerecord.base import IdentityAttribute, UseColumnAttributes
     from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
