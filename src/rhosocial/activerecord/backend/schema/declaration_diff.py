@@ -169,6 +169,9 @@ class DeclarationDiffer:
             n for n in common_order if common_order.index(n) != old_order.index(n)
         ]
         td.table_options_changed = _freeze(old.table_options) != _freeze(new.table_options)
+        td.constraints_changed = _freeze(old.table_constraints) != _freeze(new.table_constraints)
+        td.indexes_changed = _freeze(old.table_indexes) != _freeze(new.table_indexes)
+        td.partition_changed = _freeze(old.partition) != _freeze(new.partition)
         td.comment_changed = any(
             c.comment != n.comment for c, n in (
                 (old.fields[k], new.fields[k]) for k in set(old.fields) & set(new.fields)

@@ -60,6 +60,21 @@ def test_identical_models_produce_empty_plan():
     assert plan.is_empty
 
 
+def test_table_level_changes_route_to_rebuild():
+    """Constraint/index/partition changes become rebuild plans, not invalid ALTER."""
+    from rhosocial.activerecord.backend.schema import TableDiff, SchemaDiff
+
+    planner = AlterPlanner()
+    td = TableDiff("users", object(), object(), constraints_changed=True)
+    diff = SchemaDiff(dialect_class="x", table_diffs={"users": td})
+
+    # Drive the table-planning step directly with a synthetic diff.
+    from rhosocial.activerecord.backend.schema.alter_planner import AlterPlan
+    out = AlterPlan(diff=diff)
+    planner._plan_table(td, _Old, _Old, DummyDialect(), out)
+    assert any(r.table_name == "users" and "constraint" in r.reason for r in out.rebuilds)
+
+
 def test_no_hook_no_rebuild_for_plain_type_change():
     """A modify with no backend hook is reported as a rebuild, not bad SQL."""
     from rhosocial.activerecord.base import UseSqlType

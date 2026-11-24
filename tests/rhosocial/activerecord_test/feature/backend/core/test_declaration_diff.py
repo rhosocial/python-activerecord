@@ -104,6 +104,23 @@ def test_diff_old_new_carry_declaration_facts_not_introspection_rows():
     assert email.new.python_type is str
 
 
+def test_table_declaration_flags_compare():
+    """Table constraint/index/partition changes are distinct diff flags."""
+    from rhosocial.activerecord.backend.schema import TableDeclaration
+    from rhosocial.activerecord.backend.schema.declaration_diff import _freeze
+
+    # _freeze gives a comparable signature for constraint/index declarations;
+    # a change must be detectable while an identical one must not.
+    a = ("uq", ("name",))
+    b = ("uq", ("email",))
+    assert _freeze(a) != _freeze(b)
+    assert _freeze(a) == _freeze(("uq", ("name",)))
+
+    # TableDeclaration carries the slots; a plain one stays empty.
+    td = TableDeclaration("users")
+    assert td.table_constraints == () and td.partition is None
+
+
 def test_different_table_names_become_drop_plus_add():
     class _Other(ActiveRecord):
         @classmethod

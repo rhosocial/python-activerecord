@@ -144,6 +144,22 @@ class AlterPlanner:
                     td.rebuild_reason or "table-level change not expressible as ALTER",
                 )
             )
+        # Table-level constraints / indexes / partition scheme changes are not
+        # carried as concrete added/removed declarations yet, so plan them as a
+        # rebuild rather than emit a partial or invalid ALTER. (Index actions on
+        # capable backends can be added once TableDiff carries the index names.)
+        if td.constraints_changed:
+            plan.rebuilds.append(
+                RebuildPlan(td.table_name, "table constraint change requires rebuild")
+            )
+        if td.indexes_changed:
+            plan.rebuilds.append(
+                RebuildPlan(td.table_name, "table index change requires rebuild")
+            )
+        if td.partition_changed:
+            plan.rebuilds.append(
+                RebuildPlan(td.table_name, "partition scheme change requires rebuild")
+            )
 
     def _plan_modify(self, cd, td, new_columns, dialect, plan) -> None:
         """Plan a column type/property change via the backend hook, else rebuild."""

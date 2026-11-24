@@ -86,6 +86,9 @@ class TableDiff:
     reordered_columns: List[str] = field(default_factory=list)
     comment_changed: bool = False
     table_options_changed: bool = False
+    constraints_changed: bool = False
+    indexes_changed: bool = False
+    partition_changed: bool = False
     requires_rebuild: bool = False
     rebuild_reason: Optional[str] = None
 
@@ -109,7 +112,9 @@ class TableDiff:
             or bool(self.added_indexes) or bool(self.removed_indexes)
             or bool(self.added_foreign_keys) or bool(self.removed_foreign_keys)
             or bool(self.reordered_columns) or self.comment_changed
-            or self.table_options_changed or self.requires_rebuild
+            or self.table_options_changed or self.constraints_changed
+            or self.indexes_changed or self.partition_changed
+            or self.requires_rebuild
         )
 
 
