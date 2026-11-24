@@ -10,9 +10,15 @@ unless a backend overrides it.
 from typing import Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
+from ..partition_capability import PartitionCapability
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.statements import PartitionClause, PartitionDefinitionExpression
+    from ...expression.statements import (
+        PartitionClause,
+        PartitionDefinitionExpression,
+        PartitionOptionsExpression,
+        SubpartitionDefinitionExpression,
+    )
 
 
 class PartitionMixin:
@@ -20,6 +26,8 @@ class PartitionMixin:
 
     Implements the PartitionSupport protocol with default behavior:
     - All supports_*() methods return False by default
+    - partition_capability() derives NATIVE / UNSUPPORTED from
+      supports_table_partitioning()
     - format_partition_clause() raises UnsupportedFeatureError by default
     """
 
@@ -27,8 +35,37 @@ class PartitionMixin:
         """Whether table partitioning is supported at the database level.
 
         Defaults to False.
+
+        .. note::
+            This boolean answers whether partition *DDL* exists and is
+            addressable by name or id -- not whether the engine partitions
+            storage in any form. A dialect whose partitioning is engine-managed
+            and automatic (no partition DDL) should answer ``False`` here and
+            override :meth:`partition_capability` to
+            :attr:`PartitionCapability.AUTOMATIC`.
         """
         return False
+
+    def partition_capability(self) -> PartitionCapability:
+        """How this dialect relates to table partitioning.
+
+        Derived from :meth:`supports_table_partitioning` so every dialect keeps
+        its current meaning without edits: ``True`` maps to
+        :attr:`PartitionCapability.NATIVE`, ``False`` to
+        :attr:`PartitionCapability.UNSUPPORTED`.
+
+        A dialect whose engine partitions and manages storage on its own
+        (micro-partitions, automatic clustering, ...) must override this to
+        :attr:`PartitionCapability.AUTOMATIC`, while keeping
+        :meth:`supports_table_partitioning` honest about whether partition DDL
+        exists. ``AUTOMATIC`` therefore normally pairs with a ``False`` boolean:
+        the engine partitions, but there is no partition DDL to target.
+        """
+        return (
+            PartitionCapability.NATIVE
+            if self.supports_table_partitioning()
+            else PartitionCapability.UNSUPPORTED
+        )
 
     def supports_partitioned_table_creation(self) -> bool:
         """Whether CREATE TABLE can create partitioned tables through this dialect.

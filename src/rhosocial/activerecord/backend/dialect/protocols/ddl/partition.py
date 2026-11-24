@@ -8,10 +8,14 @@ tests enforce.
 
 from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
+from ...partition_capability import PartitionCapability
+
 if TYPE_CHECKING:  # pragma: no cover
     from ....expression.statements import (
         PartitionClause,
         PartitionDefinitionExpression,
+        PartitionOptionsExpression,
+        SubpartitionDefinitionExpression,
     )
 
 
@@ -26,6 +30,19 @@ class PartitionSupport(Protocol):
 
     def supports_table_partitioning(self) -> bool:
         """Whether table partitioning is supported at the database level."""
+        ...  # pragma: no cover
+
+    def partition_capability(self) -> PartitionCapability:
+        """How this dialect relates to table partitioning.
+
+        ``NATIVE`` means the dialect renders partition DDL the caller can
+        address by name or id; ``AUTOMATIC`` means the engine partitions and
+        manages storage itself and there is no partition DDL to target;
+        ``UNSUPPORTED`` means no partitioning at all.
+
+        The default derives ``NATIVE`` / ``UNSUPPORTED`` from
+        :meth:`supports_table_partitioning`; automatic backends override this.
+        """
         ...  # pragma: no cover
 
     def supports_partitioned_table_creation(self) -> bool:

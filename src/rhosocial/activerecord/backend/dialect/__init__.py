@@ -40,6 +40,7 @@ from .exceptions import (
     ProtocolNotImplementedError,
     DialectNotAdaptedException,
 )
+from .partition_capability import PartitionCapability
 from .protocols import (
     # Named objects -- naming one, not creating or dropping it
     NamespaceSupport,
@@ -152,6 +153,8 @@ from ..expression import ExplainType, ExplainFormat, ExplainOptions
 __all__ = [
     # Base classes
     "SQLDialectBase",
+    # Capability vocabulary
+    "PartitionCapability",
     # Exceptions
     "UnsupportedFeatureError",
     "UnsupportedDataTypeError",
@@ -213,6 +216,11 @@ __all__ = [
     "ColumnAttributeSupport",
     "AlterTableModifierSupport",
     "CommentSupport",
+    "CreateDatabaseSupport",
+    "DropDatabaseSupport",
+    "AlterDatabaseSupport",
+    "CreateSchemaSupport",
+    "DropSchemaSupport",
     # Introspection and sessions
     "IntrospectionSupport",
     "TransactionControlSupport",
@@ -254,6 +262,7 @@ __all__ = [
     "DataTypeMixin",
     "UserDefinedTypeMixin",
     "DomainMixin",
+    "RelationSourceMixin",
     # Re-exported types from expression module
     "ExplainType",
     "ExplainFormat",
