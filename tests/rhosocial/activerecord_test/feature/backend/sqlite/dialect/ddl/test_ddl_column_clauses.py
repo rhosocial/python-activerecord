@@ -4,18 +4,13 @@
 ``COLLATE`` and ``CHARACTER SET`` used to be reachable only by putting an
 AR-layer ``ColumnAttribute`` into ``ColumnDefinition.attributes``, which put a
 reverse dependency in the dialect: the formatter's subject was not an
-expression. These tests pin the new shape (an expression node is the subject),
-the capability gates, and the transitional AR route that still has to work
-until a deriver exists.
+expression. These tests pin the new shape (an expression node is the subject)
+and the capability gates. AR-layer attributes are translated by the deriver
+(``base.derivation``) before they reach ``ColumnDefinition.attributes``.
 """
 import pytest
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnNotNullConstraint,
-)
-from rhosocial.activerecord.base.ddl import (
-    CharacterSetAttribute,
-    CollationAttribute,
-    IdentityAttribute,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
@@ -132,41 +127,8 @@ class TestCharacterSetClause:
             dialect.format_column_attribute(CharacterSetClause(dialect, "utf8mb4"))
 
 
-class TestArLayerRouteStillWorks:
-    """The AR layer has no deriver yet, so its attributes still have to render.
-
-    These are the tests that say when the transitional route may be deleted:
-    once a deriver turns ``UseColumnAttributes`` into clauses, this whole class
-    goes with it.
-    """
-
-    def test_collation_attribute_still_renders(self):
-        dialect = SQLiteDialect()
-
-        sql, _ = column_with(dialect, CollationAttribute(name="NOCASE")).to_sql()
-
-        assert sql.endswith("COLLATE NOCASE")
-
-    def test_character_set_attribute_still_renders_where_supported(self):
-        dialect = probed(supports_column_character_set=True)()
-
-        sql, _ = column_with(dialect, CharacterSetAttribute(name="utf8")).to_sql()
-
-        assert sql.endswith("CHARACTER SET utf8")
-
-    def test_identity_attribute_still_renders(self):
-        dialect = probed(
-            supports_identity_column=True,
-            supports_identity_generation_always=True,
-            supports_identity_start=True,
-            supports_identity_increment=True,
-        )()
-
-        sql, _ = column_with(
-            dialect, IdentityAttribute(generation="ALWAYS", start=1, increment=2)
-        ).to_sql()
-
-        assert "GENERATED ALWAYS AS IDENTITY" in sql
+class TestUnknownClauseIsRefused:
+    """A non-expression subject is refused by name at the dialect boundary."""
 
     def test_an_unknown_clause_is_refused_by_name(self):
         dialect = SQLiteDialect()

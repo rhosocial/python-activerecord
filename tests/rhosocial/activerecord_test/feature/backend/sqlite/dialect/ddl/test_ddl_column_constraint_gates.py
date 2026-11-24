@@ -19,7 +19,10 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnUniqueConstraint,
     TableUniqueConstraint,
 )
-from rhosocial.activerecord.base.ddl import CharacterSetAttribute, CollationAttribute
+from rhosocial.activerecord.backend.expression.statements import (
+    CharacterSetClause,
+    CollationClause,
+)
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.types import IntegerType
 from rhosocial.activerecord.backend.expression.statements import (
@@ -191,26 +194,26 @@ class TestColumnAttributeGates:
         dialect = probed(supports_column_collation=False)()
 
         with pytest.raises(UnsupportedFeatureError, match="COLLATE"):
-            dialect.format_column_attribute(CollationAttribute(name="NOCASE"))
+            dialect.format_column_attribute(CollationClause(dialect, "NOCASE"))
 
     def test_collation_renders_where_supported(self):
         dialect = SQLiteDialect()
 
         assert dialect.format_column_attribute(
-            CollationAttribute(name="NOCASE")
+            CollationClause(dialect, "NOCASE")
         ) == (" COLLATE NOCASE", ())
 
     def test_character_set_is_refused_where_unsupported(self):
         dialect = SQLiteDialect()  # declares character sets unsupported
 
         with pytest.raises(UnsupportedFeatureError, match="CHARACTER SET"):
-            dialect.format_column_attribute(CharacterSetAttribute(name="utf8"))
+            dialect.format_column_attribute(CharacterSetClause(dialect, "utf8"))
 
     def test_character_set_renders_where_supported(self):
         dialect = probed(supports_column_character_set=True)()
 
         assert dialect.format_column_attribute(
-            CharacterSetAttribute(name="utf8")
+            CharacterSetClause(dialect, "utf8")
         ) == (" CHARACTER SET utf8", ())
 
 

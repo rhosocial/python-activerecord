@@ -232,7 +232,7 @@ from rhosocial.activerecord.backend.suggestion.protocols import (
     ColumnTypeSuggestionSupport,
     DataTypeSuggestionSupport,
     IndexSuggestionSupport,
-    IntegerAutoIncrementColumnSuggestionSupport,
+    GeneratedValueSuggestionSupport,
     JSONSuggestionSupport,
     PartitionAddSuggestionSupport,
     PartitionBuildSuggestionSupport,
@@ -375,7 +375,7 @@ class DummyDialect(
     GeneratedColumnMixin,
     AutoIncrementColumnMixin,
     IdentityColumnMixin,
-    IntegerAutoIncrementColumnSuggestionSupport,
+    GeneratedValueSuggestionSupport,
     PartitionRetentionSuggestionSupport,
     PartitionBuildSuggestionSupport,
     PartitionAddSuggestionSupport,
@@ -1491,18 +1491,15 @@ class DummyDialect(
     def supports_auto_increment_column(self) -> bool:
         return True
 
-    def suggest_integer_auto_increment_column(self, default_type):
-        """Implement the protocol without suggesting an auto-increment storage.
+    def suggest_generated_value(self, default_type):
+        """Report no generated-value mechanism (the dummy renders no real DDL).
 
-        Dummy's ``supports_auto_increment_column()`` probe drives the *generic*
-        marker's own render test; the column suggestion is a separate channel
-        and here declines, keeping the portable column baseline plain.
+        A generated key on the dummy therefore fails loudly, as on any backend
+        without a mechanism — decision-graph step 5.
         """
-        from rhosocial.activerecord.backend.suggestion import (
-            IntegerAutoIncrementColumnSuggestion,
-        )
+        from rhosocial.activerecord.backend.suggestion import GeneratedValueSuggestion
 
-        return IntegerAutoIncrementColumnSuggestion(default_type, None)
+        return GeneratedValueSuggestion(state="unsupported")
 
     def suggest_partition_retention(self, strategy, plan):
         """Decline partition-retention suggestions, keeping the portable baseline plain.

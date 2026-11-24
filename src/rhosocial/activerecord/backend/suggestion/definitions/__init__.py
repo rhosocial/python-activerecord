@@ -22,7 +22,7 @@ from .general import (
     CreateTableLayoutSuggestion,
     UpsertSyntaxSuggestion,
 )
-from .integer_auto_increment import IntegerAutoIncrementColumnSuggestion
+from .generated_value import GeneratedValueSuggestion
 from .partition import (
     PartitionSuggestionOutcome,
     PartitionAddSuggestion,
@@ -51,7 +51,7 @@ __all__ = [
     "JSONAccessOperatorSuggestion",
     "CreateTableLayoutSuggestion",
     "UpsertSyntaxSuggestion",
-    "IntegerAutoIncrementColumnSuggestion",
+    "GeneratedValueSuggestion",
     "PartitionAddSuggestion",
     "PartitionSuggestionOutcome",
     "PartitionBuildSuggestion",

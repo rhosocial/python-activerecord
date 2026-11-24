@@ -2,26 +2,25 @@
 """Mixin for ColumnAttributeSupport. Members/order/signature mirror the protocol."""
 from ...expression.bases import BaseExpression
 
-from typing import Any, Tuple
+from typing import Any, Tuple, TYPE_CHECKING
+
+if TYPE_CHECKING:  # pragma: no cover
+    from ...expression.statements.ddl_table import ColumnClause
 
 class ColumnAttributeMixin:
 
     def format_column_attribute(self, expr: "ColumnClause") -> "Tuple[str, tuple]":
-            """Render one selected column clause as a definition fragment.
+            """Render one expression-layer column clause as a definition fragment.
 
-            The subject is an expression-layer node: :class:`CollationClause`,
+            The subject is a :class:`BaseExpression` node: :class:`CollationClause`,
             :class:`CharacterSetClause`, :class:`IdentityClause` or
             :class:`AutoIncrementClause`. Each names its own formatter through
             ``format_method``, so this method only has to dispatch.
 
-            An AR-layer ``ColumnAttribute`` is accepted at the entrance and
-            translated before dispatch, because no deriver turns a model's
-            declarations into clauses yet -- that layer does not exist, so this is
-            currently the only route from ``UseColumnAttributes`` to SQL. The
-            translation lives in its own method so it can be deleted whole when a
-            deriver lands. It has to be here rather than in
-            :meth:`format_column_attributes` because backend
-            ``format_column_definition`` overrides call this method directly.
+            AR-layer ``ColumnAttribute`` objects are translated by the deriver
+            (``base.derivation._translated_column_attributes``) before they reach
+            ``ColumnDefinition.attributes``. The old render-time translation via
+            ``translate_ar_attribute`` is deprecated and no longer invoked here.
             """
             from ..exceptions import UnsupportedFeatureError
             from ...expression.statements.ddl_table import (
@@ -30,21 +29,12 @@ class ColumnAttributeMixin:
             )
 
             if not isinstance(expr, BaseExpression):
-                # An AR-layer ColumnAttribute, not an expression. The test is the
-                # type, not `hasattr(expr, "format_method")`: that probed a field
-                # every expression declares, and it also answered False for an
-                # expression whose base property raises -- which is a different
-                # question than "is this one of ours". §11.2: asserting to a known
-                # base is the way to ask what an argument is.
-                original = expr
-                expr = self.translate_ar_attribute(original)
-                if expr is None:
-                    raise UnsupportedFeatureError(
-                        self.name,
-                        f"COLUMN CLAUSE {type(original).__name__}",
-                        f"{self.name} cannot render this column clause; declare it "
-                        f"only on backends that support it.",
-                    )
+                raise UnsupportedFeatureError(
+                    self.name,
+                    f"COLUMN CLAUSE {type(expr).__name__}",
+                    f"{self.name} cannot render this column clause; declare it "
+                    f"only on backends that support it.",
+                )
             if isinstance(expr, CollationClause):
                 if not self.supports_column_collation():
                     raise UnsupportedFeatureError(self.name, "column-level COLLATE")
@@ -65,17 +55,21 @@ class ColumnAttributeMixin:
             return formatter(expr)
 
     def translate_ar_attribute(self, attr: Any) -> Any:
-            """Turn an AR-layer ``ColumnAttribute`` into an expression-layer clause.
+            """DEPRECATED — AR-layer attribute translation now lives in the deriver.
 
-            Transitional, and the reason is a missing layer rather than a
-            preference: nothing in the library turns a model's ``UseColumnAttributes``
-            declaration into column clauses, so the AR-layer objects reach
-            ``ColumnDefinition.attributes`` directly and the dialect has to accept
-            them. Once that translation layer exists it belongs there, and this
-            method goes with it. Public because backend ``format_column_definition``
-            overrides call it: a protocol member that outside callers need is
-            public even when its implementation is transitional.
+            Core no longer calls this. ``base.derivation._translated_column_attributes``
+            turns model declarations into expression-layer clauses before they reach
+            ``ColumnDefinition.attributes``. Kept only for external callers that may
+            still reach here; it will be removed in a future release.
             """
+            import warnings
+
+            warnings.warn(
+                "translate_ar_attribute is deprecated; AR-layer column attributes "
+                "are translated in base.derivation before reaching the dialect.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             from ....base.ddl import (
                 CharacterSetAttribute,
                 CollationAttribute,

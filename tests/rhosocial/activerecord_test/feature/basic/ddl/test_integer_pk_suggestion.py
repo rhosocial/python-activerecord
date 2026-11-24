@@ -14,11 +14,11 @@ from rhosocial.activerecord.field import IntegerPKMixin
 
 from typing import Optional
 
-from rhosocial.activerecord.backend.suggestion.protocols import IntegerAutoIncrementColumnSuggestionSupport
-from rhosocial.activerecord.backend.suggestion import IntegerAutoIncrementColumnSuggestion
+from rhosocial.activerecord.backend.suggestion.protocols import GeneratedValueSuggestionSupport
+from rhosocial.activerecord.backend.suggestion import GeneratedValueSuggestion
 from rhosocial.activerecord.backend.expression.types import IntegerType
 from rhosocial.activerecord.backend.impl.sqlite.suggestion import (
-    SQLiteIntegerAutoIncrementColumnSuggestionMixin,
+    SQLiteGeneratedValueSuggestionMixin,
 )
 from rhosocial.activerecord.base.derivation import build_create_table_statement
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
@@ -75,21 +75,21 @@ def test_bare_id_with_mixin_gets_autoincrement_on_sqlite():
     assert '"id" INTEGER PRIMARY KEY AUTOINCREMENT' in sql
 
 
-def test_suggestion_data_class_carries_no_primary_key():
-    s = IntegerAutoIncrementColumnSuggestion(IntegerType(), None)
+def test_suggestion_data_class_is_a_four_state_value():
+    s = GeneratedValueSuggestion(state="no-action")
     assert not hasattr(s, "primary_key")
-    assert s.type == IntegerType()
-    assert s.auto_increment is None
+    assert s.storage_type is None
+    assert s.clause is None
 
 
 def test_suggestion_protocol_and_backend_mixin_exist():
-    assert issubclass(SQLiteDialect, IntegerAutoIncrementColumnSuggestionSupport)
-    assert issubclass(SQLiteDialect, SQLiteIntegerAutoIncrementColumnSuggestionMixin)
+    assert issubclass(SQLiteDialect, GeneratedValueSuggestionSupport)
+    assert issubclass(SQLiteDialect, SQLiteGeneratedValueSuggestionMixin)
     # Core ships no default implementation: a backend either implements the
-    # protocol itself or has no integer auto-increment suggestion at all.
+    # protocol itself or has no generated-value suggestion at all.
     from rhosocial.activerecord.backend.dialect import mixins as _mixins
 
-    assert not hasattr(_mixins, "IntegerAutoIncrementColumnSuggestionMixin")
+    assert not hasattr(_mixins, "GeneratedValueSuggestionMixin")
 
 
 def test_sqlite_suggestion_carries_the_autoincrement_clause():
@@ -97,8 +97,22 @@ def test_sqlite_suggestion_carries_the_autoincrement_clause():
         SQLiteAutoIncrementClause,
     )
 
-    suggestion = SQLiteDialect().suggest_integer_auto_increment_column(IntegerType())
-    assert isinstance(suggestion.type, IntegerType)
+    suggestion = SQLiteDialect().suggest_generated_value(IntegerType())
+    assert suggestion.state == "generate"
+    assert isinstance(suggestion.storage_type, IntegerType)
     # SQLite uses a dedicated rowid-alias clause so the generic AutoIncrementClause
     # stays fail-closed on dialects whose supports_auto_increment_column() is False.
-    assert isinstance(suggestion.auto_increment, SQLiteAutoIncrementClause)
+    assert isinstance(suggestion.clause, SQLiteAutoIncrementClause)
+
+
+def test_generated_key_on_unsupporting_dialect_raises():
+    """A generated key with no backend mechanism fails loudly (decision graph step 5)."""
+    import pytest
+
+    from rhosocial.activerecord.base.derivation import build_create_table_statement
+    from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+
+    # _WithMixin has an Optional[int] PK -> a generated key; dummy reports no-action
+    # (it has no real mechanism), so the consumer must raise a clear error.
+    with pytest.raises(ValueError, match="generated"):
+        build_create_table_statement(_WithMixin, DummyDialect())

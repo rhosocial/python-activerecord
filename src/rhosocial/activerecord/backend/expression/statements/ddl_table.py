@@ -372,10 +372,9 @@ class ColumnDefinition(BaseExpression):
         self.constraints = list(constraints or [])
         self.comment = comment
         self.generated_expression = generated_expression
-        # Column clauses, in the order they should be spelled. An AR-layer
-        # ``ColumnAttribute`` is still tolerated here because no deriver
-        # translates a model's declarations into clauses yet; the dialect
-        # adapts it at render time. See ``DDLColumnMixin.translate_ar_attribute``.
+        # Expression-layer column clauses, in the order they should be spelled.
+        # AR-layer attributes are translated by the deriver
+        # (``base.derivation._translated_column_attributes``) before arriving here.
         self.attributes = list(attributes or [])
 
 

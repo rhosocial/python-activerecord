@@ -169,7 +169,7 @@ from .protocols import (
 from .reserved_words import SQLITE_RESERVED_WORDS
 from .suggestion import (
     SQLiteIndexSuggestionMixin,
-    SQLiteIntegerAutoIncrementColumnSuggestionMixin,
+    SQLiteGeneratedValueSuggestionMixin,
     SQLitePartitionRetentionSuggestionMixin,
     SQLitePartitionBuildSuggestionMixin,
     SQLitePartitionAddSuggestionMixin,
@@ -229,7 +229,7 @@ class SQLiteDialect(
     SQLiteIndexSuggestionMixin,
     IndexSuggestionSupport,
     DataTypeSuggestionSupport,
-    SQLiteIntegerAutoIncrementColumnSuggestionMixin,
+    SQLiteGeneratedValueSuggestionMixin,
     SQLitePartitionRetentionSuggestionMixin,
     SQLitePartitionBuildSuggestionMixin,
     SQLitePartitionAddSuggestionMixin,

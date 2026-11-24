@@ -9,7 +9,7 @@ tests enforce.
 from typing import Any, Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .....base.ddl import ColumnAttribute
+    from ....expression.statements.ddl_table import ColumnClause
 
 
 @runtime_checkable
@@ -29,12 +29,12 @@ class ColumnAttributeSupport(Protocol):
         ...  # pragma: no cover
 
     def translate_ar_attribute(self, attr: Any) -> Any:
-        """Turn an AR-layer ``ColumnAttribute`` into an expression-layer clause.
+        """DEPRECATED — AR-layer translation now lives in ``base.derivation``.
 
-        A backend that overrides :meth:`format_column_definition` receives
-        AR-layer attribute objects there, so the translation is part of the
-        protocol surface rather than an internal step: callers outside the
-        dialect layer need it too.
+        Kept on the protocol only for external callers; core no longer uses it
+        and it will be removed in a future release. Model declarations are
+        translated to expression-layer clauses by the deriver before reaching
+        ``ColumnDefinition.attributes``.
 
         Args:
             attr: An AR-layer ``ColumnAttribute``.

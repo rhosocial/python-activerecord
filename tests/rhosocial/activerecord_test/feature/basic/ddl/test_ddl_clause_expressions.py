@@ -142,10 +142,10 @@ def test_identity_clause_cycle_flags(dummy):
 
 
 def _identity_column(dialect, **kwargs):
-    from rhosocial.activerecord.base import IdentityAttribute
-
+    # AR-layer attributes are translated by the deriver; a directly-built
+    # ColumnDefinition must carry the expression-layer clause itself.
     col = _column(dialect)
-    col.attributes = [IdentityAttribute(**kwargs)]
+    col.attributes = [IdentityClause(dialect, **kwargs)]
     return col
 
 

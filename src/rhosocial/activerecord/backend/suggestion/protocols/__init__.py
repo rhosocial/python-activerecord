@@ -10,7 +10,7 @@ from .column_type_suggestion import ColumnTypeSuggestionSupport
 from .data_adapter_suggestion import DataAdapterSuggestionSupport
 from .data_type_suggestion import DataTypeSuggestionSupport
 from .index_suggestion import IndexSuggestionSupport
-from .integer_auto_increment_column_suggestion import IntegerAutoIncrementColumnSuggestionSupport
+from .generated_value_suggestion import GeneratedValueSuggestionSupport
 from .introspection_suggestion import IntrospectionSuggestionSupport
 from .json_suggestion import JSONSuggestionSupport
 from .string_concatenation_suggestion import StringConcatenationSuggestionSupport
@@ -30,7 +30,7 @@ __all__ = [
     "DataAdapterSuggestionSupport",
     "DataTypeSuggestionSupport",
     "IndexSuggestionSupport",
-    "IntegerAutoIncrementColumnSuggestionSupport",
+    "GeneratedValueSuggestionSupport",
     "IntrospectionSuggestionSupport",
     "JSONSuggestionSupport",
     "StringConcatenationSuggestionSupport",

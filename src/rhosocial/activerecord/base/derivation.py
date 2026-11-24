@@ -19,7 +19,7 @@ from ..backend.dialect.exceptions import (
     UnsupportedDataTypeError,
     UnsupportedFeatureError,
 )
-from ..backend.suggestion.protocols import IntegerAutoIncrementColumnSuggestionSupport
+from ..backend.suggestion.protocols import GeneratedValueSuggestionSupport
 from ..backend.expression.bases import BaseExpression
 from ..backend.expression.objects import Index, Table
 from ..backend.expression.statements import (
@@ -51,6 +51,39 @@ __all__ = [
     "build_drop_index_statements",
     "build_comment_statements",
 ]
+
+
+def _translated_column_attributes(
+    source: ModelDDLDeclaration, field: str, dialect: Any
+) -> list:
+    """Translate AR-layer column attributes into expression-layer clauses.
+
+    Translation is the deriver's job. The dialect's ``translate_ar_attribute``
+    is deprecated: doing this at render time left AR-layer objects leaking into
+    ``ColumnDefinition.attributes`` and forced every dialect to accommodate
+    them. Here the model declaration is resolved once, up front.
+
+    ``IdentityAttribute`` is a marker — the generated-value suggestion decides
+    the actual mechanism — so it is consumed here rather than rendered.
+    """
+    from .ddl import CharacterSetAttribute, CollationAttribute, IdentityAttribute
+    from ..backend.expression.statements.ddl_table import (
+        CharacterSetClause,
+        CollationClause,
+    )
+
+    translated: list = []
+    for attribute in source.column_attributes(field):
+        if isinstance(attribute, IdentityAttribute):
+            continue
+        if isinstance(attribute, CollationAttribute):
+            translated.append(CollationClause(dialect, attribute.name))
+        elif isinstance(attribute, CharacterSetAttribute):
+            translated.append(CharacterSetClause(dialect, attribute.name))
+        else:
+            # Already an expression-layer clause.
+            translated.append(attribute)
+    return translated
 
 
 def build_column_definitions(
@@ -87,18 +120,29 @@ def build_column_definitions(
         )
         identity = _has_identity(source, field, data_type)
         auto_increment = None
-        if identity and isinstance(dialect, IntegerAutoIncrementColumnSuggestionSupport):
-            suggestion = dialect.suggest_integer_auto_increment_column(data_type)
-            data_type = suggestion.type
-            candidate = suggestion.auto_increment
-            if isinstance(candidate, BaseExpression):
-                auto_increment = candidate
+        if identity:
+            if isinstance(dialect, GeneratedValueSuggestionSupport):
+                suggestion = dialect.suggest_generated_value(data_type)
+            else:
+                # A generated key on a backend with no mechanism: fail loudly
+                # rather than silently emitting a plain column.
+                raise ValueError(
+                    f"{source.table_name()}.{field} is a database-generated key, "
+                    f"but {type(dialect).__name__} has no generated-value suggestion. "
+                    f"Cancel the auto-increment marker or declare the mechanism explicitly."
+                )
+            if suggestion.state == "unsupported":
+                raise ValueError(
+                    f"{source.table_name()}.{field} needs a database-generated value, "
+                    f"but {type(dialect).__name__} reports no supported mechanism. "
+                    f"Cancel the auto-increment marker or declare the mechanism explicitly."
+                )
+            if suggestion.storage_type is not None:
+                data_type = suggestion.storage_type
+            if suggestion.clause is not None:
+                auto_increment = suggestion.clause
 
-        attributes = [
-            attribute
-            for attribute in source.column_attributes(field)
-            if not isinstance(attribute, IdentityAttribute)
-        ]
+        attributes = _translated_column_attributes(source, field, dialect)
         if auto_increment is not None:
             attributes.append(auto_increment)
         columns.append(
@@ -646,14 +690,11 @@ def partition_suggestion_operations(
 
 def integer_auto_increment_parts(dialect: Any, data_type: "DataType") -> tuple:
     """Return ``(storage type, auto-increment attributes)`` for a bare int field."""
-    from ..backend.suggestion.protocols import IntegerAutoIncrementColumnSuggestionSupport
+    from ..backend.suggestion.protocols import GeneratedValueSuggestionSupport
 
-    if not isinstance(dialect, IntegerAutoIncrementColumnSuggestionSupport):
+    if not isinstance(dialect, GeneratedValueSuggestionSupport):
         return data_type, []
-    suggestion = dialect.suggest_integer_auto_increment_column(data_type)
-    attributes = (
-        [suggestion.auto_increment]
-        if isinstance(suggestion.auto_increment, BaseExpression)
-        else []
-    )
-    return suggestion.type, attributes
+    suggestion = dialect.suggest_generated_value(data_type)
+    attributes = [suggestion.clause] if suggestion.clause is not None else []
+    storage = suggestion.storage_type or data_type
+    return storage, attributes
