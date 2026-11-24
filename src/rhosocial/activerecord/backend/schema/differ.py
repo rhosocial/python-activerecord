@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from abc import ABC
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -16,12 +17,35 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 
+class ColumnChangeKind(str, Enum):
+    """What kind of change a :class:`ColumnDiff` represents.
+
+    ``RENAME`` and ``REORDER`` are intentions that a planner needs to distinguish
+    from a plain drop+add/modify: a rename must preserve data, and a reorder may
+    need an explicit reposition action on order-sensitive backends.
+    """
+
+    ADD = "add"
+    DROP = "drop"
+    MODIFY = "modify"
+    RENAME = "rename"
+    REORDER = "reorder"
+
+
 @dataclass
 class ColumnDiff:
-    """Difference for a single column."""
+    """Difference for a single column.
+
+    ``old``/``new`` keep their original meaning (None = added/removed). The new
+    fields default so existing construction and consumers stay valid. A rename
+    carries the old name in ``column_name`` and the target in ``new_name``.
+    """
+
     column_name: str
     old: Optional["IntrospectionColumnInfo"]   # None = column added
     new: Optional["IntrospectionColumnInfo"]   # None = column removed
+    kind: ColumnChangeKind = ColumnChangeKind.MODIFY
+    new_name: Optional[str] = None
 
     @property
     def is_added(self) -> bool:
@@ -35,10 +59,21 @@ class ColumnDiff:
     def is_modified(self) -> bool:
         return self.old is not None and self.new is not None
 
+    @property
+    def is_renamed(self) -> bool:
+        return self.kind is ColumnChangeKind.RENAME and self.new_name is not None
+
 
 @dataclass
 class TableDiff:
-    """Difference for a single table."""
+    """Difference for a single table.
+
+    The first five fields are the original vocabulary. The rest are additive:
+    they carry change kinds a migration planner needs but that the original
+    column/index/FK diff could not express. All default empty so existing
+    constructors and consumers remain valid.
+    """
+
     table_name: str
     old: Optional["IntrospectionTableInfo"]     # None = table added
     new: Optional["IntrospectionTableInfo"]     # None = table removed
@@ -47,6 +82,12 @@ class TableDiff:
     removed_indexes: List["IndexInfo"] = field(default_factory=list)
     added_foreign_keys: List["IntrospectionForeignKeyInfo"] = field(default_factory=list)
     removed_foreign_keys: List["IntrospectionForeignKeyInfo"] = field(default_factory=list)
+    # Additive planner-facing change kinds
+    reordered_columns: List[str] = field(default_factory=list)
+    comment_changed: bool = False
+    table_options_changed: bool = False
+    requires_rebuild: bool = False
+    rebuild_reason: Optional[str] = None
 
     @property
     def is_added(self) -> bool:
@@ -67,6 +108,8 @@ class TableDiff:
             or bool(self.column_diffs)
             or bool(self.added_indexes) or bool(self.removed_indexes)
             or bool(self.added_foreign_keys) or bool(self.removed_foreign_keys)
+            or bool(self.reordered_columns) or self.comment_changed
+            or self.table_options_changed or self.requires_rebuild
         )
 
 
@@ -131,12 +174,33 @@ class SchemaDiffer(ABC):
         old_cols = {c.name: c for c in old_tbl.columns}
         new_cols = {c.name: c for c in new_tbl.columns}
         for col_name in set(old_cols) - set(new_cols):
-            td.column_diffs.append(ColumnDiff(col_name, old_cols[col_name], None))
+            td.column_diffs.append(
+                ColumnDiff(col_name, old_cols[col_name], None, kind=ColumnChangeKind.DROP)
+            )
         for col_name in set(new_cols) - set(old_cols):
-            td.column_diffs.append(ColumnDiff(col_name, None, new_cols[col_name]))
+            td.column_diffs.append(
+                ColumnDiff(col_name, None, new_cols[col_name], kind=ColumnChangeKind.ADD)
+            )
         for col_name in set(old_cols) & set(new_cols):
             if not self._columns_equivalent(old_cols[col_name], new_cols[col_name]):
-                td.column_diffs.append(ColumnDiff(col_name, old_cols[col_name], new_cols[col_name]))
+                td.column_diffs.append(
+                    ColumnDiff(
+                        col_name, old_cols[col_name], new_cols[col_name],
+                        kind=ColumnChangeKind.MODIFY,
+                    )
+                )
+
+        # Table-level options the original diff ignored but a planner needs.
+        td.comment_changed = old_tbl.comment != new_tbl.comment
+
+        # Reorder: columns present on both sides whose relative order changed.
+        # Planners on order-sensitive backends use this; others ignore it.
+        common = [c.name for c in new_tbl.columns if c.name in old_cols]
+        old_common = [c.name for c in old_tbl.columns if c.name in new_cols]
+        td.reordered_columns = [
+            name for name in common
+            if common.index(name) != old_common.index(name)
+        ]
 
         old_idx = {i.name: i for i in old_tbl.indexes}
         new_idx = {i.name: i for i in new_tbl.indexes}
