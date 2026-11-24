@@ -12,7 +12,11 @@ so callers can use a single import::
 """
 
 from .snapshot import SchemaSnapshot, SyncSchemaSnapshotBuilder, AsyncSchemaSnapshotBuilder
-from .differ import SchemaDiff, ColumnDiff, TableDiff, SchemaDiffer
+from .differ import SchemaDiff, ColumnDiff, TableDiff, SchemaDiffer, ColumnChangeKind
+from .declaration_diff import (
+    DeclarationDiffer, FieldDeclaration, TableDeclaration,
+    field_declaration, table_declaration,
+)
 
 # Legacy — StatementType classification (used by execution layer)
 from .statement_type import StatementType
@@ -25,5 +29,11 @@ __all__ = [
     "ColumnDiff",
     "TableDiff",
     "SchemaDiffer",
+    "ColumnChangeKind",
+    "DeclarationDiffer",
+    "FieldDeclaration",
+    "TableDeclaration",
+    "field_declaration",
+    "table_declaration",
     "StatementType",
 ]
