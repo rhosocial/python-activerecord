@@ -112,7 +112,19 @@ class AlterTableMixin:
                 combined = ", ".join(action_parts)
                 return f"ALTER TABLE {table_sql} {combined}", tuple(all_params)
 
-            stmts = []
-            for part in action_parts:
-                stmts.append(f"ALTER TABLE {table_sql} {part}")
-            return "; ".join(stmts), tuple(all_params)
+            # One expression produces one SQL statement (expression↔SQL is 1:1).
+            # On a dialect that cannot combine actions, a multi-action statement
+            # cannot be rendered as a single valid SQL — semicolon-joining would
+            # emit two statements from one expression and hand an unexecutable
+            # string to cursor.execute(). Fail fast and require the caller (the
+            # migration planner) to split into one AlterTableStatement per action.
+            if len(action_parts) > 1:
+                from ..exceptions import UnsupportedFeatureError
+
+                raise UnsupportedFeatureError(
+                    self.name,
+                    "ALTER TABLE with multiple actions",
+                    f"{self.name} cannot combine {len(action_parts)} actions in one "
+                    f"ALTER TABLE. Emit one AlterTableStatement per action instead.",
+                )
+            return f"ALTER TABLE {table_sql} {action_parts[0]}", tuple(all_params)

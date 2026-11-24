@@ -4,8 +4,10 @@
 SQLite takes only one action per ALTER TABLE statement (a comma-joined second
 action is a ``near ",": syntax error``), and it has no
 ``ALTER COLUMN ... SET DATA TYPE`` grammar. Core answers both probes ``True``
-by default, which made the core formatter emit SQL SQLite rejects. The SQLite
-dialect answers both itself; these tests pin the answers and the consequences.
+by default; the SQLite dialect answers both itself, and the formatter now
+fails fast on a multi-action statement rather than emitting an unexecutable
+semicolon-joined string (one expression = one SQL statement). These tests pin
+the answers and the consequences.
 """
 
 import pytest
@@ -56,15 +58,27 @@ class TestSQLiteTwoActionAlterStatement:
         )
         return AlterTableStatement(dialect, table=Table(dialect, "users"), actions=[email, age])
 
-    def test_two_actions_are_semicolon_separated_not_comma_joined(self, dialect):
-        sql, params = self._two_add_column_statement(dialect).to_sql()
+    def test_two_actions_are_refused_not_joined(self, dialect):
+        """One expression = one SQL statement; two actions cannot render here.
 
-        assert sql == (
-            'ALTER TABLE "users" ADD COLUMN "email" TEXT; '
-            'ALTER TABLE "users" ADD COLUMN "age" INTEGER'
+        A semicolon-joined string would be two statements from one expression and
+        is not executable via cursor.execute(). Fail fast so the planner splits
+        into one AlterTableStatement per action.
+        """
+        with pytest.raises(UnsupportedFeatureError, match="multiple actions"):
+            self._two_add_column_statement(dialect).to_sql()
+
+    def test_single_action_still_renders(self, dialect):
+        """A one-action statement is unaffected — it is still one SQL statement."""
+        action = AddColumnAction(
+            dialect,
+            column=ColumnDefinition(dialect, "email", SQLiteTextType(dialect=dialect)),
         )
-        assert ", ADD COLUMN" not in sql
-        assert sql.count("ALTER TABLE") == 2
+        sql, params = AlterTableStatement(
+            dialect, table=Table(dialect, "users"), actions=[action]
+        ).to_sql()
+        assert sql == 'ALTER TABLE "users" ADD COLUMN "email" TEXT'
+        assert sql.count("ALTER TABLE") == 1
         assert params == ()
 
     def test_set_data_type_raises_instead_of_emitting_invalid_sql(self, dialect):
