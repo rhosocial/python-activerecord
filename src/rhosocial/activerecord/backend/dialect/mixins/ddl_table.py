@@ -50,7 +50,15 @@ class ConstraintMixin:
         return False
 
     def supports_drop_column(self) -> bool:
-        return False
+        """Whether ``ALTER TABLE ... DROP COLUMN`` is supported.
+
+        DROP COLUMN is a baseline ALTER capability across SQL dialects, and the
+        generic ``format_drop_column_action`` renders a portable spelling. A
+        backend that genuinely cannot drop a column overrides this to False
+        (e.g. Oracle in this codebase). Defaulting to False here silently
+        suppressed a valid capability on backends that never needed to override
+        it (SQL Server, BigQuery, Snowflake).
+        """
         return True
 
     def supports_foreign_key_on_delete(self) -> bool:
