@@ -17,6 +17,7 @@ from .declaration_diff import (
     DeclarationDiffer, FieldDeclaration, TableDeclaration,
     field_declaration, table_declaration,
 )
+from .alter_planner import AlterPlanner, AlterPlan, RebuildPlan
 
 # Legacy — StatementType classification (used by execution layer)
 from .statement_type import StatementType
@@ -35,5 +36,8 @@ __all__ = [
     "TableDeclaration",
     "field_declaration",
     "table_declaration",
+    "AlterPlanner",
+    "AlterPlan",
+    "RebuildPlan",
     "StatementType",
 ]
