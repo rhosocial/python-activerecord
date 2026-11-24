@@ -39,8 +39,15 @@ class AlterTableMixin:
             """
             return True
 
-    def supports_alter_column_properties(self) -> bool:
-            """Whether ALTER COLUMN SET DEFAULT / DROP DEFAULT etc. is supported.
+    def supports_alter_column_default(self) -> bool:
+            """Whether ALTER COLUMN SET DEFAULT / DROP DEFAULT is supported.
+
+            Defaults to False.
+            """
+            return False
+
+    def supports_alter_column_nullability(self) -> bool:
+            """Whether ALTER COLUMN SET NOT NULL / DROP NOT NULL is supported.
 
             Defaults to False.
             """

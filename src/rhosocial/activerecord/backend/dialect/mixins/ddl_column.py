@@ -895,11 +895,16 @@ class DDLColumnMixin():
                     self.name, "ALTER COLUMN SET DATA TYPE",
                     f"{self.name} does not support changing a column data type.",
                 )
-        elif not self.supports_alter_column_properties():
+        elif operation_str in ("SET DEFAULT", "DROP DEFAULT"):
+            if not self.supports_alter_column_default():
+                raise UnsupportedFeatureError(
+                    self.name, f"ALTER COLUMN {operation_str}",
+                    f"{self.name} does not support ALTER COLUMN SET/DROP DEFAULT.",
+                )
+        elif not self.supports_alter_column_nullability():
             raise UnsupportedFeatureError(
                 self.name, "ALTER COLUMN",
-                f"{self.name} does not support altering column properties "
-                "(SET/DROP DEFAULT, SET/DROP NOT NULL).",
+                f"{self.name} does not support ALTER COLUMN SET/DROP NOT NULL.",
             )
         column_part = f"ALTER COLUMN {self.format_identifier(expr.column_name)} {operation_str}"
         if expr.new_value is not None:

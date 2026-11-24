@@ -607,10 +607,9 @@ class TestAlterTableStatements:
                     ColumnAlterOperation.SET_DEFAULT,
                     new_value="active",
                 ),
-                "supports_alter_column_properties",
-                "ALTER COLUMN",
-                "Dummy does not support altering column properties "
-                "(SET/DROP DEFAULT, SET/DROP NOT NULL).",
+                "supports_alter_column_default",
+                "ALTER COLUMN SET DEFAULT",
+                "Dummy does not support ALTER COLUMN SET/DROP DEFAULT.",
             ),
             (
                 lambda dialect: AlterColumnAction(
@@ -618,10 +617,9 @@ class TestAlterTableStatements:
                     "value",
                     ColumnAlterOperation.DROP_DEFAULT,
                 ),
-                "supports_alter_column_properties",
-                "ALTER COLUMN",
-                "Dummy does not support altering column properties "
-                "(SET/DROP DEFAULT, SET/DROP NOT NULL).",
+                "supports_alter_column_default",
+                "ALTER COLUMN DROP DEFAULT",
+                "Dummy does not support ALTER COLUMN SET/DROP DEFAULT.",
             ),
             (
                 lambda dialect: AlterColumnAction(
@@ -629,10 +627,9 @@ class TestAlterTableStatements:
                     "value",
                     ColumnAlterOperation.SET_NOT_NULL,
                 ),
-                "supports_alter_column_properties",
+                "supports_alter_column_nullability",
                 "ALTER COLUMN",
-                "Dummy does not support altering column properties "
-                "(SET/DROP DEFAULT, SET/DROP NOT NULL).",
+                "Dummy does not support ALTER COLUMN SET/DROP NOT NULL.",
             ),
             (
                 lambda dialect: AlterColumnAction(
@@ -640,10 +637,9 @@ class TestAlterTableStatements:
                     "value",
                     ColumnAlterOperation.DROP_NOT_NULL,
                 ),
-                "supports_alter_column_properties",
+                "supports_alter_column_nullability",
                 "ALTER COLUMN",
-                "Dummy does not support altering column properties "
-                "(SET/DROP DEFAULT, SET/DROP NOT NULL).",
+                "Dummy does not support ALTER COLUMN SET/DROP NOT NULL.",
             ),
             (
                 lambda dialect: AddIndexAction(

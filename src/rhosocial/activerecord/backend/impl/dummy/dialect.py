@@ -1140,7 +1140,10 @@ class DummyDialect(
     def supports_alter_column_type(self) -> bool:
         return True
 
-    def supports_alter_column_properties(self) -> bool:
+    def supports_alter_column_default(self) -> bool:
+        return True
+
+    def supports_alter_column_nullability(self) -> bool:
         return True
 
     def supports_alter_table_index_actions(self) -> bool:

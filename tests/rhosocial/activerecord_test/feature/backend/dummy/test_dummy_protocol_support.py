@@ -227,7 +227,8 @@ class TestDummyProtocolSupport:
         assert dialect.supports_drop_column() is True
         assert dialect.supports_drop_column_if_exists() is True
         assert dialect.supports_alter_column_type() is True
-        assert dialect.supports_alter_column_properties() is True
+        assert dialect.supports_alter_column_default() is True
+        assert dialect.supports_alter_column_nullability() is True
         assert dialect.supports_alter_table_index_actions() is True
         assert dialect.supports_rename_column() is True
         assert dialect.supports_rename_table() is True

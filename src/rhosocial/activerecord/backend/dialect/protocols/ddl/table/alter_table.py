@@ -52,8 +52,17 @@ class AlterTableSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def supports_alter_column_properties(self) -> bool:
-        """Whether the engine accepts the form ``alter_column_properties``.
+    def supports_alter_column_default(self) -> bool:
+        """Whether the engine accepts ``ALTER COLUMN ... SET/DROP DEFAULT``.
+
+        Defaults to ``False``; a dialect that accepts it returns ``True``.
+        Separate from nullability because the two syntax families are gated
+        independently (e.g. ClickHouse sets defaults but has no NOT NULL clause).
+        """
+        ...  # pragma: no cover
+
+    def supports_alter_column_nullability(self) -> bool:
+        """Whether the engine accepts ``ALTER COLUMN ... SET/DROP NOT NULL``.
 
         Defaults to ``False``; a dialect that accepts it returns ``True``.
         """

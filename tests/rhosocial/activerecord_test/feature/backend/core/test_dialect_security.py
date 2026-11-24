@@ -116,7 +116,10 @@ class TestEscapeReachesTheDialect:
             def escape_sql_string(value: str) -> str:
                 return value.replace("\\", "\\\\").replace("'", "''")
 
-            def supports_alter_column_properties(self) -> bool:
+            def supports_alter_column_default(self) -> bool:
+                return True
+
+            def supports_alter_column_nullability(self) -> bool:
                 return True
 
         return BackslashDialect()
