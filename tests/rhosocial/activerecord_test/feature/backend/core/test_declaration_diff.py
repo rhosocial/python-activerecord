@@ -5,7 +5,11 @@ The planner input: compare two retained ActiveRecord classes, get a SchemaDiff
 whose old/new carry declaration facts (not introspection rows), with no model→
 snapshot conversion step.
 """
-from typing import Annotated, Optional
+try:
+    from typing import Annotated
+except ImportError:  # Python 3.8
+    from typing_extensions import Annotated
+from typing import Optional
 
 from rhosocial.activerecord.backend.schema import (
     DeclarationDiffer,
