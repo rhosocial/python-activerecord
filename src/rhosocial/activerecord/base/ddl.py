@@ -82,7 +82,7 @@ DDLGeneratedColumn = Union[
 
 
 class ObjectDeclaration(Enum):
-    """Which kind of database object a :class:`DDLSource` describes.
+    """Which kind of database object a :class:`ModelDDLDeclaration` describes.
 
     A declaration, never a runtime probe: a source answers this from its own
     class definition, and a caller that needs to know whether a database
@@ -94,7 +94,7 @@ class ObjectDeclaration(Enum):
     ``VIEW``
         A plain view -- a stored query with no entity behind it. Prefer
         expressing those as an encapsulated query rather than a model; this
-        member exists so a non-model :class:`DDLSource` can declare one for
+        member exists so a non-model :class:`ModelDDLDeclaration` can declare one for
         migration purposes.
     ``MATERIALIZED_VIEW``
         A stored result set with a refresh cycle. Unlike a view this *is* an
@@ -592,10 +592,10 @@ class DDLAnnotationHandler:
 
 
 @runtime_checkable
-class DDLSource(Protocol):
+class ModelDDLDeclaration(Protocol):
     """Structural contract for an ActiveRecord field-fact source.
 
-    ``DDLSource`` exposes a model's field facts and DDL declarations: the
+    ``ModelDDLDeclaration`` exposes a model's field facts and DDL declarations: the
     Python type of a field (``field_python_type``), the column class its
     expressions use (``column_type``), the declared column data type
     (``column_data_type``), table and field metadata, column constraints and
@@ -610,7 +610,7 @@ class DDLSource(Protocol):
     the source ever needing one.
 
     The protocol is intentionally structural.  ``ActiveRecord`` satisfies it
-    through :class:`DDLSourceMixin`, while integrations may provide their own
+    through :class:`ModelDDLDeclarationMixin`, while integrations may provide their own
     source implementation without inheriting from ActiveRecord.
 
     This contract deliberately excludes the ``ddl()`` factory, backend and
@@ -718,10 +718,10 @@ class DDLSource(Protocol):
         ...
 
 
-class DDLSourceMixin:
+class ModelDDLDeclarationMixin:
     """Provide overridable DDL parameter defaults for ActiveRecord models.
 
-    This mixin implements the :class:`DDLSource` contract using model field
+    This mixin implements the :class:`ModelDDLDeclaration` contract using model field
     metadata and declaration markers.  It translates ``UseSqlType``,
     ``UseConstraint``, ``UseIndex``, ``UseColumnAttributes``,
     ``UseComment``, and ``UseGeneratedColumn`` markers into dialect-free
@@ -1131,8 +1131,8 @@ __all__ = [
     "DDLColumnType",
     "DDLFieldMetadata",
     "DDLGeneratedColumn",
-    "DDLSource",
-    "DDLSourceMixin",
+    "ModelDDLDeclaration",
+    "ModelDDLDeclarationMixin",
     "ObjectDeclaration",
     "IdentityAttribute",
     "MARKER_REGISTRY",

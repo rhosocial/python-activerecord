@@ -1,5 +1,5 @@
 # tests/rhosocial/activerecord_test/feature/basic/ddl/test_ddl_declaration_interfaces.py
-"""Tests for the dialect-free ActiveRecord DDLSource declaration contract."""
+"""Tests for the dialect-free ActiveRecord ModelDDLDeclaration declaration contract."""
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnNotNullConstraint,
     ColumnNullableConstraint,
@@ -16,7 +16,7 @@ from rhosocial.activerecord.base import (
     ColumnOptions,
     DDLAnnotation,
     DDLFieldMetadata,
-    DDLSource,
+    ModelDDLDeclaration,
     IdentityAttribute,
     ObjectDeclaration,
     UseColumn,
@@ -242,7 +242,7 @@ class EveryRegisteredMarker(ActiveRecord):
 
 
 def test_activerecord_satisfies_ddl_source():
-    assert isinstance(Plain, DDLSource)
+    assert isinstance(Plain, ModelDDLDeclaration)
 
 
 def test_marker_type_contracts():

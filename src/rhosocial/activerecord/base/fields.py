@@ -135,7 +135,7 @@ class UseSqlType(DDLAnnotation):
     """Marker for ``Annotated[T, UseSqlType(*type_defs)]``.
 
     Declares the SQL ``DataType`` candidates associated with a model field.
-    ``DDLSource`` exposes the candidates in declaration order; dialect binding,
+    ``ModelDDLDeclaration`` exposes the candidates in declaration order; dialect binding,
     capability selection, and fallback policy belong to external consumers.
 
     Each instance may be a core generic type or a backend-specific type such as

@@ -1,5 +1,5 @@
 # tests/rhosocial/activerecord_test/feature/basic/ddl/test_ddl_derivation_contract.py
-"""Contract tests for DDLSource -> statement derivation."""
+"""Contract tests for ModelDDLDeclaration -> statement derivation."""
 
 try:  # Python 3.8 has no typing.Annotated
     from typing import Annotated, Optional

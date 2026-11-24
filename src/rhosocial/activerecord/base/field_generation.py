@@ -14,10 +14,10 @@ from ..types import WriteOperation
 from .fields import UseFieldGenerator
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .ddl import DDLSource
+    from .ddl import ModelDDLDeclaration
 
 
-def generator_annotation(source: "DDLSource", field: str) -> Optional[UseFieldGenerator]:
+def generator_annotation(source: "ModelDDLDeclaration", field: str) -> Optional[UseFieldGenerator]:
     """The field's generator, from its annotation or a mixin declaration.
 
     A field-level ``UseFieldGenerator`` annotation wins over a mixin's
@@ -32,7 +32,7 @@ def generator_annotation(source: "DDLSource", field: str) -> Optional[UseFieldGe
 
 
 def apply_field_generators(
-    source: "DDLSource",
+    source: "ModelDDLDeclaration",
     instance: Any,
     operation: WriteOperation,
     data: Dict[str, Any],
@@ -41,7 +41,7 @@ def apply_field_generators(
 ) -> Dict[str, Any]:
     """Run every declared generator for *operation* and filter ungenerated fields.
 
-    ``source`` is the model class (a ``DDLSource``); ``instance`` receives the
+    ``source`` is the model class (a ``ModelDDLDeclaration``); ``instance`` receives the
     generated values via ``setattr``. ``data`` is the write payload being built.
     ``only``, when given, restricts which fields are considered (used by the
     soft-delete path, which writes a single field).
