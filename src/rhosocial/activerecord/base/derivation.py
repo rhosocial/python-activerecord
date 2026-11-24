@@ -226,11 +226,23 @@ def build_drop_table_statement(
     dialect: Any,
     *,
     if_exists: bool = False,
+    cascade: bool = False,
+    restrict: bool = False,
+    purge: bool = False,
 ) -> DropTableStatement:
+    """Build a DROP TABLE statement from *source*.
+
+    ``cascade``/``restrict``/``purge`` mirror :class:`DropTableStatement`'s
+    dependency-handling flags; capability gating (whether the dialect renders
+    them) stays in the dialect's ``format_drop_table_statement``.
+    """
     return DropTableStatement(
         dialect,
         Table(dialect, source.table_name()),
         if_exists=if_exists,
+        cascade=cascade,
+        restrict=restrict,
+        purge=purge,
     )
 
 

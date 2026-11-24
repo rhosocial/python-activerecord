@@ -101,6 +101,29 @@ def test_drop_statement_honours_if_exists():
     assert "IF EXISTS" in sql
 
 
+def test_drop_statement_carries_dependency_flags():
+    from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+
+    stmt = build_drop_table_statement(
+        DerivedUser, DummyDialect(), if_exists=True, cascade=True
+    )
+    assert stmt.if_exists is True
+    assert stmt.cascade is True
+    assert stmt.restrict is False
+    assert stmt.purge is False
+
+
+def test_drop_statement_rejects_cascade_and_restrict_together():
+    import pytest
+
+    from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+
+    with pytest.raises(ValueError):
+        build_drop_table_statement(
+            DerivedUser, DummyDialect(), cascade=True, restrict=True
+        )
+
+
 def test_migration_mixin_executes_actions_on_the_configured_backend():
     config = SQLiteConnectionConfig(database=":memory:")
     DerivedUser.configure(config, SQLiteBackend)

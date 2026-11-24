@@ -51,6 +51,9 @@ class _MigrationStatementsMixin:
         cls,
         *,
         if_exists: bool = False,
+        cascade: bool = False,
+        restrict: bool = False,
+        purge: bool = False,
         backend: Any = None,
     ) -> Any:
         from .derivation import build_drop_table_statement
@@ -59,6 +62,9 @@ class _MigrationStatementsMixin:
             cls,
             cls._ddl_backend(backend).dialect,
             if_exists=if_exists,
+            cascade=cascade,
+            restrict=restrict,
+            purge=purge,
         )
 
     @classmethod
@@ -136,10 +142,26 @@ class MigrationMixin(_MigrationStatementsMixin):
         )
 
     @classmethod
-    def drop_table(cls, *, if_exists: bool = False, backend: Any = None) -> None:
+    def drop_table(
+        cls,
+        *,
+        if_exists: bool = False,
+        cascade: bool = False,
+        restrict: bool = False,
+        purge: bool = False,
+        backend: Any = None,
+    ) -> None:
         cls._execute(
             cls._ddl_backend(backend),
-            (cls.drop_table_statement(if_exists=if_exists, backend=backend),),
+            (
+                cls.drop_table_statement(
+                    if_exists=if_exists,
+                    cascade=cascade,
+                    restrict=restrict,
+                    purge=purge,
+                    backend=backend,
+                ),
+            ),
         )
 
     @classmethod
@@ -200,11 +222,25 @@ class AsyncMigrationMixin(_MigrationStatementsMixin):
 
     @classmethod
     async def drop_table(
-        cls, *, if_exists: bool = False, backend: Any = None
+        cls,
+        *,
+        if_exists: bool = False,
+        cascade: bool = False,
+        restrict: bool = False,
+        purge: bool = False,
+        backend: Any = None,
     ) -> None:
         await cls._execute(
             cls._ddl_backend(backend),
-            (cls.drop_table_statement(if_exists=if_exists, backend=backend),),
+            (
+                cls.drop_table_statement(
+                    if_exists=if_exists,
+                    cascade=cascade,
+                    restrict=restrict,
+                    purge=purge,
+                    backend=backend,
+                ),
+            ),
         )
 
     @classmethod
