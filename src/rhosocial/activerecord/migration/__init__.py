@@ -24,6 +24,9 @@ from .runner import (
     MigrationNotAppliedError,
 )
 from .record import MigrationRecord, MigrationRecordStore, InMemoryMigrationRecordStore
+from .schema_change import (
+    diff_declarations, plan_changes, ChangePlan, FieldChange,
+)
 
 __all__ = [
     "MigrationContext",
@@ -39,4 +42,8 @@ __all__ = [
     "MigrationRecord",
     "MigrationRecordStore",
     "InMemoryMigrationRecordStore",
+    "diff_declarations",
+    "plan_changes",
+    "ChangePlan",
+    "FieldChange",
 ]

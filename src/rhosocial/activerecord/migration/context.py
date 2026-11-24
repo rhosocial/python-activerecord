@@ -131,6 +131,23 @@ class _ContextBase(_SuggestionMixin):
             rendered.append((sql, params))
         return rendered
 
+    def plan_changes(self, old_model: Any, new_model: Any) -> Any:
+        """Plan the schema change from *old_model* to *new_model*.
+
+        Returns a ``ChangePlan`` whose ``statements`` are core ALTER expressions
+        ready for :meth:`apply`::
+
+            ctx.apply(*ctx.plan_changes(User20261124, User).statements)
+
+        Single-action changes are emitted directly (expression–dialect system,
+        layer-separation A1). Multi-step changes appear in
+        ``plan.suggestion_points`` for the user to resolve via a backend
+        suggestion — this module never hard-codes a backend strategy.
+        """
+        from .schema_change import plan_changes as _plan
+
+        return _plan(old_model, new_model, self._suggestion_target())
+
 
 class MigrationContext(_ContextBase):
     """Synchronous migration context."""
