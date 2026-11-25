@@ -16,14 +16,43 @@ Mechanism split (backend-expression-dialect-suggestion.md §3.4):
 * **Multi-step strategy changes** (table rebuild, data-preserving type change,
   add-NOT-NULL-with-backfill, partition ops) are decision points $\\delta$ that
   must be resolved by a *backend suggestion* via $\\mathcal{I}$. This module only
-  identifies and names them; it does not hard-code a strategy.
+  identifies and describes them in frozen, dialect-neutral suggestion-point
+  objects; it does not hard-code a strategy or render any SQL.
+
+Rename pairing (data-loss stopgap)
+----------------------------------
+
+``diff_declarations`` is name-keyed, so a pure column rename otherwise looks
+like a drop plus an add. It recognises a rename **only** when a table has
+exactly one removal and exactly one addition and their complete declarations
+(except the name) are equivalent. Ambiguous cases, and any case where either
+side carries a data-affecting change, deliberately stay drop+add: losing a
+rename is recoverable (a manual migration), while guessing one wrongly can
+silently discard data. A source that gains an explicit rename declaration
+(``column_renames()``) is preferred over this heuristic. ``RENAME`` already
+existed in the diff vocabulary and is reused as-is.
+
+Next step (not in this module)
+------------------------------
+
+Consumption of the suggestion points is intentionally left out: a concrete
+backend must first implement the matching ``suggest_*`` protocol, then a
+consumer decides what to do with the tri-state answer. Core only freezes the
+contract here.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Sequence, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Sequence, TYPE_CHECKING
 
 from ..backend.schema.differ import ColumnChangeKind, SchemaDiff, TableDiff
+from ..backend.suggestion.definitions import (
+    ColumnReorderSuggestion,
+    PartitionSchemeChangeSuggestion,
+    SuggestionPoint,
+    TableConstraintChangeSuggestion,
+    TableIndexChangeSuggestion,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..base.ddl import ModelDDLDeclaration
@@ -37,6 +66,7 @@ class FieldChange:
     python_type: Any = None
     declared_type: Any = None
     constraints: Sequence[Any] = field(default_factory=tuple)
+    attributes: Sequence[Any] = field(default_factory=tuple)
     comment: Optional[str] = None
     has_identity: bool = False
     index_names: Sequence[str] = field(default_factory=tuple)
@@ -46,6 +76,7 @@ class FieldChange:
             self.python_type,
             _freeze(self.declared_type),
             tuple(_freeze(c) for c in self.constraints),
+            tuple(_freeze(a) for a in self.attributes),
             self.comment,
             self.has_identity,
             tuple(self.index_names),
@@ -77,10 +108,28 @@ def _field_change(source: "ModelDDLDeclaration", field_name: str) -> FieldChange
         python_type=source.field_python_type(field_name),
         declared_type=source.column_data_type(field_name),
         constraints=tuple(source.column_constraints(field_name)),
+        attributes=tuple(source.column_attributes(field_name)),
         comment=source.column_comment(field_name),
         has_identity=_has_declared_identity(source, field_name),
         index_names=tuple(idx.name for idx in source.column_indexes(field_name)),
     )
+
+
+def _explicit_rename_pairs(source: "ModelDDLDeclaration") -> Dict[str, str]:
+    """Declared old→new column names, if the source exposes such a signal.
+
+    ``ModelDDLDeclaration`` has no rename declaration today, so this is an
+    extension point rather than a live path: a source that later adds
+    ``column_renames()`` is preferred over the signature heuristic, and an
+    explicit answer is honoured only when it too passes the equivalence guard.
+    """
+    getter = getattr(source, "column_renames", None)
+    if not callable(getter):
+        return {}
+    try:
+        return {str(old): str(new) for old, new in dict(getter()).items()}
+    except (TypeError, ValueError):  # pragma: no cover - malformed declaration
+        return {}
 
 
 def diff_declarations(
@@ -107,14 +156,46 @@ def diff_declarations(
     table_name = new_source.table_name()
     td = TableDiff(table_name=table_name, old=old_source, new=new_source)
 
-    for name in set(old_by_name) - set(new_by_name):
-        td.column_diffs.append(
-            __column_diff(name, old_by_name[name], None, ColumnChangeKind.DROP)
-        )
-    for name in set(new_by_name) - set(old_by_name):
-        td.column_diffs.append(
-            __column_diff(name, None, new_by_name[name], ColumnChangeKind.ADD)
-        )
+    removals = sorted(set(old_by_name) - set(new_by_name))
+    additions = sorted(set(new_by_name) - set(old_by_name))
+
+    # Conservative pairing: one removal and one addition, equivalent on every
+    # declared fact except the name. Anything else stays drop+add (see module
+    # docstring for why that trade-off favours data safety).
+    rename_pairs: Dict[str, str] = {}
+    explicit = _explicit_rename_pairs(new_source) or _explicit_rename_pairs(old_source)
+    if explicit:
+        for old_name, new_name in explicit.items():
+            if (
+                old_name in removals
+                and new_name in additions
+                and old_by_name[old_name].signature() == new_by_name[new_name].signature()
+            ):
+                rename_pairs[old_name] = new_name
+    elif len(removals) == 1 and len(additions) == 1:
+        old_name, new_name = removals[0], additions[0]
+        if old_by_name[old_name].signature() == new_by_name[new_name].signature():
+            rename_pairs[old_name] = new_name
+
+    renamed_targets = set(rename_pairs.values())
+    for name in removals:
+        if name in rename_pairs:
+            new_name = rename_pairs[name]
+            td.column_diffs.append(
+                __column_diff(
+                    name, old_by_name[name], new_by_name[new_name],
+                    ColumnChangeKind.RENAME, new_name=new_name,
+                )
+            )
+        else:
+            td.column_diffs.append(
+                __column_diff(name, old_by_name[name], None, ColumnChangeKind.DROP)
+            )
+    for name in additions:
+        if name not in renamed_targets:
+            td.column_diffs.append(
+                __column_diff(name, None, new_by_name[name], ColumnChangeKind.ADD)
+            )
     for name in set(old_by_name) & set(new_by_name):
         of, nf = old_by_name[name], new_by_name[name]
         if of.signature() != nf.signature():
@@ -150,10 +231,10 @@ def diff_declarations(
     return diff
 
 
-def __column_diff(name, old, new, kind):
+def __column_diff(name, old, new, kind, new_name=None):
     from ..backend.schema.differ import ColumnDiff
 
-    return ColumnDiff(name, old, new, kind=kind)
+    return ColumnDiff(name, old, new, kind=kind, new_name=new_name)
 
 
 @dataclass
@@ -161,13 +242,14 @@ class ChangePlan:
     """Result of planning a schema change.
 
     ``statements`` are core ALTER expressions (one action each), ready for
-    ``MigrationContext.apply``. ``suggestion_points`` are multi-step decisions
-    the user resolves by asking the backend (via $\\mathcal{I}$); AR does not
-    hard-code their strategy.
+    ``MigrationContext.apply``. ``suggestion_points`` are frozen, dialect-neutral
+    decision objects the user resolves by asking the backend (via
+    $\\mathcal{I}$); AR does not hard-code their strategy. Each object still
+    compares equal to its old bare label for caller compatibility.
     """
 
     statements: List[Any] = field(default_factory=list)
-    suggestion_points: List[str] = field(default_factory=list)
+    suggestion_points: List["SuggestionPoint"] = field(default_factory=list)
     diff: Optional[SchemaDiff] = None
 
     @property
@@ -188,7 +270,7 @@ def plan_changes(
     """
     from ..base.derivation import build_column_definitions
     from ..backend.expression.statements.ddl_alter import (
-        AddColumnAction, DropColumnAction, AlterTableStatement,
+        AddColumnAction, DropColumnAction, RenameColumnAction, AlterTableStatement,
     )
     from ..backend.expression.objects import Table
 
@@ -234,15 +316,57 @@ def plan_changes(
                         )],
                     )
                 )
-        # RENAME is not inferred by diff_declarations (name-keyed matching sees
-        # drop+add); explicit rename is a user-declared migration concern.
+        elif cd.kind is ColumnChangeKind.RENAME and cd.new_name:
+            # A confidently paired rename is a single syntax-level action: the
+            # neutral core expression carries the old and new names, and the
+            # dialect formatter decides whether it can render it.
+            plan.statements.append(
+                AlterTableStatement(
+                    dialect,
+                    table,
+                    [RenameColumnAction(
+                        dialect, old_name=cd.column_name, new_name=cd.new_name,
+                    )],
+                )
+            )
 
     if td.reordered_columns:
-        plan.suggestion_points.append("column_reorder")
+        old_order = tuple(
+            old_source.column_name(n) for n in old_source.ddl_field_names()
+        )
+        new_order = tuple(
+            new_source.column_name(n) for n in new_source.ddl_field_names()
+        )
+        plan.suggestion_points.append(
+            ColumnReorderSuggestion(
+                table_name=td.table_name,
+                old_order=old_order,
+                new_order=new_order,
+                reordered_columns=tuple(td.reordered_columns),
+            )
+        )
     if td.constraints_changed:
-        plan.suggestion_points.append("table_constraint_change")
+        plan.suggestion_points.append(
+            TableConstraintChangeSuggestion(
+                table_name=td.table_name,
+                old_constraints=tuple(_freeze(c) for c in old_source.table_constraints()),
+                new_constraints=tuple(_freeze(c) for c in new_source.table_constraints()),
+            )
+        )
     if td.indexes_changed:
-        plan.suggestion_points.append("table_index_change")
+        plan.suggestion_points.append(
+            TableIndexChangeSuggestion(
+                table_name=td.table_name,
+                old_indexes=tuple(_freeze(i) for i in old_source.table_indexes()),
+                new_indexes=tuple(_freeze(i) for i in new_source.table_indexes()),
+            )
+        )
     if td.partition_changed:
-        plan.suggestion_points.append("partition_scheme_change")
+        plan.suggestion_points.append(
+            PartitionSchemeChangeSuggestion(
+                table_name=td.table_name,
+                old_partition=_freeze(old_source.table_partition()),
+                new_partition=_freeze(new_source.table_partition()),
+            )
+        )
     return plan

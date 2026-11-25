@@ -5,6 +5,13 @@ One dataclass per ``suggest_*`` protocol method. These describe the *shape* of
 a backend's answer; concrete backends construct and return them. Renderers are
 deliberately absent -- a suggestion is a complete decision, consumed directly.
 """
+from .change_plan import (
+    ColumnReorderSuggestion,
+    PartitionSchemeChangeSuggestion,
+    SuggestionPoint,
+    TableConstraintChangeSuggestion,
+    TableIndexChangeSuggestion,
+)
 from .column_types import ColumnTypeSuggestion, ExtraColumnTypeSuggestion
 from .data_adapters import DataAdapterSuggestion, ExtraDataAdapterSuggestion
 from .data_types import (
@@ -36,6 +43,11 @@ from .partition import (
 )
 
 __all__ = [
+    "ColumnReorderSuggestion",
+    "TableConstraintChangeSuggestion",
+    "TableIndexChangeSuggestion",
+    "PartitionSchemeChangeSuggestion",
+    "SuggestionPoint",
     "ColumnTypeSuggestion",
     "ExtraColumnTypeSuggestion",
     "DataAdapterSuggestion",

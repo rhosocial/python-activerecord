@@ -4,7 +4,9 @@
 Layering (layer-separation.md A1/A2): this lives in A, reads model declarations,
 emits backend expression instances through the contract. Backend never sees AR.
 Mechanism (suggestion.md §3.4): single-action changes emit expressions directly;
-multi-step changes are named suggestion points, not hard-coded strategies.
+multi-step changes are frozen suggestion-point objects, not hard-coded strategies.
+A conservatively recognised rename (one removal + one addition, equivalent except
+the name) is also a single action; ambiguous cases stay drop+add.
 """
 from typing import Optional
 
@@ -37,7 +39,65 @@ class _New(ActiveRecord):
         return "users"
 
     id: Optional[int] = None
-    added: str = ""
+    # A different declared type keeps this a genuine drop+add rather than a
+    # rename candidate (the two sides are not equivalent except for the name).
+    added: int = 0
+
+
+class _RenameOld(ActiveRecord):
+    @classmethod
+    def table_name(cls):
+        return "users"
+
+    id: Optional[int] = None
+    legacy_label: str = ""
+
+
+class _RenameNew(ActiveRecord):
+    @classmethod
+    def table_name(cls):
+        return "users"
+
+    id: Optional[int] = None
+    current_label: str = ""
+
+
+class _AmbiguousOld(ActiveRecord):
+    @classmethod
+    def table_name(cls):
+        return "users"
+
+    id: Optional[int] = None
+    alpha: str = ""
+    beta: str = ""
+
+
+class _AmbiguousNew(ActiveRecord):
+    @classmethod
+    def table_name(cls):
+        return "users"
+
+    id: Optional[int] = None
+    gamma: str = ""
+    delta: str = ""
+
+
+class _TypeChangedOld(ActiveRecord):
+    @classmethod
+    def table_name(cls):
+        return "users"
+
+    id: Optional[int] = None
+    old_field: str = ""
+
+
+class _TypeChangedNew(ActiveRecord):
+    @classmethod
+    def table_name(cls):
+        return "users"
+
+    id: Optional[int] = None
+    new_field: int = 0
 
 
 def test_diff_is_field_by_field_table_by_table():
@@ -55,7 +115,7 @@ def test_diff_payload_carries_declaration_facts():
     added = next(cd for cd in td.column_diffs if cd.kind is ColumnChangeKind.ADD)
     assert isinstance(added.new, FieldChange)
     assert added.new.name == "added"
-    assert added.new.python_type is str
+    assert added.new.python_type is int
 
 
 def test_identical_declarations_produce_no_diff():
@@ -109,3 +169,57 @@ def test_multi_step_changes_become_suggestion_points():
 
     plan = plan_changes(_Old, _Reordered, DummyDialect())
     assert "column_reorder" in plan.suggestion_points
+
+
+def _kinds(td):
+    return [(cd.kind, cd.column_name, cd.new_name) for cd in td.column_diffs]
+
+
+def test_rename_detected_when_one_removal_and_one_addition_match():
+    """A lone drop+add with equivalent declarations is a rename, not data loss."""
+    td = diff_declarations(_RenameOld, _RenameNew).table_diffs["users"]
+    renames = [cd for cd in td.column_diffs if cd.kind is ColumnChangeKind.RENAME]
+    assert len(renames) == 1
+    assert renames[0].column_name == "legacy_label"
+    assert renames[0].new_name == "current_label"
+    assert renames[0].is_renamed
+    assert not [cd for cd in td.column_diffs if cd.kind in (ColumnChangeKind.DROP, ColumnChangeKind.ADD)]
+
+
+def test_rename_becomes_a_single_rename_column_action():
+    plan = plan_changes(_RenameOld, _RenameNew, DummyDialect())
+    assert len(plan.statements) == 1
+    from rhosocial.activerecord.backend.expression.statements.ddl_alter import RenameColumnAction
+    action = plan.statements[0].actions[0]
+    assert isinstance(action, RenameColumnAction)
+    assert (action.old_name, action.new_name) == ("legacy_label", "current_label")
+    sql, _ = plan.statements[0].to_sql()
+    assert "RENAME COLUMN" in sql
+
+
+def test_ambiguous_rename_is_not_paired():
+    """More than one candidate on a side stays drop+add: no guessing."""
+    td = diff_declarations(_AmbiguousOld, _AmbiguousNew).table_diffs["users"]
+    kinds = _kinds(td)
+    assert not any(kind is ColumnChangeKind.RENAME for kind, _, _ in kinds)
+    assert sorted(name for kind, name, _ in kinds if kind is ColumnChangeKind.DROP) == ["alpha", "beta"]
+    assert sorted(name for kind, name, _ in kinds if kind is ColumnChangeKind.ADD) == ["delta", "gamma"]
+
+
+def test_type_changed_candidate_is_not_paired():
+    """A data-affecting change on either side forbids the rename shortcut."""
+    td = diff_declarations(_TypeChangedOld, _TypeChangedNew).table_diffs["users"]
+    kinds = _kinds(td)
+    assert [(kind, name) for kind, name, _ in kinds] == [
+        (ColumnChangeKind.DROP, "old_field"),
+        (ColumnChangeKind.ADD, "new_field"),
+    ]
+
+
+def test_plain_add_and_drop_stay_unpaired():
+    """Distinct declarations on the two sides keep the original vocabulary."""
+    td = diff_declarations(_Old, _New).table_diffs["users"]
+    assert [(cd.kind, cd.column_name) for cd in td.column_diffs] == [
+        (ColumnChangeKind.DROP, "gone"),
+        (ColumnChangeKind.ADD, "added"),
+    ]

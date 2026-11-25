@@ -6,6 +6,10 @@ Every ``*SuggestionSupport`` lives here; capability protocols
 Core declares only these interfaces and supplies no default implementation:
 concrete backends implement them under ``backend.impl.<name>.suggestion``.
 """
+from .column_reorder_suggestion import ColumnReorderSuggestionSupport
+from .table_constraint_change_suggestion import TableConstraintChangeSuggestionSupport
+from .table_index_change_suggestion import TableIndexChangeSuggestionSupport
+from .partition_scheme_change_suggestion import PartitionSchemeChangeSuggestionSupport
 from .column_type_suggestion import ColumnTypeSuggestionSupport
 from .data_adapter_suggestion import DataAdapterSuggestionSupport
 from .data_type_suggestion import DataTypeSuggestionSupport
@@ -26,6 +30,10 @@ from .partition_table_alter_suggestion import PartitionTableAlterSuggestionSuppo
 from .partition_table_drop_suggestion import PartitionTableDropSuggestionSupport
 
 __all__ = [
+    "ColumnReorderSuggestionSupport",
+    "TableConstraintChangeSuggestionSupport",
+    "TableIndexChangeSuggestionSupport",
+    "PartitionSchemeChangeSuggestionSupport",
     "ColumnTypeSuggestionSupport",
     "DataAdapterSuggestionSupport",
     "DataTypeSuggestionSupport",
