@@ -17,7 +17,11 @@ Mechanism split (backend-expression-dialect-suggestion.md §3.4):
   add-NOT-NULL-with-backfill, partition ops) are decision points $\\delta$ that
   must be resolved by a *backend suggestion* via $\\mathcal{I}$. This module only
   identifies and describes them in frozen, dialect-neutral suggestion-point
-  objects; it does not hard-code a strategy or render any SQL.
+  objects; it does not hard-code a strategy or render any SQL. Each point keeps
+  both its original minimal projection and optional *live declaration* context
+  (full ``ColumnDefinition``, ``TableConstraint``, ``IndexDefinition``,
+  ``PartitionClause``) so a capable backend can build a real action instead of
+  refusing for lack of information.
 
 Rename pairing (data-loss stopgap)
 ----------------------------------
@@ -45,6 +49,7 @@ inventing an expression type on this side. ``plan_changes`` itself is unchanged.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from ..backend.schema.differ import ColumnChangeKind, SchemaDiff, TableDiff
@@ -341,36 +346,59 @@ def plan_changes(
         new_order = tuple(
             new_source.column_name(n) for n in new_source.ddl_field_names()
         )
+        # The name-only projections above cannot tell a backend how to rebuild
+        # a column for MODIFY COLUMN ... FIRST|AFTER. build_column_definitions
+        # resolves the same declarations already used for ADD/MODIFY statements,
+        # keyed by database column name, so the full typed spec travels with
+        # the point without any backend vocabulary entering A.
+        old_fields = {
+            column.name: column
+            for column in build_column_definitions(old_source, dialect)
+        }
         plan.suggestion_points.append(
             ColumnReorderSuggestion(
                 table_name=td.table_name,
                 old_order=old_order,
                 new_order=new_order,
                 reordered_columns=tuple(td.reordered_columns),
+                old_fields=MappingProxyType(old_fields),
+                new_fields=MappingProxyType(new_columns),
             )
         )
     if td.constraints_changed:
+        old_decls = tuple(old_source.table_constraints())
+        new_decls = tuple(new_source.table_constraints())
         plan.suggestion_points.append(
             TableConstraintChangeSuggestion(
                 table_name=td.table_name,
-                old_constraints=tuple(_freeze(c) for c in old_source.table_constraints()),
-                new_constraints=tuple(_freeze(c) for c in new_source.table_constraints()),
+                old_constraints=tuple(_freeze(c) for c in old_decls),
+                new_constraints=tuple(_freeze(c) for c in new_decls),
+                old_constraint_declarations=old_decls,
+                new_constraint_declarations=new_decls,
             )
         )
     if td.indexes_changed:
+        old_decls = tuple(old_source.table_indexes())
+        new_decls = tuple(new_source.table_indexes())
         plan.suggestion_points.append(
             TableIndexChangeSuggestion(
                 table_name=td.table_name,
-                old_indexes=tuple(_freeze(i) for i in old_source.table_indexes()),
-                new_indexes=tuple(_freeze(i) for i in new_source.table_indexes()),
+                old_indexes=tuple(_freeze(i) for i in old_decls),
+                new_indexes=tuple(_freeze(i) for i in new_decls),
+                old_index_declarations=old_decls,
+                new_index_declarations=new_decls,
             )
         )
     if td.partition_changed:
+        old_decl = old_source.table_partition()
+        new_decl = new_source.table_partition()
         plan.suggestion_points.append(
             PartitionSchemeChangeSuggestion(
                 table_name=td.table_name,
-                old_partition=_freeze(old_source.table_partition()),
-                new_partition=_freeze(new_source.table_partition()),
+                old_partition=_freeze(old_decl),
+                new_partition=_freeze(new_decl),
+                old_partition_declaration=old_decl,
+                new_partition_declaration=new_decl,
             )
         )
     return plan
