@@ -7,7 +7,7 @@ from .ddl_table import normalize_foreign_key_match_type
 from ...expression.objects import Index, Table
 from ...expression.core import Literal
 from ...expression.bases import BaseExpression, ToSQLProtocol
-from typing import Any, List, Tuple, TYPE_CHECKING
+from typing import Any, List, Tuple, TYPE_CHECKING, cast
 # src/rhosocial/activerecord/backend/dialect/mixins/ddl_column.py
 """DDL column formatting: column references, definitions, constraints, and
 ALTER TABLE column/constraint actions."""
@@ -966,53 +966,46 @@ class DDLColumnMixin():
     def format_drop_table_constraint_action(self, expr: "DropTableConstraintAction") -> "Tuple[str, tuple]":
         """Format a ``DROP CONSTRAINT`` ALTER TABLE expr.
 
-        A constraint reaches an action either by name or by its declaration
-        (kind-based drop).  This generic formatter spells the **name** form
-        only, so it refuses a declaration-only action by name unless the
-        dialect advertises ``supports_drop_constraint_by_kind()``.  When both
-        the name and the declaration are present, the name form wins here --
-        a dialect that spells kinds overrides this method and may choose
-        otherwise.
+        The address is decided first by
+        :meth:`_resolve_drop_constraint_address`: the **name** form when a
+        name is given (a declaration only confirms it when it carries the same
+        name), the **kind** form otherwise.  This generic formatter spells the
+        name only, so a kind address (declaration-only on a dialect that
+        advertises ``supports_drop_constraint_by_kind()``) has nothing to
+        spell here: it raises ``NotImplementedError`` telling the dialect to
+        override this method with a kind form.  An ambiguous address -- both
+        given and not agreeing -- is refused by the resolver before any
+        spelling is attempted.
 
         Args:
             expr: The expr carrying the constraint name or declaration, and
-                the optional cascade flag.
+                the optional ``if_exists`` / ``cascade`` flags.
 
         Returns:
             A ``(sql, params)`` tuple with empty parameters.
 
         Raises:
+            TypeError: ``expr.constraint`` is not a ``TableConstraint``.
             UnsupportedFeatureError: If the dialect does not support
                 ``ALTER TABLE DROP CONSTRAINT``, if a declaration-only action
-                reaches a dialect that cannot spell ``DROP CONSTRAINT by
-                kind``, or if ``IF EXISTS`` is requested but not supported.
+                reaches a dialect that cannot spell kinds, if the name and
+                declaration disagree (an ambiguous address), or if ``IF EXISTS``
+                is requested but not supported.
             ValueError: If neither ``constraint_name`` nor ``constraint`` is
                 given.
-            NotImplementedError: If the dialect advertises kind-based drops
-                but only supplies the declaration, so this name-only formatter
-                has nothing to spell.
+            NotImplementedError: If the address is the declaration's kind
+                (the dialect advertises kind-based drops) but this name-only
+                formatter was not overridden.
         """
         from ..exceptions import UnsupportedFeatureError
-        if (
-            expr.constraint_name is None
-            and expr.constraint is not None
-            and not self.supports_drop_constraint_by_kind()
-        ):
-            raise UnsupportedFeatureError(
-                self.name, "DROP CONSTRAINT by kind",
-                f"{self.name} does not support DROP CONSTRAINT by kind; "
-                f"address the constraint by name instead."
-            )
-        if expr.constraint_name is None and expr.constraint is None:
-            raise ValueError(
-                "DropTableConstraintAction requires constraint_name or constraint"
-            )
-        if expr.constraint_name is None:
+        address = self._resolve_drop_constraint_address(expr)
+        if address == "kind":
             raise NotImplementedError(
                 f"{self.name} advertises supports_drop_constraint_by_kind() but "
                 f"does not override format_drop_table_constraint_action; a "
                 f"declaration-only drop has no name to render."
             )
+        constraint_name = cast(str, expr.constraint_name)
         if not self.supports_drop_constraint():
             raise UnsupportedFeatureError(self.name, "ALTER TABLE DROP CONSTRAINT")
         if expr.if_exists and not self.supports_drop_constraint_if_exists():
@@ -1021,7 +1014,7 @@ class DDLColumnMixin():
                 f"{self.name} does not support DROP CONSTRAINT IF EXISTS."
             )
         if_exists = "IF EXISTS " if expr.if_exists else ""
-        result = f"DROP CONSTRAINT {if_exists}{self.format_identifier(expr.constraint_name)}"
+        result = f"DROP CONSTRAINT {if_exists}{self.format_identifier(constraint_name)}"
         if expr.cascade:
             result += " CASCADE"
         return result, ()

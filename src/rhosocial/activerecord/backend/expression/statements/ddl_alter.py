@@ -274,9 +274,14 @@ class DropTableConstraintAction(AlterTableAction):
     render is its own business: the core formatter refuses a declaration-only
     action with ``UnsupportedFeatureError`` naming ``DROP CONSTRAINT by kind``
     unless the dialect advertises ``supports_drop_constraint_by_kind()``.
-    When both are given, the **name form wins** for dialects that spell names
-    only (the core formatter included); a dialect that can spell kinds overrides
-    the formatter and may prefer the declaration.
+
+    When **both** forms are given, one rule decides the address instead of a
+    preferred spelling: the declaration's name, if it has one, must equal
+    ``constraint_name``.  Equal names mean the declaration merely **confirms**
+    the name, and the drop is rendered by name.  A different name, or an
+    unnamed declaration, is an **ambiguous address** and is refused with
+    ``UnsupportedFeatureError`` naming ``DROP CONSTRAINT address`` -- a formatter
+    never silently picks one of them.
 
     Note:
         ``DROP CONSTRAINT IF EXISTS`` is a vendor extension

@@ -3,9 +3,10 @@
 
 from rhosocial.activerecord.backend.expression.statements import (
     TableCheckConstraint,
+    TableConstraint,
     TableForeignKeyConstraint,
 )
-from ...expression.statements.ddl_alter import AlterTableAction
+from ...expression.statements.ddl_alter import AlterTableAction, DropTableConstraintAction
 from ...expression.objects import Table
 from typing import Any, List, Tuple, TYPE_CHECKING
 from enum import Enum
@@ -378,6 +379,72 @@ class ConstraintMixin:
         """
         return True
 
+    def _resolve_drop_constraint_address(self, expr: "DropTableConstraintAction") -> str:
+        """Decide which address a ``DROP CONSTRAINT`` names the constraint by.
+
+        A constraint may be addressed by name (``constraint_name``) or by its
+        declaration (``constraint``).  Exactly one decision is made here, in
+        this order, so a formatter never invents its own preference:
+
+        1. No declaration: the name is required (``ValueError`` otherwise) and
+           the answer is ``"name"``.
+        2. A declaration and no name: the answer is ``"kind"`` when the dialect
+           advertises :meth:`supports_drop_constraint_by_kind`; otherwise
+           ``UnsupportedFeatureError`` naming ``DROP CONSTRAINT by kind``.
+        3. Both: the declaration merely **confirms** the name.  If the
+           declaration carries that same name the answer is ``"name"`` -- the
+           declaration adds no second address.  If the names differ, or the
+           declaration is unnamed, the two addresses disagree and an
+           **ambiguous address** is refused with ``UnsupportedFeatureError``
+           naming ``DROP CONSTRAINT address``.  Never silently pick one.
+
+        Args:
+            expr: The action whose addresses are resolved.
+
+        Returns:
+            ``"name"`` when the drop is addressed by ``constraint_name``,
+            ``"kind"`` when it is addressed by the declaration's kind.
+
+        Raises:
+            TypeError: ``expr.constraint`` is present but not a
+                :class:`TableConstraint`.
+            ValueError: Neither address is present.
+            UnsupportedFeatureError: A declaration-only drop on a dialect that
+                cannot spell drops by kind, or an ambiguous address.
+        """
+        from ..exceptions import UnsupportedFeatureError
+
+        constraint = expr.constraint
+        if constraint is not None and not isinstance(constraint, TableConstraint):
+            raise TypeError(
+                "DropTableConstraintAction.constraint must be a TableConstraint, "
+                f"got {type(constraint).__name__}"
+            )
+        if constraint is None:
+            if expr.constraint_name is None:
+                raise ValueError(
+                    "DropTableConstraintAction requires constraint_name or constraint"
+                )
+            return "name"
+        if expr.constraint_name is None:
+            if self.supports_drop_constraint_by_kind():
+                return "kind"
+            raise UnsupportedFeatureError(
+                self.name, "DROP CONSTRAINT by kind",
+                f"{self.name} does not support DROP CONSTRAINT by kind; "
+                f"address the constraint by name instead."
+            )
+        if constraint.name is not None and constraint.name == expr.constraint_name:
+            # The declaration confirms the name; it adds no second address.
+            return "name"
+        raise UnsupportedFeatureError(
+            self.name, "DROP CONSTRAINT address",
+            f"{self.name} received two addresses for one constraint: "
+            f"constraint_name {expr.constraint_name!r} and declaration name "
+            f"{constraint.name!r}. An ambiguous address is refused; make the "
+            f"declaration's name match constraint_name, or pass only one address."
+        )
+
     def supports_drop_constraint_by_kind(self) -> bool:
         """Whether a constraint may be dropped by its declaration's kind.
 
@@ -385,6 +452,12 @@ class ConstraintMixin:
         ``DROP UNIQUE (<cols>)`` / ``DROP FOREIGN KEY (<cols>)`` rather than
         ``DROP CONSTRAINT <name>``.  Defaults to ``False`` so no existing
         backend changes behaviour.
+
+        When an action carries both a name and a declaration, the declaration
+        only **confirms** the name if it carries that same name; the drop is
+        then spelled by name.  An unequal or unnamed declaration is an
+        **ambiguous address** and is refused, never resolved by preference
+        (see :meth:`_resolve_drop_constraint_address`).
         """
         return False
 

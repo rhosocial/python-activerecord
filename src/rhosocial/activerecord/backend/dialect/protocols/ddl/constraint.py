@@ -222,5 +222,11 @@ class ConstraintSupport(Protocol):
         ``DROP UNIQUE (<cols>)`` / ``DROP FOREIGN KEY (<cols>)`` rather than
         ``DROP CONSTRAINT <name>``.  Defaults to ``False`` so no existing
         backend changes behaviour.
+
+        When an action carries both a name and a declaration, the declaration
+        only **confirms** the name if it carries that same name; an unequal or
+        unnamed declaration is an **ambiguous address** and is refused, never
+        resolved by preference (see
+        ``ConstraintMixin._resolve_drop_constraint_address``).
         """
         ...  # pragma: no cover

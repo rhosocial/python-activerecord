@@ -5,6 +5,7 @@ import pytest
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnCheckConstraint,
     TableCheckConstraint,
+    TableConstraint,
     TableExcludeConstraint,
     TablePrimaryKeyConstraint,
     TableUniqueConstraint,
@@ -265,10 +266,6 @@ class TestConstraintSQLFormatting:
         """A name-only dialect refuses a kind-based drop by feature name."""
         from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
         from rhosocial.activerecord.backend.expression.statements.ddl_alter import DropTableConstraintAction
-        from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-            TableConstraint,
-            TableUniqueConstraint,
-        )
 
         constraint = TableConstraint(
             dialect,
@@ -276,16 +273,13 @@ class TestConstraintSQLFormatting:
             name="uk_email",
         )
         action = DropTableConstraintAction(dialect, constraint=constraint)
-        with pytest.raises(UnsupportedFeatureError, match="DROP CONSTRAINT by kind"):
+        with pytest.raises(UnsupportedFeatureError, match="DROP CONSTRAINT by kind") as excinfo:
             dialect.format_drop_table_constraint_action(action)
+        assert excinfo.value.feature_name == "DROP CONSTRAINT by kind"
 
-    def test_format_drop_constraint_name_wins_when_both_are_given(self, dialect):
-        """Both forms present: the generic formatter spells the name."""
+    def test_format_drop_constraint_confirmed_by_an_equal_name(self, dialect):
+        """Both forms present and agreeing: the declaration confirms the name."""
         from rhosocial.activerecord.backend.expression.statements.ddl_alter import DropTableConstraintAction
-        from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-            TableConstraint,
-            TableUniqueConstraint,
-        )
 
         constraint = TableConstraint(
             dialect,
@@ -301,6 +295,51 @@ class TestConstraintSQLFormatting:
         assert sql == 'DROP CONSTRAINT "uk_email"'
         assert params == ()
 
+    def test_format_drop_constraint_different_names_are_ambiguous(self, dialect):
+        """Two disagreeing addresses are refused, never resolved by preference."""
+        from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+        from rhosocial.activerecord.backend.expression.statements.ddl_alter import DropTableConstraintAction
+
+        constraint = TableConstraint(
+            dialect,
+            branch=TableUniqueConstraint(dialect, ["email"]),
+            name="uk_mail",
+        )
+        action = DropTableConstraintAction(
+            dialect,
+            constraint_name="uk_email",
+            constraint=constraint,
+        )
+        with pytest.raises(UnsupportedFeatureError) as excinfo:
+            dialect.format_drop_table_constraint_action(action)
+        assert excinfo.value.feature_name == "DROP CONSTRAINT address"
+        message = str(excinfo.value)
+        assert "'uk_email'" in message
+        assert "'uk_mail'" in message
+        assert "ambiguous address is refused" in message
+
+    def test_format_drop_constraint_unnamed_declaration_is_ambiguous(self, dialect):
+        """A declaration with no name cannot confirm the given name."""
+        from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+        from rhosocial.activerecord.backend.expression.statements.ddl_alter import DropTableConstraintAction
+
+        constraint = TableConstraint(
+            dialect,
+            branch=TableUniqueConstraint(dialect, ["email"]),
+        )
+        action = DropTableConstraintAction(
+            dialect,
+            constraint_name="uk_email",
+            constraint=constraint,
+        )
+        with pytest.raises(UnsupportedFeatureError) as excinfo:
+            dialect.format_drop_table_constraint_action(action)
+        assert excinfo.value.feature_name == "DROP CONSTRAINT address"
+        message = str(excinfo.value)
+        assert "'uk_email'" in message
+        assert "None" in message
+        assert "ambiguous address is refused" in message
+
     def test_format_drop_constraint_requires_one_address(self, dialect):
         """Neither a name nor a declaration is a malformed action."""
         from rhosocial.activerecord.backend.expression.statements.ddl_alter import DropTableConstraintAction
@@ -308,6 +347,119 @@ class TestConstraintSQLFormatting:
         action = DropTableConstraintAction(dialect)
         with pytest.raises(ValueError, match="requires constraint_name or constraint"):
             dialect.format_drop_table_constraint_action(action)
+
+    def test_format_drop_constraint_rejects_a_non_table_constraint(self, dialect):
+        """A stray string is not a declaration and must not masquerade as one."""
+        from rhosocial.activerecord.backend.expression.statements.ddl_alter import DropTableConstraintAction
+
+        action = DropTableConstraintAction(
+            dialect,
+            constraint_name="uk_email",
+            constraint="uk_email",
+        )
+        with pytest.raises(TypeError, match="must be a TableConstraint"):
+            dialect.format_drop_table_constraint_action(action)
+
+
+class TestDropConstraintAddressResolution:
+    """The address rule itself, exercised through the shared resolver."""
+
+    @pytest.fixture
+    def dialect(self):
+        return DummyDialect()
+
+    def _action(self, dialect, **kwargs):
+        from rhosocial.activerecord.backend.expression.statements.ddl_alter import DropTableConstraintAction
+
+        return DropTableConstraintAction(dialect, **kwargs)
+
+    def _declaration(self, dialect, name=None):
+        return TableConstraint(
+            dialect,
+            branch=TableUniqueConstraint(dialect, ["email"]),
+            name=name,
+        )
+
+    def test_name_only_resolves_to_name(self, dialect):
+        action = self._action(dialect, constraint_name="uk_email")
+        assert dialect._resolve_drop_constraint_address(action) == "name"
+
+    def test_kind_only_on_a_name_only_dialect_is_refused(self, dialect):
+        from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
+        action = self._action(dialect, constraint=self._declaration(dialect, "uk_email"))
+        with pytest.raises(UnsupportedFeatureError) as excinfo:
+            dialect._resolve_drop_constraint_address(action)
+        assert excinfo.value.feature_name == "DROP CONSTRAINT by kind"
+        assert str(excinfo.value) == (
+            "'Dummy' dialect does not support DROP CONSTRAINT by kind. "
+            "Suggestion: Dummy does not support DROP CONSTRAINT by kind; "
+            "address the constraint by name instead."
+        )
+
+    def test_kind_only_on_a_kind_dialect_resolves_to_kind(self):
+        class KindDropDialect(DummyDialect):
+            def supports_drop_constraint_by_kind(self) -> bool:
+                return True
+
+        kind_dialect = KindDropDialect()
+        from rhosocial.activerecord.backend.expression.statements.ddl_alter import DropTableConstraintAction
+
+        action = DropTableConstraintAction(
+            kind_dialect, constraint=self._declaration(kind_dialect, "uk_email")
+        )
+        assert kind_dialect._resolve_drop_constraint_address(action) == "kind"
+        with pytest.raises(NotImplementedError, match="override format_drop_table_constraint_action"):
+            kind_dialect.format_drop_table_constraint_action(action)
+
+    def test_equal_names_resolve_to_name(self, dialect):
+        action = self._action(
+            dialect,
+            constraint_name="uk_email",
+            constraint=self._declaration(dialect, "uk_email"),
+        )
+        assert dialect._resolve_drop_constraint_address(action) == "name"
+
+    def test_different_names_are_an_ambiguous_address(self, dialect):
+        from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
+        action = self._action(
+            dialect,
+            constraint_name="uk_email",
+            constraint=self._declaration(dialect, "uk_mail"),
+        )
+        with pytest.raises(UnsupportedFeatureError) as excinfo:
+            dialect._resolve_drop_constraint_address(action)
+        assert excinfo.value.feature_name == "DROP CONSTRAINT address"
+        message = str(excinfo.value)
+        assert "'uk_email'" in message
+        assert "'uk_mail'" in message
+        assert "ambiguous address is refused" in message
+
+    def test_unnamed_declaration_is_an_ambiguous_address(self, dialect):
+        from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
+        action = self._action(
+            dialect,
+            constraint_name="uk_email",
+            constraint=self._declaration(dialect),
+        )
+        with pytest.raises(UnsupportedFeatureError) as excinfo:
+            dialect._resolve_drop_constraint_address(action)
+        assert excinfo.value.feature_name == "DROP CONSTRAINT address"
+        assert "ambiguous address is refused" in str(excinfo.value)
+
+    def test_no_address_is_value_error(self, dialect):
+        action = self._action(dialect)
+        with pytest.raises(ValueError, match="requires constraint_name or constraint"):
+            dialect._resolve_drop_constraint_address(action)
+
+    def test_non_table_constraint_is_type_error(self, dialect):
+        action = self._action(
+            dialect, constraint_name="uk_email", constraint="uk_email"
+        )
+        with pytest.raises(TypeError, match="must be a TableConstraint"):
+            dialect._resolve_drop_constraint_address(action)
 
 
 class TestConstraintEnforcementAndValidation:
