@@ -387,18 +387,20 @@ class ExpressionRegistry:
 
 #: There is deliberately **no** module-level registry instance here.
 #:
-#: An earlier version declared one, named ``default_registry``, and it was
-#: empty for the life of the process: nothing ever assembled into it, because
-#: *which* expressions the framework ships is the framework's decision, not
-#: this module's (§7 -- the registry does not own implementations, so it must
-#: not import expression packages to learn what they contain).
+#: An earlier version declared one, and it was empty for the life of the
+#: process: nothing ever assembled into it, because *which* expressions the
+#: framework ships is the framework's decision, not this module's (§7 -- the
+#: registry does not own implementations, so it must not import expression
+#: packages to learn what they contain).
 #:
-#: The name was the real damage. ``serialization.core_registry()`` is the
-#: function that builds and caches the instance core publishes, and
-#: ``serialization.default_registry()`` survives only as a deprecated alias of
-#: it. Two things sharing one name means the import you want is not the import
-#: you get. Anyone who reached for the object here got a table that admits
-#: nothing and refused every artifact by name, with nothing to say why.
+#: The name was the real damage: it read as "the one table everything is in",
+#: when every owner maintains its own. ``serialization.core_registry()`` builds
+#: and caches core's; each backend publishes ``backend_registry()`` -- core's
+#: kinds plus its own, never a sibling's -- and returns it from its dialect's
+#: ``artifact_registry()``. There is no table shared by all owners, and no
+#: alias standing in for one. Anyone who reached for the object here got a
+#: table that admits nothing and refused every artifact by name, with nothing
+#: to say why.
 #:
 #: Build your own -- :class:`ExpressionRegistry` starts empty, which is what makes
 #: a narrow table safe to hand a caller.

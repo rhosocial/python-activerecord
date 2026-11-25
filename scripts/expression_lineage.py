@@ -3,9 +3,9 @@
 """
 List the expression kinds: what core ships, and what a backend adds.
 
-Read off the default registry, which is the authority on what exists -- the
-same source the artifact whitelist is built from, so this cannot enumerate a
-different set.
+Read off core's registry and each backend's own, which are the authority on
+what exists -- the same tables the artifact whitelists are built from, so this
+cannot enumerate a different set.
 
 A backend kind is an **override** when the kind already exists in core, and
 **custom** when core has no kind of that name. Classification is by kind, not by

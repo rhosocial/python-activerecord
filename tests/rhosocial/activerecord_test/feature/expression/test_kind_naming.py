@@ -167,8 +167,8 @@ def test_framework_core_registry_is_built_on_first_deserialization():
 
     # And it is the same instance on every call.
     assert serialization.core_registry() is registry
-    # The old name is a deprecated alias of the same instance.
-    assert serialization.default_registry() is registry
+    # A cache hit, not a rebuild: the frozen published table is the same object.
+    assert serialization.core_registry() is registry
 
 
 # ---------------------------------------------------------------------------

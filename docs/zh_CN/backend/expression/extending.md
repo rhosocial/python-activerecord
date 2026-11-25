@@ -49,7 +49,7 @@ class MyExpression(BaseExpression):
 
 ### 自动注册
 
-内置表达式不需要你做任何事。框架**一次性**装配默认注册表——遍历表达式包，遇到的每个节点都按 kind 登记。**没有**任何函数需要调用，也**没有**任何清单需要维护。
+内置表达式不需要你做任何事。核心**一次性**装配自己的注册表——遍历核心的表达式包，遇到的每个节点都按 kind 登记；后端同样只为自己的包做一次，并以 `base=core_registry()` 把核心的 kind 组合进来。**没有**任何函数需要调用，也**没有**任何清单需要维护。
 
 ### 注册你自己的
 
@@ -64,7 +64,7 @@ allowed.register_node(MyExpression)          # kind 为 "my_expression"
 
 枚举**根本不需要登记**。`(str, Enum)` 的成员就是一个 JSON 字符串，没有东西需要解析——封闭集合声明在类里，各语言也各自声明自己的。
 
-有两个 kind 不在默认表里：`RawSQL` 与 `RawSQLPredicate`，因为 `to_sql()` 原样输出调用方担保过的文本，而工件不该能选择它。它们设了 `REGISTER_BY_DEFAULT = False`；登记其中任何一个与登记其它 kind 是同一个调用，交给信任自己工件的调用方。
+有两个 kind 默认不进表：`RawSQL` 与 `RawSQLPredicate`，因为 `to_sql()` 原样输出调用方担保过的文本，而工件不该能选择它。它们设了 `REGISTER_BY_DEFAULT = False`；登记其中任何一个与登记其它 kind 是同一个调用，交给信任自己工件的调用方。
 
 然后把它传给读侧：
 

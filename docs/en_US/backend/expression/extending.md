@@ -49,10 +49,11 @@ When the generic result is not what you wanted, the repair is always in `__init_
 
 ### Auto-Registration
 
-Built-in expressions need nothing from you. The framework assembles its default
-registry once, by walking the expression packages, and every node it finds is
-registered by its kind. There is no function for a caller to invoke and no
-list to maintain.
+Built-in expressions need nothing from you. Core assembles its own registry
+once, by walking core's expression packages, and every node it finds is
+registered by its kind. A backend does the same for its own package and composes
+core's kinds with `base=core_registry()`. There is no function for a caller to
+invoke and no list to maintain.
 
 ### Registering Your Own
 
@@ -71,9 +72,9 @@ An enum needs no registration at all. A `(str, Enum)` member is a JSON string,
 so there is nothing to resolve — the closed set is declared in the class, where
 every language declares its own.
 
-Two kinds ship without being in the default table: `RawSQL` and `RawSQLPredicate`,
-because `to_sql()` emits caller-vouched text and an artifact should not be able
-to choose it. They set `REGISTER_BY_DEFAULT = False`; registering either one is
+Two kinds are left out of an assembled table by default: `RawSQL` and
+`RawSQLPredicate`, because `to_sql()` emits caller-vouched text and an artifact
+should not be able to choose it. They set `REGISTER_BY_DEFAULT = False`; registering either one is
 the same call as any other, for a caller that trusts its artifacts.
 
 Then pass it to the read:

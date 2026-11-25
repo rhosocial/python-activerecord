@@ -152,7 +152,7 @@ class RawSQL(ArithmeticMixin, ComparisonMixin, StringPatternPredicateMixin, SQLV
     - RawSQLPredicate inherits from SQLPredicate and represents a boolean predicate
       (e.g., condition in WHERE clause)
 
-    Not admitted to the framework's default registry. ``expression`` is text
+    Not admitted to an assembled registry by default. ``expression`` is text
     the caller vouched for and ``to_sql()`` emits it verbatim, so a reader that
     resolved ``raw_sql`` out of an untrusted artifact would rebuild a node whose
     SQL the artifact chose. A caller whose artifacts it trusts can register the
@@ -186,7 +186,7 @@ class RawSQLPredicate(SQLPredicate):
     - RawSQLPredicate inherits from SQLPredicate and represents a boolean predicate
       (e.g., condition in WHERE clause)
 
-    Not admitted to the framework's default registry, for the same reason as
+    Not admitted to an assembled registry by default, for the same reason as
     :class:`RawSQL`: rebuilding this node from an artifact would let the
     artifact choose the predicate text. See
     :attr:`~...bases.BaseExpression.REGISTER_BY_DEFAULT`.

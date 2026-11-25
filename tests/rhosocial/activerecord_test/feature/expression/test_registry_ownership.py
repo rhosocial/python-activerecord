@@ -14,13 +14,14 @@ Ownership follows the same split:
 * an assembled registry is frozen, so two readers of the same published table
   cannot change each other's answers.
 
-These tests state those four facts directly, plus the selection order
+These tests state those three facts directly, plus the selection order
 ``deserialize`` uses when it has to pick a table.
 """
 
 import pytest
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+from rhosocial.activerecord.backend.expression import serialization
 from rhosocial.activerecord.backend.expression.bases import BaseExpression
 from rhosocial.activerecord.backend.expression.core import Column
 from rhosocial.activerecord.backend.expression.registry import (
@@ -31,7 +32,6 @@ from rhosocial.activerecord.backend.expression.registry import (
 from rhosocial.activerecord.backend.expression.serialization import (
     ExpressionDeserializationError,
     core_registry,
-    default_registry,
     deserialize,
     deserialize_json,
     deserialize_xml,
@@ -75,9 +75,22 @@ def test_core_registry_holds_core_kinds_and_no_backend_kind():
     assert "sqlite_vacuum_statement" in str(caught.value)
 
 
-def test_the_deprecated_name_is_the_core_registry():
-    """``default_registry`` survives only as an alias of ``core_registry``."""
-    assert default_registry() is core_registry()
+def test_no_alias_for_a_single_default_table():
+    """One table per owner, and no alias standing in for a default one.
+
+    The old alias made reaching for a backend kind look like a core concern.
+    A guard rather than prose: the name cannot quietly come back if neither the
+    module nor the package defines it. It is spelled in two pieces here so a
+    repo-wide search for the retired name stays empty.
+    """
+    retired = "default" + "_registry"
+
+    assert not hasattr(serialization, retired)
+
+    import rhosocial.activerecord.backend.expression as expression_package
+
+    assert not hasattr(expression_package, retired)
+    assert retired not in expression_package.__all__
 
 
 # ---------------------------------------------------------------------------
@@ -132,6 +145,15 @@ def test_backend_registries_compose_core_and_stay_apart():
 def test_the_base_dialect_answers_with_core_kinds():
     """The base dialect owns no backend, so its table is core's."""
     assert SQLDialectBase().artifact_registry() is core_registry()
+
+
+def test_a_dialect_that_overrides_nothing_inherits_the_core_answer():
+    """A dialect with no backend kinds does not need to override anything."""
+
+    class PlainDialect(SQLDialectBase):
+        pass
+
+    assert PlainDialect().artifact_registry() is core_registry()
 
 
 def test_deserialize_selects_the_dialects_registry_for_backend_kinds():
@@ -230,6 +252,30 @@ def test_merged_names_both_classes_when_a_kind_collides():
     assert "column" in message
     assert "tests.alien_a.Column" in message
     assert "tests.alien_b.Column" in message
+
+
+def test_a_mutable_assembly_leaves_published_tables_frozen():
+    """``freeze=False`` builds a scratch table; published tables stay frozen."""
+    published = core_registry()
+    core_kinds = published.node_kinds()
+
+    mutable = registry_for_packages(
+        "rhosocial.activerecord.backend.expression.core",
+        base=published,
+        freeze=False,
+    )
+    assert not mutable.is_frozen
+    mutable.unregister_node("query_statement")
+
+    # The source was copied, never aliased: core's cache and each backend's
+    # published table are the same frozen objects they were before.
+    assert core_registry() is published
+    assert published.is_frozen
+    assert published.node_kinds() == core_kinds
+    assert sqlite_registry().is_frozen
+    assert dummy_registry().is_frozen
+    assert "query_statement" in sqlite_registry().node_kinds()
+    assert "query_statement" in dummy_registry().node_kinds()
 
 
 def test_registry_for_packages_is_the_one_assembly_entry_point():

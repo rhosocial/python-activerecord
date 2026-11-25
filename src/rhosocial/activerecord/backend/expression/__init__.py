@@ -474,7 +474,6 @@ from .bases import (
 )
 from .serialization import (
     core_registry,
-    default_registry,
     registry_for_packages,
 )
 # src/rhosocial/activerecord/backend/expression/__init__.py
@@ -502,7 +501,6 @@ __all__ = [
     "QueryWithParams",
     "Executable",
     "core_registry",
-    "default_registry",
     "registry_for_packages",
     "AliasableMixin",
     "ArrayMixin",

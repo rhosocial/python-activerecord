@@ -463,22 +463,6 @@ def core_registry():
     return _core_registry
 
 
-def default_registry():
-    """**Deprecated** alias of :func:`core_registry`.
-
-    This name used to mean "core plus the backends bundled in this distribution"
-    (SQLite and dummy). Those are backends, and each maintains its own registry
-    now; reading a backend kind through this name required whoever registered
-    it to mutate a process-global table, which made the outcome depend on test
-    order. Use :func:`core_registry` for core kinds, or
-    ``dialect.artifact_registry()`` for the kinds a backend's dialect can read.
-
-    Returns:
-        The same frozen registry :func:`core_registry` returns.
-    """
-    return core_registry()
-
-
 def _registry_for(dialect=None, registry=None):
     """The registry a read resolves kinds through, in documented order.
 

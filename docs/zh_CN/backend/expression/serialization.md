@@ -29,7 +29,7 @@ artifact = serialize(query)
 text = json.dumps(artifact)
 ```
 
-### deserialize(artifact, dialect, registry=None)
+### deserialize(artifact, dialect=None, *, registry=None)
 
 ```python
 from rhosocial.activerecord.backend.expression.serialization import deserialize
@@ -39,7 +39,7 @@ expr = deserialize(json.loads(text), dialect)
 
 `json.loads` **不需要 `object_hook`**——而且也没有钩子可做的事。工件通篇是普通 JSON：节点是 `{kind, params}`，参数是标量、数组或对象。**没有任何标记**，所以没有东西需要被"认出"才能解码。JSON 唯一拼不出的东西——送进数据库的值，比如 `bytes` 或 `timedelta`——以它的 kind 所命名的文本形式出行。
 
-`registry=None` 表示框架默认实例——本发行版自带的全部节点。传自己的表，就精确控制这次读允许产出哪些 kind。
+`registry=None` 不是一张全局默认表：选表顺序见下文「注册表归属」。传自己的表，就精确控制这次读允许产出哪些 kind。
 
 ### deserialize_json(text, dialect, registry=None) / deserialize_xml(bytes, ...)
 
@@ -89,6 +89,29 @@ sql, params = expr.to_sql()
 ```
 
 那个 `18` **哪儿都没被单独存过**。它是从载荷里的 `literal` 节点读出来的，所以没有第二处携带它，也就没有第二处可能与它不一致。表达式从不把值拼进 SQL 文本；数据库永远看不到字符串拼接出来的引号。
+
+## 注册表归属
+
+注册表不是框架的一张总表，而是**每个所有者自己的一张**：
+
+| 所有者 | 入口 | 内容 |
+|--------|------|------|
+| 核心 | `core_registry()` | 只有核心的 kind，不含任何后端 |
+| 后端 | `backend_registry()` | 核心的 kind ∪ 本后端自己的 kind，绝不含兄弟后端 |
+| 方言 | `dialect.artifact_registry()` | 这个方言所在后端能读的 kind；未覆写时返回 `core_registry()` |
+
+- **核心只维护核心的 kind。** 核心不知道有哪些后端存在，也没有后端清单；唯一的装配点是 `registry_for_packages(*packages, base=...)`。
+- **后端通过组合加入自己的 kind**：`registry_for_packages(<本后端表达式包>, base=core_registry())`。两个后端从不互相合并，因此一个后端的 kind 不会因为另一个后端被安装而变得可读。
+- **`artifact_registry()` 是每个方言的读取入口。** 基类方言不覆写它，答案就是 `core_registry()`；后端方言覆写为它自己的 `backend_registry()`。
+- 工件本身仍然是**不带方言的数据**：`deserialize(artifact)` 返回的树不绑定方言，用 `to_sql(dialect)` 渲染。传了方言只是同时把它绑到重建的树上，并据它选表。
+
+`deserialize` 的选表顺序：
+
+1. 调用方显式传入的 `registry`；
+2. `dialect.artifact_registry()`（传了方言时）；
+3. `core_registry()`。
+
+已发布的注册表是**冻结的**。要放宽或收窄，只能造一张新表：`twin()`（可变副本）、`merged()`（并集，冻结），或 `registry_for_packages(..., freeze=False)`（装配期间可变）。别人的装配或修改不会改变一张已发布的表。
 
 ## 选择性注册
 
@@ -144,7 +167,7 @@ worker 收到文本，用它自己的方言重建树。**载荷里没有任何�
 
 解析只走白名单，永不走 import 路径。载荷里写 `os.system` 得到的答复是「不在 kind 白名单」——它被查了、查不到、读取失败。**不存在**任何可能 import 它的代码路径。
 
-注册表模块**根本不 import** 表达式包；装配默认实例的机制属于框架，不属于注册表。**注册表无法发现任何东西。**
+注册表模块**根本不 import** 表达式包；装配核心表与各后端表的机制属于框架，不属于注册表。**注册表无法发现任何东西。**
 
 ### 工件是不可信输入
 

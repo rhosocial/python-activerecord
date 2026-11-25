@@ -40,7 +40,7 @@ custom encoder:
 text = json.dumps(artifact)
 ```
 
-### deserialize(artifact, dialect, registry=None)
+### deserialize(artifact, dialect=None, *, registry=None)
 
 ```python
 from rhosocial.activerecord.backend.expression.serialization import deserialize
@@ -55,9 +55,9 @@ recognised in order to be decoded. The one thing JSON cannot spell — a value
 sent to the database, such as `bytes` or a `timedelta` — is carried as the text
 its kind names.
 
-`registry=None` means the framework's default instance — every node the
-distribution ships. Pass your own to control exactly which kinds a read may
-produce.
+`registry=None` is not one global default table: the selection order is under
+"Registry Ownership" below. Pass your own to control exactly which kinds a read
+may produce.
 
 ### deserialize_json(text, dialect, registry=None) / deserialize_xml(bytes, ...)
 
@@ -119,6 +119,41 @@ That `18` was never stored anywhere. It was read off the `literal` node inside
 the payload, so nothing else carries it and nothing else can disagree with it.
 Expressions never inline a value into the SQL text; the database never sees a
 quoted string built by concatenation.
+
+## Registry Ownership
+
+A registry is not one framework-wide table; it is **one per owner**:
+
+| Owner | Entry point | Contents |
+|-------|-------------|----------|
+| core | `core_registry()` | core's kinds only, with no backend among them |
+| a backend | `backend_registry()` | core's kinds ∪ the backend's own, never a sibling's |
+| a dialect | `dialect.artifact_registry()` | the kinds that dialect's backend can read; `core_registry()` when not overridden |
+
+- **Core maintains only core's kinds.** It does not know which backends exist
+  and keeps no list of them; the one assembly point is
+  `registry_for_packages(*packages, base=...)`.
+- **A backend joins its kinds by composition**:
+  `registry_for_packages(<its expression package>, base=core_registry())`. Two
+  backends are never merged, so one backend's kinds do not become readable just
+  because another backend is installed.
+- **`artifact_registry()` is the per-dialect entry point.** The base dialect
+  does not override it, so its answer is `core_registry()`; a backend dialect
+  overrides it with its own `backend_registry()`.
+- The artifact is still **dialect-free data**: a tree returned by
+  `deserialize(artifact)` is unbound and renders through `to_sql(dialect)`.
+  Supplying a dialect binds it to the rebuilt tree and selects the table.
+
+The table `deserialize` picks, in order:
+
+1. the `registry` the caller supplied explicitly;
+2. `dialect.artifact_registry()` when a dialect was supplied;
+3. `core_registry()`.
+
+A published registry is **frozen**. To widen or narrow it, build a new table:
+`twin()` (a mutable copy), `merged()` (the union, frozen), or
+`registry_for_packages(..., freeze=False)` (mutable while being assembled).
+Assembly or mutation by anyone else cannot change a published table.
 
 ## Selective Registration
 
@@ -189,8 +224,8 @@ Resolution is by whitelist, never by import path. A payload naming
 and the read fails. There is no code path that could have imported it.
 
 The registry module does not import expression packages at all, and the
-mechanism that assembles the default instance lives with the framework, not in
-the registry. A registry cannot discover anything.
+mechanism that assembles core's table and each backend's table lives with the
+framework, not in the registry. A registry cannot discover anything.
 
 ### The artifact is untrusted input
 

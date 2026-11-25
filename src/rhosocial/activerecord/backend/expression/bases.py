@@ -479,7 +479,7 @@ class BaseExpression:
     #: that drift directly breaks existing artifacts").
     KIND_RESERVED: Tuple[str, ...] = ()
 
-    #: Whether the framework's default registry admits this node (§7).
+    #: Whether an assembled registry admits this node by default (§7).
     #:
     #: Set it ``False`` for a node whose rendered SQL is text the caller vouched
     #: for. The artifact is untrusted input (§10), so admitting such a kind into
