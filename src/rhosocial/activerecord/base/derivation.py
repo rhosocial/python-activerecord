@@ -39,7 +39,7 @@ from ..backend.expression.statements.ddl_index import (
 )
 from ..backend.expression.types import DataType
 from .annotation_lookup import describe_annotation, strip_annotation, table_entry_for
-from .ddl import ModelDDLDeclaration, IdentityAttribute
+from .ddl import ModelDDLDeclaration, ColumnOptions, IdentityAttribute
 from .fields import UseFieldGenerator, UseSqlType
 
 __all__ = [
@@ -86,6 +86,83 @@ def _translated_column_attributes(
     return translated
 
 
+def _normalise_column_options(source: ModelDDLDeclaration, field: str) -> tuple:
+    """One field's column options, normalised to a tuple.
+
+    The declaration surface answers ``None``, one option, or a sequence of
+    them; every consumer wants the same tuple shape, so the normalisation
+    lives here rather than being repeated by the deriver and the differ.
+    """
+    options = source.column_options(field)
+    if options is None:
+        return ()
+    if isinstance(options, ColumnOptions):
+        return (options,)
+    return tuple(options)
+
+
+def _resolve_column_definition_class(
+    source: ModelDDLDeclaration, field: str, options: tuple
+) -> Tuple[Any, Tuple[Any, ...]]:
+    """The column class every option on *field* agrees on, and those options.
+
+    Each :class:`~rhosocial.activerecord.base.ddl.ColumnOptions` declares the
+    column-definition class it needs through ``column_definition_class()``.
+    Options that disagree describe two different column shapes for one field,
+    so the declaration is refused by name rather than satisfied by picking one.
+    """
+    classes: List[Any] = []
+    for option in options:
+        column_class = option.column_definition_class()
+        if column_class not in classes:
+            classes.append(column_class)
+    if len(classes) > 1:
+        names = ", ".join(getattr(cls, "__name__", repr(cls)) for cls in classes)
+        raise ValueError(
+            f"{source.table_name()}.{field} declares column options that "
+            f"require conflicting column definition classes: {names}"
+        )
+    return (classes[0] if classes else ColumnDefinition), options
+
+
+def _apply_column_options(
+    source: ModelDDLDeclaration,
+    field: str,
+    options: tuple,
+    column: ColumnDefinition,
+) -> None:
+    """Transfer every option's backend-specific state onto *column*.
+
+    ``apply_to`` is the only channel that carries state beyond the generic
+    constructor arguments, so a failure there is surfaced with the field and
+    the two classes named.  A custom option class that declares a custom
+    column class yet inherits the base no-op ``apply_to`` would drop its
+    state silently; that is refused here as well.
+    """
+    for option in options:
+        inherits_noop_apply = type(option).apply_to is ColumnOptions.apply_to
+        if inherits_noop_apply:
+            state = getattr(option, "__dict__", None) or {}
+            if state or type(column) is not ColumnDefinition:
+                raise TypeError(
+                    f"{source.table_name()}.{field}: {type(option).__name__} "
+                    f"declares {type(column).__name__} but does not override "
+                    f"apply_to(), so its options would be dropped silently"
+                )
+        try:
+            option.apply_to(column)
+        except TypeError as exc:
+            raise TypeError(
+                f"{source.table_name()}.{field}: {type(option).__name__}.apply_to "
+                f"refused {type(column).__name__}: {exc}"
+            ) from exc
+        except ValueError as exc:
+            raise ValueError(
+                f"{source.table_name()}.{field}: {type(option).__name__}.apply_to "
+                f"refused {type(column).__name__}: {exc}"
+            ) from exc
+
+
 def build_column_definitions(
     source: ModelDDLDeclaration,
     dialect: Any,
@@ -98,7 +175,10 @@ def build_column_definitions(
     Each field resolves its storage type (declared first, dialect suggestion as
     a default), consumes the integer-auto-increment suggestion for a generated
     integer key, and carries its constraints/attributes/comment/generated
-    expression. This is the reusable half of :func:`build_create_table_statement`.
+    expression.  Its declared :class:`ColumnOptions`, if any, choose the
+    column-definition class and are applied through ``apply_to`` after the
+    generic arguments are in place.  This is the reusable half of
+    :func:`build_create_table_statement`.
     """
     fields = _ordered_fields(source, column_order)
     columns: List[ColumnDefinition] = []
@@ -151,17 +231,19 @@ def build_column_definitions(
         attributes = _translated_column_attributes(source, field, dialect)
         if auto_increment is not None:
             attributes.append(auto_increment)
-        columns.append(
-            ColumnDefinition(
-                dialect,
-                source.column_name(field),
-                data_type,
-                constraints=_column_constraints(source, field, data_type, dialect),
-                comment=comment,
-                generated_expression=generated_expression,
-                attributes=attributes,
-            )
+        options = _normalise_column_options(source, field)
+        column_class, options = _resolve_column_definition_class(source, field, options)
+        column = column_class(
+            dialect,
+            source.column_name(field),
+            data_type,
+            constraints=_column_constraints(source, field, data_type, dialect),
+            comment=comment,
+            generated_expression=generated_expression,
+            attributes=attributes,
         )
+        _apply_column_options(source, field, options, column)
+        columns.append(column)
     return tuple(columns)
 
 

@@ -49,6 +49,7 @@ inventing an expression type on this side. ``plan_changes`` itself is unchanged.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from types import MappingProxyType
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING
 
@@ -77,8 +78,18 @@ class FieldChange:
     comment: Optional[str] = None
     has_identity: bool = False
     index_names: Sequence[str] = field(default_factory=tuple)
+    column_options: Sequence[Any] = field(default_factory=tuple)
 
     def signature(self) -> tuple:
+        """A frozen projection of every declared fact this field carries.
+
+        Column options are encoded dialect-neutrally as
+        ``(option class name, frozen option state)``, where the state is the
+        option's own ``__dict__`` (or ``__slots__``) flattened to sorted
+        ``(attribute, frozen value)`` pairs.  A change to any option field --
+        a charset, a column format, a storage mode -- therefore counts as a
+        declaration change even when the SQL type is unchanged.
+        """
         return (
             self.python_type,
             _freeze(self.declared_type),
@@ -87,6 +98,7 @@ class FieldChange:
             self.comment,
             self.has_identity,
             tuple(self.index_names),
+            tuple(_freeze_column_option(o) for o in self.column_options),
         )
 
 
@@ -94,6 +106,8 @@ def _freeze(value: Any) -> Any:
     """Comparable form of a declaration value, without rendering SQL."""
     if value is None or isinstance(value, (str, int, float, bool, bytes, tuple)):
         return value
+    if isinstance(value, Enum):
+        return ("enum", type(value).__name__, value.name)
     getter = getattr(value, "get_params", None)
     if callable(getter):
         try:
@@ -107,8 +121,39 @@ def _freeze(value: Any) -> Any:
     return ("repr", repr(value))
 
 
+def _freeze_column_option(option: Any) -> tuple:
+    """The dialect-neutral comparable form of one declared column option.
+
+    Encoding: ``(type(option).__name__, state)``.  ``state`` is the option's
+    own instance state -- its ``__dict__`` items, or its ``__slots__`` values,
+    sorted by attribute name and each frozen through :func:`_freeze`.  Using
+    the class name plus state rather than ``repr`` keeps the projection stable
+    across processes: the default object repr embeds an address and would make
+    every comparison of two otherwise identical declarations report a change.
+    """
+    state = getattr(option, "__dict__", None)
+    if isinstance(state, dict) and state:
+        return (
+            type(option).__name__,
+            tuple(sorted((str(k), _freeze(v)) for k, v in state.items())),
+        )
+    getter = getattr(option, "get_params", None)
+    if callable(getter):
+        return (type(option).__name__, ("params", _freeze(getter())))
+    slots = getattr(type(option), "__slots__", ())
+    if isinstance(slots, str):
+        slots = (slots,)
+    slot_state = tuple(
+        (name, _freeze(getattr(option, name))) for name in slots if hasattr(option, name)
+    )
+    return (
+        type(option).__name__,
+        tuple(sorted(slot_state)),
+    )
+
+
 def _field_change(source: "ModelDDLDeclaration", field_name: str) -> FieldChange:
-    from ..base.derivation import _has_declared_identity
+    from ..base.derivation import _has_declared_identity, _normalise_column_options
 
     return FieldChange(
         name=source.column_name(field_name),
@@ -119,6 +164,7 @@ def _field_change(source: "ModelDDLDeclaration", field_name: str) -> FieldChange
         comment=source.column_comment(field_name),
         has_identity=_has_declared_identity(source, field_name),
         index_names=tuple(idx.name for idx in source.column_indexes(field_name)),
+        column_options=_normalise_column_options(source, field_name),
     )
 
 
