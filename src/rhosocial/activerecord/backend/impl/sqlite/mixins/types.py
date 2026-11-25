@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import re
 from typing import Tuple
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
@@ -351,29 +350,22 @@ class SQLiteTypeSupportMixin(DataTypeMixin, DataTypeSupport):
     #   ``DEC``    NUMERIC affinity — the unrecognised-type fallback, which is
     #   ``BOOL``   what SQLite has always done with ``DEC`` and ``BOOL``.
     #
-    # Nothing else moves: the ``\b`` anchors keep ``CHAR`` from swallowing
-    # ``CHARACTER`` and ``DEC`` from swallowing ``DECIMAL``, and the group each
-    # spelling lands in is unchanged, so no affinity assignment is revised.
-    _INTEGER_TYPES = re.compile(
-        r"^(?:INT|INTEGER|BIGINT|SMALLINT|TINYINT|MEDIUMINT"
-        r"|INT1|INT2|INT4|INT8)\b",
-        re.IGNORECASE,
-    )
-    _TEXT_TYPES = re.compile(
-        r"^(?:TEXT|CHAR|CHARACTER|CHARACTER\s+VARYING"
-        r"|VARCHAR|NVARCHAR|NCHAR|CLOB)\b",
-        re.IGNORECASE,
-    )
-    _REAL_TYPES = re.compile(
-        r"^(?:REAL|FLOAT|DOUBLE)\b",
-        re.IGNORECASE,
-    )
-    _NUMERIC_TYPES = re.compile(
-        r"^(?:NUMERIC|DECIMAL|DEC|BOOLEAN|BOOL|DATE|DATETIME|TIMESTAMP|TIME)\b",
-        re.IGNORECASE,
-    )
-    _BLOB_TYPES = re.compile(
-        r"^(?:BLOB|BYTEA|BINARY|VARBINARY)\b",
-        re.IGNORECASE,
-    )
+    # Nothing else moves: each group is keyed by a whole leading word, so
+    # ``CHAR`` cannot swallow ``CHARACTER`` and ``DEC`` cannot swallow
+    # ``DECIMAL``, and the group each spelling lands in is unchanged, so no
+    # affinity assignment is revised.
+    _INTEGER_TYPES = frozenset({
+        "INT", "INTEGER", "BIGINT", "SMALLINT", "TINYINT", "MEDIUMINT",
+        "INT1", "INT2", "INT4", "INT8",
+    })
+    _TEXT_TYPES = frozenset({
+        "TEXT", "CHAR", "CHARACTER", "CHARACTER VARYING",
+        "VARCHAR", "NVARCHAR", "NCHAR", "CLOB",
+    })
+    _REAL_TYPES = frozenset({"REAL", "FLOAT", "DOUBLE"})
+    _NUMERIC_TYPES = frozenset({
+        "NUMERIC", "DECIMAL", "DEC", "BOOLEAN", "BOOL", "DATE", "DATETIME",
+        "TIMESTAMP", "TIME",
+    })
+    _BLOB_TYPES = frozenset({"BLOB", "BYTEA", "BINARY", "VARBINARY"})
 

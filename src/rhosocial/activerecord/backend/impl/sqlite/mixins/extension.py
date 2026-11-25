@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
+from rhosocial.activerecord.backend.textscan import is_identifier
+
 
 class ExtensionType(Enum):
     """Type of SQLite extension."""
@@ -140,8 +142,7 @@ class SQLiteExtensionMixin:
     @staticmethod
     def _validate_safe_identifier(name: str) -> None:
         """Raise ValueError if name contains characters unsafe for SQL identifiers."""
-        import re  # noqa: F811
-        if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+        if not isinstance(name, str) or not is_identifier(name):
             raise ValueError(f"Unsafe identifier: '{name}'")
 
     def set_runtime_param(self, key: str, value: Any) -> None:

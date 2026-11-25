@@ -11,10 +11,51 @@ from rhosocial.activerecord.backend.expression.query_parts import JoinType
 from rhosocial.activerecord.backend.expression.query_sources import LateralExpression
 
 from ..exceptions import UnsupportedFeatureError
+from ...textscan import split_top_level
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression import bases
     from ...expression.query_parts import JoinClause
+
+
+def _is_ascii_name_char(char: str) -> bool:
+    """Whether *char* is part of an ASCII identifier word."""
+    return (
+        "A" <= char <= "Z" or "a" <= char <= "z" or "0" <= char <= "9" or char == "_"
+    )
+
+
+def _is_declared_column_type(text: str) -> bool:
+    """Whether *text* is a column type spelling a set-returning function may declare.
+
+    The grammar is a leading word run that may contain spaces (``double
+    precision``), an optional precision of one or two numbers (``numeric(10,
+    2)``), then any number of ``[]`` array markers.
+    """
+    length = len(text)
+    if not length or not (_is_ascii_name_char(text[0]) and not text[0].isdigit()):
+        return False
+    index = 1
+    while index < length and (_is_ascii_name_char(text[index]) or text[index] == " "):
+        index += 1
+    if index < length and text[index] == "(":
+        close = text.find(")", index + 1)
+        if close == -1:
+            return False
+        pieces = split_top_level(text[index + 1 : close], ",")
+        if len(pieces) > 2:
+            return False
+        for piece in pieces:
+            stripped = piece.strip()
+            if not stripped or not all(char.isdecimal() for char in stripped):
+                return False
+        index = close + 1
+    while index < length and text[index] == "[":
+        index += 1
+        if index >= length or text[index] != "]":
+            return False
+        index += 1
+    return index == length
 
 
 class LateralJoinMixin:
@@ -115,12 +156,7 @@ class LateralJoinMixin:
         ``format_identifier``. A conservative character check keeps a
         caller-supplied type from becoming an extra SQL statement.
         """
-        import re
-
-        if not isinstance(type_name, str) or not re.fullmatch(
-            r"[A-Za-z_][A-Za-z0-9_ ]*(?:\(\s*\d+(?:\s*,\s*\d+)?\s*\))?(?:\[\])*",
-            type_name.strip(),
-        ):
+        if not isinstance(type_name, str) or not _is_declared_column_type(type_name.strip()):
             raise ValueError(f"Unsupported column type spelling: {type_name!r}")
         return type_name.strip()
 

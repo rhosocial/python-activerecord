@@ -22,7 +22,6 @@ per-formatter check is a per-formatter bug waiting to happen — PostgreSQL's
 """
 
 # src/rhosocial/activerecord/backend/expression/type_name.py
-import re
 
 
 #: Multi-word built-in type names. The only reason a type name is not a bare
@@ -38,19 +37,137 @@ MULTI_WORD_TYPE_NAMES = frozenset({
     "character large object", "binary large object",
 })
 
-#: One identifier segment. Deliberately excludes every quote, space and
-#: punctuation character that could end the type or begin something else.
-_IDENT = r"[A-Za-z_][A-Za-z0-9_$]*"
+#: The whitespace an ASCII-flagged pattern admits, written as character codes
+#: so the set is exact rather than a guess about one platform's ``isspace``.
+_ASCII_SPACE = frozenset(chr(code) for code in (9, 10, 11, 12, 13, 32))
 
-#: ``schema.name``, then an optional ``(n)`` or ``(n, m)``, then array markers.
-_QUALIFIED = rf"{_IDENT}(?:\s*\.\s*{_IDENT})?"
-#: Precision is numeric, not an identifier: VARCHAR(255), NUMERIC(10, 2).
-_PRECISION = r"(?:\s*\(\s*\d+(?:\s*,\s*\d+)?\s*\))?"
 
-#: Array markers, as many as the type is nested.
-_MODIFIERS = rf"{_PRECISION}\s*(?:\[\s*\])*"
+def _skip_space(text: str, index: int) -> int:
+    """Index past any whitespace character."""
+    while index < len(text) and text[index].isspace():
+        index += 1
+    return index
 
-_TYPE_NAME_RE = re.compile(rf"^{_QUALIFIED}{_MODIFIERS}$", re.ASCII)
+
+def _skip_ascii_space(text: str, index: int) -> int:
+    """Index past the whitespace an ASCII-flagged grammar admits."""
+    while index < len(text) and text[index] in _ASCII_SPACE:
+        index += 1
+    return index
+
+
+def _consume_identifier(text: str, index: int, extra: str = "") -> int:
+    """End index of the identifier beginning at *index*, or ``-1``.
+
+    An identifier starts with a letter or underscore and continues with
+    letters, digits, underscores and any characters in *extra*. Every quote,
+    space and punctuation character that could end the type or begin a new
+    statement is thereby excluded. A ``-1`` means no identifier begins exactly
+    at *index*.
+    """
+    length = len(text)
+    if index >= length:
+        return -1
+    first = text[index]
+    if not ("A" <= first <= "Z" or "a" <= first <= "z" or first == "_"):
+        return -1
+    index += 1
+    while index < length:
+        char = text[index]
+        if (
+            "A" <= char <= "Z"
+            or "a" <= char <= "z"
+            or "0" <= char <= "9"
+            or char == "_"
+            or char in extra
+        ):
+            index += 1
+        else:
+            break
+    return index
+
+
+def _consume_digits(text: str, index: int, *, ascii_only: bool = True) -> int:
+    """End index of the digit run beginning at *index*, or ``-1``."""
+    length = len(text)
+    start = index
+    while index < length:
+        if ascii_only:
+            if not ("0" <= text[index] <= "9"):
+                break
+        elif not text[index].isdecimal():
+            break
+        index += 1
+    return index if index > start else -1
+
+
+def _is_type_name(value: str) -> bool:
+    """Whether *value* is a qualified identifier with precision and arrays.
+
+    The grammar is ``IDENT[.IDENT]``, an optional ``(n)`` or ``(n, m)``
+    precision, then any number of ``[]`` array markers -- with whitespace
+    allowed around the qualifier dot, inside the precision and inside the
+    array brackets. The precision digits and the admitted whitespace are
+    ASCII, which is the one difference between this and a Unicode pattern.
+    """
+    length = len(value)
+    index = _consume_identifier(value, 0, extra="$")
+    if index == -1:
+        return False
+
+    qualified = _skip_ascii_space(value, index)
+    if qualified < length and value[qualified] == ".":
+        index = _consume_identifier(value, _skip_ascii_space(value, qualified + 1), extra="$")
+        if index == -1:
+            return False
+
+    index = _skip_ascii_space(value, index)
+    if index < length and value[index] == "(":
+        index = _consume_digits(value, _skip_ascii_space(value, index + 1))
+        if index == -1:
+            return False
+        index = _skip_ascii_space(value, index)
+        if index < length and value[index] == ",":
+            index = _consume_digits(value, _skip_ascii_space(value, index + 1))
+            if index == -1:
+                return False
+            index = _skip_ascii_space(value, index)
+        if index >= length or value[index] != ")":
+            return False
+        index += 1
+        index = _skip_ascii_space(value, index)
+
+    while index < length and value[index] == "[":
+        index = _skip_ascii_space(value, index + 1)
+        if index >= length or value[index] != "]":
+            return False
+        index += 1
+    return index == length
+
+
+def _bare_word(word: str) -> str:
+    """The identifier of *word* when it carries a trailing ``(n)``, else *word*.
+
+    A multi-word built-in may put its precision on either side of the words --
+    PostgreSQL writes ``timestamp(3) with time zone`` -- so each word is
+    compared without its precision. ``timestamp(3)`` reads as ``timestamp``;
+    anything else is returned unchanged.
+    """
+    identifier_end = _consume_identifier(word, 0, extra="$")
+    if identifier_end == -1:
+        return word
+    index = identifier_end
+    if index >= len(word) or word[index] != "(":
+        return word
+    index = _consume_digits(word, _skip_space(word, index + 1), ascii_only=False)
+    if index == -1:
+        return word
+    index = _skip_space(word, index)
+    if index >= len(word) or word[index] != ")":
+        return word
+    if index + 1 != len(word):
+        return word
+    return word[:identifier_end]
 
 
 class InvalidTypeNameError(ValueError):
@@ -115,11 +232,10 @@ def validate_type_name(value: object) -> str:
             # strip() would only remove the outer parentheses and leave
             # `varying(20`; the word with its precision removed is what the
             # list is keyed by.
-            m = re.fullmatch(rf"({_IDENT})\(\s*\d+\s*\)", word)
-            bare.append((m.group(1) if m else word).lower())
+            bare.append(_bare_word(word).lower())
         if " ".join(bare) in MULTI_WORD_TYPE_NAMES:
             return value
-    if _TYPE_NAME_RE.match(value):
+    if _is_type_name(value):
         return value
     raise InvalidTypeNameError(value)
 

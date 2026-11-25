@@ -1,7 +1,6 @@
 # src/rhosocial/activerecord/backend/dialect/protocols/family/FunctionCallSupport.py
 """Protocol mirror of FunctionCallMixin (family-level feature group). Members/order/signatures identical."""
 
-import re
 from typing import Any, Dict, List, Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.expression.objects import Function
 from typing import runtime_checkable, Protocol

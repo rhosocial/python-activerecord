@@ -4,11 +4,11 @@
 from __future__ import annotations
 
 import inspect
-import re
 from abc import ABC
 from typing import Any, TYPE_CHECKING, Optional, Tuple
 
 from ..bases import BaseExpression
+from ...textscan import is_identifier, is_simple_name, split_dotted
 
 if TYPE_CHECKING:
     from ...dialect import SQLDialectBase
@@ -35,6 +35,34 @@ PRECISION_PARAMETERS: Tuple[str, ...] = ("precision",)
 #: The identity parameters of a type whose signedness is what makes it what
 #: it is.
 UNSIGNED_PARAMETERS: Tuple[str, ...] = ("unsigned",)
+
+
+def _is_dispatch_name(name: object) -> bool:
+    """Whether *name* is the lowercase identifier suffix a type dispatches on.
+
+    The grammar is ``^[a-z][a-z0-9_]*$``: an identifier whose characters are
+    all lowercase and whose first character is a letter, not an underscore.
+    """
+    if not isinstance(name, str):
+        return False
+    return name == name.lower() and is_identifier(name) and not name.startswith("_")
+
+
+def _backend_slug(module: str) -> Optional[str]:
+    """The ``<backend>`` segment of a ``...impl.<backend>...`` module path.
+
+    The slug is the path segment after ``impl``, and it must be a run of
+    lowercase letters, digits and underscores (``sqlite``, ``postgres``).
+    A path without such a segment has no slug.
+    """
+    parts = split_dotted(module)
+    for index in range(1, len(parts) - 1):
+        if parts[index] != "impl":
+            continue
+        candidate = parts[index + 1]
+        if candidate and candidate == candidate.lower() and is_simple_name(candidate):
+            return candidate
+    return None
 
 
 class DataType(BaseExpression, ABC):
@@ -107,12 +135,6 @@ class DataType(BaseExpression, ABC):
     ``None`` on the abstract base; **mandatory and validated on every
     concrete subclass** (see ``__init_subclass__``)."""
 
-    _NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
-
-    # Module path of a backend-defined type: ``...impl.<backend>...``.
-    # The captured group is the backend slug used as the name prefix.
-    _BACKEND_MODULE_RE = re.compile(r"\.impl\.([a-z0-9_]+)(?:\.|$)")
-
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         # The dispatch key is a protocol contract, not decoration: a
@@ -136,7 +158,7 @@ class DataType(BaseExpression, ABC):
                 f"type name: set `name = \"<identifier>\"` on the class. "
                 f"The name is the dispatch key for format_data_type_<name>."
             )
-        if not cls._NAME_RE.match(name):
+        if not _is_dispatch_name(name):
             raise TypeError(
                 f"{cls.__module__}.{cls.__name__} declares an invalid "
                 f"generic type name {name!r}: it must match "
@@ -152,8 +174,8 @@ class DataType(BaseExpression, ABC):
         # own types into the inherited supported-types mapping.
         if not cls.__module__.startswith(
                 "rhosocial.activerecord.backend.expression.types"):
-            match = cls._BACKEND_MODULE_RE.search(cls.__module__)
-            if match is None:
+            backend = _backend_slug(cls.__module__)
+            if backend is None:
                 raise TypeError(
                     f"{cls.__module__}.{cls.__name__} is defined outside "
                     f"the core types package but its module path does not "
@@ -161,7 +183,6 @@ class DataType(BaseExpression, ABC):
                     f"must live under \"...impl.<backend>...\" so their "
                     f"namespace prefix can be derived."
                 )
-            backend = match.group(1)
             prefix = backend + "_"
             if not name.startswith(prefix):
                 raise TypeError(

@@ -5,16 +5,14 @@ SQLite-specific Datetime implementation.
 This module provides the SQLiteDateTimeMixin class.
 """
 
-import re
 from typing import Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression.mixins import AliasableMixin
+from rhosocial.activerecord.backend.textscan import is_identifier
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression import bases
     from rhosocial.activerecord.backend.expression.collation import CollateFunction
-
-_COLLATION_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class SQLiteDateTimeMixin:
@@ -142,7 +140,7 @@ class SQLiteDateTimeMixin:
         """Validate SQLite collation names and return their SQL representation."""
         if expr.schema is not None:
             raise UnsupportedFeatureError(self.name, "schema-qualified COLLATE")
-        if not _COLLATION_NAME_RE.fullmatch(expr.collation_name):
+        if not is_identifier(expr.collation_name):
             raise ValueError(f"Unsupported SQLite collation: {expr.collation_name!r}")
         return expr.collation_name
 

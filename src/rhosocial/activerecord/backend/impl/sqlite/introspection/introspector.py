@@ -20,7 +20,6 @@ Design principle: Sync and Async are separate and cannot coexist.
 """
 
 import copy
-import re
 import sqlite3
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -49,6 +48,12 @@ from rhosocial.activerecord.backend.introspection.types import (
     IntrospectionTriggerInfo,
     IntrospectionScope,
 )
+from rhosocial.activerecord.backend.textscan import (
+    find_word,
+    leading_word,
+    parenthesised,
+    split_top_level,
+)
 from .pragma_introspector import (
     PragmaIntrospector,
     AsyncPragmaIntrospector,
@@ -64,6 +69,44 @@ from ..expression.introspection import (
     SQLiteTableDdlStatement,
     SQLiteTableStorageStatement,
 )
+
+
+def _precision_pair(inner: str) -> Optional[Tuple[int, int]]:
+    """The two numbers of a ``(10, 2)`` group, when that is its whole shape.
+
+    The original spelling admitted ``(10, 2)`` and ``(10,2)`` but not
+    whitespace against either parenthesis, nor anything but the two numbers
+    around the comma inside. Returning ``None`` leaves the single-number
+    reading and the all-``None`` answer to the caller.
+    """
+    if not inner or not inner[0].isdecimal() or not inner[-1].isdecimal():
+        return None
+    pieces = split_top_level(inner, ",")
+    if len(pieces) != 2:
+        return None
+    first, second = pieces
+    if not first.rstrip().isdecimal() or not second.lstrip().isdecimal():
+        return None
+    return int(first.strip()), int(second.strip())
+
+
+def _keyword_before_parenthesis(text: str, keywords: Tuple[str, ...]) -> bool:
+    """Whether *text* starts with one of *keywords*, then ``(``.
+
+    Whitespace is allowed on both sides of the keyword. The keyword is read as
+    a whole word, so ``TIME`` does not claim ``TIMESTAMP`` and ``DEC`` does not
+    claim ``DECIMAL``.
+    """
+    index = 0
+    while index < len(text) and text[index].isspace():
+        index += 1
+    word = leading_word(text, index)
+    if not word or word.upper() not in keywords:
+        return False
+    index += len(word)
+    while index < len(text) and text[index].isspace():
+        index += 1
+    return index < len(text) and text[index] == "("
 
 
 class SQLiteIntrospectorMixin(IntrospectorMixin):
@@ -281,18 +324,19 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             ["character_maximum_length", "numeric_precision", "numeric_scale",
              "datetime_precision"]
         )
-        m = re.search(r"\((\d+)\s*,\s*(\d+)\)", raw_type)
-        if m:
-            result["numeric_precision"] = int(m.group(1))
-            result["numeric_scale"] = int(m.group(2))
+        inner = parenthesised(raw_type)
+        if inner is None:
             return result
-        m = re.search(r"\((\d+)\)", raw_type)
-        if m:
-            value = int(m.group(1))
-            if re.match(r"^\s*(?:TIMESTAMP|TIME|DATETIME)\s*\(", raw_type, re.IGNORECASE):
+        pair = _precision_pair(inner)
+        if pair is not None:
+            result["numeric_precision"], result["numeric_scale"] = pair
+            return result
+        if inner.isdecimal():
+            value = int(inner)
+            if _keyword_before_parenthesis(raw_type, ("TIMESTAMP", "TIME", "DATETIME")):
                 result["datetime_precision"] = value
-            elif re.match(r"^\s*(?:DECIMAL|NUMERIC|FLOAT|DOUBLE|REAL)\s*\(",
-                          raw_type, re.IGNORECASE):
+            elif _keyword_before_parenthesis(
+                    raw_type, ("DECIMAL", "NUMERIC", "FLOAT", "DOUBLE", "REAL")):
                 result["numeric_precision"] = value
             else:
                 result["character_maximum_length"] = value
@@ -323,8 +367,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             nullable = ColumnNullable.NULLABLE if row["notnull"] == 0 else ColumnNullable.NOT_NULL
             raw_type = row.get("type") or "TEXT"
             # Extract base type (e.g., "VARCHAR" from "VARCHAR(255)")
-            base_type_match = re.match(r"^([A-Za-z_]+)", raw_type)
-            base_type = base_type_match.group(1) if base_type_match else raw_type
+            base_type = leading_word(raw_type, digits=False) or raw_type
             # SQLite pk field: 0 = not primary key, >0 = primary key (or part of composite PK)
             is_pk = row.get("pk", 0) > 0
             # Parse raw type string into a DataType expression
@@ -796,11 +839,9 @@ class SQLiteIntrospector(SQLiteIntrospectorMixin, AbstractIntrospector):
                 ddl_result = self._executor.execute(index_ddl, index_params)
                 if ddl_result and ddl_result[0].get("sql"):
                     ddl_sql = ddl_result[0]["sql"]
-                    where_match = re.search(
-                        r'\bWHERE\b\s*(.*)', ddl_sql, re.IGNORECASE | re.DOTALL
-                    )
-                    if where_match:
-                        filter_condition = where_match.group(1).strip().rstrip(';')
+                    where_at = find_word(ddl_sql, "WHERE", ignore_case=True)
+                    if where_at != -1:
+                        filter_condition = ddl_sql[where_at + len("WHERE"):].strip().rstrip(';')
 
             indexes.append(
                 IndexInfo(
@@ -1061,11 +1102,9 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
                 ddl_result = await self._executor.execute(index_ddl, index_params)
                 if ddl_result and ddl_result[0].get("sql"):
                     ddl_sql = ddl_result[0]["sql"]
-                    where_match = re.search(
-                        r'\bWHERE\b\s*(.*)', ddl_sql, re.IGNORECASE | re.DOTALL
-                    )
-                    if where_match:
-                        filter_condition = where_match.group(1).strip().rstrip(';')
+                    where_at = find_word(ddl_sql, "WHERE", ignore_case=True)
+                    if where_at != -1:
+                        filter_condition = ddl_sql[where_at + len("WHERE"):].strip().rstrip(';')
 
             indexes.append(
                 IndexInfo(

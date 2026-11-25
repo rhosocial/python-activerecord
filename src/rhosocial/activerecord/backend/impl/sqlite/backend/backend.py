@@ -8,7 +8,6 @@ specific behaviors and SQL dialect.
 """
 
 import logging
-import re
 import sqlite3
 import time
 from datetime import datetime
@@ -38,6 +37,7 @@ from rhosocial.activerecord.backend.options import (
 )
 from rhosocial.activerecord.backend.schema import StatementType
 from rhosocial.activerecord.backend.result import QueryResult
+from rhosocial.activerecord.backend.textscan import is_simple_name
 from ..explain import (
     SQLiteExplainRow,
     SQLiteExplainQueryPlanRow,
@@ -48,7 +48,6 @@ from ..explain import (
 # Only alphanumerics, underscore, sign and dot are safe to inline in a PRAGMA
 # value. This accepts valid values (ON/OFF/0/1/True/False/NORMAL/MEMORY/cache
 # sizes) while rejecting anything that could break out of the statement.
-_SAFE_PRAGMA_VALUE_RE = re.compile(r"^[A-Za-z0-9_+\-.\s]+$")
 
 
 class SQLiteBackend(
@@ -163,7 +162,7 @@ class SQLiteBackend(
             raise ValueError(f"Unknown PRAGMA: {pragma_key}")
         if info.read_only:
             raise ValueError(f"PRAGMA {pragma_key} is read-only and cannot be set")
-        if not _SAFE_PRAGMA_VALUE_RE.fullmatch(pragma_value_str):
+        if not is_simple_name(pragma_value_str, extra="+-.", spaces=True):
             raise ValueError(
                 f"Unsafe value for PRAGMA {pragma_key}: {pragma_value_str!r}"
             )

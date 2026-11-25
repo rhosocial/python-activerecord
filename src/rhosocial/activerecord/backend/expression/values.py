@@ -38,34 +38,107 @@ import datetime
 import decimal
 import enum
 import math
-import re
 import uuid
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Dict, Optional
 
 #: ISO 8601 duration, reduced to what ``timedelta`` can hold: days, hours,
 #: minutes, seconds and an optional fraction. Years and months are refused --
 #: their length is not a constant, so a timedelta cannot carry them honestly.
-_DURATION_RE = re.compile(
-    r"^-?P"
-    r"(?:(?P<days>\d+)D)?"
-    r"(?:T"
-    r"(?:(?P<hours>\d+)H)?"
-    r"(?:(?P<minutes>\d+)M)?"
-    r"(?:(?P<seconds>\d+(?:\.\d+)?)S)?"
-    r")?$"
+_TIME_COMPONENTS = (
+    ("hours", "H"),
+    ("minutes", "M"),
+    ("seconds", "S"),
 )
+
+
+def _scan_decimal_digits(text: str, index: int) -> int:
+    """Index past the run of decimal digits beginning at *index*."""
+    while index < len(text) and text[index].isdecimal():
+        index += 1
+    return index
+
+
+def _consume_time_component(text: str, index: int, stage: int):
+    """Read the time component of *stage* at *index*, or ``None``.
+
+    Stages run hours, minutes, seconds, so ``PT1M`` is a minute and ``PT1H1M``
+    reads both. Only seconds take a fraction. The returned triple is the
+    component's field name, its text, and the index after its suffix.
+    """
+    name, suffix = _TIME_COMPONENTS[stage]
+    digits_start = index
+    index = _scan_decimal_digits(text, index)
+    if index == digits_start:
+        return None
+    value = text[digits_start:index]
+    if name == "seconds" and index < len(text) and text[index] == ".":
+        fraction_start = index + 1
+        fraction_end = _scan_decimal_digits(text, fraction_start)
+        if fraction_end == fraction_start:
+            return None
+        value = text[digits_start:fraction_end]
+        index = fraction_end
+    if index < len(text) and text[index] == suffix:
+        return name, value, index + 1
+    return None
+
+
+def _duration_fields(text: str) -> Optional[Dict[str, Optional[str]]]:
+    """The components *text* spells as an ISO 8601 duration, or ``None``.
+
+    The grammar is ``-?P``, an optional ``[days]D``, then optionally ``T``
+    followed by any of ``[hours]H``, ``[minutes]M`` and ``[seconds]S`` in that
+    order. Each component may be absent, but a component that is present must
+    sit in its own slot, which is why the scan retries a digit run against the
+    later slots instead of refusing it outright.
+    """
+    index = 0
+    if text.startswith("-"):
+        index = 1
+    if not text.startswith("P", index):
+        return None
+    index += 1
+    fields: Dict[str, Optional[str]] = {
+        "days": None,
+        "hours": None,
+        "minutes": None,
+        "seconds": None,
+    }
+
+    days_start = index
+    index = _scan_decimal_digits(text, index)
+    if index > days_start:
+        if index >= len(text) or text[index] != "D":
+            return None
+        fields["days"] = text[days_start:index]
+        index += 1
+
+    if index < len(text) and text[index] == "T":
+        index += 1
+        stage = 0
+        while stage < len(_TIME_COMPONENTS):
+            component = _consume_time_component(text, index, stage)
+            if component is None:
+                if index >= len(text) or not text[index].isdecimal():
+                    break
+                stage += 1
+                continue
+            name, value, index = component
+            fields[name] = value
+            stage += 1
+
+    return fields if index == len(text) else None
 
 
 def _parse_duration(text: str) -> datetime.timedelta:
     """``"P1DT2H3M4.5S"`` -> timedelta, or a refusal naming what it cannot hold."""
-    match = _DURATION_RE.match(text)
-    if match is None:
+    parts = _duration_fields(text)
+    if parts is None:
         raise ValueError(
             f"{text!r} is not an ISO 8601 duration this implementation can "
             f"carry. Years and months have no fixed length, so they cannot "
             f"become a timedelta; use a day/hour/minute/second form."
         )
-    parts = match.groupdict()
     delta = datetime.timedelta(
         days=int(parts["days"] or 0),
         hours=int(parts["hours"] or 0),

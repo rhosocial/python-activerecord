@@ -43,7 +43,6 @@ For concrete database dialects (PostgreSQL, MySQL, etc.), they would:
 3. Override format_* methods where the database deviates from SQL standard
 """
 
-import re
 from rhosocial.activerecord.backend.dialect.mixins import (
     RelationSourceMixin,
     NamespaceMixin,
@@ -268,11 +267,9 @@ from rhosocial.activerecord.backend.expression.types import (
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+from rhosocial.activerecord.backend.textscan import is_identifier
 from typing import Dict, List, Tuple, Type, TYPE_CHECKING
 
-
-
-_COLLATION_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 # ---------------------------------------------------------------------------
 
@@ -881,7 +878,7 @@ class DummyDialect(
         dialects (e.g. SQLite's regex check) while remaining deliberately
         permissive.
         """
-        if not _COLLATION_NAME_RE.fullmatch(expr.collation_name):
+        if not is_identifier(expr.collation_name):
             raise ValueError(f"Invalid collation name: {expr.collation_name!r}")
         return expr.collation_name
 

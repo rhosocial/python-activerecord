@@ -3,8 +3,7 @@
 
 from __future__ import annotations
 
-import re
-from typing import Optional
+from typing import Optional, Tuple
 
 from ._base import DataType, PRECISION_PARAMETERS
 
@@ -108,14 +107,80 @@ INTERVAL_QUALIFIERS = frozenset({
 #: the same, so the precision belongs to the grammar; the *shape* it forms is
 #: then checked against :data:`INTERVAL_QUALIFIERS`, so ``YEAR(3) TO DAY(9)``
 #: is rejected on shape even though both fields parse.
-_FIELD_ALTERNATION = "|".join(INTERVAL_FIELDS)
-_INTERVAL_QUALIFIER_RE = re.compile(
-    rf"^(?P<start>{_FIELD_ALTERNATION})"
-    r"(?:\(\s*\d+\s*\))?"
-    rf"(?:\s+TO\s+(?P<end>{_FIELD_ALTERNATION})"
-    r"(?:\(\s*\d+\s*\))?)?$",
-    re.IGNORECASE | re.ASCII,
-)
+
+#: The whitespace an ASCII-flagged grammar admits; ``\s`` outside one admits
+#: the whole Unicode space category instead.
+_ASCII_SPACE = frozenset(chr(code) for code in (9, 10, 11, 12, 13, 32))
+
+
+def _skip_ascii_space(text: str, index: int) -> int:
+    """Index past the whitespace an ASCII-flagged grammar admits."""
+    while index < len(text) and text[index] in _ASCII_SPACE:
+        index += 1
+    return index
+
+
+def _consume_field(text: str, index: int) -> Optional[Tuple[str, int]]:
+    """The interval field beginning at *index* and the index after it."""
+    for field in INTERVAL_FIELDS:
+        if text.startswith(field, index):
+            return field, index + len(field)
+    return None
+
+
+def _consume_precision(text: str, index: int) -> int:
+    """Index after an optional ``(n)`` precision, or ``-1`` when malformed.
+
+    *index* points just past a field name. A field carrying no precision
+    answers *index* itself, so the caller can tell absence from badness.
+    """
+    if index >= len(text) or text[index] != "(":
+        return index
+    cursor = _skip_ascii_space(text, index + 1)
+    digits_start = cursor
+    while cursor < len(text) and "0" <= text[cursor] <= "9":
+        cursor += 1
+    if cursor == digits_start:
+        return -1
+    cursor = _skip_ascii_space(text, cursor)
+    if cursor >= len(text) or text[cursor] != ")":
+        return -1
+    return cursor + 1
+
+
+def _interval_qualifier_shape(candidate: str) -> Optional[str]:
+    """The qualifier *candidate* spells, or ``None`` when it is malformed.
+
+    The grammar is one field, an optional ``(n)`` precision, and optionally
+    ``TO`` a second field with its own precision. Case is ignored and only
+    ASCII whitespace and digits are admitted. The returned shape is upper
+    cased and has **not** been checked against the closed vocabulary -- the
+    pair ``YEAR TO DAY`` parses here and is refused there.
+    """
+    upper = candidate.upper()
+    first = _consume_field(upper, 0)
+    if first is None:
+        return None
+    start, index = first
+    index = _consume_precision(upper, index)
+    if index == -1:
+        return None
+    if index == len(upper):
+        return start
+    cursor = _skip_ascii_space(upper, index)
+    if cursor == index or not upper.startswith("TO", cursor):
+        return None
+    end_at = _skip_ascii_space(upper, cursor + 2)
+    if end_at == cursor + 2:
+        return None
+    second = _consume_field(upper, end_at)
+    if second is None:
+        return None
+    end, end_at = second
+    end_at = _consume_precision(upper, end_at)
+    if end_at == -1 or end_at != len(upper):
+        return None
+    return f"{start} TO {end}"
 
 
 class InvalidIntervalQualifierError(ValueError):
@@ -161,13 +226,9 @@ def validate_interval_qualifier(value: object) -> str:
     """
     if isinstance(value, str):
         candidate = value.strip()
-        match = _INTERVAL_QUALIFIER_RE.match(candidate)
-        if match is not None:
-            shape = match.group("start").upper()
-            if match.group("end") is not None:
-                shape = f"{shape} TO {match.group('end').upper()}"
-            if shape in INTERVAL_QUALIFIERS:
-                return candidate
+        shape = _interval_qualifier_shape(candidate)
+        if shape is not None and shape in INTERVAL_QUALIFIERS:
+            return candidate
     raise InvalidIntervalQualifierError(value)
 
 

@@ -29,14 +29,15 @@ Usage:
     ... )
 """
 
-import re
 from enum import Enum, auto
 from typing import (
     Any,
     Dict,
+    Iterator,
     List,
     Optional,
     TYPE_CHECKING,
+    Tuple,
 )
 
 from rhosocial.activerecord.backend.expression.bases import BaseExpression
@@ -412,20 +413,49 @@ class ProcedureGraph:
         }
 
 
+_TEMPLATE_OPEN = "${"
+
+
+def _template_placeholders(text: str) -> Iterator[Tuple[int, int, str]]:
+    """Yield ``(start, end, name)`` for each ``${name}`` placeholder.
+
+    A placeholder is ``${``, at least one character that is not ``}``, then
+    ``}``: an empty ``${}`` names nothing and is left alone, and scanning
+    resumes after it. *end* is the index just past the closing brace.
+    """
+    index = 0
+    length = len(text)
+    opener = len(_TEMPLATE_OPEN)
+    while index < length:
+        start = text.find(_TEMPLATE_OPEN, index)
+        if start == -1:
+            return
+        close = text.find("}", start + opener)
+        if close == -1:
+            return
+        if close == start + opener:
+            index = start + opener
+            continue
+        yield start, close + 1, text[start + opener:close]
+        index = close + 1
+
+
 def _interpolate_template(
     template: str,
     context: Dict[str, Any],
 ) -> str:
     """Interpolate ${var} placeholders in a template string."""
-    pattern = r"\$\{([^}]+)\}"
-
-    def replacer(match):
-        var_name = match.group(1)
-        if var_name in context:
-            return str(context[var_name])
-        return match.group(0)
-
-    return re.sub(pattern, replacer, template)
+    pieces = []
+    cursor = 0
+    for start, end, name in _template_placeholders(template):
+        pieces.append(template[cursor:start])
+        if name in context:
+            pieces.append(str(context[name]))
+        else:
+            pieces.append(template[start:end])
+        cursor = end
+    pieces.append(template[cursor:])
+    return "".join(pieces)
 
 
 def _safe_eval_condition(
@@ -454,8 +484,7 @@ def _safe_eval_condition(
         ValueError: If the expression is invalid or unsafe.
     """
     # Extract ${var} names from original condition
-    pattern = r"\$\{([^}]+)\}"
-    template_vars = set(re.findall(pattern, condition))
+    template_vars = {name for _, _, name in _template_placeholders(condition)}
 
     # Check for unsafe variables in original condition
     for name in template_vars:
@@ -493,8 +522,7 @@ def _extract_path(data: Any, path: str) -> Any:
         The extracted value, or None if not found.
     """
     current = data
-    parts = re.split(r"[\.\[\]]" + r"+", path)
-    parts = [p for p in parts if p]
+    parts = [part for part in path.replace("[", ".").replace("]", ".").split(".") if part]
 
     for part in parts:
         if not part:

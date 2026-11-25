@@ -1,7 +1,6 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/sql_function_mixin.py
 """Per-statement mixin for SQLFunctionSupport. Members/order/signature mirror the protocol."""
 
-import re
 from typing import Any, Dict, List, Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.expression.objects import Function
 

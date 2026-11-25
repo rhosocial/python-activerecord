@@ -4,12 +4,12 @@
 Provides :class:`GraphMixin` for graph query MATCH formatting and
 :class:`GraphTableMixin` for GRAPH_TABLE queries and property-graph DDL.
 """
-import re
 from typing import Mapping, Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
 from ...expression.objects import EdgeTable as EdgeTableObject
 from ...expression.objects import NodeTable, PropertyGraph
+from ...textscan import is_simple_name
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.graph import (
@@ -125,7 +125,7 @@ class GraphMixin:
 
         if expr.variable is None:
             vertex_str = ""
-        elif re.fullmatch(r"[A-Za-z0-9_]+", expr.variable):
+        elif is_simple_name(expr.variable):
             vertex_str = f"{expr.variable} IS "
         else:
             raise ValueError(
@@ -196,14 +196,14 @@ class GraphMixin:
             raise ValueError(f"Invalid graph expr direction: {expr.direction!r}")
 
         if expr.variable is not None and expr.table is not None:
-            if not re.fullmatch(r"[A-Za-z0-9_]+", expr.variable):
+            if not is_simple_name(expr.variable):
                 raise ValueError(
                     f"Invalid variable name '{expr.variable}': "
                     "must contain only alphanumeric characters and underscores."
                 )
             edge_body = f"[{expr.variable} IS {expr.table.to_sql()[0]}]"
         elif expr.variable is not None:
-            if not re.fullmatch(r"[A-Za-z0-9_]+", expr.variable):
+            if not is_simple_name(expr.variable):
                 raise ValueError(
                     f"Invalid variable name '{expr.variable}': "
                     "must contain only alphanumeric characters and underscores."
@@ -372,7 +372,7 @@ class GraphTableMixin:
             if not isinstance(column, GraphColumn):
                 raise TypeError("ColumnsClause entries must be GraphColumn instances")
             cls._require_graph_string(column.variable, "Graph column variable")
-            if re.fullmatch(r"[A-Za-z0-9_]+", column.variable) is None:
+            if not is_simple_name(column.variable):
                 raise ValueError(
                     f"Invalid graph column variable '{column.variable}': "
                     "must contain only alphanumeric characters and underscores."

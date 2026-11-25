@@ -1,9 +1,9 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/create_routine_mixin.py
 """Per-statement mixin for CreateRoutineSupport. Members/order/signature mirror the protocol."""
 
-import re
 from typing import Any, Dict, List, Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.expression.objects import Function
+from rhosocial.activerecord.backend.textscan import is_simple_name
 
 class CreateRoutineMixin:
     def supports_function(self) -> bool:
@@ -74,7 +74,7 @@ class CreateRoutineMixin:
                     if name and param_type:
                         # Validate parameter name and type.
                         param_name = self.format_identifier(name)
-                        if not re.fullmatch(r"[A-Za-z0-9\s(),]+", param_type):
+                        if not is_simple_name(param_type, extra="(),", spaces=True):
                             raise ValueError(f"Invalid parameter type '{param_type}'")
                         param_strs.append(f"{param_name} {param_type}")
                     elif param_type:
@@ -85,7 +85,7 @@ class CreateRoutineMixin:
 
             if expr.returns:
                 # Validate return type.
-                if not re.fullmatch(r"[A-Za-z0-9\s(),]+", expr.returns):
+                if not is_simple_name(expr.returns, extra="(),", spaces=True):
                     raise ValueError(f"Invalid return type '{expr.returns}'")
                 parts.append(f"RETURNS {expr.returns}")
 

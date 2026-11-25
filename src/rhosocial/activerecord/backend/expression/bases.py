@@ -12,7 +12,7 @@ import sys
 import warnings
 from contextvars import ContextVar
 from enum import Enum
-from typing import Dict, Any, Optional, Tuple, Protocol, TYPE_CHECKING, Union
+from typing import Dict, Any, Optional, Tuple, Protocol, TYPE_CHECKING, Union, List
 from typing import runtime_checkable
 
 if sys.version_info >= (3, 10):
@@ -42,6 +42,32 @@ SQLQueryAndParams.__module__ = __name__
 #: caller's argument threaded down the tree without every formatter having to
 #: pass it along.
 _RENDER_DIALECT: ContextVar[Any] = ContextVar("expression_render_dialect", default=None)
+
+
+def _camel_to_words(name: str) -> List[str]:
+    """Split *name* into the words its capitals mark off.
+
+    Two boundaries divide a camel-case name: between a run of capitals and
+    the capital that starts a lowercase word (``JSONValue`` -> ``JSON``,
+    ``Value``), and between a lowercase letter or digit and a following
+    capital (``SQLDialect`` -> ``SQL``, ``Dialect``). The scan inserts a
+    break at those positions and returns the pieces; lowering and joining
+    them with underscores is the caller's job.
+    """
+    words = []
+    piece_start = 0
+    for index, char in enumerate(name):
+        if index == 0 or not ("A" <= char <= "Z"):
+            continue
+        previous = name[index - 1]
+        following = name[index + 1] if index + 1 < len(name) else ""
+        runs_into_lower = "A" <= previous <= "Z" and "a" <= following <= "z"
+        follows_lower = "a" <= previous <= "z" or "0" <= previous <= "9"
+        if runs_into_lower or follows_lower:
+            words.append(name[piece_start:index])
+            piece_start = index
+    words.append(name[piece_start:])
+    return words
 
 
 def current_dialect() -> Optional[Any]:
@@ -508,17 +534,12 @@ class BaseExpression:
         Computed, never stored: a class carries no kind field, so a kind can
         never disagree with the class that produced it.
         """
-        import re
-
         name = cls.__name__
         for token in cls.KIND_RESERVED:
             if name.startswith(token) and len(name) > len(token):
-                rest = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1 \2", name[len(token):])
-                rest = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", rest)
-                return token.lower() + "_" + "_".join(rest.lower().split())
-        name = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1 \2", name)
-        name = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", name)
-        return "_".join(name.lower().split())
+                rest = "_".join(word.lower() for word in _camel_to_words(name[len(token):]))
+                return token.lower() + "_" + rest
+        return "_".join(word.lower() for word in _camel_to_words(name))
 
     def get_params(self) -> Dict[str, Any]:
         """Introspection-based default implementation.

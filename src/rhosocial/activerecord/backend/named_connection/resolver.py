@@ -39,10 +39,10 @@ Usage:
 
 import inspect
 import importlib
-import re
 from typing import Any, Callable, Dict, List, Optional
 
 from rhosocial.activerecord.backend.config import BaseConfig
+from rhosocial.activerecord.backend.textscan import quoted_word_after
 
 from .exceptions import (
     NamedConnectionInvalidParameterError,
@@ -349,9 +349,8 @@ class NamedConnectionResolver:
         except TypeError as e:
             error_msg = str(e)
             if "unexpected keyword argument" in error_msg:
-                match = re.search(r"unexpected keyword argument '(\w+)'", error_msg)
-                if match:
-                    unknown_param = match.group(1)
+                unknown_param = quoted_word_after(error_msg, "unexpected keyword argument '")
+                if unknown_param is not None:
                     raise NamedConnectionInvalidParameterError(
                         unknown_param,
                         f"Unknown parameter '{unknown_param}'. Available parameters: {list(resolved_params.keys())}",

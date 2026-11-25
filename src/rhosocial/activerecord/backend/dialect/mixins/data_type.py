@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import re
 import typing
 from typing import Any, Callable, cast, Dict, Optional, Tuple, TYPE_CHECKING
 

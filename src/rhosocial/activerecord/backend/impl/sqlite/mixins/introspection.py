@@ -5,13 +5,13 @@ SQLite-specific Introspection implementation.
 This module provides the SQLiteIntrospectionCapabilityMixin class.
 """
 
-import re
 import sqlite3
 from functools import lru_cache
 from typing import List, Optional, Tuple, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.introspection.types import ProfileSource
+from rhosocial.activerecord.backend.textscan import is_simple_name
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression.introspection import (
@@ -41,11 +41,17 @@ if TYPE_CHECKING:
     from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
 
 
-#: A PRAGMA value the engine reads in its own vocabulary rather than as a SQL
-#: literal: keywords (``WAL``, ``ON``) and numbers (``1000``). Anything else is
-#: written as an escaped string literal, which is the form that cannot carry
-#: statement text into the assignment.
-_PRAGMA_VALUE_TOKEN = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_+\-.]*")
+# A PRAGMA value the engine reads in its own vocabulary rather than as a SQL
+# literal: keywords (``WAL``, ``ON``) and numbers (``1000``). Anything else is
+# written as an escaped string literal, which is the form that cannot carry
+# statement text into the assignment.
+def _is_pragma_value_token(value: str) -> bool:
+    """Whether *value* is a bare PRAGMA token: name characters, sign and dot.
+
+    The first character must be alphanumeric or an underscore, so a leading
+    sign cannot start a token; after it, signs and dots are admitted.
+    """
+    return is_simple_name(value, extra="+-.") and value[0] not in "+-."
 
 
 @lru_cache(maxsize=1)
@@ -403,7 +409,7 @@ class SQLiteIntrospectionCapabilityMixin:
         if expr.argument is not None:
             name = f"{name}({expr.argument})"
 
-        if isinstance(expr.value, str) and _PRAGMA_VALUE_TOKEN.fullmatch(expr.value):
+        if isinstance(expr.value, str) and _is_pragma_value_token(expr.value):
             value = expr.value
         else:
             value = self.format_literal(expr.value)

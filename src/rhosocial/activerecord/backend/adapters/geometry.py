@@ -17,13 +17,13 @@ that range raises ``ValueError``.
 """
 
 import math
-import re
 from abc import abstractmethod
 from collections.abc import Mapping as MappingABC
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Dict, List, Optional, Tuple, Type
 
 from ..errors import TypeConversionError
+from ..textscan import leading_word
 from ..type_adapter import BaseSQLTypeAdapter
 
 Coordinate = Tuple[float, float]
@@ -437,15 +437,80 @@ def _json_geometry(geometry: Geometry, coordinates: Any) -> Dict[str, Any]:
 
 # --- Minimal 2D WKT parser -------------------------------------------------
 
-_SRID_PREFIX_RE = re.compile(r"^\s*SRID\s*=\s*([^;]+)\s*;\s*", re.IGNORECASE)
 
-_WKT_TOKEN_RE = re.compile(
-    r"(?P<word>[A-Za-z_][A-Za-z0-9_]*)"
-    r"|(?P<number>[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)"
-    r"|(?P<lparen>\()"
-    r"|(?P<rparen>\))"
-    r"|(?P<comma>,)"
-)
+def _scan_number(text: str, start: int) -> Optional[int]:
+    r"""End index of the number beginning at *start*, or ``None``.
+
+    A number is ``[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?``: an
+    optional sign, a whole part with an optional fraction or a fraction alone,
+    and an optional exponent that only counts when it carries digits. The
+    returned index is exclusive.
+    """
+    index = start
+    length = len(text)
+    if index < length and text[index] in "+-":
+        index += 1
+
+    whole_digits = 0
+    while index < length and text[index].isdecimal():
+        index += 1
+        whole_digits += 1
+    if whole_digits:
+        if index < length and text[index] == ".":
+            index += 1
+            while index < length and text[index].isdecimal():
+                index += 1
+    elif index < length and text[index] == ".":
+        index += 1
+        fraction_digits = 0
+        while index < length and text[index].isdecimal():
+            index += 1
+            fraction_digits += 1
+        if not fraction_digits:
+            return None
+    else:
+        return None
+
+    if index < length and text[index] in "eE":
+        exponent = index + 1
+        if exponent < length and text[exponent] in "+-":
+            exponent += 1
+        exponent_digits = 0
+        while exponent < length and text[exponent].isdecimal():
+            exponent += 1
+            exponent_digits += 1
+        if exponent_digits:
+            index = exponent
+    return index
+
+
+def _strip_srid_prefix(text: str) -> Optional[Tuple[str, str]]:
+    """Split the ``SRID=n;`` prefix off *text*, or return ``None``.
+
+    The prefix is the case-insensitive ``SRID`` keyword, optional whitespace,
+    ``=``, then everything up to the first semicolon, then optional whitespace.
+    The first member returned is the SRID text with its whitespace stripped;
+    the second is the text that remains after the semicolon.
+    """
+    index = 0
+    length = len(text)
+    while index < length and text[index].isspace():
+        index += 1
+    if text[index : index + 4].upper() != "SRID":
+        return None
+    cursor = index + 4
+    while cursor < length and text[cursor].isspace():
+        cursor += 1
+    if cursor >= length or text[cursor] != "=":
+        return None
+    semicolon = text.find(";", cursor + 1)
+    if semicolon == -1 or semicolon == cursor + 1:
+        return None
+    raw_srid = text[cursor + 1 : semicolon].strip()
+    cursor = semicolon + 1
+    while cursor < length and text[cursor].isspace():
+        cursor += 1
+    return raw_srid, text[cursor:]
 
 
 def _tokenize_wkt(text: str) -> List[Tuple[str, Any]]:
@@ -457,26 +522,39 @@ def _tokenize_wkt(text: str) -> List[Tuple[str, Any]]:
         if char.isspace():
             index += 1
             continue
-        match = _WKT_TOKEN_RE.match(text, index)
-        if match is None:
+        word = leading_word(text, index)
+        if word:
+            tokens.append(("word", word))
+            index += len(word)
+            continue
+        if char == "(":
+            tokens.append(("lparen", char))
+            index += 1
+            continue
+        if char == ")":
+            tokens.append(("rparen", char))
+            index += 1
+            continue
+        if char == ",":
+            tokens.append(("comma", char))
+            index += 1
+            continue
+        end = _scan_number(text, index)
+        if end is None:
             raise ValueError(f"unexpected character {char!r} in WKT text at position {index}")
-        kind = match.lastgroup
-        raw = match.group(kind)
-        if kind == "number":
-            number = float(raw)
-            if not math.isfinite(number):
-                raise ValueError(f"coordinate {raw!r} is not finite")
-            tokens.append((kind, number))
-        else:
-            tokens.append((kind, raw))
-        index = match.end()
+        raw = text[index:end]
+        number = float(raw)
+        if not math.isfinite(number):
+            raise ValueError(f"coordinate {raw!r} is not finite")
+        tokens.append(("number", number))
+        index = end
     return tokens
 
 
 def _parse_wkt(text: str, srid: Optional[int]) -> Geometry:
-    match = _SRID_PREFIX_RE.match(text)
-    if match is not None:
-        raw_srid = match.group(1).strip()
+    prefix = _strip_srid_prefix(text)
+    if prefix is not None:
+        raw_srid, text = prefix
         try:
             prefix_srid = int(raw_srid)
         except ValueError:
@@ -484,7 +562,6 @@ def _parse_wkt(text: str, srid: Optional[int]) -> Geometry:
         if prefix_srid < 0:
             raise ValueError(f"SRID must be non-negative, got {prefix_srid}")
         srid = prefix_srid
-        text = text[match.end() :]
 
     tokens = _tokenize_wkt(text)
     if not tokens:

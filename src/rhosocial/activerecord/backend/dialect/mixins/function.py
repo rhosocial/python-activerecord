@@ -1,7 +1,6 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/function.py
 """Composition base for FunctionMixin. Feature groups live in per-statement mixins."""
 
-import re
 from typing import Any, Dict, List, Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.expression.objects import Function
 from ..protocols.family import FunctionCallSupport

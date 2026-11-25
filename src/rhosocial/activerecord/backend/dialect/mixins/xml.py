@@ -4,10 +4,10 @@
 Provides capability probes and SQL rendering for the SQL/XML standard,
 covering parsing, serialization, construction, aggregation, and querying.
 """
-import re
 from typing import Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
+from ...textscan import is_identifier
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.xml import (
@@ -106,8 +106,6 @@ class SQLXMLConstructionMixin:
     Covers XMLELEMENT, XMLATTRIBUTES, XMLFOREST, XMLCONCAT, XMLCOMMENT,
     XMLPI, and XMLROOT.
     """
-
-    _XML_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_.:-]*$")
 
     def supports_xmlelement(self) -> bool:
         """Whether SQL/XML XMLELEMENT is supported.
@@ -350,7 +348,7 @@ class SQLXMLConstructionMixin:
         Raises:
             ValueError: If the expr is not a valid SQL/XML identifier.
         """
-        if not self._XML_NAME_PATTERN.fullmatch(expr):
+        if not is_identifier(expr, extra=".:-"):
             raise ValueError(f"Invalid SQL/XML expr: {expr}")
         return expr
 
