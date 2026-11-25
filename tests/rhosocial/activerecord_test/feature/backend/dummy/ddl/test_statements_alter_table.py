@@ -943,3 +943,31 @@ class TestAlterTableStatements:
         
         with pytest.raises(ValueError, match="needs references"):
             ColumnForeignKeyConstraint(dummy_dialect, None)
+
+
+def test_drop_constraint_generic_roundtrip_constructor_still_builds():
+    """The round-trip harness's introspective constructor must still build.
+
+    That harness passes a placeholder only for a parameter without a default.
+    ``constraint_name`` is now optional (a declaration can address the
+    constraint instead), so the generic path constructs the action with no
+    address and the formatter is the layer that refuses it.  Construction is
+    parameter collection, not validation.
+    """
+    import inspect
+
+    parameters = inspect.signature(DropTableConstraintAction.__init__).parameters
+    required = [
+        name for name, parameter in parameters.items()
+        if name not in ("self", "dialect")
+        and parameter.default is inspect.Parameter.empty
+        and parameter.kind in (
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        )
+    ]
+    dummy_dialect = DummyDialect()
+    action = DropTableConstraintAction(dummy_dialect, *["placeholder"] * len(required))
+
+    assert isinstance(action, DropTableConstraintAction)
+    assert action.constraint_name is None or action.constraint_name == "placeholder"

@@ -214,3 +214,13 @@ class ConstraintSupport(Protocol):
     def supports_drop_constraint(self) -> bool:
         """Whether ALTER TABLE DROP CONSTRAINT is supported."""
         ...  # pragma: no cover
+
+    def supports_drop_constraint_by_kind(self) -> bool:
+        """Whether a constraint may be dropped by its declaration's kind.
+
+        ``True`` means the dialect renders ``DROP PRIMARY KEY`` /
+        ``DROP UNIQUE (<cols>)`` / ``DROP FOREIGN KEY (<cols>)`` rather than
+        ``DROP CONSTRAINT <name>``.  Defaults to ``False`` so no existing
+        backend changes behaviour.
+        """
+        ...  # pragma: no cover

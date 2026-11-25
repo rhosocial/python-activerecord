@@ -262,6 +262,22 @@ class AddTableConstraintAction(AlterTableAction):
 class DropTableConstraintAction(AlterTableAction):
     """SQL standard DROP CONSTRAINT operation.
 
+    A constraint may be addressed in one of two ways:
+
+    * by **name** -- ``constraint_name`` -- rendered as ``DROP CONSTRAINT
+      <name>``; or
+    * by its **declaration** -- ``constraint`` -- which lets a dialect that
+      spells the drop by kind render ``DROP PRIMARY KEY``, ``DROP UNIQUE
+      (<cols>)`` or ``DROP FOREIGN KEY (<cols>)`` instead.
+
+    The action only carries the parameters.  Which spellings a dialect can
+    render is its own business: the core formatter refuses a declaration-only
+    action with ``UnsupportedFeatureError`` naming ``DROP CONSTRAINT by kind``
+    unless the dialect advertises ``supports_drop_constraint_by_kind()``.
+    When both are given, the **name form wins** for dialects that spell names
+    only (the core formatter included); a dialect that can spell kinds overrides
+    the formatter and may prefer the declaration.
+
     Note:
         ``DROP CONSTRAINT IF EXISTS`` is a vendor extension
         (PostgreSQL, MariaDB, SQL Server 2016+). SQLite has no named
@@ -282,20 +298,23 @@ class DropTableConstraintAction(AlterTableAction):
         return "format_drop_table_constraint_action"
 
     action_type: AlterTableActionType = AlterTableActionType.DROP_TABLE_CONSTRAINT
-    constraint_name: str
+    constraint_name: Optional[str]
+    constraint: Optional[TableConstraint]
     if_exists: Optional[bool]
     cascade: bool
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        constraint_name: str,
+        constraint_name: Optional[str] = None,
         *,
+        constraint: Optional[TableConstraint] = None,
         if_exists: Optional[bool] = None,
         cascade: bool = False,
     ) -> None:
         super().__init__(dialect)
-        self.constraint_name: str = constraint_name
+        self.constraint_name: Optional[str] = constraint_name
+        self.constraint: Optional[TableConstraint] = constraint
         self.if_exists: Optional[bool] = if_exists
         self.cascade: bool = cascade
 

@@ -378,6 +378,16 @@ class ConstraintMixin:
         """
         return True
 
+    def supports_drop_constraint_by_kind(self) -> bool:
+        """Whether a constraint may be dropped by its declaration's kind.
+
+        ``True`` means the dialect renders ``DROP PRIMARY KEY`` /
+        ``DROP UNIQUE (<cols>)`` / ``DROP FOREIGN KEY (<cols>)`` rather than
+        ``DROP CONSTRAINT <name>``.  Defaults to ``False`` so no existing
+        backend changes behaviour.
+        """
+        return False
+
 def _normalize_constraint_type(constraint_type: Any, constraint_enum: type, label: str) -> Any:
     if isinstance(constraint_type, constraint_enum):
         return constraint_type

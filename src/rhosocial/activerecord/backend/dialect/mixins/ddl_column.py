@@ -966,18 +966,53 @@ class DDLColumnMixin():
     def format_drop_table_constraint_action(self, expr: "DropTableConstraintAction") -> "Tuple[str, tuple]":
         """Format a ``DROP CONSTRAINT`` ALTER TABLE expr.
 
+        A constraint reaches an action either by name or by its declaration
+        (kind-based drop).  This generic formatter spells the **name** form
+        only, so it refuses a declaration-only action by name unless the
+        dialect advertises ``supports_drop_constraint_by_kind()``.  When both
+        the name and the declaration are present, the name form wins here --
+        a dialect that spells kinds overrides this method and may choose
+        otherwise.
+
         Args:
-            expr: The expr carrying the constraint name and optional
-                cascade flag.
+            expr: The expr carrying the constraint name or declaration, and
+                the optional cascade flag.
 
         Returns:
             A ``(sql, params)`` tuple with empty parameters.
 
         Raises:
             UnsupportedFeatureError: If the dialect does not support
-                ``ALTER TABLE DROP CONSTRAINT``.
+                ``ALTER TABLE DROP CONSTRAINT``, if a declaration-only action
+                reaches a dialect that cannot spell ``DROP CONSTRAINT by
+                kind``, or if ``IF EXISTS`` is requested but not supported.
+            ValueError: If neither ``constraint_name`` nor ``constraint`` is
+                given.
+            NotImplementedError: If the dialect advertises kind-based drops
+                but only supplies the declaration, so this name-only formatter
+                has nothing to spell.
         """
         from ..exceptions import UnsupportedFeatureError
+        if (
+            expr.constraint_name is None
+            and expr.constraint is not None
+            and not self.supports_drop_constraint_by_kind()
+        ):
+            raise UnsupportedFeatureError(
+                self.name, "DROP CONSTRAINT by kind",
+                f"{self.name} does not support DROP CONSTRAINT by kind; "
+                f"address the constraint by name instead."
+            )
+        if expr.constraint_name is None and expr.constraint is None:
+            raise ValueError(
+                "DropTableConstraintAction requires constraint_name or constraint"
+            )
+        if expr.constraint_name is None:
+            raise NotImplementedError(
+                f"{self.name} advertises supports_drop_constraint_by_kind() but "
+                f"does not override format_drop_table_constraint_action; a "
+                f"declaration-only drop has no name to render."
+            )
         if not self.supports_drop_constraint():
             raise UnsupportedFeatureError(self.name, "ALTER TABLE DROP CONSTRAINT")
         if expr.if_exists and not self.supports_drop_constraint_if_exists():
