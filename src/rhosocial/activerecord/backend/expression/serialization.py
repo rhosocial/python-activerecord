@@ -39,6 +39,7 @@ from .values import LiteralKind
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
+    from .registry import ExpressionRegistry
 
 
 class ExpressionDeserializationError(Exception):
@@ -131,7 +132,8 @@ class ExpressionSerializer:
     def deserialize(
         self,
         spec: Dict[str, Any],
-        dialect: "SQLDialectBase",
+        dialect: Optional["SQLDialectBase"] = None,
+        *,
         registry: Any = None,
     ) -> BaseExpression:
         """Rebuild from a bare `{kind, params}` artifact.
@@ -141,12 +143,22 @@ class ExpressionSerializer:
         name the kind. `allowed_types`, when set, restricts which kinds this
         reader may produce — a read-only channel can name only the kinds it
         means to accept.
+
+        The dialect is optional because it is only needed to *render*: the
+        artifact carries no dialect, and a tree rebuilt without one renders
+        through ``to_sql(dialect)``. Which kinds are admitted is decided by,
+        in order, an explicit ``registry``, the dialect's
+        ``artifact_registry()`` when a dialect was supplied, or core's
+        registry. When a dialect is supplied it is also bound onto the rebuilt
+        tree, so the existing ``restored.to_sql()`` call sites keep working.
         """
+        if registry is None:
+            registry = _registry_for(dialect)
         if self.allowed_types is not None:
             registry = self._restrict(registry)
         return decode_artifact(spec, dialect, registry=registry)
 
-    def _restrict(self, registry: Any):
+    def _restrict(self, registry: "ExpressionRegistry"):
         """A registry view admitting only `allowed_types` kinds.
 
         Entries are kind names, optionally with shell-style globs (``"col*"``),
@@ -154,17 +166,18 @@ class ExpressionSerializer:
         there is no import path left to prefix-match on.
 
         Built by copying, so restricting a read never narrows the registry the
-        rest of the process uses.
+        rest of the process uses. ``registry`` is already selected (explicit,
+        dialect, or core) by the caller.
         """
         from fnmatch import fnmatchcase
 
-        source = registry if registry is not None else default_registry()
+        source = registry
         patterns = tuple(self.allowed_types)
         # Copy, then subtract, rather than rebuild from what matches. Rebuilding
         # re-derives each key from the class behind it, which files all fourteen
         # value kinds under ``literal`` -- and an artifact carrying a value would
         # then be refused by a table that looks perfectly populated.
-        view = source.copy()
+        view = source.twin()
         for kind in view.node_kinds():
             if kind in patterns or any(fnmatchcase(kind, p) for p in patterns):
                 continue
@@ -180,7 +193,13 @@ class ExpressionSerializer:
         """
         return json.dumps(self.serialize(expr))
 
-    def deserialize_json(self, spec_str: str, dialect: "SQLDialectBase") -> BaseExpression:
+    def deserialize_json(
+        self,
+        spec_str: str,
+        dialect: Optional["SQLDialectBase"] = None,
+        *,
+        registry: Any = None,
+    ) -> BaseExpression:
         """Reconstruct an expression from a JSON string produced by
         :meth:`serialize_json`.
 
@@ -188,7 +207,7 @@ class ExpressionSerializer:
         kind that holds it, so converting it is the node's business, not the
         parser's -- see :func:`decode_artifact`.
         """
-        return self.deserialize(json.loads(spec_str), dialect)
+        return self.deserialize(json.loads(spec_str), dialect, registry=registry)
 
     def serialize_xml(self, expr: BaseExpression) -> bytes:
         """Serialize an expression instance into an XML document (bytes).
@@ -201,14 +220,20 @@ class ExpressionSerializer:
 
         return xml_serialization.serialize_xml(self.serialize(expr))
 
-    def deserialize_xml(self, payload: bytes, dialect: "SQLDialectBase") -> BaseExpression:
+    def deserialize_xml(
+        self,
+        payload: bytes,
+        dialect: Optional["SQLDialectBase"] = None,
+        *,
+        registry: Any = None,
+    ) -> BaseExpression:
         """Reconstruct an expression from an XML document produced by
         :meth:`serialize_xml`.
         """
         from . import xml_serialization
 
         spec = xml_serialization.deserialize_xml(payload)
-        return self.deserialize(spec, dialect)
+        return self.deserialize(spec, dialect, registry=registry)
 
 
 _default_serializer = ExpressionSerializer()
@@ -225,16 +250,37 @@ _default_serializer = ExpressionSerializer()
 #
 #   deserialize takes a registry. That is the one moment a kind has to be
 #               turned back into a class, and it is why the registry exists.
+#               The dialect is optional: it decides *which* registry answers
+#               (the backend's own table) and is bound for rendering, but the
+#               artifact is data and carries no dialect.
 #
 # The registry itself is an independent module that starts empty and knows
-# nothing about which expressions exist; building the instance the framework
-# hands out is the framework's business, below.
+# nothing about which expressions exist; assembling the instances the owners
+# publish is each owner's business, below.
 # ---------------------------------------------------------------------------
 
-#: The framework's default registry instance. Created empty, like any other; it
-#: is filled by :func:_populate_default_registry, and only when someone
-#: actually deserializes. A caller who only serializes never pays for it.
-_default_registry = None
+#: The framework's core registry. Created empty, like any other; it is filled
+#: by :func:`core_registry`, and only when someone actually needs it. A caller
+#: who only serializes never pays for it.
+_core_registry = None
+
+#: The packages core owns. ``backend.transaction`` is here because expressions
+#: carry its vocabulary -- ``IsolationLevel`` and ``TransactionMode`` are
+#: parameters of the transaction statements, so a reader that cannot resolve
+#: them fails on an artifact the library itself produced. A package list is a
+#: statement about which types the artifact format admits, and it has to be as
+#: wide as the vocabulary -- which is why it is checked against real instances
+#: rather than assumed complete.
+#:
+#: No backend package belongs here. A backend's own kinds are the backend's to
+#: assemble (:func:`registry_for_packages` with that backend's package, based on
+#: :func:`core_registry`), so core never names a backend and a backend never
+#: leaks into core's table.
+_CORE_EXPRESSION_PACKAGES = (
+    "rhosocial.activerecord.backend.expression",
+    "rhosocial.activerecord.backend.transaction",
+)
+
 
 class ArtifactError(ExpressionDeserializationError):
     """Raised when an artifact cannot be read. Always names the kind."""
@@ -253,41 +299,40 @@ def _declares_a_formatter(cls):
     return False
 
 
-def _populate_default_registry(registry):
-    """Register the framework's expressions into a registry instance.
+def _register_expression_packages(registry, packages):
+    """Register the expression classes found in *packages* into *registry*.
 
-    This is the assembly point, and it deliberately lives here rather than in
-    the registry module: *which* expressions the framework ships is a decision
-    of the framework. The registry itself neither discovers nor knows.
+    This is the assembly walk, and it deliberately lives here rather than in
+    the registry module: *which* expressions an owner ships is that owner's
+    decision. The registry itself neither discovers nor knows.
+
+    A package may expose its expressions from a single module rather than a
+    package (the dummy backend does), and ``walk_packages`` needs ``__path__``;
+    anything without one is treated as the leaf it already is. A package that
+    cannot be imported is skipped: a backend that is not installed is not an
+    error, and the caller's own package list is what made it optional.
 
     Kind collisions are collected across the whole walk before reporting, so
     one run names every ambiguous kind. A collision is a real defect — the kind
     comes from the class name (§4.11.1), so two same-named classes produce one
     ambiguous kind and no artifact could say which it meant.
+
+    Args:
+        registry: Mutable registry to fill. It may already hold kinds, and a
+            package class claiming one of those with a different class is
+            reported as a collision like any other.
+        packages: Importable package or module names to walk, in order.
+
+    Returns:
+        The number of classes this walk examined.
     """
     import importlib
     import pkgutil
 
     from .registry import RegistryError, RegistryReason
 
-    # The packages registered into the default instance: the core expressions
-    # plus the backends built into this distribution. ``backend.transaction``
-    # is here because expressions carry its vocabulary -- ``IsolationLevel`` and
-    # ``TransactionMode`` are parameters of the transaction statements, so a
-    # reader that cannot resolve them fails on an artifact the library itself
-    # produced. A package list is a statement about which types the artifact
-    # format admits, and it has to be as wide as the vocabulary -- which is why
-    # it is checked against real instances rather than assumed complete.
-    framework_packages = (
-        "rhosocial.activerecord.backend.expression",
-        "rhosocial.activerecord.backend.transaction",
-        "rhosocial.activerecord.backend.impl.sqlite.expression",
-        "rhosocial.activerecord.backend.impl.dummy.expression",
-    )
-
-    by_kind = {}
     ordered = []
-    for pkgname in framework_packages:
+    for pkgname in packages:
         try:
             pkg = importlib.import_module(pkgname)
         except Exception:
@@ -348,42 +393,115 @@ def _populate_default_registry(registry):
         if id(obj) in seen:
             continue
         seen.add(id(obj))
-        kind = obj.kind()
-        previous = by_kind.get(kind)
-        if previous is None:
-            by_kind[kind] = obj
+        try:
             registry.register_node(obj)
-        elif previous is not obj:
-            collisions.append((kind, previous, obj))
+        except RegistryError as exc:
+            # Collected rather than propagated: one run names every collision.
+            collisions.append(exc)
     if collisions:
-        detail = "; ".join(
-            f"kind '{k}' is claimed by both {a.__module__}.{a.__name__} and "
-            f"{b.__module__}.{b.__name__}" for k, a, b in collisions
-        )
+        detail = "; ".join(str(exc) for exc in collisions)
         raise RegistryError(RegistryReason.SPEC_INVALID, detail)
-    return len(by_kind)
+    return len(seen)
 
 
-def default_registry():
-    """The framework's default registry, built on first use.
+def registry_for_packages(*packages, base=None, register_values=True, freeze=True):
+    """Assemble a registry from expression packages.
+
+    This is the one assembly entry point. An owner — core, or a backend —
+    passes the packages it owns, and gets a registry holding exactly those
+    kinds. Overlap with another owner is expressed by ``base``: a backend passes
+    ``base=core_registry()`` to say "core's kinds, plus mine", which is the
+    only way the composition is written down. There is no list of backends
+    anywhere in core.
+
+    Args:
+        *packages: Importable package or module names to walk, in order. A
+            package that cannot be imported is skipped, so listing a backend
+            that is not installed is not an error.
+        base: Optional registry to start from. It is copied, never mutated:
+            the returned registry is independent even when *base* is frozen.
+        register_values: Whether to admit every value kind
+            (:meth:`ExpressionRegistry.register_value_kinds`). True by
+            default because an artifact that carries any value names a value
+            kind, and a table without them refuses every such artifact.
+        freeze: Whether to :meth:`ExpressionRegistry.freeze` the result. True
+            by default: an assembled registry is a published value.
 
     Returns:
-        A registry holding this framework's core and built-in backend
-        expressions. Empty until something deserializes, because serializing
-        never needs it.
+        A new registry holding ``base``'s kinds plus the classes the packages
+        declare, frozen unless ``freeze=False``.
     """
-    global _default_registry
-    if _default_registry is None:
-        from .registry import ExpressionRegistry
+    from .registry import ExpressionRegistry
 
+    built = base.twin() if base is not None else ExpressionRegistry()
+    if register_values:
+        built.register_value_kinds()
+    if packages:
+        _register_expression_packages(built, packages)
+    if freeze:
+        built.freeze()
+    return built
+
+
+def core_registry():
+    """Core's own registry: the kinds core owns, and nothing else.
+
+    Cached and frozen. A backend's kinds are deliberately absent: a backend
+    composes ``core_registry()`` with its own packages, so core never has to
+    know which backends exist.
+
+    Returns:
+        The frozen registry assembled from
+        :data:`_CORE_EXPRESSION_PACKAGES`.
+    """
+    global _core_registry
+    if _core_registry is None:
         # Build into a local and publish only on success: a half-populated
         # instance cached under the module global would make every later call
         # fail with a confusing "no such kind" instead of the real cause.
-        built = ExpressionRegistry()
-        built.register_value_kinds()
-        _populate_default_registry(built)
-        _default_registry = built
-    return _default_registry
+        _core_registry = registry_for_packages(*_CORE_EXPRESSION_PACKAGES)
+    return _core_registry
+
+
+def default_registry():
+    """**Deprecated** alias of :func:`core_registry`.
+
+    This name used to mean "core plus the backends bundled in this distribution"
+    (SQLite and dummy). Those are backends, and each maintains its own registry
+    now; reading a backend kind through this name required whoever registered
+    it to mutate a process-global table, which made the outcome depend on test
+    order. Use :func:`core_registry` for core kinds, or
+    ``dialect.artifact_registry()`` for the kinds a backend's dialect can read.
+
+    Returns:
+        The same frozen registry :func:`core_registry` returns.
+    """
+    return core_registry()
+
+
+def _registry_for(dialect=None, registry=None):
+    """The registry a read resolves kinds through, in documented order.
+
+    Selection order:
+
+    1. an explicit ``registry`` the caller supplied;
+    2. ``dialect.artifact_registry()`` when a dialect was supplied — that is
+       the backend's own composed table, the kinds its dialect can read;
+    3. :func:`core_registry`.
+
+    The dialect is only ever consulted for *names*; the artifact itself carries
+    no dialect, and a tree rebuilt without one renders through
+    ``to_sql(dialect)``.
+    """
+    if registry is not None:
+        return registry
+    if dialect is not None:
+        getter = getattr(dialect, "artifact_registry", None)
+        if callable(getter):
+            selected = getter()
+            if selected is not None:
+                return selected
+    return core_registry()
 
 
 def _kind_of(expr):
@@ -526,21 +644,26 @@ def _decode_value(value, dialect, depth, registry):
     return value
 
 
-def decode_artifact(obj, dialect, _depth=0, registry=None):
+def decode_artifact(obj, dialect=None, _depth=0, registry=None):
     """Rebuild one node from a bare `{kind, params}` artifact.
 
     Args:
         obj: The artifact node — external, untrusted input.
-        dialect: The dialect to bind to the rebuilt tree.
-        registry: The registry to resolve kinds and enum / dataclass names
-            through. Defaults to the framework's own instance; pass your own to
-            control exactly which kinds this read may produce.
+        dialect: The dialect to bind to the rebuilt tree, or ``None``. It is
+            optional because it is only needed to *render*: the artifact
+            carries no dialect, and a tree rebuilt without one renders through
+            ``to_sql(dialect)``. When supplied it also selects the registry
+            (see *registry*).
+        registry: The registry to resolve kinds through. When omitted the
+            selection order is ``dialect.artifact_registry()`` if a dialect was
+            supplied, otherwise :func:`core_registry`. Pass your own to control
+            exactly which kinds this read may produce.
     """
 
     if _depth > _DEFAULT_MAX_DEPTH:
         raise ArtifactError(f"artifact nesting depth exceeds {_DEFAULT_MAX_DEPTH}")
     if registry is None:
-        registry = default_registry()
+        registry = _registry_for(dialect)
     if not isinstance(obj, dict):
         raise ArtifactError(
             f"an artifact node must be an object with 'kind' and 'params', got "
@@ -650,7 +773,8 @@ def serialize(expr: BaseExpression) -> Dict[str, Any]:
 
 def deserialize(
     spec: Dict[str, Any],
-    dialect: "SQLDialectBase",
+    dialect: Optional["SQLDialectBase"] = None,
+    *,
     registry: Any = None,
 ) -> BaseExpression:
     """Rebuild an expression from a bare `{kind, params}` artifact.
@@ -660,12 +784,21 @@ def deserialize(
     name the kind. This is the only place a registry is needed — it is what
     turns a `kind` back into a class.
 
+    The artifact carries **no dialect**, and construction does not need one.
+    ``deserialize(spec)`` is the dialect-free path: it resolves core's kinds and
+    returns an unbound tree that renders through ``to_sql(dialect)``. When a
+    dialect is supplied it both selects the kinds (through
+    ``dialect.artifact_registry()``) and is bound onto the rebuilt tree, so
+    ``restored.to_sql()`` keeps working for existing call sites.
+
     Args:
         spec: The artifact produced by :func:serialize.
-        dialect: The dialect to bind to the rebuilt tree. If a node is
+        dialect: The dialect whose backend can read the artifact, or ``None``.
+            It is bound to the rebuilt tree when supplied. If a node is
             incompatible with it, that surfaces at `to_sql()` time.
-        registry: Registry used to resolve kinds and enum / dataclass names.
-            Defaults to the framework's own instance; pass your own to control
+        registry: Registry used to resolve kinds. Selection order is: this
+            argument, then ``dialect.artifact_registry()`` when a dialect was
+            supplied, then :func:`core_registry`. Pass your own to control
             exactly which kinds this read may produce.
     """
     return decode_artifact(spec, dialect, registry=registry)
@@ -681,13 +814,15 @@ def serialize_json(expr: BaseExpression) -> str:
 
 def deserialize_json(
     spec_str: str,
-    dialect: "SQLDialectBase",
+    dialect: Optional["SQLDialectBase"] = None,
+    *,
+    registry: Any = None,
 ) -> BaseExpression:
     """Reconstruct an expression from a JSON string.
 
     Convenience wrapper around ``_default_serializer.deserialize_json()``.
     """
-    return _default_serializer.deserialize_json(spec_str, dialect)
+    return _default_serializer.deserialize_json(spec_str, dialect, registry=registry)
 
 
 def serialize_xml(expr: BaseExpression) -> bytes:
@@ -700,10 +835,12 @@ def serialize_xml(expr: BaseExpression) -> bytes:
 
 def deserialize_xml(
     payload: bytes,
-    dialect: "SQLDialectBase",
+    dialect: Optional["SQLDialectBase"] = None,
+    *,
+    registry: Any = None,
 ) -> BaseExpression:
     """Reconstruct an expression from an XML document (bytes).
 
     Convenience wrapper around ``_default_serializer.deserialize_xml()``.
     """
-    return _default_serializer.deserialize_xml(payload, dialect)
+    return _default_serializer.deserialize_xml(payload, dialect, registry=registry)

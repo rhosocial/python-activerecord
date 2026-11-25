@@ -51,6 +51,7 @@ class RegistryReason(Enum):
     KIND_NOT_REGISTERED = "kind_not_registered"
     INSTANCE_UNSUPPORTED = "instance_unsupported"
     SPEC_INVALID = "spec_invalid"
+    REGISTRY_FROZEN = "registry_frozen"
 
 
 class RegistryError(Exception):
@@ -103,6 +104,12 @@ class ExpressionRegistry:
     plugin -- neither is found, both are registered -- and what makes selective
     assembly possible: whatever a package did not register answers
     ``kind_not_registered``.
+
+    A registry is built, then :meth:`freeze`-d. Freezing is what makes an
+    assembled table a *value*: the owner (core, a backend) publishes one shared
+    instance and no caller can silently widen or narrow it for everyone else.
+    Callers who need a different set start from :meth:`twin` or
+    :meth:`merged` and get their own instance.
     """
 
     def __init__(self) -> None:
@@ -115,9 +122,37 @@ class ExpressionRegistry:
         # different answers: the first is a deployment that lacks the kind, the
         # second is a deployment that has it and has switched it off.
         self._disabled: Set[str] = set()
+        # Once frozen the table is a published value: mutators refuse, and a
+        # caller who needs a different set builds a new registry.
+        self._frozen = False
 
-    def copy(self) -> "ExpressionRegistry":
-        """An independent twin carrying the same registrations.
+    @property
+    def is_frozen(self) -> bool:
+        """Whether this registry refuses further mutation."""
+        return self._frozen
+
+    def freeze(self) -> "ExpressionRegistry":
+        """Refuse every future mutation, and return this registry.
+
+        Idempotent: a frozen registry stays frozen, and freezing one twice is
+        not an error. A registry is frozen when its owner publishes it, so two
+        callers holding the same instance cannot change what the other reads.
+        """
+        self._frozen = True
+        return self
+
+    def _refuse_mutation(self, kind: str) -> None:
+        """Raise if this registry is frozen, naming the kind refused."""
+        if self._frozen:
+            raise RegistryError(
+                RegistryReason.REGISTRY_FROZEN,
+                f"kind '{kind}' cannot be changed: the registry is frozen; "
+                f"build a new one with merged()/registry_for_packages()",
+                kind=kind,
+            )
+
+    def twin(self) -> "ExpressionRegistry":
+        """An independent, mutable twin carrying the same registrations.
 
         Faithful means faithful. The value kinds are carried over under their own
         wire names rather than re-derived from the class behind them, because
@@ -126,11 +161,63 @@ class ExpressionRegistry:
         silently loses all fourteen of them -- and loses them silently, which is
         the part that costs: the table looks populated and refuses every artifact
         that carries a value.
+
+        The twin starts **unfrozen** even when the source is frozen: a copy is
+        the workspace a caller narrows or widens before freezing its own
+        published instance. Freezing the twin later does not affect the source.
         """
         twin = ExpressionRegistry()
         twin._nodes = dict(self._nodes)
         twin._disabled = set(self._disabled)
         return twin
+
+    def copy(self) -> "ExpressionRegistry":
+        """Alias of :meth:`twin`, kept for callers written before it had a name."""
+        return self.twin()
+
+    def merged(self, other: "ExpressionRegistry") -> "ExpressionRegistry":
+        """A new frozen registry holding the union of both kind tables.
+
+        Fusion is how one owner composes another owner's kinds without either
+        listing the other: core's table plus a backend's table is the backend's
+        table. ``other`` is not mutated, and neither is ``self``.
+
+        A kind both sides claim with the *same* class is one kind, not a
+        collision. Two different classes deriving one kind are a hard error,
+        naming both classes, because no artifact could say which one it meant.
+
+        Args:
+            other: The registry to fuse into this one.
+
+        Returns:
+            A frozen registry holding every kind either side registered.
+
+        Raises:
+            RegistryError: ``spec_invalid`` when both sides claim a kind with
+                different classes.
+            TypeError: when *other* is not an :class:`ExpressionRegistry`.
+        """
+        if not isinstance(other, ExpressionRegistry):
+            raise TypeError(f"merged() takes an ExpressionRegistry, got {type(other).__name__}")
+        fused = self.twin()
+        conflicts = []
+        for kind in sorted(other._nodes):
+            expr_class = other._nodes[kind]
+            existing = fused._nodes.get(kind)
+            if existing is not None and existing is not expr_class:
+                conflicts.append((kind, existing, expr_class))
+                continue
+            fused._nodes[kind] = expr_class
+        fused._disabled |= other._disabled
+        if conflicts:
+            detail = "; ".join(
+                f"kind '{k}' is claimed by both {a.__module__}.{a.__name__} and "
+                f"{b.__module__}.{b.__name__}"
+                for k, a, b in conflicts
+            )
+            raise RegistryError(RegistryReason.SPEC_INVALID, detail)
+        fused.freeze()
+        return fused
 
     # ------------------------------------------------------------------
     # The node table: the kind whitelist deserialization resolves through.
@@ -171,6 +258,7 @@ class ExpressionRegistry:
         """
         from .core import Literal
 
+        self._refuse_mutation(", ".join(only) if only else "value kinds")
         wanted = set(only) if only else None
         registered = []
         for member in LiteralKind:
@@ -188,8 +276,13 @@ class ExpressionRegistry:
         drift apart. Registering the same class twice is a no-op; two *different*
         classes claiming the same kind is a hard error — which class an
         artifact resolves to must not depend on registration order.
+
+        Raises:
+            RegistryError: ``registry_frozen`` when the registry has been
+                frozen, naming the class's kind.
         """
         kind = kind_of(expr_class)
+        self._refuse_mutation(kind)
         existing = self._nodes.get(kind)
         if existing is expr_class:
             return kind
@@ -240,6 +333,7 @@ class ExpressionRegistry:
         to accept. Dropping a kind nobody registered is a hard error -- it means
         the caller believes something is there that is not.
         """
+        self._refuse_mutation(kind)
         if kind not in self._nodes:
             raise RegistryError(
                 RegistryReason.KIND_NOT_REGISTERED,
@@ -257,6 +351,7 @@ class ExpressionRegistry:
         support switch needs. An unregistered kind is absent from the build;
         a disabled one is present and declined.
         """
+        self._refuse_mutation(kind)
         if kind not in self._nodes:
             raise RegistryError(
                 RegistryReason.KIND_NOT_REGISTERED,
@@ -267,6 +362,7 @@ class ExpressionRegistry:
 
     def enable(self, kind: str) -> None:
         """Re-allow a kind that :meth:`disable` switched off."""
+        self._refuse_mutation(kind)
         if kind not in self._nodes:
             raise RegistryError(
                 RegistryReason.KIND_NOT_REGISTERED,
@@ -297,11 +393,12 @@ class ExpressionRegistry:
 #: this module's (§7 -- the registry does not own implementations, so it must
 #: not import expression packages to learn what they contain).
 #:
-#: The name was the real damage. ``serialization.default_registry()`` is the
-#: function that builds and caches the instance the framework actually uses, and
-#: two things sharing one name means the import you want is not the import you
-#: get. Anyone who reached for the object here got a table that admits nothing
-#: and refused every artifact by name, with nothing to say why.
+#: The name was the real damage. ``serialization.core_registry()`` is the
+#: function that builds and caches the instance core publishes, and
+#: ``serialization.default_registry()`` survives only as a deprecated alias of
+#: it. Two things sharing one name means the import you want is not the import
+#: you get. Anyone who reached for the object here got a table that admits
+#: nothing and refused every artifact by name, with nothing to say why.
 #:
 #: Build your own -- :class:`ExpressionRegistry` starts empty, which is what makes
 #: a narrow table safe to hand a caller.

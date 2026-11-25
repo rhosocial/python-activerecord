@@ -96,11 +96,12 @@ sql, params = expr.to_sql()
 
 ```python
 from rhosocial.activerecord.backend.expression.registry import ExpressionRegistry
+from rhosocial.activerecord.backend.expression.serialization import core_registry
 
 read_only = ExpressionRegistry()
 for kind in ("query_statement", "where_clause", "comparison_predicate",
              "column", "literal", "table"):
-    read_only.register_node(default_registry().resolve_node(kind))
+    read_only.register_node(core_registry().resolve_node(kind))
 
 deserialize(artifact, dialect, registry=read_only)
 ```

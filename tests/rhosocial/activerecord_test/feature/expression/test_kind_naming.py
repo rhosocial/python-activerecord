@@ -151,11 +151,11 @@ def test_the_registry_module_does_not_import_expressions():
         assert backend not in source, f"the registry names a backend: {backend}"
 
 
-def test_framework_default_registry_is_built_on_first_deserialization():
-    """The framework assembles one instance; it is not empty once filled."""
+def test_framework_core_registry_is_built_on_first_deserialization():
+    """Core assembles its own instance; it is not empty once filled."""
     from rhosocial.activerecord.backend.expression import serialization
 
-    registry = serialization.default_registry()
+    registry = serialization.core_registry()
     kinds = registry.node_kinds()
     # The point is "assembled", not a headcount: a number here has to be edited
     # every time a node is added or a class stops being one, and editing it is
@@ -163,8 +163,11 @@ def test_framework_default_registry_is_built_on_first_deserialization():
     assert kinds and kinds == tuple(sorted(kinds))
     assert "query_statement" in kinds
     assert "integer_value" in kinds
+    assert registry.is_frozen
 
     # And it is the same instance on every call.
+    assert serialization.core_registry() is registry
+    # The old name is a deprecated alias of the same instance.
     assert serialization.default_registry() is registry
 
 
@@ -196,7 +199,7 @@ def test_serializing_never_builds_a_registry():
                 where=Q.WhereClause(d, P.ComparisonPredicate(
                     dialect=d, op=">", left=C.Column(d, "a"), right=Literal(d, 1)))))
             serialize(Literal(d, 1))
-        print("BUILT" if S._default_registry is not None else "NOT_BUILT")
+        print("BUILT" if S._core_registry is not None else "NOT_BUILT")
         """
     )
     result = subprocess.run(

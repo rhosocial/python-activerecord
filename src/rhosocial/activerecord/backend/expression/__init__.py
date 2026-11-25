@@ -472,6 +472,11 @@ from .bases import (
     SQLQueryAndParams,
     QueryWithParams,
 )
+from .serialization import (
+    core_registry,
+    default_registry,
+    registry_for_packages,
+)
 # src/rhosocial/activerecord/backend/expression/__init__.py
 """
 SQL Expression building blocks.
@@ -496,6 +501,9 @@ __all__ = [
     "SQLQueryAndParams",
     "QueryWithParams",
     "Executable",
+    "core_registry",
+    "default_registry",
+    "registry_for_packages",
     "AliasableMixin",
     "ArrayMixin",
     "StringPatternPredicateMixin",

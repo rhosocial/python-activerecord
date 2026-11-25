@@ -53,7 +53,7 @@ from rhosocial.activerecord.backend.expression.registry import (
 )
 from rhosocial.activerecord.backend.expression.serialization import (
     ExpressionDeserializationError,
-    default_registry,
+    core_registry,
     deserialize,
     deserialize_json,
     deserialize_xml,
@@ -195,7 +195,7 @@ def test_the_framework_registry_resolves_every_kind_it_declares():
     Read from the tree rather than from a hand-written list, so a new class is
     covered the moment it exists instead of the day someone remembers it.
     """
-    registry = default_registry()
+    registry = core_registry()
     declared = _declared_kinds()
     registered = set(registry.node_kinds())
     assert declared <= registered, (
@@ -230,7 +230,7 @@ def test_a_kind_is_resolved_through_one_table_only():
     has no place in the artifact at all. Stating the absence is what stops a
     later change quietly reinstating a second table.
     """
-    registry = default_registry()
+    registry = core_registry()
     for gone in (
         "_enums", "_dataclasses",
         "resolve_enum", "register_enum",
@@ -296,8 +296,8 @@ def test_serialization_never_builds_a_registry():
     script = (
         "import rhosocial.activerecord.backend.expression.serialization as S\n"
         "seen = []\n"
-        "real = S.default_registry\n"
-        "S.default_registry = lambda: seen.append(1) or real()\n"
+        "real = S.core_registry\n"
+        "S.core_registry = lambda: seen.append(1) or real()\n"
         "from rhosocial.activerecord.backend.expression.core import Column\n"
         "from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect\n"
         "S.serialize(Column(DummyDialect(), 'id'))\n"

@@ -40,7 +40,7 @@ from rhosocial.activerecord.backend.expression.query_sources import ValuesExpres
 from rhosocial.activerecord.backend.expression.values import LiteralKind
 from rhosocial.activerecord.backend.expression.registry import ExpressionRegistry
 from rhosocial.activerecord.backend.expression.serialization import (
-    default_registry,
+    core_registry,
     deserialize,
     serialize,
 )
@@ -62,7 +62,7 @@ _VALUE_KINDS = frozenset(member.wire for member in LiteralKind)
 def _table(*kinds):
     """A registry holding exactly these kinds and nothing else."""
     registry = ExpressionRegistry()
-    full = default_registry()
+    full = core_registry()
     value_only = tuple(k for k in kinds if k in _VALUE_KINDS)
     for kind in kinds:
         if kind in _VALUE_KINDS:
@@ -147,11 +147,11 @@ def _kinds_in(artifact):
 # ---------------------------------------------------------------------------
 
 
-def test_the_default_registry_reads_everything_the_tree_produces(dialect):
+def test_the_core_registry_reads_everything_the_tree_produces(dialect):
     """The baseline. Without it, the narrower tables prove nothing."""
     for grouped in (False, True):
         artifact = serialize(_query(dialect, grouped))
-        restored = deserialize(artifact, dialect, registry=default_registry())
+        restored = deserialize(artifact, dialect, registry=core_registry())
         assert isinstance(restored, QueryStatement)
 
 
@@ -297,7 +297,7 @@ def test_caller_vouched_text_is_left_out_of_the_default_table(dialect):
     """
     assert RawSQL.kind() == "raw_sql"
     assert RawSQL.REGISTER_BY_DEFAULT is False
-    assert "raw_sql" not in default_registry().node_kinds()
+    assert "raw_sql" not in core_registry().node_kinds()
 
     # Writing is unaffected (§7.2): the kind still names itself.
     artifact = serialize(RawSQL(dialect, "SELECT 1"))

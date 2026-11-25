@@ -16,8 +16,8 @@ from rhosocial.activerecord.backend.expression.query_parts import WhereClause
 from rhosocial.activerecord.backend.expression.statements.dql import QueryStatement
 from rhosocial.activerecord.backend.expression.registry import ExpressionRegistry
 from rhosocial.activerecord.backend.expression.serialization import (
+    core_registry,
     deserialize,
-    default_registry,
     serialize,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -143,7 +143,7 @@ def main():
         "query_statement", "where_clause", "column",
         "comparison_predicate", "table",
     ):
-        enough.register_node(default_registry().resolve_node(name))
+        enough.register_node(core_registry().resolve_node(name))
     # A value kind is admitted by its *wire name*, never by class. One node
     # carries every value, so there is no class named `integer_value` to
     # register and `register_node` could not produce the key even if you

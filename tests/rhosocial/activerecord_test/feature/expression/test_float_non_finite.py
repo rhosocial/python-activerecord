@@ -146,6 +146,6 @@ def test_decimal_text_is_not_subject_to_any_of_this(dialect):
 
 def test_the_kinds_are_in_the_registry(dialect):
     """A kind that is not registered cannot be resolved on the way back."""
-    registry = ser.default_registry()
+    registry = ser.core_registry()
     for wire in ("nan_value", "infinity_value"):
         assert wire in registry.node_kinds()

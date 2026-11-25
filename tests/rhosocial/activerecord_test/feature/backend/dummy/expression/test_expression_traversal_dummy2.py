@@ -111,13 +111,15 @@ from rhosocial.activerecord.backend.expression.objects import EdgeTable, NodeTab
 
 
 def _codec_registry():
-    """The default table plus the two kinds it deliberately leaves out.
+    """The dummy backend's table plus the two kinds it deliberately leaves out.
 
-    This file is about the codec, not about what the default table admits. A
+    This file is about the codec, not about what any assembled table admits. A
     kind the framework ships is still a kind, and reading one back is the thing
     under test -- so `RawSQL` is registered here rather than skipped.
     """
-    view = serialization.default_registry().copy()
+    from rhosocial.activerecord.backend.impl.dummy.registry import backend_registry
+
+    view = backend_registry().twin()
     for cls in (RawSQL, RawSQLPredicate):
         view.register_node(cls)
     return view
