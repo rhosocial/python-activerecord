@@ -10,6 +10,25 @@
 2. `__init__` 参数名与属性名对应（使用 `_` 前缀私有属性或同名属性）
 3. 不要实现 `get_params()`——通用实现是唯一的序列化路径，`__init__` 必须以构造参数收到的名字保存状态
 
+## 表达式与格式化函数的对应关系
+
+每个表达式类恰好声明一个 `format_method`，对应方言里的**一个** `format_*` 方法。该节点的全部校验、能力门控与
+SQL 装配都在这个 formatter 内；表达式构造器只收集参数，不渲染。不要覆写 `to_sql()` / `_render()` 自行渲染，
+也不要让两个独立的表达式 kind 通过私有 `_render_*` / `_format_*` 助手共用渲染代码。
+
+唯一合法的复用是**派生**：后端表达式继承它所扩展的通用表达式，后端 formatter 用 `super()` 复用通用部分，
+只写自己的增量。
+
+**何时派生、何时平行**：只有当后端文法是通用表达式文法的**真超集**时才派生并用 `super()`；如果 body 写法、
+参数形态、修饰语位置等文法形状不同，即使 SQL 开头几个词相同，它们也是两个不同的 kind，各自独立 formatter，
+不得共享渲染逻辑。例如 SQL/PSM 的 `CREATE FUNCTION ... LANGUAGE ... AS $$...$$` 与 MariaDB 的存储函数
+`CREATE ... FUNCTION ... RETURN ...` 属不同语句族，应保持平行类；而 ClickHouse 的 wildcard 在通用视图上追加
+`ILIKE`/`EXCLUDE` 则属真超集，可走 `super()`。
+
+渲染另一个表达式（子节点）时，调用该节点的 `to_sql()`，不要复制它的渲染逻辑。把上下文差异表达成**投影后的
+新节点**（例如 CREATE TABLE 按主键/加宽规则投影 `ColumnDefinition`）再交给该节点的 formatter，而不是把上下文
+标志传给一个共享渲染器。
+
 ## get_params() 约定
 
 通用 `get_params()` 实现基于 `inspect.signature` 自动推断：

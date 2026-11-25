@@ -10,6 +10,28 @@ Expression classes must meet the following requirements to be correctly handled 
 2. `__init__` parameter names must correspond to attribute names (using `_` prefix for private attributes or same-named attributes)
 3. Do not implement `get_params()` — the generic implementation is the single serialization path, so `__init__` must store its state under the name the constructor received it as
 
+## Expression ↔ formatter correspondence
+
+Every expression class declares exactly one `format_method`, naming **one** `format_*` method on the dialect. All
+validation, capability gating and SQL assembly for that node live in that formatter; constructors only collect
+parameters and never render. Do not override `to_sql()` / `_render()` to render yourself, and do not let two
+independent expression kinds share rendering through a private `_render_*` / `_format_*` helper.
+
+The only legitimate reuse is **derivation**: a backend expression derives from the general expression it extends, and
+its formatter calls `super()` for the common part, owning only the delta.
+
+**When to derive, when to stay parallel**: derive and use `super()` only when the backend grammar is a true superset
+of the general expression's grammar. If the body syntax, parameter shape or modifier placement differs, the two are
+distinct kinds even when the first SQL keywords match; each gets its own formatter and they share no rendering. For
+example, SQL/PSM `CREATE FUNCTION ... LANGUAGE ... AS $$...$$` and MariaDB's stored function
+`CREATE ... FUNCTION ... RETURN ...` are different statement families and should remain parallel classes; a
+ClickHouse wildcard that appends `ILIKE`/`EXCLUDE` to a general view is a true superset and may use `super()`.
+
+When rendering another expression (a sub-node), call that node's `to_sql()` rather than copying its rendering logic.
+Express contextual differences as a **projected new node** (e.g. a `ColumnDefinition` projected by CREATE TABLE's
+primary-key/widening rules) and hand it to that node's formatter, rather than passing context flags into a shared
+renderer.
+
 ## get_params() Convention
 
 The generic `get_params()` implementation automatically infers using `inspect.signature`:
