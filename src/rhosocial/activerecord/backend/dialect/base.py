@@ -7,7 +7,18 @@ All SQL formatting logic lives in Mixin classes in mixins.py.
 """
 
 import warnings as _warnings
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, FrozenSet, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Dict,
+    FrozenSet,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 from ..warnings import IdentifierQuotingWarning
 from .exceptions import (
@@ -31,6 +42,27 @@ def _version_text(version: Tuple[int, int, int]) -> str:
     which one is in force, so both read the same way.
     """
     return ".".join(str(part) for part in version)
+
+
+#: Core statement kinds that destroy data on execution. This is a structural
+#: fact about the core expression vocabulary, not a reading of SQL text: a
+#: backend that owns destructive statements of its own overrides
+#: ``SQLDialectBase.change_chain_refusals`` and adds them there.
+_DESTRUCTIVE_STATEMENT_CLASSES = (
+    "DropTableStatement",
+    "DropSchemaStatement",
+    "TruncateStatement",
+    "DeleteStatement",
+)
+
+
+def default_change_chain_refusals(statements: "Sequence[Any]") -> "List[str]":
+    """The core-only destructive classification, as refusal reasons."""
+    reasons: "List[str]" = []
+    for expr in statements:
+        if type(expr).__name__ in _DESTRUCTIVE_STATEMENT_CLASSES:
+            reasons.append(f"refused destructive DDL ({type(expr).__name__})")
+    return reasons
 
 
 class SQLDialectBase:
@@ -210,6 +242,26 @@ class SQLDialectBase:
                 protocol_name=protocol_type.__name__,
                 required_by=required_by,
             )
+
+    def change_chain_refusals(
+        self, statements: "Sequence[Any]", *, authorized_destructive: bool = False
+    ) -> "List[str]":
+        """Why this dialect refuses to execute *statements*, as plain reasons.
+
+        The classification is **structural**: it reads the expression classes
+        the backend owns, never the rendered SQL. The default recognises the
+        core statement kinds that destroy data; a backend whose proprietary
+        statements can drop or move data (a partition drop, an unpaired
+        ``SWITCH``, ...) overrides this method and adds its own rules in its
+        own vocabulary. Returning an empty list means "safe to execute";
+
+        An empty answer does not prove the chain is harmless -- it says this
+        dialect knows of no reason to refuse it. Backends keep their own
+        capability checks; this method is the last-line guard.
+        """
+        if authorized_destructive:
+            return []
+        return default_change_chain_refusals(statements)
 
     def check_feature_support(
         self, check_method: str, feature_name: str, suggestion: Optional[str] = None

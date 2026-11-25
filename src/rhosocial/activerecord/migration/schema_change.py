@@ -45,6 +45,17 @@ protocol. That step appends the backend's expressions to the executable
 statement list and reports every tri-state answer (actions / explicit
 unsupported / no-answer / missing protocol) without ever rendering SQL or
 inventing an expression type on this side. ``plan_changes`` itself is unchanged.
+
+Equivalence normalisation (what "the same" means)
+-------------------------------------------------
+
+A declared type is compared with its spacing collapsed (``DECIMAL(10, 2)`` and
+``DECIMAL(10,2)`` are one type); nothing else about it is rewritten. Case is
+**not** folded and literals inside a declaration are **not** touched, because a
+type declaration can carry case-bearing text such as ``ENUM('a','b')``. The
+asymmetry is deliberate: a false *inequality* produces one extra MODIFY, while a
+false *equality* would silently skip a real change. Free comment text is
+compared verbatim for the same reason.
 """
 from __future__ import annotations
 

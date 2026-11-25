@@ -9,7 +9,6 @@ backend-suggestion "how-to" answers as ordinary methods, and a single
 
 from __future__ import annotations
 
-import re
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from ..backend.dialect.partition_capability import PartitionCapability
@@ -43,28 +42,6 @@ _PARTITION_INTENT_RAW: Dict[str, str] = {
     "merge": "suggest_partition_merge_raw",
     "retention": "suggest_partition_retention_raw",
 }
-
-#: Generic last-line destructive guard. This is *not* backend safety logic:
-#: it only recognizes class names and rendered spellings so an outcome cannot
-#: smuggle a destructive statement past ``apply_change``. Backends keep their
-#: own capability checks; this guard never tries to replace them.
-_DESTRUCTIVE_CLASS_NAMES = frozenset(
-    {
-        "DropTableStatement",
-        "DropSchemaStatement",
-        "TruncateStatement",
-        "DeleteStatement",
-    }
-)
-_DESTRUCTIVE_SQL = (
-    (re.compile(r"\bDROP\s+TABLE\b", re.IGNORECASE), "DROP TABLE"),
-    (re.compile(r"\bDROP\s+SCHEMA\b", re.IGNORECASE), "DROP SCHEMA"),
-    (re.compile(r"\bTRUNCATE\b", re.IGNORECASE), "TRUNCATE"),
-    (re.compile(r"\bDELETE\s+FROM\b", re.IGNORECASE), "DELETE FROM"),
-)
-#: ``SWITCH ... TO`` moves data between partitions/objects. A bare switch-out
-#: is data-affecting; a round trip needs a matching switch back in the chain.
-_SWITCH_SQL = re.compile(r"\bSWITCH\b[\s\S]*?\bTO\b", re.IGNORECASE)
 
 
 class _SuggestionMixin:
@@ -378,27 +355,31 @@ class _ContextBase(_SuggestionMixin):
 
         rendered = self._render(statements)
         if not authorized_destructive:
-            for expr in statements:
-                if type(expr).__name__ in _DESTRUCTIVE_CLASS_NAMES:
-                    raise ValueError(
-                        f"refused destructive DDL ({type(expr).__name__}); pass "
-                        "authorized_destructive=True to allow it."
-                    )
-            sqls = [sql for sql, _ in rendered]
-            switches = [sql for sql in sqls if _SWITCH_SQL.search(sql)]
-            if switches and len(switches) < 2:
+            refusals = self._change_chain_refusals(statements)
+            if refusals:
                 raise ValueError(
-                    "refused data-moving SWITCH ... TO without a matching switch "
-                    "back; pass authorized_destructive=True to allow it."
+                    "; ".join(refusals)
+                    + "; pass authorized_destructive=True to allow it."
                 )
-            for sql in sqls:
-                for pattern, label in _DESTRUCTIVE_SQL:
-                    if pattern.search(sql):
-                        raise ValueError(
-                            f"refused destructive DDL ({label}); pass "
-                            "authorized_destructive=True to allow it."
-                        )
         return statements, rendered
+
+    def _change_chain_refusals(self, statements: Sequence[Any]) -> List[str]:
+        """Ask the dialect why this chain is unsafe; structural, never textual.
+
+        ``change_chain_refusals`` is the backend's own vocabulary: core declares
+        the default (the core statement kinds that destroy data) and each
+        backend adds its proprietary ones. The context therefore never inspects
+        SQL text and never guesses at a statement's meaning from its spelling.
+        """
+        target = self._suggestion_target()
+        classify = getattr(target, "change_chain_refusals", None)
+        if callable(classify):
+            return list(classify(statements))
+        # A backend double that carries no classification answers with the
+        # core default, so the guard still works against test doubles.
+        from ..backend.dialect.base import default_change_chain_refusals
+
+        return default_change_chain_refusals(statements)
 
     def _execute_rendered(self, rendered: List[tuple]) -> int:
         """Execute or record already-rendered statements (sync)."""

@@ -247,7 +247,13 @@ class SchemaDiffer(ABC):
             if old_dt != new_dt:
                 return False
         else:
-            if (old_col.data_type or "").upper().split() != (new_col.data_type or "").upper().split():
+            # No parser produced a type model for one side: the raw catalogue
+            # text is compared verbatim. A backend must not rewrite SQL text to
+            # decide schema semantics, so there is no case folding and no token
+            # splitting here; a spacing-only difference therefore reports a
+            # change, which is the safe direction (an extra diff, never a
+            # silently skipped one).
+            if old_col.data_type != new_col.data_type:
                 return False
         if old_col.nullable != new_col.nullable:
             return False

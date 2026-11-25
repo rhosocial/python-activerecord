@@ -19,11 +19,19 @@ from rhosocial.activerecord.backend.expression.bases import BaseExpression
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.statements import IndexDefinition
 from rhosocial.activerecord.backend.expression.statements.ddl_partition import PartitionClause
+from rhosocial.activerecord.backend.expression.statements.ddl_schema import (
+    DropSchemaStatement,
+)
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     DropTableStatement,
     TableConstraint,
     TableUniqueConstraint,
 )
+from rhosocial.activerecord.backend.expression.statements.ddl_truncate import (
+    TruncateStatement,
+)
+from rhosocial.activerecord.backend.expression.statements.dml import DeleteStatement
+from rhosocial.activerecord.backend.expression.objects import Schema
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.suggestion import PartitionAddSuggestion
 from rhosocial.activerecord.backend.suggestion.protocols import PartitionAddSuggestionSupport
@@ -41,9 +49,10 @@ from rhosocial.activerecord.model import ActiveRecord
 class _Expr(BaseExpression):
     """Minimal real expression node, acceptable to the raw outcome consumer."""
 
-    def __init__(self, sql):
+    def __init__(self, sql, kind=None):
         super().__init__(None)
         self.sql = sql
+        self.kind = kind
 
     def to_sql(self):
         return self.sql, ()
@@ -110,6 +119,24 @@ class _ChangeDialect(DummyDialect):
 
 class _NoPartitionProtocolDialect(_ChangeDialect):
     """All change protocols except the partition-scheme one."""
+
+
+class _SwitchDialect(DummyDialect):
+    """Classifies an unpaired switch-out in its own (fake) vocabulary.
+
+    A real backend answers from its own statement classes; this double answers
+    from the statements' ``kind`` marker. The point of the test is that the
+    context asks the dialect instead of reading SQL text.
+    """
+
+    def change_chain_refusals(self, statements, *, authorized_destructive=False):
+        if authorized_destructive:
+            return []
+        outs = sum(1 for s in statements if getattr(s, "kind", None) == "out")
+        ins = sum(1 for s in statements if getattr(s, "kind", None) == "in")
+        if outs > ins:
+            return ["refused data-moving SWITCH ... TO without a matching switch back"]
+        return super().change_chain_refusals(statements)
 
 
 class _Backend:
@@ -312,9 +339,9 @@ def _destructive_outcome(expr):
             DropTableStatement(DummyDialect(), Table(DummyDialect(), "events")),
             "DropTableStatement",
         ),
-        (_Expr("DELETE FROM events"), "DELETE FROM"),
-        (_Expr("TRUNCATE TABLE events"), "TRUNCATE"),
-        (_Expr("DROP SCHEMA app"), "DROP SCHEMA"),
+        (TruncateStatement(DummyDialect(), Table(DummyDialect(), "events")), "TruncateStatement"),
+        (DeleteStatement(DummyDialect(), Table(DummyDialect(), "events")), "DeleteStatement"),
+        (DropSchemaStatement(DummyDialect(), Schema(DummyDialect(), "app")), "DropSchemaStatement"),
     ],
 )
 def test_destructive_statements_are_refused_unless_authorized(expr, label):
@@ -343,9 +370,15 @@ def test_multi_action_statement_is_always_refused():
 
 
 def test_unbalanced_switch_is_refused_but_a_round_trip_is_allowed():
-    switch_out = _Expr("ALTER TABLE t SWITCH TO t_stage")
-    switch_back = _Expr("ALTER TABLE t_stage SWITCH TO t")
-    backend = _Backend()
+    """The backend classifies data-moving statements in its own vocabulary.
+
+    The context never reads SQL text: it asks the dialect ``change_chain_refusals``,
+    which here recognises the fake statements' own ``kind`` marker. A real backend
+    (SQL Server) answers from its ``SWITCH PARTITION`` classes the same way.
+    """
+    switch_out = _Expr("out", kind="out")
+    switch_back = _Expr("in", kind="in")
+    backend = _Backend(_SwitchDialect())
     ctx = MigrationContext(backend)
 
     with pytest.raises(ValueError, match="SWITCH"):
@@ -397,8 +430,9 @@ async def test_async_context_matches_sync_planning_and_application():
 @pytest.mark.asyncio
 async def test_async_guard_refuses_the_same_destructive_statement():
     ctx = AsyncMigrationContext(_AsyncBackend())
+    expr = DeleteStatement(DummyDialect(), Table(DummyDialect(), "events"))
     with pytest.raises(ValueError, match="refused destructive DDL"):
-        await ctx.apply_change(_destructive_outcome(_Expr("DELETE FROM events")))
+        await ctx.apply_change(_destructive_outcome(expr))
 
 
 def test_outcome_types_are_frozen():
