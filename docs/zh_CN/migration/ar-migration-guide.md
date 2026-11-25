@@ -94,3 +94,52 @@ DOWN 逆序执行。依赖必须出现在组内更早位置或已应用；重复
 | ClickHouse | `PARTITION BY <expr>` 存储子句，无 ADD，DROP PARTITION ID |
 
 > 读取实时分区状态（`introspect partitions`）与能力探测属于**后端 CLI** 职责，不在本 API 内。
+
+## 8. 面向用户的变更规划 API
+
+不必自行拼装 `plan_changes` / `resolve_suggestions` / `suggest_partition_*_raw`，
+上下文提供两个返回**冻结、与方言无关结果**的入口：
+
+- `ctx.plan_schema_change(old_model, new_model) -> SchemaChangeOutcome`
+  组合模型声明 diff 与建议解析。`statements` 是可执行表达式链（每条语句一个动作）；
+  `supported` / `unsupported` / `no_answer` / `missing` 按状态分组保存**每一个**决策点，
+  `False`（明确不支持）、`None`（无应答）与缺少协议都不会被悄悄丢弃。
+- `ctx.plan_partition_change(intent, strategy, plan) -> PartitionChangeOutcome`
+  先读取 `dialect.partition_capability()`，再决定是否询问后端。`capability` 为
+  `NATIVE` / `AUTOMATIC` / `UNSUPPORTED` 三者之一：
+
+  | 能力 | `state` | `operations` | 含义 |
+  |---|---|---|---|
+  | `NATIVE` | `actions` / `no-action` / `unsupported` / `no-protocol` | 表达式元组或 `False` | 只有此状态才调用 `suggest_partition_*_raw` |
+  | `AUTOMATIC` | `engine-managed` | `False` | 引擎自行分区与管理存储，**没有可定位的分区 DDL，绝不伪造 DDL**，也不调用任何分区建议 |
+  | `UNSUPPORTED` | `not-supported` | `False` | 后端完全没有分区，同样不调用任何分区建议 |
+
+两者的 `report()` 只返回**文字描述**（说明哪些可以应用、其余各点为何不能），不含 SQL 字符串。
+
+`ctx.apply_change(outcome, *, allow_incomplete=False, authorized_destructive=False)` 只执行
+`outcome` 自带的表达式链：
+
+- 只要还有 `unsupported` / `no_answer` / `missing` 点（分区结果 `operations is False`），
+  默认拒绝执行；确认只应用已解析部分时传 `allow_incomplete=True`。
+- 最后一道通用防线会拒绝破坏性 DDL（`DropTableStatement`、`DropSchemaStatement`、
+  `TruncateStatement`、`DeleteStatement`，以及按渲染 SQL 识别的 `DROP TABLE` /
+  `DELETE FROM` 等）和没有配对的 `SWITCH ... TO` 数据搬移；确有授权时传
+  `authorized_destructive=True`。**一条语句只能承载一个动作**，多动作语句始终被拒绝。
+  这只是通用兜底，不替代后端自身的安全检查。
+
+```python
+def up(ctx):
+    outcome = ctx.plan_schema_change(User20261124, User)
+    print(outcome.report())            # 纯文字，无 SQL
+    ctx.apply_change(outcome)          # 不完整时抛错
+
+    # 明确知道要跳过未解决点时：
+    ctx.apply_change(outcome, allow_incomplete=True)
+
+    part = ctx.plan_partition_change("add", strategy, plan)
+    print(part.report())
+    if part.capability.name == "NATIVE":
+        ctx.apply_change(part)         # AUTOMATIC / UNSUPPORTED 时 operations is False
+```
+
+`AsyncMigrationContext` 的同名方法一一对应，应用时写 `await ctx.apply_change(outcome)`。

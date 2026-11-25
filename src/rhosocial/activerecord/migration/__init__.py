@@ -11,10 +11,14 @@ Managed pieces (per activerecord-migration.md formalization):
 - ``MigrationContext`` -- what a user's up/down logic sees (suggest + apply + dry-run).
 - ``Migration`` -- a versioned up/down pair.
 - ``MigrationRunner`` -- ordering, dependency checks, execution, dry-run, records.
+- ``SchemaChangeOutcome`` / ``PartitionChangeOutcome`` -- frozen results of the
+  user-facing ``ctx.plan_schema_change()`` / ``ctx.plan_partition_change()``
+  entry points, applied through ``ctx.apply_change()``.
 """
 
 from .context import AsyncMigrationContext, MigrationContext
 from .core import AsyncMigration, Migration
+from .outcome import PartitionChangeOutcome, SchemaChangeOutcome
 from .runner import (
     AsyncMigrationRunner,
     MigrationRunner,
@@ -51,4 +55,6 @@ __all__ = [
     "resolve_suggestions",
     "ResolvedSuggestion",
     "SuggestionResolution",
+    "SchemaChangeOutcome",
+    "PartitionChangeOutcome",
 ]
