@@ -18,6 +18,14 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..backend.base import StorageBackend
     from ..backend.expression.bases import BaseExpression
     from ..backend.expression.statements import PartitionByClause
+    from ..backend.suggestion.definitions import (
+        ColumnReorderSuggestion,
+        PartitionSchemeChangeSuggestion,
+        TableConstraintChangeSuggestion,
+        TableIndexChangeSuggestion,
+    )
+    from ..backend.suggestion.definitions.change_plan import SuggestionPoint
+    from .schema_change import ChangePlan, ResolvedSuggestion, SuggestionResolution
 
 
 class _SuggestionMixin:
@@ -31,6 +39,10 @@ class _SuggestionMixin:
     Each ``suggest_partition_*_raw`` counterpart returns the full
     ``PartitionSuggestionOutcome`` instead, keeping "explicitly unsupported"
     distinct from "no action", for callers that must report that difference.
+
+    The four ``suggest_*`` change accessors return a ``ResolvedSuggestion``:
+    a tri-state answer (actions / explicit unsupported / no answer / missing
+    protocol) that never collapses ``False`` into ``None``.
     """
 
     def _suggestion_target(self):
@@ -98,6 +110,28 @@ class _SuggestionMixin:
     def suggest_partition_retention_raw(self, strategy: "PartitionByClause", plan: object):
         return self._outcome("retention", strategy, plan)
 
+    def _change_suggestion(self, point: "SuggestionPoint") -> "ResolvedSuggestion":
+        """Consume one frozen change point against the suggestion target."""
+        from .schema_change import resolve_point
+
+        return resolve_point(point, self._suggestion_target())
+
+    def suggest_column_reorder(self, point: "ColumnReorderSuggestion") -> "ResolvedSuggestion":
+        return self._change_suggestion(point)
+
+    def suggest_table_constraint_change(
+        self, point: "TableConstraintChangeSuggestion"
+    ) -> "ResolvedSuggestion":
+        return self._change_suggestion(point)
+
+    def suggest_table_index_change(self, point: "TableIndexChangeSuggestion") -> "ResolvedSuggestion":
+        return self._change_suggestion(point)
+
+    def suggest_partition_scheme_change(
+        self, point: "PartitionSchemeChangeSuggestion"
+    ) -> "ResolvedSuggestion":
+        return self._change_suggestion(point)
+
 
 class _ContextBase(_SuggestionMixin):
     def __init__(
@@ -147,6 +181,19 @@ class _ContextBase(_SuggestionMixin):
         from .schema_change import plan_changes as _plan
 
         return _plan(old_model, new_model, self._suggestion_target())
+
+    def resolve_suggestions(self, plan: "ChangePlan") -> "SuggestionResolution":
+        """Explicitly resolve *plan*'s frozen suggestion points.
+
+        ``plan_changes`` is unchanged; this is a separate, caller-invoked step.
+        Actionable expressions are appended to ``plan.statements`` so a migration
+        can apply them with ``ctx.apply(*plan.statements)``. The returned report
+        keeps "unsupported" / "no-answer" / "missing-protocol" distinct, so a
+        ``False`` answer is never silently dropped.
+        """
+        from .schema_change import resolve_suggestions as _resolve
+
+        return _resolve(plan, self._suggestion_target())
 
 
 class MigrationContext(_ContextBase):

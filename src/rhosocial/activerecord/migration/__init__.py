@@ -26,6 +26,7 @@ from .runner import (
 from .record import MigrationRecord, MigrationRecordStore, InMemoryMigrationRecordStore
 from .schema_change import (
     diff_declarations, plan_changes, ChangePlan, FieldChange,
+    resolve_point, resolve_suggestions, ResolvedSuggestion, SuggestionResolution,
 )
 
 __all__ = [
@@ -46,4 +47,8 @@ __all__ = [
     "plan_changes",
     "ChangePlan",
     "FieldChange",
+    "resolve_point",
+    "resolve_suggestions",
+    "ResolvedSuggestion",
+    "SuggestionResolution",
 ]

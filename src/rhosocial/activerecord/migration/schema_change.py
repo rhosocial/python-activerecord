@@ -32,18 +32,20 @@ silently discard data. A source that gains an explicit rename declaration
 (``column_renames()``) is preferred over this heuristic. ``RENAME`` already
 existed in the diff vocabulary and is reused as-is.
 
-Next step (not in this module)
-------------------------------
+Consumption (explicit, see :func:`resolve_suggestions`)
+-------------------------------------------------------
 
-Consumption of the suggestion points is intentionally left out: a concrete
-backend must first implement the matching ``suggest_*`` protocol, then a
-consumer decides what to do with the tri-state answer. Core only freezes the
-contract here.
+Planning only *describes* the decision points. A separate, caller-invoked step
+resolves them against a dialect that implements the matching ``suggest_*``
+protocol. That step appends the backend's expressions to the executable
+statement list and reports every tri-state answer (actions / explicit
+unsupported / no-answer / missing protocol) without ever rendering SQL or
+inventing an expression type on this side. ``plan_changes`` itself is unchanged.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from ..backend.schema.differ import ColumnChangeKind, SchemaDiff, TableDiff
 from ..backend.suggestion.definitions import (
@@ -251,6 +253,8 @@ class ChangePlan:
     statements: List[Any] = field(default_factory=list)
     suggestion_points: List["SuggestionPoint"] = field(default_factory=list)
     diff: Optional[SchemaDiff] = None
+    # Private bookkeeping so explicit resolution is one-shot per point.
+    _resolved_point_ids: set = field(default_factory=set, repr=False, compare=False)
 
     @property
     def has_changes(self) -> bool:
@@ -370,3 +374,192 @@ def plan_changes(
             )
         )
     return plan
+
+
+# -- Suggestion consumption -------------------------------------------------
+#
+# The A side resolves a frozen point by asking a dialect through the matching
+# minimal protocol. It never renders SQL and never constructs an expression
+# type: the chain it appends is exactly the one the backend returned. Every
+# answer is recorded, so ``False`` (explicit unsupported) is never collapsed
+# into ``None`` (no answer), and a dialect missing the protocol is reported
+# rather than silently treated as "nothing to do".
+
+
+#: (protocol class name, suggest method name) keyed by frozen point type.
+_CHANGE_SUGGESTION_PROTOCOLS = {
+    ColumnReorderSuggestion: ("ColumnReorderSuggestionSupport", "suggest_column_reorder"),
+    TableConstraintChangeSuggestion: (
+        "TableConstraintChangeSuggestionSupport",
+        "suggest_table_constraint_change",
+    ),
+    TableIndexChangeSuggestion: ("TableIndexChangeSuggestionSupport", "suggest_table_index_change"),
+    PartitionSchemeChangeSuggestion: (
+        "PartitionSchemeChangeSuggestionSupport",
+        "suggest_partition_scheme_change",
+    ),
+}
+
+
+@dataclass(frozen=True)
+class ResolvedSuggestion:
+    """One frozen point's tri-state answer from a dialect.
+
+    ``state`` is one of:
+
+    * ``"actions"`` -- ``operations`` holds the backend's expression chain;
+    * ``"unsupported"`` -- the backend answered ``False`` (it cannot address
+      the change automatically);
+    * ``"no-answer"`` -- the backend answered ``None`` (no action required);
+    * ``"missing-protocol"`` -- the dialect does not implement the protocol.
+
+    ``protocol`` names the protocol class, so a refusal can point at it.
+    """
+
+    point: SuggestionPoint
+    state: str
+    protocol: str
+    operations: Tuple[Any, ...] = ()
+
+    @property
+    def is_actionable(self) -> bool:
+        return self.state == "actions"
+
+    def operations_or_none(self) -> Optional[Tuple[Any, ...]]:
+        """The chain only for ``"actions"``; ``None`` for every other state."""
+        return self.operations if self.state == "actions" else None
+
+
+@dataclass
+class SuggestionResolution:
+    """Aggregate outcome of :func:`resolve_suggestions`.
+
+    ``statements`` are the expressions appended to the plan's executable
+    statement list. ``entries`` records every considered point in plan order,
+    so a caller can report exactly which points remain unresolved and why.
+    """
+
+    entries: List[ResolvedSuggestion] = field(default_factory=list)
+    statements: List[Any] = field(default_factory=list)
+
+    @property
+    def resolved(self) -> List[ResolvedSuggestion]:
+        return [entry for entry in self.entries if entry.state == "actions"]
+
+    @property
+    def unsupported(self) -> List[ResolvedSuggestion]:
+        return [entry for entry in self.entries if entry.state == "unsupported"]
+
+    @property
+    def no_answer(self) -> List[ResolvedSuggestion]:
+        return [entry for entry in self.entries if entry.state == "no-answer"]
+
+    @property
+    def missing(self) -> List[ResolvedSuggestion]:
+        return [entry for entry in self.entries if entry.state == "missing-protocol"]
+
+    @property
+    def unresolved(self) -> List[ResolvedSuggestion]:
+        return [entry for entry in self.entries if entry.state != "actions"]
+
+    @property
+    def is_complete(self) -> bool:
+        """True when no considered point was left unresolved."""
+        return not self.unresolved
+
+
+def _protocol_for(point: Any) -> Optional[Tuple[str, str]]:
+    for point_cls, names in _CHANGE_SUGGESTION_PROTOCOLS.items():
+        if isinstance(point, point_cls):
+            return names
+    return None
+
+
+def _check_single_action(expression: Any, protocol: str, label: str) -> None:
+    """Enforce 1 expression -> 1 statement.
+
+    A statement carrying several actions would silently bundle work the
+    contract keeps separate. Refuse it and name the protocol that produced it.
+    """
+    actions = getattr(expression, "actions", None)
+    if isinstance(actions, (list, tuple)) and len(actions) > 1:
+        raise ValueError(
+            f"{protocol} returned a multi-action statement for '{label}': "
+            "one expression must map to exactly one action; return one "
+            "single-action statement per expression instead."
+        )
+
+
+def resolve_point(point: SuggestionPoint, dialect: Any) -> ResolvedSuggestion:
+    """Consume one frozen change point against *dialect*, keeping tri-state.
+
+    This is the A-side consumer of the four ``suggest_*`` protocols. The
+    returned chain is exactly what the backend handed back -- no SQL is
+    rendered and no expression type is constructed here. ``False`` is reported
+    as ``"unsupported"`` and ``None`` as ``"no-answer"``; neither is collapsed
+    into the other, and a missing protocol is reported as ``"missing-protocol"``.
+    """
+    from ..backend.suggestion import protocols as suggestion_protocols
+
+    names = _protocol_for(point)
+    if names is None:
+        raise ValueError(f"unsupported suggestion point type: {type(point).__name__}")
+    protocol_name, method_name = names
+    label = getattr(point, "label", "")
+    protocol = getattr(suggestion_protocols, protocol_name)
+    if not isinstance(dialect, protocol):
+        return ResolvedSuggestion(point, "missing-protocol", protocol_name)
+
+    answer = getattr(dialect, method_name)(point)
+    if answer is False:
+        operations: Any = False
+    elif answer is None:
+        operations = None
+    else:
+        operations = getattr(answer, "operations", None)
+
+    if isinstance(operations, (list, tuple)):
+        chain = tuple(operations)
+        for expression in chain:
+            _check_single_action(expression, protocol_name, label)
+        return ResolvedSuggestion(point, "actions", protocol_name, chain)
+    if operations is False:
+        return ResolvedSuggestion(point, "unsupported", protocol_name)
+    return ResolvedSuggestion(point, "no-answer", protocol_name)
+
+
+def resolve_suggestions(plan: ChangePlan, dialect: Any) -> SuggestionResolution:
+    """Resolve every frozen point in *plan* against *dialect*.
+
+    An explicit, caller-invoked step: :func:`plan_changes` is unchanged and
+    still emits only single-action statements plus frozen points. Actionable
+    chains are appended to ``plan.statements`` (the list
+    ``MigrationContext.apply`` executes); the returned report records every
+    point's state, so ``False`` (unsupported), ``None`` (no-answer) and a
+    missing protocol are never silently dropped.
+
+    Resolution is one-shot per point: a second call does not append the same
+    statements again. Legacy bare-label entries carry no decision data and are
+    skipped.
+    """
+    result = SuggestionResolution()
+    seen = plan._resolved_point_ids
+
+    point_types = (
+        ColumnReorderSuggestion,
+        TableConstraintChangeSuggestion,
+        TableIndexChangeSuggestion,
+        PartitionSchemeChangeSuggestion,
+    )
+    for point in plan.suggestion_points:
+        if not isinstance(point, point_types):
+            continue
+        if id(point) in seen:
+            continue
+        entry = resolve_point(point, dialect)
+        seen.add(id(point))
+        result.entries.append(entry)
+        if entry.is_actionable:
+            result.statements.extend(entry.operations)
+            plan.statements.extend(entry.operations)
+    return result

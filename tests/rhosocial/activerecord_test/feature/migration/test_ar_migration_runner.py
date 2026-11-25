@@ -82,6 +82,10 @@ def test_context_apply_real_executes():
 def test_context_exposes_eight_partition_suggestions():
     ctx = MigrationContext(FakeBackend())
     names = [n for n in dir(ctx) if n.startswith("suggest_partition_")]
+    # The migration-time partition-scheme change accessor is a separate intent;
+    # the eight lifecycle intents below each have a *-raw counterpart.
+    names = [n for n in names if n != "suggest_partition_scheme_change"]
+    assert hasattr(ctx, "suggest_partition_scheme_change")
     # Eight intent accessors plus eight *_raw counterparts (tri-state outcome).
     assert len(names) == 16
     raw_names = [n for n in names if n.endswith("_raw")]
