@@ -102,6 +102,23 @@ def test_partition_bound_carries_optional_statistics():
     assert not bound.is_default
 
 
+def test_partition_bound_carries_every_boundary_kind():
+    bound = introspection_types.PartitionBound(
+        name="p0",
+        lower="2026-01-01",
+        upper="2026-02-01",
+        modulus=4,
+        remainder=1,
+    )
+    assert bound.lower == "2026-01-01"
+    assert bound.modulus == 4 and bound.remainder == 1
+
+
+def test_str_enums_print_their_word():
+    assert str(introspection_types.ItemKind.SEQUENCE) == "sequence"
+    assert str(introspection_types.PartitionScheme.RANGE) == "range"
+
+
 def test_index_state_defaults_to_usable_and_visible():
     state = introspection_types.IndexState(name="idx", table="orders")
     assert state.usable

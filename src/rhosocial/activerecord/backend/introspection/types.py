@@ -613,6 +613,8 @@ class JoinCoverage:
 class PartitionScheme(str, Enum):
     """How a partitioned table splits its rows."""
 
+    __str__ = str.__str__
+
     RANGE = "range"
     LIST = "list"
     HASH = "hash"
@@ -629,6 +631,8 @@ class ItemKind(str, Enum):
     function used by a default, a SQL Server partition function/scheme, a
     full-text catalogue, an extension, a tablespace.
     """
+
+    __str__ = str.__str__
 
     SCHEMA = "schema"
     TYPE = "type"
@@ -665,8 +669,12 @@ class PartitionBound:
 
     name: str
     #: RANGE/LIST boundary as the server spells it; expression partitions have none.
+    lower: Optional[str] = None
     upper: Optional[str] = None
     values: Tuple[str, ...] = ()
+    #: HASH boundary: the key hashes to ``remainder`` modulo ``modulus``.
+    modulus: Optional[int] = None
+    remainder: Optional[int] = None
     is_default: bool = False
     is_maxvalue: bool = False
     #: Only populated when ``include_stats`` was requested.
