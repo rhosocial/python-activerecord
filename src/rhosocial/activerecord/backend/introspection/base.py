@@ -1565,6 +1565,16 @@ class AbstractIntrospector(IntrospectorBase, ABC):
     ) -> bool:
         """Whether a shared object of this kind exists.
 
+        Answer for every kind, with one rule:
+
+        1. the engine has no objects of this kind -> ``False`` (a definite
+           "there is none", not "cannot tell");
+        2. the engine has them and the catalogue query is implemented ->
+           query and answer;
+        3. the engine has them but this backend has no query for the kind ->
+           refuse: that is an implementation gap, and a ``False`` there would
+           disguise it as absence.
+
         Shared objects outlive a table: sequences, types, functions, partition
         functions/schemes, extensions, tablespaces, full-text catalogues.
         """
@@ -2055,5 +2065,9 @@ class AsyncAbstractIntrospector(IntrospectorBase, ABC):
         name: str,
         schema: Optional[str] = None,
     ) -> bool:
-        """Whether a shared object of this kind exists."""
+        """Whether a shared object of this kind exists.
+
+        Same three-case rule as the sync twin: no such objects -> ``False``,
+        query implemented -> answer, no query -> refuse.
+        """
         self._refuse("StructureIntrospectionSupport", "item_exists")
