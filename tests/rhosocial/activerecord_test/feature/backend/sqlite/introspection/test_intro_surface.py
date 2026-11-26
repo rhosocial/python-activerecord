@@ -72,6 +72,11 @@ class TestTheTypeSurface:
     def test_no_removed_aggregate_is_offered(self):
         assert "table" not in introspect_cli.INTROSPECT_TYPES
 
+    def test_no_partition_family_is_offered(self):
+        """SQLite has no partitioning; the state API answers without a family."""
+        assert "partitions" not in introspect_cli.INTROSPECT_TYPES
+        assert "partition" not in introspect_cli.INTROSPECT_TYPES
+
     def test_every_switch_exists_on_the_dialect(self):
         dialect = SQLiteDialect(version=(3, 45, 0))
         missing = [

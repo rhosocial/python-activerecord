@@ -636,6 +636,7 @@ class ItemKind(str, Enum):
     FUNCTION = "function"
     SEQUENCE = "sequence"
     TABLE = "table"
+    INDEX = "index"
     EXTENSION = "extension"
     TABLESPACE = "tablespace"
     PARTITION_FUNCTION = "partition_function"

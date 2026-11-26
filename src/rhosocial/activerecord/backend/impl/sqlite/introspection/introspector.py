@@ -21,7 +21,7 @@ Design principle: Sync and Async are separate and cannot coexist.
 
 import copy
 import sqlite3
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 from rhosocial.activerecord.backend.introspection.base import (
     IntrospectorMixin,
@@ -29,11 +29,20 @@ from rhosocial.activerecord.backend.introspection.base import (
     AsyncAbstractIntrospector,
 )
 from rhosocial.activerecord.backend.introspection.cache import IntrospectionCache
+from rhosocial.activerecord.backend.introspection.errors import ObjectNotFoundError
 from rhosocial.activerecord.backend.introspection.executor import (
     IntrospectorExecutor,
     AsyncIntrospectorExecutor,
 )
 from rhosocial.activerecord.backend.introspection.types import (
+    ConstraintState,
+    DerivedObjectState,
+    IndexState,
+    ItemKind,
+    PartitionState,
+    SequenceState,
+    StorageOptionsState,
+    TableState,
     IntrospectionDatabaseInfo,
     IntrospectionTableInfo,
     TableType,
@@ -50,6 +59,7 @@ from rhosocial.activerecord.backend.introspection.types import (
 )
 from rhosocial.activerecord.backend.textscan import (
     find_word,
+    has_word,
     leading_word,
     parenthesised,
     split_top_level,
@@ -371,7 +381,6 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             # SQLite pk field: 0 = not primary key, >0 = primary key (or part of composite PK)
             is_pk = row.get("pk", 0) > 0
             # Parse raw type string into a DataType expression
-            from rhosocial.activerecord.backend.expression.types._base import DataType
             from .type_parser import SQLiteTypeParser
             parsed = SQLiteTypeParser(self._backend.dialect).parse(raw_type)
             # Auto-increment: only applies to INTEGER PRIMARY KEY with AUTOINCREMENT keyword
@@ -512,7 +521,9 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
                 )
         return list(idx_map.values())
 
-    def parse_foreign_keys(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[IntrospectionForeignKeyInfo]:
+    def parse_foreign_keys(
+        self, rows: List[Dict[str, Any]], table_name: str, schema: str
+    ) -> List[IntrospectionForeignKeyInfo]:
         if not rows:
             return []
         fk_map: Dict[int, IntrospectionForeignKeyInfo] = {}
@@ -551,7 +562,9 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
     def parse_views(self, rows: List[Dict[str, Any]], schema: str) -> List[IntrospectionViewInfo]:
         return [IntrospectionViewInfo(name=row["name"], schema=schema, definition=row.get("sql")) for row in rows]
 
-    def parse_view_info(self, rows: List[Dict[str, Any]], view_name: str, schema: str) -> Optional[IntrospectionViewInfo]:
+    def parse_view_info(
+        self, rows: List[Dict[str, Any]], view_name: str, schema: str
+    ) -> Optional[IntrospectionViewInfo]:
         if not rows:
             return None
         row = rows[0]
@@ -604,6 +617,575 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
                 )
             )
         return triggers
+
+    # ------------------------------------------------------------------ #
+    # Neutral object state — the pure parsers behind every state method.
+    #
+    # The I/O differs between sync and async; the reduction must not, so
+    # every fact gathered from a pragma or a DDL is reduced here once and
+    # handed the same inputs by both directions.
+    # ------------------------------------------------------------------ #
+
+    def _use_table_list(self) -> bool:
+        """Whether ``PRAGMA table_list`` can answer this build.
+
+        It carries ``wr`` and ``strict`` directly, so a build that has it need
+        not parse the table DDL for those traits. The probe is the dialect's
+        because the version belongs to the connected server, not to the
+        ``sqlite3`` module the process happens to import.
+        """
+        probe = getattr(self.dialect, "supports_table_list_pragma", None)
+        if probe is None:
+            return False
+        return bool(probe())
+
+    @staticmethod
+    def ordered_schema_names(
+        names: List[str], schema: Optional[str] = None
+    ) -> List[str]:
+        """The schemas an unqualified name may live in, in resolution order.
+
+        SQLite searches ``temp`` before ``main`` and the ``ATTACH``-ed
+        databases after them, so a later candidate must not shadow an earlier
+        one. An explicit schema is the whole list.
+        """
+        if schema is not None:
+            return [schema]
+        ordered: List[str] = [name for name in ("temp", "main") if name in names]
+        ordered.extend(name for name in names if name not in ("temp", "main"))
+        return ordered
+
+    @staticmethod
+    def select_table_row(
+        rows: List[Dict[str, Any]],
+        table_name: str,
+        schema: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Pick the row ``PRAGMA table_list`` reported for one table.
+
+        With no schema the row for ``temp`` wins over ``main``, because that
+        is the table an unqualified reference would reach. A row from an
+        ``ATTACH``-ed database is only chosen when neither of the two exists.
+        """
+        matches = [row for row in rows if row.get("name") == table_name]
+        if schema is not None:
+            matches = [row for row in matches if row.get("schema") == schema]
+            return matches[0] if matches else None
+        for preferred in ("temp", "main"):
+            for row in matches:
+                if row.get("schema") == preferred:
+                    return row
+        return matches[0] if matches else None
+
+    @staticmethod
+    def table_kind(schema: str, table_type: Optional[str] = None) -> str:
+        """The neutral kind for a table in *schema*.
+
+        ``temporary`` is a property of the schema the table lives in, not a
+        separate object type: a temp table is an ordinary table in ``temp``.
+        The module-backed and shadow kinds keep SQLite's own spelling rather
+        than pretending to be regular tables.
+        """
+        if schema == "temp":
+            return "temporary"
+        if table_type in ("view", "shadow", "virtual"):
+            return table_type
+        return "regular"
+
+    @staticmethod
+    def parse_table_traits(
+        ddl: Optional[str],
+        without_rowid: Optional[bool] = None,
+        strict: Optional[bool] = None,
+    ) -> Tuple[str, ...]:
+        """The table's storage traits, read from flags or from its DDL.
+
+        ``PRAGMA table_list`` reports ``wr`` and ``strict`` as flags; a
+        build without that pragma has only the statement text, where they
+        follow the closing parenthesis. Reading the tail rather than the
+        whole statement keeps a column named ``strict`` from being mistaken
+        for the table option.
+        """
+        if without_rowid is None or strict is None:
+            tail = ""
+            if ddl:
+                close = ddl.rfind(")")
+                tail = ddl[close + 1:] if close != -1 else ddl
+            if without_rowid is None:
+                without_rowid = find_word(
+                    tail, "WITHOUT ROWID", ignore_case=True
+                ) != -1
+            if strict is None:
+                strict = has_word(tail, "STRICT", ignore_case=True)
+        traits: List[str] = []
+        if strict:
+            traits.append("strict")
+        if without_rowid:
+            traits.append("without_rowid")
+        return tuple(traits)
+
+    def parse_table_state(
+        self,
+        table_name: str,
+        schema: str,
+        kind: str,
+        traits: Tuple[str, ...],
+        raw: Optional[Dict[str, Any]] = None,
+    ) -> TableState:
+        """Assemble the neutral table state.
+
+        SQLite stores no table comments and has no partitioning, so both
+        stay empty rather than carrying a guessed value.
+        """
+        return TableState(
+            name=table_name,
+            schema=schema,
+            kind=kind,
+            traits=traits,
+            storage=StorageOptionsState(),
+            comment=None,
+            partitioning=None,
+            raw=raw or {},
+        )
+
+    def parse_index_states(
+        self,
+        index_rows: List[Dict[str, Any]],
+        table_name: str,
+        schema: str,
+        predicates: Optional[Dict[str, str]] = None,
+    ) -> List[IndexState]:
+        """Turn ``PRAGMA index_list`` rows into neutral index states.
+
+        SQLite has one index method (btree) and no unusable or invisible
+        index state, so ``usable`` and ``visible`` are true by fact rather
+        than by assumption. A partial index's predicate is read from its
+        DDL, which is the only place the engine keeps the ``WHERE``.
+        """
+        predicates = predicates or {}
+        states: List[IndexState] = []
+        for row in index_rows:
+            name = row.get("name")
+            if not name:
+                continue
+            states.append(
+                IndexState(
+                    name=name,
+                    table=table_name,
+                    schema=schema,
+                    unique=bool(row.get("unique", 0)),
+                    method="btree",
+                    predicate=predicates.get(name),
+                    visible=True,
+                    usable=True,
+                    backs_constraint=None,
+                    raw={
+                        "origin": row.get("origin", "c"),
+                        "autoindex": name.startswith("sqlite_autoindex_"),
+                        "partial": bool(row.get("partial", 0)),
+                    },
+                )
+            )
+        return states
+
+    def sequence_rows_statement(self, schema: str) -> Tuple[str, tuple]:
+        """The SELECT that reads one database's ``sqlite_sequence`` rows.
+
+        There is no pragma for it: ``sqlite_sequence`` is an ordinary table
+        the engine creates, so the question is a SELECT over it. The schema
+        is placed as the existing statement factories place it, because
+        ``main`` and ``temp`` each have their own sequence table.
+        """
+        from rhosocial.activerecord.backend.expression import Column, QueryStatement
+        from rhosocial.activerecord.backend.expression.sources.relation import (
+            NamedRelationRef,
+        )
+        from ..expression import SQLiteTable
+
+        return cast(
+            Tuple[str, tuple],
+            QueryStatement(
+                self.dialect,
+                select=[Column(self.dialect, "name"), Column(self.dialect, "seq")],
+                from_=NamedRelationRef(
+                    self.dialect,
+                    SQLiteTable(
+                        self.dialect,
+                        "sqlite_sequence",
+                        schema_name=schema,
+                        schema_need_quote=False,
+                        name_need_quote=False,
+                    ),
+                ),
+            ).to_sql(),
+        )
+
+    def parse_sequence_states(
+        self,
+        rows: List[Dict[str, Any]],
+        schema: str,
+    ) -> List[SequenceState]:
+        """Turn ``sqlite_sequence`` rows into neutral sequence states.
+
+        Each row is the AUTOINCREMENT counter of one table, so the table's
+        name is the only identifier the engine gives it. The counter's last
+        value is carried in ``raw``; ``start`` and ``increment`` stay unset
+        because SQLite stores neither.
+        """
+        states: List[SequenceState] = []
+        for row in rows:
+            name = row.get("name")
+            if not name:
+                continue
+            last_value: Optional[int] = None
+            raw_value = row.get("seq")
+            if raw_value is not None:
+                try:
+                    last_value = int(raw_value)
+                except (TypeError, ValueError):
+                    last_value = None
+            states.append(
+                SequenceState(
+                    name=name,
+                    schema=schema,
+                    owned_by=name,
+                    start=None,
+                    increment=None,
+                    raw={
+                        "source": "sqlite_sequence",
+                        "last_value": last_value,
+                    },
+                )
+            )
+        return states
+
+    @staticmethod
+    def _group_at(text: str, open_index: int) -> Optional[Tuple[str, int]]:
+        """The balanced ``(...)`` group opening at *open_index*.
+
+        Returns the contents and the index of the closing parenthesis, or
+        ``None`` when no group opens there or it never closes.
+        """
+        if open_index < 0 or open_index >= len(text) or text[open_index] != "(":
+            return None
+        depth = 0
+        for index in range(open_index, len(text)):
+            char = text[index]
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0:
+                    return text[open_index + 1:index], index
+        return None
+
+    @staticmethod
+    def declared_constraint_name(
+        prefix: str, masked_prefix: Optional[str] = None
+    ) -> Optional[str]:
+        """The name a ``CONSTRAINT name`` clause gives, read from *prefix*.
+
+        The prefix is everything before the constraint keyword, so this
+        cannot accidentally name a later clause. Quoted spellings are
+        unwrapped; an unquoted name is read as one word. The keyword itself
+        is located in *masked_prefix* when one is given, because a quoted
+        default before the clause must not be read as the keyword.
+        """
+        search_text = masked_prefix if masked_prefix is not None else prefix
+        at = find_word(search_text, "CONSTRAINT", ignore_case=True)
+        if at == -1:
+            return None
+        rest = prefix[at + len("CONSTRAINT"):].strip()
+        if not rest:
+            return None
+        opener = rest[0]
+        if opener in "\"'`":
+            close = rest.find(opener, 1)
+            return rest[1:close] if close != -1 else None
+        if opener == "[":
+            close = rest.find("]", 1)
+            return rest[1:close] if close != -1 else None
+        return leading_word(rest) or None
+
+    @staticmethod
+    def _split_definitions(text: str) -> List[str]:
+        """Split a table body at top-level commas, respecting quotes.
+
+        ``split_top_level`` counts brackets but not quotes, which is enough
+        for type grammars and not for a declaration where a default is a
+        string containing a comma. The quoted run is skipped here, so a
+        comma inside ``'a,b'`` does not divide two definitions.
+        """
+        parts: List[str] = []
+        depth = 0
+        start = 0
+        quote: Optional[str] = None
+        index = 0
+        while index < len(text):
+            char = text[index]
+            if quote is not None:
+                if char == quote:
+                    if (
+                        index + 1 < len(text)
+                        and text[index + 1] == quote
+                        and quote in ("'", '"', "`")
+                    ):
+                        index += 2
+                        continue
+                    quote = None
+            elif char in "'\"`":
+                quote = char
+            elif char == "[":
+                quote = "]"
+            elif char in "([{":
+                depth += 1
+            elif char in ")]}":
+                if depth:
+                    depth -= 1
+            elif char == "," and depth == 0:
+                parts.append(text[start:index])
+                start = index + 1
+            index += 1
+        parts.append(text[start:])
+        return parts
+
+    @staticmethod
+    def _mask_quoted(text: str) -> str:
+        """A copy of *text* with every quoted run replaced by spaces.
+
+        The length is preserved, so an index found in the masked copy still
+        points at the same character of the original. This is how the CHECK
+        keyword and its parenthesis are found without a quoted default such
+        as ``DEFAULT 'CHECK(1)'`` being read as a constraint.
+        """
+        masked: List[str] = []
+        quote: Optional[str] = None
+        index = 0
+        while index < len(text):
+            char = text[index]
+            if quote is not None:
+                masked.append(" ")
+                if char == quote:
+                    if (
+                        index + 1 < len(text)
+                        and text[index + 1] == quote
+                        and quote in ("'", '"', "`")
+                    ):
+                        masked.append(" ")
+                        index += 2
+                        continue
+                    quote = None
+            elif char in "'\"`":
+                quote = char
+                masked.append(" ")
+            elif char == "[":
+                quote = "]"
+                masked.append(" ")
+            else:
+                masked.append(char)
+            index += 1
+        return "".join(masked)
+
+    def parse_check_constraints(
+        self,
+        ddl: Optional[str],
+        table_name: str,
+    ) -> List[Dict[str, Any]]:
+        """Every ``CHECK`` expression in the table's declaration.
+
+        No pragma returns a check constraint: its expression exists only in
+        the stored ``CREATE TABLE`` text. The definition list is split at
+        top level so a comma inside an expression does not divide it, and
+        each ``CHECK`` is read with its own balanced parentheses; quoted
+        text is masked first so a default mentioning ``CHECK`` is not read
+        as a constraint.
+
+        An unnamed check gets a deterministic label because the engine has
+        no name for it; ``named`` records whether the DDL supplied one, so
+        a caller can tell the two apart.
+        """
+        results: List[Dict[str, Any]] = []
+        body = parenthesised(ddl) if ddl else None
+        if body is None:
+            return results
+        ordinal = 0
+        for part in self._split_definitions(body):
+            masked = self._mask_quoted(part)
+            search = 0
+            while True:
+                at = find_word(masked, "CHECK", ignore_case=True, start=search)
+                if at == -1:
+                    break
+                open_index = at + len("CHECK")
+                while open_index < len(masked) and masked[open_index].isspace():
+                    open_index += 1
+                group = self._group_at(masked, open_index)
+                if group is None:
+                    # ``CHECK`` without a group is not a check constraint;
+                    # do not invent an expression for it.
+                    break
+                _, close = group
+                expression = part[open_index + 1:close].strip()
+                ordinal += 1
+                declared = self.declared_constraint_name(
+                    part[:at], masked[:at]
+                )
+                results.append(
+                    {
+                        "name": declared or f"check_{table_name}_{ordinal}",
+                        "expression": expression,
+                        "named": declared is not None,
+                        "table_constraint": masked.lstrip()
+                        .upper()
+                        .startswith(("CHECK", "CONSTRAINT")),
+                    }
+                )
+                search = close + 1
+        return results
+
+    def parse_constraint_states(
+        self,
+        table_name: str,
+        schema: str,
+        column_rows: List[Dict[str, Any]],
+        index_rows: List[Dict[str, Any]],
+        index_columns: Dict[str, List[str]],
+        fk_rows: List[Dict[str, Any]],
+        ddl: Optional[str],
+        foreign_keys_enabled: bool,
+    ) -> List[ConstraintState]:
+        """Reduce pragma rows and the DDL into neutral constraint states.
+
+        Primary keys come from ``PRAGMA table_xinfo``; unique constraints
+        from the ``u`` origin of ``PRAGMA index_list``; foreign keys from
+        ``PRAGMA foreign_key_list``; checks from the declaration because no
+        pragma reports them. SQLite names only the autoindex a unique
+        constraint creates, so the other three get deterministic labels and
+        their ``raw`` entry says the engine gave no name.
+
+        A foreign key's effective enforcement is the connection's
+        ``PRAGMA foreign_keys`` switch, not a per-constraint attribute,
+        which is why every foreign key reports the same answer.
+        """
+        states: List[ConstraintState] = []
+
+        pk_rows = sorted(
+            (row for row in column_rows if row.get("pk", 0) > 0),
+            key=lambda row: row.get("pk", 0),
+        )
+        if pk_rows:
+            pk_columns = [row.get("name") for row in pk_rows if row.get("name")]
+            pk_index = next(
+                (row.get("name") for row in index_rows if row.get("origin") == "pk"),
+                None,
+            )
+            states.append(
+                ConstraintState(
+                    name=f"pk_{table_name}",
+                    table=table_name,
+                    kind="primary_key",
+                    schema=schema,
+                    backing_index=pk_index,
+                    raw={
+                        "columns": pk_columns,
+                        "source": "table_xinfo",
+                    },
+                )
+            )
+
+        for row in index_rows:
+            if row.get("origin") != "u":
+                continue
+            name = row.get("name")
+            if not name:
+                continue
+            states.append(
+                ConstraintState(
+                    name=name,
+                    table=table_name,
+                    kind="unique",
+                    schema=schema,
+                    backing_index=name,
+                    raw={
+                        "columns": index_columns.get(name, []),
+                        "origin": "u",
+                        "autoindex": name.startswith("sqlite_autoindex_"),
+                    },
+                )
+            )
+
+        for check in self.parse_check_constraints(ddl, table_name):
+            states.append(
+                ConstraintState(
+                    name=check["name"],
+                    table=table_name,
+                    kind="check",
+                    schema=schema,
+                    raw={
+                        "expression": check["expression"],
+                        "named": check["named"],
+                        "table_constraint": check["table_constraint"],
+                    },
+                )
+            )
+
+        for fk in self.parse_foreign_keys(fk_rows, table_name, schema):
+            states.append(
+                ConstraintState(
+                    name=fk.name,
+                    table=table_name,
+                    kind="foreign_key",
+                    schema=schema,
+                    enforced=foreign_keys_enabled,
+                    raw={
+                        "referenced_table": fk.referenced_table,
+                        "columns": list(fk.columns),
+                        "referenced_columns": list(fk.referenced_columns),
+                        "on_update": fk.on_update.value,
+                        "on_delete": fk.on_delete.value,
+                        "foreign_keys_pragma": foreign_keys_enabled,
+                    },
+                )
+            )
+        return states
+
+    def parse_derived_objects(
+        self,
+        table_name: str,
+        ddl: Optional[str],
+        index_rows: List[Dict[str, Any]],
+    ) -> List[DerivedObjectState]:
+        """The objects SQLite created for this table's declaration.
+
+        ``sqlite_autoindex_*`` rows are the indexes a PRIMARY KEY or UNIQUE
+        clause made without being asked; ``sqlite_sequence`` appears once
+        the declaration says AUTOINCREMENT, even before it holds a row.
+        """
+        derived: List[DerivedObjectState] = []
+        if ddl and has_word(
+            self._mask_quoted(ddl), "AUTOINCREMENT", ignore_case=True
+        ):
+            derived.append(
+                DerivedObjectState(
+                    kind="identity_sequence",
+                    name="sqlite_sequence",
+                    owned_by=table_name,
+                    raw={"shared_table": True},
+                )
+            )
+        for row in index_rows:
+            name = row.get("name")
+            if not name or not name.startswith("sqlite_autoindex_"):
+                continue
+            derived.append(
+                DerivedObjectState(
+                    kind="autoindex",
+                    name=name,
+                    owned_by=table_name,
+                    raw={"origin": row.get("origin", "")},
+                )
+            )
+        return derived
 
 
     def get_database_info(self) -> IntrospectionDatabaseInfo:
@@ -859,6 +1441,274 @@ class SQLiteIntrospector(SQLiteIntrospectorMixin, AbstractIntrospector):
 
         self._cache.set(key, indexes)
         return indexes
+
+    # ------------------------------------------------------------------ #
+    # Neutral object state — sync I/O. The reductions live in the mixin so
+    # the async twin cannot answer a different fact from the same rows.
+    # ------------------------------------------------------------------ #
+
+    def _table_ddl_row(
+        self, table_name: str, schema: str
+    ) -> Optional[Dict[str, Any]]:
+        """The ``sqlite_master`` row a table's declaration was read from."""
+        sql, params = SQLiteTableDdlStatement(
+            self.dialect, table_name, schema
+        ).to_sql()
+        rows = self._executor.execute(sql, params)
+        return rows[0] if rows else None
+
+    def _table_exists(self, table_name: str, schema: str) -> bool:
+        """Whether a table exists, preferring the pragma that needs no DDL."""
+        if self._use_table_list():
+            return any(
+                row.get("name") == table_name
+                for row in self.pragma.table_list(schema)
+            )
+        return self._table_ddl_row(table_name, schema) is not None
+
+    def _sequence_rows(self, schema: str) -> List[Dict[str, Any]]:
+        """Read one database's ``sqlite_sequence`` rows."""
+        sql, params = self.sequence_rows_statement(schema)
+        rows: List[Dict[str, Any]] = self._executor.execute(sql, params)
+        return rows
+
+    def _schema_candidates(self, schema: Optional[str]) -> List[str]:
+        """Resolution order for an unqualified name, from the live schemas."""
+        return self.ordered_schema_names(self.list_schemas(), schema)
+
+    def _state_schema(
+        self, table_name: str, schema: Optional[str] = None
+    ) -> Optional[str]:
+        """The schema the table actually lives in, or ``None``."""
+        if schema is not None:
+            return schema
+        if self._use_table_list():
+            rows = self.pragma.table_list()
+            row = self.select_table_row(rows, table_name)
+            return row.get("schema") if row else None
+        for candidate in self._schema_candidates(None):
+            if self._table_ddl_row(table_name, candidate) is not None:
+                return candidate
+        return None
+
+    def get_table_state(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+    ) -> TableState:
+        """Read the table's kind and storage traits.
+
+        SQLite has no table comments and no partitioning, so both answer
+        empty; a table's ``STRICT`` and ``WITHOUT ROWID`` options are the
+        only storage traits it has.
+        """
+        target = self._state_schema(table_name, schema)
+        if target is None:
+            raise ObjectNotFoundError("Table", table_name, schema)
+
+        row: Optional[Dict[str, Any]] = None
+        ddl_row: Optional[Dict[str, Any]] = None
+        if self._use_table_list():
+            row = self.select_table_row(
+                self.pragma.table_list(target), table_name, target
+            )
+        if row is None:
+            ddl_row = self._table_ddl_row(table_name, target)
+            if ddl_row is None:
+                raise ObjectNotFoundError("Table", table_name, schema)
+
+        table_type = row.get("type") if row else None
+        traits = self.parse_table_traits(
+            ddl_row.get("sql") if ddl_row else None,
+            bool(row.get("wr", 0)) if row else None,
+            bool(row.get("strict", 0)) if row else None,
+        )
+        raw: Dict[str, Any] = {}
+        if row:
+            raw["table_type"] = row.get("type")
+            raw["ncol"] = row.get("ncol")
+        return self.parse_table_state(
+            table_name,
+            target,
+            self.table_kind(target, table_type),
+            traits,
+            raw,
+        )
+
+    def get_partition_state(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+        include_stats: bool = False,
+    ) -> PartitionState:
+        """``scheme=None``: SQLite has no partitioning.
+
+        The table is still resolved and its existence checked, so a missing
+        table is reported rather than read as an unpartitioned one.
+        """
+        self.get_table_state(table_name, schema)
+        return PartitionState(scheme=None)
+
+    def list_index_states(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+    ) -> List[IndexState]:
+        """Read every index, including autoindexes and partial predicates."""
+        target = self._state_schema(table_name, schema)
+        if target is None:
+            return []
+        index_rows = self.pragma.index_list(table_name, target)
+        predicates: Dict[str, str] = {}
+        for row in index_rows:
+            if not row.get("partial"):
+                continue
+            name = row.get("name")
+            if not name:
+                continue
+            sql, params = SQLiteIndexDdlStatement(self.dialect, name, target).to_sql()
+            rows = self._executor.execute(sql, params)
+            if not rows or not rows[0].get("sql"):
+                continue
+            where_at = find_word(rows[0]["sql"], "WHERE", ignore_case=True)
+            if where_at != -1:
+                predicates[name] = (
+                    rows[0]["sql"][where_at + len("WHERE"):].strip().rstrip(";")
+                )
+        return self.parse_index_states(index_rows, table_name, target, predicates)
+
+    def list_constraint_states(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+    ) -> List[ConstraintState]:
+        """Read PK, unique, check and foreign-key constraints."""
+        target = self._state_schema(table_name, schema)
+        if target is None:
+            return []
+        if getattr(self.dialect, "supports_table_xinfo_pragma", lambda: False)():
+            column_rows = self.pragma.table_xinfo(table_name, target)
+        else:
+            column_rows = self.pragma.table_info(table_name, target)
+        index_rows = self.pragma.index_list(table_name, target)
+        index_columns: Dict[str, List[str]] = {}
+        for row in index_rows:
+            name = row.get("name")
+            if not name:
+                continue
+            if getattr(
+                self.dialect, "supports_index_xinfo_pragma", lambda: False
+            )():
+                xinfo = self.pragma.index_xinfo(name, target)
+            else:
+                xinfo = self.pragma.index_info(name, target)
+            index_columns[name] = [
+                str(col["name"]) for col in xinfo if col.get("name")
+            ]
+        fk_rows = self.pragma.foreign_key_list(table_name, target)
+        ddl_row = self._table_ddl_row(table_name, target)
+        fk_enabled = bool(
+            self._pragma_value(self.pragma.get("foreign_keys"), "foreign_keys")
+        )
+        return self.parse_constraint_states(
+            table_name,
+            target,
+            column_rows,
+            index_rows,
+            index_columns,
+            fk_rows,
+            ddl_row.get("sql") if ddl_row else None,
+            fk_enabled,
+        )
+
+    def list_sequence_states(
+        self,
+        schema: Optional[str] = None,
+    ) -> List[SequenceState]:
+        """Read the AUTOINCREMENT counters the schema holds."""
+        target = schema or self.default_schema
+        if not self._table_exists("sqlite_sequence", target):
+            return []
+        return self.parse_sequence_states(self._sequence_rows(target), target)
+
+    def list_schemas(self) -> List[str]:
+        """The database names SQLite exposes: main, temp and attached.
+
+        ``PRAGMA database_list`` omits ``temp`` until it holds an object,
+        although a temp table can be created at any time; the namespace is
+        therefore reported even when the pragma does not name it.
+        """
+        rows = sorted(
+            self.pragma.execute("database_list"),
+            key=lambda row: row.get("seq", 0),
+        )
+        names = [row["name"] for row in rows if row.get("name")]
+        ordered = ["main"]
+        if "temp" in names:
+            ordered.append("temp")
+        ordered.extend(name for name in names if name not in ("main", "temp"))
+        if "temp" not in ordered:
+            ordered.insert(1, "temp")
+        return ordered
+
+    def list_derived_objects(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+    ) -> List[DerivedObjectState]:
+        """Read the autoindexes and sequence row the declaration produced."""
+        target = self._state_schema(table_name, schema)
+        if target is None:
+            return []
+        ddl_row = self._table_ddl_row(table_name, target)
+        if ddl_row is None:
+            return []
+        index_rows = self.pragma.index_list(table_name, target)
+        return self.parse_derived_objects(
+            table_name, ddl_row.get("sql"), index_rows
+        )
+
+    def item_exists(
+        self,
+        kind: ItemKind,
+        name: str,
+        schema: Optional[str] = None,
+    ) -> bool:
+        """Whether a table, index or sequence of this name exists.
+
+        Types, functions, extensions, tablespaces and the like are not
+        named objects in SQLite, so they answer False. A sequence is either
+        the ``sqlite_sequence`` table itself or one of its per-table rows.
+        """
+        if kind == ItemKind.SCHEMA:
+            return name in self.list_schemas()
+        candidates = self._schema_candidates(schema)
+        if kind == ItemKind.TABLE:
+            return any(
+                self._table_exists(name, candidate)
+                for candidate in candidates
+            )
+        if kind == ItemKind.INDEX:
+            for candidate in candidates:
+                sql, params = SQLiteIndexDdlStatement(
+                    self.dialect, name, candidate
+                ).to_sql()
+                if self._executor.execute(sql, params):
+                    return True
+            return False
+        if kind == ItemKind.SEQUENCE:
+            for candidate in candidates:
+                if not self._table_exists("sqlite_sequence", candidate):
+                    continue
+                if name == "sqlite_sequence":
+                    return True
+                if any(
+                    row.get("name") == name
+                    for row in self._sequence_rows(candidate)
+                ):
+                    return True
+            return False
+        return False
 
     # ------------------------------------------------------------------ #
     # get_table_info override — parses rows directly instead of calling
@@ -1122,6 +1972,257 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
 
         self._cache.set(key, indexes)
         return indexes
+
+    # ------------------------------------------------------------------ #
+    # Neutral object state — async I/O. Same questions as the sync block,
+    # awaited, and the same mixin reductions; the two directions cannot
+    # disagree about a table, an index or a sequence.
+    # ------------------------------------------------------------------ #
+
+    async def _table_ddl_row(
+        self, table_name: str, schema: str
+    ) -> Optional[Dict[str, Any]]:
+        sql, params = SQLiteTableDdlStatement(
+            self.dialect, table_name, schema
+        ).to_sql()
+        rows = await self._executor.execute(sql, params)
+        return rows[0] if rows else None
+
+    async def _table_exists(self, table_name: str, schema: str) -> bool:
+        if self._use_table_list():
+            return any(
+                row.get("name") == table_name
+                for row in await self.pragma.table_list(schema)
+            )
+        return await self._table_ddl_row(table_name, schema) is not None
+
+    async def _sequence_rows(self, schema: str) -> List[Dict[str, Any]]:
+        sql, params = self.sequence_rows_statement(schema)
+        rows: List[Dict[str, Any]] = await self._executor.execute(sql, params)
+        return rows
+
+    async def _state_schema(
+        self, table_name: str, schema: Optional[str] = None
+    ) -> Optional[str]:
+        if schema is not None:
+            return schema
+        if self._use_table_list():
+            rows = await self.pragma.table_list()
+            row = self.select_table_row(rows, table_name)
+            return row.get("schema") if row else None
+        for candidate in await self._schema_candidates(None):
+            if await self._table_ddl_row(table_name, candidate) is not None:
+                return candidate
+        return None
+
+    async def _schema_candidates(self, schema: Optional[str]) -> List[str]:
+        """Resolution order for an unqualified name, from the live schemas.
+
+        The sync helper reads ``self.list_schemas()`` directly; here that
+        method is a coroutine, so the names are awaited before the order is
+        built rather than passed as an unrun coroutine.
+        """
+        return self.ordered_schema_names(await self.list_schemas(), schema)
+
+    async def get_table_state(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+    ) -> TableState:
+        """The async twin of :meth:`SQLiteIntrospector.get_table_state`."""
+        target = await self._state_schema(table_name, schema)
+        if target is None:
+            raise ObjectNotFoundError("Table", table_name, schema)
+
+        row: Optional[Dict[str, Any]] = None
+        ddl_row: Optional[Dict[str, Any]] = None
+        if self._use_table_list():
+            row = self.select_table_row(
+                await self.pragma.table_list(target), table_name, target
+            )
+        if row is None:
+            ddl_row = await self._table_ddl_row(table_name, target)
+            if ddl_row is None:
+                raise ObjectNotFoundError("Table", table_name, schema)
+
+        table_type = row.get("type") if row else None
+        traits = self.parse_table_traits(
+            ddl_row.get("sql") if ddl_row else None,
+            bool(row.get("wr", 0)) if row else None,
+            bool(row.get("strict", 0)) if row else None,
+        )
+        raw: Dict[str, Any] = {}
+        if row:
+            raw["table_type"] = row.get("type")
+            raw["ncol"] = row.get("ncol")
+        return self.parse_table_state(
+            table_name,
+            target,
+            self.table_kind(target, table_type),
+            traits,
+            raw,
+        )
+
+    async def get_partition_state(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+        include_stats: bool = False,
+    ) -> PartitionState:
+        """``scheme=None``: SQLite has no partitioning."""
+        await self.get_table_state(table_name, schema)
+        return PartitionState(scheme=None)
+
+    async def list_index_states(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+    ) -> List[IndexState]:
+        """Read every index, including autoindexes and partial predicates."""
+        target = await self._state_schema(table_name, schema)
+        if target is None:
+            return []
+        index_rows = await self.pragma.index_list(table_name, target)
+        predicates: Dict[str, str] = {}
+        for row in index_rows:
+            if not row.get("partial"):
+                continue
+            name = row.get("name")
+            if not name:
+                continue
+            sql, params = SQLiteIndexDdlStatement(self.dialect, name, target).to_sql()
+            rows = await self._executor.execute(sql, params)
+            if not rows or not rows[0].get("sql"):
+                continue
+            where_at = find_word(rows[0]["sql"], "WHERE", ignore_case=True)
+            if where_at != -1:
+                predicates[name] = (
+                    rows[0]["sql"][where_at + len("WHERE"):].strip().rstrip(";")
+                )
+        return self.parse_index_states(index_rows, table_name, target, predicates)
+
+    async def list_constraint_states(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+    ) -> List[ConstraintState]:
+        """Read PK, unique, check and foreign-key constraints."""
+        target = await self._state_schema(table_name, schema)
+        if target is None:
+            return []
+        if getattr(self.dialect, "supports_table_xinfo_pragma", lambda: False)():
+            column_rows = await self.pragma.table_xinfo(table_name, target)
+        else:
+            column_rows = await self.pragma.table_info(table_name, target)
+        index_rows = await self.pragma.index_list(table_name, target)
+        index_columns: Dict[str, List[str]] = {}
+        for row in index_rows:
+            name = row.get("name")
+            if not name:
+                continue
+            if getattr(
+                self.dialect, "supports_index_xinfo_pragma", lambda: False
+            )():
+                xinfo = await self.pragma.index_xinfo(name, target)
+            else:
+                xinfo = await self.pragma.index_info(name, target)
+            index_columns[name] = [
+                str(col["name"]) for col in xinfo if col.get("name")
+            ]
+        fk_rows = await self.pragma.foreign_key_list(table_name, target)
+        ddl_row = await self._table_ddl_row(table_name, target)
+        fk_enabled = bool(
+            self._pragma_value(await self.pragma.get("foreign_keys"), "foreign_keys")
+        )
+        return self.parse_constraint_states(
+            table_name,
+            target,
+            column_rows,
+            index_rows,
+            index_columns,
+            fk_rows,
+            ddl_row.get("sql") if ddl_row else None,
+            fk_enabled,
+        )
+
+    async def list_sequence_states(
+        self,
+        schema: Optional[str] = None,
+    ) -> List[SequenceState]:
+        """Read the AUTOINCREMENT counters the schema holds."""
+        target = schema or self.default_schema
+        if not await self._table_exists("sqlite_sequence", target):
+            return []
+        return self.parse_sequence_states(
+            await self._sequence_rows(target), target
+        )
+
+    async def list_schemas(self) -> List[str]:
+        """The database names SQLite exposes: main, temp and attached."""
+        rows = sorted(
+            await self.pragma.execute("database_list"),
+            key=lambda row: row.get("seq", 0),
+        )
+        names = [row["name"] for row in rows if row.get("name")]
+        ordered = ["main"]
+        if "temp" in names:
+            ordered.append("temp")
+        ordered.extend(name for name in names if name not in ("main", "temp"))
+        if "temp" not in ordered:
+            ordered.insert(1, "temp")
+        return ordered
+
+    async def list_derived_objects(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+    ) -> List[DerivedObjectState]:
+        """Read the autoindexes and sequence row the declaration produced."""
+        target = await self._state_schema(table_name, schema)
+        if target is None:
+            return []
+        ddl_row = await self._table_ddl_row(table_name, target)
+        if ddl_row is None:
+            return []
+        index_rows = await self.pragma.index_list(table_name, target)
+        return self.parse_derived_objects(
+            table_name, ddl_row.get("sql"), index_rows
+        )
+
+    async def item_exists(
+        self,
+        kind: ItemKind,
+        name: str,
+        schema: Optional[str] = None,
+    ) -> bool:
+        """Whether a table, index or sequence of this name exists."""
+        if kind == ItemKind.SCHEMA:
+            return name in await self.list_schemas()
+        candidates = await self._schema_candidates(schema)
+        if kind == ItemKind.TABLE:
+            for candidate in candidates:
+                if await self._table_exists(name, candidate):
+                    return True
+            return False
+        if kind == ItemKind.INDEX:
+            for candidate in candidates:
+                sql, params = SQLiteIndexDdlStatement(
+                    self.dialect, name, candidate
+                ).to_sql()
+                if await self._executor.execute(sql, params):
+                    return True
+            return False
+        if kind == ItemKind.SEQUENCE:
+            for candidate in candidates:
+                if not await self._table_exists("sqlite_sequence", candidate):
+                    continue
+                if name == "sqlite_sequence":
+                    return True
+                rows = await self._sequence_rows(candidate)
+                if any(row.get("name") == name for row in rows):
+                    return True
+            return False
+        return False
 
     # ------------------------------------------------------------------ #
     # get_table_info override — parses rows directly instead of calling
