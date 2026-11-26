@@ -161,15 +161,31 @@ views = introspector.list_views(include_materialized=True)
 
 ## What Can You Discover at Runtime?
 
-You can check introspection capabilities using the protocol system:
+You can check introspection capabilities using the protocol system. The surface
+is split into four families -- structure, operational stats, data profile and
+DDL extraction -- so a backend can answer one question without claiming the
+others:
+
+| Family protocol | Question |
+|-----------------|----------|
+| `StructureIntrospectionSupport` | What the catalogue says an object is |
+| `OperationalStatsIntrospectionSupport` | What the engine has counted while running |
+| `DataProfileIntrospectionSupport` | What the rows actually hold |
+| `DdlExtractionIntrospectionSupport` | The text that would recreate an object |
+
+Check the family whose methods the block below uses; a dialect that answers
+`False` to that family's probes is reported honestly rather than skipped.
 
 ```python
-from rhosocial.activerecord.backend.dialect.protocols import IntrospectionSupport
+from rhosocial.activerecord.backend.dialect.protocols import (
+    StructureIntrospectionSupport,
+    PartitionSupport,
+)
 
 dialect = backend.dialect
 
-# Check if introspection is supported at all
-if isinstance(dialect, IntrospectionSupport):
+# Check if the catalogue is readable at all
+if isinstance(dialect, StructureIntrospectionSupport):
     # Check specific introspection features
     if dialect.supports_table_introspection():
         tables = introspector.list_tables()
@@ -186,9 +202,10 @@ if isinstance(dialect, IntrospectionSupport):
     if dialect.supports_view_introspection():
         views = introspector.list_views()
 
-    if dialect.supports_partition_info():
-        # Get partition information (PostgreSQL, MySQL)
-        partitions = introspector.list_partitions('users')
+# Partition metadata is its own question on PartitionSupport, not an
+# introspection-family probe (PostgreSQL, MySQL).
+if isinstance(dialect, PartitionSupport) and dialect.supports_partition_metadata_introspection():
+    partitions = introspector.get_partition_state('users')
 ```
 
 ### An Illustration, Not a Matrix

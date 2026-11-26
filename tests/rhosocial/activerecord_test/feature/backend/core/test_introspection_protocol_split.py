@@ -9,7 +9,9 @@ dialect can answer one question -- declarations, behaviour, data, retained text
 * its async twin declares the same members;
 * the sync and async mixin of each family declare the same members;
 * the two composition-only aggregates declare none and inherit the four;
-* the old single-name and ``supports_partition_info`` are gone from ``src``.
+* the old single-name and ``supports_partition_info`` are gone from ``src``
+  and from ``docs`` -- the docs are the half of the surface a source-only
+  scan misses, so each tree gets its own case-sensitive check.
 """
 
 import re
@@ -181,6 +183,26 @@ def test_the_old_single_name_is_not_exported():
     assert not hasattr(dialect, "IntrospectionSupport")
 
 
+LEGACY_PATTERNS = {
+    "IntrospectionSupport": re.compile(r"\bIntrospectionSupport\b"),
+    "supports_partition_info": re.compile(r"\bsupports_partition_info\b"),
+}
+
+
+def _legacy_offenders(root: Path, suffixes: set) -> list:
+    """Scan *root* case-sensitively and report every hit as ``file:line: name``."""
+    offenders = []
+    for path in root.rglob("*"):
+        if path.suffix not in suffixes or not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            for label, pattern in LEGACY_PATTERNS.items():
+                if pattern.search(line):
+                    offenders.append(f"{path.relative_to(root)}:{line_number}: {label}")
+    return offenders
+
+
 def test_legacy_names_are_absent_from_src():
     """Neither the old protocol name nor ``supports_partition_info`` remains.
 
@@ -188,19 +210,22 @@ def test_legacy_names_are_absent_from_src():
     ``supports_partition_metadata_introspection`` in ``ddl/partition.py``.
     """
     root = Path(__file__).resolve().parents[6] / "src"
-    patterns = {
-        "IntrospectionSupport": re.compile(r"\bIntrospectionSupport\b"),
-        "supports_partition_info": re.compile(r"\bsupports_partition_info\b"),
-    }
-    offenders = []
-    for path in root.rglob("*"):
-        if path.suffix not in {".py", ".md"} or not path.is_file():
-            continue
-        text = path.read_text(encoding="utf-8", errors="replace")
-        for label, pattern in patterns.items():
-            if pattern.search(text):
-                offenders.append(f"{path.relative_to(root)}: {label}")
+    offenders = _legacy_offenders(root, {".py", ".md"})
 
-    assert not offenders, (
-        "legacy introspection names remain in src:\n" + "\n".join(f"  - {o}" for o in offenders)
+    assert not offenders, "legacy introspection names remain in src:\n" + "\n".join(
+        f"  - {o}" for o in offenders
+    )
+
+
+def test_legacy_names_are_absent_from_docs():
+    """The docs must not import or call the names the split deleted.
+
+    A source-only scan cannot see a stale sample, and a sample is what readers
+    copy. The scan is case-sensitive and names the offending line.
+    """
+    root = Path(__file__).resolve().parents[6] / "docs"
+    offenders = _legacy_offenders(root, {".md"})
+
+    assert not offenders, "legacy introspection names remain in docs:\n" + "\n".join(
+        f"  - {o}" for o in offenders
     )

@@ -142,18 +142,29 @@ async def table_report(backend):
 ## Discovering the Full Set
 
 Probes are declared on the dialect rather than collected in a registry, so the
-set is readable from the objects themselves. The protocol declares all of them,
-which is what makes introspection of introspection possible without reading
-source: ask the protocol for its `supports_` names, then ask the adapted dialect
-each one.
+set is readable from the objects themselves. The four families together declare
+all of them, which is what makes introspection of introspection possible without
+reading source: ask each family for its `supports_` names, then ask the adapted
+dialect each one. No single class carries the whole set any more, so the union
+below is what replaces the old single-protocol enumeration.
 
 ```python
-from rhosocial.activerecord.backend.dialect.protocols.introspect.introspection import (
-    IntrospectionSupport,
+from rhosocial.activerecord.backend.dialect.protocols import (
+    StructureIntrospectionSupport,
+    OperationalStatsIntrospectionSupport,
+    DataProfileIntrospectionSupport,
+    DdlExtractionIntrospectionSupport,
+)
+
+FAMILIES = (
+    StructureIntrospectionSupport,
+    OperationalStatsIntrospectionSupport,
+    DataProfileIntrospectionSupport,
+    DdlExtractionIntrospectionSupport,
 )
 
 probe_names = sorted(
-    name for name in dir(IntrospectionSupport) if name.startswith("supports_")
+    {name for family in FAMILIES for name in dir(family) if name.startswith("supports_")}
 )
 answers = {name: getattr(backend.dialect, name)() for name in probe_names}
 

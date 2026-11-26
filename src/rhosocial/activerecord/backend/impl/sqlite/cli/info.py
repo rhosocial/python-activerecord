@@ -43,6 +43,10 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     TriggerObjectSupport,
     RoutineObjectSupport,
     CreateSchemaSupport,
+    StructureIntrospectionSupport,
+    OperationalStatsIntrospectionSupport,
+    DataProfileIntrospectionSupport,
+    DdlExtractionIntrospectionSupport,
 )
 
 from .connection import create_backend_from_memory
@@ -77,6 +81,13 @@ PROTOCOL_FAMILY_GROUPS: Dict[str, list] = {
     "DDL - Schema & Index": [CreateSchemaSupport, IndexObjectSupport],
     "DDL - Sequence & Trigger": [SequenceObjectSupport, TriggerObjectSupport, RoutineObjectSupport],
     "String Matching": [ILIKESupport],
+    # The four introspection families print like any other family, including
+    # the ones SQLite answers all-False: 0% is the honest report, and hiding
+    # the row would make "not measured" look like "not asked".
+    "Structure Introspection": [StructureIntrospectionSupport],
+    "Operational Stats": [OperationalStatsIntrospectionSupport],
+    "Data Profile": [DataProfileIntrospectionSupport],
+    "DDL Extraction": [DdlExtractionIntrospectionSupport],
     "SQLite-specific": [
         SQLiteExtensionSupport,
         SQLitePragmaSupport,

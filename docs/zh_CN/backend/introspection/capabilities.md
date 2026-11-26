@@ -72,15 +72,25 @@ async def table_report(backend):
 
 ## 发现完整集合
 
-探针声明在方言上，而不是收在一个注册表里，所以这个集合可以从对象本身读出来。协议声明了全部，这正是"对内省做内省"不必读源码就能成立的原因：向协议要它的 `supports_` 名字，然后拿每一个去问已经适配的方言。
+探针声明在方言上，而不是收在一个注册表里，所以这个集合可以从对象本身读出来。四族合起来声明了全部，这正是"对内省做内省"不必读源码就能成立的原因：向每一族要它的 `supports_` 名字，然后拿每一个去问已经适配的方言。已经没有哪一个类独自承载整个集合，所以下面用并集替代了旧的单协议枚举。
 
 ```python
-from rhosocial.activerecord.backend.dialect.protocols.introspect.introspection import (
-    IntrospectionSupport,
+from rhosocial.activerecord.backend.dialect.protocols import (
+    StructureIntrospectionSupport,
+    OperationalStatsIntrospectionSupport,
+    DataProfileIntrospectionSupport,
+    DdlExtractionIntrospectionSupport,
+)
+
+FAMILIES = (
+    StructureIntrospectionSupport,
+    OperationalStatsIntrospectionSupport,
+    DataProfileIntrospectionSupport,
+    DdlExtractionIntrospectionSupport,
 )
 
 probe_names = sorted(
-    name for name in dir(IntrospectionSupport) if name.startswith("supports_")
+    {name for family in FAMILIES for name in dir(family) if name.startswith("supports_")}
 )
 answers = {name: getattr(backend.dialect, name)() for name in probe_names}
 

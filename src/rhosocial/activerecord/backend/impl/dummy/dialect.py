@@ -101,7 +101,6 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     # Introspection Mixin
     IntrospectionMixin,
     AsyncIntrospectionMixin,
-    AsyncIntrospectionMixin,
     # New Mixins
     PredicateMixin,
     TrimMixin,
