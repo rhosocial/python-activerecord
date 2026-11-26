@@ -109,8 +109,16 @@ from .query.wildcard import WildcardSupport
 from .query.window import WindowFunctionSupport
 
 # --- Introspection and sessions ---
-from .introspect.introspection import IntrospectionSupport
-from .introspect.async_introspection import AsyncIntrospectionSupport
+# Four families, each with an async twin: structure (declarations),
+# operational statistics (measured behaviour), data profile (row contents),
+# and DDL extraction (retained object text).
+from .introspect.structure import StructureIntrospectionSupport, AsyncStructureIntrospectionSupport
+from .introspect.operational_stats import (
+    OperationalStatsIntrospectionSupport,
+    AsyncOperationalStatsIntrospectionSupport,
+)
+from .introspect.data_profile import DataProfileIntrospectionSupport, AsyncDataProfileIntrospectionSupport
+from .introspect.ddl_extraction import DdlExtractionIntrospectionSupport, AsyncDdlExtractionIntrospectionSupport
 from .introspect.transaction import TransactionControlSupport
 
 # --- SQL/XML ---
@@ -187,8 +195,14 @@ __all__ = [
     "ILIKESupport",
     "IdentityColumnSupport",
     "IndexObjectSupport",
-    "IntrospectionSupport",
-    "AsyncIntrospectionSupport",
+    "StructureIntrospectionSupport",
+    "AsyncStructureIntrospectionSupport",
+    "OperationalStatsIntrospectionSupport",
+    "AsyncOperationalStatsIntrospectionSupport",
+    "DataProfileIntrospectionSupport",
+    "AsyncDataProfileIntrospectionSupport",
+    "DdlExtractionIntrospectionSupport",
+    "AsyncDdlExtractionIntrospectionSupport",
     "JSONSupport",
     "JoinSupport",
     "LateralJoinSupport",

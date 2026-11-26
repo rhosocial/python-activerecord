@@ -102,7 +102,14 @@ from .protocols import (
     ColumnAttributeSupport,
     AlterTableModifierSupport,
     # Introspection and sessions
-    IntrospectionSupport,
+    StructureIntrospectionSupport,
+    AsyncStructureIntrospectionSupport,
+    OperationalStatsIntrospectionSupport,
+    AsyncOperationalStatsIntrospectionSupport,
+    DataProfileIntrospectionSupport,
+    AsyncDataProfileIntrospectionSupport,
+    DdlExtractionIntrospectionSupport,
+    AsyncDdlExtractionIntrospectionSupport,
     TransactionControlSupport,
 )
 from .mixins import (
@@ -220,7 +227,14 @@ __all__ = [
     "CreateSchemaSupport",
     "DropSchemaSupport",
     # Introspection and sessions
-    "IntrospectionSupport",
+    "StructureIntrospectionSupport",
+    "AsyncStructureIntrospectionSupport",
+    "OperationalStatsIntrospectionSupport",
+    "AsyncOperationalStatsIntrospectionSupport",
+    "DataProfileIntrospectionSupport",
+    "AsyncDataProfileIntrospectionSupport",
+    "DdlExtractionIntrospectionSupport",
+    "AsyncDdlExtractionIntrospectionSupport",
     "TransactionControlSupport",
     # Mixins
     "WindowFunctionMixin",

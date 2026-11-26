@@ -260,7 +260,7 @@ if isinstance(dialect, WindowFunctionSupport):
 - **Concurrency Control**: `LockingSupport`, `QualifyClauseSupport`, `TransactionControlSupport`
 - **DDL Operations**: `CreateTableSupport`, `DropTableSupport`, `AlterTableSupport`, `CreateViewSupport`, `DropViewSupport`, `MaterializedViewSupport`, `CreateIndexSupport`, `DropIndexSupport`, `FulltextIndexSupport`, `PartitionSupport`, `CreateSequenceSupport`, `CreateTypeSupport`, `CreateDomainSupport`, `CreateRoutineSupport`, `CreateTriggerSupport`, `CreateSchemaSupport`, `CreateDatabaseSupport`, `ConstraintSupport`, `CommentSupport`, `TruncateSupport`
 - **Object Naming**: `TableObjectSupport`, `ViewObjectSupport`, `MaterializedViewObjectSupport`, `ForeignTableObjectSupport`, `IndexObjectSupport`, `SequenceObjectSupport`, `TypeObjectSupport`, `RoutineObjectSupport`, `TriggerObjectSupport`, `SynonymObjectSupport`, `NamespaceSupport`
-- **Advanced Features**: `LateralJoinSupport`, `TemporalTableSupport`, `GraphSupport`, `GraphTableSupport`, `ILIKESupport`, `SQLXMLSupport`, `IntrospectionSupport`
+- **Advanced Features**: `LateralJoinSupport`, `TemporalTableSupport`, `GraphSupport`, `GraphTableSupport`, `ILIKESupport`, `SQLXMLSupport`, `StructureIntrospectionSupport`, `OperationalStatsIntrospectionSupport`, `DataProfileIntrospectionSupport`, `DdlExtractionIntrospectionSupport`
 
 `NamespaceSupport` is the naming protocol, not a DDL one: it answers whether a name may be
 qualified with a catalog or a schema. Whether the engine *has* those objects is a separate

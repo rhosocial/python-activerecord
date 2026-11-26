@@ -10,7 +10,6 @@ from rhosocial.activerecord.backend.introspection.types import IntrospectionScop
 
 def test_structure_probes_are_false():
     dialect = SQLiteDialect(version=(3, 53, 0))
-    assert dialect.supports_partition_info() is False
     assert dialect.supports_extensions() is False
 
 

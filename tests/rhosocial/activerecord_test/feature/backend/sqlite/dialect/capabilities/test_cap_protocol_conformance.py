@@ -90,7 +90,13 @@ def get_own_protocol_methods(proto: type) -> set:
 
 SQLITE_PROTOCOLS = [
 
-    dialect_protocols.AsyncIntrospectionSupport,
+    # Introspection is four families, each with an async twin; SQLite answers
+    # every family (some as "not supported here", which is still an answer),
+    # so both the sync and async forms belong in the positive list.
+    dialect_protocols.AsyncStructureIntrospectionSupport,
+    dialect_protocols.AsyncOperationalStatsIntrospectionSupport,
+    dialect_protocols.AsyncDataProfileIntrospectionSupport,
+    dialect_protocols.AsyncDdlExtractionIntrospectionSupport,
     dialect_protocols.DQLSupport,
     dialect_protocols.DMLSupport,
     dialect_protocols.DDLColumnSupport,
@@ -238,7 +244,10 @@ SQLITE_PROTOCOLS = [
     dialect_protocols.GeneratedColumnSupport,
 
 
-    dialect_protocols.IntrospectionSupport,
+    dialect_protocols.StructureIntrospectionSupport,
+    dialect_protocols.OperationalStatsIntrospectionSupport,
+    dialect_protocols.DataProfileIntrospectionSupport,
+    dialect_protocols.DdlExtractionIntrospectionSupport,
 
 
     dialect_protocols.TransactionControlSupport,
@@ -485,11 +494,14 @@ class TestProtocolNonOverlap:
         for name, members in member_map.items():
             assert len(members) > 0, f"Protocol {name} has no members defined"
 
-        # AsyncIntrospectionSupport is a Python-specific async mirror of
-        # IntrospectionSupport (same feature group, sync/async forms). Its
-        # identical interface is intentional — see formal description §7.
+        # The async introspection twins are Python-specific mirrors of the
+        # sync families (same feature group, sync/async forms). Their identical
+        # interfaces are intentional — see formal description §7.
         excluded_overlaps = {
-            ("AsyncIntrospectionSupport", "IntrospectionSupport"),
+            ("AsyncStructureIntrospectionSupport", "StructureIntrospectionSupport"),
+            ("AsyncOperationalStatsIntrospectionSupport", "OperationalStatsIntrospectionSupport"),
+            ("AsyncDataProfileIntrospectionSupport", "DataProfileIntrospectionSupport"),
+            ("AsyncDdlExtractionIntrospectionSupport", "DdlExtractionIntrospectionSupport"),
         }
 
         violations = []

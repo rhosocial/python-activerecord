@@ -7,7 +7,7 @@ This module provides the SQLiteIntrospectionCapabilityMixin class.
 
 import sqlite3
 from functools import lru_cache
-from typing import List, Optional, Tuple, TYPE_CHECKING
+from typing import Optional, Tuple, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.introspection.types import ProfileSource
@@ -38,7 +38,6 @@ if TYPE_CHECKING:
         SQLiteTableDdlStatement,
         SQLiteTableStorageStatement,
     )
-    from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
 
 
 # A PRAGMA value the engine reads in its own vocabulary rather than as a SQL
@@ -81,7 +80,7 @@ def _dbstat_compiled_in() -> bool:
 class SQLiteIntrospectionCapabilityMixin:
     """SQLite introspection capability declaration.
 
-    This mixin implements the IntrospectionSupport protocol by declaring
+    This mixin answers the four introspection family protocols by declaring
     which introspection features SQLite supports based on version.
     The actual introspection implementation is in the backend layer
     via SQLiteIntrospectionMixin from the introspection module.
@@ -167,10 +166,6 @@ class SQLiteIntrospectionCapabilityMixin:
         return False
 
     # ========== Structure Information ==========
-
-    def supports_partition_info(self) -> bool:
-        """SQLite does not support partition information (no partitions in SQLite)."""
-        return False
 
     def supports_object_dependencies(self) -> bool:
         """SQLite does not support object dependencies introspection."""

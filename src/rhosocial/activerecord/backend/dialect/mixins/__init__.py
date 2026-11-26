@@ -43,7 +43,18 @@ from .function import FunctionMixin, FunctionCallMixin
 from .generated_column import GeneratedColumnMixin
 from .auto_increment import AutoIncrementColumnMixin
 from .identity_column import IdentityColumnMixin
-from .introspection import IntrospectionMixin, AsyncIntrospectionMixin
+from .introspection import (
+    StructureIntrospectionMixin,
+    OperationalStatsIntrospectionMixin,
+    DataProfileIntrospectionMixin,
+    DdlExtractionIntrospectionMixin,
+    IntrospectionMixin,
+    AsyncStructureIntrospectionMixin,
+    AsyncOperationalStatsIntrospectionMixin,
+    AsyncDataProfileIntrospectionMixin,
+    AsyncDdlExtractionIntrospectionMixin,
+    AsyncIntrospectionMixin,
+)
 from .predicate import PredicateMixin
 from .expression import ExpressionMixin
 from .relation_source import RelationSourceMixin
@@ -158,6 +169,14 @@ __all__ = [
     "IdentityColumnMixin",
     "IntrospectionMixin",
     "AsyncIntrospectionMixin",
+    "StructureIntrospectionMixin",
+    "OperationalStatsIntrospectionMixin",
+    "DataProfileIntrospectionMixin",
+    "DdlExtractionIntrospectionMixin",
+    "AsyncStructureIntrospectionMixin",
+    "AsyncOperationalStatsIntrospectionMixin",
+    "AsyncDataProfileIntrospectionMixin",
+    "AsyncDdlExtractionIntrospectionMixin",
     "PredicateMixin",
     "ExpressionMixin",
     "NamespaceMixin",
