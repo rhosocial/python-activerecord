@@ -89,24 +89,25 @@ class TestDummyProtocolMemberCompleteness:
             "Please update DummyDialect to implement these methods."
         )
 
-    def test_all_dialects_protocols_implemented(self):
-        """Verify every generic protocol is implemented by DummyDialect.
+    def test_all_dialects_protocols_are_structural(self):
+        """Verify no generic protocol is inherited; conformance is structural.
 
-        DummyDialect is the full-featured SQL-standard reference, so it must
-        satisfy all generic dialect protocols.
+        ``test_isinstance_check_all_protocols`` already proves every generic
+        protocol is satisfied by real methods. This is the other half: the
+        protocols must not be dialects bases, because inheriting one adds its
+        ellipsis stubs and makes ``isinstance`` pass without an implementation.
         """
         protocol_classes = self.get_all_protocol_classes()
         all_protocols = {name for name, cls in protocol_classes}
 
         dummy_mro = dummy_dialect.DummyDialect.__mro__
-        implemented = {
+        inherited = {
             cls.__name__ for cls in dummy_mro if issubclass(cls, Protocol) and cls.__name__ in all_protocols
         }
 
-        missing = all_protocols - implemented
-        assert not missing, (
-            f"DummyDialect is missing the following protocols: {missing}\n"
-            "Please add these protocols to DummyDialect's inheritance."
+        assert not inherited, (
+            f"DummyDialect inherits protocol classes: {inherited}\n"
+            "Protocols are satisfied structurally; compose mixins instead."
         )
 
     def test_isinstance_check_all_protocols(self, dialect):
@@ -160,10 +161,9 @@ class TestDummyProtocolMemberCompleteness:
         unclassified when a new one is added to protocols.py.
         """
         all_protocols = {name for name, cls in self.get_all_protocol_classes()}
-        dummy_mro = dummy_dialect.DummyDialect.__mro__
+        dummy = dummy_dialect.DummyDialect()
         positive = {
-            cls.__name__ for cls in dummy_mro
-            if issubclass(cls, Protocol) and cls.__name__ in all_protocols
+            name for name, cls in self.get_all_protocol_classes() if isinstance(dummy, cls)
         }
         negative = set()  # DummyDialect has no deliberately-unsupported protocols
 
