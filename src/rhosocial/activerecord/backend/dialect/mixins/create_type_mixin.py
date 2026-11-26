@@ -1,10 +1,10 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/create_type_mixin.py
 """Per-statement mixin for CreateTypeSupport. Members/order/signature mirror the protocol."""
 
-from typing import Tuple, Type as TypingType, TYPE_CHECKING
+from typing import Tuple, Type as TypingType
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression.objects import Type
-from rhosocial.activerecord.backend.expression.statements.ddl_type import TypeAlterAction, TypeDefinition
+from rhosocial.activerecord.backend.expression.statements.ddl_type import TypeDefinition
 
 class CreateTypeMixin:
     def supports_type_objects(self) -> bool:
@@ -22,19 +22,6 @@ class CreateTypeMixin:
     def supports_create_type_or_replace(self) -> bool:
             """Whether CREATE OR REPLACE TYPE is supported."""
             return False
-
-    def supports_type_definition(
-            self,
-            definition_type: TypingType["TypeDefinition"],
-        ) -> bool:
-            """Whether a type-definition class is supported."""
-            try:
-                return any(
-                    issubclass(definition_type, supported)
-                    for supported in self.supported_type_definitions()
-                )
-            except TypeError:
-                return False
 
     def format_create_type_statement(
             self,
@@ -69,7 +56,7 @@ class CreateTypeMixin:
                 raise UnsupportedFeatureError(self.name, "CREATE TYPE IF NOT EXISTS")
             if expr.or_replace and not self.supports_create_type_or_replace():
                 raise UnsupportedFeatureError(self.name, "CREATE OR REPLACE TYPE")
-            if not self.supports_type_definition(type(expr.definition)):
+            if not issubclass(type(expr.definition), self.supported_type_definitions()):
                 raise UnsupportedFeatureError(
                     self.name,
                     f"TYPE definition {expr.definition.definition_kind}",

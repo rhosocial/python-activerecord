@@ -1,9 +1,9 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/create_domain_mixin.py
 """Per-statement mixin for CreateDomainSupport. Members/order/signature mirror the protocol."""
 
-from typing import Tuple, Type, TYPE_CHECKING
+from typing import Tuple
 from rhosocial.activerecord.backend.expression.objects import Domain
-from rhosocial.activerecord.backend.expression.statements.ddl_domain import DomainAlterAction, DomainCheckConstraint, DomainNullability
+from rhosocial.activerecord.backend.expression.statements.ddl_domain import DomainCheckConstraint, DomainNullability
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 class CreateDomainMixin:
@@ -19,14 +19,13 @@ class CreateDomainMixin:
             """Whether domain DEFAULT values are supported."""
             return self.supports_domains()
 
-    def supports_domain_nullability(
-            self,
-            nullability: "DomainNullability",
-        ) -> bool:
-            """Whether a domain nullability declaration is supported."""
-            if not self.supports_domains():
-                return False
-            return nullability in set(DomainNullability)
+    def supports_domain_nullable(self) -> bool:
+            """Whether a ``DOMAIN NULL`` declaration is supported."""
+            return self.supports_domains()
+
+    def supports_domain_not_null(self) -> bool:
+            """Whether a ``DOMAIN NOT NULL`` declaration is supported."""
+            return self.supports_domains()
 
     def supports_domain_checks(self) -> bool:
             """Whether domain CHECK constraints are supported."""
@@ -111,12 +110,13 @@ class CreateDomainMixin:
                 check_sql, check_params = check.to_sql()
                 parts.append(check_sql)
                 params.extend(check_params)
-            if expr.nullability is not DomainNullability.UNSPECIFIED:
-                if not self.supports_domain_nullability(expr.nullability):
-                    raise UnsupportedFeatureError(
-                        self.name,
-                        f"DOMAIN {expr.nullability.value}",
-                    )
+            if expr.nullability is DomainNullability.NULLABLE:
+                if not self.supports_domain_nullable():
+                    raise UnsupportedFeatureError(self.name, "DOMAIN NULL")
+                parts.append(expr.nullability.value)
+            elif expr.nullability is DomainNullability.NOT_NULL:
+                if not self.supports_domain_not_null():
+                    raise UnsupportedFeatureError(self.name, "DOMAIN NOT NULL")
                 parts.append(expr.nullability.value)
             return " ".join(parts), tuple(params)
 

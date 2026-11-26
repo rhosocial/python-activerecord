@@ -254,10 +254,6 @@ from rhosocial.activerecord.backend.expression.statements.ddl_type import (
     TypeAlterAction,
     TypeDefinition,
 )
-from rhosocial.activerecord.backend.expression.statements.ddl_domain import (
-    DomainAlterAction,
-    DomainNullability,
-)
 from rhosocial.activerecord.backend.expression.types import (
     ArrayType, BigIntType, BinaryType, BlobType, BooleanType, CharType, CustomType,
     DataType, DateType, DateTimeType, DecimalType, DoubleType, EnumType, FloatType,
@@ -737,12 +733,6 @@ class DummyDialect(
     def supported_type_definitions(self) -> Tuple[Type[TypeDefinition], ...]:
         return (_DummyTypeDefinition,)
 
-    def supports_type_alter_action(
-        self,
-        action_type: Type[TypeAlterAction],
-    ) -> bool:
-        return action_type is _DummyTypeAlterAction
-
     def supports_create_type_if_not_exists(self) -> bool:
         return True
 
@@ -761,7 +751,7 @@ class DummyDialect(
     def format_type_definition(self, expr: TypeDefinition) -> "Tuple[str, tuple]":
         if not self.supports_type_objects():
             raise UnsupportedFeatureError(self.name, "TYPE definition")
-        if not self.supports_type_definition(type(expr)):
+        if not issubclass(type(expr), self.supported_type_definitions()):
             raise UnsupportedFeatureError(
                 self.name,
                 f"TYPE definition {expr.definition_kind}",
@@ -777,11 +767,6 @@ class DummyDialect(
     def format_type_alter_action(self, expr: TypeAlterAction) -> "Tuple[str, tuple]":
         if not self.supports_type_objects() or not self.supports_alter_type():
             raise UnsupportedFeatureError(self.name, "ALTER TYPE action")
-        if not self.supports_type_alter_action(type(expr)):
-            raise UnsupportedFeatureError(
-                self.name,
-                f"ALTER TYPE action {expr.action_kind}",
-            )
         if isinstance(expr, _DummyTypeAlterAction):
             return f"RENAME TO {self.format_identifier(expr.new_name)}", ()
         raise UnsupportedFeatureError(
@@ -793,7 +778,10 @@ class DummyDialect(
     def supports_domains(self) -> bool:
         return True
 
-    def supports_domain_nullability(self, nullability: DomainNullability) -> bool:
+    def supports_domain_nullable(self) -> bool:
+        return True
+
+    def supports_domain_not_null(self) -> bool:
         return True
 
     def supports_named_domain_checks(self) -> bool:
@@ -803,12 +791,6 @@ class DummyDialect(
         return True
 
     def supports_domain_collation(self) -> bool:
-        return True
-
-    def supports_alter_domain_action(
-        self,
-        action_type: Type[DomainAlterAction],
-    ) -> bool:
         return True
 
     def supports_multiple_domain_alter_actions(self) -> bool:
@@ -945,7 +927,40 @@ class DummyDialect(
     def supports_explain_analyze(self) -> bool:
         return True
 
-    def supports_explain_format(self, format_type: str) -> bool:
+    def supports_explain_verbose(self) -> bool:
+        return True
+
+    def supports_explain_costs(self) -> bool:
+        return True
+
+    def supports_explain_buffers(self) -> bool:
+        return True
+
+    def supports_explain_timing(self) -> bool:
+        return True
+
+    def supports_explain_settings(self) -> bool:
+        return True
+
+    def supports_explain_wal(self) -> bool:
+        return True
+
+    def supports_explain_format_text(self) -> bool:
+        return True
+
+    def supports_explain_format_json(self) -> bool:
+        return True
+
+    def supports_explain_format_xml(self) -> bool:
+        return True
+
+    def supports_explain_format_yaml(self) -> bool:
+        return True
+
+    def supports_explain_format_tree(self) -> bool:
+        return True
+
+    def supports_explain_format_traditional(self) -> bool:
         return True
 
     def supports_filter_clause(self) -> bool:

@@ -85,7 +85,6 @@ PROTOCOL_FAMILY_GROUPS: Dict[str, list] = {
 
 # All possible test arguments for methods that require parameters
 SUPPORT_METHOD_ALL_ARGS: Dict[str, List[str]] = {
-    "supports_explain_format": ["TEXT", "JSON", "XML", "YAML", "TREE", "DOT"],
     "is_extension_available": [
         "fts5",
         "fts4",

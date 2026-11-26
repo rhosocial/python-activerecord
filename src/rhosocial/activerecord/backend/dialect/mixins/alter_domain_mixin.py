@@ -1,22 +1,15 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/alter_domain_mixin.py
 """Per-statement mixin for AlterDomainSupport. Members/order/signature mirror the protocol."""
 
-from typing import Tuple, Type, TYPE_CHECKING
+from typing import Tuple
 from rhosocial.activerecord.backend.expression.objects import Domain
-from rhosocial.activerecord.backend.expression.statements.ddl_domain import DomainAlterAction, DomainCheckConstraint, DomainNullability
+from rhosocial.activerecord.backend.expression.statements.ddl_domain import DomainAlterAction
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 class AlterDomainMixin:
     def supports_alter_domain(self) -> bool:
             """Whether ALTER DOMAIN is supported."""
             return self.supports_domains()
-
-    def supports_alter_domain_action(
-            self,
-            action_type: Type["DomainAlterAction"],
-        ) -> bool:
-            """Whether an ALTER DOMAIN action class is supported."""
-            return False
 
     def supports_multiple_domain_alter_actions(self) -> bool:
             """Whether one ALTER DOMAIN statement may contain multiple actions."""
@@ -61,11 +54,6 @@ class AlterDomainMixin:
             action_parts = []
             action_params = []
             for action in expr.actions:
-                if not self.supports_alter_domain_action(type(action)):
-                    raise UnsupportedFeatureError(
-                        self.name,
-                        f"ALTER DOMAIN action {action.action_kind}",
-                    )
                 action_sql, params = action.to_sql()
                 action_parts.append(action_sql)
                 action_params.extend(params)
@@ -92,11 +80,6 @@ class AlterDomainMixin:
 
             if not self.supports_domains() or not self.supports_alter_domain():
                 raise UnsupportedFeatureError(self.name, "ALTER DOMAIN action")
-            if not self.supports_alter_domain_action(type(expr)):
-                raise UnsupportedFeatureError(
-                    self.name,
-                    f"ALTER DOMAIN action {expr.action_kind}",
-                )
             if isinstance(expr, SetDomainDefaultAction):
                 if not self.supports_domain_default():
                     raise UnsupportedFeatureError(self.name, "ALTER DOMAIN SET DEFAULT")
@@ -109,11 +92,11 @@ class AlterDomainMixin:
                     raise UnsupportedFeatureError(self.name, "ALTER DOMAIN DROP DEFAULT")
                 return "DROP DEFAULT", ()
             if isinstance(expr, SetDomainNotNullAction):
-                if not self.supports_domain_nullability(expr.nullability):
+                if not self.supports_domain_not_null():
                     raise UnsupportedFeatureError(self.name, "ALTER DOMAIN SET NOT NULL")
                 return "SET NOT NULL", ()
             if isinstance(expr, DropDomainNotNullAction):
-                if not self.supports_domain_nullability(expr.nullability):
+                if not self.supports_domain_not_null():
                     raise UnsupportedFeatureError(self.name, "ALTER DOMAIN DROP NOT NULL")
                 return "DROP NOT NULL", ()
             if isinstance(expr, AddDomainCheckAction):

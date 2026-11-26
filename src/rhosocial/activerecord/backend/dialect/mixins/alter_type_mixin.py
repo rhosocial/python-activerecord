@@ -1,10 +1,10 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/alter_type_mixin.py
 """Per-statement mixin for AlterTypeSupport. Members/order/signature mirror the protocol."""
 
-from typing import Tuple, Type as TypingType, TYPE_CHECKING
+from typing import Tuple
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression.objects import Type
-from rhosocial.activerecord.backend.expression.statements.ddl_type import TypeAlterAction, TypeDefinition
+from rhosocial.activerecord.backend.expression.statements.ddl_type import TypeAlterAction
 
 class AlterTypeMixin:
     def supports_alter_type(self) -> bool:
@@ -13,13 +13,6 @@ class AlterTypeMixin:
 
     def supports_alter_type_if_exists(self) -> bool:
             """Whether ALTER TYPE IF EXISTS is supported."""
-            return False
-
-    def supports_type_alter_action(
-            self,
-            action_type: TypingType["TypeAlterAction"],
-        ) -> bool:
-            """Whether an ALTER TYPE action class is supported."""
             return False
 
     def supports_multiple_type_alter_actions(self) -> bool:
@@ -63,11 +56,6 @@ class AlterTypeMixin:
             action_parts = []
             action_params = []
             for action in expr.actions:
-                if not self.supports_type_alter_action(type(action)):
-                    raise UnsupportedFeatureError(
-                        self.name,
-                        f"ALTER TYPE action {action.action_kind}",
-                    )
                 action_sql, params = action.to_sql()
                 action_parts.append(action_sql)
                 action_params.extend(params)

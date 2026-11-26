@@ -19,6 +19,9 @@ from .introspection_suggestion import IntrospectionSuggestionSupport
 from .json_suggestion import JSONSuggestionSupport
 from .string_concatenation_suggestion import StringConcatenationSuggestionSupport
 from .create_table_layout_suggestion import CreateTableLayoutSuggestionSupport
+from .text_encoding_suggestion import TextEncodingSuggestionSupport
+from .storage_engine_suggestion import StorageEngineSuggestionSupport
+from .explain_format_suggestion import ExplainFormatSuggestionSupport
 from .upsert_suggestion import UpsertSuggestionSupport
 from .partition_add_suggestion import PartitionAddSuggestionSupport
 from .partition_build_suggestion import PartitionBuildSuggestionSupport
@@ -43,6 +46,9 @@ __all__ = [
     "JSONSuggestionSupport",
     "StringConcatenationSuggestionSupport",
     "CreateTableLayoutSuggestionSupport",
+    "TextEncodingSuggestionSupport",
+    "StorageEngineSuggestionSupport",
+    "ExplainFormatSuggestionSupport",
     "UpsertSuggestionSupport",
     "PartitionAddSuggestionSupport",
     "PartitionBuildSuggestionSupport",

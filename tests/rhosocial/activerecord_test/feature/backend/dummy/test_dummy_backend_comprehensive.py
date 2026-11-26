@@ -148,4 +148,4 @@ class TestDummyDialectComprehensive:
         # Test other methods
         assert dialect.suggest_upsert_syntax_type().syntax == "ON CONFLICT"
         assert dialect.suggest_json_access_operator().operator == "->"
-        assert dialect.supports_explain_format("ANY") is True
+        assert dialect.supports_explain_format_json() is True

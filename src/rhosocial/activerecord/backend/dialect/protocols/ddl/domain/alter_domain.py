@@ -8,7 +8,7 @@ Naming an object is not here -- that is
 :mod:`~rhosocial.activerecord.backend.dialect.protocols.object`.
 """
 
-from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING, Type
+from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from .....expression.statements import (
@@ -27,13 +27,6 @@ class AlterDomainSupport(Protocol):
 
     def supports_alter_domain(self) -> bool:
         """Whether the engine accepts the form ``alter_domain``.
-
-        Defaults to ``False``; a dialect that accepts it returns ``True``.
-        """
-        ...  # pragma: no cover
-
-    def supports_alter_domain_action(self, action_type: Type["DomainAlterAction"]) -> bool:
-        """Whether the engine accepts the form ``alter_domain_action``.
 
         Defaults to ``False``; a dialect that accepts it returns ``True``.
         """

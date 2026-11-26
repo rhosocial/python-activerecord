@@ -110,8 +110,8 @@ class TestDummyProtocolSupport:
     def test_explain_support_methods(self, dialect):
         """Test ExplainSupport protocol methods."""
         assert dialect.supports_explain_analyze() is True
-        assert dialect.supports_explain_format("JSON") is True
-        assert dialect.supports_explain_format("TEXT") is True
+        assert dialect.supports_explain_format_json() is True
+        assert dialect.supports_explain_format_text() is True
 
     # endregion
 

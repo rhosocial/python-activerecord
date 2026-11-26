@@ -30,6 +30,11 @@ from .general import (
     UpsertSyntaxSuggestion,
 )
 from .generated_value import GeneratedValueSuggestion
+from .table_options import (
+    ExplainFormatSuggestion,
+    StorageEngineSuggestion,
+    TextEncodingSuggestion,
+)
 from .partition import (
     PartitionSuggestionOutcome,
     PartitionAddSuggestion,
@@ -64,6 +69,9 @@ __all__ = [
     "CreateTableLayoutSuggestion",
     "UpsertSyntaxSuggestion",
     "GeneratedValueSuggestion",
+    "TextEncodingSuggestion",
+    "StorageEngineSuggestion",
+    "ExplainFormatSuggestion",
     "PartitionAddSuggestion",
     "PartitionSuggestionOutcome",
     "PartitionBuildSuggestion",

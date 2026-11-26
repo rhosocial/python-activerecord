@@ -668,10 +668,53 @@ class SQLiteDialect(
         # For simplicity, we'll say it's supported
         return True
 
-    def supports_explain_format(self, format_type: str) -> bool:
-        """Check if specific EXPLAIN format is supported."""
-        # SQLite has limited support for different EXPLAIN formats
-        return format_type.upper() in ["TEXT", "DOT"]
+    def supports_explain_verbose(self) -> bool:
+        """SQLite does not accept the VERBOSE option."""
+        return False
+
+    def supports_explain_costs(self) -> bool:
+        """SQLite does not accept the COSTS option."""
+        return False
+
+    def supports_explain_buffers(self) -> bool:
+        """SQLite does not accept the BUFFERS option."""
+        return False
+
+    def supports_explain_timing(self) -> bool:
+        """SQLite does not accept the TIMING option."""
+        return False
+
+    def supports_explain_settings(self) -> bool:
+        """SQLite does not accept the SETTINGS option."""
+        return False
+
+    def supports_explain_wal(self) -> bool:
+        """SQLite does not accept the WAL option."""
+        return False
+
+    def supports_explain_format_text(self) -> bool:
+        """SQLite renders the default text form."""
+        return True
+
+    def supports_explain_format_json(self) -> bool:
+        """SQLite has no JSON EXPLAIN format."""
+        return False
+
+    def supports_explain_format_xml(self) -> bool:
+        """SQLite has no XML EXPLAIN format."""
+        return False
+
+    def supports_explain_format_yaml(self) -> bool:
+        """SQLite has no YAML EXPLAIN format."""
+        return False
+
+    def supports_explain_format_tree(self) -> bool:
+        """SQLite has no TREE EXPLAIN format."""
+        return False
+
+    def supports_explain_format_traditional(self) -> bool:
+        """SQLite has no TRADITIONAL EXPLAIN format."""
+        return False
 
     def format_explain_statement(self, expr: "ExplainStatement") -> "Tuple[str, tuple]":
         """Format EXPLAIN / EXPLAIN QUERY PLAN for SQLite.

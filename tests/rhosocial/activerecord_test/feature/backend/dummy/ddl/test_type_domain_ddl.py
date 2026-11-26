@@ -397,10 +397,9 @@ def test_sqlite_new_capabilities_are_false():
         "supports_unnamed_domain_check_drop",
     ):
         assert getattr(dialect, name)() is False, name
-    assert dialect.supports_domain_nullability(DomainNullability.NOT_NULL) is False
-    assert dialect.supports_type_definition(_DummyTypeDefinition) is False
-    assert dialect.supports_type_alter_action(_DummyTypeAlterAction) is False
-    assert dialect.supports_alter_domain_action(SetDomainDefaultAction) is False
+    assert dialect.supports_domain_nullable() is False
+    assert dialect.supports_domain_not_null() is False
+    assert dialect.supported_type_definitions() == ()
 
 
 def test_core_type_and_domain_roundtrips(dummy_dialect):

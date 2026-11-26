@@ -28,19 +28,18 @@ class TestSQLiteDialectOtherFeatures:
         assert dialect.supports_explain_analyze()
 
     def test_supports_explain_format(self):
-        """Test EXPLAIN format support"""
+        """Test EXPLAIN format support is one switch per format"""
         dialect = SQLiteDialect()
 
-        # Supported formats
-        assert dialect.supports_explain_format("TEXT")
-        assert dialect.supports_explain_format("text")
-        assert dialect.supports_explain_format("DOT")
-        assert dialect.supports_explain_format("dot")
+        # Supported format
+        assert dialect.supports_explain_format_text()
 
         # Unsupported formats
-        assert not dialect.supports_explain_format("JSON")
-        assert not dialect.supports_explain_format("XML")
-        assert not dialect.supports_explain_format("YAML")
+        assert not dialect.supports_explain_format_json()
+        assert not dialect.supports_explain_format_xml()
+        assert not dialect.supports_explain_format_yaml()
+        assert not dialect.supports_explain_format_tree()
+        assert not dialect.supports_explain_format_traditional()
 
     def test_supports_lateral_join(self):
         """Test LATERAL JOIN support - SQLite does not support the LATERAL keyword."""

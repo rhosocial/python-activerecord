@@ -202,18 +202,13 @@ class TestSQLiteDialectComprehensive:
         result = dialect.format_identifier(identifier)
         assert result == expected
 
-    def test_explain_format_case_insensitive(self):
-        """Test EXPLAIN format support is case insensitive"""
+    def test_explain_format_switches(self):
+        """Each EXPLAIN format is its own no-argument support switch."""
         dialect = SQLiteDialect()
 
-        # Test uppercase
-        assert dialect.supports_explain_format("TEXT")
-        assert dialect.supports_explain_format("DOT")
-
-        # Test lowercase
-        assert dialect.supports_explain_format("text")
-        assert dialect.supports_explain_format("dot")
-
-        # Test mixed case
-        assert dialect.supports_explain_format("Text")
-        assert dialect.supports_explain_format("Dot")
+        assert dialect.supports_explain_format_text()
+        assert not dialect.supports_explain_format_json()
+        assert not dialect.supports_explain_format_xml()
+        assert not dialect.supports_explain_format_yaml()
+        assert not dialect.supports_explain_format_tree()
+        assert not dialect.supports_explain_format_traditional()
