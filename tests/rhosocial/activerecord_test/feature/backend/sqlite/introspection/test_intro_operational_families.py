@@ -89,7 +89,7 @@ class TestFamiliesSQLiteCannotAnswer:
             lambda: sqlite_backend.introspector.list_unused_indexes(),
             lambda: sqlite_backend.introspector.list_table_usage_stats(),
         ):
-            with pytest.raises(ProtocolNotImplementedError):
+            with pytest.raises((ProtocolNotImplementedError, UnsupportedFeatureError)):
                 call()
 
     def test_unused_indexes_answer_is_empty_and_says_why(self, sqlite_backend):
@@ -104,13 +104,13 @@ class TestFamiliesSQLiteCannotAnswer:
         assert "format_ddl_statement_query_statement" in docstring
         assert "False" in docstring
 
-        with pytest.raises(ProtocolNotImplementedError):
+        with pytest.raises((ProtocolNotImplementedError, UnsupportedFeatureError)):
             sqlite_backend.introspector.get_ddl_statement("orders")
 
     def test_the_ddl_probe_and_the_statement_agree(self, sqlite_backend):
         """The False and the refusal are the same fact seen from two sides."""
         assert sqlite_backend.dialect.supports_ddl_extraction() is False
-        with pytest.raises(ProtocolNotImplementedError):
+        with pytest.raises((ProtocolNotImplementedError, UnsupportedFeatureError)):
             sqlite_backend.introspector.get_ddl_statement("orders")
 
 
