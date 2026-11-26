@@ -244,7 +244,6 @@ SQLITE_PROTOCOLS = [
     dialect_protocols.TransactionControlSupport,
 
 
-    dialect_protocols.SQLFunctionSupport,
 
 
     dialect_protocols.AlterTableModifierSupport,
