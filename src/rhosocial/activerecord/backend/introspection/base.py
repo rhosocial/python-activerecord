@@ -37,6 +37,13 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING
 from .cache import InMemoryIntrospectionCache, IntrospectionCache
 from .defaults import VALUE_SAMPLE_LIMIT
 from .types import (
+    ConstraintState,
+    DerivedObjectState,
+    IndexState,
+    ItemKind,
+    PartitionState,
+    SequenceState,
+    TableState,
     IntrospectionDatabaseInfo,
     IntrospectionTableInfo,
     IntrospectionColumnInfo,
@@ -132,6 +139,17 @@ class IntrospectorMixin:
         """
         return ""
 
+
+    def _refuse(self, protocol_name: str, method_name: str) -> None:
+        """Refuse a family this backend has not implemented.
+
+        Imported here rather than at module scope: ``dialect.exceptions``
+        pulls in the dialect package, which imports ``schema``, which imports
+        this module.
+        """
+        from ..dialect.exceptions import ProtocolNotImplementedError
+
+        raise ProtocolNotImplementedError(self.dialect.name, protocol_name, method_name)
 
 class IntrospectorBase(IntrospectorMixin, ABC):
     """What every introspection manager is: owns the cache, provides the
@@ -1475,6 +1493,84 @@ class AbstractIntrospector(IntrospectorBase, ABC):
         )
 
 
+
+    # -- neutral object state -------------------------------------------------
+    #
+    # These answer "what does the server hold right now", in shapes the caller
+    # owns. A backend that cannot answer raises ProtocolNotImplementedError
+    # rather than returning an empty value that reads as a real answer.
+
+    def get_table_state(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+    ) -> TableState:
+        """Read the table's kind, storage options, comment and partition scheme."""
+        self._refuse("StructureIntrospectionSupport", "get_table_state")
+
+    def get_partition_state(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+        include_stats: bool = False,
+    ) -> Optional[PartitionState]:
+        """Read the table's partition scheme and bounds.
+
+        ``None`` is the single neutral answer for "this table is not
+        partitioned". ``include_stats`` asks for per-partition row counts and
+        sizes; leaving it False must not run a statistics query.
+        """
+        self._refuse("PartitionIntrospectionSupport", "get_partition_state")
+
+    def list_index_states(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+    ) -> List[IndexState]:
+        """Read every index on the table, including usability and visibility."""
+        self._refuse("StructureIntrospectionSupport", "list_index_states")
+
+    def list_constraint_states(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+    ) -> List[ConstraintState]:
+        """Read every constraint on the table, including its validation state."""
+        self._refuse("StructureIntrospectionSupport", "list_constraint_states")
+
+    def list_sequence_states(
+        self,
+        schema: Optional[str] = None,
+    ) -> List[SequenceState]:
+        """Read the sequences this schema holds, with their owning columns."""
+        self._refuse("StructureIntrospectionSupport", "list_sequence_states")
+
+    def list_schemas(self) -> List[str]:
+        """Read the schema/namespace names the server exposes."""
+        self._refuse("StructureIntrospectionSupport", "list_schemas")
+
+    def list_derived_objects(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+    ) -> List[DerivedObjectState]:
+        """Read the objects the engine created for a declaration on this table."""
+        self._refuse("StructureIntrospectionSupport", "list_derived_objects")
+
+    def item_exists(
+        self,
+        kind: ItemKind,
+        name: str,
+        schema: Optional[str] = None,
+    ) -> bool:
+        """Whether a shared object of this kind exists.
+
+        Shared objects outlive a table: sequences, types, functions, partition
+        functions/schemes, extensions, tablespaces, full-text catalogues.
+        """
+        self._refuse("StructureIntrospectionSupport", "item_exists")
+
+
 class AsyncAbstractIntrospector(IntrospectorBase, ABC):
     """Abstract base class for asynchronous database introspectors.
 
@@ -1898,3 +1994,66 @@ class AsyncAbstractIntrospector(IntrospectorBase, ABC):
             (t for t in await self.list_triggers(schema=schema) if t.name == trigger_name),
             None,
         )
+
+    # -- neutral object state (async twins) -----------------------------------
+
+    async def get_table_state(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+    ) -> TableState:
+        """Read the table's kind, storage options, comment and partition scheme."""
+        self._refuse("StructureIntrospectionSupport", "get_table_state")
+
+    async def get_partition_state(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+        include_stats: bool = False,
+    ) -> Optional[PartitionState]:
+        """Read the table's partition scheme and bounds."""
+        self._refuse("PartitionIntrospectionSupport", "get_partition_state")
+
+    async def list_index_states(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+    ) -> List[IndexState]:
+        """Read every index on the table, including usability and visibility."""
+        self._refuse("StructureIntrospectionSupport", "list_index_states")
+
+    async def list_constraint_states(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+    ) -> List[ConstraintState]:
+        """Read every constraint on the table, including its validation state."""
+        self._refuse("StructureIntrospectionSupport", "list_constraint_states")
+
+    async def list_sequence_states(
+        self,
+        schema: Optional[str] = None,
+    ) -> List[SequenceState]:
+        """Read the sequences this schema holds, with their owning columns."""
+        self._refuse("StructureIntrospectionSupport", "list_sequence_states")
+
+    async def list_schemas(self) -> List[str]:
+        """Read the schema/namespace names the server exposes."""
+        self._refuse("StructureIntrospectionSupport", "list_schemas")
+
+    async def list_derived_objects(
+        self,
+        table_name: str,
+        schema: Optional[str] = None,
+    ) -> List[DerivedObjectState]:
+        """Read the objects the engine created for a declaration on this table."""
+        self._refuse("StructureIntrospectionSupport", "list_derived_objects")
+
+    async def item_exists(
+        self,
+        kind: ItemKind,
+        name: str,
+        schema: Optional[str] = None,
+    ) -> bool:
+        """Whether a shared object of this kind exists."""
+        self._refuse("StructureIntrospectionSupport", "item_exists")

@@ -29,6 +29,7 @@ class IntrospectionScope(Enum):
     VIEW = "view"
     TRIGGER = "trigger"
     SEQUENCE = "sequence"
+    PARTITION = "partition"
 
 
 class TableType(Enum):
@@ -599,3 +600,185 @@ class JoinCoverage:
     #: Share of the right column's distinct values that also occur on the left.
     right_coverage: Optional[float] = None
     extra: Dict[str, Any] = field(default_factory=dict)
+
+# ---------------------------------------------------------------------------
+# Neutral object state
+#
+# A snapshot of what the server currently holds, independent of any backend
+# catalogue shape. The manager answers with these; callers never see a
+# backend-specific dataclass.
+# ---------------------------------------------------------------------------
+
+
+class PartitionScheme(str, Enum):
+    """How a partitioned table splits its rows."""
+
+    RANGE = "range"
+    LIST = "list"
+    HASH = "hash"
+    KEY = "key"
+    COMPOSITE = "composite"
+    INTERVAL = "interval"
+    EXPRESSION = "expression"
+
+
+class ItemKind(str, Enum):
+    """Kinds of shared objects a plan may need to know exist.
+
+    These are the objects that outlive a table: a sequence, a type, a
+    function used by a default, a SQL Server partition function/scheme, a
+    full-text catalogue, an extension, a tablespace.
+    """
+
+    SCHEMA = "schema"
+    TYPE = "type"
+    DOMAIN = "domain"
+    FUNCTION = "function"
+    SEQUENCE = "sequence"
+    TABLE = "table"
+    EXTENSION = "extension"
+    TABLESPACE = "tablespace"
+    PARTITION_FUNCTION = "partition_function"
+    PARTITION_SCHEME = "partition_scheme"
+    FULLTEXT_CATALOG = "fulltext_catalog"
+
+
+@dataclass(frozen=True)
+class StorageOptionsState:
+    """Physical storage options that were set on the table.
+
+    ``None`` means the engine used its own default; it does not mean "unknown".
+    """
+
+    engine: Optional[str] = None
+    charset: Optional[str] = None
+    collation: Optional[str] = None
+    compression: Optional[str] = None
+    tablespace: Optional[str] = None
+    raw: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class PartitionBound:
+    """One partition's boundary and, when asked for, its size."""
+
+    name: str
+    #: RANGE/LIST boundary as the server spells it; expression partitions have none.
+    upper: Optional[str] = None
+    values: Tuple[str, ...] = ()
+    is_default: bool = False
+    is_maxvalue: bool = False
+    #: Only populated when ``include_stats`` was requested.
+    row_count: Optional[int] = None
+    size_bytes: Optional[int] = None
+    subpartition_count: int = 0
+    tablespace: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class PartitionState:
+    """The table's partition scheme and every partition under it.
+
+    ``scheme`` is the single neutral answer to "is this table partitioned":
+    ``None`` for every backend, regardless of how that backend spells or
+    discovers partitions (child tables, system parts, decorated tables).
+    """
+
+    scheme: Optional[PartitionScheme] = None
+    key_expression: str = ""
+    key_columns: Tuple[str, ...] = ()
+    has_default: bool = False
+    auto_extend: bool = False
+    bounds: Tuple[PartitionBound, ...] = ()
+    raw: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class TableState:
+    """A table's kind, storage options, comment and partition scheme."""
+
+    name: str
+    schema: Optional[str] = None
+    #: "regular" / "temporary" / "transient" / "unlogged"; backends may add
+    #: their own spelling. Compound traits live in ``traits``.
+    kind: str = "regular"
+    traits: Tuple[str, ...] = ()
+    storage: StorageOptionsState = field(default_factory=StorageOptionsState)
+    comment: Optional[str] = None
+    partitioning: Optional[PartitionState] = None
+    raw: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class IndexState:
+    """One index, including whether the engine still considers it usable."""
+
+    name: str
+    table: str
+    schema: Optional[str] = None
+    unique: bool = False
+    method: Optional[str] = None
+    predicate: Optional[str] = None
+    visible: bool = True
+    #: False when the engine reports the index unusable/invalid (Oracle after
+    #: a partition DDL, PostgreSQL after a failed CONCURRENTLY build).
+    usable: bool = True
+    #: Name of the constraint this index backs, when it does.
+    backs_constraint: Optional[str] = None
+    raw: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ConstraintState:
+    """One constraint, including how the engine treats it right now."""
+
+    name: str
+    table: str
+    kind: str = ""
+    schema: Optional[str] = None
+    validated: bool = True
+    enforced: bool = True
+    deferred: bool = False
+    disabled: bool = False
+    backing_index: Optional[str] = None
+    raw: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class SequenceState:
+    """One sequence, and the column that owns it when one does."""
+
+    name: str
+    schema: Optional[str] = None
+    owned_by: Optional[str] = None
+    start: Optional[int] = None
+    increment: Optional[int] = None
+    raw: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class TriggerState:
+    """One trigger, including whether it fires."""
+
+    name: str
+    table: str
+    schema: Optional[str] = None
+    timing: Optional[str] = None
+    events: Tuple[str, ...] = ()
+    enabled: bool = True
+    raw: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class DerivedObjectState:
+    """An object the engine created for someone else's declaration.
+
+    ``kind`` is one of ``backing_index`` / ``identity_sequence`` /
+    ``history_table`` / ``named_default`` / ``autoindex``. A plan may create
+    it indirectly and must know it is there before it can alter or drop it.
+    """
+
+    kind: str
+    name: str
+    owned_by: Optional[str] = None
+    raw: Dict[str, Any] = field(default_factory=dict)
