@@ -130,3 +130,63 @@ def test_the_scan_accepts_a_quoted_bool_annotation(tmp_path):
     )
     tree = ast.parse(probe.read_text(encoding="utf-8"))
     assert not _offenders(tree, "probe")
+
+
+def _protocol_bases(tree, label):
+    """Dialect classes must not inherit a ``*Support`` protocol.
+
+    A runtime-checkable Protocol is satisfied structurally; inheriting it only
+    adds its ellipsis-bodied members, which make ``isinstance`` pass even when
+    nothing implements them.
+    """
+    found = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef) or not node.name.endswith("Dialect"):
+            continue
+        for base in node.bases:
+            if isinstance(base, ast.Name):
+                name = base.id
+            elif isinstance(base, ast.Attribute):
+                name = base.attr
+            else:
+                continue
+            if name.endswith("Support"):
+                found.append(f"{label}:{node.lineno} {node.name}({name})")
+    return found
+
+
+@pytest.mark.parametrize("path", _source_files(), ids=lambda p: str(p.name))
+def test_dialect_does_not_inherit_a_protocol(path):
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    offenders = _protocol_bases(tree, path.name)
+    assert not offenders, "\n".join(offenders)
+
+
+def test_the_protocol_scan_reaches_the_source_tree():
+    assert len(_source_files()) > 50
+
+
+def test_the_protocol_scan_flags_a_planted_violation(tmp_path):
+    probe = tmp_path / "_probe.py"
+    probe.write_text(
+        "class ProbeSupport:\n"
+        "    pass\n"
+        "class ProbeDialect(ProbeSupport):\n"
+        "    pass\n",
+        encoding="utf-8",
+    )
+    tree = ast.parse(probe.read_text(encoding="utf-8"))
+    assert _protocol_bases(tree, "probe")
+
+
+def test_the_protocol_scan_accepts_a_plain_base(tmp_path):
+    probe = tmp_path / "_probe.py"
+    probe.write_text(
+        "class Base:\n"
+        "    pass\n"
+        "class ProbeDialect(Base):\n"
+        "    pass\n",
+        encoding="utf-8",
+    )
+    tree = ast.parse(probe.read_text(encoding="utf-8"))
+    assert not _protocol_bases(tree, "probe")

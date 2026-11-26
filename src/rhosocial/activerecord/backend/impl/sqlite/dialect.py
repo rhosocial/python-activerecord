@@ -11,66 +11,6 @@ from rhosocial.activerecord.backend.suggestion.definitions import SubstituteType
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
-from rhosocial.activerecord.backend.dialect.protocols import (
-    CollationSupport,
-    CTESupport,
-    FilterClauseSupport,
-    WindowFunctionSupport,
-    JSONSupport,
-    UUIDSupport,
-    ReturningSupport,
-    AdvancedGroupingSupport,
-    ArraySupport,
-    ExplainSupport,
-    GraphSupport,
-    LockingSupport,
-    MergeSupport,
-    OrderedSetAggregationSupport,
-    QualifyClauseSupport,
-    TemporalTableSupport,
-    UpsertSupport,
-    LateralJoinSupport,
-    WildcardSupport,
-    JoinSupport,
-    SetOperationSupport,
-    ConstraintSupport,
-    TruncateSupport,
-    TransactionalDDLSupport,
-    CreateSchemaSupport,
-    DropSchemaSupport,
-    GeneratedColumnSupport,
-    AutoIncrementColumnSupport,
-    IdentityColumnSupport,
-    ColumnAttributeSupport,
-    IntrospectionSupport,
-    TransactionControlSupport,
-    DataTypeSupport,
-    DateTimeSupport,
-    DQLSupport,
-    DMLSupport,
-    ExpressionSupport,
-    FunctionCallSupport,
-    PredicateSupport,
-    RelationSourceSupport,
-    SchemaNameSupport,
-    DatabaseNameSupport,
-    PropertyGraphNameSupport,
-    DDLColumnSupport,
-    LpadSupport,
-    RepeatSupport,
-    RpadSupport,
-    TrimSupport,
-    AsyncIntrospectionSupport,
-)
-from rhosocial.activerecord.backend.suggestion.protocols import (
-    ColumnTypeSuggestionSupport,
-    DataTypeSuggestionSupport,
-    IndexSuggestionSupport,
-    IntrospectionSuggestionSupport,
-    JSONSuggestionSupport,
-    StringConcatenationSuggestionSupport,
-    UpsertSuggestionSupport,
-)
 from rhosocial.activerecord.backend.dialect.mixins import (
     RelationSourceMixin,
     NamespaceMixin,
@@ -154,17 +94,6 @@ if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression.statements import ExplainStatement
     from rhosocial.activerecord.backend.expression.statements.ddl_truncate import TruncateStatement
 
-from .protocols import (
-    SQLiteExtensionSupport,
-    SQLitePragmaSupport,
-    SQLiteReindexSupport,
-    SQLiteVirtualTableSupport,
-    SQLiteFTS5Support,
-    SQLiteRTreeSupport,
-    SQLiteGeopolySupport,
-    SQLiteJSON1Support,
-    SQLiteMaintenanceSupport,
-)
 from .reserved_words import SQLITE_RESERVED_WORDS
 from .suggestion import (
     SQLiteIndexSuggestionMixin,
@@ -226,8 +155,6 @@ class SQLiteDialect(
     SQLiteIntrospectionSuggestionMixin,
     SQLiteStringConcatenationSuggestionMixin,
     SQLiteIndexSuggestionMixin,
-    IndexSuggestionSupport,
-    DataTypeSuggestionSupport,
     SQLiteGeneratedValueSuggestionMixin,
     SQLitePartitionRetentionSuggestionMixin,
     SQLitePartitionBuildSuggestionMixin,
@@ -371,73 +298,14 @@ class SQLiteDialect(
     TriggerMixin,
     SetOperationMixin,
     # Protocols for type checking
-    CollationSupport,
-    CTESupport,
-    FilterClauseSupport,
-    WindowFunctionSupport,
-    JSONSupport,
-    UUIDSupport,
-    ReturningSupport,
-    AdvancedGroupingSupport,
-    ArraySupport,
-    ExplainSupport,
-    GraphSupport,
-    LockingSupport,
-    MergeSupport,
-    OrderedSetAggregationSupport,
-    QualifyClauseSupport,
-    TemporalTableSupport,
-    UpsertSupport,
-    LateralJoinSupport,
-    WildcardSupport,
-    JoinSupport,
-    SetOperationSupport,
     # DDL statement protocols
-    ConstraintSupport,
-    TruncateSupport,
-    TransactionalDDLSupport,
-    GeneratedColumnSupport,
-    AutoIncrementColumnSupport,
-    IdentityColumnSupport,
-    ColumnAttributeSupport,
     # SQLite-specific protocols
-    SQLiteExtensionSupport,
-    SQLitePragmaSupport,
-    SQLiteVirtualTableSupport,
-    SQLiteReindexSupport,
-    SQLiteFTS5Support,
-    SQLiteRTreeSupport,
-    SQLiteGeopolySupport,
-    SQLiteJSON1Support,
-    SQLiteMaintenanceSupport,
     # Introspection Protocol
-    IntrospectionSupport,
     # Transaction Control Protocol
-    TransactionControlSupport,
     # DataType Support Protocol
-    DataTypeSupport,
     # Column Class Support Protocol
-    ColumnTypeSuggestionSupport,
     # DDL statement protocols follow the DDL mixins: a protocol's empty
     # body would otherwise win over the mixin that actually renders.
-    CreateSchemaSupport,
-    DropSchemaSupport,
-    DateTimeSupport,
-    DQLSupport,
-    DMLSupport,
-    ExpressionSupport,
-    FunctionCallSupport,
-    PredicateSupport,
-    RelationSourceSupport,
-    SchemaNameSupport,
-    DatabaseNameSupport,
-    PropertyGraphNameSupport,
-    DDLColumnSupport,
-    LpadSupport,
-    RepeatSupport,
-    RpadSupport,
-    TrimSupport,
-    AsyncIntrospectionSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.
@@ -904,9 +772,49 @@ class SQLiteDialect(
         """SQLite does not support TRUNCATE TABLE (use DELETE FROM instead)."""
         return False
 
+    def supports_truncate_table_keyword(self) -> bool:
+        """SQLite has no TRUNCATE keyword."""
+        return False
+
+    def supports_truncate_restart_identity(self) -> bool:
+        """SQLite has no TRUNCATE ... RESTART IDENTITY."""
+        return False
+
+    def supports_truncate_cascade(self) -> bool:
+        """SQLite has no TRUNCATE ... CASCADE."""
+        return False
+
+    def supports_truncate_restrict(self) -> bool:
+        """SQLite has no TRUNCATE ... RESTRICT."""
+        return False
+
     def format_truncate_statement(self, expr: "TruncateStatement") -> "Tuple[str, tuple]":
         """SQLite does not support TRUNCATE TABLE."""
         raise UnsupportedFeatureError(self.name, "TRUNCATE TABLE", "Use DELETE FROM instead.")
+
+    def format_unused_indexes_query_statement(self, expr) -> "Tuple[str, tuple]":
+        """SQLite has no unused-indexes catalogue query."""
+        raise UnsupportedFeatureError(self.name, "format_unused_indexes_query_statement")
+
+    def format_table_usage_stats_query_statement(self, expr) -> "Tuple[str, tuple]":
+        """SQLite has no table usage-statistics query."""
+        raise UnsupportedFeatureError(self.name, "format_table_usage_stats_query_statement")
+
+    def format_runtime_metrics_query_statement(self, expr) -> "Tuple[str, tuple]":
+        """SQLite has no runtime metrics query."""
+        raise UnsupportedFeatureError(self.name, "format_runtime_metrics_query_statement")
+
+    def format_index_usage_stats_query_statement(self, expr) -> "Tuple[str, tuple]":
+        """SQLite has no index usage-statistics query."""
+        raise UnsupportedFeatureError(self.name, "format_index_usage_stats_query_statement")
+
+    def format_object_dependency_query_statement(self, expr) -> "Tuple[str, tuple]":
+        """SQLite has no object dependency query."""
+        raise UnsupportedFeatureError(self.name, "format_object_dependency_query_statement")
+
+    def format_ddl_statement_query_statement(self, expr) -> "Tuple[str, tuple]":
+        """SQLite has no DDL statement catalogue query."""
+        raise UnsupportedFeatureError(self.name, "format_ddl_statement_query_statement")
 
     def supports_generated_columns(self) -> bool:
         """Whether generated columns are supported."""
