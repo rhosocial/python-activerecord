@@ -301,7 +301,7 @@ class TableState:
     traits: Tuple[str, ...]         # compound traits, e.g. "strict", "without_rowid"
     storage: StorageOptionsState
     comment: Optional[str]
-    partitioning: Optional[PartitionState]   # omitted when the answer carries no partition state
+    partitioning: PartitionState        # never None; an empty PartitionState when not partitioned
     raw: Dict[str, Any]            # the backend's own slots
 
 @dataclass(frozen=True)
@@ -407,9 +407,10 @@ assert partition.bounds == ()
 print(partition.scheme, partition.key_columns)
 ```
 
-`TableState.partitioning` is optional and may be omitted by an engine that has no
-partitioning at all; when a backend does answer with a `PartitionState`, the
-same `scheme=None` rule applies.
+`TableState.partitioning` is never `None`. An engine with no partitioning at all
+answers an empty `PartitionState` whose `scheme` is `None`, the same single
+neutral answer `get_partition_state` gives. `None` is not an answer, and callers
+must not test for it.
 
 ### Statistics are opt-in, and the default must not ask for them
 

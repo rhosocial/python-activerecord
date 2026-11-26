@@ -5,7 +5,10 @@ The manager answers with core dataclasses only; a backend that cannot answer
 refuses by name. Sync and async offer the same surface.
 """
 import asyncio
+import dataclasses
 import inspect
+import re
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -91,8 +94,54 @@ def test_partition_state_uses_none_for_unpartitioned():
 def test_table_state_defaults():
     state = introspection_types.TableState(name="orders")
     assert state.kind == "regular"
-    assert state.partitioning is None
+    assert state.partitioning is not None and state.partitioning.scheme is None
     assert state.storage.engine is None
+
+
+def test_table_state_partitioning_is_a_partition_state_not_optional():
+    """``TableState.partitioning`` is never ``None``; ``scheme=None`` answers it.
+
+    The field is a ``PartitionState`` with a factory default, so a table that
+    was never asked about partitioning still carries the one neutral answer
+    instead of a second, meaningless ``None``.
+    """
+    (partitioning,) = [
+        f for f in dataclasses.fields(introspection_types.TableState) if f.name == "partitioning"
+    ]
+
+    annotation = partitioning.type
+    if isinstance(annotation, str):
+        assert "PartitionState" in annotation
+        assert "Optional" not in annotation and "None" not in annotation
+    else:
+        assert annotation is introspection_types.PartitionState
+
+    assert partitioning.default is dataclasses.MISSING, "a bare None default is the hole"
+    state = partitioning.default_factory()
+    assert isinstance(state, introspection_types.PartitionState)
+    assert state.scheme is None
+
+
+def test_no_backend_passes_none_as_the_partition_state():
+    """A ``partitioning=None`` literal re-opens the hole the contract closed."""
+    root = Path(__file__).resolve().parents[6] / "src"
+    pattern = re.compile(r"partitioning\s*=\s*None\b|partitioning\s+is\s+None\b")
+
+    offenders = []
+    for path in root.rglob("*.py"):
+        if not path.is_file():
+            continue
+        for line_number, line in enumerate(
+            path.read_text(encoding="utf-8", errors="replace").splitlines(), start=1
+        ):
+            if pattern.search(line):
+                offenders.append(f"{path.relative_to(root)}:{line_number}")
+
+    assert not offenders, (
+        "partitioning=None (or partitioning is None) remains in src; an empty "
+        "PartitionState whose scheme is None is the only answer:\n"
+        + "\n".join(f"  - {o}" for o in offenders)
+    )
 
 
 def test_partition_bound_carries_optional_statistics():

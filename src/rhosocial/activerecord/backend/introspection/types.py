@@ -704,7 +704,13 @@ class PartitionState:
 
 @dataclass(frozen=True)
 class TableState:
-    """A table's kind, storage options, comment and partition scheme."""
+    """A table's kind, storage options, comment and partition scheme.
+
+    ``partitioning`` is never ``None``. A backend with no partitioning answers
+    an empty :class:`PartitionState` whose ``scheme`` is ``None`` -- the same
+    single neutral answer :meth:`get_partition_state` gives. ``None`` is not an
+    answer, and callers must not test for it.
+    """
 
     name: str
     schema: Optional[str] = None
@@ -714,7 +720,7 @@ class TableState:
     traits: Tuple[str, ...] = ()
     storage: StorageOptionsState = field(default_factory=StorageOptionsState)
     comment: Optional[str] = None
-    partitioning: Optional[PartitionState] = None
+    partitioning: PartitionState = field(default_factory=PartitionState)
     raw: Dict[str, Any] = field(default_factory=dict)
 
 

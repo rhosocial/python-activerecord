@@ -73,7 +73,8 @@ class TestTableState:
         assert state.kind == "regular"
         assert state.traits == ()
         assert state.comment is None
-        assert state.partitioning is None
+        assert state.partitioning is not None
+        assert state.partitioning.scheme is None
 
     def test_strict_is_a_trait(self, state_backend):
         state = state_backend.introspector.get_table_state("strict_table")

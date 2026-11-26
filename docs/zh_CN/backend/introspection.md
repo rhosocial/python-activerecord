@@ -284,7 +284,7 @@ class TableState:
     traits: Tuple[str, ...]         # 复合特征，例如 "strict"、"without_rowid"
     storage: StorageOptionsState
     comment: Optional[str]
-    partitioning: Optional[PartitionState]   # 答案不携带分区状态时省略
+    partitioning: PartitionState        # 永不为 None；未分区时是空的 PartitionState
     raw: Dict[str, Any]            # 后端自己的槽位
 
 @dataclass(frozen=True)
@@ -388,8 +388,9 @@ assert partition.bounds == ()
 print(partition.scheme, partition.key_columns)
 ```
 
-`TableState.partitioning` 是可选的，完全没有分区的引擎可以省略它；当后端确实用
-`PartitionState` 回答时，同样的 `scheme=None` 规则适用。
+`TableState.partitioning` 永不为 `None`。完全没有分区的引擎回答一个空的
+`PartitionState`，其 `scheme` 为 `None` —— 与 `get_partition_state` 给出的是同一个
+唯一中立答案。`None` 不是答案，调用方不得对它做判断。
 
 ### 统计是按需的，默认不得去查
 

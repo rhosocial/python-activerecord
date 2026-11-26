@@ -734,8 +734,10 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
     ) -> TableState:
         """Assemble the neutral table state.
 
-        SQLite stores no table comments and has no partitioning, so both
-        stay empty rather than carrying a guessed value.
+        SQLite stores no table comments and has no partitioning, so the
+        comment stays empty and the partition state is an empty
+        :class:`PartitionState` whose ``scheme`` is ``None`` -- never ``None``
+        itself, which is not an answer.
         """
         return TableState(
             name=table_name,
@@ -744,7 +746,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             traits=traits,
             storage=StorageOptionsState(),
             comment=None,
-            partitioning=None,
+            partitioning=PartitionState(),
             raw=raw or {},
         )
 
