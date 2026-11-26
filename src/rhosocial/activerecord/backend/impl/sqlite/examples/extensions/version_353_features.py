@@ -64,7 +64,7 @@ print(f"  supports_reindex_expressions(): {dialect.supports_reindex_expressions(
 print()
 
 print("--- JSON Functions (3.53.0+) ---")
-funcs = dialect.supports_functions()
+funcs = dialect.suggest_functions().functions
 print(f"  json_array_insert: {funcs.get('json_array_insert')}")
 print(f"  jsonb_array_insert: {funcs.get('jsonb_array_insert')}")
 print()

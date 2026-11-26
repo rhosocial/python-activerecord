@@ -6,10 +6,9 @@ from rhosocial.activerecord.backend.expression.objects import Function
 from ..protocols.family import FunctionCallSupport
 from .create_routine_mixin import CreateRoutineMixin
 from .drop_routine_mixin import DropRoutineMixin
-from .sql_function_mixin import SQLFunctionMixin
 
-class FunctionMixin(CreateRoutineMixin, DropRoutineMixin, SQLFunctionMixin):
-    """Composition of CreateRoutineMixin, DropRoutineMixin, SQLFunctionMixin. No own members."""
+class FunctionMixin(CreateRoutineMixin, DropRoutineMixin):
+    """Composition of CreateRoutineMixin and DropRoutineMixin. No own members."""
     pass
 
 class FunctionCallMixin():

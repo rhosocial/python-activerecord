@@ -13,6 +13,7 @@ from .change_plan import (
     TableIndexChangeSuggestion,
 )
 from .column_types import ColumnTypeSuggestion, ExtraColumnTypeSuggestion
+from .functions import FunctionSuggestion
 from .data_adapters import DataAdapterSuggestion, ExtraDataAdapterSuggestion
 from .data_types import (
     DataTypeSuggestion,
@@ -55,6 +56,7 @@ __all__ = [
     "SuggestionPoint",
     "ColumnTypeSuggestion",
     "ExtraColumnTypeSuggestion",
+    "FunctionSuggestion",
     "DataAdapterSuggestion",
     "ExtraDataAdapterSuggestion",
     "DataTypeSuggestion",

@@ -196,7 +196,6 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     AlterDatabaseSupport,
     IntrospectionSupport,
     TransactionControlSupport,
-    SQLFunctionSupport,
     CreateTableSupport,
     CreateTableLikeSupport,
     CreateTableAsSupport,
@@ -264,7 +263,9 @@ from rhosocial.activerecord.backend.expression.types import (
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.textscan import is_identifier
-from typing import Dict, List, Tuple, Type, TYPE_CHECKING
+from typing import Tuple, Type, TYPE_CHECKING
+
+from rhosocial.activerecord.backend.suggestion.definitions import FunctionSuggestion
 
 
 # ---------------------------------------------------------------------------
@@ -459,8 +460,6 @@ class DummyDialect(
     IntrospectionSupport,
     # Transaction Control Protocol
     TransactionControlSupport,
-    # Function Support Protocol
-    SQLFunctionSupport,
     # DDL statement protocols follow the DDL mixins: a protocol's empty
     # body would otherwise win over the mixin that actually renders.
     CreateRoutineSupport,
@@ -1681,8 +1680,8 @@ class DummyDialect(
 
     # region Transaction Control Support
 
-    def supports_functions(self) -> Dict[str, bool]:
-        """Return supported SQL functions as function_name -> bool mapping.
+    def suggest_functions(self) -> "FunctionSuggestion":
+        """Return the SQL function catalogue this dialect renders.
 
         Dummy dialect includes all core functions from:
         rhosocial.activerecord.backend.expression.functions
@@ -1701,7 +1700,7 @@ class DummyDialect(
         for func_name in core_functions:
             result[func_name] = True
 
-        return result
+        return FunctionSuggestion(result)
 
     def supports_transaction_mode(self) -> bool:
         """Dummy backend supports all transaction modes."""

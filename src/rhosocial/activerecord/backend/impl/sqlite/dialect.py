@@ -44,7 +44,6 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     ColumnAttributeSupport,
     IntrospectionSupport,
     TransactionControlSupport,
-    SQLFunctionSupport,
     DataTypeSupport,
     DateTimeSupport,
     DQLSupport,
@@ -415,8 +414,6 @@ class SQLiteDialect(
     IntrospectionSupport,
     # Transaction Control Protocol
     TransactionControlSupport,
-    # Function Support Protocol
-    SQLFunctionSupport,
     # DataType Support Protocol
     DataTypeSupport,
     # Column Class Support Protocol

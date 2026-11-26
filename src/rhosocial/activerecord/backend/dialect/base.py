@@ -286,7 +286,7 @@ class SQLDialectBase:
     #: Annotated and deliberately *not* assigned here. ``SQLDialectBase`` sits
     #: ahead of every mixin in a dialect's MRO, so a default assigned on the
     #: base would shadow the table a backend's mixin declares -- the same
-    #: reason the base declares no ``supports_functions``. A backend that
+    #: reason the base declares no ``suggest_functions``. A backend that
     #: computes its floors rather than tabulating them overrides
     #: :meth:`function_version_floor` on its dialect class, which *does*
     #: precede the base.

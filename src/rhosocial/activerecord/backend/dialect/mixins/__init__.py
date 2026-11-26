@@ -88,7 +88,6 @@ from .create_schema_mixin import CreateSchemaMixin
 from .drop_schema_mixin import DropSchemaMixin
 from .create_routine_mixin import CreateRoutineMixin
 from .drop_routine_mixin import DropRoutineMixin
-from .sql_function_mixin import SQLFunctionMixin
 
 from .drop_type_mixin import DropTypeMixin
 from .alter_type_mixin import AlterTypeMixin
@@ -189,7 +188,6 @@ __all__ = [
     "LpadMixin",
     "RepeatMixin",
     "RpadMixin",
-    "SQLFunctionMixin",
     "DropRoutineMixin",
     "CreateRoutineMixin",
     "DropSchemaMixin",

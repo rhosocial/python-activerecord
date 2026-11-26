@@ -102,7 +102,6 @@ from .query.ordered_set_aggregation import OrderedSetAggregationSupport
 from .query.qualify import QualifyClauseSupport
 from .query.returning import ReturningSupport
 from .query.set_operation import SetOperationSupport
-from .query.sql_function import SQLFunctionSupport
 from .query.temporal import TemporalTableSupport
 from .query.upsert import UpsertSupport
 from .query.uuid import UUIDSupport
@@ -204,7 +203,6 @@ __all__ = [
     "QualifyClauseSupport",
     "ReturningSupport",
     "RoutineObjectSupport",
-    "SQLFunctionSupport",
     "SQLXMLAggregationSupport",
     "SQLXMLConstructionSupport",
     "SQLXMLParsingSupport",

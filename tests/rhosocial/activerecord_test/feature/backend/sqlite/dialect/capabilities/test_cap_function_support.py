@@ -2,7 +2,7 @@
 """
 Test SQLFunctionSupport protocol implementation for SQLite dialect.
 
-This module tests the supports_functions() method and version-dependent
+This module tests the suggest_functions() method and version-dependent
 function availability detection in SQLiteDialect.
 """
 
@@ -12,24 +12,24 @@ from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 class TestSQLiteFunctionSupportBasic:
     """Basic tests for SQLite function support detection."""
 
-    def test_supports_functions_returns_dict(self):
-        """Test that supports_functions returns a dictionary."""
+    def test_suggest_functions_returns_catalog(self):
+        """Test that suggest_functions returns a dictionary."""
         dialect = SQLiteDialect(version=(3, 35, 0))
-        result = dialect.supports_functions()
+        result = dialect.suggest_functions().functions
         assert isinstance(result, dict)
         assert len(result) > 0
 
-    def test_supports_functions_all_values_are_bool(self):
+    def test_suggest_functions_all_values_are_bool(self):
         """Test that all values in the returned dict are booleans."""
         dialect = SQLiteDialect(version=(3, 35, 0))
-        result = dialect.supports_functions()
+        result = dialect.suggest_functions().functions
         for func_name, supported in result.items():
             assert isinstance(supported, bool), f"Value for {func_name} is not bool"
 
     def test_core_functions_always_supported(self):
         """Test that core functions are marked as supported."""
         dialect = SQLiteDialect(version=(3, 35, 0))
-        result = dialect.supports_functions()
+        result = dialect.suggest_functions().functions
         core_functions = ["count", "sum_", "avg", "min_", "max_", "coalesce", "nullif"]
         for func in core_functions:
             assert func in result, f"Core function {func} not in result"
@@ -38,7 +38,7 @@ class TestSQLiteFunctionSupportBasic:
     def test_sqlxml_constructors_are_not_plain_functions(self):
         """Test that standard SQL/XML constructors are not plain functions."""
         dialect = SQLiteDialect(version=(3, 35, 0))
-        result = dialect.supports_functions()
+        result = dialect.suggest_functions().functions
         sqlxml_constructors = [
             "xmlparse",
             "xmlserialize",
@@ -64,7 +64,7 @@ class TestSQLiteFunctionSupportVersionDependent:
     def test_json_functions_available_in_all_versions(self):
         """Test that JSON functions are available (via extension or built-in)."""
         dialect = SQLiteDialect(version=(3, 35, 0))
-        result = dialect.supports_functions()
+        result = dialect.suggest_functions().functions
 
         json_functions = ["json", "json_array", "json_object", "json_extract", "json_type", "json_valid"]
         for func in json_functions:
@@ -73,32 +73,32 @@ class TestSQLiteFunctionSupportVersionDependent:
     def test_iif_requires_version_3_32(self):
         """Test that iif function requires SQLite 3.32+."""
         dialect_old = SQLiteDialect(version=(3, 31, 0))
-        result_old = dialect_old.supports_functions()
+        result_old = dialect_old.suggest_functions().functions
         assert result_old.get("iif") is False
 
         dialect_new = SQLiteDialect(version=(3, 32, 0))
-        result_new = dialect_new.supports_functions()
+        result_new = dialect_new.suggest_functions().functions
         assert result_new.get("iif") is True
 
     def test_json_array_insert_requires_version_3_53(self, sqlite_dialect_3_53_0):
         """Test that json_array_insert requires SQLite 3.53+."""
         dialect_old = SQLiteDialect(version=(3, 52, 0))
-        result_old = dialect_old.supports_functions()
+        result_old = dialect_old.suggest_functions().functions
         assert result_old.get("json_array_insert") is False
         assert result_old.get("jsonb_array_insert") is False
 
-        result_new = sqlite_dialect_3_53_0.supports_functions()
+        result_new = sqlite_dialect_3_53_0.suggest_functions().functions
         assert result_new.get("json_array_insert") is True
         assert result_new.get("jsonb_array_insert") is True
 
     def test_unhex_requires_version_3_45(self):
         """Test that unhex function requires SQLite 3.45+."""
         dialect_old = SQLiteDialect(version=(3, 44, 0))
-        result_old = dialect_old.supports_functions()
+        result_old = dialect_old.suggest_functions().functions
         assert result_old.get("unhex") is False
 
         dialect_new = SQLiteDialect(version=(3, 45, 0))
-        result_new = dialect_new.supports_functions()
+        result_new = dialect_new.suggest_functions().functions
         assert result_new.get("unhex") is True
 
     def test_math_enhanced_functions_require_version_3_35(self):
@@ -106,29 +106,29 @@ class TestSQLiteFunctionSupportVersionDependent:
         math_enhanced = ["pow", "power", "sqrt", "mod", "ceil", "floor", "trunc"]
 
         dialect_old = SQLiteDialect(version=(3, 34, 0))
-        result_old = dialect_old.supports_functions()
+        result_old = dialect_old.suggest_functions().functions
         for func in math_enhanced:
             assert result_old.get(func) is False
 
         dialect_new = SQLiteDialect(version=(3, 35, 0))
-        result_new = dialect_new.supports_functions()
+        result_new = dialect_new.suggest_functions().functions
         for func in math_enhanced:
             assert result_new.get(func) is True
 
     def test_sign_requires_version_3_21(self):
         """Test that sign function requires SQLite 3.21+."""
         dialect_old = SQLiteDialect(version=(3, 20, 0))
-        result_old = dialect_old.supports_functions()
+        result_old = dialect_old.suggest_functions().functions
         assert result_old.get("sign") is False
 
         dialect_new = SQLiteDialect(version=(3, 21, 0))
-        result_new = dialect_new.supports_functions()
+        result_new = dialect_new.suggest_functions().functions
         assert result_new.get("sign") is True
 
     def test_always_available_functions(self):
         """Test functions that are available in all SQLite versions."""
         dialect = SQLiteDialect(version=(3, 35, 0))
-        result = dialect.supports_functions()
+        result = dialect.suggest_functions().functions
 
         always_available = [
             "substr",
@@ -189,7 +189,7 @@ class TestSQLiteFunctionSupportIntegration:
     def test_function_dict_contains_both_core_and_backend_functions(self):
         """Test that the result contains both core and SQLite-specific functions."""
         dialect = SQLiteDialect(version=(3, 35, 0))
-        result = dialect.supports_functions()
+        result = dialect.suggest_functions().functions
 
         assert any(func in result for func in ["count", "sum", "avg"])
         assert any(func in result for func in ["substr", "instr", "printf"])
@@ -199,8 +199,8 @@ class TestSQLiteFunctionSupportIntegration:
         old_dialect = SQLiteDialect(version=(3, 20, 0))
         new_dialect = SQLiteDialect(version=(3, 55, 0))
 
-        old_result = old_dialect.supports_functions()
-        new_result = new_dialect.supports_functions()
+        old_result = old_dialect.suggest_functions().functions
+        new_result = new_dialect.suggest_functions().functions
 
         assert old_result.get("sign") is False
         assert new_result.get("sign") is True

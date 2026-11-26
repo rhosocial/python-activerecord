@@ -19,6 +19,7 @@ from .introspection_suggestion import IntrospectionSuggestionSupport
 from .json_suggestion import JSONSuggestionSupport
 from .string_concatenation_suggestion import StringConcatenationSuggestionSupport
 from .create_table_layout_suggestion import CreateTableLayoutSuggestionSupport
+from .function_suggestion import FunctionSuggestionSupport
 from .text_encoding_suggestion import TextEncodingSuggestionSupport
 from .storage_engine_suggestion import StorageEngineSuggestionSupport
 from .explain_format_suggestion import ExplainFormatSuggestionSupport
@@ -46,6 +47,7 @@ __all__ = [
     "JSONSuggestionSupport",
     "StringConcatenationSuggestionSupport",
     "CreateTableLayoutSuggestionSupport",
+    "FunctionSuggestionSupport",
     "TextEncodingSuggestionSupport",
     "StorageEngineSuggestionSupport",
     "ExplainFormatSuggestionSupport",

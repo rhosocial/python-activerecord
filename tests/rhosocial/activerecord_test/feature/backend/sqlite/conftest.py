@@ -67,7 +67,7 @@ def _process_requires_functions(item, backend):
         return True
 
     dialect = backend.dialect
-    supported = dialect.supports_functions()
+    supported = dialect.suggest_functions().functions
     unsupported = [fn for fn in required_functions if not supported.get(fn, False)]
     if unsupported:
         pytest.skip(

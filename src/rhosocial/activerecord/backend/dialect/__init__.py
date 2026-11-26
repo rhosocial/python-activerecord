@@ -77,7 +77,6 @@ from .protocols import (
     JoinSupport,
     SetOperationSupport,
     ILIKESupport,
-    SQLFunctionSupport,
     DataTypeSupport,
     CollationSupport,
     SQLXMLSupport,
@@ -196,7 +195,6 @@ __all__ = [
     # Query protocols
     "GraphTableSupport",
     "ILIKESupport",
-    "SQLFunctionSupport",
     "CollationSupport",
     "DataTypeSupport",
     "SQLXMLSupport",

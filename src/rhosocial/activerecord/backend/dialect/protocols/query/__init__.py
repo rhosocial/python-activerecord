@@ -33,7 +33,6 @@ from .qualify import QualifyClauseSupport
 from .locking import LockingSupport
 from .set_operation import SetOperationSupport
 from .ilike import ILIKESupport
-from .sql_function import SQLFunctionSupport
 
 from .dql_support import DQLSupport
 from .expression_support import ExpressionSupport
@@ -61,7 +60,6 @@ __all__ = [
     "OrderedSetAggregationSupport",
     "QualifyClauseSupport",
     "ReturningSupport",
-    "SQLFunctionSupport",
     "SetOperationSupport",
     "TemporalTableSupport",
     "UpsertSupport",

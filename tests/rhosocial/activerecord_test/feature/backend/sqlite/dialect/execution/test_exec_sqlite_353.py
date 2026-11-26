@@ -89,7 +89,7 @@ class TestSQLite353DialectCapabilities:
         sqlite_backend.introspect_and_adapt()
 
         dialect = sqlite_backend._dialect
-        funcs = dialect.supports_functions()
+        funcs = dialect.suggest_functions().functions
         assert funcs.get("json_array_insert") is True
 
     def test_jsonb_array_insert_function_available(self, sqlite_backend: SQLiteBackend):
@@ -97,7 +97,7 @@ class TestSQLite353DialectCapabilities:
         sqlite_backend.introspect_and_adapt()
 
         dialect = sqlite_backend._dialect
-        funcs = dialect.supports_functions()
+        funcs = dialect.suggest_functions().functions
         assert funcs.get("jsonb_array_insert") is True
 
 

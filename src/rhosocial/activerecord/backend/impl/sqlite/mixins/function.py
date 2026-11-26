@@ -5,7 +5,9 @@ SQLite-specific Function implementation.
 This module provides the SQLiteFunctionMixin class.
 """
 
-from typing import Dict, Tuple, TYPE_CHECKING
+from typing import Tuple, TYPE_CHECKING
+
+from rhosocial.activerecord.backend.suggestion.definitions import FunctionSuggestion
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.expression import bases
@@ -95,8 +97,8 @@ class SQLiteFunctionMixin:
         "iif": ((3, 32, 0), None),
     }
 
-    def supports_functions(self) -> Dict[str, bool]:
-        """Return supported SQL functions as function_name -> bool mapping."""
+    def suggest_functions(self) -> "FunctionSuggestion":
+        """Return the SQL function catalogue this dialect renders."""
         from rhosocial.activerecord.backend.expression.functions import (
             __all__ as core_functions,
         )
@@ -116,7 +118,7 @@ class SQLiteFunctionMixin:
         for func_name in sqlite_funcs:
             result[func_name] = self._is_sqlite_function_supported(func_name)
 
-        return result
+        return FunctionSuggestion(result)
 
     def _is_sqlite_function_supported(self, func_name: str) -> bool:
         """Check if a SQLite-specific function is supported based on version."""
@@ -136,7 +138,7 @@ class SQLiteFunctionMixin:
 
     #: The min column of ``_SQLITE_FUNCTION_VERSIONS``: the earliest SQLite
     #: that knows each gated function. One table, read two ways --
-    #: ``supports_functions`` asks it, ``check_function_version`` enforces it,
+    #: ``suggest_functions`` asks it, ``check_function_version`` enforces it,
     #: so a floor recorded here cannot be reported and ignored at once. A
     #: recorded *ceiling* is not a floor: it says the spelling does not exist
     #: on SQLite at all (``json_build_object`` and the other PostgreSQL names
