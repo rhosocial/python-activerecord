@@ -1513,14 +1513,15 @@ class AbstractIntrospector(IntrospectorBase, ABC):
         table_name: str,
         schema: Optional[str] = None,
         include_stats: bool = False,
-    ) -> Optional[PartitionState]:
+    ) -> PartitionState:
         """Read the table's partition scheme and bounds.
 
-        ``None`` is the single neutral answer for "this table is not
-        partitioned". ``include_stats`` asks for per-partition row counts and
-        sizes; leaving it False must not run a statistics query.
+        The returned ``PartitionState.scheme`` is ``None`` -- the single
+        neutral answer -- when the table is not partitioned. ``include_stats``
+        asks for per-partition row counts and sizes; leaving it False must not
+        run a statistics query.
         """
-        self._refuse("PartitionIntrospectionSupport", "get_partition_state")
+        self._refuse("StructureIntrospectionSupport", "get_partition_state")
 
     def list_index_states(
         self,
@@ -2020,9 +2021,9 @@ class AsyncAbstractIntrospector(IntrospectorBase, ABC):
         table_name: str,
         schema: Optional[str] = None,
         include_stats: bool = False,
-    ) -> Optional[PartitionState]:
+    ) -> PartitionState:
         """Read the table's partition scheme and bounds."""
-        self._refuse("PartitionIntrospectionSupport", "get_partition_state")
+        self._refuse("StructureIntrospectionSupport", "get_partition_state")
 
     async def list_index_states(
         self,

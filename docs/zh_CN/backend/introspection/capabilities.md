@@ -101,3 +101,13 @@ for name in probe_names:
 这个循环返回的是声明，不是测量：它列出的是这个方言声称能回答的问题。声称是否被兑现，是另一项检验——调用那个方法——所以这个循环是一份支持度报告的起点，而不是它的证书。
 
 > 哪些探针回答 `True` 因后端而异；每个后端自己的文档说明它自己的答案。
+
+## 对象状态不是探针
+
+中立对象状态方法（`get_table_state`、`get_partition_state`、`list_index_states`、
+`list_constraint_states`、`list_sequence_states`、`list_derived_objects`、
+`list_schemas`、`item_exists`）由内省管理器回答，而不是由方言探针声明。它们的
+数据类、`scheme=None` 的答案、按需统计以及拒绝规则记录在
+[中立对象状态](../introspection.md#中立对象状态) 中。特别地，后端回答不了其中
+一个方法时，会抛出 `ProtocolNotImplementedError` 并指明所属家族和方法；空列表或
+`None` 绝不能代替它。

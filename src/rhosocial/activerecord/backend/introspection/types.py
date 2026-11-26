@@ -766,19 +766,6 @@ class SequenceState:
 
 
 @dataclass(frozen=True)
-class TriggerState:
-    """One trigger, including whether it fires."""
-
-    name: str
-    table: str
-    schema: Optional[str] = None
-    timing: Optional[str] = None
-    events: Tuple[str, ...] = ()
-    enabled: bool = True
-    raw: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
 class DerivedObjectState:
     """An object the engine created for someone else's declaration.
 

@@ -13,14 +13,16 @@
 - **外键信息**：引用表、列映射、更新/删除行为
 - **视图信息**：视图定义 SQL
 - **触发器信息**：触发事件、执行时机、触发器 SQL
+- **对象状态**：表、分区、索引、约束、序列和引擎派生对象的中立快照，由核心数据类构成
 
 ## 可以问什么
 
-内省回答三个层次的问题，本页详述第一层：
+内省回答四类问题，本页详述第一类：
 
 - **声明层** —— 目录说对象是什么：数据库、表、列、索引、外键、视图和触发器。dialect 的能力探针说明某个引擎是否能回答其中每一类；见[能力探针](introspection/capabilities.md)。
 - **运维层** —— 引擎运行中统计了什么：未使用索引、表与索引使用计数、运行时测量、对象依赖和 DDL 取回；见[运维家族](introspection/operations.md)。
 - **数据层** —— 行实际持有什么，而不是模式承诺什么：列数据剖面、高频值和连接覆盖度；见[列数据剖面](introspection/data-profiles.md)。
+- **对象状态层** —— 服务器此刻持有什么，形状由调用方拥有：表状态、分区状态、索引/约束/序列状态、引擎派生对象和共享对象存在性；见[中立对象状态](#中立对象状态)。
 
 某类问题的能力探针返回 `False` 时，该引擎不提供这类回答；各后端自己的文档说明哪些探针返回 `True`，以及它的回答意味着什么。
 
@@ -54,6 +56,55 @@ backend/introspection/
 - `AbstractIntrospector` — 同步内省器
 - `AsyncAbstractIntrospector` — 异步内省器
 - `IntrospectorMixin` — 共享的非 I/O 基类：它知道默认 schema，并暴露 `dialect` 与 `server_version` 快捷入口，但本身不持有状态、不做 I/O、也从不接触结果行。缓存与结果行解析属于继承它的管理器，SQL 由 dialect 的 `format_*` 方法从语句对象渲染。`server_version` 是内省器从服务器读到的版本，使能力判断不必再次询问服务器
+
+## 能力协议
+
+能力声明被拆成四个内省家族，而不是由单一协议承载。每个家族有一个同步协议、一个
+成员相同的异步孪生，以及一个成员列表相同的方言混入：
+
+| 家族 | 回答的问题 | 协议（同步 / 异步孪生） | 方言混入（同步 / 异步孪生） |
+|------|------------|--------------------------|------------------------------|
+| 结构 | 目录说对象是什么 | `StructureIntrospectionSupport` / `AsyncStructureIntrospectionSupport` | `StructureIntrospectionMixin` / `AsyncStructureIntrospectionMixin` |
+| 运维统计 | 对象过去如何表现 | `OperationalStatsIntrospectionSupport` / `AsyncOperationalStatsIntrospectionSupport` | `OperationalStatsIntrospectionMixin` / `AsyncOperationalStatsIntrospectionMixin` |
+| 数据剖面 | 一列的行长什么样 | `DataProfileIntrospectionSupport` / `AsyncDataProfileIntrospectionSupport` | `DataProfileIntrospectionMixin` / `AsyncDataProfileIntrospectionMixin` |
+| DDL 取回 | 重建对象所需的文本 | `DdlExtractionIntrospectionSupport` / `AsyncDdlExtractionIntrospectionSupport` | `DdlExtractionIntrospectionMixin` / `AsyncDdlExtractionIntrospectionMixin` |
+
+`IntrospectionMixin` 与 `AsyncIntrospectionMixin` 是四者的**纯组合聚合**：它们
+自己不声明任何成员，所以组合了其中一个的 dialect 会继承每个家族的答案，方言中
+任何位置的方法名覆盖也仍然生效。拆分为四族，是为了让 dialect 能回答一个问题
+——声明、行为、数据、留存文本——而不声称其余三个。
+
+一个家族**只有在至少一个探针回答 `True` 时才被声称**。组合聚合本身不构成声称：
+一个组合了 `IntrospectionMixin`、但所有运维探针都回答 `False` 的 dialect，即使
+方法存在于类上，也不算声称运维统计。每个后端的协议一致性测试都应用这条规则。
+
+```python
+from rhosocial.activerecord.backend.dialect.protocols import (
+    StructureIntrospectionSupport,
+    OperationalStatsIntrospectionSupport,
+    DataProfileIntrospectionSupport,
+    DdlExtractionIntrospectionSupport,
+)
+
+FAMILIES = (
+    StructureIntrospectionSupport,
+    OperationalStatsIntrospectionSupport,
+    DataProfileIntrospectionSupport,
+    DdlExtractionIntrospectionSupport,
+)
+
+dialect = backend.dialect
+for family in FAMILIES:
+    probes = [name for name in dir(family) if name.startswith("supports_")]
+    claimed = any(getattr(dialect, name)() for name in probes)
+    print(f"{family.__name__}: claimed={claimed}")
+```
+
+`True` 承诺这个引擎会回答；`False` 意味着不要问。每个回答承诺什么、不承诺什么，
+见[能力探针](introspection/capabilities.md)。
+
+[中立对象状态](#中立对象状态) 中的对象状态方法不是这些协议上的探针。它们是
+管理器上的方法，回答不了一个方法的后端会按名字拒绝，而不是返回空值。
 
 ## 数据结构
 
@@ -181,6 +232,256 @@ class IntrospectionTriggerInfo:
     condition: Optional[str]     # 触发条件
     extra: Dict[str, Any]        # 额外信息
 ```
+
+## 中立对象状态
+
+状态方法回答"服务器此刻持有什么"，并把答案放进中立的核心数据类。调用方永远看不到
+后端特有的结果类型：每个后端把自己的目录映射成下面的形状。八个方法在同步与异步
+内省器上同名存在；在异步类（`Async*Introspector`）上，每次调用都要 await。
+
+| 方法 | 参数（含默认值） | 返回 |
+|------|------------------|------|
+| `get_table_state(table_name)` | `schema=None` | `TableState` |
+| `get_partition_state(table_name)` | `schema=None, include_stats=False` | `PartitionState` |
+| `list_index_states(table_name)` | `schema=None` | `List[IndexState]` |
+| `list_constraint_states(table_name)` | `schema=None` | `List[ConstraintState]` |
+| `list_sequence_states()` | `schema=None` | `List[SequenceState]` |
+| `list_derived_objects(table_name)` | `schema=None` | `List[DerivedObjectState]` |
+| `list_schemas()` | — | `List[str]` |
+| `item_exists(kind, name)` | `schema=None` | `bool` |
+
+```python
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.introspection import TableState
+
+backend = SQLiteBackend(database=":memory:")
+backend.connect()
+backend.executescript("""
+CREATE TABLE orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    status TEXT NOT NULL DEFAULT 'open'
+);
+""")
+
+state = backend.introspector.get_table_state("orders")
+assert isinstance(state, TableState)
+print(state.name, state.schema, state.kind, state.traits)
+```
+
+### 状态形状
+
+所有状态类型都是
+`rhosocial.activerecord.backend.introspection.types` 中的 frozen 数据类，并从
+`rhosocial.activerecord.backend.introspection` 重新导出。
+
+```python
+@dataclass(frozen=True)
+class TableState:
+    name: str
+    schema: Optional[str]
+    kind: str                       # "regular" / "temporary" / "transient" / "unlogged"；
+                                    #  后端可以增加自己的拼写
+    traits: Tuple[str, ...]         # 复合特征，例如 "strict"、"without_rowid"
+    storage: StorageOptionsState
+    comment: Optional[str]
+    partitioning: Optional[PartitionState]   # 答案不携带分区状态时省略
+    raw: Dict[str, Any]            # 后端自己的槽位
+
+@dataclass(frozen=True)
+class StorageOptionsState:
+    engine: Optional[str]           # None 表示引擎用了自己的默认值，
+    charset: Optional[str]          #  而不是"未知"
+    collation: Optional[str]
+    compression: Optional[str]
+    tablespace: Optional[str]
+    raw: Dict[str, Any]
+
+@dataclass(frozen=True)
+class PartitionState:
+    scheme: Optional[PartitionScheme]   # None 是"未分区"的唯一答案
+    key_expression: str
+    key_columns: Tuple[str, ...]
+    has_default: bool
+    auto_extend: bool
+    bounds: Tuple[PartitionBound, ...]
+    raw: Dict[str, Any]
+
+@dataclass(frozen=True)
+class PartitionBound:
+    name: str
+    lower: Optional[str]            # 服务器拼写的 RANGE/LIST 边界
+    upper: Optional[str]
+    values: Tuple[str, ...]
+    modulus: Optional[int]          # HASH：键按 modulus 取模哈希到 remainder
+    remainder: Optional[int]
+    is_default: bool
+    is_maxvalue: bool
+    row_count: Optional[int]        # 只在请求了 include_stats 时填充
+    size_bytes: Optional[int]       # 只在请求了 include_stats 时填充
+    subpartition_count: int
+    tablespace: Optional[str]
+
+@dataclass(frozen=True)
+class IndexState:
+    name: str
+    table: str
+    schema: Optional[str]
+    unique: bool
+    method: Optional[str]
+    predicate: Optional[str]
+    visible: bool
+    usable: bool                    # 引擎报告索引不可用/无效时为 False
+    backs_constraint: Optional[str]
+    raw: Dict[str, Any]
+
+@dataclass(frozen=True)
+class ConstraintState:
+    name: str
+    table: str
+    kind: str                       # 例如 "primary_key"、"unique"、"check"、"foreign_key"
+    schema: Optional[str]
+    validated: bool
+    enforced: bool
+    deferred: bool
+    disabled: bool
+    backing_index: Optional[str]
+    raw: Dict[str, Any]
+
+@dataclass(frozen=True)
+class SequenceState:
+    name: str
+    schema: Optional[str]
+    owned_by: Optional[str]         # 拥有该序列的列（如果有）
+    start: Optional[int]
+    increment: Optional[int]
+    raw: Dict[str, Any]
+
+@dataclass(frozen=True)
+class DerivedObjectState:
+    kind: str                       # "backing_index" / "identity_sequence" / "history_table" /
+                                    #  "named_default" / "autoindex"
+    name: str
+    owned_by: Optional[str]
+    raw: Dict[str, Any]
+```
+
+两个枚举都是 `str` 枚举，所以值打印出来就是它的词：
+
+| 枚举 | 值 |
+|------|----|
+| `PartitionScheme` | `range`、`list`、`hash`、`key`、`composite`、`interval`、`expression` |
+| `ItemKind` | `schema`、`type`、`domain`、`function`、`sequence`、`table`、`index`、`extension`、`tablespace`、`partition_function`、`partition_scheme`、`fulltext_catalog` |
+
+### scheme=None 是"未分区"的唯一答案
+
+`PartitionState.scheme` 是"这张表是否分区"的唯一中立答案。无论后端怎样拼写或发现
+分区（子表、系统分区、装饰过的表），它对每个后端都是 `None`。其他任何东西都不能
+代替它：不是空的 `bounds`，不是编造出来的 scheme，也不是缺失的 `PartitionState`
+—— `get_partition_state` 返回状态对象，并把 `None` 放进 `scheme`。`scheme` 为
+`None` 时 `bounds` 为空，因为没有分区可描述。
+
+```python
+partition = backend.introspector.get_partition_state("orders")
+
+assert partition.scheme is None      # 唯一的中立答案：未分区
+assert partition.bounds == ()
+print(partition.scheme, partition.key_columns)
+```
+
+`TableState.partitioning` 是可选的，完全没有分区的引擎可以省略它；当后端确实用
+`PartitionState` 回答时，同样的 `scheme=None` 规则适用。
+
+### 统计是按需的，默认不得去查
+
+`include_stats=False` 是默认值。这个选择发生在投影和查询层，而不是事后过滤值：默认
+情况下后端必须完全不运行统计查询，所以 `PartitionBound.row_count` 与
+`PartitionBound.size_bytes` 保持 `None`。`include_stats=True` 时后端才加上统计列
+——例如目录里的行数估计和关系大小的查询——同样的 bounds 才携带这些数字。代价差别
+就在那条查询上：靠遍历关系来计算大小的引擎，可能为每个分区付出一次扫描，而默认答案
+只读一次目录。
+
+```python
+plain = backend.introspector.get_partition_state("orders")
+assert all(bound.row_count is None and bound.size_bytes is None for bound in plain.bounds)
+
+with_stats = backend.introspector.get_partition_state("orders", include_stats=True)
+# 在分区引擎上，with_stats.bounds 现在携带 row_count / size_bytes。
+print([(bound.name, bound.row_count, bound.size_bytes) for bound in with_stats.bounds])
+```
+
+在没有分区的引擎（SQLite）上，两次调用都回答 `PartitionState(scheme=None)`；没有
+bounds 可比较，所以差别只有在存在 scheme 的地方才可观察。
+
+### 拒绝要报出名字
+
+后端没有实现的方法会抛出 `ProtocolNotImplementedError`，消息里指明 dialect、家族
+和方法。空列表或 `None` 绝不能代替"无法回答"：它们意味着问题被问了、答案是"什么都
+没有"，这是另一件事实。
+
+```python
+from types import SimpleNamespace
+
+from rhosocial.activerecord.backend.dialect.exceptions import ProtocolNotImplementedError
+from rhosocial.activerecord.backend.introspection.base import (
+    AbstractIntrospector,
+    IntrospectorMixin,
+)
+
+
+class UnimplementedIntrospector(IntrospectorMixin):
+    def __init__(self):
+        self._backend = SimpleNamespace(dialect=SimpleNamespace(name="Custom"))
+
+
+try:
+    AbstractIntrospector.get_table_state(UnimplementedIntrospector(), "orders")
+except ProtocolNotImplementedError as exc:
+    # 'Custom' dialect does not implement StructureIntrospectionSupport
+    # protocol, which is required by get_table_state.
+    print(exc.dialect_name, exc.protocol_name, exc.required_by)
+```
+
+异常把三个名字作为属性携带（`dialect_name`、`protocol_name`、`required_by`），
+调用方不必解析消息就能据此反应。`None` 作为答案只保留给"问题已回答、但没有东西可
+报告"的情况：`get_ddl_statement` 在引擎被问过、且没有文本时返回 `None`，绝不因为
+引擎无法回答而返回。
+
+### item_exists 回答三种情况
+
+`item_exists(kind, name)` 问共享对象是否存在。共享对象比表活得更久：序列、类型、
+域、函数、扩展、表空间、分区函数/方案、全文目录。一条规则覆盖所有类别：
+
+1. 引擎根本没有这一类对象 → `False`，确定地表示"没有"，而不是"说不清"；
+2. 引擎有这类对象，且目录查询已实现 → 查询并回答 `True` 或 `False`；
+3. 引擎有这类对象，但这个后端没有该类别的查询 → 用
+   `ProtocolNotImplementedError` 拒绝：这是实现缺口，这里的 `False` 会把它伪装成
+   不存在。
+
+```python
+from rhosocial.activerecord.backend.introspection import ItemKind
+
+introspector = backend.introspector
+
+# 情况 2：SQLite 有表，且这个后端能查询它们
+print(introspector.item_exists(ItemKind.TABLE, "orders"))      # True
+print(introspector.item_exists(ItemKind.TABLE, "missing"))     # False：问过，没有
+
+# 情况 1：SQLite 根本没有具名类型对象
+print(introspector.item_exists(ItemKind.TYPE, "orders"))       # False：不存在
+```
+
+处于情况 3 的后端会抛出异常，而不是回答 `False`。
+
+### 迁移说明：list_partitions 已被移除
+
+`list_partitions` 已被移除，且没有兼容层。它的逻辑并入 `get_partition_state`：
+scheme 和 bounds 现在一起放在一个 `PartitionState` 里，`scheme` 回答"这张表是否
+分区"，`bounds` 描述各个分区。没有别名，也没有回退写法；唯一支持的拼写是
+`get_partition_state`。
+
+分区能力已移出内省家族：向
+`PartitionSupport.supports_partition_metadata_introspection()` 询问后再向后端请求
+分区元数据。见[能力探针](introspection/capabilities.md)。
 
 ## 基本用法
 
@@ -336,6 +637,10 @@ indexes = await backend.introspector.list_indexes("users")
 foreign_keys = await backend.introspector.list_foreign_keys("posts")
 views = await backend.introspector.list_views()
 triggers = await backend.introspector.list_triggers()
+
+# 中立对象状态：同名方法，需要 await
+state = await backend.introspector.get_table_state("users")
+partition = await backend.introspector.get_partition_state("users")
 ```
 
 ## 缓存机制
@@ -537,6 +842,23 @@ async def get_schema_info(backend):
 | `view_exists(view_name)` | `schema=None` | 视图是否存在 |
 | `list_triggers()` | `table_name=None, schema=None` | 列出触发器，可按表过滤 |
 | `get_trigger_info(trigger_name)` | `schema=None` | 触发器详情 |
+
+### 核心方法 —— 中立对象状态
+
+下面八个方法返回核心数据类，而不是后端特有的结果类型。它们不受四族探针把关：后端
+没有实现其中某个方法时，会按名字拒绝（见[拒绝要报出名字](#拒绝要报出名字)）。同步
+与异步内省器声明相同的名字；在异步类上，每次调用都要 await。
+
+| 方法 | 参数（含默认值） | 说明 |
+|------|------------------|------|
+| `get_table_state(table_name)` | `schema=None` | 表的 kind、traits、存储选项、注释和分区状态 |
+| `get_partition_state(table_name)` | `schema=None, include_stats=False` | 分区方案（未分区时为 `None`）及其 bounds；统计仅按需 |
+| `list_index_states(table_name)` | `schema=None` | 每个索引，含方法、谓词、可见性和可用性 |
+| `list_constraint_states(table_name)` | `schema=None` | 每个约束，含类别和验证/强制状态 |
+| `list_sequence_states()` | `schema=None` | 一个 schema 的序列，及其拥有列 |
+| `list_derived_objects(table_name)` | `schema=None` | 引擎为某个声明创建的对象（autoindex、identity sequence 等） |
+| `list_schemas()` | — | 服务器暴露的 schema/命名空间名称 |
+| `item_exists(kind, name)` | `schema=None` | 某个 `ItemKind` 的共享对象是否存在，按三种情况规则回答 |
 
 ### 核心方法 —— 运维层
 

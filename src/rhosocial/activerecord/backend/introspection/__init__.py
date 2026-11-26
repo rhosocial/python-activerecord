@@ -40,7 +40,6 @@ from .types import (
     SequenceState,
     StorageOptionsState,
     TableState,
-    TriggerState,
 )
 from .errors import (
     IntrospectionError,
@@ -88,7 +87,6 @@ __all__ = [
     "IndexState",
     "ConstraintState",
     "SequenceState",
-    "TriggerState",
     "DerivedObjectState",
     "ItemKind",
     # Exceptions

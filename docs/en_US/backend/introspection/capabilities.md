@@ -179,3 +179,15 @@ a certificate for one.
 
 > Which probes answer `True` differs by backend; each backend's documentation
 > states its own.
+
+## Object State Is Not a Probe
+
+The neutral object-state methods (`get_table_state`, `get_partition_state`,
+`list_index_states`, `list_constraint_states`, `list_sequence_states`,
+`list_derived_objects`, `list_schemas`, `item_exists`) are answered by the
+introspection manager rather than declared by a dialect probe. They are
+documented with their dataclasses, the `scheme=None` answer, the opt-in
+statistics and the refusal rule under
+[Neutral Object State](../introspection.md#neutral-object-state). In particular,
+a backend that cannot answer one of them raises `ProtocolNotImplementedError`
+naming the family and method; an empty list or `None` never stands in for that.

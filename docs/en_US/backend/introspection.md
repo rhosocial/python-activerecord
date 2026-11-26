@@ -13,14 +13,16 @@ The introspection system is accessible via the `backend.introspector` attribute 
 - **Foreign Key Information**: Referenced table, column mapping, update/delete actions
 - **View Information**: View definition SQL
 - **Trigger Information**: Trigger event, timing, trigger SQL
+- **Object State**: A neutral snapshot of a table, its partitioning, indexes, constraints, sequences and engine-derived objects, built from core dataclasses
 
 ## What You Can Ask
 
-Introspection answers three layers of question, and this page covers the first in detail:
+Introspection answers four kinds of question, and this page covers the first in detail:
 
 - **Declaration layer** — what the catalogue says objects are: databases, tables, columns, indexes, foreign keys, views and triggers. The dialect's capability probes say which of these an engine answers at all; see [Capabilities](introspection/capabilities.md).
 - **Operational layer** — what the engine has counted while running: unused indexes, table and index usage counters, runtime measurements, object dependencies and DDL retrieval; see [Operational Families](introspection/operations.md).
 - **Data layer** — what the rows actually hold, rather than what the schema promises: column profiles, frequent values and join coverage; see [Column Data Profiles](introspection/data-profiles.md).
+- **Object-state layer** — what the server holds right now, in shapes the caller owns: table state, partition state, index/constraint/sequence states, engine-derived objects and shared-object existence; see [Neutral Object State](#neutral-object-state).
 
 A family whose capability probe answers `False` is not available on that engine; the backend's own documentation states which probes answer `True` and what its answers mean.
 
@@ -60,6 +62,62 @@ The introspection system follows the project's sync/async parity principle:
 - `AbstractIntrospector` — Synchronous introspector
 - `AsyncAbstractIntrospector` — Asynchronous introspector
 - `IntrospectorMixin` — Shared non-I/O base: it knows the default schema and exposes the `dialect` and `server_version` shortcuts, but holds no state, performs no I/O and never sees a result row. Caching and row parsing belong to the manager that inherits it, and SQL is rendered by the dialect's `format_*` methods from statement objects. `server_version` is the version the introspector read from the server, so a capability question can be answered without asking again
+
+## Capability Protocols
+
+Capability declarations are split into four introspection families rather than
+carried by one protocol. Each family has a synchronous protocol, an async twin
+that declares the same members, and a dialect mixin with the same member list:
+
+| Family | Question it answers | Protocol (sync / async twin) | Dialect mixin (sync / async twin) |
+|--------|---------------------|------------------------------|------------------------------------|
+| Structure | What the catalogue declares an object to be | `StructureIntrospectionSupport` / `AsyncStructureIntrospectionSupport` | `StructureIntrospectionMixin` / `AsyncStructureIntrospectionMixin` |
+| Operational stats | How the objects have behaved | `OperationalStatsIntrospectionSupport` / `AsyncOperationalStatsIntrospectionSupport` | `OperationalStatsIntrospectionMixin` / `AsyncOperationalStatsIntrospectionMixin` |
+| Data profile | What the rows in a column look like | `DataProfileIntrospectionSupport` / `AsyncDataProfileIntrospectionSupport` | `DataProfileIntrospectionMixin` / `AsyncDataProfileIntrospectionMixin` |
+| DDL extraction | The text that would recreate an object | `DdlExtractionIntrospectionSupport` / `AsyncDdlExtractionIntrospectionSupport` | `DdlExtractionIntrospectionMixin` / `AsyncDdlExtractionIntrospectionMixin` |
+
+`IntrospectionMixin` and `AsyncIntrospectionMixin` are **composition-only**
+aggregates of the four: they declare no members of their own, so a dialect that
+composes one inherits every family's answer, and a method-name override
+anywhere in the dialect keeps winning. The split exists so a dialect can answer
+one question — declaration, behaviour, data, retained text — without claiming
+the others.
+
+A family is **claimed** only if at least one of its probes answers `True`.
+Composing the aggregate is not a claim: a dialect that composes
+`IntrospectionMixin` while every operational probe answers `False` does not
+claim operational statistics, even though the methods exist on the class. Every
+backend's protocol-conformance test applies this rule.
+
+```python
+from rhosocial.activerecord.backend.dialect.protocols import (
+    StructureIntrospectionSupport,
+    OperationalStatsIntrospectionSupport,
+    DataProfileIntrospectionSupport,
+    DdlExtractionIntrospectionSupport,
+)
+
+FAMILIES = (
+    StructureIntrospectionSupport,
+    OperationalStatsIntrospectionSupport,
+    DataProfileIntrospectionSupport,
+    DdlExtractionIntrospectionSupport,
+)
+
+dialect = backend.dialect
+for family in FAMILIES:
+    probes = [name for name in dir(family) if name.startswith("supports_")]
+    claimed = any(getattr(dialect, name)() for name in probes)
+    print(f"{family.__name__}: claimed={claimed}")
+```
+
+A `True` promises that the engine will answer; a `False` means do not ask. See
+[Capabilities](introspection/capabilities.md) for what each answer promises and
+what it does not.
+
+The object-state methods in [Neutral Object State](#neutral-object-state) are
+not probes on these protocols. They are methods on the manager, and a backend
+that cannot answer one refuses by name rather than returning an empty value.
 
 ## Data Structures
 
@@ -189,6 +247,272 @@ class IntrospectionTriggerInfo:
     condition: Optional[str]     # Trigger condition
     extra: Dict[str, Any]        # Additional info
 ```
+
+## Neutral Object State
+
+The state methods answer "what does the server hold right now" in neutral core
+dataclasses. A caller never sees a backend-specific result type: each backend
+maps its own catalogue into the shapes below. The eight methods exist on both
+introspectors under the same names; on the async class (`Async*Introspector`)
+each call is awaited.
+
+| Method | Parameters (defaults) | Returns |
+|--------|-----------------------|---------|
+| `get_table_state(table_name)` | `schema=None` | `TableState` |
+| `get_partition_state(table_name)` | `schema=None, include_stats=False` | `PartitionState` |
+| `list_index_states(table_name)` | `schema=None` | `List[IndexState]` |
+| `list_constraint_states(table_name)` | `schema=None` | `List[ConstraintState]` |
+| `list_sequence_states()` | `schema=None` | `List[SequenceState]` |
+| `list_derived_objects(table_name)` | `schema=None` | `List[DerivedObjectState]` |
+| `list_schemas()` | — | `List[str]` |
+| `item_exists(kind, name)` | `schema=None` | `bool` |
+
+```python
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.introspection import TableState
+
+backend = SQLiteBackend(database=":memory:")
+backend.connect()
+backend.executescript("""
+CREATE TABLE orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    status TEXT NOT NULL DEFAULT 'open'
+);
+""")
+
+state = backend.introspector.get_table_state("orders")
+assert isinstance(state, TableState)
+print(state.name, state.schema, state.kind, state.traits)
+```
+
+### The state shapes
+
+All state types are frozen dataclasses in
+`rhosocial.activerecord.backend.introspection.types` and are re-exported from
+`rhosocial.activerecord.backend.introspection`.
+
+```python
+@dataclass(frozen=True)
+class TableState:
+    name: str
+    schema: Optional[str]
+    kind: str                       # "regular" / "temporary" / "transient" / "unlogged";
+                                    #  backends may add their own spelling
+    traits: Tuple[str, ...]         # compound traits, e.g. "strict", "without_rowid"
+    storage: StorageOptionsState
+    comment: Optional[str]
+    partitioning: Optional[PartitionState]   # omitted when the answer carries no partition state
+    raw: Dict[str, Any]            # the backend's own slots
+
+@dataclass(frozen=True)
+class StorageOptionsState:
+    engine: Optional[str]           # None means the engine used its own default,
+    charset: Optional[str]          #  not "unknown"
+    collation: Optional[str]
+    compression: Optional[str]
+    tablespace: Optional[str]
+    raw: Dict[str, Any]
+
+@dataclass(frozen=True)
+class PartitionState:
+    scheme: Optional[PartitionScheme]   # None is the single answer for "not partitioned"
+    key_expression: str
+    key_columns: Tuple[str, ...]
+    has_default: bool
+    auto_extend: bool
+    bounds: Tuple[PartitionBound, ...]
+    raw: Dict[str, Any]
+
+@dataclass(frozen=True)
+class PartitionBound:
+    name: str
+    lower: Optional[str]            # RANGE/LIST boundary as the server spells it
+    upper: Optional[str]
+    values: Tuple[str, ...]
+    modulus: Optional[int]          # HASH: key hashes to remainder modulo modulus
+    remainder: Optional[int]
+    is_default: bool
+    is_maxvalue: bool
+    row_count: Optional[int]        # populated only when include_stats was requested
+    size_bytes: Optional[int]       # populated only when include_stats was requested
+    subpartition_count: int
+    tablespace: Optional[str]
+
+@dataclass(frozen=True)
+class IndexState:
+    name: str
+    table: str
+    schema: Optional[str]
+    unique: bool
+    method: Optional[str]
+    predicate: Optional[str]
+    visible: bool
+    usable: bool                    # False when the engine reports the index unusable/invalid
+    backs_constraint: Optional[str]
+    raw: Dict[str, Any]
+
+@dataclass(frozen=True)
+class ConstraintState:
+    name: str
+    table: str
+    kind: str                       # e.g. "primary_key", "unique", "check", "foreign_key"
+    schema: Optional[str]
+    validated: bool
+    enforced: bool
+    deferred: bool
+    disabled: bool
+    backing_index: Optional[str]
+    raw: Dict[str, Any]
+
+@dataclass(frozen=True)
+class SequenceState:
+    name: str
+    schema: Optional[str]
+    owned_by: Optional[str]         # the column that owns the sequence, when one does
+    start: Optional[int]
+    increment: Optional[int]
+    raw: Dict[str, Any]
+
+@dataclass(frozen=True)
+class DerivedObjectState:
+    kind: str                       # "backing_index" / "identity_sequence" / "history_table" /
+                                    #  "named_default" / "autoindex"
+    name: str
+    owned_by: Optional[str]
+    raw: Dict[str, Any]
+```
+
+The two enums are `str` enums, so a value prints as its word:
+
+| Enum | Values |
+|------|--------|
+| `PartitionScheme` | `range`, `list`, `hash`, `key`, `composite`, `interval`, `expression` |
+| `ItemKind` | `schema`, `type`, `domain`, `function`, `sequence`, `table`, `index`, `extension`, `tablespace`, `partition_function`, `partition_scheme`, `fulltext_catalog` |
+
+### `scheme=None` is the single answer for "not partitioned"
+
+`PartitionState.scheme` is the one neutral answer to "is this table partitioned".
+It is `None` for every backend, regardless of how that backend spells or
+discovers partitions (child tables, system parts, decorated tables). Nothing
+else stands in for it: not an empty `bounds` tuple, not a fabricated scheme, and
+not a missing `PartitionState` — `get_partition_state` returns the state object
+and puts `None` in `scheme`. When `scheme` is `None`, `bounds` is empty because
+there are no partitions to describe.
+
+```python
+partition = backend.introspector.get_partition_state("orders")
+
+assert partition.scheme is None      # the single neutral answer: not partitioned
+assert partition.bounds == ()
+print(partition.scheme, partition.key_columns)
+```
+
+`TableState.partitioning` is optional and may be omitted by an engine that has no
+partitioning at all; when a backend does answer with a `PartitionState`, the
+same `scheme=None` rule applies.
+
+### Statistics are opt-in, and the default must not ask for them
+
+`include_stats=False` is the default. The choice is made at the projection and
+query level, not by filtering values afterwards: with the default a backend must
+not run the statistics query at all, so `PartitionBound.row_count` and
+`PartitionBound.size_bytes` stay `None`. With `include_stats=True` the backend
+adds the statistics columns — for example a row estimate from the catalogue and a
+relation-size call — and the same bounds carry those figures. The cost difference
+is that query: an engine that computes sizes by walking the relation can pay a
+scan per partition, while the default answer costs one catalogue read.
+
+```python
+plain = backend.introspector.get_partition_state("orders")
+assert all(bound.row_count is None and bound.size_bytes is None for bound in plain.bounds)
+
+with_stats = backend.introspector.get_partition_state("orders", include_stats=True)
+# On a partitioned engine, with_stats.bounds now carry row_count / size_bytes.
+print([(bound.name, bound.row_count, bound.size_bytes) for bound in with_stats.bounds])
+```
+
+On an engine with no partitioning (SQLite) both calls answer
+`PartitionState(scheme=None)`; there are no bounds to compare, so the difference
+is observable only where a scheme exists.
+
+### Refusal is by name
+
+A method a backend has not implemented raises `ProtocolNotImplementedError`, and
+the message names the dialect, the family and the method. An empty list or `None`
+is never a stand-in for "cannot answer": those mean the question was asked and
+the answer is "nothing", which is a different fact.
+
+```python
+from types import SimpleNamespace
+
+from rhosocial.activerecord.backend.dialect.exceptions import ProtocolNotImplementedError
+from rhosocial.activerecord.backend.introspection.base import (
+    AbstractIntrospector,
+    IntrospectorMixin,
+)
+
+
+class UnimplementedIntrospector(IntrospectorMixin):
+    def __init__(self):
+        self._backend = SimpleNamespace(dialect=SimpleNamespace(name="Custom"))
+
+
+try:
+    AbstractIntrospector.get_table_state(UnimplementedIntrospector(), "orders")
+except ProtocolNotImplementedError as exc:
+    # 'Custom' dialect does not implement StructureIntrospectionSupport
+    # protocol, which is required by get_table_state.
+    print(exc.dialect_name, exc.protocol_name, exc.required_by)
+```
+
+The exception carries the three names as attributes (`dialect_name`,
+`protocol_name`, `required_by`), so a caller can react without parsing the
+message. `None` as an answer is reserved for an answered question with nothing
+to report: `get_ddl_statement` returns `None` when the engine was asked and has
+no text, never because the engine cannot answer.
+
+### `item_exists` answers three cases
+
+`item_exists(kind, name)` asks whether a shared object exists. Shared objects
+outlive a table: a sequence, a type, a domain, a function, an extension, a
+tablespace, a partition function/scheme, a full-text catalogue. One rule covers
+every kind:
+
+1. the engine has no objects of this kind → `False`, a definite "there is none",
+   not "cannot tell";
+2. the engine has them and the catalogue query is implemented → query and answer
+   `True` or `False`;
+3. the engine has them but this backend has no query for the kind → refuse with
+   `ProtocolNotImplementedError`: that is an implementation gap, and a `False`
+   there would disguise it as absence.
+
+```python
+from rhosocial.activerecord.backend.introspection import ItemKind
+
+introspector = backend.introspector
+
+# case 2: SQLite has tables and this backend can query them
+print(introspector.item_exists(ItemKind.TABLE, "orders"))      # True
+print(introspector.item_exists(ItemKind.TABLE, "missing"))     # False: asked, none
+
+# case 1: SQLite has no named type objects at all
+print(introspector.item_exists(ItemKind.TYPE, "orders"))       # False: none exist
+```
+
+A backend in case 3 raises instead of answering `False`.
+
+### Migration note: `list_partitions` was removed
+
+`list_partitions` was removed with no compatibility layer. Its logic is folded
+into `get_partition_state`: the scheme and the bounds now travel together in one
+`PartitionState`, so `scheme` answers "is this table partitioned" and `bounds`
+describes the parts. There is no alias and no fallback; the only supported
+spelling is `get_partition_state`.
+
+Partition capability moved out of the introspection families: ask
+`PartitionSupport.supports_partition_metadata_introspection()` before requesting
+partition metadata from a backend. See
+[Capabilities](introspection/capabilities.md).
 
 ## Basic Usage
 
@@ -344,6 +668,10 @@ indexes = await backend.introspector.list_indexes("users")
 foreign_keys = await backend.introspector.list_foreign_keys("posts")
 views = await backend.introspector.list_views()
 triggers = await backend.introspector.list_triggers()
+
+# Neutral object state, same names, awaited
+state = await backend.introspector.get_table_state("users")
+partition = await backend.introspector.get_partition_state("users")
 ```
 
 ## Caching Mechanism
@@ -562,6 +890,25 @@ belongs to.
 | `view_exists(view_name)` | `schema=None` | Whether the view exists |
 | `list_triggers()` | `table_name=None, schema=None` | List triggers, optionally for one table |
 | `get_trigger_info(trigger_name)` | `schema=None` | Trigger details |
+
+### Core Methods — Neutral Object State
+
+The eight methods below return core dataclasses, not backend-specific result
+types. They are not gated by the four families' probes: a backend that has not
+implemented one refuses by name (see
+[Refusal is by name](#refusal-is-by-name)). The sync and async introspectors
+declare the same names; on the async class each call is awaited.
+
+| Method | Parameters (defaults) | Description |
+|--------|-----------------------|-------------|
+| `get_table_state(table_name)` | `schema=None` | Table kind, traits, storage options, comment and partition state |
+| `get_partition_state(table_name)` | `schema=None, include_stats=False` | The partition scheme (`None` when not partitioned) and its bounds; statistics only when asked |
+| `list_index_states(table_name)` | `schema=None` | Every index, with method, predicate, visibility and usability |
+| `list_constraint_states(table_name)` | `schema=None` | Every constraint, with its kind and validation/enforcement state |
+| `list_sequence_states()` | `schema=None` | The sequences of a schema, with their owning columns |
+| `list_derived_objects(table_name)` | `schema=None` | Objects the engine created for a declaration (autoindex, identity sequence, ...) |
+| `list_schemas()` | — | The schema/namespace names the server exposes |
+| `item_exists(kind, name)` | `schema=None` | Whether a shared object of `ItemKind` exists, by the three-case rule |
 
 ### Core Methods — Operational Layer
 
