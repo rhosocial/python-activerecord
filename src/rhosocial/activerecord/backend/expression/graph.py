@@ -34,6 +34,10 @@ class GraphEdgeDirection(str, Enum):
 class GraphVertex(BaseExpression):
     """Represents a vertex in a graph pattern according to SQL 2023 standard."""
 
+    #: An anonymous vertex has no variable name; ``None`` is that value, not a
+    #: missing field.
+    NULLABLE_REQUIRED = frozenset({"variable"})
+
     def __init__(self, dialect: "SQLDialectBase", variable: Optional[str],
                  table: "NodeTable",
                  where: Optional["WhereClause"] = None):
