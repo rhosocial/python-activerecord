@@ -1,14 +1,9 @@
 # .../mixins/alter_table_mixin.py
 """Per-statement mixin for AlterTableSupport. Members/order/signature mirror the protocol."""
 
-from rhosocial.activerecord.backend.expression.statements import (
-    TableCheckConstraint,
-    TableForeignKeyConstraint,
-)
 from ...expression.statements.ddl_alter import AlterTableAction
 from ...expression.objects import Table
-from typing import Any, List, Tuple, TYPE_CHECKING
-from enum import Enum
+from typing import Any, List, Tuple
 
 class AlterTableMixin:
     def supports_alter_table(self) -> bool:
@@ -60,26 +55,20 @@ class AlterTableMixin:
             """
             return False
 
-    def supports_multi_action_alter_table(self) -> bool:
-            """Whether ALTER TABLE supports multiple comma-separated actions.
-
-            Defaults to True. SQL Server requires one action per statement.
-            """
-            return True
-
     def format_alter_table_statement(self, expr: "AlterTableStatement") -> Tuple[str, tuple]:
             """Format ALTER TABLE statement (generic implementation).
 
-            When the dialect does not support multiple actions in one ALTER TABLE
-            (e.g. SQL Server), a multi-action statement fails fast with
-            UnsupportedFeatureError. An expression maps to one SQL statement, so
-            joining actions with semicolons would hand cursor.execute() an
-            unexecutable string; the caller must emit one AlterTableStatement per
-            action instead.
+            One expression renders one statement, and that statement carries one
+            action. A multi-action statement fails fast with
+            ``UnsupportedFeatureError``: comma-joining the actions would hide each
+            one from the caller's plan (its own phase, permission and destructive
+            check), and semicolon-joining would hand ``cursor.execute()`` two
+            statements from one expression. The caller emits one
+            ``AlterTableStatement`` per action and orders them itself.
 
             Args:
-                expr: AlterTableStatement carrying the table name and the list of
-                    actions to render.
+                expr: AlterTableStatement carrying the table name and the action
+                    to render.
 
             Returns:
                 Tuple of (SQL string, parameters tuple) for the statement.
@@ -90,6 +79,8 @@ class AlterTableMixin:
                 TypeError: An entry of ``AlterTableStatement.actions`` is not an
                 implementation of AlterTableAction. An entry of another kind has no
                 action clause to dispatch on, so nothing would be rendered for it.
+                UnsupportedFeatureError: ``AlterTableStatement.actions`` holds more
+                than one action.
             """
             if not isinstance(expr.table, Table):
                 raise TypeError(
@@ -118,23 +109,19 @@ class AlterTableMixin:
             if not action_parts:
                 return f"ALTER TABLE {table_sql}", ()
 
-            if self.supports_multi_action_alter_table():
-                combined = ", ".join(action_parts)
-                return f"ALTER TABLE {table_sql} {combined}", tuple(all_params)
-
-            # One expression produces one SQL statement (expression↔SQL is 1:1).
-            # On a dialect that cannot combine actions, a multi-action statement
-            # cannot be rendered as a single valid SQL — semicolon-joining would
-            # emit two statements from one expression and hand an unexecutable
-            # string to cursor.execute(). Fail fast and require the caller (the
-            # migration planner) to split into one AlterTableStatement per action.
+            # One expression produces one SQL statement carrying one action
+            # (expression↔SQL is 1:1). Comma-joining would hide each action from
+            # the caller's plan -- its own phase, permission and destructive
+            # check -- and semicolon-joining would emit two statements from one
+            # expression. Fail fast and require one AlterTableStatement per
+            # action.
             if len(action_parts) > 1:
                 from ..exceptions import UnsupportedFeatureError
 
                 raise UnsupportedFeatureError(
                     self.name,
                     "ALTER TABLE with multiple actions",
-                    f"{self.name} cannot combine {len(action_parts)} actions in one "
-                    f"ALTER TABLE. Emit one AlterTableStatement per action instead.",
+                    f"{self.name} renders one action per statement. Emit one "
+                    f"AlterTableStatement per action and order them in the caller.",
                 )
             return f"ALTER TABLE {table_sql} {action_parts[0]}", tuple(all_params)

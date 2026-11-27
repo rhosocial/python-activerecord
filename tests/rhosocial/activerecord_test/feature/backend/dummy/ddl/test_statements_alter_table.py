@@ -182,20 +182,23 @@ class TestAlterTableStatements:
         assert 'ALTER TABLE "users"' in sql
         assert params == ()
 
-    def test_multiple_actions(self, dummy_dialect: DummyDialect):
-        """Tests ALTER TABLE with multiple actions in a single statement."""
+    def test_multiple_actions_are_refused(self, dummy_dialect: DummyDialect):
+        """One expression renders one action; two must fail fast.
+
+        The engine-neutral rule: an ``ALTER TABLE`` expression carries one
+        action, so each change gets its own statement and the caller orders
+        them. Comma-joining would hide the second action from the plan's phase,
+        permission and destructive checks.
+        """
         column_def = ColumnDefinition(dummy_dialect, name="age", data_type=IntegerType(dummy_dialect))
         add_action = AddColumnAction(dummy_dialect, column=column_def)
         drop_action = DropColumnAction(dummy_dialect, column_name="old_field")
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "profiles"), actions=[add_action, drop_action])
-        sql, params = alter_expr.to_sql()
-
-        # Verify basic structure
-        assert 'ALTER TABLE "profiles"' in sql
-        assert "ADD COLUMN" in sql
-        assert "DROP COLUMN" in sql
-        assert params == ()
+        alter_expr = AlterTableStatement(
+            dummy_dialect, table=Table(dummy_dialect, "profiles"), actions=[add_action, drop_action]
+        )
+        with pytest.raises(UnsupportedFeatureError, match="multiple actions"):
+            alter_expr.to_sql()
 
     def test_alter_column_cascade_option(self, dummy_dialect: DummyDialect):
         """Tests ALTER COLUMN with CASCADE option."""
@@ -251,7 +254,12 @@ class TestAlterTableStatements:
         assert params == ()
 
     def test_alter_table_complex_scenario(self, dummy_dialect: DummyDialect):
-        """Tests ALTER TABLE with complex scenario involving multiple action types."""
+        """Three changes are three statements, ordered by the caller.
+
+        One expression renders one action; a statement carrying several would
+        hide the others from the plan. Each change here is therefore its own
+        ``AlterTableStatement``, which is what the planner emits.
+        """
         # Add new column
         new_col_def = ColumnDefinition(dummy_dialect, name="created_by", data_type=IntegerType(dummy_dialect))
         add_action = AddColumnAction(dummy_dialect, column=new_col_def)
@@ -271,15 +279,15 @@ class TestAlterTableStatements:
         constraint = TableConstraint(dummy_dialect, branch=TableForeignKeyConstraint(dummy_dialect, ["created_by"], (Table(dummy_dialect, "users"), ["id"])), name="fk_created_by")
         add_constraint_action = AddTableConstraintAction(dummy_dialect, constraint=constraint)
 
-        alter_expr = AlterTableStatement(
-            dummy_dialect, table=Table(dummy_dialect, "posts"), actions=[add_action, alter_action, add_constraint_action]
-        )
-        sql, params = alter_expr.to_sql()
+        for action in (add_action, alter_action, add_constraint_action):
+            statement = AlterTableStatement(
+                dummy_dialect, table=Table(dummy_dialect, "posts"), actions=[action]
+            )
+            sql, params = statement.to_sql()
 
-        assert 'ALTER TABLE "posts"' in sql
-        # Actions may appear in different order depending on implementation
-        # DDL clauses accept no bind parameters: DEFAULT values are inline.
-        assert params == ()
+            assert 'ALTER TABLE "posts"' in sql
+            # DDL clauses accept no bind parameters: DEFAULT values are inline.
+            assert params == ()
 
     def test_alter_table_simple_types(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with simple data types."""

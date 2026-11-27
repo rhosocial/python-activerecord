@@ -75,13 +75,6 @@ class AlterTableSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def supports_multi_action_alter_table(self) -> bool:
-        """Whether the engine accepts the form ``multi_action_alter_table``.
-
-        Defaults to ``False``; a dialect that accepts it returns ``True``.
-        """
-        ...  # pragma: no cover
-
     def format_alter_table_statement(self, expr: "AlterTableStatement") -> Tuple[str, tuple]:
         """Render a :class:`~....expression.statements.AlterTableStatement`.
 

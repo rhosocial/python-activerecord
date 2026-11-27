@@ -842,16 +842,6 @@ class SQLiteDialect(
         """Whether ALTER TABLE is supported."""
         return True
 
-    def supports_multi_action_alter_table(self) -> bool:
-        """SQLite accepts only one action per ``ALTER TABLE`` statement.
-
-        A comma-joined ``ALTER TABLE t ADD COLUMN ..., ADD COLUMN ...`` is a
-        syntax error on SQLite (``near ",": syntax error``). With this probe
-        False the core formatter renders each action as its own statement,
-        separated by semicolons, instead of comma-joining them.
-        """
-        return False
-
     def supports_alter_column_type(self) -> bool:
         """SQLite cannot change a column's declared type in place.
 

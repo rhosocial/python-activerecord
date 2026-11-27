@@ -32,15 +32,12 @@ from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
 class TestSQLiteAlterTableProbes:
     """Neither answer is version-dependent, so assert it across the version matrix."""
 
-    def test_multi_action_alter_table_is_unsupported(self, sqlite_dialect):
-        assert sqlite_dialect.supports_multi_action_alter_table() is False
-
     def test_alter_column_type_is_unsupported(self, sqlite_dialect):
         assert sqlite_dialect.supports_alter_column_type() is False
 
 
 class TestSQLiteTwoActionAlterStatement:
-    """The core formatter must not comma-join two actions for SQLite."""
+    """The core formatter refuses two actions, for every dialect."""
 
     @pytest.fixture
     def dialect(self):
