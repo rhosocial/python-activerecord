@@ -726,13 +726,18 @@ class TestCreateTableStatements:
             )
 
     def test_partition_clause_requires_non_empty_strategy_word(self, dummy_dialect: DummyDialect):
-        """Tests PartitionClause rejects an empty method word."""
+        """Tests PartitionClause renders only a non-empty method word.
+
+        Construction collects; the word is judged when SQL is asked for, so a
+        node read back from an artifact still builds.
+        """
+        expr = PartitionClause(
+            dialect=dummy_dialect,
+            method="",
+            keys=[Column(dummy_dialect, "created_date")],
+        )
         with pytest.raises(TypeError, match="non-empty strategy word"):
-            PartitionClause(
-                dialect=dummy_dialect,
-                method="",
-                keys=[Column(dummy_dialect, "created_date")],
-            )
+            expr.to_sql()
 
     def test_partition_clause_accepts_strategy_word(self, dummy_dialect: DummyDialect):
         """Tests PartitionClause accepts a non-empty strategy word."""
@@ -744,18 +749,20 @@ class TestCreateTableStatements:
         assert expr.method == "RANGE"
 
     def test_partition_clause_rejects_non_string_method(self, dummy_dialect: DummyDialect):
-        """Tests a non-string method is rejected with a clear TypeError."""
+        """Tests a non-string method is refused at render with a clear TypeError."""
+        expr = PartitionClause(
+            dialect=dummy_dialect,
+            method=123,
+            keys=[Column(dummy_dialect, "created_date")],
+        )
         with pytest.raises(TypeError, match="non-empty strategy word"):
-            PartitionClause(
-                dialect=dummy_dialect,
-                method=123,
-                keys=[Column(dummy_dialect, "created_date")],
-            )
+            expr.to_sql()
 
     def test_partition_clause_requires_keys(self, dummy_dialect: DummyDialect):
-        """Tests PartitionClause requires at least one key expression."""
-        with pytest.raises(ValueError, match="keys are required"):
-            PartitionClause(dialect=dummy_dialect, method="RANGE", keys=[])
+        """Tests PartitionClause refuses an empty key list at render."""
+        expr = PartitionClause(dialect=dummy_dialect, method="RANGE", keys=[])
+        with pytest.raises(TypeError, match="keys is empty"):
+            expr.to_sql()
 
     def test_partition_clause_rejects_dialect_options_kwarg(self, dummy_dialect: DummyDialect):
         """Tests PartitionClause no longer accepts a dialect_options bag."""
@@ -768,9 +775,12 @@ class TestCreateTableStatements:
             )
 
     def test_partition_clause_requires_expression_keys(self, dummy_dialect: DummyDialect):
-        """Tests PartitionClause keys must be expressions."""
+        """Tests PartitionClause keys must be expressions, checked at render."""
+        clause = PartitionClause(
+            dialect=dummy_dialect, method="RANGE", keys=["created_date"]
+        )
         with pytest.raises(TypeError, match="BaseExpression"):
-            PartitionClause(dialect=dummy_dialect, method="RANGE", keys=["created_date"])
+            clause.to_sql()
 
     def test_partition_support_methods_are_disabled_by_dummy(self, dummy_dialect: DummyDialect):
         """Tests DummyDialect exposes PartitionSupport with disabled capabilities."""

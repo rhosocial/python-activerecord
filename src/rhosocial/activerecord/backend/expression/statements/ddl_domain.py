@@ -157,11 +157,17 @@ class AddDomainCheckAction(DomainAlterAction):
         super().__init__(dialect)
         if isinstance(check, SQLPredicate):
             check = DomainCheckConstraint(dialect, check)
-        if not isinstance(check, DomainCheckConstraint):
-            raise TypeError(
-                f"check must be a DomainCheckConstraint instance, got {type(check).__name__}"
-            )
+        # A predicate is widened here -- that is normalisation. Whether the
+        # result is a constraint at all is judged by check_renderable(), so a
+        # node read back from an artifact always builds.
         self.check = check
+
+    def check_renderable(self) -> None:
+        if not isinstance(self.check, DomainCheckConstraint):
+            raise TypeError(
+                f"{type(self).__name__}.check must be a DomainCheckConstraint "
+                f"instance, got {type(self.check).__name__}"
+            )
 
 
 class DropDomainCheckAction(DomainAlterAction):

@@ -375,12 +375,13 @@ def test_format_partition_method_rejects_invalid_method(dialect):
         PartitionClause,
     )
 
+    expr = PartitionClause(
+        dialect=dialect,
+        method="",
+        keys=[Column(dialect, "id")],
+    )
     with pytest.raises(TypeError) as exc_info:
-        PartitionClause(
-            dialect=dialect,
-            method=None,
-            keys=[Column(dialect, "id")],
-        )
+        expr.to_sql()
 
     message = str(exc_info.value)
     assert "method must be a non-empty strategy word" in message

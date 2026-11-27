@@ -557,8 +557,14 @@ class TestConstraintEnforcementAndValidation:
         assert ValidateConstraintAction(dialect, "age_check").to_sql()[0] == (
             'VALIDATE CONSTRAINT "age_check"'
         )
-        with pytest.raises(TypeError):
-            AlterConstraintAction(dialect, "age_check", False)
+        # The enforcement keyword is mandatory, and that is judged at render
+        # time: the node itself always builds, so a stored artifact can be
+        # read back and refused by name.
+        incomplete = AlterConstraintAction(
+            dialect, "age_check", constraint_kind=TableCheckConstraint
+        )
+        with pytest.raises(TypeError, match="requires exactly one of"):
+            incomplete.to_sql()
 
     def test_branch_and_validation_types_are_refused(self):
         """The branch names the kind and ``validation`` names its spelling;

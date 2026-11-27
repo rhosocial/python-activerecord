@@ -430,6 +430,7 @@ class BaseExpression:
         )
 
         self._check_required_present()
+        self.check_renderable()
         dialect = self.dialect
         self.check_dialect(dialect)
         formatter_name = self.format_method
@@ -518,6 +519,24 @@ class BaseExpression:
                 f"explicitly, or absent from the artifact's params. Supply the "
                 f"value; do not expect the formatter to invent one."
             )
+
+    def check_renderable(self) -> None:
+        """Hook: refuse a node whose collected payload cannot be rendered.
+
+        Called on every render, after the required-parameter check and before
+        the formatter is looked up. A node overrides it when a payload
+        constraint cannot be expressed as "the parameter is absent": an empty
+        key list, two mutually exclusive flags, a value of the wrong shape.
+
+        This is a rendering-phase check on purpose. The constructor only
+        collects (a node must always build, or no stored artifact could be
+        read back), while the answer "this payload is not renderable" is a
+        caller error and belongs to the moment the SQL is asked for. It raises
+        :class:`TypeError`, never
+        :class:`~..dialect.exceptions.UnsupportedFeatureError`: a malformed
+        payload is not a missing dialect feature.
+        """
+        return None
 
     def validate(self, strict: bool = True) -> None:
         """Validate expression parameters according to SQL standard.

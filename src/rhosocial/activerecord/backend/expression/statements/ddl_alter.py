@@ -354,44 +354,52 @@ class AlterConstraintAction(AlterTableAction):
         constraint_kind: Union[type, str],
     ) -> None:
         super().__init__(dialect)
-        if enforced and not_enforced:
-            raise ValueError("enforced and not_enforced are mutually exclusive options")
-        if not (enforced or not_enforced):
-            raise ValueError(
-                "AlterConstraintAction requires exactly one of enforced=True or "
-                "not_enforced=True: the enforcement keyword is mandatory"
-            )
+        # Collect only. The grammar this action states -- exactly one enforcement
+        # keyword, a named constraint, a CHECK or FOREIGN KEY -- is checked by
+        # :meth:`check_renderable` at render time, so an action read back from
+        # an artifact always builds and a caller error is reported as one.
         if constraint_name is None:
             constraint_name = name
-        elif name is not None and name != constraint_name:
-            raise ValueError("name and constraint_name must match")
-        if not isinstance(constraint_name, str) or not constraint_name.strip():
-            raise ValueError("constraint_name must be a non-empty string")
-        if isinstance(constraint_kind, str):
-            # The spelling a caller writes ("CHECK", "FOREIGN_KEY"), resolved
-            # to the branch class by name -- the tag enum the branches
-            # replaced is gone, and a spelling is still a kind.
-            normalized = " ".join(constraint_kind.strip().upper().split()).replace(" ", "_")
-            matched = [
-                branch
-                for branch in self.ALLOWED_BRANCHES
-                if branch.__name__.replace("Table", "").upper() == normalized
-            ]
-            if not matched:
-                raise ValueError(
-                    "constraint_kind must name a CHECK or FOREIGN KEY constraint"
-                )
-            constraint_kind = matched[0]
-        if constraint_kind not in self.ALLOWED_BRANCHES:
-            raise ValueError(
-                "constraint_kind must be TableCheckConstraint or TableForeignKeyConstraint"
-            )
         self.constraint_name = constraint_name
         self.name = constraint_name
         self.enforced = enforced
         self.not_enforced = not_enforced
-        #: The branch class whose kind this keyword is spelled on.
-        self.constraint_branch = constraint_kind
+        #: The branch the keyword is spelled on. A spelling is resolved to its
+        #: branch here -- that is normalisation, not judgement -- and anything
+        #: else is carried as given for the render-time check to refuse.
+        self.constraint_branch = self._resolve_kind(constraint_kind)
+
+    def _resolve_kind(self, constraint_kind):
+        """Map a spelling to its branch class; carry anything else unchanged."""
+        if isinstance(constraint_kind, str):
+            normalized = " ".join(constraint_kind.strip().upper().split()).replace(" ", "_")
+            for branch in self.ALLOWED_BRANCHES:
+                if branch.__name__.replace("Table", "").upper() == normalized:
+                    return branch
+        return constraint_kind
+
+    def check_renderable(self) -> None:
+        """The action's grammar: one enforcement keyword, a name, one kind."""
+        if self.enforced and self.not_enforced:
+            raise TypeError(
+                f"{type(self).__name__}: enforced and not_enforced are mutually "
+                "exclusive options; name exactly one enforcement keyword"
+            )
+        if not (self.enforced or self.not_enforced):
+            raise TypeError(
+                f"{type(self).__name__} requires exactly one of enforced=True or "
+                "not_enforced=True: the enforcement keyword is mandatory"
+            )
+        if not isinstance(self.constraint_name, str) or not self.constraint_name.strip():
+            raise TypeError(
+                f"{type(self).__name__}.constraint_name must be a non-empty string, "
+                f"got {self.constraint_name!r}"
+            )
+        if self.constraint_branch not in self.ALLOWED_BRANCHES:
+            raise TypeError(
+                f"{type(self).__name__}.constraint_kind must name a CHECK or FOREIGN "
+                f"KEY constraint, got {self.constraint_branch!r}"
+            )
 
     @property
     def constraint_kind(self) -> str:
@@ -403,8 +411,11 @@ class AlterConstraintAction(AlterTableAction):
         an attribute of the same name, and a class object is not something any
         of the three artifact channels can encode -- so the wire form is the
         spelling the constructor matches against, derived by that same rule.
+        An unresolved spelling is carried as given, so a malformed artifact
+        round-trips far enough to be refused by name.
         """
-        return self.constraint_branch.__name__.replace("Table", "")
+        branch = self.constraint_branch
+        return getattr(branch, "__name__", str(branch)).replace("Table", "")
 
     @property
     def format_method(self) -> str:

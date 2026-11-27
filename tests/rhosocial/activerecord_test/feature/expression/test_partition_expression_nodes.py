@@ -47,9 +47,11 @@ def test_strategy_clause_is_expression_with_fixed_word(dialect, cls, word):
     assert isinstance(clause.method, str)
 
 
-def test_strategy_clause_rejects_empty_keys(dialect):
-    with pytest.raises(ValueError):
-        PartitionByRangeClause(dialect, [])
+def test_strategy_clause_refuses_empty_keys_at_render(dialect):
+    """A clause always builds; an empty key list is refused when SQL is asked for."""
+    clause = PartitionByRangeClause(dialect, [])
+    with pytest.raises(TypeError, match="keys is empty"):
+        clause.to_sql()
 
 
 def test_definition_expression_is_renderable_node(dialect):

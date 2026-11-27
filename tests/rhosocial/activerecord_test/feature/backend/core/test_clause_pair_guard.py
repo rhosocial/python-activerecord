@@ -5,8 +5,8 @@ The rule this file enforces (the round's rule 1/2/3/4):
 
 * each spellable alternative has its own parameter;
 * "unspecified" is the state where none of the group's parameters is set;
-* setting more than one of them is API misuse and raises ``ValueError`` at
-  construction time;
+* setting more than one of them is API misuse and raises ``ValueError``
+  (``TypeError`` where the clause moved its judgement to render time);
 * no ``Optional[bool]`` tri-state and no sentinel value.
 
 For every clause pair the four states must be pairwise distinguishable:
@@ -15,7 +15,7 @@ For every clause pair the four states must be pairwise distinguishable:
 neither parameter     neither spelling rendered
 parameter A           A's spelling rendered (and not B's)
 parameter B           B's spelling rendered (and not A's)
-both parameters       ``ValueError``
+both parameters       ``ValueError`` / ``TypeError``
 ====================  =============================================
 
 The guard renders through ``DummyDialect``, the reference switchboard that
@@ -188,6 +188,7 @@ class PairCase:
         neither_error=None,
         a_value=True,
         b_value=True,
+        error_type=ValueError,
     ):
         self.case_id = case_id
         self.builder = builder
@@ -198,6 +199,7 @@ class PairCase:
         self.neither_error = neither_error
         self.a_value = a_value
         self.b_value = b_value
+        self.error_type = error_type
 
     def render(self, dialect, **kwargs):
         sql, _params = self.builder(dialect, **kwargs).to_sql()
@@ -364,6 +366,9 @@ PAIR_CASES = (
         r"(?<!NOT )ENFORCED\b",
         r"NOT ENFORCED\b",
         neither_error="AlterConstraintAction requires exactly one of",
+        # The action judges its grammar at render time: the node always
+        # builds, so a stored artifact can be read back and refused by name.
+        error_type=TypeError,
     ),
     PairCase(
         "CreateMaterializedViewStatement.with_data",
@@ -499,7 +504,7 @@ class TestFourStatesArePairwiseDistinguishable:
     @pytest.mark.parametrize("case", PAIR_CASES, ids=PAIR_IDS)
     def test_neither_set_renders_neither_spelling(self, case):
         if case.neither_error is not None:
-            with pytest.raises(ValueError, match=case.neither_error):
+            with pytest.raises(case.error_type, match=case.neither_error):
                 case.render(_dummy())
             return
         sql = case.render(_dummy())
@@ -531,7 +536,8 @@ class TestFourStatesArePairwiseDistinguishable:
     @pytest.mark.parametrize("case", PAIR_CASES, ids=PAIR_IDS)
     def test_both_set_is_refused(self, case):
         with pytest.raises(
-            ValueError, match=f"{case.a} and {case.b} are mutually exclusive options"
+            case.error_type,
+            match=f"{case.a} and {case.b} are mutually exclusive options",
         ):
             case.render(
                 _dummy(), **{case.a: case.a_value, case.b: case.b_value}

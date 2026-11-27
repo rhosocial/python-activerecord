@@ -53,17 +53,29 @@ class PartitionClause(BaseExpression):
         # The strategy is a plain word carried by the node (a non-empty string).
         # Dedicated clause subclasses (PartitionByRangeClause etc.) fix it via
         # their WORD; a word is what renders and what travels in an artifact.
-        if not isinstance(method, str) or not method.strip():
-            raise TypeError(f"method must be a non-empty strategy word, got {method!r}")
+        # Nothing is judged here: the constructor collects, and whether the
+        # word and the key list can be rendered is answered by
+        # :meth:`check_renderable` when SQL is asked for.
         self.method = method
-        if not keys:
-            raise ValueError("keys are required")
-        for key in keys:
+        self.keys = list(keys)
+
+    def check_renderable(self) -> None:
+        """The clause needs a strategy word and at least one key expression."""
+        if not isinstance(self.method, str) or not self.method.strip():
+            raise TypeError(
+                f"{type(self).__name__}.method must be a non-empty strategy word, "
+                f"got {self.method!r}"
+            )
+        if not self.keys:
+            raise TypeError(
+                f"{type(self).__name__}.keys is empty: a PARTITION BY clause needs at least one key"
+            )
+        for key in self.keys:
             if not isinstance(key, BaseExpression):
                 raise TypeError(
-                    "keys must contain BaseExpression instances, " f"got {type(key).__name__}"
+                    f"{type(self).__name__}.keys must contain BaseExpression instances, "
+                    f"got {type(key).__name__}"
                 )
-        self.keys = list(keys)
 
     @property
     def format_method(self) -> str:
