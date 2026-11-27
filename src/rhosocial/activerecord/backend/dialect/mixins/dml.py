@@ -39,7 +39,9 @@ class DMLMixin(ReturningMixin):
             columns_sql = ""
             if expr.columns:
                 columns_sql = "(" + ", ".join([self.format_identifier(c) for c in expr.columns]) + ")"
-            if getattr(expr.source, "hints", ()):
+            from ...expression.statements.dml import SelectSource
+
+            if isinstance(expr.source, SelectSource) and expr.source.select_query.hints:
                 raise TypeError(
                     f"{type(expr).__name__}: the insert source carries optimizer hints. "
                     "A hint comment belongs to the outermost statement -- it is a comment "

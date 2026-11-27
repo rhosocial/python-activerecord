@@ -76,7 +76,10 @@ class CreateTableAsMixin:
                 )
             from ..exceptions import UnsupportedFeatureError
 
-            if getattr(expr.as_query, "hints", ()):
+            from ...expression.statements.dql import QueryStatement
+
+            wrapped = expr.as_query
+            if isinstance(wrapped, QueryStatement) and wrapped.hints:
                 raise TypeError(
                     f"{type(expr).__name__}: the embedded query carries optimizer hints. "
                     "A hint comment belongs to the outermost statement -- it is a comment "

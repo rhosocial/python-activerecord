@@ -88,7 +88,10 @@ class MaterializedViewMixin:
                     f"{self.name} does not support {feature} for materialized views."
                 )
 
-            if getattr(expr.query, "hints", ()):
+            from ...expression.statements.dql import QueryStatement
+
+            wrapped = expr.query
+            if isinstance(wrapped, QueryStatement) and wrapped.hints:
                 raise TypeError(
                     f"{type(expr).__name__}: the embedded query carries optimizer hints. "
                     "A hint comment belongs to the outermost statement -- it is a comment "
