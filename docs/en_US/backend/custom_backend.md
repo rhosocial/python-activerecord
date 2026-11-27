@@ -260,23 +260,23 @@ This principle ensures:
 - **Clear Responsibilities**: Generic protocols cover standard SQL, backend-specific ones cover deviations
 - **Maintainability**: Changes to standard SQL only need to happen in one place
 
-#### 4. Backend-Specific Options via dialect_options
+#### 4. Backend-Specific Options Belong to the Formatter
 
-When a generic protocol's formatting interface has backend-specific parameters, use the `dialect_options` parameter:
+Two contracts answer two different questions, and they must not be mixed:
+
+| Contract | Shape | Answers |
+|---|---|---|
+| support switch (`supports_*`) | no arguments, returns `bool` | whether this dialect can build the feature at all |
+| formatter (`format_*`) | takes the node, plus any backend-specific options | how this one statement is spelled |
+
+A switch that accepted options would answer a different question on each call, which breaks the rule that a dialect answers the same thing however often it is asked. Choices that vary per statement therefore live on the formatting interface:
 
 ```python
 from typing import Any, Dict, Optional, Protocol, Tuple
 
-# Generic protocol defines the interface with dialect_options
 class JSONSupport(Protocol):
-    def supports_json_table(
-        self, dialect_options: Optional[Dict[str, Any]] = None
-    ) -> bool:
-        """Check if JSON_TABLE is supported.
-
-        Args:
-            dialect_options: Backend-specific options
-        """
+    def supports_json_table(self) -> bool:
+        """Whether this dialect can build JSON_TABLE at all."""
         ...
 
     def format_json_table_expression(
@@ -288,9 +288,8 @@ class JSONSupport(Protocol):
 
         Args:
             expr: JSONTableExpression instance
-            dialect_options: Backend-specific options, e.g.:
+            dialect_options: Backend-specific spelling choices, e.g.:
                 - MySQL: {'on_error': 'IGNORE'}
-                - PostgreSQL: {...}
         """
         ...
 ```
@@ -298,8 +297,9 @@ class JSONSupport(Protocol):
 **Usage in expression:**
 
 ```python
-# Backend-specific options belong to the capability probe, not to the
-# expression: JSONTableExpression takes the generic arguments only.
+# Backend-specific options belong to the formatter, not to the capability
+# probe and not to the expression node: JSONTableExpression takes the
+# generic arguments only.
 from rhosocial.activerecord.backend.expression.query_sources import (
     JSONTableColumn,
     JSONTableExpression,
@@ -315,10 +315,10 @@ JSONTableExpression(
 ```
 
 **Benefits:**
-- **Consistent Interface**: Generic protocol defines the signature
-- **Extensible**: Each backend documents its own options
-- **Type Safety**: Type checkers can verify the interface signature
-- **Backward Compatible**: Adding options doesn't break existing implementations
+- **One answer per dialect**: a switch reports the same bool however often it is asked
+- **One place for per-statement choices**: the formatter, whose output is exactly one statement
+- **Consistent surface**: every switch has the same shape, so callers can enumerate them
+- **No leaking of statement options into capability**: a capability answer never changes because a caller passed different options
 
 After mixing in a protocol, verify the corresponding formatting methods. For example, if you mix in `WindowFunctionMixin`, check `format_window_specification` in the mixin/base class; the `OVER (...)` clause itself is assembled by `format_function_call`, which every function call goes through.
 

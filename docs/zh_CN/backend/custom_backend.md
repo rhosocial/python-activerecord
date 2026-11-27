@@ -260,23 +260,23 @@ class MySQLFullTextSearchSupport(Protocol):
 - **职责清晰**：通用协议覆盖标准 SQL，后端特定协议覆盖差异
 - **可维护性**：标准 SQL 的变更只需在一处进行
 
-#### 4. 通过 dialect_options 传递后端特定选项
+#### 4. 后端特定选项属于格式化接口，不属于能力开关
 
-当通用协议的格式化接口有后端特定参数时，使用 `dialect_options` 参数：
+两种契约回答两个不同的问题，不能混用：
+
+| 契约 | 形状 | 回答什么 |
+|---|---|---|
+| 能力开关（`supports_*`） | 无参数，返回 `bool` | 这个方言到底能不能构造该特性 |
+| 格式化接口（`format_*`） | 接收表达式节点，外加后端特定选项 | 这一条语句怎么拼 |
+
+带选项的能力开关等于"每次问都可能是不同的问题"，破坏了"同一方言问几次答案都一样"的规则。因此随语句变化的选项放在格式化接口上：
 
 ```python
 from typing import Any, Dict, Optional, Protocol, Tuple
 
-# 通用协议定义带 dialect_options 的接口
 class JSONSupport(Protocol):
-    def supports_json_table(
-        self, dialect_options: Optional[Dict[str, Any]] = None
-    ) -> bool:
-        """检查是否支持 JSON_TABLE。
-
-        Args:
-            dialect_options: 后端特定选项
-        """
+    def supports_json_table(self) -> bool:
+        """本方言到底能不能构造 JSON_TABLE。"""
         ...
 
     def format_json_table_expression(
@@ -288,9 +288,8 @@ class JSONSupport(Protocol):
 
         Args:
             expr: JSONTableExpression 实例
-            dialect_options: 后端特定选项，例如：
+            dialect_options: 后端特定拼写选项，例如：
                 - MySQL: {'on_error': 'IGNORE'}
-                - PostgreSQL: {...}
         """
         ...
 ```
@@ -298,7 +297,7 @@ class JSONSupport(Protocol):
 **在表达式中的用法：**
 
 ```python
-# 后端特定选项属于能力探测接口，而不属于表达式本身：
+# 后端特定选项属于格式化接口，既不属于能力开关，也不属于表达式本身：
 # JSONTableExpression 只接受通用参数
 from rhosocial.activerecord.backend.expression.query_sources import (
     JSONTableColumn,
@@ -315,10 +314,10 @@ JSONTableExpression(
 ```
 
 **优势：**
-- **一致的接口**：通用协议定义签名
-- **可扩展**：每个后端可以文档化自己的选项
-- **类型安全**：类型检查器可以验证接口签名
-- **向后兼容**：添加选项不会破坏现有实现
+- **一个方言一个答案**：开关问几次都是同一个 bool
+- **每语句选项只有一处**：格式化接口，其输出恰好是一条语句
+- **接口一致**：所有开关形状相同，调用方可以枚举
+- **能力不被语句选项污染**：调用方传不同选项，能力答案也不会改变
 
 ### 关注格式化函数
 

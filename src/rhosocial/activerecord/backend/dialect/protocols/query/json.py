@@ -6,7 +6,7 @@ see that package for the full protocol surface and the rules the conformance
 tests enforce.
 """
 
-from typing import Any, Dict, Optional, Protocol, TYPE_CHECKING, Tuple, runtime_checkable
+from typing import Protocol, TYPE_CHECKING, Tuple, runtime_checkable
 
 from ....expression import bases
 
@@ -30,12 +30,13 @@ class JSONSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def supports_json_table(self, dialect_options: Optional[Dict[str, Any]] = None) -> bool:
+    def supports_json_table(self) -> bool:
         """Whether JSON_TABLE function is supported.
 
-        Args:
-            dialect_options: Optional backend-specific options (e.g., MySQL: {'on_error': 'IGNORE'})
-                See backend-specific documentation for available options.
+        A support switch takes no arguments and answers a plain bool: it says
+        whether this dialect can build the function at all. Choices that vary
+        per statement (e.g. an error behaviour) belong to the formatter, not to
+        this switch.
         """
         ...  # pragma: no cover
 
