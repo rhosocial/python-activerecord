@@ -52,7 +52,7 @@ class TestAlterTableStatements:
         column_def = ColumnDefinition(dummy_dialect, "email", VarCharType(dummy_dialect, 100), comment=ColumnCommentClause(dummy_dialect, "User's email address"))
         add_action = AddColumnAction(dummy_dialect, column=column_def)
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "users"), actions=[add_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "users"), action=add_action)
         sql, params = alter_expr.to_sql()
 
         # Verify basic structure
@@ -64,7 +64,7 @@ class TestAlterTableStatements:
         """Tests ALTER TABLE with DROP COLUMN action."""
         drop_action = DropColumnAction(dummy_dialect, column_name="old_column")
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "legacy_table"), actions=[drop_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "legacy_table"), action=drop_action)
         sql, params = alter_expr.to_sql()
 
         # Verify basic structure
@@ -82,7 +82,7 @@ class TestAlterTableStatements:
             new_value="DECIMAL(10,2)",
         )
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "products"), actions=[alter_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "products"), action=alter_action)
         sql, params = alter_expr.to_sql()
 
         # Verify basic structure
@@ -101,7 +101,7 @@ class TestAlterTableStatements:
             new_value="active"
         )
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "users"), actions=[alter_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "users"), action=alter_action)
         sql, params = alter_expr.to_sql()
 
         assert 'ALTER TABLE "users"' in sql
@@ -129,7 +129,7 @@ class TestAlterTableStatements:
             )
 
             alter_expr = AlterTableStatement(
-                dummy_dialect, table=Table(dummy_dialect, "users"), actions=[alter_action]
+                dummy_dialect, table=Table(dummy_dialect, "users"), action=alter_action
             )
             sql, params = alter_expr.to_sql()
 
@@ -143,7 +143,7 @@ class TestAlterTableStatements:
         constraint = TableConstraint(dummy_dialect, branch=TableCheckConstraint(dummy_dialect, check_condition), name="chk_positive_age")
         add_constraint_action = AddTableConstraintAction(dummy_dialect, constraint=constraint)
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "employees"), actions=[add_constraint_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "employees"), action=add_constraint_action)
         sql, params = alter_expr.to_sql()
 
         # Verify basic structure
@@ -162,7 +162,7 @@ class TestAlterTableStatements:
             cascade=False
         )
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "orders"), actions=[drop_constraint_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "orders"), action=drop_constraint_action)
         sql, params = alter_expr.to_sql()
 
         # Verify basic structure
@@ -175,36 +175,18 @@ class TestAlterTableStatements:
         """Tests ALTER TABLE with RENAME COLUMN action."""
         rename_action = RenameColumnAction(dummy_dialect, old_name="user_name", new_name="username")
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "users"), actions=[rename_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "users"), action=rename_action)
         sql, params = alter_expr.to_sql()
 
         # Verify basic structure
         assert 'ALTER TABLE "users"' in sql
         assert params == ()
 
-    def test_multiple_actions_are_refused(self, dummy_dialect: DummyDialect):
-        """One expression renders one action; two must fail fast.
-
-        The engine-neutral rule: an ``ALTER TABLE`` expression carries one
-        action, so each change gets its own statement and the caller orders
-        them. Comma-joining would hide the second action from the plan's phase,
-        permission and destructive checks.
-        """
-        column_def = ColumnDefinition(dummy_dialect, name="age", data_type=IntegerType(dummy_dialect))
-        add_action = AddColumnAction(dummy_dialect, column=column_def)
-        drop_action = DropColumnAction(dummy_dialect, column_name="old_field")
-
-        alter_expr = AlterTableStatement(
-            dummy_dialect, table=Table(dummy_dialect, "profiles"), actions=[add_action, drop_action]
-        )
-        with pytest.raises(UnsupportedFeatureError, match="multiple actions"):
-            alter_expr.to_sql()
-
     def test_alter_column_cascade_option(self, dummy_dialect: DummyDialect):
         """Tests ALTER COLUMN with CASCADE option."""
         alter_action = AlterColumnAction(dummy_dialect, column_name="category", operation="DROP NOT NULL", cascade=True)
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "products"), actions=[alter_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "products"), action=alter_action)
         sql, params = alter_expr.to_sql()
 
         assert 'ALTER TABLE "products"' in sql
@@ -216,7 +198,7 @@ class TestAlterTableStatements:
         index_def = IndexDefinition(dummy_dialect, name="idx_users_email", columns=["email"], unique=True)
         add_index_action = AddIndexAction(dummy_dialect, index=index_def)
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "users"), actions=[add_index_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "users"), action=add_index_action)
         sql, params = alter_expr.to_sql()
 
         assert 'ALTER TABLE "users"' in sql
@@ -230,7 +212,7 @@ class TestAlterTableStatements:
         dummy_dialect, Index(dummy_dialect, "old_idx"), if_exists=True
     )
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "legacy_table"), actions=[drop_index_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "legacy_table"), action=drop_index_action)
         sql, params = alter_expr.to_sql()
 
         assert 'ALTER TABLE "legacy_table"' in sql
@@ -244,7 +226,7 @@ class TestAlterTableStatements:
             cascade=True
         )
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "orders"), actions=[drop_constraint_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "orders"), action=drop_constraint_action)
         sql, params = alter_expr.to_sql()
 
         assert 'ALTER TABLE "orders"' in sql
@@ -281,7 +263,7 @@ class TestAlterTableStatements:
 
         for action in (add_action, alter_action, add_constraint_action):
             statement = AlterTableStatement(
-                dummy_dialect, table=Table(dummy_dialect, "posts"), actions=[action]
+                dummy_dialect, table=Table(dummy_dialect, "posts"), action=action
             )
             sql, params = statement.to_sql()
 
@@ -294,7 +276,7 @@ class TestAlterTableStatements:
         column_def = ColumnDefinition(dummy_dialect, name="timestamp", data_type=TimestampType(dummy_dialect))
         add_action = AddColumnAction(dummy_dialect, column=column_def)
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "events"), actions=[add_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "events"), action=add_action)
         sql, params = alter_expr.to_sql()
 
         assert 'ALTER TABLE "events"' in sql
@@ -306,7 +288,7 @@ class TestAlterTableStatements:
         column_def = ColumnDefinition(dummy_dialect, name="amount", data_type=DecimalType(dummy_dialect, precision=10, scale=2))
         add_action = AddColumnAction(dummy_dialect, column=column_def)
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "transactions"), actions=[add_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "transactions"), action=add_action)
         sql, params = alter_expr.to_sql()
 
         assert 'ALTER TABLE "transactions"' in sql
@@ -322,7 +304,7 @@ class TestAlterTableStatements:
             new_value=FunctionCall(dummy_dialect, "NOW"),  # Use function call as default
         )
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "entities"), actions=[alter_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "entities"), action=alter_action)
         sql, params = alter_expr.to_sql()
 
         assert 'ALTER TABLE "entities"' in sql
@@ -466,10 +448,10 @@ class TestAlterTableStatements:
         of another kind. So the refusal happens at render time.
         """
         expr = AlterTableStatement(
-            dummy_dialect, table=Table(dummy_dialect, "test"), actions=["not_an_action"]
+            dummy_dialect, table=Table(dummy_dialect, "test"), action="not_an_action"
         )
         with pytest.raises(
-            TypeError, match=r"actions must hold AlterTableAction implementations, got str at position 0"
+            TypeError, match=r"action must be an AlterTableAction implementation, got str"
         ):
             expr.to_sql()
 
@@ -477,7 +459,7 @@ class TestAlterTableStatements:
         """Tests ALTER TABLE with RENAME COLUMN action per SQL standard."""
         rename_action = RenameColumnAction(dummy_dialect, old_name="user_name", new_name="username")
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "users"), actions=[rename_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "users"), action=rename_action)
         sql, params = alter_expr.to_sql()
 
         # Verify basic structure
@@ -489,7 +471,7 @@ class TestAlterTableStatements:
         """Tests ALTER TABLE with RENAME TABLE action per SQL standard."""
         rename_action = RenameTableAction(dummy_dialect, old_name="old_table_name", new_name="new_table_name")
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "old_table_name"), actions=[rename_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "old_table_name"), action=rename_action)
         sql, params = alter_expr.to_sql()
 
         # Verify basic structure
@@ -503,7 +485,7 @@ class TestAlterTableStatements:
             dummy_dialect, column_name="status", operation=ColumnAlterOperation.SET_DEFAULT, new_value="active"
         )
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "users"), actions=[alter_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "users"), action=alter_action)
         sql, params = alter_expr.to_sql()
 
         assert 'ALTER TABLE "users"' in sql
@@ -518,7 +500,7 @@ class TestAlterTableStatements:
             operation=ColumnAlterOperation.DROP_DEFAULT
         )
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "users"), actions=[alter_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "users"), action=alter_action)
         sql, params = alter_expr.to_sql()
 
         assert 'ALTER TABLE "users"' in sql
@@ -531,7 +513,7 @@ class TestAlterTableStatements:
         constraint = TableConstraint(dummy_dialect, branch=TableCheckConstraint(dummy_dialect, check_condition), name="chk_positive_age")
         add_constraint_action = AddTableConstraintAction(dummy_dialect, constraint=constraint)
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "employees"), actions=[add_constraint_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "employees"), action=add_constraint_action)
         sql, params = alter_expr.to_sql()
 
         # Verify basic structure
@@ -547,7 +529,7 @@ class TestAlterTableStatements:
             cascade=False
         )
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "orders"), actions=[drop_constraint_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "orders"), action=drop_constraint_action)
         sql, params = alter_expr.to_sql()
 
         # Verify basic structure
@@ -563,7 +545,7 @@ class TestAlterTableStatements:
             cascade=True
         )
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "orders"), actions=[drop_constraint_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "orders"), action=drop_constraint_action)
         sql, params = alter_expr.to_sql()
 
         assert 'ALTER TABLE "orders"' in sql
@@ -574,7 +556,7 @@ class TestAlterTableStatements:
         """Tests ALTER TABLE with DROP COLUMN IF EXISTS per SQL standard."""
         drop_action = DropColumnAction(dummy_dialect, column_name="old_column", if_exists=True)
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "legacy_table"), actions=[drop_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "legacy_table"), action=drop_action)
         sql, params = alter_expr.to_sql()
 
         # Verify basic structure
@@ -705,7 +687,7 @@ class TestAlterTableStatements:
         expression = AlterTableStatement(
             dummy_dialect,
             table=Table(dummy_dialect, "records"),
-            actions=[action_factory(dummy_dialect)],
+            action=action_factory(dummy_dialect),
         )
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
@@ -736,7 +718,7 @@ class TestAlterTableStatements:
         )
         add_action = AddColumnAction(dummy_dialect, column=column_def)
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "users"), actions=[add_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "users"), action=add_action)
         sql, params = alter_expr.to_sql()
 
         # The exact format depends on the dialect's implementation of format_column_definition
@@ -761,7 +743,7 @@ class TestAlterTableStatements:
         )
         add_action = AddColumnAction(dummy_dialect, column=column_def)
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "products"), actions=[add_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "products"), action=add_action)
         sql, params = alter_expr.to_sql()
 
         # The exact format depends on the dialect's implementation of format_column_definition
@@ -786,7 +768,7 @@ class TestAlterTableStatements:
         )
         add_action = AddColumnAction(dummy_dialect, column=column_def)
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "users"), actions=[add_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "users"), action=add_action)
         sql, params = alter_expr.to_sql()
 
         # The exact format depends on the dialect's implementation of format_column_definition
@@ -817,7 +799,7 @@ class TestAlterTableStatements:
         )
         add_action = AddColumnAction(dummy_dialect, column=column_def)
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "logs"), actions=[add_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "logs"), action=add_action)
         sql, params = alter_expr.to_sql()
 
         # The exact format depends on the dialect's implementation of format_column_definition
@@ -852,7 +834,7 @@ class TestAlterTableStatements:
         )
         add_action = AddColumnAction(dummy_dialect, column=column_def)
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "people"), actions=[add_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "people"), action=add_action)
         sql, params = alter_expr.to_sql()
 
         # The exact format depends on the dialect's implementation of format_column_definition
@@ -878,7 +860,7 @@ class TestAlterTableStatements:
         )
         add_action = AddColumnAction(dummy_dialect, column=column_def)
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "new_table"), actions=[add_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "new_table"), action=add_action)
         sql, params = alter_expr.to_sql()
 
         # The exact format depends on the dialect's implementation of format_column_definition
@@ -903,7 +885,7 @@ class TestAlterTableStatements:
         )
         add_action = AddColumnAction(dummy_dialect, column=column_def)
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "users"), actions=[add_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "users"), action=add_action)
         sql, params = alter_expr.to_sql()
 
         # The exact format depends on the dialect's implementation of format_column_definition
@@ -930,7 +912,7 @@ class TestAlterTableStatements:
         )
         add_action = AddColumnAction(dummy_dialect, column=column_def)
 
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "orders"), actions=[add_action])
+        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "orders"), action=add_action)
         sql, params = alter_expr.to_sql()
 
         # The exact format depends on the dialect's implementation of format_column_definition

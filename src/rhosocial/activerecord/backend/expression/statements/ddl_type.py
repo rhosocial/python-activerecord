@@ -63,22 +63,24 @@ class CreateTypeStatement(BaseExpression):
 
 
 class AlterTypeStatement(BaseExpression):
-    """Expression for ``ALTER TYPE``."""
+    """One ``ALTER TYPE`` statement carrying exactly one action.
+
+    One expression renders one statement, and that statement carries one action;
+    a caller with several changes builds one statement per action and orders
+    them itself.
+    """
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         type: "Type",
-        actions: Sequence[TypeAlterAction],
+        action: TypeAlterAction,
         *,
         if_exists: bool = False,
     ) -> None:
         super().__init__(dialect)
-        action_list = list(actions or [])
-        if not action_list:
-            raise ValueError("actions must contain at least one TypeAlterAction")
         self.type = type
-        self.actions = action_list
+        self.action = action
         self.if_exists = if_exists
 
     @property

@@ -125,7 +125,7 @@ def test_identical_declarations_produce_no_diff():
 def test_plan_emits_one_expression_per_single_action_change():
     plan = plan_changes(_Old, _New, DummyDialect())
     assert len(plan.statements) == 2
-    assert all(len(st.actions) == 1 for st in plan.statements)
+    assert all(st.action is not None for st in plan.statements)
 
 
 def test_plan_statements_are_individually_executable_sql():
@@ -154,7 +154,7 @@ def test_no_probe_check_in_a_side_planning():
     # One MODIFY statement emitted; no A-side capability gating happened.
     assert len(plan.statements) == 1
     from rhosocial.activerecord.backend.expression.statements.ddl_alter import AlterColumnAction
-    assert isinstance(plan.statements[0].actions[0], AlterColumnAction)
+    assert isinstance(plan.statements[0].action, AlterColumnAction)
 
 
 def test_multi_step_changes_become_suggestion_points():
@@ -190,7 +190,7 @@ def test_rename_becomes_a_single_rename_column_action():
     plan = plan_changes(_RenameOld, _RenameNew, DummyDialect())
     assert len(plan.statements) == 1
     from rhosocial.activerecord.backend.expression.statements.ddl_alter import RenameColumnAction
-    action = plan.statements[0].actions[0]
+    action = plan.statements[0].action
     assert isinstance(action, RenameColumnAction)
     assert (action.old_name, action.new_name) == ("legacy_label", "current_label")
     sql, _ = plan.statements[0].to_sql()

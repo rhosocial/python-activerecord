@@ -39,13 +39,6 @@ class AlterTypeSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def supports_multiple_type_alter_actions(self) -> bool:
-        """Whether the engine accepts the form ``multiple_type_alter_actions``.
-
-        Defaults to ``False``; a dialect that accepts it returns ``True``.
-        """
-        ...  # pragma: no cover
-
     def format_alter_type_statement(self, expr: "AlterTypeStatement") -> Tuple[str, tuple]:
         """Render a :class:`~....expression.statements.AlterTypeStatement`.
 

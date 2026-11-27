@@ -11,10 +11,6 @@ class AlterDomainMixin:
             """Whether ALTER DOMAIN is supported."""
             return self.supports_domains()
 
-    def supports_multiple_domain_alter_actions(self) -> bool:
-            """Whether one ALTER DOMAIN statement may contain multiple actions."""
-            return False
-
     def supports_unnamed_domain_check_drop(self) -> bool:
             """Whether an unnamed domain CHECK can be dropped."""
             return False
@@ -23,14 +19,18 @@ class AlterDomainMixin:
             self,
             expr: "AlterDomainStatement",
         ) -> Tuple[str, tuple]:
-            """Format a standard ALTER DOMAIN statement.
+            """Format a standard ALTER DOMAIN statement carrying one action.
+
+            One expression renders one statement, and that statement carries one
+            action; a caller with several changes builds one statement per action
+            and orders them itself.
 
             Raises:
                 TypeError: ``AlterDomainStatement.domain`` is not a Domain. Another
                 object kind would have had its own name rendered as the domain's.
-                TypeError: An entry of ``AlterDomainStatement.actions`` is not an
-                implementation of DomainAlterAction. An entry of another kind has no
-                action clause to dispatch on, so nothing would be rendered for it.
+                TypeError: ``AlterDomainStatement.action`` is not an implementation
+                of DomainAlterAction. Another kind has no action clause to dispatch
+                on, so nothing would be rendered for it.
             """
             if not isinstance(expr.domain, Domain):
                 raise TypeError(
@@ -41,25 +41,16 @@ class AlterDomainMixin:
             # DomainAlterAction is an abstract base and cannot be instantiated, so
             # this reports that the entry is not an implementation of it
             # rather than naming a concrete type.
-            for position, entry in enumerate(expr.actions):
-                if not isinstance(entry, DomainAlterAction):
-                    raise TypeError(
-                        f"AlterDomainStatement.actions must hold DomainAlterAction implementations, "
-                        f"got {type(entry).__name__} at position {position}"
-                    )
+            if not isinstance(expr.action, DomainAlterAction):
+                raise TypeError(
+                    f"AlterDomainStatement.action must be a DomainAlterAction implementation, "
+                    f"got {type(expr.action).__name__}"
+                )
             if not self.supports_domains() or not self.supports_alter_domain():
                 raise UnsupportedFeatureError(self.name, "ALTER DOMAIN")
-            if len(expr.actions) > 1 and not self.supports_multiple_domain_alter_actions():
-                raise UnsupportedFeatureError(self.name, "multiple ALTER DOMAIN actions")
-            action_parts = []
-            action_params = []
-            for action in expr.actions:
-                action_sql, params = action.to_sql()
-                action_parts.append(action_sql)
-                action_params.extend(params)
+            action_sql, action_params = expr.action.to_sql()
             return (
-                f"ALTER DOMAIN {expr.domain.to_sql()[0]} "
-                f"{', '.join(action_parts)}",
+                f"ALTER DOMAIN {expr.domain.to_sql()[0]} {action_sql}",
                 tuple(action_params),
             )
 

@@ -82,7 +82,7 @@ ColumnDefinition(
         alter_expr = AlterTableStatement(
             backend_with_users.dialect,
             table=Table(backend_with_users.dialect, "users"),
-            actions=[add_action],
+            action=add_action,
         )
         backend_with_users.execute(*alter_expr.to_sql())
 
@@ -108,7 +108,7 @@ ColumnDefinition(
         alter_expr = AlterTableStatement(
             backend_with_users.dialect,
             table=Table(backend_with_users.dialect, "users"),
-            actions=[add_action],
+            action=add_action,
         )
         backend_with_users.execute(*alter_expr.to_sql())
 
@@ -140,7 +140,7 @@ ColumnDefinition(
         alter_add = AlterTableStatement(
             backend_with_users.dialect,
             table=Table(backend_with_users.dialect, "users"),
-            actions=[add_action],
+            action=add_action,
         )
         backend_with_users.execute(*alter_add.to_sql())
 
@@ -156,7 +156,7 @@ ColumnDefinition(
         alter_drop = AlterTableStatement(
             backend_with_users.dialect,
             table=Table(backend_with_users.dialect, "users"),
-            actions=[drop_action],
+            action=drop_action,
         )
         backend_with_users.execute(*alter_drop.to_sql())
 
@@ -178,7 +178,7 @@ class TestAlterTableRenameColumn:
         alter_expr = AlterTableStatement(
             backend_with_users.dialect,
             table=Table(backend_with_users.dialect, "users"),
-            actions=[rename_action],
+            action=rename_action,
         )
         backend_with_users.execute(*alter_expr.to_sql())
 
@@ -217,7 +217,7 @@ ColumnDefinition(
         alter_add = AlterTableStatement(
             backend_with_users.dialect,
             table=Table(backend_with_users.dialect, "users"),
-            actions=[add_action],
+            action=add_action,
         )
         backend_with_users.execute(*alter_add.to_sql())
 
@@ -241,7 +241,7 @@ ColumnDefinition(
         alter_constraint = AlterTableStatement(
             backend_with_users.dialect,
             table=Table(backend_with_users.dialect, "users"),
-            actions=[add_constraint],
+            action=add_constraint,
         )
         backend_with_users.execute(*alter_constraint.to_sql())
 

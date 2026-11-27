@@ -126,12 +126,10 @@ def add_amount_column(dialect):
     return AlterTableStatement(
         dialect,
         table_name="orders",
-        actions=[
-            AddColumnAction(
+        action=AddColumnAction(
                 dialect,
                 column=_real_column("amount", default=0.0),
             ),
-        ],
     )
 
 

@@ -44,7 +44,7 @@ class TestSQLiteTwoActionAlterStatement:
         return SQLiteDialect(version=(3, 53, 0))
 
     @staticmethod
-    def _two_add_column_statement(dialect):
+    def _action_list_statement(dialect):
         email = AddColumnAction(
             dialect,
             column=ColumnDefinition(dialect, "email", SQLiteTextType(dialect=dialect)),
@@ -53,17 +53,7 @@ class TestSQLiteTwoActionAlterStatement:
             dialect,
             column=ColumnDefinition(dialect, "age", SQLiteIntegerType(dialect=dialect)),
         )
-        return AlterTableStatement(dialect, table=Table(dialect, "users"), actions=[email, age])
-
-    def test_two_actions_are_refused_not_joined(self, dialect):
-        """One expression = one SQL statement; two actions cannot render here.
-
-        A semicolon-joined string would be two statements from one expression and
-        is not executable via cursor.execute(). Fail fast so the planner splits
-        into one AlterTableStatement per action.
-        """
-        with pytest.raises(UnsupportedFeatureError, match="multiple actions"):
-            self._two_add_column_statement(dialect).to_sql()
+        return AlterTableStatement(dialect, table=Table(dialect, "users"), action=[email, age])
 
     def test_single_action_still_renders(self, dialect):
         """A one-action statement is unaffected — it is still one SQL statement."""
@@ -72,7 +62,7 @@ class TestSQLiteTwoActionAlterStatement:
             column=ColumnDefinition(dialect, "email", SQLiteTextType(dialect=dialect)),
         )
         sql, params = AlterTableStatement(
-            dialect, table=Table(dialect, "users"), actions=[action]
+            dialect, table=Table(dialect, "users"), action=action
         ).to_sql()
         assert sql == 'ALTER TABLE "users" ADD COLUMN "email" TEXT'
         assert sql.count("ALTER TABLE") == 1

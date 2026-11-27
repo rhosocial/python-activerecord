@@ -56,15 +56,12 @@ class AlterTableMixin:
             return False
 
     def format_alter_table_statement(self, expr: "AlterTableStatement") -> Tuple[str, tuple]:
-            """Format ALTER TABLE statement (generic implementation).
+            """Format an ALTER TABLE statement carrying one action.
 
             One expression renders one statement, and that statement carries one
-            action. A multi-action statement fails fast with
-            ``UnsupportedFeatureError``: comma-joining the actions would hide each
-            one from the caller's plan (its own phase, permission and destructive
-            check), and semicolon-joining would hand ``cursor.execute()`` two
-            statements from one expression. The caller emits one
-            ``AlterTableStatement`` per action and orders them itself.
+            action: the action is the unit the caller plans, authorizes and
+            reports. The caller emits one ``AlterTableStatement`` per action and
+            orders them itself.
 
             Args:
                 expr: AlterTableStatement carrying the table name and the action
@@ -76,11 +73,9 @@ class AlterTableMixin:
             Raises:
                 TypeError: ``AlterTableStatement.table`` is not a Table. Another object
                 kind would have had its own name rendered as the table's.
-                TypeError: An entry of ``AlterTableStatement.actions`` is not an
-                implementation of AlterTableAction. An entry of another kind has no
-                action clause to dispatch on, so nothing would be rendered for it.
-                UnsupportedFeatureError: ``AlterTableStatement.actions`` holds more
-                than one action.
+                TypeError: ``AlterTableStatement.action`` is not an implementation
+                of AlterTableAction. Another kind has no action clause to dispatch
+                on, so nothing would be rendered for it.
             """
             if not isinstance(expr.table, Table):
                 raise TypeError(
@@ -91,37 +86,12 @@ class AlterTableMixin:
             # AlterTableAction is an abstract base and cannot be instantiated, so
             # this reports that the entry is not an implementation of it
             # rather than naming a concrete type.
-            for position, entry in enumerate(expr.actions):
-                if not isinstance(entry, AlterTableAction):
-                    raise TypeError(
-                        f"AlterTableStatement.actions must hold AlterTableAction implementations, "
-                        f"got {type(entry).__name__} at position {position}"
-                    )
-            all_params: List[Any] = []
-            action_parts = []
-            for action in expr.actions:
-                action_part, action_params = action.to_sql()
-                action_parts.append(action_part)
-                all_params.extend(action_params)
-
-            table_sql = expr.table.to_sql()[0]
-
-            if not action_parts:
-                return f"ALTER TABLE {table_sql}", ()
-
-            # One expression produces one SQL statement carrying one action
-            # (expression↔SQL is 1:1). Comma-joining would hide each action from
-            # the caller's plan -- its own phase, permission and destructive
-            # check -- and semicolon-joining would emit two statements from one
-            # expression. Fail fast and require one AlterTableStatement per
-            # action.
-            if len(action_parts) > 1:
-                from ..exceptions import UnsupportedFeatureError
-
-                raise UnsupportedFeatureError(
-                    self.name,
-                    "ALTER TABLE with multiple actions",
-                    f"{self.name} renders one action per statement. Emit one "
-                    f"AlterTableStatement per action and order them in the caller.",
+            if not isinstance(expr.action, AlterTableAction):
+                raise TypeError(
+                    f"AlterTableStatement.action must be an AlterTableAction implementation, "
+                    f"got {type(expr.action).__name__}"
                 )
-            return f"ALTER TABLE {table_sql} {action_parts[0]}", tuple(all_params)
+
+            action_sql, action_params = expr.action.to_sql()
+            table_sql = expr.table.to_sql()[0]
+            return f"ALTER TABLE {table_sql} {action_sql}", tuple(action_params)

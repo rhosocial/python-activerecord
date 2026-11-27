@@ -53,9 +53,7 @@ builder = SyncSchemaSnapshotBuilder(backend.introspector, dialect)
 snapshot_before = builder.build(schema="main")
 
 # Add a new column
-expr = AlterTableStatement(dialect, "users", [
-    AddColumnAction(dialect, ColumnDefinition(dialect, "email", TextType()))
-])
+expr = AlterTableStatement(dialect, "users", AddColumnAction(dialect, ColumnDefinition(dialect, "email", TextType())))
 sql, params = expr.to_sql()
 backend.execute(sql, params)
 

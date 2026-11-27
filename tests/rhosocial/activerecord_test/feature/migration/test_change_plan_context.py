@@ -168,14 +168,12 @@ class _ReorderDialect:
                 AlterTableStatement(
                     self.dialect,
                     table,
-                    [
-                        ModifyColumnAction(
+                    ModifyColumnAction(
                             self.dialect,
                             column,
                             first=previous is None,
                             after_column=previous,
-                        )
-                    ],
+                        ),
                 )
             )
             previous = name
@@ -188,7 +186,7 @@ def test_fake_dialect_builds_a_real_non_destructive_reorder_chain():
 
     entry = resolve_point(point, _ReorderDialect(dialect))
     assert entry.state == "actions"
-    actions = [statement.actions[0] for statement in entry.operations]
+    actions = [statement.action for statement in entry.operations]
     assert len(actions) == 2
     assert all(isinstance(action, ModifyColumnAction) for action in actions)
     assert actions[0].first is True and actions[0].after_column is None
@@ -226,7 +224,7 @@ class _ConstraintDialect:
         statement = AlterTableStatement(
             self.dialect,
             Table(self.dialect, point.table_name),
-            [AddTableConstraintAction(self.dialect, declarations[0])],
+            AddTableConstraintAction(self.dialect, declarations[0]),
         )
         return dataclasses.replace(point, operations=(statement,))
 
@@ -239,7 +237,7 @@ def test_fake_dialect_builds_a_real_add_constraint_action_preserving_branch():
 
     entry = resolve_point(point, _ConstraintDialect(dialect))
     assert entry.state == "actions"
-    action = entry.operations[0].actions[0]
+    action = entry.operations[0].action
     assert isinstance(action, AddTableConstraintAction)
     assert isinstance(action.constraint.branch, TableUniqueConstraint)
     sql, _ = entry.operations[0].to_sql()

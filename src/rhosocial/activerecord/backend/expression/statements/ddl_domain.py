@@ -260,20 +260,22 @@ class CreateDomainStatement(BaseExpression):
 
 
 class AlterDomainStatement(BaseExpression):
-    """Expression for ``ALTER DOMAIN``."""
+    """One ``ALTER DOMAIN`` statement carrying exactly one action.
+
+    One expression renders one statement, and that statement carries one action;
+    a caller with several changes builds one statement per action and orders
+    them itself.
+    """
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         domain: "Domain",
-        actions: Sequence[DomainAlterAction],
+        action: DomainAlterAction,
     ) -> None:
         super().__init__(dialect)
-        action_list = list(actions or [])
-        if not action_list:
-            raise ValueError("actions must contain at least one DomainAlterAction")
         self.domain = domain
-        self.actions = action_list
+        self.action = action
 
     @property
     def name(self) -> str:

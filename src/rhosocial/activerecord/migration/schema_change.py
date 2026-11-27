@@ -354,11 +354,11 @@ def plan_changes(
             col = new_columns.get(cd.column_name)
             if col is not None:
                 plan.statements.append(
-                    AlterTableStatement(dialect, table, [AddColumnAction(dialect, col)])
+                    AlterTableStatement(dialect, table, AddColumnAction(dialect, col))
                 )
         elif cd.kind is ColumnChangeKind.DROP:
             plan.statements.append(
-                AlterTableStatement(dialect, table, [DropColumnAction(dialect, cd.column_name)])
+                AlterTableStatement(dialect, table, DropColumnAction(dialect, cd.column_name))
             )
         elif cd.kind is ColumnChangeKind.MODIFY:
             # Plain type change is syntax-level (expression system). Emit the
@@ -375,11 +375,11 @@ def plan_changes(
                     AlterTableStatement(
                         dialect,
                         table,
-                        [AlterColumnAction(
+                        AlterColumnAction(
                             dialect, cd.column_name,
                             operation=ColumnAlterOperation.SET_DATA_TYPE,
                             new_value=col.data_type,
-                        )],
+                        ),
                     )
                 )
         elif cd.kind is ColumnChangeKind.RENAME and cd.new_name:
@@ -390,9 +390,9 @@ def plan_changes(
                 AlterTableStatement(
                     dialect,
                     table,
-                    [RenameColumnAction(
+                    RenameColumnAction(
                         dialect, old_name=cd.column_name, new_name=cd.new_name,
-                    )],
+                    ),
                 )
             )
 

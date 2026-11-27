@@ -583,89 +583,88 @@ class ChangeColumnAction(AlterTableAction):
 
 class AlterTableStatement(BaseExpression):
     """
-    Represents a comprehensive ALTER TABLE statement supporting SQL standard functionality.
+    One ``ALTER TABLE`` statement, carrying exactly one action.
 
-    The ALTER TABLE statement allows for modification of an existing table's structure,
-    including adding/dropping columns, altering column properties, managing constraints
-    and indexes, and renaming objects per SQL standard. Different SQL databases support
-    different subsets of ALTER TABLE functionality, with variations in syntax.
+    An expression describes one SQL statement (``format : E -> 𝕊``), and that
+    statement carries one action: the action is the unit a caller plans,
+    authorizes and reports, so folding several into one statement would hide
+    every action but the first. A caller with several changes builds one
+    ``AlterTableStatement`` per action and orders them; the migration spec's
+    ``μ.up`` is exactly that sequence.
 
-    This class collects all ALTER TABLE parameters and delegates the actual SQL generation
-    to a backend-specific dialect for database-specific syntax.
+    This class collects the statement's parameters and delegates the actual SQL
+    generation to the backend dialect.
 
     Examples:
         # Add column
         alter_expr = AlterTableStatement(
-            table=Table(dialect, "users"),
-            actions=[AddColumnAction(dialect, column=ColumnDefinition(dialect, "email", "VARCHAR(100)"))]
+            dialect,
+            Table(dialect, "users"),
+            AddColumnAction(
+                dialect,
+                column=ColumnDefinition(dialect, "email", "VARCHAR(100)"),
+            ),
         )
 
         # Drop column
         alter_expr = AlterTableStatement(
-            table=Table(dialect, "products"),
-            actions=[DropColumnAction(dialect, column_name="description")]
-        )
-
-        # Multiple actions in one statement
-        alter_expr = AlterTableStatement(
-            table=Table(dialect, "orders"),
-            actions=[
-                AddColumnAction(dialect, column=ColumnDefinition(dialect, "status", "VARCHAR(20)")),
-                RenameColumnAction(dialect, old_name="id", new_name="order_id")
-            ]
+            dialect,
+            Table(dialect, "products"),
+            DropColumnAction(dialect, column_name="description"),
         )
 
         # Add constraint
         alter_expr = AlterTableStatement(
-            table=Table(dialect, "users"),
-            actions=[
-                AddTableConstraintAction(
-                    constraint=TableConstraint(dialect, 
-                        constraint_kind=TableCheckConstraint,
-                        check_condition=Column(dialect, "age") > Literal(dialect, 0)
-                    )
-                )
-            ]
+            dialect,
+            Table(dialect, "users"),
+            AddTableConstraintAction(
+                dialect,
+                constraint=TableConstraint(
+                    dialect,
+                    constraint_kind=TableCheckConstraint,
+                    check_condition=Column(dialect, "age") > Literal(dialect, 0),
+                ),
+            ),
         )
 
         # Alter column properties
         alter_expr = AlterTableStatement(
-            table=Table(dialect, "products"),
-            actions=[
-                AlterColumnAction(
-                    column_name="price",
-                    operation=ColumnAlterOperation.SET_DEFAULT,
-                    new_value="0.00"
-                )
-            ]
+            dialect,
+            Table(dialect, "products"),
+            AlterColumnAction(
+                dialect,
+                column_name="price",
+                operation=ColumnAlterOperation.SET_DEFAULT,
+                new_value="0.00",
+            ),
         )
     """
 
     table: "Table"
-    actions: List[AlterTableAction]
+    action: AlterTableAction
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         table: "Table",
-        actions: List[AlterTableAction],
+        action: AlterTableAction,
     ) -> None:
         """
-        Initialize an ALTER TABLE expression with the specified modifications per SQL standard.
+        Initialize an ALTER TABLE expression carrying one action.
 
         Args:
             dialect: The SQL dialect instance that determines query generation rules
             table: The Table being altered
-            actions: List of actions to perform on the table (per SQL standard)
+            action: The single action the statement performs
 
         Note:
-            The kind of ``table`` and of every entry in ``actions`` is checked by
-            the dialect formatter that consumes them, not here, so that the
-            dialect that would render the wrong thing gets to say so.
+            The kind of ``table`` and of ``action`` is checked by the dialect
+            formatter that consumes them, not here, so that the dialect that
+            would render the wrong thing gets to say so.
         """
         super().__init__(dialect)
         self.table: "Table" = table
-        self.actions: List[AlterTableAction] = list(actions)
+        self.action: AlterTableAction = action
 
     @property
     def format_method(self) -> str:

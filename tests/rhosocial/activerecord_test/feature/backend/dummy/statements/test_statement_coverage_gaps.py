@@ -134,7 +134,7 @@ class TestAlterTableModifyChangeColumn:
         expr = AlterTableStatement(
             dummy_dialect,
             table=Table(dummy_dialect, "users"),
-            actions=[action],
+            action=action,
         )
         with patch.object(dummy_dialect, "format_modify_column_action", return_value=("MODIFY name VARCHAR(255)", ())):
             sql, params = expr.to_sql()
@@ -148,7 +148,7 @@ class TestAlterTableModifyChangeColumn:
         expr = AlterTableStatement(
             dummy_dialect,
             table=Table(dummy_dialect, "users"),
-            actions=[action],
+            action=action,
         )
         with patch.object(
             dummy_dialect, "format_change_column_action", return_value=("CHANGE old_name new_name VARCHAR(255)", ())

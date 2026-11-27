@@ -504,9 +504,6 @@ class DummyDialect(
     def supports_drop_type_if_exists(self) -> bool:
         return True
 
-    def supports_multiple_type_alter_actions(self) -> bool:
-        return False
-
     def format_type_definition(self, expr: TypeDefinition) -> "Tuple[str, tuple]":
         if not self.supports_type_objects():
             raise UnsupportedFeatureError(self.name, "TYPE definition")
@@ -551,9 +548,6 @@ class DummyDialect(
 
     def supports_domain_collation(self) -> bool:
         return True
-
-    def supports_multiple_domain_alter_actions(self) -> bool:
-        return False
 
     def supports_drop_domain_if_exists(self) -> bool:
         return False

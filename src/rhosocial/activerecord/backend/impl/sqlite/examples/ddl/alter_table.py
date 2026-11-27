@@ -88,7 +88,7 @@ add_col_action = AddColumnAction(
 add_col_expr = AlterTableStatement(
     dialect=dialect,
     table_name="users",
-    actions=[add_col_action],
+    action=add_col_action,
 )
 
 sql, params = add_col_expr.to_sql()
@@ -107,7 +107,7 @@ rename_action = RenameColumnAction(
 rename_expr = AlterTableStatement(
     dialect=dialect,
     table_name="users",
-    actions=[rename_action],
+    action=rename_action,
 )
 
 sql, params = rename_expr.to_sql()

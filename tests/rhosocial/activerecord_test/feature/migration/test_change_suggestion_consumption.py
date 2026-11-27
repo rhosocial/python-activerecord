@@ -45,7 +45,7 @@ class _SingleActionStatement:
     """A statement carrying exactly one action (still 1 expression -> 1 statement)."""
 
     def __init__(self, action):
-        self.actions = [action]
+        self.action = action
 
     def to_sql(self):
         return "SINGLE", ()

@@ -106,7 +106,7 @@ def test_type_lifecycle(schema_dialect):
     alter = AlterTypeStatement(
         dummy_dialect,
         Type(dummy_dialect, "status", schema_name="app"),
-        [action],
+        action,
         if_exists=True,
     )
     alter_sql, alter_params = alter.to_sql()
@@ -167,7 +167,7 @@ def test_domain_lifecycle(dummy_dialect):
         (RenameDomainAction(dummy_dialect, "positive_v2"), "RENAME TO"),
     )
     for action, fragment in actions:
-        alter = AlterDomainStatement(dummy_dialect, Domain(dummy_dialect, "positive"), [action])
+        alter = AlterDomainStatement(dummy_dialect, Domain(dummy_dialect, "positive"), action)
         alter_sql, alter_params = alter.to_sql()
         assert f'ALTER DOMAIN "positive" {fragment}' in alter_sql
         assert alter_params == ()
@@ -176,20 +176,6 @@ def test_domain_lifecycle(dummy_dialect):
     drop_sql, drop_params = drop.to_sql()
     assert drop_sql == 'DROP DOMAIN "positive"'
     assert drop_params == ()
-
-
-def test_dummy_rejects_multiple_ddl_actions(dummy_dialect):
-    action = _DummyTypeAlterAction(dummy_dialect)
-    with pytest.raises(UnsupportedFeatureError):
-        AlterTypeStatement(dummy_dialect, Type(dummy_dialect, "status"), [action, action]).to_sql()
-
-    domain_action = DropDomainDefaultAction(dummy_dialect)
-    with pytest.raises(UnsupportedFeatureError):
-        AlterDomainStatement(
-            dummy_dialect,
-            Domain(dummy_dialect, "domain"),
-            [domain_action, domain_action],
-        ).to_sql()
 
 
 def test_dummy_action_nodes_check_parent_capabilities(dummy_dialect, monkeypatch):
@@ -213,8 +199,6 @@ def test_dummy_action_nodes_check_parent_capabilities(dummy_dialect, monkeypatch
 
 
 def test_dummy_unrenderable_capabilities_are_false(dummy_dialect):
-    assert dummy_dialect.supports_multiple_type_alter_actions() is False
-    assert dummy_dialect.supports_multiple_domain_alter_actions() is False
     assert dummy_dialect.supports_drop_domain_if_exists() is False
     assert dummy_dialect.supports_drop_domain_cascade() is False
     assert dummy_dialect.supports_drop_domain_restrict() is False
@@ -245,9 +229,9 @@ def test_type_constructor_validation(dummy_dialect):
             if_not_exists=True,
             or_replace=True,
         )
-    with pytest.raises(ValueError):
-        AlterTypeStatement(dummy_dialect, Type(dummy_dialect, "status"), [])
-    bad_action = AlterTypeStatement(dummy_dialect, Type(dummy_dialect, "status"), [object()])
+    with pytest.raises(TypeError):
+        AlterTypeStatement(dummy_dialect, Type(dummy_dialect, "status"), []).to_sql()
+    bad_action = AlterTypeStatement(dummy_dialect, Type(dummy_dialect, "status"), object())
     with pytest.raises(TypeError):
         bad_action.to_sql()
     with pytest.raises(ValueError):
@@ -273,8 +257,8 @@ def test_domain_constructor_validation(dummy_dialect):
     assert normalized.nullability is DomainNullability.NOT_NULL
     with pytest.raises(TypeError):
         DomainCheckConstraint(dummy_dialect, object())
-    with pytest.raises(ValueError):
-        AlterDomainStatement(dummy_dialect, Domain(dummy_dialect, "domain"), [])
+    with pytest.raises(TypeError):
+        AlterDomainStatement(dummy_dialect, Domain(dummy_dialect, "domain"), []).to_sql()
     with pytest.raises(ValueError):
         RenameDomainAction(dummy_dialect, "")
 
@@ -380,7 +364,6 @@ def test_sqlite_new_capabilities_are_false():
         "supports_create_type_or_replace",
         "supports_alter_type_if_exists",
         "supports_drop_type_if_exists",
-        "supports_multiple_type_alter_actions",
         "supports_domains",
         "supports_create_domain",
         "supports_alter_domain",
@@ -390,7 +373,6 @@ def test_sqlite_new_capabilities_are_false():
         "supports_named_domain_checks",
         "supports_multiple_domain_checks",
         "supports_domain_collation",
-        "supports_multiple_domain_alter_actions",
         "supports_drop_domain_if_exists",
         "supports_drop_domain_cascade",
         "supports_drop_domain_restrict",
@@ -409,13 +391,13 @@ def test_core_type_and_domain_roundtrips(dummy_dialect):
         definition,
         action,
         CreateTypeStatement(dummy_dialect, Type(dummy_dialect, "status"), definition),
-        AlterTypeStatement(dummy_dialect, Type(dummy_dialect, "status"), [action]),
+        AlterTypeStatement(dummy_dialect, Type(dummy_dialect, "status"), action),
         DropTypeStatement(dummy_dialect, Type(dummy_dialect, "status")),
         CreateDomainStatement(dummy_dialect, Domain(dummy_dialect, "domain"), IntegerType(dummy_dialect)),
         AlterDomainStatement(
             dummy_dialect,
             Domain(dummy_dialect, "domain"),
-            [DropDomainDefaultAction(dummy_dialect)],
+            DropDomainDefaultAction(dummy_dialect),
         ),
         DropDomainStatement(dummy_dialect, Domain(dummy_dialect, "domain")),
     )

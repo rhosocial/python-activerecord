@@ -32,13 +32,6 @@ class AlterDomainSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def supports_multiple_domain_alter_actions(self) -> bool:
-        """Whether the engine accepts the form ``multiple_domain_alter_actions``.
-
-        Defaults to ``False``; a dialect that accepts it returns ``True``.
-        """
-        ...  # pragma: no cover
-
     def supports_unnamed_domain_check_drop(self) -> bool:
         """Whether the engine accepts the form ``unnamed_domain_check_drop``.
 

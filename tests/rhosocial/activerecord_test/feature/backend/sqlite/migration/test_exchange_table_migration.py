@@ -83,12 +83,12 @@ def swap_exchange_probe(ctx):
             AlterTableStatement(
                 dialect,
                 Table(dialect, "exchange_probe"),
-                [RenameTableAction(dialect, "exchange_probe", "exchange_probe_old")],
+                RenameTableAction(dialect, "exchange_probe", "exchange_probe_old"),
             ),
             AlterTableStatement(
                 dialect,
                 Table(dialect, "exchange_probe_next"),
-                [RenameTableAction(dialect, "exchange_probe_next", "exchange_probe")],
+                RenameTableAction(dialect, "exchange_probe_next", "exchange_probe"),
             ),
         )
     else:
@@ -96,12 +96,12 @@ def swap_exchange_probe(ctx):
             AlterTableStatement(
                 dialect,
                 Table(dialect, "exchange_probe"),
-                [RenameTableAction(dialect, "exchange_probe", "exchange_probe_next")],
+                RenameTableAction(dialect, "exchange_probe", "exchange_probe_next"),
             ),
             AlterTableStatement(
                 dialect,
                 Table(dialect, "exchange_probe_old"),
-                [RenameTableAction(dialect, "exchange_probe_old", "exchange_probe")],
+                RenameTableAction(dialect, "exchange_probe_old", "exchange_probe"),
             ),
             ExchangeNext.drop_table_statement(backend=ctx.backend, if_exists=True),
         )

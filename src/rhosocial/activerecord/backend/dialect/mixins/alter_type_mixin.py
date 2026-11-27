@@ -15,22 +15,22 @@ class AlterTypeMixin:
             """Whether ALTER TYPE IF EXISTS is supported."""
             return False
 
-    def supports_multiple_type_alter_actions(self) -> bool:
-            """Whether one ALTER TYPE statement may contain multiple actions."""
-            return False
-
     def format_alter_type_statement(
             self,
             expr: "AlterTypeStatement",
         ) -> Tuple[str, tuple]:
-            """Format an ALTER TYPE statement.
+            """Format an ALTER TYPE statement carrying one action.
+
+            One expression renders one statement, and that statement carries one
+            action; a caller with several changes builds one statement per action
+            and orders them itself.
 
             Raises:
                 TypeError: ``AlterTypeStatement.type`` is not a Type. Another object
                 kind would have had its own name rendered as the type's.
-                TypeError: An entry of ``AlterTypeStatement.actions`` is not an
-                implementation of TypeAlterAction. An entry of another kind has no
-                action clause to dispatch on, so nothing would be rendered for it.
+                TypeError: ``AlterTypeStatement.action`` is not an implementation
+                of TypeAlterAction. Another kind has no action clause to dispatch
+                on, so nothing would be rendered for it.
             """
             if not isinstance(expr.type, Type):
                 raise TypeError(
@@ -41,30 +41,22 @@ class AlterTypeMixin:
             # TypeAlterAction is an abstract base and cannot be instantiated, so
             # this reports that the entry is not an implementation of it
             # rather than naming a concrete type.
-            for position, entry in enumerate(expr.actions):
-                if not isinstance(entry, TypeAlterAction):
-                    raise TypeError(
-                        f"AlterTypeStatement.actions must hold TypeAlterAction implementations, "
-                        f"got {type(entry).__name__} at position {position}"
-                    )
+            if not isinstance(expr.action, TypeAlterAction):
+                raise TypeError(
+                    f"AlterTypeStatement.action must be a TypeAlterAction implementation, "
+                    f"got {type(expr.action).__name__}"
+                )
             if not self.supports_type_objects() or not self.supports_alter_type():
                 raise UnsupportedFeatureError(self.name, "ALTER TYPE")
             if expr.if_exists and not self.supports_alter_type_if_exists():
                 raise UnsupportedFeatureError(self.name, "ALTER TYPE IF EXISTS")
-            if len(expr.actions) > 1 and not self.supports_multiple_type_alter_actions():
-                raise UnsupportedFeatureError(self.name, "multiple ALTER TYPE actions")
-            action_parts = []
-            action_params = []
-            for action in expr.actions:
-                action_sql, params = action.to_sql()
-                action_parts.append(action_sql)
-                action_params.extend(params)
+            action_sql, action_params = expr.action.to_sql()
             name_sql = expr.type.to_sql()[0]
             parts = ["ALTER TYPE"]
             if expr.if_exists:
                 parts.append("IF EXISTS")
             parts.append(name_sql)
-            parts.append(", ".join(action_parts))
+            parts.append(action_sql)
             return " ".join(parts), tuple(action_params)
 
     def format_type_alter_action(
