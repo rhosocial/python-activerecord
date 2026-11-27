@@ -47,6 +47,11 @@ class TriggerLevel(str, Enum):
 class CreateTriggerStatement(BaseExpression):
     """SQL:1999 standard CREATE TRIGGER statement.
 
+    :attr:`function` is required but may be ``None``: a trigger body is either a
+    function call (PostgreSQL-style) or a list of statements (SQLite / MySQL /
+    SQL Server style), and the two are the same node in this grammar. ``None``
+    is therefore a value the position carries, not a missing field.
+
     Examples:
         # Basic trigger
         create_trigger = CreateTriggerStatement(
@@ -102,11 +107,9 @@ class CreateTriggerStatement(BaseExpression):
         body: Optional[List[BaseExpression]] = None,
     ):
         super().__init__(dialect)
-        if (function is None) == (body is None):
-            raise ValueError(
-                "CreateTriggerStatement needs exactly one of function or body: "
-                "a trigger either executes a function or carries own statements."
-            )
+        # Collect only: whether a body is present at all is decided by
+        # check_renderable(), so a trigger read back from an artifact always
+        # builds and an incomplete one is refused by name at render time.
         self.trigger = trigger
         self.table = table
         self.timing = timing
@@ -118,6 +121,18 @@ class CreateTriggerStatement(BaseExpression):
         self.update_columns = update_columns
         self.referencing = referencing
         self.if_not_exists = if_not_exists
+
+    #: A trigger body is either a function call or own statements; ``None`` is
+    #: the value this position carries when the other one is used.
+    NULLABLE_REQUIRED = frozenset({"function"})
+
+    def check_renderable(self) -> None:
+        """A trigger needs exactly one of ``function`` / ``body``."""
+        if (self.function is None) == (self.body is None):
+            raise TypeError(
+                f"{type(self).__name__} needs exactly one of function or body: "
+                "a trigger either executes a function or carries own statements"
+            )
 
     @property
     def format_method(self) -> str:

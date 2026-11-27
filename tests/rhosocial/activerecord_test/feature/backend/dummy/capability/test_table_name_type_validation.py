@@ -90,7 +90,9 @@ class TestCreateTableExpressionTypeValidation:
         "value,expected",
         [
             (123, "table must be a Table, got int"),
-            (None, "table must be a Table, got NoneType"),
+            # ``None`` is not "the wrong object"; it is the required parameter
+            # missing, and the render-time existence check names it that way.
+            (None, "required parameter(s) table are None"),
             ([], "table must be a Table, got list"),
             ({"name": "users"}, "table must be a Table, got dict"),
         ],
@@ -147,7 +149,9 @@ class TestDropTableExpressionTypeValidation:
         "value,expected",
         [
             (123, "table must be a Table, got int"),
-            (None, "table must be a Table, got NoneType"),
+            # ``None`` is not "the wrong object"; it is the required parameter
+            # missing, and the render-time existence check names it that way.
+            (None, "required parameter(s) table are None"),
             ([], "table must be a Table, got list"),
             ({"name": "users"}, "table must be a Table, got dict"),
         ],

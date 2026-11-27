@@ -143,12 +143,13 @@ def test_trigger_needs_exactly_one_of_function_and_body():
         timing=TriggerTiming.AFTER,
         events=[TriggerEvent.UPDATE],
     )
-    with pytest.raises(ValueError):
-        CreateTriggerStatement(DIALECT, function=None, **common)
-    with pytest.raises(ValueError):
+    # The node collects, so an incomplete body builds; rendering refuses it.
+    with pytest.raises(TypeError):
+        CreateTriggerStatement(DIALECT, function=None, **common).to_sql()
+    with pytest.raises(TypeError):
         CreateTriggerStatement(
             DIALECT,
             function=Function(DIALECT, "f"),
             body=[Literal(DIALECT, 1)],
             **common,
-        )
+        ).to_sql()
