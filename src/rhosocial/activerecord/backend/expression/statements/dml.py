@@ -545,7 +545,7 @@ class OnConflictClause(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        conflict_target: Optional[List[Union[str, "BaseExpression"]]],
+        conflict_target: Optional[List[Union[str, "BaseExpression"]]] = None,
         *,
         do_nothing: bool = False,
         update_assignments: Optional[Dict[str, "BaseExpression"]] = None,
