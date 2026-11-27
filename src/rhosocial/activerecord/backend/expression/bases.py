@@ -228,9 +228,9 @@ class BaseExpression:
 
         This is an internal-consistency question, not a dialect-capability one:
         no backend can render ``CASCADE RESTRICT``, so the answer does not
-        depend on which formatter will later render the expression. It
-        therefore stays at construction time rather than moving into the
-        formatter.
+        depend on which formatter will later render the expression. The helper
+        is phase-neutral: callers may use it at construction, or from a public
+        ``validate_*()`` method that a backend formatter opts into.
 
         Args:
             flag_a: whether the first spelling was requested

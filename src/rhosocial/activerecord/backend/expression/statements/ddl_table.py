@@ -152,8 +152,11 @@ class IdentityClause(BaseExpression):
 
     Each two-spelling option has one parameter per spelling: ``cycle`` /
     ``no_cycle``, ``order`` / ``no_order``, ``cache`` / ``no_cache``. Setting
-    both of a pair raises ``ValueError``; ``cache`` is a positive count and
+    both of a pair is invalid; ``cache`` is a positive count and
     ``no_cache=True`` spells NO CACHE (``cache=0`` is not a spelling).
+    The constructor only collects these values; :meth:`validate` (or any of the
+    ``validate_*`` methods) reports the refusal, and a backend formatter
+    decides whether to call it.
     """
 
     @property
@@ -178,15 +181,6 @@ class IdentityClause(BaseExpression):
         no_cache: bool = False,
     ):
         super().__init__(dialect)
-        self.require_exclusive_options(cycle, no_cycle, "cycle", "no_cycle")
-        if cache is not None and no_cache:
-            raise ValueError("cache and no_cache are mutually exclusive options")
-        if order and no_order:
-            raise ValueError("order and no_order are mutually exclusive options")
-        if cache is not None and cache <= 0:
-            raise ValueError(
-                "cache must be a positive integer; use no_cache=True to spell NO CACHE"
-            )
         self.generation = generation
         self.start = start
         self.increment = increment
@@ -198,6 +192,39 @@ class IdentityClause(BaseExpression):
         self.no_order = no_order
         self.cache = cache
         self.no_cache = no_cache
+
+    def validate_cycle_options(self) -> None:
+        """Refuse CYCLE and NO CYCLE being requested together."""
+        self.require_exclusive_options(self.cycle, self.no_cycle, "cycle", "no_cycle")
+
+    def validate_cache_options(self) -> None:
+        """Refuse CACHE n and NO CACHE being requested together."""
+        self.require_exclusive_options(self.cache is not None, self.no_cache, "cache", "no_cache")
+
+    def validate_order_options(self) -> None:
+        """Refuse ORDER and NO ORDER being requested together."""
+        self.require_exclusive_options(self.order, self.no_order, "order", "no_order")
+
+    def validate_cache_value(self) -> None:
+        """Refuse a non-positive CACHE count; NO CACHE has its own spelling."""
+        if self.cache is not None and self.cache <= 0:
+            raise ValueError(
+                "cache must be a positive integer; use no_cache=True to spell NO CACHE"
+            )
+
+    def validate(self, strict: bool = True) -> None:
+        """Public, opt-in validation; ``_render()`` never calls it.
+
+        A backend formatter may call this (or just the ``validate_*`` method it
+        cares about) before spelling the clause. The order matches the original
+        constructor checks so a malformed combination reports the same error.
+        """
+        if not strict:
+            return
+        self.validate_cycle_options()
+        self.validate_cache_options()
+        self.validate_order_options()
+        self.validate_cache_value()
 
 
 class AutoIncrementClause(BaseExpression):

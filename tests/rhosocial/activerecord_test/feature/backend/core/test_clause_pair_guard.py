@@ -189,6 +189,7 @@ class PairCase:
         a_value=True,
         b_value=True,
         error_type=ValueError,
+        validation_based=False,
     ):
         self.case_id = case_id
         self.builder = builder
@@ -200,6 +201,7 @@ class PairCase:
         self.a_value = a_value
         self.b_value = b_value
         self.error_type = error_type
+        self.validation_based = validation_based
 
     def render(self, dialect, **kwargs):
         sql, _params = self.builder(dialect, **kwargs).to_sql()
@@ -222,6 +224,7 @@ PAIR_CASES = (
         "no_cycle",
         r"(?<!NO )CYCLE\b",
         r"NO CYCLE\b",
+        validation_based=True,
     ),
     PairCase(
         "CreateSequenceStatement.order",
@@ -230,6 +233,7 @@ PAIR_CASES = (
         "no_order",
         r"(?<!NO )ORDER\b",
         r"NO ORDER\b",
+        validation_based=True,
     ),
     PairCase(
         "CreateSequenceStatement.cache",
@@ -239,6 +243,7 @@ PAIR_CASES = (
         r"CACHE 10\b",
         r"NO CACHE\b",
         a_value=10,
+        validation_based=True,
     ),
     PairCase(
         "AlterSequenceStatement.cycle",
@@ -247,6 +252,7 @@ PAIR_CASES = (
         "no_cycle",
         r"(?<!NO )CYCLE\b",
         r"NO CYCLE\b",
+        validation_based=True,
     ),
     PairCase(
         "AlterSequenceStatement.order",
@@ -255,6 +261,7 @@ PAIR_CASES = (
         "no_order",
         r"(?<!NO )ORDER\b",
         r"NO ORDER\b",
+        validation_based=True,
     ),
     PairCase(
         "AlterSequenceStatement.cache",
@@ -264,6 +271,7 @@ PAIR_CASES = (
         r"CACHE 10\b",
         r"NO CACHE\b",
         a_value=10,
+        validation_based=True,
     ),
     PairCase(
         "IdentityClause.cycle",
@@ -272,6 +280,7 @@ PAIR_CASES = (
         "no_cycle",
         r"(?<!NO )CYCLE\b",
         r"NO CYCLE\b",
+        validation_based=True,
     ),
     PairCase(
         "IdentityClause.order",
@@ -280,6 +289,7 @@ PAIR_CASES = (
         "no_order",
         r"(?<!NO )ORDER\b",
         r"NO ORDER\b",
+        validation_based=True,
     ),
     PairCase(
         "IdentityClause.cache",
@@ -289,6 +299,7 @@ PAIR_CASES = (
         r"CACHE 10\b",
         r"NO CACHE\b",
         a_value=10,
+        validation_based=True,
     ),
     PairCase(
         "DropSchemaStatement.cascade",
@@ -535,13 +546,22 @@ class TestFourStatesArePairwiseDistinguishable:
 
     @pytest.mark.parametrize("case", PAIR_CASES, ids=PAIR_IDS)
     def test_both_set_is_refused(self, case):
-        with pytest.raises(
-            case.error_type,
-            match=f"{case.a} and {case.b} are mutually exclusive options",
-        ):
-            case.render(
-                _dummy(), **{case.a: case.a_value, case.b: case.b_value}
-            )
+        kwargs = {case.a: case.a_value, case.b: case.b_value}
+        if case.validation_based:
+            # The sequence/identity family validates on demand, never in the
+            # constructor and never from a core formatter.
+            expr = case.builder(_dummy(), **kwargs)
+            with pytest.raises(
+                case.error_type,
+                match=f"{case.a} and {case.b} are mutually exclusive options",
+            ):
+                expr.validate()
+        else:
+            with pytest.raises(
+                case.error_type,
+                match=f"{case.a} and {case.b} are mutually exclusive options",
+            ):
+                case.render(_dummy(), **kwargs)
 
 
 class TestSentinelIsGone:
@@ -557,8 +577,65 @@ class TestSentinelIsGone:
         ids=["CreateSequenceStatement", "AlterSequenceStatement", "IdentityClause"],
     )
     def test_cache_zero_is_refused(self, factory):
+        expr = factory(_dummy(), cache=0)
         with pytest.raises(ValueError, match="cache must be a positive integer"):
-            factory(_dummy(), cache=0)
+            expr.validate()
+
+
+class TestConstructorsOnlyCollect:
+    """A malformed combination builds; only the public validation reports it."""
+
+    @pytest.mark.parametrize(
+        "factory",
+        [
+            lambda d, **kw: CreateSequenceStatement(d, Sequence(d, "s"), **kw),
+            lambda d, **kw: AlterSequenceStatement(d, Sequence(d, "s"), **kw),
+            lambda d, **kw: IdentityClause(d, **kw),
+        ],
+        ids=["CreateSequenceStatement", "AlterSequenceStatement", "IdentityClause"],
+    )
+    @pytest.mark.parametrize(
+        "kwargs,message",
+        [
+            (
+                {"cycle": True, "no_cycle": True},
+                "cycle and no_cycle are mutually exclusive options",
+            ),
+            (
+                {"cache": 10, "no_cache": True},
+                "cache and no_cache are mutually exclusive options",
+            ),
+            (
+                {"order": True, "no_order": True},
+                "order and no_order are mutually exclusive options",
+            ),
+            ({"cache": 0}, "cache must be a positive integer; use no_cache=True"),
+        ],
+        ids=["cycle-pair", "cache-pair", "order-pair", "cache-zero"],
+    )
+    def test_malformed_combination_constructs_then_validates(self, factory, kwargs, message):
+        expr = factory(_dummy(), **kwargs)
+        with pytest.raises(ValueError, match=message):
+            expr.validate()
+
+    def test_named_validators_are_reusable(self):
+        expr = IdentityClause(
+            _dummy(),
+            cycle=True,
+            no_cycle=True,
+            cache=10,
+            no_cache=True,
+            order=True,
+            no_order=True,
+        )
+        with pytest.raises(ValueError, match="cycle and no_cycle are mutually exclusive"):
+            expr.validate_cycle_options()
+        with pytest.raises(ValueError, match="cache and no_cache are mutually exclusive"):
+            expr.validate_cache_options()
+        with pytest.raises(ValueError, match="order and no_order are mutually exclusive"):
+            expr.validate_order_options()
+        with pytest.raises(ValueError, match="cache must be a positive integer"):
+            IdentityClause(_dummy(), cache=-1).validate_cache_value()
 
 
 class TestShapeERedundantTriStateIsGone:

@@ -415,9 +415,12 @@ class TestSequenceOptionGates:
 
     def test_both_spellings_of_a_pair_are_refused(self):
         dialect = DummyDialect()
+        expr = CreateSequenceStatement(dialect, Sequence(dialect, "s"), cycle=True, no_cycle=True)
         with pytest.raises(ValueError, match="cycle and no_cycle are mutually exclusive"):
-            CreateSequenceStatement(dialect, Sequence(dialect, "s"), cycle=True, no_cycle=True)
+            expr.validate()
+        expr = AlterSequenceStatement(dialect, Sequence(dialect, "s"), cache=10, no_cache=True)
         with pytest.raises(ValueError, match="cache and no_cache are mutually exclusive"):
-            AlterSequenceStatement(dialect, Sequence(dialect, "s"), cache=10, no_cache=True)
+            expr.validate()
+        expr = CreateSequenceStatement(dialect, Sequence(dialect, "s"), order=True, no_order=True)
         with pytest.raises(ValueError, match="order and no_order are mutually exclusive"):
-            CreateSequenceStatement(dialect, Sequence(dialect, "s"), order=True, no_order=True)
+            expr.validate()

@@ -269,5 +269,6 @@ class TestIdentitySpellingHooks:
         assert _Bare().identity_cache_keyword(10) == "CACHE 10"
 
     def test_cache_zero_is_refused_as_a_sentinel(self):
+        expr = IdentityClause(DummyDialect(), cache=0)
         with pytest.raises(ValueError, match="cache must be a positive integer"):
-            IdentityClause(DummyDialect(), cache=0)
+            expr.validate()

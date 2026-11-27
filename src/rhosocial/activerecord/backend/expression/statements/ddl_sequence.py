@@ -24,9 +24,11 @@ class CreateSequenceStatement(BaseExpression):
     * ``cache`` / ``no_cache`` -- CACHE n and NO CACHE are two spellings;
     * ``order`` / ``no_order`` -- ORDER and NO ORDER are two spellings.
 
-    Setting both parameters of a pair raises ``ValueError`` (API misuse, not a
-    capability question). ``cache`` must be a positive count: ``0`` is not a
-    spelling of NO CACHE -- use ``no_cache=True``.
+    Setting both parameters of a pair is invalid (API misuse, not a capability
+    question), and ``cache`` must be a positive count: ``0`` is not a spelling
+    of NO CACHE -- use ``no_cache=True``. The constructor only collects those
+    values; :meth:`validate` (or any of the ``validate_*`` methods) reports the
+    refusal, and a backend formatter decides whether to call it.
 
     Examples:
         # Basic sequence
@@ -73,16 +75,6 @@ class CreateSequenceStatement(BaseExpression):
         owned_by: Optional[str] = None,
     ):
         super().__init__(dialect)
-        if cycle and no_cycle:
-            raise ValueError("cycle and no_cycle are mutually exclusive options")
-        if cache is not None and no_cache:
-            raise ValueError("cache and no_cache are mutually exclusive options")
-        if order and no_order:
-            raise ValueError("order and no_order are mutually exclusive options")
-        if cache is not None and cache <= 0:
-            raise ValueError(
-                "cache must be a positive integer; use no_cache=True to spell NO CACHE"
-            )
         self.sequence = sequence
         self.if_not_exists = if_not_exists
         self.start = start
@@ -96,6 +88,39 @@ class CreateSequenceStatement(BaseExpression):
         self.order = order
         self.no_order = no_order
         self.owned_by = owned_by
+
+    def validate_cycle_options(self) -> None:
+        """Refuse CYCLE and NO CYCLE being requested together."""
+        self.require_exclusive_options(self.cycle, self.no_cycle, "cycle", "no_cycle")
+
+    def validate_cache_options(self) -> None:
+        """Refuse CACHE n and NO CACHE being requested together."""
+        self.require_exclusive_options(self.cache is not None, self.no_cache, "cache", "no_cache")
+
+    def validate_order_options(self) -> None:
+        """Refuse ORDER and NO ORDER being requested together."""
+        self.require_exclusive_options(self.order, self.no_order, "order", "no_order")
+
+    def validate_cache_value(self) -> None:
+        """Refuse a non-positive CACHE count; NO CACHE has its own spelling."""
+        if self.cache is not None and self.cache <= 0:
+            raise ValueError(
+                "cache must be a positive integer; use no_cache=True to spell NO CACHE"
+            )
+
+    def validate(self, strict: bool = True) -> None:
+        """Public, opt-in validation; ``_render()`` never calls it.
+
+        A backend formatter may call this (or just the ``validate_*`` method it
+        cares about) before spelling the clause. The order matches the original
+        constructor checks so a malformed combination reports the same error.
+        """
+        if not strict:
+            return
+        self.validate_cycle_options()
+        self.validate_cache_options()
+        self.validate_order_options()
+        self.validate_cache_value()
 
     @property
     def format_method(self) -> str:
@@ -168,9 +193,9 @@ class AlterSequenceStatement(BaseExpression):
 
     Like :class:`CreateSequenceStatement`, each alternative of a two-spelling
     clause has its own parameter: ``cycle`` / ``no_cycle``, ``cache`` /
-    ``no_cache``, ``order`` / ``no_order``. Setting both of a pair raises
-    ``ValueError``; ``cache`` must be a positive count (``no_cache=True``
-    spells NO CACHE).
+    ``no_cache``, ``order`` / ``no_order``. Setting both of a pair is invalid;
+    ``cache`` must be a positive count (``no_cache=True`` spells NO CACHE).
+    The constructor collects them; :meth:`validate` reports the refusal.
     """
 
     def __init__(
@@ -191,16 +216,6 @@ class AlterSequenceStatement(BaseExpression):
         owned_by: Optional[str] = None,
     ):
         super().__init__(dialect)
-        if cycle and no_cycle:
-            raise ValueError("cycle and no_cycle are mutually exclusive options")
-        if cache is not None and no_cache:
-            raise ValueError("cache and no_cache are mutually exclusive options")
-        if order and no_order:
-            raise ValueError("order and no_order are mutually exclusive options")
-        if cache is not None and cache <= 0:
-            raise ValueError(
-                "cache must be a positive integer; use no_cache=True to spell NO CACHE"
-            )
         self.sequence = sequence
         self.restart = restart
         self.start = start
@@ -214,6 +229,39 @@ class AlterSequenceStatement(BaseExpression):
         self.order = order
         self.no_order = no_order
         self.owned_by = owned_by
+
+    def validate_cycle_options(self) -> None:
+        """Refuse CYCLE and NO CYCLE being requested together."""
+        self.require_exclusive_options(self.cycle, self.no_cycle, "cycle", "no_cycle")
+
+    def validate_cache_options(self) -> None:
+        """Refuse CACHE n and NO CACHE being requested together."""
+        self.require_exclusive_options(self.cache is not None, self.no_cache, "cache", "no_cache")
+
+    def validate_order_options(self) -> None:
+        """Refuse ORDER and NO ORDER being requested together."""
+        self.require_exclusive_options(self.order, self.no_order, "order", "no_order")
+
+    def validate_cache_value(self) -> None:
+        """Refuse a non-positive CACHE count; NO CACHE has its own spelling."""
+        if self.cache is not None and self.cache <= 0:
+            raise ValueError(
+                "cache must be a positive integer; use no_cache=True to spell NO CACHE"
+            )
+
+    def validate(self, strict: bool = True) -> None:
+        """Public, opt-in validation; ``_render()`` never calls it.
+
+        A backend formatter may call this (or just the ``validate_*`` method it
+        cares about) before spelling the clause. The order matches the original
+        constructor checks so a malformed combination reports the same error.
+        """
+        if not strict:
+            return
+        self.validate_cycle_options()
+        self.validate_cache_options()
+        self.validate_order_options()
+        self.validate_cache_value()
 
     @property
     def format_method(self) -> str:
