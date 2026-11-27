@@ -110,14 +110,32 @@ class UUIDMixin:
     def format_uuid_constant_expression(self, expr: "UUIDConstantExpression") -> Tuple[str, Tuple]:
         """Render the nil or max UUID constant.
 
+        The constant kind is validated here, not in the constructor: an
+        unknown word is a caller error (``TypeError``), while a constant the
+        dialect does not spell is a capability gap
+        (:class:`UnsupportedFeatureError`). The two are never conflated.
+
         Args:
             expr: The UUIDConstantExpression node.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
+        from ...expression.uuid import UuidConstantKind
+
         constants = self._require_uuid("constant", "UUID constants")
-        sql = constants.get(expr.which) if isinstance(constants, dict) else None
+        if isinstance(constants, dict):
+            try:
+                which = UuidConstantKind(str(expr.which).lower())
+            except ValueError:
+                raise TypeError(
+                    f"UUIDConstantExpression.which must be one of "
+                    f"{', '.join(k.value for k in UuidConstantKind)}, "
+                    f"got {expr.which!r}"
+                ) from None
+            sql = constants.get(which)
+        else:
+            sql = None
         if sql is None:
             raise UnsupportedFeatureError(
                 self.name,

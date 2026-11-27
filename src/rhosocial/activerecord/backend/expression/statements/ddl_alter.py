@@ -7,7 +7,7 @@ from .ddl_table import (
 )
 from ..objects import Index, Table
 from ..bases import BaseExpression
-from typing import Any, List, Optional, Union, TYPE_CHECKING
+from typing import Any, Optional, Union, TYPE_CHECKING
 from enum import Enum
 # src/rhosocial/activerecord/backend/expression/statements/ddl_alter.py
 """ALTER TABLE DDL statement expressions.
@@ -392,6 +392,19 @@ class AlterConstraintAction(AlterTableAction):
         self.not_enforced = not_enforced
         #: The branch class whose kind this keyword is spelled on.
         self.constraint_branch = constraint_kind
+
+    @property
+    def constraint_kind(self) -> str:
+        """The kind's spelling, which is what the constructor accepts back.
+
+        The parameter is declared as ``constraint_kind`` and the resolved
+        branch is what the formatter reads, so the two have to stay reachable
+        under their own names. ``get_params`` reads each declared parameter off
+        an attribute of the same name, and a class object is not something any
+        of the three artifact channels can encode -- so the wire form is the
+        spelling the constructor matches against, derived by that same rule.
+        """
+        return self.constraint_branch.__name__.replace("Table", "")
 
     @property
     def format_method(self) -> str:

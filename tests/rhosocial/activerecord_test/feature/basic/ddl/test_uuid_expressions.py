@@ -115,10 +115,35 @@ def test_constant_kind_is_case_insensitive():
     assert UUIDConstantExpression(_dialect(_FULL), "MAX").to_sql() == ("X'FF'", ())
 
 
-def test_constant_rejects_an_unknown_kind():
-    """A typo must not silently render a literal."""
-    with pytest.raises(ValueError, match="which must be one of"):
-        UUIDConstantExpression(_dialect(_FULL), "middle")
+def test_constant_rejects_an_unknown_kind_at_render():
+    """A typo must not silently render a literal.
+
+    The refusal belongs to the formatter: a node rebuilt from a stored artifact
+    must construct whatever spelling the artifact carries, and only rendering
+    can decide it is not a constant. ``TypeError`` is the caller's error;
+    ``UnsupportedFeatureError`` would claim a dialect gap that is not there.
+    """
+    expr = UUIDConstantExpression(_dialect(_FULL), "middle")
+    with pytest.raises(TypeError, match="which must be one of"):
+        expr.to_sql()
+
+
+@pytest.mark.parametrize(
+    "factory",
+    [
+        lambda d: UUIDGenerationExpression(d),
+        lambda d: UUIDConstantExpression(d, "nil"),
+        lambda d: UUIDCastFunction(d, Literal(d, "x")),
+    ],
+    ids=["generation", "constant", "cast"],
+)
+def test_construction_never_refuses_a_dialect(factory):
+    """Instantiation collects; the dialect is judged at render, never before.
+
+    A constructor that raised here would make the node unbuildable for an
+    unsupported dialect, so no stored plan could be read back and re-targeted.
+    """
+    factory(_dialect())  # no UUID_SQL at all: still constructs
 
 
 def test_cast_substitutes_the_operand_and_keeps_its_parameters():

@@ -23,40 +23,14 @@ back to generating one in Python, which is what ``UUIDMixin`` does today.
 """
 
 from enum import Enum
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
-from ..dialect.exceptions import UnsupportedFeatureError
 from .bases import SQLValue
 from .mixins import AliasableMixin, ComparisonMixin, TypeCastingMixin
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
-
-
-def _require(dialect, probe: str, feature: str, alternative: str) -> None:
-    """Refuse early when *dialect* cannot render this UUID operation.
-
-    The alternative to refusing is an ``AttributeError`` about a missing
-    formatting method, raised deep inside rendering and naming neither the
-    feature nor the way out. A dialect that does not implement UUID at all has
-    no probe to answer, which is the same answer as answering False.
-
-    Args:
-        dialect: The dialect about to render the expression.
-        probe: Name of the capability probe for this operation.
-        feature: Human-readable name of what was asked for.
-        alternative: What to do instead.
-
-    Raises:
-        UnsupportedFeatureError: If the dialect does not support the feature.
-    """
-    if getattr(dialect, probe, False):
-        return
-    raise UnsupportedFeatureError(
-        dialect_name=type(dialect).__name__,
-        feature_name=feature,
-        suggestion=alternative,
-    )
+    from .bases import BaseExpression
 
 
 class UuidConstantKind(str, Enum):
@@ -102,13 +76,6 @@ class UUIDGenerationExpression(
         alias: Optional[str] = None,
     ):
         super().__init__(dialect)
-        _require(
-            dialect,
-            "supports_uuid_generation",
-            "generate a UUID in SQL",
-            "Generate the value in Python with uuid.uuid4() and store it as a "
-            "string.",
-        )
         self.alias = alias
 
     @property
@@ -133,33 +100,18 @@ class UUIDConstantExpression(
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        which: UuidConstantKind,
+        which: "UuidConstantKind",
         *,
         alias: Optional[str] = None,
     ):
         super().__init__(dialect)
-        # Argument validation first: a typo is a bug in the calling code, and
-        # reporting "this dialect cannot render constants" instead would hide
-        # it behind an environment limit the caller cannot change.
-        try:
-            normalised = (
-                which
-                if isinstance(which, UuidConstantKind)
-                else UuidConstantKind(str(which).lower())
-            )
-        except ValueError:
-            raise ValueError(
-                f"which must be one of "
-                f"{', '.join(k.value for k in UuidConstantKind)}, got {which!r}"
-            ) from None
-        _require(
-            dialect,
-            "supports_uuid_constant",
-            "render UUID constants in SQL",
-            "Write the literal yourself: '00000000-0000-0000-0000-000000000000' "
-            "for nil and all f's for max.",
-        )
-        self.which = normalised
+        # The raw value is carried, not interpreted: whether it names a
+        # constant is a question for the formatter, which is the only place a
+        # refusal (``TypeError``) belongs. Keeping it uncoerced is also what
+        # lets the node round-trip: the artifact carries a string, and a
+        # normalised enum here would come back as a plain string and compare
+        # unequal by type.
+        self.which = which
         self.alias = alias
 
     @property
@@ -185,17 +137,11 @@ class UUIDCastFunction(
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        expression: Any,
+        expression: "BaseExpression",
         *,
         alias: Optional[str] = None,
     ):
         super().__init__(dialect)
-        _require(
-            dialect,
-            "supports_uuid_cast",
-            "cast text to a UUID in SQL",
-            "Parse it in Python with uuid.UUID() and store the result.",
-        )
         self.expression = expression
         self.alias = alias
 

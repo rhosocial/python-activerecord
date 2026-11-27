@@ -63,6 +63,9 @@ class Literal(BaseExpression):
         """The dialect formatting method that renders this expression."""
         return "format_literal_expression"
 
+    #: ``None`` is the SQL ``NULL``, so this required parameter may hold it.
+    NULLABLE_REQUIRED = frozenset({"value"})
+
     def __init__(
         self,
         dialect: "SQLDialectBase",

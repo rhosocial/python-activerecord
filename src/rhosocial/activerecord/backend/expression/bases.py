@@ -429,6 +429,7 @@ class BaseExpression:
             UnsupportedFeatureError,
         )
 
+        self._check_required_present()
         dialect = self.dialect
         self.check_dialect(dialect)
         formatter_name = self.format_method
@@ -467,6 +468,56 @@ class BaseExpression:
                 f"returning a bare string silently loses its bind parameters."
             )
         return rendered
+
+    def _check_required_present(self) -> None:
+        """Refuse a render whose payload is incomplete, naming the field.
+
+        The constructor signature says which parameters are required, but a
+        signature is only a *hint*: Python does not enforce annotations, and
+        two paths reach a node without the constructor ever seeing them.
+
+        * an explicit ``None`` passed for a required parameter;
+        * an artifact rebuilt from ``{"kind", "params"}`` whose ``params``
+          simply omit the field.
+
+        A formatter that rendered such a node would emit SQL for an expression
+        the caller never expressed, and the missing field would surface later
+        as an unrelated failure deep inside the formatter. So the check is
+        made here, once, before dispatch:
+
+        * a required parameter is one without a default in ``__init__``;
+          ``dialect`` is excluded because rendering binds it;
+        * "present" means not ``None``. Falsy values (``0``, ``False``,
+          ``""``) are real payloads and are not missing.
+
+        A missing field is a caller/artifact defect, so the error is
+        ``TypeError``. A dialect that cannot render the feature is a different
+        answer and must never be impersonated: that is
+        :class:`UnsupportedFeatureError`, raised by the formatter.
+        """
+        sig = inspect.signature(self.__class__.__init__)
+        nullable = type(self).NULLABLE_REQUIRED
+        missing: List[str] = []
+        for name, param in sig.parameters.items():
+            if name in ("self", "dialect") or name in nullable:
+                continue
+            if param.kind in (
+                inspect.Parameter.VAR_POSITIONAL,
+                inspect.Parameter.VAR_KEYWORD,
+            ):
+                continue
+            if param.default is not inspect.Parameter.empty:
+                continue
+            if getattr(self, name, None) is None:
+                missing.append(name)
+        if missing:
+            raise TypeError(
+                f"{type(self).__name__} cannot render: required parameter(s) "
+                f"{', '.join(sorted(missing))} are None. A required parameter "
+                f"is present by construction but may be None — passed "
+                f"explicitly, or absent from the artifact's params. Supply the "
+                f"value; do not expect the formatter to invent one."
+            )
 
     def validate(self, strict: bool = True) -> None:
         """Validate expression parameters according to SQL standard.
@@ -520,6 +571,20 @@ class BaseExpression:
     #: is what keeps the framework from carrying a list of names it would then
     #: have to keep in step.
     REGISTER_BY_DEFAULT: bool = True
+
+    #: Required parameters whose own value may legitimately be ``None``.
+    #:
+    #: "Required" answers whether the parameter must be *supplied*; it does not
+    #: answer whether ``None`` is a legal value. ``Literal(dialect, None)`` is
+    #: the SQL ``NULL``, ``DEFAULT NULL`` is a real declaration, and
+    #: ``SET DEFAULT NULL`` is a real action, so a render-time existence check
+    #: that refused every ``None`` would refuse valid SQL.
+    #:
+    #: A class that carries such a position declares it here, by parameter name.
+    #: It is a statement about the node's own vocabulary, made next to the class,
+    #: so the framework never has to keep a list of exceptions in step.
+    NULLABLE_REQUIRED: "frozenset" = frozenset()
+
 
     @classmethod
     def kind(cls) -> str:
