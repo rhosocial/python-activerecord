@@ -123,23 +123,26 @@ class UUIDMixin:
         """
         from ...expression.uuid import UuidConstantKind
 
+        # Caller error first: a typo is a bug in the calling code, and
+        # reporting "this dialect cannot render constants" instead would hide
+        # it behind an environment limit the caller cannot change. Rendering
+        # is still the phase that judges -- the constructor collected the
+        # value untouched.
+        try:
+            which = UuidConstantKind(str(expr.which).lower())
+        except ValueError:
+            raise TypeError(
+                f"UUIDConstantExpression.which must be one of "
+                f"{', '.join(k.value for k in UuidConstantKind)}, "
+                f"got {expr.which!r}"
+            ) from None
+
         constants = self._require_uuid("constant", "UUID constants")
-        if isinstance(constants, dict):
-            try:
-                which = UuidConstantKind(str(expr.which).lower())
-            except ValueError:
-                raise TypeError(
-                    f"UUIDConstantExpression.which must be one of "
-                    f"{', '.join(k.value for k in UuidConstantKind)}, "
-                    f"got {expr.which!r}"
-                ) from None
-            sql = constants.get(which)
-        else:
-            sql = None
+        sql = constants.get(which) if isinstance(constants, dict) else None
         if sql is None:
             raise UnsupportedFeatureError(
                 self.name,
-                f"UUID {expr.which} constant",
+                f"UUID {which} constant",
                 self.UUID_SUGGESTIONS.get("constant", ""),
             )
         if expr.alias:
