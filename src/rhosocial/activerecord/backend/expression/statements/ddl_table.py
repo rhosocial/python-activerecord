@@ -7,7 +7,7 @@ from ..bases import (
     SQLPredicate,
     SQLQueryAndParams,
 )
-from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Union, TYPE_CHECKING
 from abc import ABC
 from enum import Enum
 # src/rhosocial/activerecord/backend/expression/statements/ddl_table.py
@@ -1291,6 +1291,7 @@ class CreateTableAsStatement(BaseExpression):
         storage_options: Optional["StorageOptionsExpression"] = None,
         with_data: bool = False,
         no_data: bool = False,
+        hints: Tuple[Mapping[str, Any], ...] = (),
     ):
         super().__init__(dialect)
         self.require_exclusive_options(with_data, no_data, "with_data", "no_data")
@@ -1302,6 +1303,7 @@ class CreateTableAsStatement(BaseExpression):
         self.temporary = temporary
         self.if_not_exists = if_not_exists
         self.storage_options = storage_options
+        self.hints = tuple(hints)
         self.with_data = with_data
         self.no_data = no_data
 

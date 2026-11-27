@@ -76,6 +76,14 @@ class CreateTableAsMixin:
                 )
             from ..exceptions import UnsupportedFeatureError
 
+            if getattr(expr.as_query, "hints", ()):
+                raise TypeError(
+                    f"{type(expr).__name__}: the embedded query carries optimizer hints. "
+                    "A hint comment belongs to the outermost statement -- it is a comment "
+                    "on the statement as a whole, and two blocks are rejected -- so the "
+                    "hints must be given to this statement, not to the query it wraps."
+                )
+
             if not self.supports_create_table_as():
                 raise UnsupportedFeatureError(self.name, "CREATE TABLE ... AS")
 

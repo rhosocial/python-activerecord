@@ -39,6 +39,14 @@ class DMLMixin(ReturningMixin):
             columns_sql = ""
             if expr.columns:
                 columns_sql = "(" + ", ".join([self.format_identifier(c) for c in expr.columns]) + ")"
+            if getattr(expr.source, "hints", ()):
+                raise TypeError(
+                    f"{type(expr).__name__}: the insert source carries optimizer hints. "
+                    "A hint comment belongs to the outermost statement -- it is a comment "
+                    "on the statement as a whole, and two blocks are rejected -- so the "
+                    "hints must be given to this statement, not to the source it wraps."
+                )
+
             source_sql, source_params = expr.source.to_sql()
             all_params.extend(source_params)
             sql = f"INSERT INTO {table_sql} {columns_sql} {source_sql}".strip()
