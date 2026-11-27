@@ -176,19 +176,22 @@ class TestTrimDirectionValidation:
 
 
 class TestPartitionClauseValidation:
-    """PartitionClause validation branches."""
+    """PartitionClause validation branches, all judged at render time."""
 
     def test_invalid_method_type(self, dialect):
-        with pytest.raises(TypeError):
-            PartitionClause(dialect, 123, [Column(dialect, "id")])
+        clause = PartitionClause(dialect, 123, [Column(dialect, "id")])
+        with pytest.raises(TypeError, match="non-empty strategy word"):
+            clause.to_sql()
 
     def test_missing_keys(self, dialect):
-        with pytest.raises(ValueError):
-            PartitionClause(dialect, "HASH", [])
+        clause = PartitionClause(dialect, "HASH", [])
+        with pytest.raises(TypeError, match="keys is empty"):
+            clause.to_sql()
 
     def test_non_expression_key(self, dialect):
-        with pytest.raises(TypeError):
-            PartitionClause(dialect, "HASH", ["id"])
+        clause = PartitionClause(dialect, "HASH", ["id"])
+        with pytest.raises(TypeError, match="BaseExpression"):
+            clause.to_sql()
 
     def test_invalid_dialect_options(self, dialect):
         with pytest.raises(TypeError):
@@ -208,8 +211,9 @@ class TestPartitionClauseValidation:
         class MyPartition(PartitionClause):
             strategy_type = Weird
 
-        with pytest.raises(TypeError):
-            MyPartition(dialect, Weird.X, [Column(dialect, "id")])
+        clause = MyPartition(dialect, Weird.X, [Column(dialect, "id")])
+        with pytest.raises(TypeError, match="non-empty strategy word"):
+            clause.to_sql()
 
     def test_to_sql_unsupported(self, dialect):
         clause = PartitionByHashClause(dialect, [Column(dialect, "id")])
