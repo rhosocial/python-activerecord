@@ -390,13 +390,6 @@ class BaseExpression:
         ActiveRecord's DDL derivation before rendering). No reconstruction,
         no propagation, no copies.
 
-        A node carrying non-empty ``hints`` (an optional optimizer-directive
-        payload on the statement classes) is refused here unless the dialect
-        answers ``supports_statement_hints()`` truthy, because a dialect that
-        does not spell them must refuse rather than silently drop them. The
-        check sits on this single rendering entry point, so a backend that
-        overrides a statement formatter still gets the refusal.
-
         1. Resolve this class's declared formatting method name
            (:attr:`format_method`; undeclared → ``NotImplementedError``) and
            look it up on the bound dialect (missing →
@@ -440,18 +433,6 @@ class BaseExpression:
         self.check_renderable()
         dialect = self.dialect
         self.check_dialect(dialect)
-        hints = getattr(self, "hints", ())
-        if hints and not dialect.supports_statement_hints():
-            raise UnsupportedFeatureError(
-                dialect_name=dialect.name,
-                feature_name="optimizer hints",
-                suggestion=(
-                    f"{dialect.name} does not spell optimizer-directive "
-                    f"comments (/*+ ... */) attached to a statement; install "
-                    f"and enable the hint extension for this backend, or drop "
-                    f"the hints from the statement"
-                ),
-            )
         formatter_name = self.format_method
         formatter = getattr(dialect, formatter_name, None)
         if formatter is None or not callable(formatter):

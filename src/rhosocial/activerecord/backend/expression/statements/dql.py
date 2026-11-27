@@ -2,7 +2,7 @@
 """DQL (Data Query Language) statement expressions."""
 
 from enum import Enum
-from typing import TYPE_CHECKING, Any, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Sequence, Union
 
 from ...schema import StatementType
 from ..bases import BaseExpression, SQLPredicate, SQLValue
@@ -175,8 +175,6 @@ class QueryStatement(ArithmeticMixin, ComparisonMixin, SQLValue):
         select_modifier: Optional[
             SelectModifier
         ] = None,  # SELECT modifier - DISTINCT|ALL, None means no modifier
-        *,
-        hints: Tuple[Mapping[str, Any], ...] = (),
     ):
         """
         Initialize a QueryStatement instance with the specified query components.
@@ -203,10 +201,6 @@ class QueryStatement(ArithmeticMixin, ComparisonMixin, SQLValue):
                                 that OFFSET requires LIMIT within the clause object.
             for_update: FOR UPDATE clause object with the locking specification (optional).
             select_modifier: Modifier for the SELECT clause (optional). Options: DISTINCT, ALL.
-            hints: Optimizer-directive payloads this statement carries, each a mapping.
-                   Empty by default. The dialect that spells them renders them; a
-                   dialect that does not must refuse rather than drop them. Their
-                   contents are the formatter's to validate, at render time.
 
         Raises:
             ValueError: If HAVING is provided without GROUP BY (validated within GroupByHavingClause)
@@ -242,8 +236,6 @@ class QueryStatement(ArithmeticMixin, ComparisonMixin, SQLValue):
         self.select = select or []  # List of expressions to be selected
         self.from_ = from_  # Source of query data (optional)
         self.select_modifier = select_modifier  # SELECT modifier (DISTINCT/ALL), optional
-        # Optimizer-directive payloads carried by this statement (empty = none).
-        self.hints = tuple(hints)
 
     def validate(self, strict: bool = True) -> None:
         """Validate QueryStatement parameters according to SQL standard.

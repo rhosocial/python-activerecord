@@ -89,18 +89,6 @@ class CreateViewMixin:
                         f"{self.name} does not support CREATE VIEW IF NOT EXISTS."
                     )
                 if_not_exists_part = "IF NOT EXISTS "
-            from ...expression.statements.dql import QueryStatement
-
-            wrapped = expr.query
-            if isinstance(wrapped, QueryStatement) and wrapped.hints:
-                raise TypeError(
-                    f"{type(expr).__name__}: the embedded query carries optimizer hints. "
-                    "A hint comment belongs to the outermost statement, and this statement "
-                    "is not planned at creation time, so a hint here would be inert and "
-                    "would interrupt the statement text. Attach hints where the query is "
-                    "actually run."
-                )
-
             sql_parts = [
                 f"CREATE {replace_part}{temporary_part}VIEW {if_not_exists_part}"
                 f"{expr.view.to_sql()[0]}"

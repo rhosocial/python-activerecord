@@ -3,7 +3,7 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Mapping, Optional, Tuple, Union, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
 from ..bases import BaseExpression
 from ..objects import MaterializedView, View
@@ -238,7 +238,6 @@ class CreateMaterializedViewStatement(BaseExpression):
         with_data: bool = False,  # Whether to populate immediately
         no_data: bool = False,  # Whether to leave the view unpopulated
         storage_options: Optional[Dict[str, Any]] = None,
-        hints: Tuple[Mapping[str, Any], ...] = (),
     ):
         super().__init__(dialect)
         self.require_exclusive_options(with_data, no_data, "with_data", "no_data")
@@ -249,7 +248,6 @@ class CreateMaterializedViewStatement(BaseExpression):
         self.with_data = with_data
         self.no_data = no_data
         self.storage_options = storage_options or {}
-        self.hints = tuple(hints)
 
     @property
     def format_method(self) -> str:
@@ -347,7 +345,6 @@ class RefreshMaterializedViewStatement(BaseExpression):
         concurrent: bool = False,  # Refresh concurrently (PostgreSQL)
         with_data: bool = False,  # WITH DATA
         no_data: bool = False,  # WITH NO DATA
-        hints: Tuple[Mapping[str, Any], ...] = (),
     ):
         super().__init__(dialect)
         self.require_exclusive_options(with_data, no_data, "with_data", "no_data")
@@ -355,7 +352,6 @@ class RefreshMaterializedViewStatement(BaseExpression):
         self.concurrent = concurrent
         self.with_data = with_data
         self.no_data = no_data
-        self.hints = tuple(hints)
 
     @property
     def format_method(self) -> str:

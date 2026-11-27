@@ -222,18 +222,6 @@ class SQLDialectBase:
         """
         return True
 
-    def supports_statement_hints(self) -> bool:
-        """Whether this dialect spells optimizer-directive comments (``/*+ ... */``)
-        attached to a statement.
-
-        A hint is a comment carried by one statement, not a statement of its own,
-        so a dialect either knows the comment grammar or it does not. The default
-        is ``False``: a statement carrying hints renders only on a dialect that
-        answers ``True`` here, and a dialect that does not must refuse them rather
-        than drop them silently.
-        """
-        return False
-
     def create_schema_differ(self) -> "SchemaDiffer":
         """Return a schema differ for this dialect's comparison rules.
 

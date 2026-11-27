@@ -3,7 +3,7 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Mapping, Optional, Tuple, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
 from ...schema import StatementType
@@ -116,24 +116,10 @@ class ExplainStatement(BaseExpression):
         dialect: "SQLDialectBase",
         statement: "BaseExpression",  # Statement to be analyzed
         options: Optional[ExplainOptions] = None,
-        *,
-        hints: Tuple[Mapping[str, Any], ...] = (),
-    ):
-        """
-        Initialize an EXPLAIN statement.
-
-        Args:
-            options: EXPLAIN options, or None for the dialect's default spelling.
-            hints: Optimizer-directive payloads this statement carries, each a
-                mapping. Empty by default. The dialect that spells them renders
-                them; a dialect that does not must refuse rather than drop them.
-                Their contents are the formatter's to validate, at render time.
-        """
+    ):  # EXPLAIN options
         super().__init__(dialect)
         self.statement = statement  # SQL statement to analyze (query, insert, update, delete, etc.)
         self.options = options  # EXPLAIN options, keeping None if passed as None
-        # Optimizer-directive payloads carried by this statement (empty = none).
-        self.hints = tuple(hints)
 
     @property
     def format_method(self) -> str:

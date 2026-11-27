@@ -88,17 +88,6 @@ class MaterializedViewMixin:
                     f"{self.name} does not support {feature} for materialized views."
                 )
 
-            from ...expression.statements.dql import QueryStatement
-
-            wrapped = expr.query
-            if isinstance(wrapped, QueryStatement) and wrapped.hints:
-                raise TypeError(
-                    f"{type(expr).__name__}: the embedded query carries optimizer hints. "
-                    "A hint comment belongs to the outermost statement -- it is a comment "
-                    "on the statement as a whole, and two blocks are rejected -- so the "
-                    "hints must be given to this statement, not to the query it wraps."
-                )
-
             parts = ["CREATE MATERIALIZED VIEW"]
             parts.append(expr.view.to_sql()[0])
 
