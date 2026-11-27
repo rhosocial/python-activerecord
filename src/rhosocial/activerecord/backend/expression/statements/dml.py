@@ -3,7 +3,7 @@
 
 import abc
 from enum import Enum
-from typing import Dict, List, Optional, Union, TYPE_CHECKING
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Union, TYPE_CHECKING
 
 from ..bases import BaseExpression, SQLPredicate
 from ..core import Subquery
@@ -226,7 +226,17 @@ class DeleteStatement(BaseExpression):
         ] = None,
         where: Optional[Union["SQLPredicate", "WhereClause"]] = None,  # WHERE condition or clause object
         returning: Optional["ReturningClause"] = None,  # RETURNING clause object
+        hints: Tuple[Mapping[str, Any], ...] = (),
     ):
+        """
+        Initialize a DELETE statement.
+
+        Args:
+            hints: Optimizer-directive payloads this statement carries, each a
+                mapping. Empty by default. The dialect that spells them renders
+                them; a dialect that does not must refuse rather than drop them.
+                Their contents are the formatter's to validate, at render time.
+        """
         super().__init__(dialect)
 
         # A DELETE names the relations it removes from.  They are objects, not
@@ -253,6 +263,8 @@ class DeleteStatement(BaseExpression):
             self.where = None
 
         self.returning = returning  # RETURNING clause object
+        # Optimizer-directive payloads carried by this statement (empty = none).
+        self.hints = tuple(hints)
 
     def validate(self, strict: bool = True) -> None:
         """Validate DeleteStatement parameters according to SQL standard.
@@ -357,7 +369,17 @@ class UpdateStatement(BaseExpression):
         ] = None,
         where: Optional[Union["SQLPredicate", "WhereClause"]] = None,  # WHERE condition or clause object
         returning: Optional["ReturningClause"] = None,  # RETURNING clause object
+        hints: Tuple[Mapping[str, Any], ...] = (),
     ):
+        """
+        Initialize an UPDATE statement.
+
+        Args:
+            hints: Optimizer-directive payloads this statement carries, each a
+                mapping. Empty by default. The dialect that spells them renders
+                them; a dialect that does not must refuse rather than drop them.
+                Their contents are the formatter's to validate, at render time.
+        """
         super().__init__(dialect)
 
         # Validate assignments
@@ -381,6 +403,8 @@ class UpdateStatement(BaseExpression):
             self.where = None
 
         self.returning = returning  # RETURNING clause object
+        # Optimizer-directive payloads carried by this statement (empty = none).
+        self.hints = tuple(hints)
 
     def validate(self, strict: bool = True) -> None:
         """Validate UpdateStatement parameters according to SQL standard.
@@ -592,7 +616,17 @@ class InsertStatement(BaseExpression):
         returning: Optional["ReturningClause"] = None,  # Using ReturningClause instead of list of expressions
         or_replace: bool = False,
         or_ignore: bool = False,
+        hints: Tuple[Mapping[str, Any], ...] = (),
     ):
+        """
+        Initialize an INSERT statement.
+
+        Args:
+            hints: Optimizer-directive payloads this statement carries, each a
+                mapping. Empty by default. The dialect that spells them renders
+                them; a dialect that does not must refuse rather than drop them.
+                Their contents are the formatter's to validate, at render time.
+        """
         super().__init__(dialect)
 
         self.into = into
@@ -602,6 +636,8 @@ class InsertStatement(BaseExpression):
         self.returning = returning  # ReturningClause object or None
         self.or_replace = or_replace
         self.or_ignore = or_ignore
+        # Optimizer-directive payloads carried by this statement (empty = none).
+        self.hints = tuple(hints)
 
         if self.or_replace and self.or_ignore:
             raise ValueError("Cannot specify both 'or_replace' and 'or_ignore'.")
