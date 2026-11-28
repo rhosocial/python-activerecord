@@ -84,20 +84,28 @@ from typing import (
     Tuple,
 )
 
-# The expression-lineage skill owns backend discovery, and enumerating by
-# directory rather than by package is what keeps the PEP 420 backends visible.
-# It lives one skill away, so reach it by path rather than duplicating the rule:
-# two copies of a discovery rule drift, and this one had already drifted.
-_EXPRESSION_LINEAGE_SCRIPTS = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    os.pardir,
-    os.pardir,
-    "dev-expression-lineage",
-    "scripts",
-)
-if _EXPRESSION_LINEAGE_SCRIPTS not in sys.path:
-    sys.path.insert(0, _EXPRESSION_LINEAGE_SCRIPTS)
-from expression_lineage import _installed_backend_names  # noqa: E402
+_EXCLUDE_FRAGMENTS = ("__pycache__", "examples", "tests", "docs")
+
+
+def _installed_backend_names(impl) -> List[str]:
+    """Backend directories on ``impl.__path__``, not pkgutil modules.
+
+    Backends are PEP 420 namespace portions with no ``__init__.py``, so
+    ``pkgutil.iter_modules`` silently reports none. Enumerating directories on
+    ``impl.__path__`` is the reliable source and includes editable installs.
+    """
+    names: Set[str] = set()
+    for entry in getattr(impl, "__path__", ()):
+        try:
+            children = os.listdir(entry)
+        except OSError:
+            continue
+        for child in children:
+            if child.startswith(".") or any(f in child for f in _EXCLUDE_FRAGMENTS):
+                continue
+            if os.path.isdir(os.path.join(entry, child)):
+                names.add(child)
+    return sorted(names)
 
 warnings.filterwarnings("ignore")
 

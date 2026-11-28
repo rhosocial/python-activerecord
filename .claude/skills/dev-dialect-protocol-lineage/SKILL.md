@@ -15,9 +15,9 @@ metadata:
 
 # Dialect Protocol Lineage
 
-The expression lineage in `dev-expression-lineage` answers *where did this class come
-from*. This skill answers the adjacent question for the dialect protocol system: *does
-the dialect actually do what its protocols promise?*
+`dev-expression-registry` answers *which expressions exist*. This skill answers the
+adjacent question for the dialect protocol system: *does the dialect actually do what
+its protocols promise?*
 
 ## 1. The three layers
 

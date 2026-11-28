@@ -9,7 +9,7 @@ metadata:
   order: 8
   prerequisites:
     - dev-release-workflow
-    - dev-expression-lineage
+    - dev-expression-registry
     - dev-dialect-protocol-lineage
 ---
 
@@ -225,8 +225,7 @@ that has every backend installed.
 
 | Item | How to check |
 |---|---|
-| F1. Expression lineage | `python-activerecord/.claude/skills/dev-expression-lineage/scripts/expression_lineage_mermaid.py --report`. Verdict requires **all** of: `iron rule: 0` (no cross-backend inheritance), `placement: 0 misplaced`, `dangling: 0`, and `integrity: 0 unparseable, 0 unimportable`. See `dev-expression-lineage` for what each number means and why the integrity line must be read before trusting a clean run |
-| F2. Expression lineage drift | `--scope consumers` plus `--save-graph /tmp/before.json` on the target, `--save-graph /tmp/after.json` on the feature branch, then diff. A class whose consumer count collapses, or a core class that gained a backend, is a placement decision that needs a reason. `--scope family:<name>` for the families the branch touched |
+| F1/F2. Expression lineage | **Retired.** The lineage-audit skill was replaced by `dev-expression-registry`, which answers *which expressions exist*, not where a class came from. To verify the expression vocabulary changed as intended, capture `dev-expression-registry`'s `--json` output before and after and diff it; a kind list that moved without a matching edit is the signal to investigate. |
 | F3. Dialect protocol lineage | `python-activerecord/.claude/skills/dev-dialect-protocol-lineage/scripts/dialect_protocol_lineage.py --report`. Verdict requires `declared but absent: 0`; `stubbed methods` and `protocol overlap` are review items, not gates. Cross-check against the protocol conformance tests, which are the authority on whether a method is actually callable. See `dev-dialect-protocol-lineage` |
 | F4. Reflection survey | Re-run `python-activerecord/.claude/plan/2026-09-14/expression_survey.py` and compare against `expression_data.json`. **Note:** `.claude/plan/` is git-ignored, so this baseline is per-developer and may be stale or absent; F1-F3 do not depend on it and are the primary gate |
 
