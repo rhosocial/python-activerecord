@@ -113,8 +113,38 @@ signal, so there is nothing to unwrap and no second, weaker way of saying the
 same thing. An `__expr__` envelope would have given one fact two spellings and
 left the reader guessing which a payload used.
 
-Note what is *not* there. The artifact carries no dialect, so the same payload
-re-renders under any dialect object you hand it:
+Note what is *not* there: **neither side handles a dialect**. Serialization
+ignores it — `get_params()` excludes the constructor's `dialect` parameter, so
+no dialect instance is written into the artifact. Deserialization ignores it
+too — the artifact has no dialect field to read, and the rebuilt tree comes
+back **unbound**: reading `node.dialect` on it raises until a dialect is bound.
+
+If you want a bound tree, inject the dialect yourself, recursively, into every
+node of the rebuilt tree:
+
+```python
+from rhosocial.activerecord.backend.expression import BaseExpression
+
+def bind_dialect(node, dialect):
+    for value in node.get_params().values():
+        if isinstance(value, BaseExpression):
+            bind_dialect(value, dialect)
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                if isinstance(item, BaseExpression):
+                    bind_dialect(item, dialect)
+        elif isinstance(value, dict):
+            for item in value.values():
+                if isinstance(item, BaseExpression):
+                    bind_dialect(item, dialect)
+    node.dialect = dialect
+    return node
+
+tree = bind_dialect(deserialize(artifact), SQLiteDialect(version=(3, 53, 0)))
+```
+
+If you only need one render, skip the injection and hand the dialect to
+`to_sql(dialect)` — that binds it for the render without changing the tree:
 
 ```python
 deserialize(artifact).to_sql(SQLiteDialect(version=(3, 53, 0)))
@@ -191,6 +221,64 @@ A published registry is **frozen**. To widen or narrow it, start from `twin()`
 (a mutable copy) or `merged()` (a frozen union), or build a fresh
 `ExpressionRegistry(kinds)` from a mapping you composed yourself. Mutation or
 assembly by anyone else cannot change a published table.
+
+## What Expressions Exist
+
+You do not have to read the source tree to answer "which expressions are there".
+The registries are that answer, and they are plain data you can print:
+
+```python
+from rhosocial.activerecord.backend.expression_registry import CORE_EXPRESSIONS
+from rhosocial.activerecord.backend.impl.sqlite.expression_registry import (
+    SQLITE_EXPRESSIONS, SQLITE_EXPRESSION_REGISTRY,
+)
+
+for kind, fqn in sorted(CORE_EXPRESSIONS.items()):
+    print(kind, "->", fqn)
+
+core_kinds = sorted(CORE_EXPRESSIONS)                    # what core declares
+own_kinds = sorted(SQLITE_EXPRESSIONS)                   # what sqlite declares
+readable = sorted(SQLITE_EXPRESSION_REGISTRY.node_kinds())  # core + sqlite
+```
+
+`<NAME>_EXPRESSIONS` is an owner's own `kind -> fully qualified class name`
+mapping. `<NAME>_EXPRESSION_REGISTRY.node_kinds()` is the table a reader would
+actually consult: core's kinds merged with that backend's. Both are published
+by the owner at import time and derived from the node classes themselves, so a
+list printed today cannot silently drift away from the code.
+
+**That list is also the serialization contract.** A kind in the table is a node
+the codec can write and read back; a kind outside it is refused by name on
+read. `serialize` needs no table because a node reports its own kind, while
+`deserialize` accepts only what the chosen registry admits. The printed mapping
+is therefore exactly the expressions this library promises to round-trip:
+writing is unrestricted, reading is the registry's commitment.
+
+**The merge is not a support claim.** A backend's table is just the dictionary
+union `{**CORE_EXPRESSIONS, **<NAME>_EXPRESSIONS}`. It says the reader can
+rebuild those node classes from an artifact; it does **not** say the backend's
+dialect can render every one of them. Formatting is the dialect's job, decided
+by its `format_*` methods, and no registry consults them. A core node whose
+formatter that dialect never implemented still deserializes cleanly and then
+fails at `to_sql()`. Read-side acceptance and render-side support are two
+different contracts; this table publishes only the former.
+
+**Support also varies by dialect version.** A registry carries no version: the
+same `sqlite_returning_clause` kind sits in SQLite's table regardless of which
+SQLite build renders it. `SQLiteDialect(version=(3, 34, 0))` refuses a RETURNING
+clause that `(3, 35, 0)` renders, because `supports_returning_*()` gates it. The
+table answers "is this a legitimate expression identity"; the dialect version
+answers "can this particular build render it". For capability, ask the dialect,
+not the registry.
+
+Two details make the list stable enough to rely on:
+
+- A kind is the snake_case form of the class name, not a file path. Moving a
+  node between namespace packages changes its fully qualified class name but
+  not its kind, so the wire identity survives a code-organization change.
+- A parameter's host value has no kind of its own. Every value travels in the
+  one `parameter` node, so admitting `"parameter"` admits values of any type;
+  the JSON-compatibility of a value remains the caller's responsibility.
 
 ## Selective Registration
 

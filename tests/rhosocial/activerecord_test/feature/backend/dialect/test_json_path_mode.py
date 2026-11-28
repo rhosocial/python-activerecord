@@ -19,7 +19,7 @@ from rhosocial.activerecord.backend.dialect import (
     UnsupportedFeatureError,
 )
 from rhosocial.activerecord.backend.dialect.mixins import ExpressionMixin
-from rhosocial.activerecord.backend.expression.advanced_functions import (
+from rhosocial.activerecord.backend.expression.functions.advanced_functions import (
     JSONDocumentValue,
     JSONPathMode,
 )

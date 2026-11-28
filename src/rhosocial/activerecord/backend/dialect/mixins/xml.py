@@ -10,7 +10,7 @@ from ..exceptions import UnsupportedFeatureError
 from ...textscan import is_identifier
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.xml import (
+    from ...expression.functions.xml import (
         PassingClause,
         XMLAggExpression,
         XMLAttributesExpression,

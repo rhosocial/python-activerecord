@@ -35,7 +35,7 @@ from rhosocial.activerecord.backend.expression import (
     interval,
     seconds_between,
 )
-from rhosocial.activerecord.backend.expression.datetime import (
+from rhosocial.activerecord.backend.expression.functions.datetime import (
     normalize_datetime_field,
     normalize_interval_unit,
     validate_interval_value,

@@ -35,7 +35,7 @@ class ColumnTypeSuggestionSupport(Protocol):
         ``Multirange``, ``MacAddress``. ``Geometry`` is one key for the whole
         family because the lookup walks subclasses in key order.
         **Every key must be answered.** A value is a
-        :class:`~...expression.column_types.ColumnBase` subclass, or ``None``
+        :class:`~...expression.column_types.column_types.ColumnBase` subclass, or ``None``
         for "this backend genuinely has no column class for it" — the last
         resort, for a value no workaround can express, never a first answer.
         A missing key is an omission, not a decision.

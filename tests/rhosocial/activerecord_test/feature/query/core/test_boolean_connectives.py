@@ -12,9 +12,9 @@ dispatched by the receiver, which is what these tests pin.
 import pytest
 
 from rhosocial.activerecord.backend.expression import BooleanColumn
-from rhosocial.activerecord.backend.expression.bases import SQLPredicate, SQLValue
-from rhosocial.activerecord.backend.expression.core import LogicalValue
-from rhosocial.activerecord.backend.expression.predicates import LogicalPredicate
+from rhosocial.activerecord.backend.expression.bases.bases import SQLPredicate, SQLValue
+from rhosocial.activerecord.backend.expression.value_types.logical import LogicalValue
+from rhosocial.activerecord.backend.expression.predicates.predicates import LogicalPredicate
 
 
 @pytest.fixture

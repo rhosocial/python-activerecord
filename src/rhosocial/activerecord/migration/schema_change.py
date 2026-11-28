@@ -335,7 +335,7 @@ def plan_changes(
     points to resolve via a backend suggestion contract, never hard-coded here.
     """
     from ..base.derivation import build_column_definitions
-    from ..backend.expression.statements.ddl_alter import (
+    from ..backend.expression.statements import (
         AddColumnAction, DropColumnAction, RenameColumnAction, AlterTableStatement,
     )
     from ..backend.expression.objects import Table
@@ -365,7 +365,7 @@ def plan_changes(
             # neutral core expression; the dialect formatter decides the spelling
             # and fails fast if it cannot render it (capability stays in B).
             # Choosing a backend-specific class here would leak B knowledge into A.
-            from ..backend.expression.statements.ddl_alter import (
+            from ..backend.expression.statements import (
                 AlterColumnAction, ColumnAlterOperation,
             )
 

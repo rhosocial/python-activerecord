@@ -2,8 +2,8 @@
 """Base DQL rendering mixin. Sub-features live in their own mixins."""
 
 from typing import TYPE_CHECKING, Any, List, Tuple
-from ...expression.bases import ToSQLProtocol
-from ...expression.query_parts import SortDirection
+from ...expression.bases.bases import ToSQLProtocol
+from ...expression.query_parts.query_parts import SortDirection
 from .dql_order_mixin import DqlOrderMixin
 from .advanced_grouping_mixin import AdvancedGroupingMixin
 from .locking_mixin import LockingMixin

@@ -11,7 +11,7 @@ import pytest
 
 from rhosocial.activerecord.backend.expression.functions import cast
 from rhosocial.activerecord.backend.expression import Parameter, Column, FunctionCall
-from rhosocial.activerecord.backend.expression.core import CastExpression
+from rhosocial.activerecord.backend.expression.functions.cast_expression import CastExpression
 from rhosocial.activerecord.backend.expression.types import CustomType, IntegerType
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 

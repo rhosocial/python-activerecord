@@ -1,6 +1,6 @@
 # .../mixins/column_attribute_mixin.py
 """Mixin for ColumnAttributeSupport. Members/order/signature mirror the protocol."""
-from ...expression.bases import BaseExpression
+from ...expression.bases.bases import BaseExpression
 
 from typing import Any, Tuple, TYPE_CHECKING
 

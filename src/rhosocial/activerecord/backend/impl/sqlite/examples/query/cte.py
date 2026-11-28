@@ -4,9 +4,9 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnPrimaryKeyConstraint,
 )
 from .....expression.objects import Table
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.predicates.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.expression import JoinClause
-from rhosocial.activerecord.backend.expression.predicates import IsNullPredicate
+from rhosocial.activerecord.backend.expression.predicates.predicates import IsNullPredicate
 from rhosocial.activerecord.backend.expression import SetOperation
 from rhosocial.activerecord.backend.expression import functions
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
@@ -15,7 +15,8 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     GroupByHavingClause,
 )
 from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
-from rhosocial.activerecord.backend.expression.core import Parameter, Column
+from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
+from rhosocial.activerecord.backend.expression.column_types.column import Column
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     QueryStatement,

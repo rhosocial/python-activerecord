@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, TYPE_CHECKING
 
-from ..bases import BaseExpression
+from ..bases.bases import BaseExpression
 from ...schema import StatementType
 
 if TYPE_CHECKING:  # pragma: no cover

@@ -299,7 +299,7 @@ class JSONSupport(Protocol):
 ```python
 # 后端特定选项属于格式化接口，既不属于能力开关，也不属于表达式本身：
 # JSONTableExpression 只接受通用参数
-from rhosocial.activerecord.backend.expression.query_sources import (
+from rhosocial.activerecord.backend.expression.sources.query_sources import (
     JSONTableColumn,
     JSONTableExpression,
 )
@@ -508,7 +508,7 @@ from typing import List, Optional
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.expression import AliasableMixin, SQLValue
-from rhosocial.activerecord.backend.expression.mixins import ComparisonMixin
+from rhosocial.activerecord.backend.expression.bases.mixins import ComparisonMixin
 
 
 class MatchAgainstExpression(AliasableMixin, ComparisonMixin, SQLValue):

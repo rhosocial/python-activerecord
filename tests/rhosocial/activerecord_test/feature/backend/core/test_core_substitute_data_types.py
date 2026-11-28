@@ -77,14 +77,14 @@ class TestSQLiteSuggestions:
             assert _GENERIC_NAME_RE.match(key), key
 
     def test_uuid_and_enum_point_at_sqlite_text(self, suggestions):
-        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import (
             SQLiteTextType,
         )
         assert suggestions["uuid"] is SQLiteTextType
         assert suggestions["enum"] is SQLiteTextType
 
     def test_binary_and_varbinary_point_at_sqlite_blob(self, suggestions):
-        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import (
             SQLiteBlobType,
         )
         assert suggestions["binary"] is SQLiteBlobType

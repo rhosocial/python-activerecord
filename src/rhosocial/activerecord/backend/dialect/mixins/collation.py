@@ -5,7 +5,7 @@ from typing import Tuple, TYPE_CHECKING
 from ..exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.collation import CollateFunction
+    from ...expression.functions.collation import CollateFunction
 
 
 class CollationMixin:

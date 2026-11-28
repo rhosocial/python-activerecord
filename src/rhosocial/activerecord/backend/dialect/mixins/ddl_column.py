@@ -5,8 +5,8 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from .ddl_table import normalize_foreign_key_match_type
 from ...expression.objects import Index, Table
-from ...expression.core import Parameter
-from ...expression.bases import BaseExpression, ToSQLProtocol
+from ...expression.value_types.parameter import Parameter
+from ...expression.bases.bases import BaseExpression, ToSQLProtocol
 from typing import Any, List, Tuple, TYPE_CHECKING, cast
 # src/rhosocial/activerecord/backend/dialect/mixins/ddl_column.py
 """DDL column formatting: column references, definitions, constraints, and
@@ -30,7 +30,7 @@ if TYPE_CHECKING:  # pragma: no cover
         TablePrimaryKeyConstraint,
         TableUniqueConstraint,
     )
-    from ...expression.core import Column
+    from ...expression.column_types.column import Column
     from ...expression.statements.ddl_alter import (
         AddColumnAction,
         AddIndexAction,
@@ -100,7 +100,7 @@ class DDLColumnMixin():
 
 
     def format_column(self, expr: "Column") -> "Tuple[str, tuple]":
-        """Format a :class:`~...expression.core.Column`.
+        """Format a :class:`~...expression.column_types.column.Column`.
 
         Renders an optional ``schema.table.column`` qualifier chain followed
         by an optional alias. Each component is quoted independently according

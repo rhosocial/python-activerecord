@@ -14,7 +14,7 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 from .extension import SQLiteExtensionMixin
 
 if TYPE_CHECKING:
-    from ..expression.rtree import SQLiteRTreeCreateVirtualTable, SQLiteRTreeRangeQuery
+    from ..expression.statements.rtree import SQLiteRTreeCreateVirtualTable, SQLiteRTreeRangeQuery
 
 
 class SQLiteRTreeMixin(SQLiteExtensionMixin):

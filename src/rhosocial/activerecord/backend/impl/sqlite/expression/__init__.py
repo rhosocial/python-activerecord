@@ -5,17 +5,17 @@ SQLite-specific expression classes.
 This module provides expression classes that are specific to SQLite,
 such as column info expressions, table list expressions, and REINDEX statement.
 
-Directory structure:
-- introspection.py  - Column info expression, PRAGMA statements, table count and DDL reads
-- table_list.py     - Table list expression
-- reindex.py        - REINDEX expression
-- predicates.py     - FTS MATCH predicate expression
-- fts5.py           - FTS5 expression classes
-- rtree.py          - R-Tree expression classes
-- geopoly.py        - Geopoly expression classes
+Directory structure (canonical top-level namespaces):
+- introspection/  - Column info, PRAGMA, table count/DDL reads, and table list
+- predicates/     - FTS MATCH predicate expression
+- statements/     - REINDEX, VACUUM/ANALYZE, ATTACH/DETACH, DML, virtual tables (FTS5, R-Tree, Geopoly)
+- query_parts/    - SQLite AUTOINCREMENT tail
+- functions/      - SQLite JSON function
+- sources/        - SQLite table source
+- types/          - SQLite type-affinity classes
 """
 
-from .introspection import (
+from .introspection.introspection import (
     SQLiteColumnInfoExpression,
     SQLiteIndexDdlStatement,
     SQLiteIndexOwnerStatement,
@@ -25,34 +25,34 @@ from .introspection import (
     SQLiteTableDdlStatement,
     SQLiteTableStorageStatement,
 )
-from .table import SQLiteTable
-from .table_list import SQLiteTableListExpression
-from .reindex import SQLiteReindexStatement
-from .vacuum import SQLiteVacuumStatement, SQLiteAnalyzeStatement
-from .attach import SQLiteAttachStatement, SQLiteDetachStatement
-from .predicates import SQLiteMatchPredicate
-from .dml import SQLiteInsertStatement
-from .fts5 import (
+from .sources.table import SQLiteTable
+from .introspection.table_list import SQLiteTableListExpression
+from .statements.reindex import SQLiteReindexStatement
+from .statements.vacuum import SQLiteVacuumStatement, SQLiteAnalyzeStatement
+from .statements.attach import SQLiteAttachStatement, SQLiteDetachStatement
+from .predicates.predicates import SQLiteMatchPredicate
+from .statements.dml import SQLiteInsertStatement
+from .statements.fts5 import (
     SQLiteFTS5MatchPredicate,
     SQLiteFTS5CreateVirtualTable,
     SQLiteFTS5RankExpression,
     SQLiteFTS5HighlightExpression,
     SQLiteFTS5SnippetExpression,
 )
-from .virtual_table import (
+from .statements.virtual_table import (
     SQLiteCreateVirtualTableStatement,
     SQLiteDropVirtualTableStatement,
 )
-from .rtree import (
+from .statements.rtree import (
     SQLiteRTreeCreateVirtualTable,
     SQLiteRTreeRangeQuery,
 )
-from .geopoly import (
+from .statements.geopoly import (
     SQLiteGeopolyCreateVirtualTable,
     SQLiteGeopolyContainsExpression,
     SQLiteGeopolyAreaExpression,
 )
-from .json import SQLiteJsonExtractFunction
+from .functions.json import SQLiteJsonExtractFunction
 
 # ``SQLite`` is the backend identifier spelled as §4.9.4 requires, and it is a
 # compound word: the general capital-run rule would derive ``sq_lite_json_extract_function``
@@ -68,7 +68,7 @@ from .json import SQLiteJsonExtractFunction
 # the wire contract, so the two spellings would have been two places that have
 # to stay in step with nothing keeping them in step — which is what
 # ``.claude/rules/constants.md`` forbids and what its second check reports.
-from .types import SQLITE_KIND_RESERVED
+from .types.types import SQLITE_KIND_RESERVED
 
 for _sqlite_expression in (
     SQLiteColumnInfoExpression,

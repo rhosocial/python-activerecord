@@ -7,7 +7,7 @@ accept parameters at construction time and generate correct SQL.
 """
 
 
-from rhosocial.activerecord.backend.expression.introspection import (
+from rhosocial.activerecord.backend.expression.introspection.introspection import (
     IntrospectionExpression,
     TableListQueryStatement,
     TableInfoQueryStatement,

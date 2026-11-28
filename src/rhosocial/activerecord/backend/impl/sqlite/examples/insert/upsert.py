@@ -6,8 +6,9 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from .....expression.objects import Table
 from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
-from rhosocial.activerecord.backend.expression.core import Parameter, AllColumnsWildcard
-from rhosocial.activerecord.backend.impl.sqlite.expression.dml import (  # noqa: E402
+from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
+from rhosocial.activerecord.backend.expression.value_types.wildcards import AllColumnsWildcard
+from rhosocial.activerecord.backend.impl.sqlite.expression.statements.dml import (  # noqa: E402
     SQLiteInsertStatement,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef

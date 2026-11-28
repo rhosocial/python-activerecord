@@ -3,7 +3,7 @@ import pytest
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.query_parts import JoinClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import JoinClause
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.objects import Table
 

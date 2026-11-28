@@ -19,7 +19,7 @@ from rhosocial.activerecord.backend.dialect.exceptions import (
     ProtocolNotImplementedError,
     UnsupportedFeatureError,
 )
-from rhosocial.activerecord.backend.expression.introspection import (
+from rhosocial.activerecord.backend.expression.introspection.introspection import (
     IndexUsageStatsQueryStatement,
     ObjectDependencyQueryStatement,
     RuntimeMetricsQueryStatement,
@@ -126,7 +126,7 @@ class TestCompiledInFeatures:
             "supports_table_storage_introspection",
             lambda: True,
         )
-        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
+        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection.introspection import (
             SQLiteTableStorageStatement,
         )
 
@@ -139,7 +139,7 @@ class TestCompiledInFeatures:
             "supports_table_storage_introspection",
             lambda: False,
         )
-        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
+        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection.introspection import (
             SQLiteTableStorageStatement,
         )
 

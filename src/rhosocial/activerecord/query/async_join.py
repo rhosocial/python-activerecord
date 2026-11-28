@@ -4,7 +4,7 @@
 from typing import List, Union, Type, Optional, Iterable
 
 from ..interface import IAsyncQuery, IAsyncActiveRecord
-from ..backend.expression import SQLPredicate, RawSQLPredicate, JoinExpression
+from ..backend.expression import SQLPredicate, RawSQLPredicate, JoinClause
 from ..backend.expression.objects import Table
 from ..backend.expression.query_parts import DEFAULT_JOIN_TYPE
 from ..backend.expression.sources import NamedRelationRef
@@ -23,14 +23,14 @@ class AsyncJoinQueryMixin:
     Always consult your specific database's documentation for full compatibility details.
     """
 
-    # The `join_clause` stores the constructed JoinExpression tree (or None if no joins).
-    join_clause: Optional[JoinExpression]
+    # The `join_clause` stores the constructed JoinClause tree (or None if no joins).
+    join_clause: Optional[JoinClause]
 
     def _resolve_right_table(
         self,
         right: Union[str, Type["IAsyncActiveRecord"], Table, NamedRelationRef],
         alias: Optional[str],
-    ) -> Union[NamedRelationRef, JoinExpression]:
+    ) -> Union[NamedRelationRef, JoinClause]:
         """Resolve the right-hand side of a join into a row source.
 
         A name becomes a source over a plain table object; an async model class
@@ -56,7 +56,7 @@ class AsyncJoinQueryMixin:
             )
         if isinstance(right, Table):
             return NamedRelationRef(dialect, right, alias=alias)
-        if isinstance(right, (NamedRelationRef, JoinExpression)):
+        if isinstance(right, (NamedRelationRef, JoinClause)):
             # If an alias is provided, apply it to the expression
             if alias:
                 return right.as_(alias)
@@ -106,7 +106,7 @@ class AsyncJoinQueryMixin:
                     schema_name=self.model_class.schema_name(),
                 ),
             )
-            self.join_clause = JoinExpression(
+            self.join_clause = JoinClause(
                 dialect=dialect,
                 left_table=left_table,  # Use the model's table as the left table
                 right_table=right_table,
@@ -116,7 +116,7 @@ class AsyncJoinQueryMixin:
                 natural=natural,
             )
         else:
-            # Subsequent join. Chain onto the existing JoinExpression.
+            # Subsequent join. Chain onto the existing JoinClause.
             self.join_clause = self.join_clause.join(
                 right_table=right_table, join_type=join_type, condition=condition,
                 using=using, natural=natural,

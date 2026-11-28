@@ -7,7 +7,7 @@ from rhosocial.activerecord.backend.expression import (
     MergeAction,
     MergeActionType,
 )
-from rhosocial.activerecord.backend.expression.query_sources import ValuesExpression
+from rhosocial.activerecord.backend.expression.sources.query_sources import ValuesExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.objects import Table
 

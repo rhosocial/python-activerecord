@@ -100,7 +100,7 @@ class UUIDType(DataType):
       https://www.firebirdsql.org/file/documentation/chunk/en/refdocs/fblangref50/fblangref50-datatypes-chartypes.html
 
     Generating a UUID is a separate concern and lives in the expression layer
-    (:mod:`...expression.uuid`) — see ``UUIDSupport``. Storage says nothing
+    (:mod:`...expression.functions.uuid`) — see ``UUIDSupport``. Storage says nothing
     about whether the database can produce a value: Oracle and Firebird both
     ship UUID *functions* and no UUID *type*.
     """

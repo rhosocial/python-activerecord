@@ -5,11 +5,11 @@ according to SQL 2023 (ISO/IEC 9075-16) standard.
 """
 
 import pytest
-from rhosocial.activerecord.backend.expression.graph import (
+from rhosocial.activerecord.backend.expression.statements.graph import (
     GraphVertex, GraphEdge, GraphEdgeDirection,
     QuantifiedPath, PathPattern, MatchClause,
 )
-from rhosocial.activerecord.backend.expression.operators import RawSQL
+from rhosocial.activerecord.backend.expression.operators.operators import RawSQL
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.objects import EdgeTable, NodeTable
 

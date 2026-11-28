@@ -21,11 +21,11 @@ from rhosocial.activerecord.backend.expression import (
     GroupByHavingClause,
     TableConstraint,
 )
-from rhosocial.activerecord.backend.expression.core import FunctionCall
-from rhosocial.activerecord.backend.expression.datetime import CurrentTimestampFunction
+from rhosocial.activerecord.backend.expression.functions.function_call import FunctionCall
+from rhosocial.activerecord.backend.expression.functions.datetime import CurrentTimestampFunction
 from rhosocial.activerecord.backend.expression.objects import Index, Table, Trigger, View
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
-from rhosocial.activerecord.backend.expression.query_parts import JoinClause, JoinType
+from rhosocial.activerecord.backend.expression.predicates.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import JoinClause, JoinType
 from rhosocial.activerecord.backend.expression.sources.relation import NamedRelationRef
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefaultConstraint as Default,

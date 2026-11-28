@@ -15,7 +15,7 @@ from rhosocial.activerecord.backend.named_expression.resolver import (
     NamedExpressionResolver,
     list_named_expressions_in_module,
 )
-from rhosocial.activerecord.backend.expression.bases import BaseExpression
+from rhosocial.activerecord.backend.expression.bases.bases import BaseExpression
 
 from rhosocial.activerecord.backend.named_expression.exceptions import (
     NamedExpressionNotFoundError,

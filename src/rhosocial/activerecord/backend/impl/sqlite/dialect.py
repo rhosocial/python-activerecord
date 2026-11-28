@@ -82,17 +82,17 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression import bases
-    from rhosocial.activerecord.backend.expression.advanced_functions import (
+    from rhosocial.activerecord.backend.expression.functions import (
         ArrayValue,
         JSONDocumentValue,
         OrderedSetAggregation,
         TrimExpression,
     )
-    from rhosocial.activerecord.backend.expression.graph import MatchClause
+    from rhosocial.activerecord.backend.expression.statements import MatchClause
     from rhosocial.activerecord.backend.expression.predicates import DistinctFromPredicate
     from rhosocial.activerecord.backend.expression.query_parts import QualifyClause
     from rhosocial.activerecord.backend.expression.statements import ExplainStatement
-    from rhosocial.activerecord.backend.expression.statements.ddl_truncate import TruncateStatement
+    from rhosocial.activerecord.backend.expression.statements import TruncateStatement
 
 from .reserved_words import SQLITE_RESERVED_WORDS
 from .suggestion import (
@@ -138,7 +138,7 @@ from .mixins import (
     SQLiteColumnTypeMixin,
     # Suggested storage declarations: the DDL half, also answered in full here.
 )
-from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression
+from rhosocial.activerecord.backend.expression.sources import JSONTableExpression
 from .suggestion.general_suggestions import (
     SQLiteCreateTableLayoutSuggestionMixin,
     SQLiteIntrospectionSuggestionMixin,
@@ -387,7 +387,7 @@ class SQLiteDialect(
         path here, so there is nothing to suggest (suggested keys and
         supported keys are disjoint by contract).
         """
-        from .expression.types import SQLiteBlobType, SQLiteTextType
+        from .expression.types.types import SQLiteBlobType, SQLiteTextType
 
         return SubstituteTypeSuggestion(mapping={
             "uuid": SQLiteTextType,

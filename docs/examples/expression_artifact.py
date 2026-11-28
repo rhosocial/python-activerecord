@@ -15,10 +15,11 @@ fails with no hook, and with one reads back as a string.
 import json
 from datetime import date
 
-from rhosocial.activerecord.backend.expression.core import Column, Parameter
+from rhosocial.activerecord.backend.expression.column_types.column import Column
+from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
 from rhosocial.activerecord.backend.expression.objects import Table
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
-from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+from rhosocial.activerecord.backend.expression.predicates.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import WhereClause
 from rhosocial.activerecord.backend.expression.statements.dql import QueryStatement
 from rhosocial.activerecord.backend.expression_registry import (
     CORE_EXPRESSION_REGISTRY,

@@ -3,15 +3,13 @@
 
 from typing import Any, List, Optional, Tuple, TYPE_CHECKING
 from ...expression import bases
-from ...expression.core import (
-    CastExpression,
-    QualifiedIdentifier,
-    Subquery,
-    AllColumnsWildcard,
-)
-from ...expression.literals import Identifier
-from ...expression.mixins import AliasableMixin
-from ...expression.operators import (
+from ...expression.objects.qualified_identifier import QualifiedIdentifier
+from ...expression.functions.cast_expression import CastExpression
+from ...expression.sources.subquery import Subquery
+from ...expression.value_types.wildcards import AllColumnsWildcard
+from ...expression.value_types.literals import Identifier
+from ...expression.bases.mixins import AliasableMixin
+from ...expression.operators.operators import (
     ArithmeticOperation,
     BinaryExpression,
     RawSQL,

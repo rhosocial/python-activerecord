@@ -12,7 +12,7 @@ from rhosocial.activerecord.backend.expression import (
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.functions import date_add, date_diff, extract
-from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 from rhosocial.activerecord.backend.expression.statements import ExplainOptions, ExplainType
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.explain import SQLiteExplainQueryPlanResult

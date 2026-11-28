@@ -9,7 +9,7 @@ tests enforce.
 from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.advanced_functions import OrderedSetAggregation
+    from ....expression.functions.advanced_functions import OrderedSetAggregation
 
 
 @runtime_checkable

@@ -1,6 +1,5 @@
 # src/rhosocial/activerecord/backend/expression/types/__init__.py
-"""
-SQL DataType expression system — core types (DDL only).
+"""SQL DataType expression system — core types (DDL only).
 
 All types are ``BaseExpression`` subclasses and behave as *value objects*:
 they are comparable and hashable by logical content, ignoring any
@@ -41,92 +40,72 @@ Usage::
     ... )
     >>> col_def = ColumnDefinition(dialect, "id", IntegerType())
     >>> col_def.data_type.to_sql(dialect)
-    ('INTEGER', ())
-"""
-
-from ._base import (
-    DataType,
-    LENGTH_PARAMETERS,
-    PRECISION_PARAMETERS,
-    UNSIGNED_PARAMETERS,
-)
-from .array import ArrayType
-from .custom import CustomType
-from ..type_name import InvalidTypeNameError
-from .enum_ import EnumType
-from .integer import TinyIntType, SmallIntType, IntegerType, BigIntType
-from .numeric import FloatType, RealType, DoubleType, DecimalType
-from .string import CharType, VarCharType, TextType
-from .boolean import BooleanType
-from .binary import BinaryType, BlobType, VarBinaryType
-from .datetime_ import (
-    DateType,
-    TimeType,
-    TimeTzType,
-    DateTimeType,
-    TimestampType,
-    TimestampTzType,
-    IntervalType,
-    INTERVAL_QUALIFIERS,
-    InvalidIntervalQualifierError,
-    IntervalQualifier,
-    is_valid_interval_qualifier,
-    validate_interval_qualifier,
-)
-from .uuid_ import UUIDType
-from .json_ import JsonType, JsonBType
-from .xml_ import XmlType
+    ('INTEGER', ())"""
 
 __all__ = [
-    "DataType",
-    "ArrayType",
-    "CustomType",
-    # the identity-field vocabulary every concrete type reads its PARAMETERS from
-    "LENGTH_PARAMETERS",
-    "PRECISION_PARAMETERS",
-    "UNSIGNED_PARAMETERS",
-    # integer
-    "TinyIntType",
-    "SmallIntType",
-    "IntegerType",
-    "BigIntType",
-    # numeric
-    "FloatType",
-    "RealType",
-    "DoubleType",
-    "DecimalType",
-    "InvalidTypeNameError",
-    # string
-    "CharType",
-    "VarCharType",
-
-    "TextType",
-    # boolean
-    "BooleanType",
-    # binary
-    "BlobType",
-    "BinaryType",
-    "VarBinaryType",
-    # enum
-    "EnumType",
-    # datetime
-    "DateType",
-    "TimeType",
-    "TimeTzType",
-    "DateTimeType",
-    "TimestampType",
-    "TimestampTzType",
-    "IntervalType",
-    "INTERVAL_QUALIFIERS",
-    "InvalidIntervalQualifierError",
-    "IntervalQualifier",
-    "is_valid_interval_qualifier",
-    "validate_interval_qualifier",
-    # json
-    "JsonType",
-    "JsonBType",
-    # xml
-    "XmlType",
-    # uuid
-    "UUIDType",
+    'DataType',
+    'ArrayType',
+    'CustomType',
+    'LENGTH_PARAMETERS',
+    'PRECISION_PARAMETERS',
+    'UNSIGNED_PARAMETERS',
+    'TinyIntType',
+    'SmallIntType',
+    'IntegerType',
+    'BigIntType',
+    'FloatType',
+    'RealType',
+    'DoubleType',
+    'DecimalType',
+    'InvalidTypeNameError',
+    'CharType',
+    'VarCharType',
+    'TextType',
+    'BooleanType',
+    'BlobType',
+    'BinaryType',
+    'VarBinaryType',
+    'EnumType',
+    'DateType',
+    'TimeType',
+    'TimeTzType',
+    'DateTimeType',
+    'TimestampType',
+    'TimestampTzType',
+    'IntervalType',
+    'INTERVAL_QUALIFIERS',
+    'InvalidIntervalQualifierError',
+    'IntervalQualifier',
+    'is_valid_interval_qualifier',
+    'validate_interval_qualifier',
+    'JsonType',
+    'JsonBType',
+    'XmlType',
+    'UUIDType',
 ]
+
+import importlib
+
+_MODULES = ('_base', 'array', 'binary', 'boolean', 'custom', 'datetime_', 'enum_', 'integer', 'json_', 'numeric', 'string', 'uuid_', 'xml_')
+
+# ``InvalidTypeNameError`` used to be re-exported from the former top-level
+# ``type_name`` module. That helper now lives under ``bases/``; keep it visible
+# here so ``from ...expression.types import InvalidTypeNameError`` still works.
+_EXTRA_MODULES = ('rhosocial.activerecord.backend.expression.bases.type_name',)
+
+
+def __getattr__(name):
+    """Resolve a public name from this namespace lazily (no import cycles)."""
+    for module_name in _MODULES:
+        module = importlib.import_module(f'.{module_name}', __name__)
+        if name in vars(module):
+            value = vars(module)[name]
+            globals()[name] = value  # cache so vars()/inspect see the name
+            return value
+    for dotted in _EXTRA_MODULES:
+        module = importlib.import_module(dotted)
+        if name in vars(module):
+            value = vars(module)[name]
+            globals()[name] = value
+            return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

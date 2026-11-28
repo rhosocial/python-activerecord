@@ -15,12 +15,16 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from rhosocial.activerecord.backend.expression.objects import MaterializedView, View
 from rhosocial.activerecord.backend.expression.objects import Table
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteRealType, SQLiteTextType
+from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import (
+    SQLiteIntegerType,
+    SQLiteRealType,
+    SQLiteTextType,
+)
 from rhosocial.activerecord.backend.schema import StatementType
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression.query_parts import GroupByHavingClause, WhereClause
-from rhosocial.activerecord.backend.expression.operators import RawSQLPredicate, RawSQL
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import GroupByHavingClause, WhereClause
+from rhosocial.activerecord.backend.expression.operators.operators import RawSQLPredicate, RawSQL
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     Column,
@@ -432,7 +436,7 @@ class TestSQLiteViewJoins:
 
     def test_create_view_with_join(self, sqlite_backend):
         """Test CREATE VIEW with JOIN executes successfully."""
-        from rhosocial.activerecord.backend.expression.query_parts import JoinClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import JoinClause
 
         dialect = sqlite_backend.dialect
 

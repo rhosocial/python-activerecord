@@ -9,7 +9,7 @@ tests enforce.
 from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.datetime import TemporalOptionsExpression
+    from ....expression.functions.datetime import TemporalOptionsExpression
 
 
 @runtime_checkable

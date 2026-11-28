@@ -9,7 +9,7 @@ DIALECT = SQLiteDialect(version=(3, 53, 0))
 
 
 def test_fts5_nodes_reject_non_table():
-    from rhosocial.activerecord.backend.impl.sqlite.expression.fts5 import (
+    from rhosocial.activerecord.backend.impl.sqlite.expression.statements.fts5 import (
         SQLiteFTS5CreateVirtualTable,
         SQLiteFTS5HighlightExpression,
         SQLiteFTS5RankExpression,
@@ -27,7 +27,7 @@ def test_fts5_nodes_reject_non_table():
 
 
 def test_geopoly_nodes_reject_non_table():
-    from rhosocial.activerecord.backend.impl.sqlite.expression.geopoly import (
+    from rhosocial.activerecord.backend.impl.sqlite.expression.statements.geopoly import (
         SQLiteGeopolyAreaExpression,
         SQLiteGeopolyContainsExpression,
         SQLiteGeopolyCreateVirtualTable,
@@ -43,10 +43,10 @@ def test_geopoly_nodes_reject_non_table():
 
 def test_rtree_nodes_and_reindex_validation():
     from rhosocial.activerecord.backend.expression.objects import Index, Table
-    from rhosocial.activerecord.backend.impl.sqlite.expression.reindex import (
+    from rhosocial.activerecord.backend.impl.sqlite.expression.statements.reindex import (
         SQLiteReindexStatement,
     )
-    from rhosocial.activerecord.backend.impl.sqlite.expression.rtree import (
+    from rhosocial.activerecord.backend.impl.sqlite.expression.statements.rtree import (
         SQLiteRTreeCreateVirtualTable,
         SQLiteRTreeRangeQuery,
     )
@@ -71,7 +71,7 @@ def test_rtree_nodes_and_reindex_validation():
 
 
 def test_virtual_table_nodes_reject_non_table():
-    from rhosocial.activerecord.backend.impl.sqlite.expression.virtual_table import (
+    from rhosocial.activerecord.backend.impl.sqlite.expression.statements.virtual_table import (
         SQLiteCreateVirtualTableStatement,
         SQLiteDropVirtualTableStatement,
     )
@@ -84,10 +84,10 @@ def test_virtual_table_nodes_reject_non_table():
 
 def test_fts5_and_virtual_table_format_methods():
     from rhosocial.activerecord.backend.expression.objects import Table
-    from rhosocial.activerecord.backend.impl.sqlite.expression.fts5 import (
+    from rhosocial.activerecord.backend.impl.sqlite.expression.statements.fts5 import (
         SQLiteFTS5MatchPredicate,
     )
-    from rhosocial.activerecord.backend.impl.sqlite.expression.virtual_table import (
+    from rhosocial.activerecord.backend.impl.sqlite.expression.statements.virtual_table import (
         SQLiteCreateVirtualTableStatement,
         SQLiteDropVirtualTableStatement,
     )

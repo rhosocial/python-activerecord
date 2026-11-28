@@ -16,7 +16,7 @@ from rhosocial.activerecord.backend.expression import (
     WindowClause,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.query_parts import (
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import (
     GroupByHavingClause,
     LimitOffsetClause,
     OrderByClause,
@@ -87,7 +87,7 @@ class TestQueryStatements:
     def test_window_function_call_inline_spec(self, dummy_dialect: DummyDialect):
         """Tests FunctionCall with inline window specification."""
         # Create a window specification
-        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
         window_spec = WindowSpecification(
             dummy_dialect,
@@ -113,7 +113,7 @@ class TestQueryStatements:
         )
 
         # Create a window specification with the frame
-        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
         window_spec = WindowSpecification(
             dummy_dialect,
@@ -155,7 +155,7 @@ class TestQueryStatements:
     def test_query_with_window_clause(self, dummy_dialect: DummyDialect):
         """Tests a complete query with WINDOW clause."""
         # Create a window specification
-        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
         window_spec1 = WindowSpecification(
             dummy_dialect,
@@ -171,7 +171,7 @@ class TestQueryStatements:
             dummy_dialect, frame_type="ROWS", start_frame="UNBOUNDED PRECEDING", end_frame="CURRENT ROW"
         )
 
-        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
         window_spec2 = WindowSpecification(
             dummy_dialect,
@@ -226,7 +226,7 @@ class TestQueryStatements:
     def test_window_specification_to_sql(self, dummy_dialect: DummyDialect):
         """Tests WindowSpecification.to_sql method."""
         # Test with partition and order by
-        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
         window_spec = WindowSpecification(
             dummy_dialect,
@@ -242,7 +242,7 @@ class TestQueryStatements:
         frame_spec = WindowFrameSpecification(
             dummy_dialect, frame_type="ROWS", start_frame="CURRENT ROW", end_frame="UNBOUNDED FOLLOWING"
         )
-        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
         window_spec_with_frame = WindowSpecification(
             dummy_dialect,
@@ -256,7 +256,7 @@ class TestQueryStatements:
         assert params2 == ()
 
         # Test with ORDER BY using tuples (expression, direction)
-        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
         window_spec3 = WindowSpecification(
             dummy_dialect,
@@ -273,7 +273,7 @@ class TestQueryStatements:
     def test_window_definition_to_sql(self, dummy_dialect: DummyDialect):
         """Tests WindowDefinition.to_sql method."""
         # Create a window specification
-        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
         window_spec = WindowSpecification(
             dummy_dialect,
@@ -292,7 +292,7 @@ class TestQueryStatements:
         frame_spec = WindowFrameSpecification(
             dummy_dialect, frame_type="ROWS", start_frame="UNBOUNDED PRECEDING", end_frame="CURRENT ROW"
         )
-        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
         window_spec2 = WindowSpecification(
             dummy_dialect,

@@ -7,7 +7,7 @@ import inspect
 from abc import ABC
 from typing import Any, TYPE_CHECKING, Optional, Tuple
 
-from ..bases import BaseExpression
+from ..bases.bases import BaseExpression
 from ...textscan import is_identifier, is_simple_name, split_dotted
 
 if TYPE_CHECKING:
@@ -217,7 +217,7 @@ class DataType(BaseExpression, ABC):
     #: produced it, and the schema differ would report a change that does not
     #: exist.  Two declarations that differ only in spelling are ``==``; the
     #: difference is still visible in the rendered SQL, and ``spelling`` still
-    #: round-trips through :meth:`~...expression.bases.BaseExpression.get_params`
+    #: round-trips through :meth:`~...expression.bases.bases.BaseExpression.get_params`
     #: because serialization needs everything the constructor took.
     #:
     #: Declare parameters here rather than overriding anything.  A subclass

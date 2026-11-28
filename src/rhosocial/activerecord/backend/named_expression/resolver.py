@@ -109,7 +109,7 @@ def _classify_param(param: inspect.Parameter, ns: dict) -> tuple:
 
 def _classify(expr: BaseExpression) -> List[str]:
     """Classify an expression into tag categories."""
-    from rhosocial.activerecord.backend.expression.executable import Executable
+    from rhosocial.activerecord.backend.expression.statements import Executable
     from rhosocial.activerecord.backend.schema import StatementType
 
     if not isinstance(expr, Executable):

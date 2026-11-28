@@ -72,7 +72,7 @@ from .status_introspector import (
     SQLiteStatusIntrospector,
     AsyncSQLiteStatusIntrospector,
 )
-from ..expression.introspection import (
+from ..expression.introspection.introspection import (
     SQLiteIndexDdlStatement,
     SQLiteIndexOwnerStatement,
     SQLiteTableCountStatement,
@@ -799,7 +799,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
         ``main`` and ``temp`` each have their own sequence table.
         """
         from rhosocial.activerecord.backend.expression import Column, QueryStatement
-        from rhosocial.activerecord.backend.expression.sources.relation import (
+        from rhosocial.activerecord.backend.expression.sources import (
             NamedRelationRef,
         )
         from ..expression import SQLiteTable

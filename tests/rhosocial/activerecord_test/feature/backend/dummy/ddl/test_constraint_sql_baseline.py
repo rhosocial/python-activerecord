@@ -38,7 +38,7 @@ from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     ColumnConstraint,
     TableConstraint,
 )
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.predicates.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression import Column, Parameter
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError

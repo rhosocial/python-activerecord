@@ -8,15 +8,15 @@ requires a database with PGQ support (PostgreSQL 19+ or Oracle 23c+).
 import pytest
 from rhosocial.activerecord.backend.expression import NumericColumn, StringColumn
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression.graph import (
+from rhosocial.activerecord.backend.expression.statements.graph import (
     GraphVertex, GraphEdge, GraphEdgeDirection, MatchClause,
     GraphColumn, ColumnsClause, GraphTableExpression,
     TablePropertiesClause, VertexTable, EdgeTableDefinition,
     CreatePropertyGraphStatement, DropPropertyGraphStatement,
     AlterPropertyGraphStatement,
 )
-from rhosocial.activerecord.backend.expression.query_parts import WhereClause
-from rhosocial.activerecord.backend.expression.core import Parameter
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import WhereClause
+from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.objects import (
     EdgeTable as EdgeTableObject,

@@ -13,9 +13,10 @@ json_each
 """
 
 from typing import Union, Optional, Any, TYPE_CHECKING
-
-from rhosocial.activerecord.backend.expression import bases, core
-from ..expression.json import SQLiteJsonExtractFunction
+from rhosocial.activerecord.backend.expression import bases
+from rhosocial.activerecord.backend.expression.functions import FunctionCall
+from rhosocial.activerecord.backend.expression.value_types import Parameter
+from ..expression.functions.json import SQLiteJsonExtractFunction
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.dialect import SQLDialectBase
@@ -25,7 +26,7 @@ if TYPE_CHECKING:  # pragma: no cover
 def json(
     dialect: "SQLiteDialect",
     value: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a JSON function call.
 
@@ -45,13 +46,13 @@ def json(
     Version: SQLite 3.38.0+
     """
     val_expr = value
-    return core.FunctionCall(dialect, "JSON", val_expr)
+    return FunctionCall(dialect, "JSON", val_expr)
 
 
 def json_array(
     dialect: "SQLiteDialect",
     *values: Any,
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a JSON_ARRAY function call.
 
@@ -72,15 +73,15 @@ def json_array(
     Version: SQLite 3.38.0+
     """
     if not values:
-        return core.FunctionCall(dialect, "JSON_ARRAY")
-    args = [core.Parameter(dialect, v) if not isinstance(v, bases.BaseExpression) else v for v in values]
-    return core.FunctionCall(dialect, "JSON_ARRAY", *args)
+        return FunctionCall(dialect, "JSON_ARRAY")
+    args = [Parameter(dialect, v) if not isinstance(v, bases.BaseExpression) else v for v in values]
+    return FunctionCall(dialect, "JSON_ARRAY", *args)
 
 
 def json_object(
     dialect: "SQLiteDialect",
     *key_value_pairs: Any,
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a JSON_OBJECT function call.
 
@@ -100,9 +101,9 @@ def json_object(
     Version: SQLite 3.38.0+
     """
     if not key_value_pairs:
-        return core.FunctionCall(dialect, "JSON_OBJECT")
-    args = [core.Parameter(dialect, v) if not isinstance(v, bases.BaseExpression) else v for v in key_value_pairs]
-    return core.FunctionCall(dialect, "JSON_OBJECT", *args)
+        return FunctionCall(dialect, "JSON_OBJECT")
+    args = [Parameter(dialect, v) if not isinstance(v, bases.BaseExpression) else v for v in key_value_pairs]
+    return FunctionCall(dialect, "JSON_OBJECT", *args)
 
 
 def json_extract(
@@ -110,7 +111,7 @@ def json_extract(
     json_doc: "bases.BaseExpression",
     path: "bases.BaseExpression",
     *paths: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a JSON_EXTRACT function call.
 
@@ -143,14 +144,14 @@ def json_extract(
     args = [doc_expr, path_expr]
     for p in paths:
         args.append(p)
-    return core.FunctionCall(dialect, "JSON_EXTRACT", *args)
+    return FunctionCall(dialect, "JSON_EXTRACT", *args)
 
 
 def json_type(
     dialect: "SQLiteDialect",
     json_val: "bases.BaseExpression",
     path: Optional[str] = None,
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a JSON_TYPE function call.
 
@@ -172,14 +173,14 @@ def json_type(
     val_expr = json_val
     if path is not None:
         path_expr = path
-        return core.FunctionCall(dialect, "JSON_TYPE", val_expr, path_expr)
-    return core.FunctionCall(dialect, "JSON_TYPE", val_expr)
+        return FunctionCall(dialect, "JSON_TYPE", val_expr, path_expr)
+    return FunctionCall(dialect, "JSON_TYPE", val_expr)
 
 
 def json_valid(
     dialect: "SQLiteDialect",
     json_val: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a JSON_VALID function call.
 
@@ -198,13 +199,13 @@ def json_valid(
     Version: SQLite 3.38.0+
     """
     val_expr = json_val
-    return core.FunctionCall(dialect, "JSON_VALID", val_expr)
+    return FunctionCall(dialect, "JSON_VALID", val_expr)
 
 
 def json_quote(
     dialect: "SQLiteDialect",
     value: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a JSON_QUOTE function call.
 
@@ -223,7 +224,7 @@ def json_quote(
     Version: SQLite 3.38.0+
     """
     val_expr = value
-    return core.FunctionCall(dialect, "JSON_QUOTE", val_expr)
+    return FunctionCall(dialect, "JSON_QUOTE", val_expr)
 
 
 def json_remove(
@@ -231,7 +232,7 @@ def json_remove(
     json_doc: "bases.BaseExpression",
     path: "bases.BaseExpression",
     *paths: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a JSON_REMOVE function call.
 
@@ -256,7 +257,7 @@ def json_remove(
     args = [doc_expr, path_expr]
     for p in paths:
         args.append(p)
-    return core.FunctionCall(dialect, "JSON_REMOVE", *args)
+    return FunctionCall(dialect, "JSON_REMOVE", *args)
 
 
 def json_set(
@@ -265,7 +266,7 @@ def json_set(
     path: "bases.BaseExpression",
     value: Any,
     *path_values: Any,
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a JSON_SET function call.
 
@@ -288,14 +289,14 @@ def json_set(
     """
     doc_expr = json_doc
     path_expr = path
-    val_expr = core.Parameter(dialect, value) if not isinstance(value, bases.BaseExpression) else value
+    val_expr = Parameter(dialect, value) if not isinstance(value, bases.BaseExpression) else value
     args = [doc_expr, path_expr, val_expr]
     for i in range(0, len(path_values), 2):
         if i + 1 < len(path_values):
-            args.append(core.Parameter(dialect, path_values[i]))
+            args.append(Parameter(dialect, path_values[i]))
             pv = path_values[i + 1]
-            args.append(core.Parameter(dialect, pv) if not isinstance(pv, bases.BaseExpression) else pv)
-    return core.FunctionCall(dialect, "JSON_SET", *args)
+            args.append(Parameter(dialect, pv) if not isinstance(pv, bases.BaseExpression) else pv)
+    return FunctionCall(dialect, "JSON_SET", *args)
 
 
 def json_insert(
@@ -304,7 +305,7 @@ def json_insert(
     path: "bases.BaseExpression",
     value: Any,
     *path_values: Any,
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a JSON_INSERT function call.
 
@@ -327,14 +328,14 @@ def json_insert(
     """
     doc_expr = json_doc
     path_expr = path
-    val_expr = core.Parameter(dialect, value) if not isinstance(value, bases.BaseExpression) else value
+    val_expr = Parameter(dialect, value) if not isinstance(value, bases.BaseExpression) else value
     args = [doc_expr, path_expr, val_expr]
     for i in range(0, len(path_values), 2):
         if i + 1 < len(path_values):
-            args.append(core.Parameter(dialect, path_values[i]))
+            args.append(Parameter(dialect, path_values[i]))
             pv = path_values[i + 1]
-            args.append(core.Parameter(dialect, pv) if not isinstance(pv, bases.BaseExpression) else pv)
-    return core.FunctionCall(dialect, "JSON_INSERT", *args)
+            args.append(Parameter(dialect, pv) if not isinstance(pv, bases.BaseExpression) else pv)
+    return FunctionCall(dialect, "JSON_INSERT", *args)
 
 
 def json_replace(
@@ -343,7 +344,7 @@ def json_replace(
     path: "bases.BaseExpression",
     value: Any,
     *path_values: Any,
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a JSON_REPLACE function call.
 
@@ -366,21 +367,21 @@ def json_replace(
     """
     doc_expr = json_doc
     path_expr = path
-    val_expr = core.Parameter(dialect, value) if not isinstance(value, bases.BaseExpression) else value
+    val_expr = Parameter(dialect, value) if not isinstance(value, bases.BaseExpression) else value
     args = [doc_expr, path_expr, val_expr]
     for i in range(0, len(path_values), 2):
         if i + 1 < len(path_values):
-            args.append(core.Parameter(dialect, path_values[i]))
+            args.append(Parameter(dialect, path_values[i]))
             pv = path_values[i + 1]
-            args.append(core.Parameter(dialect, pv) if not isinstance(pv, bases.BaseExpression) else pv)
-    return core.FunctionCall(dialect, "JSON_REPLACE", *args)
+            args.append(Parameter(dialect, pv) if not isinstance(pv, bases.BaseExpression) else pv)
+    return FunctionCall(dialect, "JSON_REPLACE", *args)
 
 
 def json_patch(
     dialect: "SQLiteDialect",
     json_doc: "bases.BaseExpression",
     patch: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a JSON_PATCH function call.
 
@@ -401,14 +402,14 @@ def json_patch(
     """
     doc_expr = json_doc
     patch_expr = patch
-    return core.FunctionCall(dialect, "JSON_PATCH", doc_expr, patch_expr)
+    return FunctionCall(dialect, "JSON_PATCH", doc_expr, patch_expr)
 
 
 def json_array_length(
     dialect: "SQLiteDialect",
     json_val: "bases.BaseExpression",
     path: Optional[str] = None,
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a JSON_ARRAY_LENGTH function call.
 
@@ -431,15 +432,15 @@ def json_array_length(
     val_expr = json_val
     if path is not None:
         path_expr = path
-        return core.FunctionCall(dialect, "JSON_ARRAY_LENGTH", val_expr, path_expr)
-    return core.FunctionCall(dialect, "JSON_ARRAY_LENGTH", val_expr)
+        return FunctionCall(dialect, "JSON_ARRAY_LENGTH", val_expr, path_expr)
+    return FunctionCall(dialect, "JSON_ARRAY_LENGTH", val_expr)
 
 
 def json_array_unpack(
     dialect: "SQLiteDialect",
     json_val: "bases.BaseExpression",
     path: Optional[str] = None,
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a JSON_UNPACK function call (alias for JSON_ARRAY_LENGTH).
 
@@ -462,15 +463,15 @@ def json_array_unpack(
     val_expr = json_val
     if path is not None:
         path_expr = path
-        return core.FunctionCall(dialect, "JSON_ARRAY_LENGTH", val_expr, path_expr)
-    return core.FunctionCall(dialect, "JSON_ARRAY_LENGTH", val_expr)
+        return FunctionCall(dialect, "JSON_ARRAY_LENGTH", val_expr, path_expr)
+    return FunctionCall(dialect, "JSON_ARRAY_LENGTH", val_expr)
 
 
 def json_object_pack(
     dialect: "SQLiteDialect",
     key: str,
     value: Any,
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a JSON_OBJECT function call with a single key-value pair.
 
@@ -489,16 +490,16 @@ def json_object_pack(
 
     Version: SQLite 3.38.0+
     """
-    key_expr = core.Parameter(dialect, key)
-    val_expr = core.Parameter(dialect, value) if not isinstance(value, bases.BaseExpression) else value
-    return core.FunctionCall(dialect, "JSON_OBJECT", key_expr, val_expr)
+    key_expr = Parameter(dialect, key)
+    val_expr = Parameter(dialect, value) if not isinstance(value, bases.BaseExpression) else value
+    return FunctionCall(dialect, "JSON_OBJECT", key_expr, val_expr)
 
 
 def json_object_retrieve(
     dialect: "SQLiteDialect",
     json_val: "bases.BaseExpression",
     path: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a JSON_EXTRACT function call for retrieving a single value.
 
@@ -526,7 +527,7 @@ def json_object_length(
     dialect: "SQLiteDialect",
     json_val: "bases.BaseExpression",
     path: Optional[str] = None,
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a JSON_OBJECT_LENGTH function call.
 
@@ -548,15 +549,15 @@ def json_object_length(
     val_expr = json_val
     if path is not None:
         path_expr = path
-        return core.FunctionCall(dialect, "JSON_OBJECT_LENGTH", val_expr, path_expr)
-    return core.FunctionCall(dialect, "JSON_OBJECT_LENGTH", val_expr)
+        return FunctionCall(dialect, "JSON_OBJECT_LENGTH", val_expr, path_expr)
+    return FunctionCall(dialect, "JSON_OBJECT_LENGTH", val_expr)
 
 
 def json_object_keys(
     dialect: "SQLiteDialect",
     json_val: "bases.BaseExpression",
     path: Optional[str] = None,
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a JSON_OBJECT_KEYS function call.
 
@@ -578,15 +579,15 @@ def json_object_keys(
     val_expr = json_val
     if path is not None:
         path_expr = path
-        return core.FunctionCall(dialect, "JSON_OBJECT_KEYS", val_expr, path_expr)
-    return core.FunctionCall(dialect, "JSON_OBJECT_KEYS", val_expr)
+        return FunctionCall(dialect, "JSON_OBJECT_KEYS", val_expr, path_expr)
+    return FunctionCall(dialect, "JSON_OBJECT_KEYS", val_expr)
 
 
 def json_tree(
     dialect: "SQLiteDialect",
     json_val: "bases.BaseExpression",
     path: Optional[str] = None,
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a JSON_TREE function call.
 
@@ -609,15 +610,15 @@ def json_tree(
     val_expr = json_val
     if path is not None:
         path_expr = path
-        return core.FunctionCall(dialect, "JSON_TREE", val_expr, path_expr)
-    return core.FunctionCall(dialect, "JSON_TREE", val_expr)
+        return FunctionCall(dialect, "JSON_TREE", val_expr, path_expr)
+    return FunctionCall(dialect, "JSON_TREE", val_expr)
 
 
 def json_each(
     dialect: "SQLiteDialect",
     json_val: "bases.BaseExpression",
     path: Optional[str] = None,
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """Creates a JSON_EACH function call.
 
     Returns a virtual table with one row for each element in a JSON array or object.
@@ -640,8 +641,8 @@ def json_each(
     val_expr = json_val
     if path is not None:
         path_expr = path
-        return core.FunctionCall(dialect, "JSON_EACH", val_expr, path_expr)
-    return core.FunctionCall(dialect, "JSON_EACH", val_expr)
+        return FunctionCall(dialect, "JSON_EACH", val_expr, path_expr)
+    return FunctionCall(dialect, "JSON_EACH", val_expr)
 
 
 def json_array_insert(
@@ -649,7 +650,7 @@ def json_array_insert(
     json_array: "bases.BaseExpression",
     value: Any,
     position: Optional[int] = None,
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """Creates a json_array_insert() function call (SQLite 3.53.0+).
 
     The json_array_insert() function inserts a value into a JSON array at a
@@ -674,13 +675,13 @@ def json_array_insert(
     Version: SQLite 3.53.0+
     """
     arr_expr = json_array
-    val_expr = core.Parameter(dialect, value) if not isinstance(value, bases.BaseExpression) else value
+    val_expr = Parameter(dialect, value) if not isinstance(value, bases.BaseExpression) else value
 
     if position is not None:
         path_str = f"$[{position}]"
-        path_expr = core.Parameter(dialect, path_str)
-        return core.FunctionCall(dialect, "JSON_ARRAY_INSERT", arr_expr, path_expr, val_expr)
-    return core.FunctionCall(dialect, "JSON_ARRAY_INSERT", arr_expr, core.Parameter(dialect, "$"), val_expr)
+        path_expr = Parameter(dialect, path_str)
+        return FunctionCall(dialect, "JSON_ARRAY_INSERT", arr_expr, path_expr, val_expr)
+    return FunctionCall(dialect, "JSON_ARRAY_INSERT", arr_expr, Parameter(dialect, "$"), val_expr)
 
 
 def jsonb_array_insert(
@@ -688,7 +689,7 @@ def jsonb_array_insert(
     jsonb_array: "bases.BaseExpression",
     value: Any,
     position: Optional[int] = None,
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """Creates a jsonb_array_insert() function call (SQLite 3.53.0+).
 
     The jsonb_array_insert() function is the jsonb variant of json_array_insert().
@@ -713,13 +714,13 @@ def jsonb_array_insert(
     Version: SQLite 3.53.0+
     """
     arr_expr = jsonb_array
-    val_expr = core.Parameter(dialect, value) if not isinstance(value, bases.BaseExpression) else value
+    val_expr = Parameter(dialect, value) if not isinstance(value, bases.BaseExpression) else value
 
     if position is not None:
         path_str = f"$[{position}]"
-        path_expr = core.Parameter(dialect, path_str)
-        return core.FunctionCall(dialect, "JSONB_ARRAY_INSERT", arr_expr, path_expr, val_expr)
-    return core.FunctionCall(dialect, "JSONB_ARRAY_INSERT", arr_expr, core.Parameter(dialect, "$"), val_expr)
+        path_expr = Parameter(dialect, path_str)
+        return FunctionCall(dialect, "JSONB_ARRAY_INSERT", arr_expr, path_expr, val_expr)
+    return FunctionCall(dialect, "JSONB_ARRAY_INSERT", arr_expr, Parameter(dialect, "$"), val_expr)
 
 
 __all__ = [

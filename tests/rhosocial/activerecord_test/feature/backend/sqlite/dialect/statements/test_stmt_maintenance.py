@@ -11,11 +11,11 @@ import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.impl.sqlite.expression.vacuum import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.statements.vacuum import (
     SQLiteVacuumStatement,
     SQLiteAnalyzeStatement,
 )
-from rhosocial.activerecord.backend.impl.sqlite.expression.attach import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.statements.attach import (
     SQLiteAttachStatement,
     SQLiteDetachStatement,
 )

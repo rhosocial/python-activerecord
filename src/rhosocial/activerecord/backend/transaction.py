@@ -322,7 +322,7 @@ class TransactionManagerBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from .expression.transaction import BeginTransactionStatement
+        from .expression.statements.transaction import BeginTransactionStatement
 
         expr = BeginTransactionStatement(self._backend.dialect)
 
@@ -340,7 +340,7 @@ class TransactionManagerBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from .expression.transaction import CommitStatement
+        from .expression.statements.transaction import CommitStatement
 
         expr = CommitStatement(self._backend.dialect)
         return expr.to_sql()
@@ -354,7 +354,7 @@ class TransactionManagerBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from .expression.transaction import RollbackStatement
+        from .expression.statements.transaction import RollbackStatement
 
         expr = RollbackStatement(self._backend.dialect)
         if savepoint:
@@ -370,7 +370,7 @@ class TransactionManagerBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from .expression.transaction import SavepointStatement
+        from .expression.statements.transaction import SavepointStatement
 
         expr = SavepointStatement(self._backend.dialect, name)
         return expr.to_sql()
@@ -384,7 +384,7 @@ class TransactionManagerBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from .expression.transaction import ReleaseSavepointStatement
+        from .expression.statements.transaction import ReleaseSavepointStatement
 
         expr = ReleaseSavepointStatement(self._backend.dialect, name)
         return expr.to_sql()

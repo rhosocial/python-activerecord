@@ -741,7 +741,7 @@ class TestDeleteStatements:
 
     def test_delete_expression_with_where_clause_object(self, dummy_dialect: DummyDialect):
         """Test DeleteStatement with a WhereClause object to cover the isinstance(where, WhereClause) branch."""
-        from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import WhereClause
 
         # Create a WhereClause object using comparison operator
         where_clause_obj = WhereClause(
@@ -767,7 +767,7 @@ class TestDeleteStatements:
 
     def test_format_case_expression_with_empty_conditions_raises_error(self, dummy_dialect: DummyDialect):
         """Tests that format_case_expression raises ValueError for a CASE node without WHEN/THEN pairs."""
-        from rhosocial.activerecord.backend.expression.advanced_functions import CaseExpression
+        from rhosocial.activerecord.backend.expression.functions.advanced_functions import CaseExpression
 
         case_expr = CaseExpression(dummy_dialect, cases=[])
         with pytest.raises(
@@ -777,10 +777,10 @@ class TestDeleteStatements:
 
     def test_format_window_specification_with_no_components_raises_error(self, dummy_dialect: DummyDialect):
         """Tests that format_window_specification raises ValueError when called with no components."""
-        from rhosocial.activerecord.backend.expression.advanced_functions import WindowSpecification
+        from rhosocial.activerecord.backend.expression.functions.advanced_functions import WindowSpecification
 
         # Create a WindowSpecification with no components (empty)
-        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
         window_spec = WindowSpecification(
             dummy_dialect,

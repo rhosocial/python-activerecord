@@ -11,10 +11,10 @@ from typing import List, Optional
 from ..dialect.base import SQLDialectBase
 from ..expression import InsertStatement, UpdateStatement, DeleteStatement, Parameter, Column
 from ..expression.objects import Table
-from ..expression.bases import ToSQLProtocol
+from ..expression.bases.bases import ToSQLProtocol
 from ..expression.statements import ReturningClause, ValuesSource
-from ..expression.predicates import InPredicate, ComparisonPredicate
-from ..expression.advanced_functions import CaseExpression
+from ..expression.predicates.predicates import InPredicate, ComparisonPredicate
+from ..expression.functions.advanced_functions import CaseExpression
 from ..options import (
     ExecutionOptions,
     InsertOptions,

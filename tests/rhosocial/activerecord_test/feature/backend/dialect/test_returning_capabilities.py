@@ -13,11 +13,9 @@ Covers:
 import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression.core import (
-    Column,
-    FunctionCall,
-    AllColumnsWildcard,
-)
+from rhosocial.activerecord.backend.expression.column_types.column import Column
+from rhosocial.activerecord.backend.expression.functions.function_call import FunctionCall
+from rhosocial.activerecord.backend.expression.value_types.wildcards import AllColumnsWildcard
 from rhosocial.activerecord.backend.expression.statements import ReturningClause
 from rhosocial.activerecord.backend.impl.dummy.backend import DummyDialect
 

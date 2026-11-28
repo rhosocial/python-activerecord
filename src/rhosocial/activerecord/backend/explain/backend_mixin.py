@@ -40,7 +40,7 @@ from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 from .types import BaseExplainResult
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ..expression.bases import BaseExpression
+    from ..expression.bases.bases import BaseExpression
     from ..expression.statements import ExplainOptions
 
 

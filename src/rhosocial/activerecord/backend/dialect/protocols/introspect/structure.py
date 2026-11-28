@@ -17,7 +17,7 @@ pairing tests require.
 from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.introspection import (
+    from ....expression.introspection.introspection import (
         ColumnInfoQueryStatement,
         DatabaseInfoQueryStatement,
         ForeignKeyQueryStatement,

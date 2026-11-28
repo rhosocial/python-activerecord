@@ -13,7 +13,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnPrimaryKeyConstraint,
 )
 from rhosocial.activerecord.backend.expression.objects import Table
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteTextType
+from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import SQLiteIntegerType, SQLiteTextType
 from rhosocial.activerecord.backend.schema import StatementType
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.impl.sqlite.functions import (

@@ -31,7 +31,7 @@ from rhosocial.activerecord.backend.adapters import (
     Range,
     Vector,
 )
-from rhosocial.activerecord.backend.expression.column_types import (
+from rhosocial.activerecord.backend.expression.column_types.column_types import (
     ArrayColumn,
     BinaryColumn,
     BitStringColumn,

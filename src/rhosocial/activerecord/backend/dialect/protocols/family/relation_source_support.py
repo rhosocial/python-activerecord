@@ -4,7 +4,7 @@
 from typing import Any, List, Tuple, Union, TYPE_CHECKING
 from rhosocial.activerecord.backend.expression.bases import BaseExpression
 from rhosocial.activerecord.backend.expression.objects import RelationObject
-from rhosocial.activerecord.backend.expression.query_sources import JSONTableColumn
+from rhosocial.activerecord.backend.expression.sources import JSONTableColumn
 from typing import runtime_checkable, Protocol
 
 

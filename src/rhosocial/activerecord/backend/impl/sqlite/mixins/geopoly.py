@@ -14,7 +14,7 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 from .extension import SQLiteExtensionMixin
 
 if TYPE_CHECKING:
-    from ..expression.geopoly import (
+    from ..expression.statements.geopoly import (
         SQLiteGeopolyAreaExpression,
         SQLiteGeopolyContainsExpression,
         SQLiteGeopolyCreateVirtualTable,

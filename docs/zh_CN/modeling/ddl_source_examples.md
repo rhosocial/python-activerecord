@@ -219,7 +219,7 @@ CoreDeclared.column_constraints("status")
 SQLite 的专属类型定义在核心包内：
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteTextType
+from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import SQLiteTextType
 
 value: Annotated[str, UseSqlType(SQLiteTextType())]
 ```

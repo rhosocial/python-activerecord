@@ -14,7 +14,7 @@ from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.statements import ExplainOptions, ExplainType, ExplainFormat
 from rhosocial.activerecord.backend.expression.statements import ValuesSource
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import WhereClause
 from rhosocial.activerecord.backend.expression.objects import Table
 
 

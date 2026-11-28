@@ -5,7 +5,7 @@ Tests for the advanced SQL function expression components in advanced_functions.
 
 import pytest
 from rhosocial.activerecord.backend.expression import Column, Parameter, NumericColumn
-from rhosocial.activerecord.backend.expression.advanced_functions import (
+from rhosocial.activerecord.backend.expression.functions.advanced_functions import (
     CaseExpression,
     ExistsPredicate,
     AnyPredicate,
@@ -14,7 +14,7 @@ from rhosocial.activerecord.backend.expression.advanced_functions import (
     ArrayOperation,
     OrderedSetAggregation,
 )
-from rhosocial.activerecord.backend.expression.core import Subquery
+from rhosocial.activerecord.backend.expression.sources.subquery import Subquery
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.types import IntegerType
 
@@ -198,7 +198,7 @@ class TestOrderedSetAggregation:
 
         try:
             # PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY salary)
-            from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+            from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
             expr = OrderedSetAggregation(
                 sqlite_dialect_3_8_0,

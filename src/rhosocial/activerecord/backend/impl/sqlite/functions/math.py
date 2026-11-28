@@ -6,14 +6,16 @@ Functions: random_func, abs_sql, sign, total
 """
 
 from typing import Union, TYPE_CHECKING
-
-from rhosocial.activerecord.backend.expression import bases, core
+from rhosocial.activerecord.backend.expression import bases
+from rhosocial.activerecord.backend.expression.column_types import Column
+from rhosocial.activerecord.backend.expression.functions import FunctionCall
+from rhosocial.activerecord.backend.expression.value_types import Parameter
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.dialect import SQLDialectBase
 
 
-def random_func(dialect: "SQLDialectBase") -> "core.FunctionCall":
+def random_func(dialect: "SQLDialectBase") -> "FunctionCall":
     """
     Creates a RANDOM function call.
 
@@ -28,10 +30,10 @@ def random_func(dialect: "SQLDialectBase") -> "core.FunctionCall":
     Returns:
         A FunctionCall instance representing the RANDOM function
     """
-    return core.FunctionCall(dialect, "RANDOM")
+    return FunctionCall(dialect, "RANDOM")
 
 
-def abs_sql(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
+def abs_sql(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "FunctionCall":
     """
     Creates an ABS function call.
 
@@ -48,11 +50,11 @@ def abs_sql(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"])
     Returns:
         A FunctionCall instance representing the ABS function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
-    return core.FunctionCall(dialect, "ABS", target_expr)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else Parameter(dialect, expr)
+    return FunctionCall(dialect, "ABS", target_expr)
 
 
-def sign(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
+def sign(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "FunctionCall":
     """
     Creates a SIGN function call (SQLite 3.44.0+).
 
@@ -68,11 +70,11 @@ def sign(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) ->
     Returns:
         A FunctionCall instance representing the SIGN function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
-    return core.FunctionCall(dialect, "SIGN", target_expr)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else Parameter(dialect, expr)
+    return FunctionCall(dialect, "SIGN", target_expr)
 
 
-def total(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
+def total(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "FunctionCall":
     """
     Creates a TOTAL aggregate function call.
 
@@ -89,8 +91,8 @@ def total(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -
     Returns:
         A FunctionCall instance representing the TOTAL function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Column(dialect, expr)
-    return core.FunctionCall(dialect, "TOTAL", target_expr)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else Column(dialect, expr)
+    return FunctionCall(dialect, "TOTAL", target_expr)
 
 
 __all__ = [

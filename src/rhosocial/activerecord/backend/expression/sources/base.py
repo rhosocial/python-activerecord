@@ -22,7 +22,7 @@ difference from a schema object, which carries neither.
 
 from typing import Optional
 
-from ..bases import BaseExpression
+from ..bases.bases import BaseExpression
 
 __all__ = ["TableSource"]
 

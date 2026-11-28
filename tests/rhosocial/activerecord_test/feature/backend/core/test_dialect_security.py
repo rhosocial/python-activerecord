@@ -130,7 +130,7 @@ class TestEscapeReachesTheDialect:
 
     def test_an_inline_literal_uses_the_override(self):
         """A literal rendered inline carries the dialect's escaping."""
-        from rhosocial.activerecord.backend.expression.core import Parameter
+        from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
 
         dialect = self._dialect_with_backslash_policy()
         sql, params = Parameter(dialect, "a\\b'c", inline=True).to_sql()
@@ -167,10 +167,10 @@ def test_a_type_position_refuses_a_payload(dialect):
     from rhosocial.activerecord.backend.expression.statements import (
         AlterColumnAction,
     )
-    from rhosocial.activerecord.backend.expression.type_name import (
+    from rhosocial.activerecord.backend.expression.bases.type_name import (
         InvalidTypeNameError,
     )
-    from rhosocial.activerecord.backend.expression.xml import (
+    from rhosocial.activerecord.backend.expression.functions.xml import (
         XMLSerializeExpression,
     )
 
@@ -212,7 +212,8 @@ def test_column_definition_rejects_string_data_type(dialect):
 
 def test_format_cast_expression_valid(dialect):
     """A cast renders the type it was handed."""
-    from rhosocial.activerecord.backend.expression.core import CastExpression, Column
+    from rhosocial.activerecord.backend.expression.functions.cast_expression import CastExpression
+    from rhosocial.activerecord.backend.expression.column_types.column import Column
 
     expr = CastExpression(dialect, Column(dialect, "column"),
                           IntegerType(dialect))
@@ -228,7 +229,8 @@ def test_format_cast_expression_rejects_injection(dialect):
     generic formatter validates before spelling the type and refuses it with
     the original ``TypeError``.
     """
-    from rhosocial.activerecord.backend.expression.core import CastExpression, Column
+    from rhosocial.activerecord.backend.expression.functions.cast_expression import CastExpression
+    from rhosocial.activerecord.backend.expression.column_types.column import Column
 
     expr = CastExpression(dialect, Column(dialect, "column"),
                           "INTEGER; DROP TABLE users--")

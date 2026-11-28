@@ -10,10 +10,10 @@ handle their extra parameters:
 
 
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.introspection.introspection import (
     SQLiteColumnInfoExpression,
 )
-from rhosocial.activerecord.backend.impl.sqlite.expression.table_list import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.introspection.table_list import (
     SQLiteTableListExpression,
 )
 
@@ -45,7 +45,7 @@ class TestSQLiteColumnInfoExpressionParams:
     def test_include_hidden_triggers_xinfo_pragma(self):
         """include_hidden=True on base ColumnInfoQueryStatement should use table_xinfo."""
         dialect = SQLiteDialect(version=(3, 26, 0))
-        from rhosocial.activerecord.backend.expression.introspection import (
+        from rhosocial.activerecord.backend.expression.introspection.introspection import (
             ColumnInfoQueryStatement,
         )
 
@@ -84,7 +84,7 @@ class TestSQLiteTableListExpressionParams:
     def test_table_list_pragma_vs_sqlite_master(self):
         """PRAGMA table_list and sqlite_master queries produce different SQL."""
         dialect = SQLiteDialect(version=(3, 37, 0))
-        from rhosocial.activerecord.backend.expression.introspection import (
+        from rhosocial.activerecord.backend.expression.introspection.introspection import (
             TableListQueryStatement,
         )
 

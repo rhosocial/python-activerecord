@@ -3,12 +3,10 @@
 
 from typing import Optional, Tuple
 from rhosocial.activerecord.backend.expression import bases
-from rhosocial.activerecord.backend.expression.core import (
-    CastExpression,
-    QualifiedIdentifier,
-    Subquery,
-)
-from rhosocial.activerecord.backend.expression.literals import Identifier
+from rhosocial.activerecord.backend.expression.functions import CastExpression
+from rhosocial.activerecord.backend.expression.objects import QualifiedIdentifier
+from rhosocial.activerecord.backend.expression.sources import Subquery
+from rhosocial.activerecord.backend.expression.value_types import Identifier
 from rhosocial.activerecord.backend.expression.operators import (
     ArithmeticOperation,
     BinaryExpression,

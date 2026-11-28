@@ -17,7 +17,8 @@ from rhosocial.activerecord.backend.impl.sqlite.functions.json import (
     json_array_insert,
     jsonb_array_insert,
 )
-from rhosocial.activerecord.backend.expression.core import Column, Parameter
+from rhosocial.activerecord.backend.expression.column_types.column import Column
+from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
 from rhosocial.activerecord.backend.expression.objects import Index, Table
 
 

@@ -9,10 +9,10 @@ probes.
 """
 from typing import List, Tuple, TYPE_CHECKING
 
-from ...expression.query_sources import SetOperationKind
+from ...expression.sources.query_sources import SetOperationKind
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.query_sources import SetOperation
+    from ...expression.sources.query_sources import SetOperation
     from ...expression.statements import SetOperationStatement
 
 #: Compound-SELECT word form -> the SQL keyword this dialect spells it with.

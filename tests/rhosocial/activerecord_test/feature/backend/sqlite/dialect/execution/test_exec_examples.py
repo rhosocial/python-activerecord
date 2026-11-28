@@ -561,7 +561,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
         FunctionCall,
     )
     from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-    from rhosocial.activerecord.backend.expression.advanced_functions import ExistsPredicate
+    from rhosocial.activerecord.backend.expression.functions.advanced_functions import ExistsPredicate
 
     # Subquery for NOT EXISTS: SELECT 1 FROM digits AS lp WHERE ...
     lp_table = NamedRelationRef(dialect, Table(dialect, "digits"), alias="lp")
@@ -903,7 +903,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         m2_cx = Column(dialect, "cx", table="m")
         m2_cy = Column(dialect, "cy", table="m")
 
-        from rhosocial.activerecord.backend.expression.query_parts import GroupByHavingClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import GroupByHavingClause
 
         m2_query = QueryStatement(
             dialect=dialect,

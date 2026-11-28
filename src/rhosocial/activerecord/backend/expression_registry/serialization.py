@@ -31,7 +31,7 @@ import inspect
 import json
 from typing import Any, Callable, Dict, Optional, Sequence
 
-from ..expression.bases import BaseExpression
+from ..expression.bases.bases import BaseExpression
 from .core_registry import CORE_EXPRESSION_REGISTRY
 from .registry import ExpressionRegistry
 

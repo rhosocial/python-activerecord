@@ -8,7 +8,7 @@ from rhosocial.activerecord.backend.migration import (
     AsyncNamedMigration,
     AsyncMigrationContext,
 )
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import (
     SQLiteIntegerType,
     SQLiteTextType,
 )

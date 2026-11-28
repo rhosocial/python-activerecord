@@ -1,7 +1,7 @@
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnPrimaryKeyConstraint,
 )
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import (
     SQLiteIntegerType,
     SQLiteTextType,
 )

@@ -17,7 +17,7 @@ import pytest
 from pydantic import BaseModel
 
 from rhosocial.activerecord.backend.expression.functions import length
-from rhosocial.activerecord.backend.expression.query_parts import SortDirection
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import SortDirection
 from rhosocial.activerecord.backend.impl.sqlite.backend import (
     AsyncSQLiteBackend,
     SQLiteBackend,

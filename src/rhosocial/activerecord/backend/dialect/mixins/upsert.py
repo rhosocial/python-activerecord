@@ -6,7 +6,7 @@ Provides capability probes and SQL rendering for insert conflict handling.
 from typing import Tuple, TYPE_CHECKING
 
 from ...expression import bases
-from ...expression.bases import ToSQLProtocol
+from ...expression.bases.bases import ToSQLProtocol
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements import OnConflictClause

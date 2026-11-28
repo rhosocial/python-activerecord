@@ -93,7 +93,7 @@ def test_suggestion_protocol_and_backend_mixin_exist():
 
 
 def test_sqlite_suggestion_carries_the_autoincrement_clause():
-    from rhosocial.activerecord.backend.impl.sqlite.expression.auto_increment import (
+    from rhosocial.activerecord.backend.impl.sqlite.expression.query_parts.auto_increment import (
         SQLiteAutoIncrementClause,
     )
 

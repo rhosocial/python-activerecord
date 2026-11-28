@@ -18,7 +18,7 @@ from rhosocial.activerecord.backend.expression import (
     Column, NamedRelationRef, QueryStatement
 )
 from rhosocial.activerecord.backend.expression.objects import Table
-from rhosocial.activerecord.backend.expression.query_sources import (
+from rhosocial.activerecord.backend.expression.sources.query_sources import (
     SetOperation, SetOperationKind
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect

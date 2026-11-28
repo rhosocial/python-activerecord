@@ -32,7 +32,7 @@ This means you can extend any layer without modifying the core library.
 The SQLite backend extends core expression classes with SQLite-specific SQL syntax. To add new expression types:
 
 ```python
-from rhosocial.activerecord.backend.expression.bases import BaseExpression
+from rhosocial.activerecord.backend.expression.bases.bases import BaseExpression
 
 class MyCustomExpression(BaseExpression):
     def __init__(self, dialect, *args):
@@ -50,7 +50,7 @@ class MyCustomExpression(BaseExpression):
 ### Example: JSON Path Expression
 
 ```python
-from rhosocial.activerecord.backend.expression.bases import BaseExpression
+from rhosocial.activerecord.backend.expression.bases.bases import BaseExpression
 
 class JsonPathExpression(BaseExpression):
     def __init__(self, dialect, column, path):

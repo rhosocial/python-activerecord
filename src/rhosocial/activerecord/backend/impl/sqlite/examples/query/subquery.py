@@ -5,8 +5,9 @@ from rhosocial.activerecord.backend.expression.statements import (
     TableForeignKeyConstraint,
 )
 from .....expression.objects import Table
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
-from rhosocial.activerecord.backend.expression.core import Subquery, Parameter
+from rhosocial.activerecord.backend.expression.predicates.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.sources.subquery import Subquery
+from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
 from rhosocial.activerecord.backend.expression import functions
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (

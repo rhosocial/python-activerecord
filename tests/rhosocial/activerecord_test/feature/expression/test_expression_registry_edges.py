@@ -3,7 +3,9 @@
 
 import pytest
 
-from rhosocial.activerecord.backend.expression.core import Column, FunctionCall, Parameter
+from rhosocial.activerecord.backend.expression.column_types.column import Column
+from rhosocial.activerecord.backend.expression.functions.function_call import FunctionCall
+from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
 from rhosocial.activerecord.backend.expression_registry import (
     ArtifactError,
     ExpressionRegistry,
@@ -42,7 +44,7 @@ def test_a_mapping_without_a_module_is_refused():
 
 
 def test_a_mapping_pointing_at_a_non_class_is_refused():
-    target = "rhosocial.activerecord.backend.expression.core.__doc__"
+    target = "rhosocial.activerecord.backend.expression.bases.bases.__doc__"
     registry = ExpressionRegistry({"bad": target})
     with pytest.raises(RegistryError) as caught:
         registry.resolve_node("bad")

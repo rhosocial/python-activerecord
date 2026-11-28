@@ -10,7 +10,7 @@ from rhosocial.activerecord.backend.expression import (
     OrderByClause,
     NumericColumn,
     StringColumn,)
-from rhosocial.activerecord.backend.expression.predicates import (
+from rhosocial.activerecord.backend.expression.predicates.predicates import (
     LogicalPredicate,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect

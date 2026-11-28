@@ -228,7 +228,7 @@ class TestClauseExpressions:
     # --- OrderedSetAggregation ---
     def test_ordered_set_aggregation_percentile_cont(self, dummy_dialect: DummyDialect):
         """Tests PERCENTILE_CONT WITHIN GROUP ordered-set aggregate function."""
-        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
         expr = OrderedSetAggregation(
             dummy_dialect,
@@ -244,7 +244,7 @@ class TestClauseExpressions:
 
     def test_ordered_set_aggregation_listagg(self, dummy_dialect: DummyDialect):
         """Tests LISTAGG WITHIN GROUP ordered-set aggregate function."""
-        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
         expr = OrderedSetAggregation(
             dummy_dialect,

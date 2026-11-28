@@ -30,7 +30,7 @@ from rhosocial.activerecord.backend.expression.types import (
     VarCharType,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import (
     SQLiteBlobType,
     SQLiteIntegerType,
     SQLiteNumericType,

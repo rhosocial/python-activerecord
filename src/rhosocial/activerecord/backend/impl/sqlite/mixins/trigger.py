@@ -8,7 +8,7 @@ This module provides the SQLiteTriggerMixin class.
 from typing import Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from rhosocial.activerecord.backend.expression.statements.ddl_trigger import (
+    from rhosocial.activerecord.backend.expression.statements import (
         CreateTriggerStatement,
         DropTriggerStatement,
     )

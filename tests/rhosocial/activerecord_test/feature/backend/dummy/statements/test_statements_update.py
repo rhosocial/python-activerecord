@@ -16,7 +16,7 @@ from rhosocial.activerecord.backend.expression import (
     StringColumn,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import WhereClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.objects import Table
 
@@ -348,7 +348,7 @@ class TestUpdateStatements:
         # Create where_clause if we have a where condition
         where_clause_param = None
         if dialect_where_to_use is not None:
-            from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+            from rhosocial.activerecord.backend.expression.query_parts.query_parts import WhereClause
 
             where_clause_param = WhereClause(dummy_dialect, condition=dialect_where_to_use)
 
@@ -403,7 +403,7 @@ class TestUpdateStatements:
 
     def test_update_expression_with_where_clause_object(self, dummy_dialect: DummyDialect):
         """Test UpdateStatement with a WhereClause object to cover the isinstance(where, WhereClause) branch."""
-        from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import WhereClause
 
         # Create a WhereClause object using comparison operator
         where_clause_obj = WhereClause(

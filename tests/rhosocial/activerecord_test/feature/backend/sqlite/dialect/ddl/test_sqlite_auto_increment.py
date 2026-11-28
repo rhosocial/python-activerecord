@@ -15,10 +15,10 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnPrimaryKeyConstraint,
     ColumnUniqueConstraint,
 )
-from rhosocial.activerecord.backend.impl.sqlite.expression.auto_increment import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.query_parts.auto_increment import (
     SQLiteAutoIncrementClause,
 )
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType
+from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import SQLiteIntegerType
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 from rhosocial.activerecord.backend.expression.statements import (

@@ -18,7 +18,7 @@ import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression import Column, Parameter, NumericColumn, StringColumn
-from rhosocial.activerecord.backend.expression.predicates import (
+from rhosocial.activerecord.backend.expression.predicates.predicates import (
     IsBooleanPredicate,
     IsNullPredicate,
 )

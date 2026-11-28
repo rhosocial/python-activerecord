@@ -7,7 +7,7 @@ import pytest
 from unittest.mock import Mock
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression.query_parts import JoinType
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import JoinType
 
 
 class TestSQLiteDialectFormatting:
@@ -98,7 +98,7 @@ class TestSQLiteDialectFormatting:
         dialect = SQLiteDialect()
         mock_expressions = []
 
-        from rhosocial.activerecord.backend.expression.query_parts import GroupingClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import GroupingClause
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             dialect.format_grouping_clause(GroupingClause(dialect, "ROLLUP", mock_expressions))
@@ -111,7 +111,7 @@ class TestSQLiteDialectFormatting:
         dialect = SQLiteDialect()
         mock_expressions = []
 
-        from rhosocial.activerecord.backend.expression.query_parts import GroupingClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import GroupingClause
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             dialect.format_grouping_clause(GroupingClause(dialect, "CUBE", mock_expressions))
@@ -124,7 +124,7 @@ class TestSQLiteDialectFormatting:
         dialect = SQLiteDialect()
         mock_expressions = []
 
-        from rhosocial.activerecord.backend.expression.query_parts import GroupingClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import GroupingClause
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             dialect.format_grouping_clause(GroupingClause(dialect, "GROUPING SETS", mock_expressions))
@@ -144,7 +144,7 @@ class TestSQLiteDialectFormatting:
         """Parametrized test for unsupported grouping formatting methods"""
         dialect = SQLiteDialect()
 
-        from rhosocial.activerecord.backend.expression.query_parts import GroupingClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import GroupingClause
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             dialect.format_grouping_clause(GroupingClause(dialect, operation, []))
@@ -154,7 +154,7 @@ class TestSQLiteDialectFormatting:
     def test_format_array_expression_error(self):
         """Test array expression formatting error"""
         from unittest.mock import MagicMock
-        from rhosocial.activerecord.backend.expression.advanced_functions import ArrayOperation
+        from rhosocial.activerecord.backend.expression.functions.advanced_functions import ArrayOperation
 
         dialect = SQLiteDialect()
 
@@ -177,7 +177,7 @@ class TestSQLiteDialectFormatting:
         """Test JSON_TABLE expression formatting error"""
         dialect = SQLiteDialect()
 
-        from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression
+        from rhosocial.activerecord.backend.expression.sources.query_sources import JSONTableExpression
 
         json_table = JSONTableExpression(dialect, json_column="json_col", path="$.path", columns=[], alias="alias")
         with pytest.raises(UnsupportedFeatureError) as exc_info:
@@ -200,9 +200,9 @@ class TestSQLiteDialectFormatting:
     def test_format_ordered_set_aggregation_error(self):
         """Test ordered-set aggregation formatting error"""
         dialect = SQLiteDialect()
-        from rhosocial.activerecord.backend.expression.advanced_functions import OrderedSetAggregation
-        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
-        from rhosocial.activerecord.backend.expression.core import Column
+        from rhosocial.activerecord.backend.expression.functions.advanced_functions import OrderedSetAggregation
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
+        from rhosocial.activerecord.backend.expression.column_types.column import Column
 
         mock_agg = OrderedSetAggregation(dialect, "func", [], OrderByClause(dialect, [Column(dialect, "test")]))
 
@@ -236,7 +236,7 @@ class TestSQLiteDialectFormatting:
     def test_formatting_methods_unsupported(self, operation, method_name, expected_error_part):
         """Parametrized test for unsupported formatting methods"""
         from unittest.mock import MagicMock
-        from rhosocial.activerecord.backend.expression.advanced_functions import ArrayOperation
+        from rhosocial.activerecord.backend.expression.functions.advanced_functions import ArrayOperation
 
         dialect = SQLiteDialect()
         method = getattr(dialect, method_name)
@@ -252,12 +252,12 @@ class TestSQLiteDialectFormatting:
                 mock_expr.cast_types = []
                 method(mock_expr)
             elif method_name == "format_json_table_expression":
-                from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression
+                from rhosocial.activerecord.backend.expression.sources.query_sources import JSONTableExpression
                 method(JSONTableExpression(dialect, json_column="json_col", path="$.path", columns=[], alias="alias"))
             elif method_name == "format_ordered_set_aggregation":
-                from rhosocial.activerecord.backend.expression.advanced_functions import OrderedSetAggregation
-                from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
-                from rhosocial.activerecord.backend.expression.core import Column
+                from rhosocial.activerecord.backend.expression.functions.advanced_functions import OrderedSetAggregation
+                from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
+                from rhosocial.activerecord.backend.expression.column_types.column import Column
 
                 mock_agg = OrderedSetAggregation(dialect, "func", [], OrderByClause(dialect, [Column(dialect, "test")]))
                 method(mock_agg)

@@ -1,6 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy/expression/test_query_sources_values.py
 from rhosocial.activerecord.backend.expression import Column, QueryStatement
-from rhosocial.activerecord.backend.expression.query_sources import ValuesExpression
+from rhosocial.activerecord.backend.expression.sources.query_sources import ValuesExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 

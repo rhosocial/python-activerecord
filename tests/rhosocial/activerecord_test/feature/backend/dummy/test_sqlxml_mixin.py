@@ -6,7 +6,7 @@ import pytest
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.dialect.mixins import SQLXMLMixin
-from rhosocial.activerecord.backend.expression.value_types import TextValue, XMLValue
+from rhosocial.activerecord.backend.expression.value_types.value_types import TextValue, XMLValue
 from rhosocial.activerecord.backend.expression import (
     Column,
     Parameter,

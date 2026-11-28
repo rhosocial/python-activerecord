@@ -29,7 +29,7 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     InsertStatement,
     ValuesSource,
 )
-from rhosocial.activerecord.backend.expression.core import Parameter  # noqa: E402
+from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
 from rhosocial.activerecord.backend.expression.statements import ColumnDefinition  # noqa: E402
 
 # Create tables

@@ -17,8 +17,9 @@ time, and now rendering a call the dialect's version predates refuses.
 import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression.column_types import NumericColumn, StringColumn
-from rhosocial.activerecord.backend.expression.core import FunctionCall, Parameter
+from rhosocial.activerecord.backend.expression.column_types.column_types import NumericColumn, StringColumn
+from rhosocial.activerecord.backend.expression.functions.function_call import FunctionCall
+from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 

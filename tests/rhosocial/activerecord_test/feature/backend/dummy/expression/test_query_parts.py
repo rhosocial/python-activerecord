@@ -12,8 +12,12 @@ from rhosocial.activerecord.backend.expression import (
     OrderByClause,
     QualifyClause,
 )
-from rhosocial.activerecord.backend.expression.predicates import InPredicate, BetweenPredicate, IsNullPredicate
-from rhosocial.activerecord.backend.expression.query_parts import ForUpdateClause
+from rhosocial.activerecord.backend.expression.predicates.predicates import (
+    InPredicate,
+    BetweenPredicate,
+    IsNullPredicate,
+)
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import ForUpdateClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
@@ -459,7 +463,7 @@ class TestQueryParts:
 
     def test_where_clause_with_like_condition(self, dummy_dialect: DummyDialect):
         """Test WHERE clause with LIKE condition."""
-        from rhosocial.activerecord.backend.expression.predicates import LikePredicate
+        from rhosocial.activerecord.backend.expression.predicates.predicates import LikePredicate
 
         condition = LikePredicate(dummy_dialect, "LIKE", Column(dummy_dialect, "name"), Parameter(dummy_dialect, "John%"))
         where_clause = WhereClause(dummy_dialect, condition=condition)
@@ -506,7 +510,7 @@ class TestQueryParts:
 
     def test_order_by_with_complex_expressions(self, dummy_dialect: DummyDialect):
         """Test ORDER BY with complex expressions like CASE."""
-        from rhosocial.activerecord.backend.expression.advanced_functions import CaseExpression
+        from rhosocial.activerecord.backend.expression.functions.advanced_functions import CaseExpression
 
         # Create a complex CASE expression
         case_expr = CaseExpression(

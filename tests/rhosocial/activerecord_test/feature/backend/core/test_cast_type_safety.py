@@ -18,7 +18,7 @@ from rhosocial.activerecord.backend.expression.types import (
     IntegerType,
     TextType,
 )
-from rhosocial.activerecord.backend.expression.type_name import (
+from rhosocial.activerecord.backend.expression.bases.type_name import (
     InvalidTypeNameError,
     is_valid_type_name,
     validate_type_name,
@@ -173,7 +173,7 @@ class TestCastRequiresADataType:
         generic formatter validates the type position before rendering and
         refuses it with the original ``TypeError``.
         """
-        from rhosocial.activerecord.backend.expression.core import CastExpression
+        from rhosocial.activerecord.backend.expression.functions.cast_expression import CastExpression
 
         expr = CastExpression(
             sqlite_dialect, Column(sqlite_dialect, "c", table="t"), "INTEGER"

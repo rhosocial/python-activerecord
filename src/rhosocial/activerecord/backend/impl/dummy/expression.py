@@ -3,7 +3,7 @@
 
 from typing import TYPE_CHECKING
 
-from rhosocial.activerecord.backend.expression.statements.ddl_type import (
+from rhosocial.activerecord.backend.expression.statements import (
     TypeAlterAction,
     TypeDefinition,
 )

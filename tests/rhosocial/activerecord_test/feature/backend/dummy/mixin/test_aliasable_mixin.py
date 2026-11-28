@@ -8,9 +8,9 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import Parameter, Column, FunctionCall, Subquery, ComparisonPredicate
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.operators import ArithmeticOperation
-from rhosocial.activerecord.backend.expression.query_parts import JoinClause
-from rhosocial.activerecord.backend.expression.advanced_functions import (
+from rhosocial.activerecord.backend.expression.operators.operators import ArithmeticOperation
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import JoinClause
+from rhosocial.activerecord.backend.expression.functions.advanced_functions import (
     JSONDocumentValue,
     ArrayOperation,
     OrderedSetAggregation,
@@ -144,7 +144,7 @@ class TestAliasableMixin:
 
     def test_ordered_set_aggregation_alias_initialization(self, dummy_dialect: DummyDialect):
         """Test OrderedSetAggregation with alias specified during initialization."""
-        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
         ord_agg = OrderedSetAggregation(
             dummy_dialect,
@@ -160,7 +160,7 @@ class TestAliasableMixin:
 
     def test_ordered_set_aggregation_alias_with_as_method(self, dummy_dialect: DummyDialect):
         """Test OrderedSetAggregation with alias specified using as_() method."""
-        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
         ord_agg = OrderedSetAggregation(
             dummy_dialect,

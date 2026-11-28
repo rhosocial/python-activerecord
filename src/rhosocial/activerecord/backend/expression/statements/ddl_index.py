@@ -3,8 +3,9 @@
 
 from typing import List, Optional, Union, TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLPredicate
-from ..objects import Index, Table
+from ..bases.bases import BaseExpression, SQLPredicate
+from rhosocial.activerecord.backend.expression.objects.index import Index
+from rhosocial.activerecord.backend.expression.objects.relation import Table
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase

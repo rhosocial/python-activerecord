@@ -8,7 +8,7 @@ never by serializing, so it is not part of the expression round-trip coverage.
 import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.impl.sqlite.expression.predicates import SQLiteMatchPredicate
+from rhosocial.activerecord.backend.impl.sqlite.expression.predicates.predicates import SQLiteMatchPredicate
 
 
 @pytest.fixture

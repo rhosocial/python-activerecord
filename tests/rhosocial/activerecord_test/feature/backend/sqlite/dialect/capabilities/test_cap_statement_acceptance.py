@@ -25,36 +25,36 @@ import sqlite3
 
 import pytest
 
-from rhosocial.activerecord.backend.expression.core import Column
+from rhosocial.activerecord.backend.expression.column_types.column import Column
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.impl.sqlite.expression.attach import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.statements.attach import (
     SQLiteAttachStatement,
     SQLiteDetachStatement,
 )
-from rhosocial.activerecord.backend.impl.sqlite.expression.fts5 import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.statements.fts5 import (
     SQLiteFTS5CreateVirtualTable,
 )
-from rhosocial.activerecord.backend.impl.sqlite.expression.geopoly import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.statements.geopoly import (
     SQLiteGeopolyCreateVirtualTable,
 )
-from rhosocial.activerecord.backend.impl.sqlite.expression.json import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.functions.json import (
     SQLiteJsonExtractFunction,
 )
-from rhosocial.activerecord.backend.impl.sqlite.expression.predicates import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.predicates.predicates import (
     SQLiteMatchPredicate,
 )
-from rhosocial.activerecord.backend.impl.sqlite.expression.reindex import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.statements.reindex import (
     SQLiteReindexStatement,
 )
-from rhosocial.activerecord.backend.impl.sqlite.expression.rtree import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.statements.rtree import (
     SQLiteRTreeCreateVirtualTable,
 )
-from rhosocial.activerecord.backend.impl.sqlite.expression.vacuum import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.statements.vacuum import (
     SQLiteAnalyzeStatement,
     SQLiteVacuumStatement,
 )
-from rhosocial.activerecord.backend.impl.sqlite.expression.virtual_table import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.statements.virtual_table import (
     SQLiteCreateVirtualTableStatement,
     SQLiteDropVirtualTableStatement,
 )

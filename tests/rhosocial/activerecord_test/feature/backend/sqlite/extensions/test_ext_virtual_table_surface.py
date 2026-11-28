@@ -9,7 +9,7 @@ is the only evidence available.
 import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.impl.sqlite.expression.fts5 import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.statements.fts5 import (
     SQLiteFTS5MatchPredicate,
 )
 from rhosocial.activerecord.backend.impl.sqlite.mixins.virtual_table import (

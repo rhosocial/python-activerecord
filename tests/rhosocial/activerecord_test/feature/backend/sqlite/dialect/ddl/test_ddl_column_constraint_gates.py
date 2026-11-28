@@ -32,7 +32,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     TableConstraint,
 )
 from rhosocial.activerecord.backend.expression.objects import Table
-from rhosocial.activerecord.backend.expression.core import Parameter
+from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 

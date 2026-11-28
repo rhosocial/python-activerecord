@@ -7,9 +7,9 @@ and pattern predicates into ``(sql, params)`` tuples.
 
 from typing import TYPE_CHECKING, Any, List, Tuple
 
-from ...expression.advanced_functions import AllPredicate, AnyPredicate, ExistsPredicate
-from ...expression.mixins import AliasableMixin
-from ...expression.predicates import (
+from ...expression.functions.advanced_functions import AllPredicate, AnyPredicate, ExistsPredicate
+from ...expression.bases.mixins import AliasableMixin
+from ...expression.predicates.predicates import (
     BetweenPredicate,
     ComparisonPredicate,
     DistinctFromPredicate,
@@ -167,7 +167,7 @@ class PredicateMixin():
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from ...expression.core import Parameter
+        from ...expression.value_types.parameter import Parameter
 
         operand_sql, expr_params = expr.operand.to_sql()
         if isinstance(expr.values, Parameter) and isinstance(expr.values.value, (list, tuple, set)):
@@ -277,7 +277,7 @@ class PredicateMixin():
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from ...expression.core import Parameter
+        from ...expression.value_types.parameter import Parameter
 
         expr_sql, expr_params = expr.expr.to_sql()
         array_expr = expr.array_expr
@@ -302,7 +302,7 @@ class PredicateMixin():
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from ...expression.core import Parameter
+        from ...expression.value_types.parameter import Parameter
 
         expr_sql, expr_params = expr.expr.to_sql()
         array_expr = expr.array_expr

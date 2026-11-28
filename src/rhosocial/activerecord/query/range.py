@@ -26,7 +26,7 @@ def _in_predicate(dialect, expr: BaseExpression, values) -> "SQLPredicate":
     """The explicit ``IN`` node, so a bare column reference needs no mixin.
 
     A column handed to these methods may be a name in quotes, which resolves
-    to the bare :class:`~...expression.core.Column` — a reference that offers
+    to the bare :class:`~...expression.column_types.column.Column` — a reference that offers
     no operations by design. The query layer therefore builds its predicates
     explicitly rather than through the column's own operators, and this helper
     mirrors :meth:`~...mixins.ComparisonMixin.in_` exactly: an ActiveQuery-like

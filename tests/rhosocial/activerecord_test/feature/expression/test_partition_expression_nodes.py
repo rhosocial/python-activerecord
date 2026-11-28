@@ -18,7 +18,7 @@ from rhosocial.activerecord.backend.expression import (
     PartitionOptionsExpression,
     SubpartitionDefinitionExpression,
 )
-from rhosocial.activerecord.backend.expression.bases import BaseExpression
+from rhosocial.activerecord.backend.expression.bases.bases import BaseExpression
 from rhosocial.activerecord.backend.expression.statements import PartitionClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 

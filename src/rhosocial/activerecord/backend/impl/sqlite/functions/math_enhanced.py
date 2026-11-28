@@ -9,8 +9,9 @@ Functions: round_, pow, power, sqrt, mod, ceil, floor, trunc, max_, min_, avg
 """
 
 from typing import Union, TYPE_CHECKING
-
-from rhosocial.activerecord.backend.expression import bases, core
+from rhosocial.activerecord.backend.expression import bases
+from rhosocial.activerecord.backend.expression.functions import FunctionCall
+from rhosocial.activerecord.backend.expression.value_types import Parameter
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.dialect import SQLDialectBase
@@ -20,7 +21,7 @@ def round_(
     dialect: "SQLDialectBase",
     expr: "bases.BaseExpression",
     precision: int = 0,
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a ROUND function call.
 
@@ -39,15 +40,15 @@ def round_(
         A FunctionCall instance representing the ROUND function
     """
     target_expr = expr
-    precision_expr = core.Parameter(dialect, precision)
-    return core.FunctionCall(dialect, "ROUND", target_expr, precision_expr)
+    precision_expr = Parameter(dialect, precision)
+    return FunctionCall(dialect, "ROUND", target_expr, precision_expr)
 
 
 def pow(
     dialect: "SQLDialectBase",
     base: "bases.BaseExpression",
     exponent: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a POW function call.
 
@@ -67,14 +68,14 @@ def pow(
     """
     base_expr = base
     exp_expr = exponent
-    return core.FunctionCall(dialect, "POW", base_expr, exp_expr)
+    return FunctionCall(dialect, "POW", base_expr, exp_expr)
 
 
 def power(
     dialect: "SQLDialectBase",
     base: "bases.BaseExpression",
     exponent: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a POWER function call (alias for POW).
 
@@ -94,13 +95,13 @@ def power(
     """
     base_expr = base
     exp_expr = exponent
-    return core.FunctionCall(dialect, "POWER", base_expr, exp_expr)
+    return FunctionCall(dialect, "POWER", base_expr, exp_expr)
 
 
 def sqrt(
     dialect: "SQLDialectBase",
     expr: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a SQRT function call.
 
@@ -118,14 +119,14 @@ def sqrt(
         A FunctionCall instance representing the SQRT function
     """
     target_expr = expr
-    return core.FunctionCall(dialect, "SQRT", target_expr)
+    return FunctionCall(dialect, "SQRT", target_expr)
 
 
 def mod(
     dialect: "SQLDialectBase",
     dividend: "bases.BaseExpression",
     divisor: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a MOD function call.
 
@@ -145,13 +146,13 @@ def mod(
     """
     dividend_expr = dividend
     divisor_expr = divisor
-    return core.FunctionCall(dialect, "MOD", dividend_expr, divisor_expr)
+    return FunctionCall(dialect, "MOD", dividend_expr, divisor_expr)
 
 
 def ceil(
     dialect: "SQLDialectBase",
     expr: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a CEIL function call (SQLite 3.44.0+).
 
@@ -169,13 +170,13 @@ def ceil(
         A FunctionCall instance representing the CEIL function
     """
     target_expr = expr
-    return core.FunctionCall(dialect, "CEIL", target_expr)
+    return FunctionCall(dialect, "CEIL", target_expr)
 
 
 def floor(
     dialect: "SQLDialectBase",
     expr: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a FLOOR function call (SQLite 3.44.0+).
 
@@ -193,13 +194,13 @@ def floor(
         A FunctionCall instance representing the FLOOR function
     """
     target_expr = expr
-    return core.FunctionCall(dialect, "FLOOR", target_expr)
+    return FunctionCall(dialect, "FLOOR", target_expr)
 
 
 def trunc(
     dialect: "SQLDialectBase",
     expr: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a TRUNC function call.
 
@@ -217,7 +218,7 @@ def trunc(
         A FunctionCall instance representing the TRUNC function
     """
     target_expr = expr
-    return core.FunctionCall(dialect, "TRUNC", target_expr)
+    return FunctionCall(dialect, "TRUNC", target_expr)
 
 
 def max_(
@@ -225,7 +226,7 @@ def max_(
     expr1: "bases.BaseExpression",
     expr2: "bases.BaseExpression",
     *more: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a MAX function call.
 
@@ -247,7 +248,7 @@ def max_(
     exprs = [expr1, expr2]
     for m in more:
         exprs.append(m)
-    return core.FunctionCall(dialect, "MAX", *exprs)
+    return FunctionCall(dialect, "MAX", *exprs)
 
 
 def min_(
@@ -255,7 +256,7 @@ def min_(
     expr1: "bases.BaseExpression",
     expr2: "bases.BaseExpression",
     *more: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a MIN function call.
 
@@ -277,13 +278,13 @@ def min_(
     exprs = [expr1, expr2]
     for m in more:
         exprs.append(m)
-    return core.FunctionCall(dialect, "MIN", *exprs)
+    return FunctionCall(dialect, "MIN", *exprs)
 
 
 def avg(
     dialect: "SQLDialectBase",
     expr: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates an AVG aggregate function call.
 
@@ -300,7 +301,7 @@ def avg(
         A FunctionCall instance representing the AVG function
     """
     target_expr = expr
-    return core.FunctionCall(dialect, "AVG", target_expr)
+    return FunctionCall(dialect, "AVG", target_expr)
 
 
 __all__ = [

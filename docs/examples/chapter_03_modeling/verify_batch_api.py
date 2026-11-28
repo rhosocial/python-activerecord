@@ -17,8 +17,8 @@ Correct import paths confirmed by this script:
   - NamedRelationRef ← from rhosocial.activerecord.backend.expression
   - ValuesSource      ← from rhosocial.activerecord.backend.expression
   - Column, Parameter   ← from rhosocial.activerecord.backend.expression
-  - OrderByClause     ← from rhosocial.activerecord.backend.expression.query_parts
-  - LimitOffsetClause ← from rhosocial.activerecord.backend.expression.query_parts
+  - OrderByClause     ← from rhosocial.activerecord.backend.expression.query_parts.query_parts
+  - LimitOffsetClause ← from rhosocial.activerecord.backend.expression.query_parts.query_parts
   - execute_batch_dml / execute_batch_dql are methods on backend instances
 
 All demos use SQLite :memory: backends and are fully self-contained.
@@ -137,10 +137,10 @@ def assert_import_paths() -> None:
 
     # Expression types (DQL)
     try_import("rhosocial.activerecord.backend.expression.statements", "QueryStatement")
-    try_import("rhosocial.activerecord.backend.expression.query_sources", "WithStatement")
+    try_import("rhosocial.activerecord.backend.expression.sources.query_sources", "WithStatement")
     try_import("rhosocial.activerecord.backend.expression", "AllColumnsWildcard")
-    try_import("rhosocial.activerecord.backend.expression.query_parts", "OrderByClause")
-    try_import("rhosocial.activerecord.backend.expression.query_parts", "LimitOffsetClause")
+    try_import("rhosocial.activerecord.backend.expression.query_parts.query_parts", "OrderByClause")
+    try_import("rhosocial.activerecord.backend.expression.query_parts.query_parts", "LimitOffsetClause")
 
     # Mixin base classes (for type-checking)
     try_import("rhosocial.activerecord.backend.base", "BatchExecutionMixin")
@@ -266,7 +266,7 @@ def demonstrate_batch_dql() -> None:
         NamedRelationRef,
     )
     from rhosocial.activerecord.backend.expression.objects import Table
-    from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+    from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
     from rhosocial.activerecord.backend.expression import Column
     from rhosocial.activerecord.backend.options import ExecutionOptions
     from rhosocial.activerecord.backend.schema import StatementType
@@ -340,7 +340,7 @@ def print_usage_summary() -> None:
     from rhosocial.activerecord.backend.result import BatchCommitMode, BatchDMLResult, BatchDQLResult
     from rhosocial.activerecord.backend.expression import InsertStatement, ValuesSource, Column, Parameter
     from rhosocial.activerecord.backend.expression.statements import QueryStatement
-    from rhosocial.activerecord.backend.expression.query_parts import OrderByClause, LimitOffsetClause
+    from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause, LimitOffsetClause
     from rhosocial.activerecord.backend.base import BatchExecutionMixin  # for type hints only
 """)
 

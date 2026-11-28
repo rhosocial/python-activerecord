@@ -7,7 +7,7 @@ Targets: core.py:69,177 / bases.py:16 / executable.py:35 / operators.py:153
 from rhosocial.activerecord.backend.expression.functions import cast
 from rhosocial.activerecord.backend.expression import Column, Parameter, Subquery
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.operators import ArithmeticOperation
+from rhosocial.activerecord.backend.expression.operators.operators import ArithmeticOperation
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.types import (
     CustomType,
@@ -76,9 +76,9 @@ class TestExecutableProtocol:
     """Cover executable.py:35 — Executable protocol statement_type property."""
 
     def test_executable_protocol_isinstance_check(self, dummy_dialect):
-        from rhosocial.activerecord.backend.expression.executable import Executable
+        from rhosocial.activerecord.backend.expression.statements.executable import Executable
         from rhosocial.activerecord.backend.expression.statements.dql import QueryStatement
-        from rhosocial.activerecord.backend.expression.core import Column
+        from rhosocial.activerecord.backend.expression.column_types.column import Column
 
         # QueryStatement implements Executable via statement_type
         query = QueryStatement(
@@ -87,8 +87,8 @@ class TestExecutableProtocol:
         assert isinstance(query, Executable)
 
     def test_non_executable_is_not_instance(self, dummy_dialect):
-        from rhosocial.activerecord.backend.expression.executable import Executable
-        from rhosocial.activerecord.backend.expression.core import Column
+        from rhosocial.activerecord.backend.expression.statements.executable import Executable
+        from rhosocial.activerecord.backend.expression.column_types.column import Column
 
         col = Column(dummy_dialect, "name")
         # Column does NOT implement statement_type
@@ -99,6 +99,6 @@ class TestBasesTypeAliasImport:
     """Cover bases.py:16 — TypeAlias import branch."""
 
     def test_type_alias_import(self):
-        from rhosocial.activerecord.backend.expression.bases import SQLQueryAndParams
+        from rhosocial.activerecord.backend.expression.bases.bases import SQLQueryAndParams
 
         assert SQLQueryAndParams is not None

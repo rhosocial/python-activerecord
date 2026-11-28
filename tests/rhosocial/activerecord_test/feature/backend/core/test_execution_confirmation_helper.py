@@ -19,8 +19,9 @@ come back ``REJECTED``, or a null result could be read as acceptance.
 
 import pytest
 
-from rhosocial.activerecord.backend.expression.core import Column, Parameter
-from rhosocial.activerecord.backend.expression.execution_testing import (
+from rhosocial.activerecord.backend.expression.column_types.column import Column
+from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
+from rhosocial.activerecord.backend.expression.statements.execution_testing import (
     ExecutionConfirmationError,
     ExecutionOutcome,
     classify_execution,

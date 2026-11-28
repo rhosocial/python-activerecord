@@ -34,7 +34,7 @@ from rhosocial.activerecord.backend.expression.types import (
     VarCharType,
 )
 
-from ..expression.types import (
+from ..expression.types.types import (
     SQLiteBlobType,
     SQLiteIntegerType,
     SQLiteNumericType,

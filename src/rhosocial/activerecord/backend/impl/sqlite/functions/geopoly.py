@@ -14,8 +14,8 @@ Reference: https://www.sqlite.org/geopoly.html
 """
 
 from typing import Union, Optional, TYPE_CHECKING
-
-from rhosocial.activerecord.backend.expression import bases, core
+from rhosocial.activerecord.backend.expression import bases
+from rhosocial.activerecord.backend.expression.functions import FunctionCall
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.dialect import SQLDialectBase
@@ -29,7 +29,7 @@ def geopoly_contains(
     polygon: "bases.BaseExpression",
     x: "bases.BaseExpression",
     y: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """Check if a point is inside a polygon.
 
     Returns 1 if the point (x, y) is contained within the polygon,
@@ -52,13 +52,13 @@ def geopoly_contains(
     poly_expr = polygon
     x_expr = x
     y_expr = y
-    return core.FunctionCall(dialect, "geopoly_contains", poly_expr, x_expr, y_expr)
+    return FunctionCall(dialect, "geopoly_contains", poly_expr, x_expr, y_expr)
 
 
 def geopoly_within(
     dialect: "SQLiteDialect",
     polygon: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """Check if a polygon is entirely within another polygon.
 
     Returns 1 if the polygon is completely within the _shape value,
@@ -77,14 +77,14 @@ def geopoly_within(
     Version: SQLite 3.26.0+
     """
     poly_expr = polygon
-    return core.FunctionCall(dialect, "geopoly_within", poly_expr)
+    return FunctionCall(dialect, "geopoly_within", poly_expr)
 
 
 def geopoly_overlap(
     dialect: "SQLiteDialect",
     polygon1: "bases.BaseExpression",
     polygon2: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """Check if two polygons overlap.
 
     Returns 1 if the two polygons overlap, 0 if they do not overlap.
@@ -104,13 +104,13 @@ def geopoly_overlap(
     """
     poly1_expr = polygon1
     poly2_expr = polygon2
-    return core.FunctionCall(dialect, "geopoly_overlap", poly1_expr, poly2_expr)
+    return FunctionCall(dialect, "geopoly_overlap", poly1_expr, poly2_expr)
 
 
 def geopoly_area(
     dialect: "SQLiteDialect",
     polygon: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """Calculate the area of a polygon.
 
     Returns the area of the polygon as a real number.
@@ -128,13 +128,13 @@ def geopoly_area(
     Version: SQLite 3.26.0+
     """
     poly_expr = polygon
-    return core.FunctionCall(dialect, "geopoly_area", poly_expr)
+    return FunctionCall(dialect, "geopoly_area", poly_expr)
 
 
 def geopoly_x(
     dialect: "SQLiteDialect",
     polygon: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """Get the X coordinate of a vertex of the polygon.
 
     Args:
@@ -147,13 +147,13 @@ def geopoly_x(
     Version: SQLite 3.26.0+
     """
     poly_expr = polygon
-    return core.FunctionCall(dialect, "geopoly_x", poly_expr)
+    return FunctionCall(dialect, "geopoly_x", poly_expr)
 
 
 def geopoly_y(
     dialect: "SQLiteDialect",
     polygon: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """Get the Y coordinate of a vertex of the polygon.
 
     Args:
@@ -166,13 +166,13 @@ def geopoly_y(
     Version: SQLite 3.26.0+
     """
     poly_expr = polygon
-    return core.FunctionCall(dialect, "geopoly_y", poly_expr)
+    return FunctionCall(dialect, "geopoly_y", poly_expr)
 
 
 def geopoly_centerpoint(
     dialect: "SQLiteDialect",
     polygon: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """Calculate the center point of a polygon.
 
     Returns a JSON array [x, y] containing the approximate
@@ -191,13 +191,13 @@ def geopoly_centerpoint(
     Version: SQLite 3.26.0+
     """
     poly_expr = polygon
-    return core.FunctionCall(dialect, "geopoly_centerpoint", poly_expr)
+    return FunctionCall(dialect, "geopoly_centerpoint", poly_expr)
 
 
 def geopoly_json(
     dialect: "SQLiteDialect",
     polygon: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """Convert a BLOB to a JSON polygon definition.
 
     Returns a JSON array of [x, y] coordinates representing
@@ -216,13 +216,13 @@ def geopoly_json(
     Version: SQLite 3.26.0+
     """
     poly_expr = polygon
-    return core.FunctionCall(dialect, "geopoly_json", poly_expr)
+    return FunctionCall(dialect, "geopoly_json", poly_expr)
 
 
 def geopoly_blob(
     dialect: "SQLiteDialect",
     polygon: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """Convert a JSON polygon definition to BLOB.
 
     Returns a BLOB containing the polygon definition.
@@ -240,13 +240,13 @@ def geopoly_blob(
     Version: SQLite 3.26.0+
     """
     poly_expr = polygon
-    return core.FunctionCall(dialect, "geopoly_blob", poly_expr)
+    return FunctionCall(dialect, "geopoly_blob", poly_expr)
 
 
 def geopoly_debug(
     dialect: "SQLiteDialect",
     polygon: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """Return text rendering of a polygon for debugging.
 
     Returns a text description of the polygon for debugging.
@@ -264,7 +264,7 @@ def geopoly_debug(
     Version: SQLite 3.26.0+
     """
     poly_expr = polygon
-    return core.FunctionCall(dialect, "geopoly_debug", poly_expr)
+    return FunctionCall(dialect, "geopoly_debug", poly_expr)
 
 
 def geopoly_svg(
@@ -275,7 +275,7 @@ def geopoly_svg(
     yscale: Optional["bases.BaseExpression"] = None,
     xoff: Optional["bases.BaseExpression"] = None,
     yoff: Optional["bases.BaseExpression"] = None,
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """Convert a polygon to SVG format.
 
     Returns a text string which is a Scalable Vector Graphics (SVG) representation
@@ -308,13 +308,13 @@ def geopoly_svg(
         args.append(xoff)
     if yoff is not None:
         args.append(yoff)
-    return core.FunctionCall(dialect, "geopoly_svg", *args)
+    return FunctionCall(dialect, "geopoly_svg", *args)
 
 
 def geopoly_bbox(
     dialect: "SQLiteDialect",
     polygon: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """Calculate the bounding box of a polygon.
 
     Returns a new polygon that is the smallest (axis-aligned) rectangle
@@ -333,13 +333,13 @@ def geopoly_bbox(
     Version: SQLite 3.26.0+
     """
     poly_expr = polygon
-    return core.FunctionCall(dialect, "geopoly_bbox", poly_expr)
+    return FunctionCall(dialect, "geopoly_bbox", poly_expr)
 
 
 def geopoly_group_bbox(
     dialect: "SQLiteDialect",
     polygon: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """Calculate the bounding box of a group of polygons (aggregate).
 
     Returns a new polygon that is the smallest (axis-aligned) rectangle
@@ -360,7 +360,7 @@ def geopoly_group_bbox(
     Version: SQLite 3.26.0+
     """
     poly_expr = polygon
-    return core.FunctionCall(dialect, "geopoly_group_bbox", poly_expr)
+    return FunctionCall(dialect, "geopoly_group_bbox", poly_expr)
 
 
 def geopoly_contains_point(
@@ -368,7 +368,7 @@ def geopoly_contains_point(
     polygon: "bases.BaseExpression",
     x: "bases.BaseExpression",
     y: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """Check if a point is inside a polygon.
 
     This is an alias for geopoly_contains().
@@ -390,7 +390,7 @@ def geopoly_contains_point(
     poly_expr = polygon
     x_expr = x
     y_expr = y
-    return core.FunctionCall(dialect, "geopoly_contains_point", poly_expr, x_expr, y_expr)
+    return FunctionCall(dialect, "geopoly_contains_point", poly_expr, x_expr, y_expr)
 
 
 def geopoly_xform(
@@ -402,7 +402,7 @@ def geopoly_xform(
     d: "bases.BaseExpression",
     e: "bases.BaseExpression",
     f: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """Transform a polygon using an affine transformation.
 
     Applies an affine transformation to the polygon using the formula:
@@ -428,7 +428,7 @@ def geopoly_xform(
     Version: SQLite 3.26.0+
     """
     poly_expr = polygon
-    return core.FunctionCall(
+    return FunctionCall(
         dialect,
         "geopoly_xform",
         poly_expr,
@@ -447,7 +447,7 @@ def geopoly_regular(
     y: "bases.BaseExpression",
     radius: "bases.BaseExpression",
     n: Union[int, "bases.BaseExpression"],
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """Create a regular polygon.
 
     Returns a regular polygon with N vertices centered at (x, y)
@@ -472,13 +472,13 @@ def geopoly_regular(
     y_expr = y
     r_expr = r
     n_expr = n
-    return core.FunctionCall(dialect, "geopoly_regular", x_expr, y_expr, r_expr, n_expr)
+    return FunctionCall(dialect, "geopoly_regular", x_expr, y_expr, r_expr, n_expr)
 
 
 def geopoly_ccw(
     dialect: "SQLiteDialect",
     polygon: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """Reorder polygon vertices to counter-clockwise order.
 
     Returns a new polygon with vertices reordered to be in counter-clockwise order.
@@ -496,13 +496,13 @@ def geopoly_ccw(
     Version: SQLite 3.26.0+
     """
     poly_expr = polygon
-    return core.FunctionCall(dialect, "geopoly_ccw", poly_expr)
+    return FunctionCall(dialect, "geopoly_ccw", poly_expr)
 
 
 def geopoly_cw(
     dialect: "SQLiteDialect",
     polygon: "bases.BaseExpression",
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """Reorder polygon vertices to clockwise order.
 
     Returns a new polygon with vertices reordered to be in clockwise order.
@@ -520,4 +520,4 @@ def geopoly_cw(
     Version: SQLite 3.26.0+
     """
     poly_expr = polygon
-    return core.FunctionCall(dialect, "geopoly_cw", poly_expr)
+    return FunctionCall(dialect, "geopoly_cw", poly_expr)

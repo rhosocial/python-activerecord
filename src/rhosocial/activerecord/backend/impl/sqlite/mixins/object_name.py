@@ -30,7 +30,7 @@ from rhosocial.activerecord.backend.dialect.mixins.schema_namespace import (
     NamespaceMixin,
 )
 from rhosocial.activerecord.backend.expression.objects import RelationObject
-from rhosocial.activerecord.backend.impl.sqlite.expression.table import SQLiteTable
+from rhosocial.activerecord.backend.impl.sqlite.expression.sources import SQLiteTable
 
 __all__ = ["SQLiteObjectNameMixin"]
 

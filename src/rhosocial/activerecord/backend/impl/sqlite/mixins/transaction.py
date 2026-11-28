@@ -8,7 +8,7 @@ This module provides the SQLiteTransactionMixin class.
 from typing import Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from rhosocial.activerecord.backend.expression.transaction import BeginTransactionStatement
+    from rhosocial.activerecord.backend.expression.statements import BeginTransactionStatement
 
 class SQLiteTransactionMixin:
     """SQLite transaction control formatting."""

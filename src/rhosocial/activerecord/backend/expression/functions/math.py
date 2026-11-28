@@ -5,10 +5,11 @@ import decimal
 from abc import abstractmethod
 from typing import Union, Optional, TYPE_CHECKING, overload
 
-from ..advanced_functions import DeclaredValueType
-from ..bases import BaseExpression
-from ..column_types import IntegerColumn, NumericColumn
-from ..core import FunctionCall, Parameter
+from ..functions.advanced_functions import DeclaredValueType
+from ..bases.bases import BaseExpression
+from ..column_types.column_types import IntegerColumn, NumericColumn
+from ..functions.function_call import FunctionCall
+from ..value_types.parameter import Parameter
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -18,7 +19,7 @@ if TYPE_CHECKING:  # pragma: no cover
 #: result depends on the input: the same call is an integer for an int column
 #: and possibly a fraction for a float one. Overloads say so in the type rather
 #: than leaving the caller to read an attribute back off the instance.
-from ..value_types import (
+from ..value_types.value_types import (
     NumericValue,
 )
 

@@ -14,7 +14,7 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 from .extension import SQLiteExtensionMixin
 
 if TYPE_CHECKING:
-    from ..expression.fts5 import (
+    from ..expression.statements.fts5 import (
         SQLiteFTS5CreateVirtualTable,
         SQLiteFTS5HighlightExpression,
         SQLiteFTS5MatchPredicate,

@@ -14,7 +14,7 @@ stays synchronous because it performs no I/O.
 from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.introspection import DDLStatementQueryStatement
+    from ....expression.introspection.introspection import DDLStatementQueryStatement
 
 
 @runtime_checkable

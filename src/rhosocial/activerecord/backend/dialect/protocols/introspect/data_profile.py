@@ -15,7 +15,7 @@ methods stay synchronous because they perform no I/O.
 from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.introspection import (
+    from ....expression.introspection.introspection import (
         ColumnDataProfileQueryStatement,
         ColumnValueSampleQueryStatement,
         JoinCoverageQueryStatement,

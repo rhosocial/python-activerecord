@@ -13,7 +13,7 @@ tested everywhere.
 import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.introspection.introspection import (
     SQLiteIndexOwnerStatement,
     SQLiteTableStorageStatement,
 )

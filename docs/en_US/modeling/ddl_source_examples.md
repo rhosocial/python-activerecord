@@ -215,7 +215,7 @@ The following snippets show the source declaration and a minimal dialect-bound r
 SQLite's dedicated types live in the core package:
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteTextType
+from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import SQLiteTextType
 
 value: Annotated[str, UseSqlType(SQLiteTextType())]
 ```

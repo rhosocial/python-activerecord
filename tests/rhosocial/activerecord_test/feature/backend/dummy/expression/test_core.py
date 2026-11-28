@@ -162,7 +162,7 @@ class TestSubquery:
     def test_subquery_from_base_expression(self, dummy_dialect: DummyDialect):
         """Test Subquery initialization with BaseExpression (has to_sql method)."""
         from rhosocial.activerecord.backend.expression.statements import QueryStatement
-        from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import WhereClause
 
         # Create a simple query expression to use as base expression
         query_expr = QueryStatement(
@@ -210,7 +210,7 @@ class TestSubquery:
         # This simulates a case where the second element of the tuple is None
         # Though in practice, SQLQueryAndParams expects a tuple, not None
         # We'll test the branch by directly checking the QueryWithParams.holds function
-        from rhosocial.activerecord.backend.expression.bases import QueryWithParams
+        from rhosocial.activerecord.backend.expression.bases.bases import QueryWithParams
 
         # Verify that QueryWithParams.holds correctly identifies the tuple format
         valid_tuple = ("SELECT * FROM table", (1, 2, 3))
@@ -299,7 +299,7 @@ class TestTableExpression:
 
     def test_format_join_clause_without_condition_raises_error(self, dummy_dialect: DummyDialect):
         """Tests that format_join_clause raises ValueError for join types that require conditions."""
-        from rhosocial.activerecord.backend.expression.query_parts import JoinClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import JoinClause
         from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
         # Create a JoinClause without using or condition (should raise error for non-CROSS joins)
@@ -320,7 +320,7 @@ class TestTableExpression:
 
     def test_format_join_clause_with_cross_join_without_condition_succeeds(self, dummy_dialect: DummyDialect):
         """Tests that format_join_clause works for CROSS JOIN without condition."""
-        from rhosocial.activerecord.backend.expression.query_parts import JoinClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import JoinClause
         from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
         # Create a JoinClause for CROSS JOIN (doesn't require a condition)
@@ -345,7 +345,7 @@ class TestTableExpression:
 
     def test_format_temporal_options_with_empty_options_raises_error(self, dummy_dialect: DummyDialect):
         """Tests that format_temporal_options_expression raises ValueError when called with empty options."""
-        from rhosocial.activerecord.backend.expression.datetime import TemporalOptionsExpression
+        from rhosocial.activerecord.backend.expression.functions.datetime import TemporalOptionsExpression
         with pytest.raises(
             ValueError,
             match=r"Temporal options cannot be empty. If no temporal options are needed, don't call format_temporal_options_expression.",  # noqa: E501

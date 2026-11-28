@@ -37,7 +37,7 @@ from rhosocial.activerecord.backend.expression.statements.ddl_partition import (
     PartitionByHashClause,
     PartitionClause,
 )
-from rhosocial.activerecord.backend.expression.core import Column
+from rhosocial.activerecord.backend.expression.column_types.column import Column
 from typing import Optional
 
 import pytest

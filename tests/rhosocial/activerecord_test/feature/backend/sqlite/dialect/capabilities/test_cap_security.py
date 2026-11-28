@@ -16,7 +16,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
     ColumnConstraint,
 )
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteTextType
+from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import SQLiteTextType
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 
@@ -44,10 +44,10 @@ def test_sqlitea_type_position_refuses_a_payload(dialect):
     from rhosocial.activerecord.backend.expression.statements import (
         AlterColumnAction,
     )
-    from rhosocial.activerecord.backend.expression.type_name import (
+    from rhosocial.activerecord.backend.expression.bases.type_name import (
         InvalidTypeNameError,
     )
-    from rhosocial.activerecord.backend.expression.xml import (
+    from rhosocial.activerecord.backend.expression.functions.xml import (
         XMLSerializeExpression,
     )
 
@@ -107,7 +107,8 @@ def test_sqlite_format_storage_options_string_escaping(dialect):
 
 def test_sqlite_format_cast_expression_valid(dialect):
     """A CAST target is a DataType, and the dialect renders what it says."""
-    from rhosocial.activerecord.backend.expression.core import CastExpression, Column
+    from rhosocial.activerecord.backend.expression.functions.cast_expression import CastExpression
+    from rhosocial.activerecord.backend.expression.column_types.column import Column
     from rhosocial.activerecord.backend.expression.types import TextType
 
     expr = CastExpression(dialect, Column(dialect, "column"), TextType(dialect))
@@ -122,7 +123,8 @@ def test_sqlite_format_cast_expression_rejects_injection(dialect):
     rendered into the statement text. That is why a string is not escaped but
     refused: there is nothing to escape it into, since it is code and not data.
     The constructor only collects it; the generic formatter validates first."""
-    from rhosocial.activerecord.backend.expression.core import CastExpression, Column
+    from rhosocial.activerecord.backend.expression.functions.cast_expression import CastExpression
+    from rhosocial.activerecord.backend.expression.column_types.column import Column
 
     expr = CastExpression(dialect, Column(dialect, "column"), "TEXT; DROP TABLE users--")
     with pytest.raises(TypeError, match="takes a DataType instance"):
@@ -177,7 +179,7 @@ def test_format_column_info_query_with_malicious_table_name(dialect):
     which makes it a table name literal, not executable SQL.
     Balanced quotes = no breakout.
     """
-    from rhosocial.activerecord.backend.expression.introspection import ColumnInfoQueryStatement
+    from rhosocial.activerecord.backend.expression.introspection.introspection import ColumnInfoQueryStatement
 
     expr = ColumnInfoQueryStatement(dialect, table_name='t"; DROP TABLE users--')
     sql, params = dialect.format_column_info_query_statement(expr)
@@ -187,7 +189,7 @@ def test_format_column_info_query_with_malicious_table_name(dialect):
 
 def test_format_column_info_query_normal_table(dialect):
     """Column info query with normal table name works."""
-    from rhosocial.activerecord.backend.expression.introspection import ColumnInfoQueryStatement
+    from rhosocial.activerecord.backend.expression.introspection.introspection import ColumnInfoQueryStatement
 
     expr = ColumnInfoQueryStatement(dialect, table_name="users")
     sql, params = dialect.format_column_info_query_statement(expr)
@@ -205,7 +207,7 @@ def test_format_index_info_query_with_malicious_table_name(dialect):
 
     DELETE appears inside the quoted identifier — verify balanced quotes.
     """
-    from rhosocial.activerecord.backend.expression.introspection import IndexInfoQueryStatement
+    from rhosocial.activerecord.backend.expression.introspection.introspection import IndexInfoQueryStatement
 
     expr = IndexInfoQueryStatement(dialect, table_name='t"; DELETE FROM users--')
     sql, params = dialect.format_index_info_query_statement(expr)
@@ -222,7 +224,7 @@ def test_format_foreign_key_query_with_malicious_table_name(dialect):
 
     DROP TABLE appears inside the quoted identifier — verify balanced quotes.
     """
-    from rhosocial.activerecord.backend.expression.introspection import ForeignKeyQueryStatement
+    from rhosocial.activerecord.backend.expression.introspection.introspection import ForeignKeyQueryStatement
 
     expr = ForeignKeyQueryStatement(dialect, table_name='t"; DROP TABLE users--')
     sql, params = dialect.format_foreign_key_query_statement(expr)

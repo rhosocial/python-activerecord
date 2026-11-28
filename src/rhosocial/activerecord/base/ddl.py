@@ -44,7 +44,7 @@ from .fields import (
     UsePartitionKey,
     UseSqlType,
 )
-from rhosocial.activerecord.backend.expression.statements.ddl_table import (
+from rhosocial.activerecord.backend.expression.statements import (
     ColumnConstraint,
     ColumnDefinition,
     CreateTableOptions,
@@ -52,7 +52,7 @@ from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     StorageOptionsExpression,
     TableConstraint,
 )
-from rhosocial.activerecord.backend.expression.statements.ddl_partition import PartitionClause
+from rhosocial.activerecord.backend.expression.statements import PartitionClause
 
 try:
     from typing import Annotated

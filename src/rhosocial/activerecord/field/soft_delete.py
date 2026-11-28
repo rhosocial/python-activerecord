@@ -22,7 +22,7 @@ from pydantic import Field
 
 from ..base.field_generation import apply_field_generators
 from ..base.fields import UseFieldGenerator
-from ..backend.expression.core import Column
+from ..backend.expression.column_types import Column
 from ..backend.expression import ComparisonPredicate, IsNullPredicate, Parameter
 from ..types import WriteOperation
 from ..interface.update import IDeleteBehavior

@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING, Any, List, Tuple
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.query_sources import CTEClause, WithStatement
+    from ...expression.sources.query_sources import CTEClause, WithStatement
 
 
 class CTEMixin:

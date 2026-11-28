@@ -10,8 +10,9 @@ identifier, not a value.
 import pytest
 
 from rhosocial.activerecord.backend.expression import Parameter
-from rhosocial.activerecord.backend.expression.core import Column, FunctionCall
-from rhosocial.activerecord.backend.expression.predicates import (
+from rhosocial.activerecord.backend.expression.column_types.column import Column
+from rhosocial.activerecord.backend.expression.functions.function_call import FunctionCall
+from rhosocial.activerecord.backend.expression.predicates.predicates import (
     BetweenPredicate,
     ComparisonPredicate,
     InPredicate,

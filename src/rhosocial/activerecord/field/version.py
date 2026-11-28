@@ -181,7 +181,8 @@ class OptimisticLockMixin(IUpdateBehavior):
         """
         if self.is_new_record:
             return []
-        from ..backend.expression.core import Column, Parameter
+        from ..backend.expression.column_types import Column
+        from ..backend.expression.value_types import Parameter
         from ..backend.expression.predicates import ComparisonPredicate
 
         backend = self.backend()

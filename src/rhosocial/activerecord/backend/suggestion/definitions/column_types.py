@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional, Type, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.column_types import ColumnBase
+    from ....expression.column_types.column_types import ColumnBase
 
 
 @dataclass(frozen=True)

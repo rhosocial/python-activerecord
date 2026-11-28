@@ -3,9 +3,9 @@
 
 from typing import Union, List, TYPE_CHECKING
 
-from ..bases import BaseExpression
-from ..core import Column
-from ..query_parts import GroupingClause
+from ..bases.bases import BaseExpression
+from ..column_types.column import Column
+from ..query_parts.query_parts import GroupingClause
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase

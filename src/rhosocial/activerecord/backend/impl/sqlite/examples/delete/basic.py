@@ -4,8 +4,8 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnPrimaryKeyConstraint,
 )
 from .....expression.objects import Table
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
-from rhosocial.activerecord.backend.expression.core import Parameter
+from rhosocial.activerecord.backend.expression.predicates.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
 from rhosocial.activerecord.backend.expression import (
     DeleteStatement,
     ReturningClause,

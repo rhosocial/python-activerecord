@@ -17,7 +17,7 @@ The split this file pins:
 # tests/rhosocial/activerecord_test/feature/query/test_string_value_operations.py
 import pytest
 
-from rhosocial.activerecord.backend.expression.value_types import TextValue
+from rhosocial.activerecord.backend.expression.value_types.value_types import TextValue
 
 from rhosocial.activerecord.backend.expression import (
     LikePredicate,

@@ -58,7 +58,7 @@ def _declares_a_formatter(cls: type) -> bool:
     sentinel on the root base means "none", and that class is not a node, so it
     is not a kind.
     """
-    from rhosocial.activerecord.backend.expression.core import BaseExpression
+    from rhosocial.activerecord.backend.expression.bases.bases import BaseExpression
 
     for klass in cls.__mro__:
         if "format_method" in vars(klass):
@@ -72,7 +72,7 @@ def _walk(pkgname: str):
     A module that fails to import is skipped rather than fatal: a backend that
     is not installed is not an error.
     """
-    from rhosocial.activerecord.backend.expression.core import BaseExpression
+    from rhosocial.activerecord.backend.expression.bases.bases import BaseExpression
 
     try:
         pkg = importlib.import_module(pkgname)
@@ -107,7 +107,7 @@ def _walk(pkgname: str):
 
 def core_kinds() -> dict[str, str]:
     """Map kind -> class name for everything core ships."""
-    from rhosocial.activerecord.backend.expression.core import Parameter
+    from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
 
     out: dict[str, str] = {}
     for pkgname in CORE_PACKAGES:
@@ -120,7 +120,7 @@ def core_kinds() -> dict[str, str]:
 
 def backend_kinds(name: str) -> dict[str, dict]:
     """Map kind -> its relation to core, for one backend."""
-    from rhosocial.activerecord.backend.expression.core import Parameter
+    from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
 
     spec = BACKENDS[name]
     core = core_kinds()

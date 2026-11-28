@@ -16,15 +16,15 @@ import datetime
 import pytest
 
 from rhosocial.activerecord.backend.expression import functions as datetime_functions
-from rhosocial.activerecord.backend.expression.value_types import (
+from rhosocial.activerecord.backend.expression.value_types.value_types import (
     NumericValue,
     TemporalValue,
 )
-from rhosocial.activerecord.backend.expression.datetime import (
+from rhosocial.activerecord.backend.expression.functions.datetime import (
     DatetimeAddExpression,
     DatetimeSubtractExpression,
 )
-from rhosocial.activerecord.backend.expression.operators import ArithmeticOperation
+from rhosocial.activerecord.backend.expression.operators.operators import ArithmeticOperation
 
 
 @pytest.fixture
@@ -260,7 +260,7 @@ def test_an_interval_is_a_span_and_not_a_point(dialect):
     which made the whole gate unreachable. The marker it asks about now is one
     the interval node carries.
     """
-    from rhosocial.activerecord.backend.expression.mixins import IntervalMixin
+    from rhosocial.activerecord.backend.expression.bases.mixins import IntervalMixin
 
     interval = datetime_functions.interval(dialect, 1, "day")
     assert isinstance(interval, IntervalMixin)

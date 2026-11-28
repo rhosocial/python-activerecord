@@ -11,7 +11,7 @@ from typing import Optional
 
 from ....expression.types import CustomType, DataType
 from ....textscan import integer_runs, leading_word, parenthesised
-from ..expression.types import (
+from ..expression.types.types import (
     SQLiteBlobType, SQLiteIntegerType, SQLiteNumericType, SQLiteRealType, SQLiteTextType,
 )
 

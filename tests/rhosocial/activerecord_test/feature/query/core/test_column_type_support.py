@@ -48,7 +48,7 @@ class ColumnTypeMixin:
     def suggest_extra_column_types(self): return ExtraColumnTypeSuggestion(table={})
 
 from rhosocial.activerecord.backend.suggestion.protocols import ColumnTypeSuggestionSupport
-from rhosocial.activerecord.backend.expression.column_types import (
+from rhosocial.activerecord.backend.expression.column_types.column_types import (
     ArrayColumn,
     ColumnBase,
     TimestampColumn,
@@ -305,7 +305,7 @@ def test_sqlite_answers_exactly_the_framework_types():
     promise only the column surface (alias, null tests, casting, collation),
     which SQLite does execute on a value it stores as text or JSON.
     """
-    from rhosocial.activerecord.backend.expression.column_types import (
+    from rhosocial.activerecord.backend.expression.column_types.column_types import (
         BitStringColumn,
         GeometryColumn,
         IntervalColumn,

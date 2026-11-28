@@ -4,16 +4,18 @@
 from abc import abstractmethod
 from typing import Union, Optional, Any, TYPE_CHECKING
 
-from ..advanced_functions import DeclaredValueType
-from ..bases import BaseExpression
-from ..column_types import annotation_for
-from ..core import Column, FunctionCall, Parameter
+from ..functions.advanced_functions import DeclaredValueType
+from ..bases.bases import BaseExpression
+from ..column_types.column_types import annotation_for
+from ..column_types.column import Column
+from ..functions.function_call import FunctionCall
+from ..value_types.parameter import Parameter
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-from ..value_types import NumericValue
+from ..value_types.value_types import NumericValue
 
 
 def _typed(call: FunctionCall, target: BaseExpression):
@@ -23,7 +25,7 @@ def _typed(call: FunctionCall, target: BaseExpression):
     string answers with a string, over a float with a number. The column class
     already says which, so it is read off the class rather than off an attribute
     duplicating it -- see
-    :func:`~...expression.column_types.annotation_for`.
+    :func:`~...expression.column_types.column_types.annotation_for`.
 
     ``ROW_NUMBER``, ``RANK`` and ``DENSE_RANK`` are the exception -- they count
     or place rows rather than borrow a value, and are always whole numbers -- so

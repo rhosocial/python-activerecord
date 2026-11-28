@@ -8,7 +8,7 @@ Targets all to_sql() delegation methods and IntrospectionExpression base.
 
 import pytest
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.expression.introspection import (
+from rhosocial.activerecord.backend.expression.introspection.introspection import (
     IntrospectionExpression,
     DatabaseInfoQueryStatement,
     TableListQueryStatement,
@@ -211,7 +211,7 @@ class TestSqliteTableCountToSql:
     """Cover SQLiteTableCountStatement.to_sql() delegation."""
 
     def test_counts_tables_of_the_default_database(self, sqlite_dialect):
-        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
+        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection.introspection import (
             SQLiteTableCountStatement,
         )
 
@@ -224,7 +224,7 @@ class TestSqliteTableCountToSql:
         assert params == ()
 
     def test_names_the_database_it_counts(self, sqlite_dialect):
-        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
+        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection.introspection import (
             SQLiteTableCountStatement,
         )
 
@@ -239,7 +239,7 @@ class TestSqliteTableDdlToSql:
     """Cover SQLiteTableDdlStatement.to_sql() delegation."""
 
     def test_reads_the_stored_statement(self, sqlite_dialect):
-        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
+        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection.introspection import (
             SQLiteTableDdlStatement,
         )
 
@@ -252,7 +252,7 @@ class TestSqliteTableDdlToSql:
         assert params == ("users", "users")
 
     def test_names_the_database_it_reads(self, sqlite_dialect):
-        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
+        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection.introspection import (
             SQLiteTableDdlStatement,
         )
 
@@ -267,7 +267,7 @@ class TestSqliteIndexDdlToSql:
     """Cover SQLiteIndexDdlStatement.to_sql() delegation."""
 
     def test_reads_the_stored_statement(self, sqlite_dialect):
-        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
+        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection.introspection import (
             SQLiteIndexDdlStatement,
         )
 
@@ -279,7 +279,7 @@ class TestSqliteIndexDdlToSql:
         assert params == ("idx_users_email",)
 
     def test_names_the_database_it_reads(self, sqlite_dialect):
-        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
+        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection.introspection import (
             SQLiteIndexDdlStatement,
         )
 

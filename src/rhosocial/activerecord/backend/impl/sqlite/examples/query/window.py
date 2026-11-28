@@ -4,7 +4,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnPrimaryKeyConstraint,
 )
 from .....expression.objects import Table
-from rhosocial.activerecord.backend.expression.advanced_functions import (  # noqa: E402
+from rhosocial.activerecord.backend.expression.functions.advanced_functions import (  # noqa: E402
     WindowSpecification,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
@@ -15,7 +15,7 @@ from rhosocial.activerecord.backend.expression import (
     OrderByClause,
 )
 from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
-from rhosocial.activerecord.backend.expression.core import Parameter
+from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableStatement,
     InsertStatement,

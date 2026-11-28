@@ -1,6 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite/dialect/expressions/test_expr_operators.py
 from rhosocial.activerecord.backend.expression import Column, Parameter
-from rhosocial.activerecord.backend.expression.operators import (
+from rhosocial.activerecord.backend.expression.operators.operators import (
     SQLOperation,
     BinaryExpression,
     UnaryExpression,

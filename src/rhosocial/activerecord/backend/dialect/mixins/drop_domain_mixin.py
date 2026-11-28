@@ -3,7 +3,7 @@
 
 from typing import Tuple, Type, TYPE_CHECKING
 from rhosocial.activerecord.backend.expression.objects import Domain
-from rhosocial.activerecord.backend.expression.statements.ddl_domain import DomainAlterAction, DomainCheckConstraint, DomainNullability
+from rhosocial.activerecord.backend.expression.statements import DomainAlterAction, DomainCheckConstraint, DomainNullability
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 class DropDomainMixin:

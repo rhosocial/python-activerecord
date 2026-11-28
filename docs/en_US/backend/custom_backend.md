@@ -300,7 +300,7 @@ class JSONSupport(Protocol):
 # Backend-specific options belong to the formatter, not to the capability
 # probe and not to the expression node: JSONTableExpression takes the
 # generic arguments only.
-from rhosocial.activerecord.backend.expression.query_sources import (
+from rhosocial.activerecord.backend.expression.sources.query_sources import (
     JSONTableColumn,
     JSONTableExpression,
 )
@@ -509,7 +509,7 @@ from typing import List, Optional
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.expression import AliasableMixin, SQLValue
-from rhosocial.activerecord.backend.expression.mixins import ComparisonMixin
+from rhosocial.activerecord.backend.expression.bases.mixins import ComparisonMixin
 
 
 class MatchAgainstExpression(AliasableMixin, ComparisonMixin, SQLValue):

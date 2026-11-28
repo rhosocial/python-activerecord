@@ -1,6 +1,6 @@
 # src/rhosocial/activerecord/backend/expression/statements/fulltext_match.py
 from typing import List, Optional
-from ..core import BaseExpression
+from ..bases.bases import BaseExpression
 
 
 class FulltextMatch(BaseExpression):

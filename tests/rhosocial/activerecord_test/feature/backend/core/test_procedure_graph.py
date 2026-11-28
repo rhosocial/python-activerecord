@@ -363,7 +363,7 @@ class TestProcedureGraphRunner:
 
     def test_runner_executes_expression_step(self, mock_dialect, mock_backend):
         """Test runner executes EXPRESSION step."""
-        from rhosocial.activerecord.backend.expression.executable import Executable
+        from rhosocial.activerecord.backend.expression.statements.executable import Executable
         from rhosocial.activerecord.backend.schema import StatementType
 
         mock_dialect.name = "sqlite"
@@ -387,7 +387,7 @@ class TestProcedureGraphRunner:
 
     def test_runner_dry_run_mode(self, mock_dialect, mock_backend):
         """Test runner dry_run mode."""
-        from rhosocial.activerecord.backend.expression.executable import Executable
+        from rhosocial.activerecord.backend.expression.statements.executable import Executable
         from rhosocial.activerecord.backend.schema import StatementType
 
         mock_dialect.name = "sqlite"
@@ -410,7 +410,7 @@ class TestProcedureGraphRunner:
 
     def test_runner_step_fails(self, mock_dialect, mock_backend):
         """Test runner handles step failure."""
-        from rhosocial.activerecord.backend.expression.executable import Executable
+        from rhosocial.activerecord.backend.expression.statements.executable import Executable
         from rhosocial.activerecord.backend.schema import StatementType
 
         mock_dialect.name = "sqlite"
@@ -432,7 +432,7 @@ class TestProcedureGraphRunner:
 
     def test_runner_multiple_waves(self, mock_dialect, mock_backend):
         """Test runner executes multiple waves."""
-        from rhosocial.activerecord.backend.expression.executable import Executable
+        from rhosocial.activerecord.backend.expression.statements.executable import Executable
         from rhosocial.activerecord.backend.schema import StatementType
 
         mock_dialect.name = "sqlite"
@@ -476,7 +476,7 @@ class TestAsyncProcedureGraphRunner:
 
     async def test_async_runner_executes_graph(self, mock_dialect, mock_backend):
         """Test async runner executes graph."""
-        from rhosocial.activerecord.backend.expression.executable import Executable
+        from rhosocial.activerecord.backend.expression.statements.executable import Executable
         from rhosocial.activerecord.backend.schema import StatementType
         from unittest.mock import AsyncMock
 
@@ -502,7 +502,7 @@ class TestAsyncProcedureGraphRunner:
 
     async def test_async_runner_dry_run(self, mock_dialect, mock_backend):
         """Test async runner dry run mode."""
-        from rhosocial.activerecord.backend.expression.executable import Executable
+        from rhosocial.activerecord.backend.expression.statements.executable import Executable
         from rhosocial.activerecord.backend.schema import StatementType
         from unittest.mock import AsyncMock
 
@@ -528,7 +528,7 @@ class TestAsyncProcedureGraphRunner:
 
     async def test_async_runner_skip_condition(self, mock_dialect, mock_backend):
         """Test async runner skips steps with false condition."""
-        from rhosocial.activerecord.backend.expression.executable import Executable
+        from rhosocial.activerecord.backend.expression.statements.executable import Executable
         from rhosocial.activerecord.backend.schema import StatementType
         from unittest.mock import AsyncMock
 
@@ -566,7 +566,7 @@ class TestAsyncProcedureGraphRunner:
 
     async def test_async_runner_multiple_waves(self, mock_dialect, mock_backend):
         """Test async runner executes multiple waves."""
-        from rhosocial.activerecord.backend.expression.executable import Executable
+        from rhosocial.activerecord.backend.expression.statements.executable import Executable
         from rhosocial.activerecord.backend.schema import StatementType
         from unittest.mock import AsyncMock
 

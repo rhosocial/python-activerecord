@@ -230,8 +230,8 @@ from rhosocial.activerecord.backend.expression import (
     StringColumn,
 )
 from rhosocial.activerecord.backend.expression.objects import Table
-from rhosocial.activerecord.backend.expression.query_parts import WhereClause
-from rhosocial.activerecord.backend.expression.query_sources import CTEClause, WithStatement
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import WhereClause
+from rhosocial.activerecord.backend.expression.sources.query_sources import CTEClause, WithStatement
 from rhosocial.activerecord.backend.expression.statements import QueryStatement
 
 backend.execute("CREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INTEGER, status TEXT)")

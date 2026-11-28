@@ -8,14 +8,14 @@ JOIN, and table-function source expressions into dialect SQL.
 from typing import TYPE_CHECKING, Tuple
 
 from rhosocial.activerecord.backend.expression.query_parts import JoinType
-from rhosocial.activerecord.backend.expression.query_sources import LateralExpression
+from rhosocial.activerecord.backend.expression.sources import LateralExpression
 
 from ..exceptions import UnsupportedFeatureError
 from ...textscan import split_top_level
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression import bases
-    from ...expression.query_parts import JoinClause
+    from ...expression.query_parts.query_parts import JoinClause
 
 
 def _is_ascii_name_char(char: str) -> bool:
@@ -71,7 +71,7 @@ class LateralJoinMixin:
         return False
 
     def format_lateral_expression(self, expr: "LateralExpression") -> "Tuple[str, tuple]":
-        """Format a :class:`~...expression.query_sources.LateralExpression` node.
+        """Format a :class:`~...expression.sources.query_sources.LateralExpression` node.
 
         Args:
             expr: The LateralExpression node containing the joined expression,
@@ -100,7 +100,7 @@ class LateralJoinMixin:
         return sql, expr_params
 
     def format_table_function_expression(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
-        """Format a :class:`~...expression.query_sources.TableFunctionExpression` node.
+        """Format a :class:`~...expression.sources.query_sources.TableFunctionExpression` node.
 
         Args:
             expr: The TableFunctionExpression node containing the function
@@ -122,7 +122,7 @@ class LateralJoinMixin:
 
         cols_sql = ""
         if column_names:
-            from ...expression.query_sources import TableFunctionExpression
+            from ...expression.sources.query_sources import TableFunctionExpression
 
             column_types = (
                 expr.column_types if isinstance(expr, TableFunctionExpression) else []

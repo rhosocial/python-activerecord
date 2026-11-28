@@ -5,7 +5,7 @@ import pytest
 from rhosocial.activerecord.backend.dialect import LateralJoinMixin, SQLDialectBase
 from rhosocial.activerecord.backend.dialect.mixins.expression import ExpressionMixin
 from rhosocial.activerecord.backend.expression import Parameter
-from rhosocial.activerecord.backend.expression.query_sources import TableFunctionExpression
+from rhosocial.activerecord.backend.expression.sources.query_sources import TableFunctionExpression
 
 
 class JoinDialect(SQLDialectBase, LateralJoinMixin, ExpressionMixin):

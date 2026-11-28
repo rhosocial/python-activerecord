@@ -8,7 +8,7 @@ queries. Each function takes the dialect it was resolved against and returns a
 """
 
 from rhosocial.activerecord.backend.expression import Column, Parameter
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.predicates.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.expression.statements.dql import (
     LimitOffsetClause,
     QueryStatement,

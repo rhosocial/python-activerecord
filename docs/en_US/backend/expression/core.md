@@ -31,7 +31,7 @@ This section details the fundamental building blocks of the Expression System, i
 
 ## Base Classes
 
-The expression system is built on a hierarchy of abstract base classes defined in `rhosocial.activerecord.backend.expression.bases`.
+The expression system is built on a hierarchy of abstract base classes defined in `rhosocial.activerecord.backend.expression.bases.bases`.
 
 ### ToSQLProtocol
 
@@ -99,7 +99,8 @@ class BaseExpression:
 `SQLPredicate` represents an expression that evaluates to a boolean value (e.g., `WHERE` conditions). It mixes in `LogicalMixin` to support `&` (AND), `|` (OR), and `~` (NOT) operators.
 
 ```python
-from rhosocial.activerecord.backend.expression import bases, mixins
+from rhosocial.activerecord.backend.expression import bases
+from rhosocial.activerecord.backend.expression.bases import mixins
 
 class SQLPredicate(mixins.LogicalMixin, BaseExpression):
     pass
@@ -116,7 +117,7 @@ class SQLValue(BaseExpression):
 
 ## Core Components
 
-The `rhosocial.activerecord.backend.expression.core` module defines the fundamental building blocks of SQL queries.
+The fundamental building blocks of SQL queries now live in the family namespaces of `rhosocial.activerecord.backend.expression`: parameters and wildcards in `value_types`, column references in `column_types`, calls and casts in `functions`, and subqueries in `sources`.
 
 ### Parameter
 
@@ -543,7 +544,7 @@ sub = Subquery(dialect, query, alias="sub")
 
 ## Operators and Expressions
 
-The `rhosocial.activerecord.backend.expression.operators` module provides classes for various SQL operations.
+The `rhosocial.activerecord.backend.expression.operators.operators` module provides classes for various SQL operations.
 
 ### Identifier
 
@@ -626,7 +627,7 @@ print(inspect.signature(RawSQL.__init__))
 Represents a raw SQL string as a predicate (boolean condition).
 
 ```python
-from rhosocial.activerecord.backend.expression.operators import RawSQLPredicate
+from rhosocial.activerecord.backend.expression.operators.operators import RawSQLPredicate
 
 # Example: Raw SQL condition
 pred = RawSQLPredicate(dialect, "EXISTS (SELECT 1 FROM log WHERE log.user_id = users.id)")
@@ -634,11 +635,11 @@ pred = RawSQLPredicate(dialect, "EXISTS (SELECT 1 FROM log WHERE log.user_id = u
 
 ## COLLATE Expressions
 
-`CollateFunction` (defined in `rhosocial.activerecord.backend.expression.collation`) applies an explicit collation to a SQL value expression.
+`CollateFunction` (defined in `rhosocial.activerecord.backend.expression.functions.collation`) applies an explicit collation to a SQL value expression.
 
 ```python
 from rhosocial.activerecord.backend.expression import Column
-from rhosocial.activerecord.backend.expression.collation import collate
+from rhosocial.activerecord.backend.expression.functions.collation import collate
 
 # Basic usage: give a column a collation
 expr = collate(Column(dialect, "name"), "Chinese_PRC_CI_AS")

@@ -23,7 +23,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnUniqueConstraint,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import (
     SQLiteIntegerType,
     SQLiteNumericType,
     SQLiteTextType,

@@ -10,7 +10,7 @@ from ..exceptions import UnsupportedFeatureError
 from ...expression import bases
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.advanced_functions import JSONDocumentValue
+    from ...expression.functions.advanced_functions import JSONDocumentValue
 
 
 class JSONMixin:
@@ -64,7 +64,7 @@ class JSONMixin:
                 at all, or if arrow mode is requested but arrow operators are
                 not supported.
         """
-        from ...expression.advanced_functions import JSONPathMode
+        from ...expression.functions.advanced_functions import JSONPathMode
 
         # A dialect whose server has no way to read a JSON path must not be
         # handed JSON SQL. The docstring below has always promised this
@@ -191,7 +191,7 @@ class JSONMixin:
         return sql, params
 
     def format_json_table_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
-        """Format a :class:`~...expression.query_sources.JSONTableExpression` node.
+        """Format a :class:`~...expression.sources.query_sources.JSONTableExpression` node.
 
         Args:
             expr: The JSONTableExpression node with JSON column, path, column

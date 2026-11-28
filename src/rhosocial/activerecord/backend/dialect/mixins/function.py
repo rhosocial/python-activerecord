@@ -31,7 +31,7 @@ class FunctionCallMixin():
         Every argument must be an expression: a bare value fails to render
         rather than being turned into a bind parameter here, because the
         renderer does not decide what a caller meant. A value goes through
-        :class:`~...expression.core.Parameter` at the call site.
+        :class:`~...expression.value_types.parameter.Parameter` at the call site.
 
         The first thing it does is refuse a call this dialect's version
         predates (:meth:`~.base.SQLDialectBase.check_function_version`), so a
@@ -51,7 +51,8 @@ class FunctionCallMixin():
                 functions, or the dialect records a version floor for this
                 function that its version is below.
         """
-        from ...expression import core, operators
+        from ...expression import operators
+        from ...expression.value_types.wildcards import RowCountWildcard
         from ..protocols import FilterClauseSupport, WindowFunctionSupport
 
         self.check_function_version(expr.func_name)
@@ -61,7 +62,7 @@ class FunctionCallMixin():
             and len(expr.args) == 1
             and (
                 (isinstance(expr.args[0], operators.RawSQL) and expr.args[0].expression == "*")
-                or isinstance(expr.args[0], core.RowCountWildcard)
+                or isinstance(expr.args[0], RowCountWildcard)
             )
         ):
             args_sql = ["*"]
@@ -174,7 +175,7 @@ class FunctionCallMixin():
 
     def format_json_arrayagg_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``JSON_ARRAYAGG([DISTINCT] value)``."""
-        from rhosocial.activerecord.backend.expression.core import RowCountWildcard
+        from rhosocial.activerecord.backend.expression.value_types import RowCountWildcard
 
         if isinstance(expr.operand, RowCountWildcard):
             operand_sql, operand_params = "*", ()
@@ -385,7 +386,7 @@ class FunctionCallMixin():
 
     def format_array_agg_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``ARRAY_AGG([DISTINCT] operand)``."""
-        from rhosocial.activerecord.backend.expression.core import RowCountWildcard
+        from rhosocial.activerecord.backend.expression.value_types import RowCountWildcard
 
         if isinstance(expr.operand, RowCountWildcard):
             operand_sql, operand_params = "*", ()
@@ -400,7 +401,7 @@ class FunctionCallMixin():
 
     def format_count_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``COUNT(*)`` or ``COUNT([DISTINCT] operand)``."""
-        from rhosocial.activerecord.backend.expression.core import RowCountWildcard
+        from rhosocial.activerecord.backend.expression.value_types import RowCountWildcard
 
         if isinstance(expr.operand, RowCountWildcard):
             operand_sql, operand_params = "*", ()
@@ -415,7 +416,7 @@ class FunctionCallMixin():
 
     def format_sum_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``SUM([DISTINCT] operand)``."""
-        from rhosocial.activerecord.backend.expression.core import RowCountWildcard
+        from rhosocial.activerecord.backend.expression.value_types import RowCountWildcard
 
         if isinstance(expr.operand, RowCountWildcard):
             operand_sql, operand_params = "*", ()
@@ -430,7 +431,7 @@ class FunctionCallMixin():
 
     def format_avg_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``AVG([DISTINCT] operand)``."""
-        from rhosocial.activerecord.backend.expression.core import RowCountWildcard
+        from rhosocial.activerecord.backend.expression.value_types import RowCountWildcard
 
         if isinstance(expr.operand, RowCountWildcard):
             operand_sql, operand_params = "*", ()
@@ -445,7 +446,7 @@ class FunctionCallMixin():
 
     def format_min_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``MIN([DISTINCT] operand)``."""
-        from rhosocial.activerecord.backend.expression.core import RowCountWildcard
+        from rhosocial.activerecord.backend.expression.value_types import RowCountWildcard
 
         if isinstance(expr.operand, RowCountWildcard):
             operand_sql, operand_params = "*", ()
@@ -460,7 +461,7 @@ class FunctionCallMixin():
 
     def format_max_function(self, expr: "bases.BaseExpression") -> "Tuple[str, tuple]":
         """Render ``MAX([DISTINCT] operand)``."""
-        from rhosocial.activerecord.backend.expression.core import RowCountWildcard
+        from rhosocial.activerecord.backend.expression.value_types import RowCountWildcard
 
         if isinstance(expr.operand, RowCountWildcard):
             operand_sql, operand_params = "*", ()

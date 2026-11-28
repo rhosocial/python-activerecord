@@ -98,7 +98,7 @@ class TestLiteralClaimsNoType:
         assert not hasattr(lit, "sqrt")
 
     def test_not_a_sql_value(self):
-        from rhosocial.activerecord.backend.expression.bases import SQLValue
+        from rhosocial.activerecord.backend.expression.bases.bases import SQLValue
         assert not isinstance(Parameter(_dummy_dialect(), 7), SQLValue)
 
 

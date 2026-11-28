@@ -15,7 +15,7 @@ Targets:
 from rhosocial.activerecord.backend.schema import StatementType
 from rhosocial.activerecord.backend.expression import Column, Parameter
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.predicates.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.expression.statements.dml import (
     InsertStatement,
     UpdateStatement,
@@ -30,7 +30,7 @@ from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
     ChangeColumnAction,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_table import ColumnDefinition
-from rhosocial.activerecord.backend.expression.transaction import BeginTransactionStatement
+from rhosocial.activerecord.backend.expression.statements.transaction import BeginTransactionStatement
 from rhosocial.activerecord.backend.expression.types import VarCharType
 from rhosocial.activerecord.backend.expression.objects import Table
 

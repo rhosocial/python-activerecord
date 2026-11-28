@@ -12,7 +12,7 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     AlterTableStatement,
     ColumnDefinition,
 )
-from rhosocial.activerecord.backend.expression.core import Parameter
+from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableStatement,
     InsertStatement,

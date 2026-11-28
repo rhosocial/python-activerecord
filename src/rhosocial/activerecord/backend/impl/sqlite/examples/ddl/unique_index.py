@@ -6,7 +6,8 @@ from rhosocial.activerecord.backend.expression.statements import (
 from .....expression.objects import Table
 from rhosocial.activerecord.backend.expression import CreateIndexStatement
 from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
-from rhosocial.activerecord.backend.expression.core import Parameter, AllColumnsWildcard
+from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
+from rhosocial.activerecord.backend.expression.value_types.wildcards import AllColumnsWildcard
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     CreateTableStatement,

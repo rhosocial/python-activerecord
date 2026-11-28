@@ -57,8 +57,10 @@ def test_format_function_call_filter_path_in_fresh_interpreter():
     body = (
         "import rhosocial.activerecord.backend.dialect.mixins.function  # noqa: F401\n"
         "from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect\n"
-        "from rhosocial.activerecord.backend.expression.core import FunctionCall, Column, Parameter\n"
-        "from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate\n"
+        "from rhosocial.activerecord.backend.expression.functions.function_call import FunctionCall\n"
+        "from rhosocial.activerecord.backend.expression.column_types.column import Column\n"
+        "from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter\n"
+        "from rhosocial.activerecord.backend.expression.predicates.predicates import ComparisonPredicate\n"
         "\n"
         "d = DummyDialect()\n"
         "call = FunctionCall(d, 'SUM', Column(d, 'amount'))\n"

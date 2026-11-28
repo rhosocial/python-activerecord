@@ -28,7 +28,7 @@ below are not quoting *rules*; they are a per-reference request that the dialect
 may decline, and the dialect remains the only thing that knows how to honour one.
 
 *Schema objects are expressions.* They derive from
-:class:`~rhosocial.activerecord.backend.expression.bases.BaseExpression` like
+:class:`~rhosocial.activerecord.backend.expression.bases.bases.BaseExpression` like
 every other node in the tree, which is what lets a statement hold one as an
 ordinary child and render it without knowing what it is.
 
@@ -43,7 +43,7 @@ nothing else in the tree touches a keyword, a separator or a quote.
 
 from typing import Optional, TYPE_CHECKING
 
-from ..bases import BaseExpression
+from ..bases.bases import BaseExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase

@@ -11,7 +11,7 @@ import pytest
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression import Column, Parameter, QueryStatement, WhereClause
 from rhosocial.activerecord.backend.expression.objects import View
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.predicates.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.expression.statements import (
     CreateViewStatement,
     DropViewStatement,

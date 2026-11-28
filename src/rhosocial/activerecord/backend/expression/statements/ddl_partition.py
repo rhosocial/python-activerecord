@@ -21,7 +21,7 @@ PARTITION OF``) simply do not use the definition nodes.
 
 from typing import Optional, Sequence, TYPE_CHECKING, Union
 
-from ..bases import BaseExpression
+from ..bases.bases import BaseExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase

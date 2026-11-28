@@ -27,7 +27,7 @@ from rhosocial.activerecord.backend.expression import Parameter
 from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
     AlterColumnAction,
 )
-from rhosocial.activerecord.backend.expression.type_name import (
+from rhosocial.activerecord.backend.expression.bases.type_name import (
     InvalidTypeNameError,
     MULTI_WORD_TYPE_NAMES,
     is_valid_type_name,
@@ -39,7 +39,7 @@ from rhosocial.activerecord.backend.expression.types import (
     TextType,
     VarCharType,
 )
-from rhosocial.activerecord.backend.expression.xml import (
+from rhosocial.activerecord.backend.expression.functions.xml import (
     XMLSerializeExpression,
     XMLTableColumn,
     XMLTableExpression,

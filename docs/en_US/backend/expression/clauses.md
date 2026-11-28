@@ -1,6 +1,6 @@
 # Query Clauses
 
-This document details the classes in `rhosocial.activerecord.backend.expression.query_parts` that represent specific SQL query clauses. These classes collect parameters and delegate SQL generation to the backend dialect.
+This document details the classes in `rhosocial.activerecord.backend.expression.query_parts.query_parts` that represent specific SQL query clauses. These classes collect parameters and delegate SQL generation to the backend dialect.
 
 ## JoinType
 
@@ -8,7 +8,7 @@ Enumeration of SQL JOIN types. The stored value is the bare word (`inner`,
 `left`, ...); the dialect spells the JOIN keyword.
 
 ```python
-from rhosocial.activerecord.backend.expression.query_parts import JoinType
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import JoinType
 
 # The member value is the bare word; the dialect spells the JOIN keyword
 for member in JoinType:
@@ -21,7 +21,7 @@ Represents a `WHERE` clause in a SQL query.
 
 ```python
 import inspect
-from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import WhereClause
 
 # The constructor and and_() as the library declares them
 print(inspect.signature(WhereClause.__init__))
@@ -35,7 +35,7 @@ from rhosocial.activerecord.backend.expression import (
     Column, ComparisonOperator, ComparisonPredicate, IntegerColumn, Parameter,
     StringColumn,
 )
-from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import WhereClause
 
 # WHERE status = 'active' -- a typed column wraps the plain value in a Parameter
 where_clause = WhereClause(
@@ -70,7 +70,7 @@ Represents combined `GROUP BY` and `HAVING` clauses. Enforces the rule that `HAV
 
 ```python
 import inspect
-from rhosocial.activerecord.backend.expression.query_parts import GroupByHavingClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import GroupByHavingClause
 
 print(inspect.signature(GroupByHavingClause.__init__))
 ```
@@ -79,7 +79,7 @@ print(inspect.signature(GroupByHavingClause.__init__))
 
 ```python
 from rhosocial.activerecord.backend.expression import Column, FunctionCall
-from rhosocial.activerecord.backend.expression.query_parts import GroupByHavingClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import GroupByHavingClause
 
 # GROUP BY category HAVING COUNT(id) > 5
 group_clause = GroupByHavingClause(
@@ -98,7 +98,7 @@ Represents an `ORDER BY` clause.
 
 ```python
 import inspect
-from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
 print(inspect.signature(OrderByClause.__init__))
 ```
@@ -107,7 +107,7 @@ print(inspect.signature(OrderByClause.__init__))
 
 ```python
 from rhosocial.activerecord.backend.expression import Column
-from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
 # ORDER BY created_at DESC, name ASC
 order_by = OrderByClause(
@@ -128,7 +128,7 @@ Represents `LIMIT` and `OFFSET` clauses.
 
 ```python
 import inspect
-from rhosocial.activerecord.backend.expression.query_parts import LimitOffsetClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import LimitOffsetClause
 
 print(inspect.signature(LimitOffsetClause.__init__))
 ```
@@ -136,7 +136,7 @@ print(inspect.signature(LimitOffsetClause.__init__))
 ### Usage
 
 ```python
-from rhosocial.activerecord.backend.expression.query_parts import LimitOffsetClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import LimitOffsetClause
 
 # LIMIT 10 OFFSET 20
 limit_clause = LimitOffsetClause(dialect, limit=10, offset=20)
@@ -151,7 +151,7 @@ Represents a `QUALIFY` clause (used in databases like Snowflake/BigQuery to filt
 
 ```python
 import inspect
-from rhosocial.activerecord.backend.expression.query_parts import QualifyClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import QualifyClause
 
 print(inspect.signature(QualifyClause.__init__))
 ```
@@ -160,7 +160,7 @@ print(inspect.signature(QualifyClause.__init__))
 
 ```python
 from rhosocial.activerecord.backend.expression import FunctionCall
-from rhosocial.activerecord.backend.expression.query_parts import QualifyClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import QualifyClause
 
 # QUALIFY ROW_NUMBER() <= 3
 row_number_func = FunctionCall(dialect, "ROW_NUMBER")
@@ -179,7 +179,7 @@ Represents a `FOR UPDATE` locking clause.
 
 ```python
 import inspect
-from rhosocial.activerecord.backend.expression.query_parts import ForUpdateClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import ForUpdateClause
 
 print(inspect.signature(ForUpdateClause.__init__))
 ```
@@ -188,7 +188,7 @@ print(inspect.signature(ForUpdateClause.__init__))
 
 ```python
 from rhosocial.activerecord.backend.expression import Column
-from rhosocial.activerecord.backend.expression.query_parts import ForUpdateClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import ForUpdateClause
 
 # FOR UPDATE OF "users" NOWAIT
 lock_clause = ForUpdateClause(
@@ -207,7 +207,7 @@ Represents a `JOIN` clause. Supports chaining.
 
 ```python
 import inspect
-from rhosocial.activerecord.backend.expression.query_parts import JoinClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import JoinClause
 
 print(inspect.signature(JoinClause.__init__))
 for name in ("join", "inner_join", "left_join", "right_join", "full_join", "cross_join"):
@@ -221,7 +221,7 @@ from rhosocial.activerecord.backend.expression import (
     Column, ComparisonOperator, ComparisonPredicate, NamedRelationRef,
 )
 from rhosocial.activerecord.backend.expression.objects import Table
-from rhosocial.activerecord.backend.expression.query_parts import JoinClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import JoinClause
 
 # users JOIN orders ON users.id = orders.user_id
 join_expr = JoinClause(
@@ -262,7 +262,7 @@ Represents grouping operations like `ROLLUP`, `CUBE`.
 
 ```python
 import inspect
-from rhosocial.activerecord.backend.expression.query_parts import GroupingClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import GroupingClause
 
 print(inspect.signature(GroupingClause.__init__))
 ```
@@ -271,7 +271,7 @@ print(inspect.signature(GroupingClause.__init__))
 
 ```python
 from rhosocial.activerecord.backend.expression import Column
-from rhosocial.activerecord.backend.expression.query_parts import GroupingClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import GroupingClause
 
 # ROLLUP("year", "month")
 rollup = GroupingClause(

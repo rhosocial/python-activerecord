@@ -1,7 +1,7 @@
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnPrimaryKeyConstraint,
 )
-from rhosocial.activerecord.backend.impl.sqlite.expression.auto_increment import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.query_parts import (
     SQLiteAutoIncrementClause,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
@@ -16,7 +16,7 @@ This module provides the SQLiteDDLColumnMixin class.
 
 
 if TYPE_CHECKING:  # pragma: no cover
-    from rhosocial.activerecord.backend.expression.statements.ddl_table import (
+    from rhosocial.activerecord.backend.expression.statements import (
         ColumnPrimaryKeyConstraint,
         ColumnDefinition,
         DefaultValueClause,
@@ -62,7 +62,7 @@ class SQLiteDDLColumnMixin:
         bare scalar at construction, so the bool is read out of the literal
         rather than off the clause.
         """
-        from rhosocial.activerecord.backend.expression.core import Parameter
+        from rhosocial.activerecord.backend.expression.value_types import Parameter
 
         value = expr.value
         if isinstance(value, Parameter):
@@ -129,7 +129,7 @@ class SQLiteDDLColumnMixin:
         constraint. A suggestion applied to any other column used to be dropped
         without a word, leaving a key that does not autoincrement and no trace.
         """
-        from rhosocial.activerecord.backend.expression.types.integer import (
+        from rhosocial.activerecord.backend.expression.types import (
             IntegerType,
         )
 

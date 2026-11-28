@@ -9,7 +9,7 @@ from typing import Any, List, Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:
-    from ..expression.fts5 import SQLiteFTS5MatchPredicate
+    from ..expression.statements.fts5 import SQLiteFTS5MatchPredicate
     from rhosocial.activerecord.backend.expression.statements import InsertStatement, ReturningClause
 
 class SQLiteDMLMixin:

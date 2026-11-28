@@ -8,7 +8,7 @@ import sys
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Type
 
 from ..backend.expression import Column, ComparisonPredicate, Parameter
-from ..backend.expression.collect_columns import referenced_columns
+from ..backend.expression.bases import referenced_columns
 from ..query import (
     ActiveQuery,
     AsyncActiveQuery,

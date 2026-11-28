@@ -11,7 +11,7 @@ import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.errors import UnsupportedTransactionModeError
-from rhosocial.activerecord.backend.expression.transaction import BeginTransactionStatement
+from rhosocial.activerecord.backend.expression.statements.transaction import BeginTransactionStatement
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.transaction import IsolationLevel, TransactionMode
 

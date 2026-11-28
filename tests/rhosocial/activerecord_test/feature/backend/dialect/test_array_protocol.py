@@ -36,7 +36,7 @@ def test_no_array_dialect_does_not_support_features():
 def test_format_array_expression_behavior():
     """Test that format_array_expression behaves appropriately in no-array dialect."""
     from unittest.mock import MagicMock
-    from rhosocial.activerecord.backend.expression.advanced_functions import ArrayOperation
+    from rhosocial.activerecord.backend.expression.functions.advanced_functions import ArrayOperation
 
     dialect = NoArrayDialect()
 

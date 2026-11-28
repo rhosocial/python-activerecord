@@ -4,7 +4,7 @@
 from typing import Tuple
 
 from ...expression import bases
-from ...expression.mixins import AliasableMixin
+from ...expression.bases.mixins import AliasableMixin
 from ..protocols.family import FunctionCallSupport, PredicateSupport, DateTimeSupport, RelationSourceSupport
 
 

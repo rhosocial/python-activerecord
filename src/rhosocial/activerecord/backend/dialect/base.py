@@ -284,7 +284,7 @@ class SQLDialectBase:
 
         Names match case-insensitively: the core and backend factories spell
         them lower-case, the renderer spells them upper, and a caller may hand
-        either to a :class:`~...expression.core.FunctionCall`.
+        either to a :class:`~...expression.functions.function_call.FunctionCall`.
 
         Args:
             func_name: The function name as the expression carries it.
@@ -496,7 +496,7 @@ class SQLDialectBase:
             escaped = self.escape_sql_string(expr)
             return f"'{escaped}'"
         # Level 3: the expr type defines its own literal construction.
-        from ..expression.bases import SQLLiteral
+        from ..expression.bases.bases import SQLLiteral
 
         if isinstance(expr, SQLLiteral):
             text = expr.__sql_literal__(self)

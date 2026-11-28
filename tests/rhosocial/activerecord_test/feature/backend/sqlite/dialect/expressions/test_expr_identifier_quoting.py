@@ -23,7 +23,7 @@ from rhosocial.activerecord.backend.expression import (
     QualifiedIdentifier,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.literals import Identifier
+from rhosocial.activerecord.backend.expression.value_types.literals import Identifier
 from rhosocial.activerecord.backend.impl.dummy.backend import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.objects import Table

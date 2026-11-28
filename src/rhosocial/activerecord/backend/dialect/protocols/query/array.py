@@ -9,7 +9,7 @@ tests enforce.
 from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.advanced_functions import ArrayValue
+    from ....expression.functions.advanced_functions import ArrayValue
 
 
 @runtime_checkable

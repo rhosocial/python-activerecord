@@ -1,6 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy/expression/test_operators.py
 from rhosocial.activerecord.backend.expression import Column, Parameter, FunctionCall, NumericColumn
-from rhosocial.activerecord.backend.expression.operators import (
+from rhosocial.activerecord.backend.expression.operators.operators import (
     SQLOperation,
     BinaryExpression,
     UnaryExpression,
@@ -376,7 +376,7 @@ class TestRawSQLPredicate:
 
     def test_raw_sql_predicate_is_predicate_subclass(self, dummy_dialect: DummyDialect):
         """Test that RawSQLPredicate is indeed a subclass of SQLPredicate."""
-        from rhosocial.activerecord.backend.expression.bases import SQLPredicate
+        from rhosocial.activerecord.backend.expression.bases.bases import SQLPredicate
 
         raw_predicate = RawSQLPredicate(dummy_dialect, "age > 18")
 

@@ -35,7 +35,7 @@ from enum import Enum
 from functools import lru_cache
 from typing import Dict, Mapping, Optional, Set, Tuple, Type
 
-from ..expression.bases import BaseExpression
+from ..expression.bases.bases import BaseExpression
 
 
 def _fqn(expr_class: Type[BaseExpression]) -> str:

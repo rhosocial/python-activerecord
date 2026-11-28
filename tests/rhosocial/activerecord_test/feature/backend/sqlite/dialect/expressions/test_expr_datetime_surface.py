@@ -5,8 +5,8 @@ import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression import Column, Parameter
-from rhosocial.activerecord.backend.expression.collation import CollateFunction
-from rhosocial.activerecord.backend.expression.datetime import (
+from rhosocial.activerecord.backend.expression.functions.collation import CollateFunction
+from rhosocial.activerecord.backend.expression.functions.datetime import (
     DateTruncExpression,
     ExtractExpression,
 )

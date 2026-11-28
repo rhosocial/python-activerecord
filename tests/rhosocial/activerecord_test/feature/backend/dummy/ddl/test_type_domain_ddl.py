@@ -301,7 +301,7 @@ def test_domain_ddl_carries_bind_parameters_the_caller_left(dummy_dialect):
     with a placeholder and carries the value in ``params``.  A value the
     caller marked inline renders as escaped text and binds nothing.
     """
-    from rhosocial.activerecord.backend.expression.operators import RawSQLPredicate
+    from rhosocial.activerecord.backend.expression.operators.operators import RawSQLPredicate
 
     condition = ComparisonPredicate(
         dummy_dialect, "=", DomainValueExpression(dummy_dialect), RawSQLPredicate(dummy_dialect, "1", (1,))

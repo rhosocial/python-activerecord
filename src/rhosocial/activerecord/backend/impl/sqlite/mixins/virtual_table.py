@@ -10,8 +10,8 @@ from typing import Tuple, TYPE_CHECKING
 from .extension import SQLiteExtensionMixin
 
 if TYPE_CHECKING:
-    from ..expression.fts5 import SQLiteFTS5MatchPredicate
-    from ..expression.virtual_table import SQLiteCreateVirtualTableStatement, SQLiteDropVirtualTableStatement
+    from ..expression.statements.fts5 import SQLiteFTS5MatchPredicate
+    from ..expression.statements.virtual_table import SQLiteCreateVirtualTableStatement, SQLiteDropVirtualTableStatement
 
 
 class SQLiteVirtualTableMixin(SQLiteExtensionMixin):

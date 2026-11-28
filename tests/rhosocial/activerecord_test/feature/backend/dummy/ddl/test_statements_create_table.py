@@ -32,7 +32,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     DataTypeMixin,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import WhereClause
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.dialect import protocols as dialect_protocols
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError

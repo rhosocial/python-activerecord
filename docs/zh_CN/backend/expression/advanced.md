@@ -136,7 +136,7 @@ PostgreSQL dialect 会自动使用 `::` 语法生成更简洁的 SQL。
 from rhosocial.activerecord.backend.expression import (
     Column, FunctionCall, Parameter, WindowSpecification,
 )
-from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
 # 定义窗口规范
 window_spec = WindowSpecification(
@@ -217,7 +217,7 @@ sql, params = with_query.to_sql()
 
 ```python
 from rhosocial.activerecord.backend.expression import Subquery
-from rhosocial.activerecord.backend.expression.query_sources import (
+from rhosocial.activerecord.backend.expression.sources.query_sources import (
     SetOperation, SetOperationKind,
 )
 

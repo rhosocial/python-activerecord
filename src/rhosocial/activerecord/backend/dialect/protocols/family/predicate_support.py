@@ -2,8 +2,21 @@
 """Protocol mirror of PredicateMixin (family-level feature group). Members/order/signatures identical."""
 
 from typing import TYPE_CHECKING, Any, List, Tuple
-from rhosocial.activerecord.backend.expression.advanced_functions import AllPredicate, AnyPredicate, ExistsPredicate
-from rhosocial.activerecord.backend.expression.predicates import BetweenPredicate, ComparisonPredicate, DistinctFromPredicate, InPredicate, IsBooleanPredicate, IsNullPredicate, LikePredicate, LogicalPredicate
+from rhosocial.activerecord.backend.expression.functions import (
+    AllPredicate,
+    AnyPredicate,
+    ExistsPredicate,
+)
+from rhosocial.activerecord.backend.expression.predicates import (
+    BetweenPredicate,
+    ComparisonPredicate,
+    DistinctFromPredicate,
+    InPredicate,
+    IsBooleanPredicate,
+    IsNullPredicate,
+    LikePredicate,
+    LogicalPredicate,
+)
 from typing import runtime_checkable, Protocol
 
 

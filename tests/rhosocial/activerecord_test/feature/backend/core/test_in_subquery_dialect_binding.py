@@ -20,7 +20,7 @@ The other construction sites all bind: ``query_sources.py`` builds
 dialect down twice. So the unbound node was an outlier rather than a policy,
 and there is nothing for a dialect to opt out of.
 
-The bare :class:`~...expression.core.Column` is a reference and carries no
+The bare :class:`~...expression.column_types.column.Column` is a reference and carries no
 ``in_()``, so the query layer builds this predicate explicitly -- see
 ``_in_predicate`` in ``rhosocial.activerecord.query.range``, which the helper
 below mirrors branch for branch.
@@ -32,8 +32,11 @@ expression tree having changed in between.
 
 import pytest
 
-from rhosocial.activerecord.backend.expression.core import BaseExpression, Column, Parameter, Subquery
-from rhosocial.activerecord.backend.expression.predicates import InPredicate
+from rhosocial.activerecord.backend.expression.bases.bases import BaseExpression
+from rhosocial.activerecord.backend.expression.column_types.column import Column
+from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
+from rhosocial.activerecord.backend.expression.sources.subquery import Subquery
+from rhosocial.activerecord.backend.expression.predicates.predicates import InPredicate
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 

@@ -25,7 +25,7 @@ class UUIDMixin(IDataPreparationBehavior):
     its own primary key in the same transaction without a round trip, and it
     works unchanged on backends with no UUID function (SQLite has none). A
     model that would rather let the database generate the value can render
-    :class:`~...expression.uuid.UUIDGenerationExpression` into a column default
+    :class:`~...expression.functions.uuid.UUIDGenerationExpression` into a column default
     instead — the two approaches are independent.
 
     The field is annotated ``uuid.UUID`` and left to normal type inference for

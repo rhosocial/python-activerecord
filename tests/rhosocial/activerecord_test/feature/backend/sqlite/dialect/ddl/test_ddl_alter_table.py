@@ -14,7 +14,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnPrimaryKeyConstraint,
 )
 from rhosocial.activerecord.backend.expression.objects import Table
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteTextType
+from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import SQLiteIntegerType, SQLiteTextType
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.introspection.types import ColumnNullable
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
@@ -319,7 +319,7 @@ class TestActionDialectBinding:
 
     def test_action_isinstance_tosql_protocol(self, sqlite_backend):
         """Action should satisfy ToSQLProtocol."""
-        from rhosocial.activerecord.backend.expression.bases import ToSQLProtocol
+        from rhosocial.activerecord.backend.expression.bases.bases import ToSQLProtocol
 
         action = AddColumnAction(
             sqlite_backend.dialect,

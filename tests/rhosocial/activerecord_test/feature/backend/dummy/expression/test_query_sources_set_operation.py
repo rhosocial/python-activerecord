@@ -1,7 +1,7 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy/expression/test_query_sources_set_operation.py
 from rhosocial.activerecord.backend.expression import Column, Subquery, QueryStatement
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.query_sources import SetOperation
+from rhosocial.activerecord.backend.expression.sources.query_sources import SetOperation
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.objects import Table
 

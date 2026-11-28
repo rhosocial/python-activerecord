@@ -19,8 +19,8 @@ because each is self-consistent.
 
 import pytest
 
-from rhosocial.activerecord.backend.expression import core as C
-from rhosocial.activerecord.backend.expression.bases import BaseExpression
+from rhosocial.activerecord.backend.expression import Column, QualifiedIdentifier
+from rhosocial.activerecord.backend.expression.bases.bases import BaseExpression
 from rhosocial.activerecord.backend.expression.objects.base import SchemaObject
 from rhosocial.activerecord.backend.expression.objects.relation import Table
 from rhosocial.activerecord.backend.expression.sources.relation import NamedRelationRef
@@ -59,12 +59,12 @@ class TestEveryFlagIsCheckedAtConstruction:
         for flag in ("name_need_quote", "alias_need_quote",
                      "schema_need_quote", "table_need_quote"):
             with pytest.raises(TypeError, match=flag):
-                C.Column(dialect, "id", **{flag: None})
+                Column(dialect, "id", **{flag: None})
 
     def test_identifier_flags(self, dialect):
         for flag in ("name_need_quote", "schema_need_quote"):
             with pytest.raises(TypeError, match=flag):
-                C.QualifiedIdentifier(dialect, "u", **{flag: None})
+                QualifiedIdentifier(dialect, "u", **{flag: None})
 
     def test_schema_object_flags(self, dialect):
         for flag in ("catalog_need_quote", "schema_need_quote", "name_need_quote"):
@@ -80,17 +80,17 @@ class TestNormalUseIsUntouched:
     """The check is on the way in; nothing about the ordinary path changes."""
 
     def test_defaults_quote_every_position(self, dialect):
-        column = C.Column(dialect, "id", table="users", alias="pk")
+        column = Column(dialect, "id", table="users", alias="pk")
         assert column.name_need_quote is True
         assert column.table_need_quote is True
         assert column.alias_need_quote is True
         assert column.to_sql()[0] == '"users"."id" AS "pk"'
 
     def test_false_still_writes_the_identifier_bare(self, dialect):
-        assert C.Column(dialect, "plain", name_need_quote=False).to_sql()[0] == "plain"
+        assert Column(dialect, "plain", name_need_quote=False).to_sql()[0] == "plain"
 
     def test_each_position_answers_for_itself(self, dialect):
-        column = C.Column(dialect, "id", table="users", table_need_quote=False)
+        column = Column(dialect, "id", table="users", table_need_quote=False)
         assert column.to_sql()[0] == 'users."id"'
 
     def test_an_integer_zero_is_not_a_false(self, dialect):
@@ -100,4 +100,4 @@ class TestNormalUseIsUntouched:
         quote.
         """
         with pytest.raises(TypeError):
-            C.Column(dialect, "id", name_need_quote=0)
+            Column(dialect, "id", name_need_quote=0)

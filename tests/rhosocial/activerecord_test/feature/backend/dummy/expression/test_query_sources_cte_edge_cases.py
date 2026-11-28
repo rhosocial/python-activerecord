@@ -1,5 +1,5 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy/expression/test_query_sources_cte_edge_cases.py
-from rhosocial.activerecord.backend.expression.query_sources import CTEClause
+from rhosocial.activerecord.backend.expression.sources.query_sources import CTEClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 

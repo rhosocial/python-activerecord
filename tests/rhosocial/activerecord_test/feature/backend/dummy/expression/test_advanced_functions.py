@@ -5,7 +5,7 @@ Tests for the advanced SQL function expression components in advanced_functions.
 
 from rhosocial.activerecord.backend.expression.functions import cast
 from rhosocial.activerecord.backend.expression import Column, Parameter, NumericColumn, StringColumn
-from rhosocial.activerecord.backend.expression.advanced_functions import (
+from rhosocial.activerecord.backend.expression.functions.advanced_functions import (
     CaseExpression,
     ExistsPredicate,
     AnyPredicate,
@@ -14,7 +14,8 @@ from rhosocial.activerecord.backend.expression.advanced_functions import (
     ArrayOperation,
     OrderedSetAggregation,
 )
-from rhosocial.activerecord.backend.expression.core import FunctionCall, Subquery
+from rhosocial.activerecord.backend.expression.functions.function_call import FunctionCall
+from rhosocial.activerecord.backend.expression.sources.subquery import Subquery
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.types import IntegerType
 
@@ -226,7 +227,7 @@ class TestOrderedSetAggregation:
     def test_ordered_set_aggregation_basic(self, dummy_dialect: DummyDialect):
         """Test basic ordered-set aggregation functionality."""
         args = [Column(dummy_dialect, "value")]
-        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
         order_by = OrderByClause(dummy_dialect, [Column(dummy_dialect, "sort_col")])
         ordered_agg = OrderedSetAggregation(dummy_dialect, "PERCENTILE_CONT", args, order_by)
@@ -237,7 +238,7 @@ class TestOrderedSetAggregation:
     def test_ordered_set_aggregation_with_alias(self, dummy_dialect: DummyDialect):
         """Test ordered-set aggregation with alias."""
         args = [Parameter(dummy_dialect, 0.5), Column(dummy_dialect, "value")]
-        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
         order_by = OrderByClause(dummy_dialect, [Column(dummy_dialect, "category"), Column(dummy_dialect, "name")])
         ordered_agg = OrderedSetAggregation(dummy_dialect, "PERCENTILE_DISC", args, order_by, alias="percentile")
@@ -261,7 +262,7 @@ class TestWindowClasses:
 
     def test_window_frame_specification(self, dummy_dialect: DummyDialect):
         """Test WindowFrameSpecification functionality."""
-        from rhosocial.activerecord.backend.expression.advanced_functions import WindowFrameSpecification
+        from rhosocial.activerecord.backend.expression.functions.advanced_functions import WindowFrameSpecification
 
         frame = WindowFrameSpecification(dummy_dialect, "ROWS", "UNBOUNDED PRECEDING", "CURRENT ROW")
         sql, params = frame.to_sql()
@@ -269,8 +270,8 @@ class TestWindowClasses:
 
     def test_window_specification(self, dummy_dialect: DummyDialect):
         """Test WindowSpecification functionality."""
-        from rhosocial.activerecord.backend.expression.advanced_functions import WindowSpecification
-        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        from rhosocial.activerecord.backend.expression.functions.advanced_functions import WindowSpecification
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
         partition_cols = [Column(dummy_dialect, "department")]
         order_by_clause = OrderByClause(dummy_dialect, [(Column(dummy_dialect, "salary"), "DESC")])
@@ -280,7 +281,10 @@ class TestWindowClasses:
 
     def test_window_definition(self, dummy_dialect: DummyDialect):
         """Test WindowDefinition functionality."""
-        from rhosocial.activerecord.backend.expression.advanced_functions import WindowSpecification, WindowDefinition
+        from rhosocial.activerecord.backend.expression.functions.advanced_functions import (
+            WindowSpecification,
+            WindowDefinition,
+        )
 
         partition_cols = [Column(dummy_dialect, "department")]
         window_spec = WindowSpecification(dummy_dialect, partition_by=partition_cols)
@@ -290,7 +294,7 @@ class TestWindowClasses:
 
     def test_window_clause(self, dummy_dialect: DummyDialect):
         """Test WindowClause functionality."""
-        from rhosocial.activerecord.backend.expression.advanced_functions import (
+        from rhosocial.activerecord.backend.expression.functions.advanced_functions import (
             WindowSpecification,
             WindowDefinition,
             WindowClause,
@@ -305,7 +309,7 @@ class TestWindowClasses:
 
     def test_window_function_call(self, dummy_dialect: DummyDialect):
         """Test FunctionCall with a window specification."""
-        from rhosocial.activerecord.backend.expression.advanced_functions import WindowSpecification
+        from rhosocial.activerecord.backend.expression.functions.advanced_functions import WindowSpecification
 
         partition_cols = [Column(dummy_dialect, "department")]
         window_spec = WindowSpecification(dummy_dialect, partition_by=partition_cols)

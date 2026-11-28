@@ -1,6 +1,6 @@
 # .../mixins/returning_mixin.py
 """Mixin for ReturningSupport. Members/order/signature mirror the protocol."""
-from ...expression.core import Subquery
+from ...expression.sources.subquery import Subquery
 from ..exceptions import UnsupportedFeatureError
 
 from typing import Any, List, Tuple
@@ -74,10 +74,12 @@ class ReturningMixin:
                 UnsupportedFeatureError: If a requested RETURNING feature is not
                     supported by this dialect.
             """
-            from ...expression.column_types import ColumnBase
-            from ...expression.core import AllColumnsWildcard, FunctionCall, Subquery
+            from ...expression.column_types.column_types import ColumnBase
+            from ...expression.value_types.wildcards import AllColumnsWildcard
+            from ...expression.functions.function_call import FunctionCall
+            from ...expression.sources.subquery import Subquery
             from ...expression.functions.aggregate import AggregateFunction
-            from ...expression.operators import RawSQL
+            from ...expression.operators.operators import RawSQL
 
             all_params: List[Any] = []
             expr_parts: List[str] = []

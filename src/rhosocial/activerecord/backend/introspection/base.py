@@ -66,7 +66,7 @@ from .types import (
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect.base import SQLDialectBase
-    from ..expression.introspection import (
+    from ..expression.introspection.introspection import (
         ColumnDataProfileQueryStatement,
         ColumnInfoQueryStatement,
         ColumnValueSampleQueryStatement,
@@ -184,7 +184,7 @@ class IntrospectorBase(IntrospectorMixin, ABC):
 
     def database_info_statement(self) -> "DatabaseInfoQueryStatement":
         """Return the statement that asks for database information."""
-        from ..expression.introspection import DatabaseInfoQueryStatement
+        from ..expression.introspection.introspection import DatabaseInfoQueryStatement
 
         # Databases that identify themselves by schema (MySQL's database
         # name, for one) need the default schema on the statement. Every
@@ -203,7 +203,7 @@ class IntrospectorBase(IntrospectorMixin, ABC):
         table_type: Optional[str] = None,
     ) -> "TableListQueryStatement":
         """Return the statement that lists tables, views and system tables."""
-        from ..expression.introspection import TableListQueryStatement
+        from ..expression.introspection.introspection import TableListQueryStatement
 
         target_schema = schema if schema is not None else self.default_schema
         return TableListQueryStatement(
@@ -231,7 +231,7 @@ class IntrospectorBase(IntrospectorMixin, ABC):
         cannot be answered without them says so at its call site rather than
         changing the default for everyone.
         """
-        from ..expression.introspection import ColumnInfoQueryStatement
+        from ..expression.introspection.introspection import ColumnInfoQueryStatement
 
         target_schema = schema if schema is not None else self.default_schema
         return ColumnInfoQueryStatement(
@@ -248,7 +248,7 @@ class IntrospectorBase(IntrospectorMixin, ABC):
         schema: Optional[str],
     ) -> "IndexInfoQueryStatement":
         """Return the statement that asks for a table's indexes."""
-        from ..expression.introspection import IndexInfoQueryStatement
+        from ..expression.introspection.introspection import IndexInfoQueryStatement
 
         target_schema = schema if schema is not None else self.default_schema
         return IndexInfoQueryStatement(
@@ -262,7 +262,7 @@ class IntrospectorBase(IntrospectorMixin, ABC):
         schema: Optional[str],
     ) -> "ForeignKeyQueryStatement":
         """Return the statement that asks for a table's foreign keys."""
-        from ..expression.introspection import ForeignKeyQueryStatement
+        from ..expression.introspection.introspection import ForeignKeyQueryStatement
 
         target_schema = schema if schema is not None else self.default_schema
         return ForeignKeyQueryStatement(
@@ -276,7 +276,7 @@ class IntrospectorBase(IntrospectorMixin, ABC):
         include_system: bool,
     ) -> "ViewListQueryStatement":
         """Return the statement that lists views."""
-        from ..expression.introspection import ViewListQueryStatement
+        from ..expression.introspection.introspection import ViewListQueryStatement
 
         target_schema = schema if schema is not None else self.default_schema
         return ViewListQueryStatement(
@@ -290,7 +290,7 @@ class IntrospectorBase(IntrospectorMixin, ABC):
         schema: Optional[str],
     ) -> "ViewInfoQueryStatement":
         """Return the statement that asks for one view's information."""
-        from ..expression.introspection import ViewInfoQueryStatement
+        from ..expression.introspection.introspection import ViewInfoQueryStatement
 
         target_schema = schema if schema is not None else self.default_schema
         return ViewInfoQueryStatement(
@@ -304,7 +304,7 @@ class IntrospectorBase(IntrospectorMixin, ABC):
         table_name: Optional[str] = None,
     ) -> "TriggerListQueryStatement":
         """Return the statement that lists triggers, optionally one table's."""
-        from ..expression.introspection import TriggerListQueryStatement
+        from ..expression.introspection.introspection import TriggerListQueryStatement
 
         target_schema = schema if schema is not None else self.default_schema
         return TriggerListQueryStatement(
@@ -322,7 +322,7 @@ class IntrospectorBase(IntrospectorMixin, ABC):
         filter by table would have to invent a filter its statistics cannot
         honour.
         """
-        from ..expression.introspection import UnusedIndexesQueryStatement
+        from ..expression.introspection.introspection import UnusedIndexesQueryStatement
 
         target_schema = schema if schema is not None else self.default_schema
         return UnusedIndexesQueryStatement(self.dialect, schema=target_schema)
@@ -337,7 +337,7 @@ class IntrospectorBase(IntrospectorMixin, ABC):
         answer: a per-table form would invite looping the catalogue one table
         at a time.
         """
-        from ..expression.introspection import TableUsageStatsQueryStatement
+        from ..expression.introspection.introspection import TableUsageStatsQueryStatement
 
         target_schema = schema if schema is not None else self.default_schema
         return TableUsageStatsQueryStatement(self.dialect, schema=target_schema)
@@ -351,7 +351,7 @@ class IntrospectorBase(IntrospectorMixin, ABC):
         the server, so a filter that does not apply to them is worse than no
         filter.
         """
-        from ..expression.introspection import RuntimeMetricsQueryStatement
+        from ..expression.introspection.introspection import RuntimeMetricsQueryStatement
 
         target_schema = schema if schema is not None else self.default_schema
         return RuntimeMetricsQueryStatement(self.dialect, schema=target_schema)
@@ -365,7 +365,7 @@ class IntrospectorBase(IntrospectorMixin, ABC):
         all at once and the shape of "is this index worth its space" is a
         question about the set of them.
         """
-        from ..expression.introspection import IndexUsageStatsQueryStatement
+        from ..expression.introspection.introspection import IndexUsageStatsQueryStatement
 
         target_schema = schema if schema is not None else self.default_schema
         return IndexUsageStatsQueryStatement(self.dialect, schema=target_schema)
@@ -379,7 +379,7 @@ class IntrospectorBase(IntrospectorMixin, ABC):
         breaks if I drop this" question and the reason the parameter exists;
         omitted, the answer is the whole graph.
         """
-        from ..expression.introspection import ObjectDependencyQueryStatement
+        from ..expression.introspection.introspection import ObjectDependencyQueryStatement
 
         target_schema = schema if schema is not None else self.default_schema
         return ObjectDependencyQueryStatement(
@@ -398,7 +398,7 @@ class IntrospectorBase(IntrospectorMixin, ABC):
         Always about one object: a DDL text is large, and the question "what
         did this get created as" is always asked of a specific thing.
         """
-        from ..expression.introspection import DDLStatementQueryStatement
+        from ..expression.introspection.introspection import DDLStatementQueryStatement
 
         target_schema = schema if schema is not None else self.default_schema
         return DDLStatementQueryStatement(
@@ -422,7 +422,7 @@ class IntrospectorBase(IntrospectorMixin, ABC):
         than read a catalogue -- see the expression's own docstring for why
         those cannot do without it.
         """
-        from ..expression.introspection import ColumnDataProfileQueryStatement
+        from ..expression.introspection.introspection import ColumnDataProfileQueryStatement
 
         target_schema = schema if schema is not None else self.default_schema
         return ColumnDataProfileQueryStatement(
@@ -444,7 +444,7 @@ class IntrospectorBase(IntrospectorMixin, ABC):
         is the expression's own; see
         :data:`~...introspection.defaults.VALUE_SAMPLE_LIMIT`.
         """
-        from ..expression.introspection import ColumnValueSampleQueryStatement
+        from ..expression.introspection.introspection import ColumnValueSampleQueryStatement
 
         target_schema = schema if schema is not None else self.default_schema
         return ColumnValueSampleQueryStatement(
@@ -470,7 +470,7 @@ class IntrospectorBase(IntrospectorMixin, ABC):
         objects rather than a fact about one -- the only family here of that
         shape.
         """
-        from ..expression.introspection import JoinCoverageQueryStatement
+        from ..expression.introspection.introspection import JoinCoverageQueryStatement
 
         target_schema = schema if schema is not None else self.default_schema
         return JoinCoverageQueryStatement(

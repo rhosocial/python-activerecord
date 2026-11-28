@@ -20,8 +20,8 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import Column, FunctionCall
 from rhosocial.activerecord.backend.expression import functions as F
-from rhosocial.activerecord.backend.expression.column_types import annotation_for
-from rhosocial.activerecord.backend.expression.declared import (
+from rhosocial.activerecord.backend.expression.column_types.column_types import annotation_for
+from rhosocial.activerecord.backend.expression.column_types.declared import (
     ArrayAnnotation,
     BinaryAnnotation,
     BooleanAnnotation,

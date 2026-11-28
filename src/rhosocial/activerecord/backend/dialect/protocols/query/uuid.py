@@ -9,7 +9,7 @@ tests enforce.
 from typing import Protocol, TYPE_CHECKING, Tuple, runtime_checkable
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.uuid import (
+    from ....expression.functions.uuid import (
         UUIDCastFunction,
         UUIDConstantExpression,
         UUIDGenerationExpression,

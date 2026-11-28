@@ -3,18 +3,16 @@
 
 from typing import Union, Optional, TYPE_CHECKING
 
-from ..advanced_functions import DeclaredValueType
-from ..bases import BaseExpression
-from ..core import (
-    Column,
-    Parameter,
-)
+from ..functions.advanced_functions import DeclaredValueType
+from ..bases.bases import BaseExpression
+from ..column_types.column import Column
+from ..value_types.parameter import Parameter
 from .aggregate import AggregateFunction
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
-from ..value_types import (
+from ..value_types.value_types import (
     ArrayValue,
     NumericValue,
 )
@@ -32,7 +30,7 @@ class UnnestFunction(
 
 
     def __init__(self, dialect: "SQLDialectBase", target):
-        from ..core import Parameter
+        from ..value_types.parameter import Parameter
 
         # BaseExpression directly, not super(): the value class is a *wrapper*
         # whose __init__ takes the call it delegates to, and this node has no
@@ -61,7 +59,7 @@ class ArrayLengthFunction(
 
 
     def __init__(self, dialect: "SQLDialectBase", target, dimension=None):
-        from ..core import Parameter
+        from ..value_types.parameter import Parameter
 
         # BaseExpression directly, not super(): the value class is a *wrapper*
         # whose __init__ takes the call it delegates to, and this node has no
@@ -92,7 +90,7 @@ class ArrayAggregateFunction(
     """``ARRAY_AGG(operand)`` -- the rows gathered into one array.
 
     An aggregate, so it carries ``DISTINCT`` and the window and filter clauses an
-    aggregate takes; :class:`~...expression.advanced_functions.AggregateFunction`
+    aggregate takes; :class:`~...expression.functions.advanced_functions.AggregateFunction`
     holds those.
 
     The result is an array whatever the gathered values were, which is why the

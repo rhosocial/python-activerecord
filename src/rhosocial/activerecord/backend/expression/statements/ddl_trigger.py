@@ -4,8 +4,10 @@
 from enum import Enum
 from typing import List, Optional, TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLPredicate
-from ..objects import Function, Table, Trigger
+from ..bases.bases import BaseExpression, SQLPredicate
+from rhosocial.activerecord.backend.expression.objects.relation import Table
+from rhosocial.activerecord.backend.expression.objects.routine import Function
+from rhosocial.activerecord.backend.expression.objects.trigger import Trigger
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase

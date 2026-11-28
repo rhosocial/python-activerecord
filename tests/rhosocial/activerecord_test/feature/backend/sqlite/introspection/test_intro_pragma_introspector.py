@@ -372,7 +372,7 @@ class TestPragmaSQLGeneration:
         assert sql == "PRAGMA journal_mode = WAL"
 
     def test_set_quotes_a_value_that_is_not_a_token(self, dialect):
-        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
+        from rhosocial.activerecord.backend.impl.sqlite.expression.introspection.introspection import (
             SQLitePragmaSetStatement,
         )
 

@@ -2,7 +2,7 @@
 """Dialect-level introspection probes and the PRAGMA argument spelling."""
 
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.introspection.introspection import (
     SQLitePragmaSetStatement,
 )
 from rhosocial.activerecord.backend.introspection.types import IntrospectionScope

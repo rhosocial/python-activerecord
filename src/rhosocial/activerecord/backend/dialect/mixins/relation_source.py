@@ -25,9 +25,9 @@ are engine-specific and default to unsupported.
 
 from typing import Any, List, Tuple, Union, TYPE_CHECKING
 
-from ...expression.bases import BaseExpression
+from ...expression.bases.bases import BaseExpression
 from ...expression.objects import RelationObject
-from ...expression.query_sources import JSONTableColumn
+from ...expression.sources.query_sources import JSONTableColumn
 from ..protocols.family import FunctionCallSupport, PredicateSupport, DateTimeSupport, RelationSourceSupport
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -41,7 +41,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ValuesTableSource,
         XmlTableSource,
     )
-    from ...expression.xml import XMLTableColumn
+    from ...expression.functions.xml import XMLTableColumn
 
 __all__ = ["RelationSourceMixin"]
 
@@ -109,7 +109,7 @@ class RelationSourceMixin():
         name_sql, params = expr.relation.to_sql()
 
         if expr.temporal_options:
-            from ...expression.datetime import TemporalOptionsExpression
+            from ...expression.functions.datetime import TemporalOptionsExpression
 
             temporal = self.format_temporal_options_expression(
                 TemporalOptionsExpression(self, expr.temporal_options)
@@ -166,7 +166,7 @@ class RelationSourceMixin():
         resolves the two forms in one place rather than in each renderer.
 
         Args:
-            expr: A :class:`~...expression.bases.BaseExpression`, or the
+            expr: A :class:`~...expression.bases.bases.BaseExpression`, or the
                 name of a column holding the expr.
 
         Returns:

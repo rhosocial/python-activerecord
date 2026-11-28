@@ -44,7 +44,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Tuple, Union
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.bases import BaseExpression
+    from ...expression.bases.bases import BaseExpression
     from ...expression.statements.ddl_partition import PartitionClause
     from ...expression.statements.ddl_table import (
         ColumnDefinition,

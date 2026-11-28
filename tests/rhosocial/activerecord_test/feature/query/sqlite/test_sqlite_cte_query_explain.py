@@ -15,7 +15,7 @@ from decimal import Decimal
 from typing import List, Dict, Any
 
 from rhosocial.activerecord.query import CTEQuery, AsyncCTEQuery
-from rhosocial.activerecord.backend.expression import statements, core, StringColumn
+from rhosocial.activerecord.backend.expression import Column, Parameter, StringColumn, statements
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
@@ -235,10 +235,10 @@ class TestSqliteCTEQueryExplain:
 
         query_expr = statements.QueryStatement(
             dialect,
-            select=[core.Column(dialect, "id"), core.Column(dialect, "status"), core.Column(dialect, "total_amount")],
+            select=[Column(dialect, "id"), Column(dialect, "status"), Column(dialect, "total_amount")],
             from_=NamedRelationRef(dialect, Table(dialect, Order.table_name())),
             where=query_parts.WhereClause(
-                dialect, condition=StringColumn(dialect, "status") == core.Parameter(dialect, "active")
+                dialect, condition=StringColumn(dialect, "status") == Parameter(dialect, "active")
             ),
         )
 
@@ -530,10 +530,10 @@ class TestAsyncSqliteCTEQueryExplain:
 
         query_expr = statements.QueryStatement(
             dialect,
-            select=[core.Column(dialect, "id"), core.Column(dialect, "status"), core.Column(dialect, "total_amount")],
+            select=[Column(dialect, "id"), Column(dialect, "status"), Column(dialect, "total_amount")],
             from_=NamedRelationRef(dialect, Table(dialect, AsyncOrder.table_name())),
             where=query_parts.WhereClause(
-                dialect, condition=StringColumn(dialect, "status") == core.Parameter(dialect, "active")
+                dialect, condition=StringColumn(dialect, "status") == Parameter(dialect, "active")
             ),
         )
 

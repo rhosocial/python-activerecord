@@ -7,7 +7,7 @@ from rhosocial.activerecord.backend.expression import (
     QueryStatement,
     NumericColumn,)
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.query_sources import CTEClause, WithStatement
+from rhosocial.activerecord.backend.expression.sources.query_sources import CTEClause, WithStatement
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.objects import Table
 
@@ -174,7 +174,7 @@ class TestCTEAndWithStatements:
         )
 
         # Create the group by having clause
-        from rhosocial.activerecord.backend.expression.query_parts import GroupByHavingClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import GroupByHavingClause
 
         group_by_having = GroupByHavingClause(
             dummy_dialect,
@@ -207,7 +207,7 @@ class TestCTEAndWithStatements:
             where=None,  # Will be set properly
         )
 
-        from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import WhereClause
 
         where_clause = WhereClause(
             dummy_dialect,

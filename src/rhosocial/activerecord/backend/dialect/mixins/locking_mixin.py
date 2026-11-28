@@ -2,8 +2,8 @@
 """Per-feature mixin for LockingSupport. Members/order/signature mirror the protocol."""
 
 from typing import TYPE_CHECKING, Any, List, Tuple
-from ...expression.bases import ToSQLProtocol
-from ...expression.query_parts import SortDirection
+from ...expression.bases.bases import ToSQLProtocol
+from ...expression.query_parts.query_parts import SortDirection
 
 class LockingMixin:
     def supports_for_update(self) -> bool:
@@ -57,7 +57,7 @@ class LockingMixin:
                 UnsupportedFeatureError: If the requested lock strength or option
                     is not supported by the dialect.
             """
-            from ...expression.query_parts import LockStrength
+            from ...expression.query_parts.query_parts import LockStrength
             from ..exceptions import UnsupportedFeatureError
 
             all_params = []

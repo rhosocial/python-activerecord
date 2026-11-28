@@ -77,7 +77,32 @@ expr = deserialize(json.loads(text))
 注意嵌套表达式**外面没有任何包裹**。形状本身就是全部信号，因此没有东西需要拆开，也不存在「这是节点」的第二个、更弱的说法。
 `__expr__` 信封会让同一件事有两种写法，读方就得猜载荷用的是哪一种。
 
-注意**没有什么**。工件不带方言，所以同一份载荷可以交给任意方言对象重渲染：
+注意**没有什么**：**序列化和反序列化都不处理方言**。序列化时忽略方言——`get_params()` 排除构造函数的 `dialect` 参数，所以工件里不会写入任何方言实例。反序列化时同样忽略——工件没有方言字段可读，重建出来的树是**未绑定的**：此时读 `node.dialect` 会报错，必须先绑定方言。
+
+如果你需要一棵已绑定的树，就由自己递归地把方言注入到重建树的每个节点：
+
+```python
+from rhosocial.activerecord.backend.expression import BaseExpression
+
+def bind_dialect(node, dialect):
+    for value in node.get_params().values():
+        if isinstance(value, BaseExpression):
+            bind_dialect(value, dialect)
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                if isinstance(item, BaseExpression):
+                    bind_dialect(item, dialect)
+        elif isinstance(value, dict):
+            for item in value.values():
+                if isinstance(item, BaseExpression):
+                    bind_dialect(item, dialect)
+    node.dialect = dialect
+    return node
+
+tree = bind_dialect(deserialize(artifact), SQLiteDialect(version=(3, 53, 0)))
+```
+
+如果只是渲染一次，可以跳过注入，把方言交给 `to_sql(dialect)`——它只在渲染时绑定，不改变树本身：
 
 ```python
 deserialize(artifact).to_sql(SQLiteDialect(version=(3, 53, 0)))
@@ -124,6 +149,37 @@ sql, params = expr.to_sql()
 2. 否则 `CORE_EXPRESSION_REGISTRY`。
 
 已发布的注册表是**冻结的**。要放宽或收窄，可以从 `twin()`（可变副本）或 `merged()`（并集，冻结）出发，也可以用你自己合成的映射构造一张新的 `ExpressionRegistry(kinds)`。别人的装配或修改不会改变一张已发布的表。
+
+## 有哪些表达式
+
+回答“有哪些表达式”不必翻源码树——注册表就是答案，而且它是可以打印的普通数据：
+
+```python
+from rhosocial.activerecord.backend.expression_registry import CORE_EXPRESSIONS
+from rhosocial.activerecord.backend.impl.sqlite.expression_registry import (
+    SQLITE_EXPRESSIONS, SQLITE_EXPRESSION_REGISTRY,
+)
+
+for kind, fqn in sorted(CORE_EXPRESSIONS.items()):
+    print(kind, "->", fqn)
+
+core_kinds = sorted(CORE_EXPRESSIONS)                       # 核心声明的
+own_kinds = sorted(SQLITE_EXPRESSIONS)                      # sqlite 后端自己的
+readable = sorted(SQLITE_EXPRESSION_REGISTRY.node_kinds())  # 核心 + sqlite
+```
+
+`<NAME>_EXPRESSIONS` 是某个所有者的 `kind -> 全限定类名` 映射；`<NAME>_EXPRESSION_REGISTRY.node_kinds()` 才是读者真正会用的表——核心与那个后端的并集。两者都由所有者在导入时发布，并且是从节点类本身推导出来的，所以今天打印出来的清单不会悄悄地与代码脱节。
+
+**这份清单同时也是序列化契约。** 表里的 kind 就是编解码器能写出、也能读回的节点；不在表里的 kind，读取时会按名字被拒绝。`serialize` 不需要表，因为节点自己报告 kind；`deserialize` 则只接受所选注册表认可的东西。因此，打印出来的映射恰好就是本库承诺可以往返的表达式集合：**写入不受限制，读取才是注册表的承诺。**
+
+**合并并不等于“支持”。** 后端表只是 `{**CORE_EXPRESSIONS, **<NAME>_EXPRESSIONS}` 的字典并集。它说明读者能从工件重建这些节点类，**并不意味着**该后端的方言能渲染其中每一个节点。格式化是方言的职责，由它的 `format_*` 方法决定，注册表完全不查这些。一个核心节点即使该方言从未实现它的 formatter，依然能顺利反序列化，然后在 `to_sql()` 处失败。**读侧接纳**与**渲染侧支持**是两份不同的契约，这里发布的只是前者。
+
+**支持还会随方言版本变化。** 登记表不带版本信息：无论用哪个 SQLite 版本渲染，`sqlite_returning_clause` 这个 kind 都在 SQLite 的表里。`SQLiteDialect(version=(3, 34, 0))` 会拒绝 `(3, 35, 0)` 能渲染的 RETURNING 子句，因为 `supports_returning_*()` 做了版本门控。表回答的是“这是个合法的表达式身份吗”，方言版本回答的是“这个具体版本能渲染它吗”。要问能力，问方言，别问注册表。
+
+有两点让它足以依赖：
+
+- kind 是类名的 snake_case 形式，不是文件路径。把节点在命名空间目录之间移动，会改变它的全限定类名，但**不改变 kind**，所以工件里的身份能扛住代码组织的调整。
+- 宿主值没有自己的 kind。所有值都走同一个 `parameter` 节点，因此接纳 `"parameter"` 就接纳了任意类型的值；值能否被 `json.dumps` 写出，仍是调用方的责任。
 
 ## 选择性注册
 

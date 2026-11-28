@@ -11,7 +11,7 @@ from .cache import CacheConfig, InstanceCache
 from .interfaces import IRelationValidation, IRelationManagement, IRelationLoader
 from .ordering import apply_order_to_query, normalize_order_by
 from .type_resolver import evaluate_annotation, resolve_relation_type
-from ..backend.expression.core import Column
+from ..backend.expression.column_types import Column
 from ..backend.expression import ComparisonPredicate, Parameter
 from ..interface import IActiveRecord, IActiveQuery
 

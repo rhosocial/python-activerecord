@@ -17,7 +17,7 @@ one -- asserting integer here would have been wrong for every ``float`` column.
 import pytest
 
 from rhosocial.activerecord.backend.expression import NumericColumn
-from rhosocial.activerecord.backend.expression.value_types import NumericValue
+from rhosocial.activerecord.backend.expression.value_types.value_types import NumericValue
 
 
 @pytest.fixture

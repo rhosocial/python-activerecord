@@ -5,7 +5,7 @@ This module provides classes and functions related to field definitions and anno
 
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union, TYPE_CHECKING
 
-from ..backend.expression.statements.ddl_table import (
+from ..backend.expression.statements import (
     ColumnConstraint,
     ColumnConstraintBranch,
     ColumnForeignKeyConstraint,
@@ -22,7 +22,7 @@ from ..backend.type_adapter import SQLTypeAdapter
 if TYPE_CHECKING:
     from ..backend.expression.bases import BaseExpression, SQLDialectBase, SQLPredicate
     from ..backend.expression.column_types import ColumnBase
-    from ..backend.expression.statements.ddl_table import (
+    from ..backend.expression.statements import (
         ReferentialAction,
     )
     from ..backend.expression.types import DataType
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 if TYPE_CHECKING:
     from ..backend.expression.bases import BaseExpression, SQLDialectBase, SQLPredicate
     from ..backend.expression.column_types import ColumnBase
-    from ..backend.expression.statements.ddl_table import (
+    from ..backend.expression.statements import (
         ReferentialAction,
     )
     from ..backend.expression.types import DataType
@@ -315,7 +315,7 @@ class UseColumnType:
 
     Raises:
         TypeError: No column class was given, or one of them is not a
-            :class:`~...backend.expression.column_types.ColumnBase` subclass.
+            :class:`~...backend.expression.column_types.column_types.ColumnBase` subclass.
     """
 
     def __init__(self, *column_classes: Type["ColumnBase"]):

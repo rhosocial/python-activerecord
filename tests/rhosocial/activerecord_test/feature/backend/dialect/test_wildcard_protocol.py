@@ -10,10 +10,8 @@ own formatter, so overriding one spelling never disturbs the other.
 
 from rhosocial.activerecord.backend.dialect import SQLDialectBase, WildcardSupport
 from rhosocial.activerecord.backend.dialect.mixins import ExpressionMixin
-from rhosocial.activerecord.backend.expression.core import (
-    AllColumnsWildcard,
-    RowCountWildcard,
-)
+from rhosocial.activerecord.backend.expression.value_types.wildcards import AllColumnsWildcard
+from rhosocial.activerecord.backend.expression.value_types.wildcards import RowCountWildcard
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 

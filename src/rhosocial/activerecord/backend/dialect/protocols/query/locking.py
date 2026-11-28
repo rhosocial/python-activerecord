@@ -9,7 +9,7 @@ tests enforce.
 from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.query_parts import ForUpdateClause
+    from ....expression.query_parts.query_parts import ForUpdateClause
 
 
 @runtime_checkable

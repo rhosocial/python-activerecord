@@ -11,7 +11,7 @@ was unreachable when nothing ever set the attribute.
 import pytest
 
 from rhosocial.activerecord.backend.expression import Column, Parameter
-from rhosocial.activerecord.backend.expression.mixins import AliasableMixin
+from rhosocial.activerecord.backend.expression.bases.mixins import AliasableMixin
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.statements.dml import (

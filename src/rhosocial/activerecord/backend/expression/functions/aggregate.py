@@ -16,13 +16,11 @@ operand of ``COUNT(*)``.
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional, Union
 
-from ..bases import BaseExpression, SQLValue
-from ..core import (
-    AllColumnsWildcard,
-    Column,
-    RowCountWildcard,
-)
-from ..mixins import (
+from ..bases.bases import BaseExpression, SQLValue
+from ..value_types.wildcards import AllColumnsWildcard
+from ..column_types.column import Column
+from ..value_types.wildcards import RowCountWildcard
+from ..bases.mixins import (
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
@@ -33,8 +31,8 @@ from ..mixins import (
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
-    from ..bases import SQLPredicate
-    from ..core import FunctionCall
+    from ..bases.bases import SQLPredicate
+    from ..functions.function_call import FunctionCall
 
 
 class AggregateFunction(AliasableMixin, SQLValue, ABC):
@@ -116,7 +114,7 @@ class AggregateFunction(AliasableMixin, SQLValue, ABC):
         ``count(x).filter(p)`` keeps producing the call that renders
         ``COUNT(x) FILTER (WHERE p)``.
         """
-        from ..core import FunctionCall
+        from ..functions.function_call import FunctionCall
 
         name = type(self).kind().replace("_function", "").upper()
         return FunctionCall(

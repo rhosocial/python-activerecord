@@ -15,7 +15,7 @@ from .xml_construction import SQLXMLConstructionSupport
 from .xml_aggregation import SQLXMLAggregationSupport
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.xml import (
+    from ....expression.functions.xml import (
         PassingClause,
         XMLExistsPredicate,
         XMLQueryExpression,

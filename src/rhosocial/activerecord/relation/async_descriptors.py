@@ -13,7 +13,7 @@ from .interfaces import IAsyncRelationValidation, IAsyncRelationLoader
 from .ordering import apply_order_to_query, normalize_order_by
 from .type_resolver import evaluate_annotation, resolve_relation_type
 from ..interface import IAsyncActiveRecord, IAsyncActiveQuery
-from ..backend.expression.core import Column
+from ..backend.expression.column_types import Column
 
 U = TypeVar("U", bound=IAsyncActiveRecord)
 
@@ -310,7 +310,7 @@ class AsyncRelationDescriptor(Generic[U]):
             # Start with base query for the related model
             query = related_model.query()
             backend = related_model.backend()
-            from ..backend.expression.core import Column
+            from ..backend.expression.column_types import Column
             from ..backend.expression import ComparisonPredicate, Parameter
 
             # Add appropriate foreign key condition based on relationship type

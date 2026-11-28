@@ -31,7 +31,7 @@ class CustomType(DataType):
         # Validated here rather than in each dialect's formatter: six of the
         # ten backends rendered data_type.raw unchecked, and the four that
         # refused did so only because they happened to lack the formatter.
-        from ..type_name import validate_type_name
+        from ..bases.type_name import validate_type_name
 
         self.raw = validate_type_name(raw)
 

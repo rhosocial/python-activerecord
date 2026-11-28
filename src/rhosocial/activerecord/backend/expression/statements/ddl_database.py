@@ -4,8 +4,8 @@
 from enum import Enum
 from typing import Any, Dict, Optional, TYPE_CHECKING
 
-from ..bases import BaseExpression
-from ..objects import Database
+from ..bases.bases import BaseExpression
+from rhosocial.activerecord.backend.expression.objects.namespace import Database
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase

@@ -17,12 +17,12 @@ if a future edit reintroduces text assembly the shape changes and this says so.
 import pytest
 
 from rhosocial.activerecord.backend.expression import Column
-from rhosocial.activerecord.backend.expression.introspection import (
+from rhosocial.activerecord.backend.expression.introspection.introspection import (
     ColumnDataProfileQueryStatement,
     ColumnValueSampleQueryStatement,
     JoinCoverageQueryStatement,
 )
-from rhosocial.activerecord.backend.expression.query_sources import SetOperationKind
+from rhosocial.activerecord.backend.expression.sources.query_sources import SetOperationKind
 from rhosocial.activerecord.backend.expression.statements import (
     QueryStatement,
     SetOperationStatement,

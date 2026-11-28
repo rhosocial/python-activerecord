@@ -2,12 +2,12 @@
 """Every SQLite function formatter has a surface test."""
 
 from rhosocial.activerecord.backend.expression import Column, Parameter
-from rhosocial.activerecord.backend.expression.advanced_functions import (
+from rhosocial.activerecord.backend.expression.functions.advanced_functions import (
     LpadFunction,
     RepeatFunction,
     RpadFunction,
 )
-from rhosocial.activerecord.backend.expression.core import FunctionCall
+from rhosocial.activerecord.backend.expression.functions.function_call import FunctionCall
 from rhosocial.activerecord.backend.expression.functions.math import (
     LogarithmFunction,
     TruncateFunction,
@@ -19,7 +19,7 @@ from rhosocial.activerecord.backend.expression.functions.string import (
     RightFunction,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.impl.sqlite.expression.json import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.functions.json import (
     SQLiteJsonExtractFunction,
 )
 

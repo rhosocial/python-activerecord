@@ -7,8 +7,10 @@ Functions: substr, instr, printf, unicode, hex, unhex, soundex,
 """
 
 from typing import Union, Optional, TYPE_CHECKING
-
-from rhosocial.activerecord.backend.expression import bases, core
+from rhosocial.activerecord.backend.expression import bases
+from rhosocial.activerecord.backend.expression.column_types import Column
+from rhosocial.activerecord.backend.expression.functions import FunctionCall
+from rhosocial.activerecord.backend.expression.value_types import Parameter
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.dialect import SQLDialectBase
@@ -16,7 +18,7 @@ if TYPE_CHECKING:
 
 def substr(
     dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], start: int, length: Optional[int] = None
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a SUBSTR function call (SQLite's substring function).
 
@@ -35,17 +37,17 @@ def substr(
     Returns:
         A FunctionCall instance representing the SUBSTR function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
-    start_expr = core.Parameter(dialect, start)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else Parameter(dialect, expr)
+    start_expr = Parameter(dialect, start)
     if length is not None:
-        length_expr = core.Parameter(dialect, length)
-        return core.FunctionCall(dialect, "SUBSTR", target_expr, start_expr, length_expr)
-    return core.FunctionCall(dialect, "SUBSTR", target_expr, start_expr)
+        length_expr = Parameter(dialect, length)
+        return FunctionCall(dialect, "SUBSTR", target_expr, start_expr, length_expr)
+    return FunctionCall(dialect, "SUBSTR", target_expr, start_expr)
 
 
 def instr(
     dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], substring: Union[str, "bases.BaseExpression"]
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates an INSTR function call (SQLite's string position function).
 
@@ -63,12 +65,12 @@ def instr(
     Returns:
         A FunctionCall instance representing the INSTR function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
-    substr_expr = substring if isinstance(substring, bases.BaseExpression) else core.Parameter(dialect, substring)
-    return core.FunctionCall(dialect, "INSTR", target_expr, substr_expr)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else Parameter(dialect, expr)
+    substr_expr = substring if isinstance(substring, bases.BaseExpression) else Parameter(dialect, substring)
+    return FunctionCall(dialect, "INSTR", target_expr, substr_expr)
 
 
-def printf(dialect: "SQLDialectBase", format_str: str, *args) -> "core.FunctionCall":
+def printf(dialect: "SQLDialectBase", format_str: str, *args) -> "FunctionCall":
     """
     Creates a PRINTF function call for string formatting.
 
@@ -83,12 +85,12 @@ def printf(dialect: "SQLDialectBase", format_str: str, *args) -> "core.FunctionC
     Returns:
         A FunctionCall instance representing the PRINTF function
     """
-    format_expr = core.Parameter(dialect, format_str)
-    arg_exprs = [arg if isinstance(arg, bases.BaseExpression) else core.Parameter(dialect, arg) for arg in args]
-    return core.FunctionCall(dialect, "PRINTF", format_expr, *arg_exprs)
+    format_expr = Parameter(dialect, format_str)
+    arg_exprs = [arg if isinstance(arg, bases.BaseExpression) else Parameter(dialect, arg) for arg in args]
+    return FunctionCall(dialect, "PRINTF", format_expr, *arg_exprs)
 
 
-def unicode(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
+def unicode(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "FunctionCall":
     """
     Creates a UNICODE function call.
 
@@ -104,11 +106,11 @@ def unicode(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"])
     Returns:
         A FunctionCall instance representing the UNICODE function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
-    return core.FunctionCall(dialect, "UNICODE", target_expr)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else Parameter(dialect, expr)
+    return FunctionCall(dialect, "UNICODE", target_expr)
 
 
-def hex(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
+def hex(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "FunctionCall":
     """
     Creates a HEX function call.
 
@@ -124,11 +126,11 @@ def hex(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> 
     Returns:
         A FunctionCall instance representing the HEX function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
-    return core.FunctionCall(dialect, "HEX", target_expr)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else Parameter(dialect, expr)
+    return FunctionCall(dialect, "HEX", target_expr)
 
 
-def unhex(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
+def unhex(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "FunctionCall":
     """
     Creates an UNHEX function call (SQLite 3.45.0+).
 
@@ -144,11 +146,11 @@ def unhex(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -
     Returns:
         A FunctionCall instance representing the UNHEX function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
-    return core.FunctionCall(dialect, "UNHEX", target_expr)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else Parameter(dialect, expr)
+    return FunctionCall(dialect, "UNHEX", target_expr)
 
 
-def soundex(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
+def soundex(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "FunctionCall":
     """
     Creates a SOUNDEX function call.
 
@@ -164,8 +166,8 @@ def soundex(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"])
     Returns:
         A FunctionCall instance representing the SOUNDEX function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
-    return core.FunctionCall(dialect, "SOUNDEX", target_expr)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else Parameter(dialect, expr)
+    return FunctionCall(dialect, "SOUNDEX", target_expr)
 
 
 def group_concat(
@@ -173,7 +175,7 @@ def group_concat(
     expr: Union[str, "bases.BaseExpression"],
     separator: Optional[str] = None,
     is_distinct: bool = False,
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a GROUP_CONCAT aggregate function call.
 
@@ -193,16 +195,16 @@ def group_concat(
     Returns:
         A FunctionCall instance representing the GROUP_CONCAT function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Column(dialect, expr)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else Column(dialect, expr)
     args = [target_expr]
     if separator is not None:
-        args.append(core.Parameter(dialect, separator))
-    return core.FunctionCall(dialect, "GROUP_CONCAT", *args, is_distinct=is_distinct)
+        args.append(Parameter(dialect, separator))
+    return FunctionCall(dialect, "GROUP_CONCAT", *args, is_distinct=is_distinct)
 
 
 def trim_sqlite(
     dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], characters: Optional[str] = None
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a TRIM function call with SQLite-specific behavior.
 
@@ -220,16 +222,16 @@ def trim_sqlite(
     Returns:
         A FunctionCall instance representing the TRIM function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else Parameter(dialect, expr)
     if characters is not None:
-        char_expr = core.Parameter(dialect, characters)
-        return core.FunctionCall(dialect, "TRIM", target_expr, char_expr)
-    return core.FunctionCall(dialect, "TRIM", target_expr)
+        char_expr = Parameter(dialect, characters)
+        return FunctionCall(dialect, "TRIM", target_expr, char_expr)
+    return FunctionCall(dialect, "TRIM", target_expr)
 
 
 def ltrim(
     dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], characters: Optional[str] = None
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates an LTRIM function call.
 
@@ -247,16 +249,16 @@ def ltrim(
     Returns:
         A FunctionCall instance representing the LTRIM function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else Parameter(dialect, expr)
     if characters is not None:
-        char_expr = core.Parameter(dialect, characters)
-        return core.FunctionCall(dialect, "LTRIM", target_expr, char_expr)
-    return core.FunctionCall(dialect, "LTRIM", target_expr)
+        char_expr = Parameter(dialect, characters)
+        return FunctionCall(dialect, "LTRIM", target_expr, char_expr)
+    return FunctionCall(dialect, "LTRIM", target_expr)
 
 
 def rtrim(
     dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], characters: Optional[str] = None
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates an RTRIM function call.
 
@@ -274,11 +276,11 @@ def rtrim(
     Returns:
         A FunctionCall instance representing the RTRIM function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else Parameter(dialect, expr)
     if characters is not None:
-        char_expr = core.Parameter(dialect, characters)
-        return core.FunctionCall(dialect, "RTRIM", target_expr, char_expr)
-    return core.FunctionCall(dialect, "RTRIM", target_expr)
+        char_expr = Parameter(dialect, characters)
+        return FunctionCall(dialect, "RTRIM", target_expr, char_expr)
+    return FunctionCall(dialect, "RTRIM", target_expr)
 
 
 __all__ = [

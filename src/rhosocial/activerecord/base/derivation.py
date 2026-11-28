@@ -33,7 +33,7 @@ from ..backend.expression.statements import (
     DropTableStatement,
     IndexDefinition,
 )
-from ..backend.expression.statements.ddl_index import (
+from ..backend.expression.statements import (
     CreateIndexStatement,
     DropIndexStatement,
 )
@@ -67,7 +67,7 @@ def _translated_column_attributes(
     the actual mechanism — so it is consumed here rather than rendered.
     """
     from .ddl import CharacterSetAttribute, CollationAttribute, IdentityAttribute
-    from ..backend.expression.statements.ddl_table import (
+    from ..backend.expression.statements import (
         CharacterSetClause,
         CollationClause,
     )

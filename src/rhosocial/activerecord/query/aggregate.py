@@ -11,7 +11,7 @@ from ..backend.expression import (
     Column,
 )
 from ..backend.expression.objects import Table
-from ..backend.expression.advanced_functions import ExistsPredicate
+from ..backend.expression.functions import ExistsPredicate
 from ..backend.expression.sources import NamedRelationRef
 
 

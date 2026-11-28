@@ -7,7 +7,7 @@ import pytest
 from unittest.mock import Mock
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression.query_parts import JoinType
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import JoinType
 
 
 class TestSQLiteDialectComprehensive:
@@ -106,13 +106,13 @@ class TestSQLiteDialectComprehensive:
     def test_formatting_methods_unsupported_comprehensive(self, operation, method_name, expected_error_part):
         """Comprehensive test for unsupported formatting methods"""
         from unittest.mock import MagicMock
-        from rhosocial.activerecord.backend.expression.advanced_functions import ArrayOperation
+        from rhosocial.activerecord.backend.expression.functions.advanced_functions import ArrayOperation
 
         dialect = SQLiteDialect()
         method = getattr(dialect, method_name)
 
-        from rhosocial.activerecord.backend.expression.query_parts import GroupingClause
-        from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import GroupingClause
+        from rhosocial.activerecord.backend.expression.sources.query_sources import JSONTableExpression
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             if method_name == "format_grouping_clause":
@@ -129,9 +129,9 @@ class TestSQLiteDialectComprehensive:
             elif method_name == "format_json_table_expression":
                 method(JSONTableExpression(dialect, json_column="json_col", path="$.path", columns=[], alias="alias"))
             elif method_name == "format_ordered_set_aggregation":
-                from rhosocial.activerecord.backend.expression.advanced_functions import OrderedSetAggregation
-                from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
-                from rhosocial.activerecord.backend.expression.core import Column
+                from rhosocial.activerecord.backend.expression.functions.advanced_functions import OrderedSetAggregation
+                from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
+                from rhosocial.activerecord.backend.expression.column_types.column import Column
 
                 mock_agg = OrderedSetAggregation(dialect, "func", [], OrderByClause(dialect, [Column(dialect, "test")]))
                 method(mock_agg)

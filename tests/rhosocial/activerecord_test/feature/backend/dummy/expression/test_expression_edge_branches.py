@@ -38,7 +38,7 @@ from rhosocial.activerecord.backend.expression.types import (
     TimestampTzType,
     VarCharType,
 )
-from rhosocial.activerecord.backend.expression.introspection import (
+from rhosocial.activerecord.backend.expression.introspection.introspection import (
     ColumnInfoQueryStatement,
     DatabaseInfoQueryStatement,
     ForeignKeyQueryStatement,
@@ -50,7 +50,7 @@ from rhosocial.activerecord.backend.expression.introspection import (
     ViewInfoQueryStatement,
     ViewListQueryStatement,
 )
-from rhosocial.activerecord.backend.expression.operators import ArithmeticOperation
+from rhosocial.activerecord.backend.expression.operators.operators import ArithmeticOperation
 from rhosocial.activerecord.backend.expression.statements import (
     OnConflictClause,
     PartitionByHashClause,
@@ -120,7 +120,7 @@ class TestGetParamsFallback:
     def test_var_positional_params(self, dialect):
         # An expression subclass whose __init__ uses *args: get_params collects
         # them as a list.
-        from rhosocial.activerecord.backend.expression.bases import SQLValue
+        from rhosocial.activerecord.backend.expression.bases.bases import SQLValue
 
         class ArgsExpr(SQLValue):
             def __init__(self, dialect, *values, **kwargs):
@@ -146,7 +146,7 @@ class TestGetParamsFallback:
         different tree. Reading the parameter's own name has no fallback to
         reach for, so the AttributeError names the class and the parameter.
         """
-        from rhosocial.activerecord.backend.expression.bases import SQLValue
+        from rhosocial.activerecord.backend.expression.bases.bases import SQLValue
 
         class MissingAttrExpr(SQLValue):
             def __init__(self, dialect, some_param):

@@ -239,7 +239,7 @@ class TestTriggerCapabilityGating:
 
     def test_create_trigger_when_raises_when_unsupported(self, dummy_dialect: DummyDialect):
         """CREATE TRIGGER WHEN should raise UnsupportedFeatureError when not supported."""
-        from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+        from rhosocial.activerecord.backend.expression.predicates.predicates import ComparisonPredicate
         trigger = CreateTriggerStatement(
             dummy_dialect,
             trigger=Trigger(dummy_dialect, "t"),

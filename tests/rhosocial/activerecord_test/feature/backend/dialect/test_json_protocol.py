@@ -11,7 +11,7 @@ from rhosocial.activerecord.backend.suggestion.definitions import JSONAccessOper
 import pytest
 
 from rhosocial.activerecord.backend.dialect import SQLDialectBase, JSONMixin, JSONSupport, UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression, JSONTableColumn
+from rhosocial.activerecord.backend.expression.sources.query_sources import JSONTableExpression, JSONTableColumn
 
 
 class NoJSONDialect(SQLDialectBase, JSONMixin, JSONSupport):
@@ -44,7 +44,7 @@ def test_format_json_expression_works_but_other_features_raise_error():
 
     # format_json_expression should work since it doesn't check supports_json_type
     # but JSON table expression should raise an error
-    from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression, JSONTableColumn
+    from rhosocial.activerecord.backend.expression.sources.query_sources import JSONTableExpression, JSONTableColumn
 
     json_table = JSONTableExpression(
         dialect,

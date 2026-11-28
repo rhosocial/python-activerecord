@@ -11,7 +11,7 @@ from rhosocial.activerecord.backend.expression import (
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.statements import ViewOptions, ViewCheckOption
-from rhosocial.activerecord.backend.expression.query_parts import (
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import (
     WhereClause,
     GroupByHavingClause,
     LimitOffsetClause,
@@ -339,7 +339,7 @@ class TestCreateDropViewStatements:
 
     def test_create_view_join_based(self, dummy_dialect: DummyDialect):
         """Tests CREATE VIEW based on a JOIN query."""
-        from rhosocial.activerecord.backend.expression.query_parts import JoinClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import JoinClause
 
         # Create a join between users and profiles
         users_table = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"), alias="u")
@@ -432,7 +432,7 @@ class TestCreateDropViewStatements:
 
     def test_create_view_with_window_function(self, dummy_dialect: DummyDialect):
         """Tests CREATE VIEW with a query that includes window functions."""
-        from rhosocial.activerecord.backend.expression.advanced_functions import WindowSpecification
+        from rhosocial.activerecord.backend.expression.functions.advanced_functions import WindowSpecification
 
         # Create a window specification
         window_spec = WindowSpecification(

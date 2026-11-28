@@ -3,13 +3,13 @@
 
 from typing import Union, TYPE_CHECKING
 
-from ..sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression.sources.relation import NamedRelationRef
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ..core import Subquery
-    from ..query_sources import SetOperation, ValuesExpression, TableFunctionExpression, LateralExpression
-    from ..query_parts import JoinClause
-    from ..graph import GraphTableExpression
+    from ..sources.subquery import Subquery
+    from ..sources.query_sources import SetOperation, ValuesExpression, TableFunctionExpression, LateralExpression
+    from ..query_parts.query_parts import JoinClause
+    from ..statements.graph import GraphTableExpression
 
 FromSourceType = Union[
     str,  # Table name as string

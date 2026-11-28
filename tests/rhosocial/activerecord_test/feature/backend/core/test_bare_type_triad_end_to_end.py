@@ -28,7 +28,7 @@ from rhosocial.activerecord.base.field_proxy import FieldProxy
 from rhosocial.activerecord.base.derivation import build_create_table_statement
 from rhosocial.activerecord.base.fields import UseColumnType, UseSqlType
 from rhosocial.activerecord.backend.type_adapter import JSONAdapter
-from rhosocial.activerecord.backend.expression.column_types import (
+from rhosocial.activerecord.backend.expression.column_types.column_types import (
     BooleanColumn,
     IntegerColumn,
     JSONColumn,

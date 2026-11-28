@@ -15,7 +15,7 @@ from typing import Any, Dict, Tuple, TYPE_CHECKING
 from ..exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.uuid import (
+    from ...expression.functions.uuid import (
         UUIDCastFunction,
         UUIDConstantExpression,
         UUIDGenerationExpression,
@@ -121,7 +121,7 @@ class UUIDMixin:
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from ...expression.uuid import UuidConstantKind
+        from ...expression.functions.uuid import UuidConstantKind
 
         # Caller error first: a typo is a bug in the calling code, and
         # reporting "this dialect cannot render constants" instead would hide

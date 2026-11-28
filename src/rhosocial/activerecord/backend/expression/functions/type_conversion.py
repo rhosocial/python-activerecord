@@ -4,13 +4,11 @@
 from functools import lru_cache
 from typing import Union, Optional, TYPE_CHECKING
 
-from ..advanced_functions import DeclaredValueType
-from ..bases import BaseExpression, SQLValue
-from ..core import (
-    Column,
-    Parameter,
-)
-from ..value_types import (
+from ..functions.advanced_functions import DeclaredValueType
+from ..bases.bases import BaseExpression, SQLValue
+from ..value_types.parameter import Parameter
+from ..column_types.column import Column
+from ..value_types.value_types import (
     NumericValue,
     TemporalValue,
     TextValue,
@@ -40,7 +38,7 @@ class _ConversionOperand:
 
     @staticmethod
     def _operand(dialect: "SQLDialectBase", value):
-        from ..core import Parameter
+        from ..value_types.parameter import Parameter
 
         if value is None:
             return None
@@ -148,13 +146,13 @@ def _cast_class_for(annotation):
     ``format_method`` out of reach, which is what a cast wants: it holds a type,
     not a node.
     """
-    from ..core import CastExpression
+    from ..functions.cast_expression import CastExpression
 
     value_type = annotation.value_type_of()
     try:
         return _CAST_ANNOTATION_CLASSES[annotation]
     except KeyError:
-        from ..advanced_functions import DeclaredValueType
+        from ..functions.advanced_functions import DeclaredValueType
 
         combined = type(
             f"Cast{value_type.__name__}",
@@ -201,7 +199,7 @@ def _type_annotations():
     Deferred because :mod:`..types` and :mod:`..core` both import from this
     package's expression module, so neither can be imported at module scope here.
     """
-    from ..declared import (
+    from ..column_types.declared import (
         ArrayAnnotation,
         BinaryAnnotation,
         BooleanAnnotation,
@@ -321,7 +319,8 @@ def cast(
     Raises:
         TypeError: If target_type is not a DataType.
     """
-    from ..core import CastExpression, Column
+    from ..functions.cast_expression import CastExpression
+    from ..column_types.column import Column
 
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     node = CastExpression(dialect, target_expr, target_type)

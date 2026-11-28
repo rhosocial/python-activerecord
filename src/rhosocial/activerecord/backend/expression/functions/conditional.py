@@ -3,8 +3,8 @@
 
 from typing import Any, Union, Optional, TYPE_CHECKING, overload
 
-from ..bases import BaseExpression, SQLValue
-from ..column_types import (
+from ..bases.bases import BaseExpression, SQLValue
+from ..column_types.column_types import (
     ArrayColumn,
     BooleanColumn,
     TimestampColumn,
@@ -13,8 +13,9 @@ from ..column_types import (
     NumericColumn,
     StringColumn,
 )
-from ..core import FunctionCall, Parameter
-from ..declared import (
+from ..functions.function_call import FunctionCall
+from ..value_types.parameter import Parameter
+from ..column_types.declared import (
     ArrayAnnotation,
     BooleanAnnotation,
     IntegerAnnotation,
@@ -23,7 +24,7 @@ from ..declared import (
     TemporalAnnotation,
     TextAnnotation,
 )
-from ..advanced_functions import CaseExpression
+from ..functions.advanced_functions import CaseExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase

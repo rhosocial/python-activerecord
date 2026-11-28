@@ -3,15 +3,13 @@
 
 from typing import Any, List, Optional, Tuple, TYPE_CHECKING
 from ...expression import bases
-from ...expression.core import (
-    CastExpression,
-    QualifiedIdentifier,
-    Subquery,
-    AllColumnsWildcard,
-)
-from ...expression.literals import Identifier
-from ...expression.mixins import AliasableMixin
-from ...expression.operators import (
+from ...expression.objects.qualified_identifier import QualifiedIdentifier
+from ...expression.functions.cast_expression import CastExpression
+from ...expression.sources.subquery import Subquery
+from ...expression.value_types.wildcards import AllColumnsWildcard
+from ...expression.value_types.literals import Identifier
+from ...expression.bases.mixins import AliasableMixin
+from ...expression.operators.operators import (
     ArithmeticOperation,
     BinaryExpression,
     RawSQL,
@@ -23,7 +21,7 @@ from .function import FunctionCallMixin
 
 class WildcardMixin:
     def format_all_columns_wildcard(self, expr: "AllColumnsWildcard") -> "Tuple[str, tuple]":
-            """Format a :class:`~...expression.core.AllColumnsWildcard`.
+            """Format a :class:`~...expression.value_types.wildcards.AllColumnsWildcard`.
 
             A bare ``*`` when no relation is set -- the surrounding clause's
             formatter decides what the expansion spans. With a relation, the
@@ -56,7 +54,7 @@ class WildcardMixin:
             return f"{qualifier}.*", ()
 
     def format_row_count_wildcard(self, expr: "RowCountWildcard") -> "Tuple[str, tuple]":
-            """Format a :class:`~...expression.core.RowCountWildcard`.
+            """Format a :class:`~...expression.value_types.wildcards.RowCountWildcard`.
 
             The bare asterisk, and nothing else: the row-count wildcard carries
             no relation by contract.

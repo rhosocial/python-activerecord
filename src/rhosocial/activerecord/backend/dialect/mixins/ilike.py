@@ -6,10 +6,10 @@ dialects that lack a native ILIKE operator.
 """
 from typing import Tuple, TYPE_CHECKING
 
-from ...expression.bases import ToSQLProtocol
+from ...expression.bases.bases import ToSQLProtocol
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.predicates import ILikePredicate
+    from ...expression.predicates.predicates import ILikePredicate
 
 
 class ILIKEMixin:

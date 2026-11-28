@@ -23,7 +23,7 @@ from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
     AlterColumnAction,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import (
     SQLiteIntegerType,
     SQLiteTextType,
 )

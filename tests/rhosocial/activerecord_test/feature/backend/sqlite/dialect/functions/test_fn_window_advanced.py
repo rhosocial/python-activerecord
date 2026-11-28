@@ -58,7 +58,7 @@ class TestAdvancedFunctionWindow:
     # --- ExistsPredicate ---
     def test_exists_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Tests EXISTS expression."""
-        from rhosocial.activerecord.backend.expression.core import Subquery
+        from rhosocial.activerecord.backend.expression.sources.subquery import Subquery
 
         subquery = Subquery(sqlite_dialect_3_8_0, "SELECT 1 FROM orders WHERE user_id = users.id", ())
         exists_expr = ExistsPredicate(sqlite_dialect_3_8_0, subquery)
@@ -68,7 +68,7 @@ class TestAdvancedFunctionWindow:
 
     def test_not_exists_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Tests NOT EXISTS expression."""
-        from rhosocial.activerecord.backend.expression.core import Subquery
+        from rhosocial.activerecord.backend.expression.sources.subquery import Subquery
 
         subquery = Subquery(sqlite_dialect_3_8_0, "SELECT 1 FROM orders WHERE user_id = users.id", ())
         exists_expr = ExistsPredicate(sqlite_dialect_3_8_0, subquery, is_not=True)

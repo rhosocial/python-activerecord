@@ -13,7 +13,7 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 from rhosocial.activerecord.backend.dialect.mixins import DQLMixin, ExpressionMixin, DDLColumnMixin, TableMixin
 from rhosocial.activerecord.backend.expression import Column, QueryStatement, Subquery
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.query_sources import LateralExpression, TableFunctionExpression
+from rhosocial.activerecord.backend.expression.sources.query_sources import LateralExpression, TableFunctionExpression
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.dialect.mixins import (
     NamespaceMixin,
@@ -54,8 +54,8 @@ def test_format_lateral_expression_reports_no_support():
     dialect = NoLateralDialect()
 
     assert not dialect.supports_lateral_join()
-    from rhosocial.activerecord.backend.expression.query_sources import LateralExpression
-    from rhosocial.activerecord.backend.expression.core import Subquery
+    from rhosocial.activerecord.backend.expression.sources.query_sources import LateralExpression
+    from rhosocial.activerecord.backend.expression.sources.subquery import Subquery
 
     lateral = LateralExpression(dialect, Subquery(dialect, "(SELECT 1)"), alias="lateral_data", join_type="CROSS")
     with pytest.raises(UnsupportedFeatureError) as excinfo:

@@ -3,16 +3,17 @@
 
 from typing import Optional, TYPE_CHECKING
 
-from ..advanced_functions import DeclaredValueType
-from ..bases import BaseExpression
+from ..functions.advanced_functions import DeclaredValueType
+from ..bases.bases import BaseExpression
 from .aggregate import AggregateFunction
-from ..core import Column, Parameter
-from ..advanced_functions import JSONDocumentValue, JSONTextValue
+from ..column_types.column import Column
+from ..value_types.parameter import Parameter
+from ..functions.advanced_functions import JSONDocumentValue, JSONTextValue
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
-from ..value_types import JSONValue
+from ..value_types.value_types import JSONValue
 
 class JSONBuildObjectFunction(
     DeclaredValueType,
@@ -52,7 +53,7 @@ class JSONArrayElementsFunction(
 
 
     def __init__(self, dialect: "SQLDialectBase", target):
-        from ..core import Parameter
+        from ..value_types.parameter import Parameter
 
         # BaseExpression directly, not super(): the value class is a *wrapper*
         # whose __init__ takes the call it delegates to, and this node has no
@@ -84,7 +85,7 @@ class JSONObjectAggregateFunction(
 
 
     def __init__(self, dialect: "SQLDialectBase", operand, entry_value):
-        from ..core import Parameter
+        from ..value_types.parameter import Parameter
 
         # ``operand`` and not ``key``: that is the name AggregateFunction
         # declares, and the deserializer reads the declared names, so a

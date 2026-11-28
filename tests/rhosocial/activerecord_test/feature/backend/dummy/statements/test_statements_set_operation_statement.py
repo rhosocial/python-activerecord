@@ -1,7 +1,7 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy/statements/test_statements_set_operation_statement.py
 """The compound-SELECT statement node: N query parts, one operator word.
 
-The binary :class:`~rhosocial.activerecord.backend.expression.query_sources.SetOperation`
+The binary :class:`~rhosocial.activerecord.backend.expression.sources.query_sources.SetOperation`
 is the *source* half of the pair -- exactly two sides, each of which may itself
 be a set operation, for use in a FROM clause. This is the *statement* half, and
 the difference is the point: a caller that must ask one arm per column at run
@@ -23,7 +23,7 @@ from rhosocial.activerecord.backend.expression import (
     QueryStatement,
     SetOperationStatement,
 )
-from rhosocial.activerecord.backend.expression.query_sources import SetOperationKind
+from rhosocial.activerecord.backend.expression.sources.query_sources import SetOperationKind
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.schema import StatementType
 

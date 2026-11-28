@@ -7,13 +7,14 @@ Functions: zeroblob, randomblob
 
 from typing import TYPE_CHECKING
 
-from rhosocial.activerecord.backend.expression import core
+from rhosocial.activerecord.backend.expression.functions import FunctionCall
+from rhosocial.activerecord.backend.expression.value_types import Parameter
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.dialect import SQLDialectBase
 
 
-def zeroblob(dialect: "SQLDialectBase", length: int) -> "core.FunctionCall":
+def zeroblob(dialect: "SQLDialectBase", length: int) -> "FunctionCall":
     """
     Creates a ZEROBLOB function call.
 
@@ -29,10 +30,10 @@ def zeroblob(dialect: "SQLDialectBase", length: int) -> "core.FunctionCall":
     Returns:
         A FunctionCall instance representing the ZEROBLOB function
     """
-    return core.FunctionCall(dialect, "ZEROBLOB", core.Parameter(dialect, length))
+    return FunctionCall(dialect, "ZEROBLOB", Parameter(dialect, length))
 
 
-def randomblob(dialect: "SQLDialectBase", length: int) -> "core.FunctionCall":
+def randomblob(dialect: "SQLDialectBase", length: int) -> "FunctionCall":
     """
     Creates a RANDOMBLOB function call.
 
@@ -48,7 +49,7 @@ def randomblob(dialect: "SQLDialectBase", length: int) -> "core.FunctionCall":
     Returns:
         A FunctionCall instance representing the RANDOMBLOB function
     """
-    return core.FunctionCall(dialect, "RANDOMBLOB", core.Parameter(dialect, length))
+    return FunctionCall(dialect, "RANDOMBLOB", Parameter(dialect, length))
 
 
 __all__ = [

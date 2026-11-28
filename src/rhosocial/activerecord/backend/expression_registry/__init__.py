@@ -17,6 +17,12 @@ A backend publishes ``<NAME>_EXPRESSIONS`` (its own mapping) and
 ``<NAME>_EXPRESSION_REGISTRY`` (core's mapping merged with its own) in
 ``backend.impl.<name>.expression_registry``. Neither side imports the other's
 implementation packages, and no dialect takes part in registration.
+
+That merge is a **read-side** whitelist, not a render-support claim: admitting
+a core kind says the reader can rebuild that node class from an artifact, not
+that the backend's dialect implements a formatter for it. Formatting belongs to
+the dialect and is independent of what any registry admits — and can itself
+vary with the dialect's version (SQLite's RETURNING clause, for instance).
 """
 
 from .core_registry import CORE_EXPRESSIONS, CORE_EXPRESSION_REGISTRY

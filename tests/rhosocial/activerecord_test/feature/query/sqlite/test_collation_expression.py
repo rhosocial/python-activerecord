@@ -5,7 +5,7 @@ Tests for expression-level COLLATE support on SQLite.
 
 from enum import Enum
 
-from rhosocial.activerecord.backend.expression.collation import collate
+from rhosocial.activerecord.backend.expression.functions.collation import collate
 import pytest
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase

@@ -3,8 +3,8 @@
 
 from typing import TYPE_CHECKING
 
-from ..bases import BaseExpression
-from ..objects import Table
+from ..bases.bases import BaseExpression
+from rhosocial.activerecord.backend.expression.objects.relation import Table
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase

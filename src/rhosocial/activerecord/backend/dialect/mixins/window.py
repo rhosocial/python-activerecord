@@ -13,7 +13,7 @@ from ..exceptions import UnsupportedFeatureError
 from ...expression import bases
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.advanced_functions import (
+    from ...expression.functions.advanced_functions import (
         WindowSpecification,
         WindowFrameSpecification,
         WindowClause,

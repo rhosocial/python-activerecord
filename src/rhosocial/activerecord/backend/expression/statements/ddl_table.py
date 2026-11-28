@@ -1,8 +1,8 @@
 from .dql import QueryStatement
 from .ddl_partition import PartitionClause
-from ..types import DataType
-from ..objects import Table
-from ..bases import (
+from rhosocial.activerecord.backend.expression.types._base import DataType
+from rhosocial.activerecord.backend.expression.objects.relation import Table
+from ..bases.bases import (
     BaseExpression,
     SQLPredicate,
     SQLQueryAndParams,
@@ -26,7 +26,7 @@ class DefaultValueClause(BaseExpression):
     A ``DEFAULT`` position accepts no bind parameters -- the statement that
     carries it is DDL, and DDL has no place to put a driver's parameters. So
     the clause states that once, here, at construction: a bare value arrives
-    wrapped in a :class:`~...expression.core.Parameter` with ``inline=True``,
+    wrapped in a :class:`~...expression.value_types.parameter.Parameter` with ``inline=True``,
     and a caller who already built a ``Parameter`` gets it marked rather than
     refused, because the position has no other answer to give.
 
@@ -45,7 +45,7 @@ class DefaultValueClause(BaseExpression):
 
     def __init__(self, dialect: "SQLDialectBase", value: Any):
         super().__init__(dialect)
-        from ..core import Parameter
+        from ..value_types.parameter import Parameter
 
         if isinstance(value, Parameter):
             # A caller who built the literal themselves still said nothing
@@ -67,7 +67,7 @@ class ColumnClause(BaseExpression):
     whether it can spell it.
 
     Naming: this is a **DDL column clause**. It is unrelated to the
-    ``ColumnBase`` family in ``expression.column_types``, which are
+    ``ColumnBase`` family in ``expression.column_types.column_types``, which are
     value-typed column *expressions* (``StringColumn`` and its siblings) and
     live on the query side.
 

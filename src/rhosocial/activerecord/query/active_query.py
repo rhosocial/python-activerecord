@@ -14,7 +14,7 @@ from .async_relational import AsyncRelationalQueryMixin
 from .set_operation import SetOperationQuery
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.expression import AllColumnsWildcard, statements, LimitOffsetClause, bases
-from ..backend.expression.collect_columns import referenced_columns
+from ..backend.expression.bases import referenced_columns
 from ..backend.expression.objects import Table
 from ..backend.expression.sources import NamedRelationRef
 from ..interface.model import IActiveRecord, IAsyncActiveRecord

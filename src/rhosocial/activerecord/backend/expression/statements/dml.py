@@ -5,18 +5,18 @@ import abc
 from enum import Enum
 from typing import Dict, List, Optional, Union, TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLPredicate
-from ..core import Subquery
-from ..query_parts import WhereClause
+from ..bases.bases import BaseExpression, SQLPredicate
+from ..sources.subquery import Subquery
+from ..query_parts.query_parts import WhereClause
 from ...schema import StatementType
-from ..objects import Table
-from ..sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression.objects.relation import Table
+from rhosocial.activerecord.backend.expression.sources.relation import NamedRelationRef
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
     from .dql import QueryStatement
-    from ..query_sources import ValuesExpression, TableFunctionExpression, LateralExpression, SetOperation
-    from ..query_parts import JoinClause
+    from ..sources.query_sources import ValuesExpression, TableFunctionExpression, LateralExpression, SetOperation
+    from ..query_parts.query_parts import JoinClause
 
 
 # region Merge Statement

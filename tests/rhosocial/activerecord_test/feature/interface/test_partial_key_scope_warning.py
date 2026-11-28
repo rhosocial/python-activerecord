@@ -246,7 +246,7 @@ class TestSingleKeyQueryCostsNothing:
         # function would be intrusive, so this asserts the observable outcome
         # -- no warning -- while the cost is structural.
         with mock.patch(
-            "rhosocial.activerecord.backend.expression.collect_columns.referenced_columns"
+            "rhosocial.activerecord.backend.expression.bases.collect_columns.referenced_columns"
         ) as walk:
             PlainModel.query().where(PlainModel.c.name == "x").to_sql()
             assert walk.called is False
@@ -259,7 +259,7 @@ class TestSingleKeyQueryCostsNothing:
 
 class TestWalker:
     def test_sees_through_a_logical_combination(self):
-        from rhosocial.activerecord.backend.expression.collect_columns import (
+        from rhosocial.activerecord.backend.expression.bases.collect_columns import (
             referenced_columns,
         )
 
@@ -269,7 +269,7 @@ class TestWalker:
         assert referenced_columns(query.where_clause) == {"job_id", "bucket"}
 
     def test_sees_through_an_in_predicate(self):
-        from rhosocial.activerecord.backend.expression.collect_columns import (
+        from rhosocial.activerecord.backend.expression.bases.collect_columns import (
             referenced_columns,
         )
 
@@ -277,7 +277,7 @@ class TestWalker:
         assert referenced_columns(query.where_clause) == {"bucket"}
 
     def test_sees_through_a_null_test(self):
-        from rhosocial.activerecord.backend.expression.collect_columns import (
+        from rhosocial.activerecord.backend.expression.bases.collect_columns import (
             referenced_columns,
         )
 
@@ -285,7 +285,7 @@ class TestWalker:
         assert referenced_columns(query.where_clause) == {"bucket"}
 
     def test_and_through_both_sides_of_a_comparison(self):
-        from rhosocial.activerecord.backend.expression.collect_columns import (
+        from rhosocial.activerecord.backend.expression.bases.collect_columns import (
             referenced_columns,
         )
 

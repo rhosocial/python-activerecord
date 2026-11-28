@@ -1,13 +1,13 @@
 # 查询子句 (Query Clauses)
 
-本文档详细介绍了 `rhosocial.activerecord.backend.expression.query_parts` 中表示特定 SQL 查询子句的类。这些类收集参数并将 SQL 生成委托给后端方言。
+本文档详细介绍了 `rhosocial.activerecord.backend.expression.query_parts.query_parts` 中表示特定 SQL 查询子句的类。这些类收集参数并将 SQL 生成委托给后端方言。
 
 ## JoinType (连接类型)
 
 SQL 连接类型的枚举。存储值是裸词（`inner`、`left` 等），JOIN 关键字由方言拼出。
 
 ```python
-from rhosocial.activerecord.backend.expression.query_parts import JoinType
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import JoinType
 
 # 成员值是裸词，JOIN 关键字由方言拼出
 for member in JoinType:
@@ -20,7 +20,7 @@ for member in JoinType:
 
 ```python
 import inspect
-from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import WhereClause
 
 # 库实际声明的构造函数与 and_()
 print(inspect.signature(WhereClause.__init__))
@@ -34,7 +34,7 @@ from rhosocial.activerecord.backend.expression import (
     Column, ComparisonOperator, ComparisonPredicate, IntegerColumn, Parameter,
     StringColumn,
 )
-from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import WhereClause
 
 # WHERE status = 'active' —— 带类型的列会把普通值自动包成 Parameter
 where_clause = WhereClause(
@@ -69,7 +69,7 @@ sql, params = where_clause.to_sql()
 
 ```python
 import inspect
-from rhosocial.activerecord.backend.expression.query_parts import GroupByHavingClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import GroupByHavingClause
 
 print(inspect.signature(GroupByHavingClause.__init__))
 ```
@@ -78,7 +78,7 @@ print(inspect.signature(GroupByHavingClause.__init__))
 
 ```python
 from rhosocial.activerecord.backend.expression import Column, FunctionCall
-from rhosocial.activerecord.backend.expression.query_parts import GroupByHavingClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import GroupByHavingClause
 
 # GROUP BY category HAVING COUNT(id) > 5
 group_clause = GroupByHavingClause(
@@ -97,7 +97,7 @@ sql, params = group_clause.to_sql()
 
 ```python
 import inspect
-from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
 print(inspect.signature(OrderByClause.__init__))
 ```
@@ -106,7 +106,7 @@ print(inspect.signature(OrderByClause.__init__))
 
 ```python
 from rhosocial.activerecord.backend.expression import Column
-from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
 # ORDER BY created_at DESC, name ASC
 order_by = OrderByClause(
@@ -127,7 +127,7 @@ sql, params = order_by.to_sql()
 
 ```python
 import inspect
-from rhosocial.activerecord.backend.expression.query_parts import LimitOffsetClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import LimitOffsetClause
 
 print(inspect.signature(LimitOffsetClause.__init__))
 ```
@@ -135,7 +135,7 @@ print(inspect.signature(LimitOffsetClause.__init__))
 ### 用法
 
 ```python
-from rhosocial.activerecord.backend.expression.query_parts import LimitOffsetClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import LimitOffsetClause
 
 # LIMIT 10 OFFSET 20
 limit_clause = LimitOffsetClause(dialect, limit=10, offset=20)
@@ -150,7 +150,7 @@ sql, params = limit_clause.to_sql()
 
 ```python
 import inspect
-from rhosocial.activerecord.backend.expression.query_parts import QualifyClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import QualifyClause
 
 print(inspect.signature(QualifyClause.__init__))
 ```
@@ -159,7 +159,7 @@ print(inspect.signature(QualifyClause.__init__))
 
 ```python
 from rhosocial.activerecord.backend.expression import FunctionCall
-from rhosocial.activerecord.backend.expression.query_parts import QualifyClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import QualifyClause
 
 # QUALIFY ROW_NUMBER() <= 3
 row_number_func = FunctionCall(dialect, "ROW_NUMBER")
@@ -178,7 +178,7 @@ sql, params = qualify_clause.to_sql()
 
 ```python
 import inspect
-from rhosocial.activerecord.backend.expression.query_parts import ForUpdateClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import ForUpdateClause
 
 print(inspect.signature(ForUpdateClause.__init__))
 ```
@@ -187,7 +187,7 @@ print(inspect.signature(ForUpdateClause.__init__))
 
 ```python
 from rhosocial.activerecord.backend.expression import Column
-from rhosocial.activerecord.backend.expression.query_parts import ForUpdateClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import ForUpdateClause
 
 # FOR UPDATE OF "users" NOWAIT
 lock_clause = ForUpdateClause(
@@ -206,7 +206,7 @@ sql, params = lock_clause.to_sql()
 
 ```python
 import inspect
-from rhosocial.activerecord.backend.expression.query_parts import JoinClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import JoinClause
 
 print(inspect.signature(JoinClause.__init__))
 for name in ("join", "inner_join", "left_join", "right_join", "full_join", "cross_join"):
@@ -220,7 +220,7 @@ from rhosocial.activerecord.backend.expression import (
     Column, ComparisonOperator, ComparisonPredicate, NamedRelationRef,
 )
 from rhosocial.activerecord.backend.expression.objects import Table
-from rhosocial.activerecord.backend.expression.query_parts import JoinClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import JoinClause
 
 # users JOIN orders ON users.id = orders.user_id
 join_expr = JoinClause(
@@ -261,7 +261,7 @@ sql, params = complex_join.to_sql()
 
 ```python
 import inspect
-from rhosocial.activerecord.backend.expression.query_parts import GroupingClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import GroupingClause
 
 print(inspect.signature(GroupingClause.__init__))
 ```
@@ -270,7 +270,7 @@ print(inspect.signature(GroupingClause.__init__))
 
 ```python
 from rhosocial.activerecord.backend.expression import Column
-from rhosocial.activerecord.backend.expression.query_parts import GroupingClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import GroupingClause
 
 # ROLLUP("year", "month")
 rollup = GroupingClause(

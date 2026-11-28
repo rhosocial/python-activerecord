@@ -9,7 +9,7 @@ from typing import Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:
-    from ..expression.reindex import SQLiteReindexStatement
+    from ..expression.statements.reindex import SQLiteReindexStatement
 
 
 class SQLiteReindexMixin:

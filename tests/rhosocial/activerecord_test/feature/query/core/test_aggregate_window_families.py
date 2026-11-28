@@ -16,7 +16,7 @@ borrows.
 # tests/rhosocial/activerecord_test/feature/query/test_aggregate_window_families.py
 import pytest
 
-from rhosocial.activerecord.backend.expression.declared import (
+from rhosocial.activerecord.backend.expression.column_types.declared import (
     IntegerAnnotation,
     NumberAnnotation,
     TextAnnotation,
@@ -29,7 +29,7 @@ from rhosocial.activerecord.backend.expression import (
     MinFunction,
     SumFunction,
 )
-from rhosocial.activerecord.backend.expression.value_types import (
+from rhosocial.activerecord.backend.expression.value_types.value_types import (
     ArrayValue,
     BooleanValue,
     JSONValue,

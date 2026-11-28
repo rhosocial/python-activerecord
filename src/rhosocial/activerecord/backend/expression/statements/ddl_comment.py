@@ -16,8 +16,8 @@ object; it is deliberately distinct from the inline comment *clauses* of
 from enum import Enum
 from typing import Optional, TYPE_CHECKING, Union
 
-from ..bases import BaseExpression
-from ..objects import SchemaObject
+from ..bases.bases import BaseExpression
+from rhosocial.activerecord.backend.expression.objects.base import SchemaObject
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase

@@ -7,7 +7,7 @@ SET TRANSACTION statements.
 from typing import Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ...expression.transaction import (
+    from ...expression.statements.transaction import (
         BeginTransactionStatement,
         CommitStatement,
         ReleaseSavepointStatement,

@@ -6,14 +6,15 @@ Functions: typeof, quote, last_insert_rowid, changes
 """
 
 from typing import Union, TYPE_CHECKING
-
-from rhosocial.activerecord.backend.expression import bases, core
+from rhosocial.activerecord.backend.expression import bases
+from rhosocial.activerecord.backend.expression.functions import FunctionCall
+from rhosocial.activerecord.backend.expression.value_types import Parameter
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.dialect import SQLDialectBase
 
 
-def typeof(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
+def typeof(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "FunctionCall":
     """
     Creates a TYPEOF function call.
 
@@ -29,11 +30,11 @@ def typeof(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) 
     Returns:
         A FunctionCall instance representing the TYPEOF function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
-    return core.FunctionCall(dialect, "TYPEOF", target_expr)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else Parameter(dialect, expr)
+    return FunctionCall(dialect, "TYPEOF", target_expr)
 
 
-def quote(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
+def quote(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "FunctionCall":
     """
     Creates a QUOTE function call.
 
@@ -49,11 +50,11 @@ def quote(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -
     Returns:
         A FunctionCall instance representing the QUOTE function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
-    return core.FunctionCall(dialect, "QUOTE", target_expr)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else Parameter(dialect, expr)
+    return FunctionCall(dialect, "QUOTE", target_expr)
 
 
-def last_insert_rowid(dialect: "SQLDialectBase") -> "core.FunctionCall":
+def last_insert_rowid(dialect: "SQLDialectBase") -> "FunctionCall":
     """
     Creates a LAST_INSERT_ROWID function call.
 
@@ -68,10 +69,10 @@ def last_insert_rowid(dialect: "SQLDialectBase") -> "core.FunctionCall":
     Returns:
         A FunctionCall instance representing the LAST_INSERT_ROWID function
     """
-    return core.FunctionCall(dialect, "LAST_INSERT_ROWID")
+    return FunctionCall(dialect, "LAST_INSERT_ROWID")
 
 
-def changes(dialect: "SQLDialectBase") -> "core.FunctionCall":
+def changes(dialect: "SQLDialectBase") -> "FunctionCall":
     """
     Creates a CHANGES function call.
 
@@ -86,7 +87,7 @@ def changes(dialect: "SQLDialectBase") -> "core.FunctionCall":
     Returns:
         A FunctionCall instance representing the CHANGES function
     """
-    return core.FunctionCall(dialect, "CHANGES")
+    return FunctionCall(dialect, "CHANGES")
 
 
 __all__ = [

@@ -50,8 +50,8 @@ from rhosocial.activerecord.backend.expression.statements.ddl_table import (
 from rhosocial.activerecord.backend.expression.statements.ddl_partition import (
     PartitionByRangeClause,
 )
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType
-from rhosocial.activerecord.backend.expression.core import Column as ColExpr
+from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import SQLiteIntegerType
+from rhosocial.activerecord.backend.expression.column_types.column import Column as ColExpr
 
 dialect = SQLiteBackend(database=":memory:").dialect
 col_def = ColumnDefinition("id", SQLiteIntegerType(),

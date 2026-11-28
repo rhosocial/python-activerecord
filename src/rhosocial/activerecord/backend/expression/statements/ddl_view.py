@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
-from ..bases import BaseExpression
-from ..objects import MaterializedView, View
+from ..bases.bases import BaseExpression
+from rhosocial.activerecord.backend.expression.objects.relation import MaterializedView, View
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase

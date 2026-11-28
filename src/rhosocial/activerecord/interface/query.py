@@ -27,7 +27,12 @@ from typing_extensions import runtime_checkable
 from .model import IActiveRecord, IAsyncActiveRecord
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.expression.bases import ToSQLProtocol, BaseExpression, SQLPredicate
-from ..backend.expression.query_parts import WhereClause, GroupByHavingClause, OrderByClause, LimitOffsetClause
+from ..backend.expression.query_parts import (
+    WhereClause,
+    GroupByHavingClause,
+    OrderByClause,
+    LimitOffsetClause,
+)
 
 K = TypeVar("K")
 V = TypeVar("V")

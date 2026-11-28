@@ -11,10 +11,10 @@ from .set_operation import SetOperationQuery
 from .utils import convert_qmark_placeholder
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.dialect.exceptions import UnsupportedFeatureError
-from ..backend.expression import statements, AllColumnsWildcard, query_sources, bases
+from ..backend.expression import statements, AllColumnsWildcard, bases
 from ..backend.expression.objects import Table
 from ..backend.expression.sources import NamedRelationRef
-from ..backend.expression.query_sources import CTEClause
+from ..backend.expression.sources import CTEClause, WithStatement
 from ..interface import ICTEQuery, IAsyncCTEQuery, ISetOperationQuery, IAsyncSetOperationQuery, IQuery, IAsyncQuery
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -195,7 +195,7 @@ class CTEQuery(
         # Create a CTEClause. The query-layer ``materialized`` tri-state is
         # translated to the expression layer's two parameters; the AR-layer
         # exposure of the split is decided later.
-        cte_expr = query_sources.CTEClause(
+        cte_expr = CTEClause(
             dialect, name=name, query=query_expr, columns=columns,
             materialized=materialized is True,
             not_materialized=materialized is False,
@@ -274,7 +274,7 @@ class CTEQuery(
         )
 
         # Create WithStatement with the CTEs and main query
-        with_query_expr = query_sources.WithStatement(
+        with_query_expr = WithStatement(
             dialect, ctes=self._ctes, query=main_query_expr, recursive=self._recursive
         )
         return with_query_expr.to_sql()
@@ -520,7 +520,7 @@ class AsyncCTEQuery(
         # Create a CTEClause. The query-layer ``materialized`` tri-state is
         # translated to the expression layer's two parameters; the AR-layer
         # exposure of the split is decided later.
-        cte_expr = query_sources.CTEClause(
+        cte_expr = CTEClause(
             dialect, name=name, query=query_expr, columns=columns,
             materialized=materialized is True,
             not_materialized=materialized is False,
@@ -599,7 +599,7 @@ class AsyncCTEQuery(
         )
 
         # Create WithStatement with the CTEs and main query
-        with_query_expr = query_sources.WithStatement(
+        with_query_expr = WithStatement(
             dialect, ctes=self._ctes, query=main_query_expr, recursive=self._recursive
         )
         return with_query_expr.to_sql()

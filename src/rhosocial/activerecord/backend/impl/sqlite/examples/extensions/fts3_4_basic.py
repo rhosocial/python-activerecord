@@ -34,7 +34,7 @@ from rhosocial.activerecord.backend.expression import (
     FunctionCall,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.core import Parameter  # noqa: E402
+from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
 from rhosocial.activerecord.backend.impl.sqlite.expression import (
     SQLiteMatchPredicate,  # noqa: E402
     SQLiteCreateVirtualTableStatement,  # noqa: E402

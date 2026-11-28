@@ -6,8 +6,9 @@ Functions: iif
 """
 
 from typing import Union, TYPE_CHECKING
-
-from rhosocial.activerecord.backend.expression import bases, core
+from rhosocial.activerecord.backend.expression import bases
+from rhosocial.activerecord.backend.expression.functions import FunctionCall
+from rhosocial.activerecord.backend.expression.value_types import Parameter
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.dialect import SQLDialectBase
@@ -18,7 +19,7 @@ def iif(
     condition: "bases.BaseExpression",
     true_value: Union[str, "bases.BaseExpression"],
     false_value: Union[str, "bases.BaseExpression"],
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates an IIF function call (SQLite's inline IF).
 
@@ -36,9 +37,9 @@ def iif(
     Returns:
         A FunctionCall instance representing the IIF function
     """
-    true_expr = true_value if isinstance(true_value, bases.BaseExpression) else core.Parameter(dialect, true_value)
-    false_expr = false_value if isinstance(false_value, bases.BaseExpression) else core.Parameter(dialect, false_value)
-    return core.FunctionCall(dialect, "IIF", condition, true_expr, false_expr)
+    true_expr = true_value if isinstance(true_value, bases.BaseExpression) else Parameter(dialect, true_value)
+    false_expr = false_value if isinstance(false_value, bases.BaseExpression) else Parameter(dialect, false_value)
+    return FunctionCall(dialect, "IIF", condition, true_expr, false_expr)
 
 
 __all__ = [

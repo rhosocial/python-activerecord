@@ -46,10 +46,10 @@ from rhosocial.activerecord.backend.expression import (
     RangeColumn,
     VectorColumn,
 )
-from rhosocial.activerecord.backend.expression.column_types import annotation_for
-from rhosocial.activerecord.backend.expression.declared import SurfaceOnlyAnnotation
-from rhosocial.activerecord.backend.expression.mixins import ComparisonMixin
-from rhosocial.activerecord.backend.expression.value_types import SurfaceOnlyValue
+from rhosocial.activerecord.backend.expression.column_types.column_types import annotation_for
+from rhosocial.activerecord.backend.expression.column_types.declared import SurfaceOnlyAnnotation
+from rhosocial.activerecord.backend.expression.bases.mixins import ComparisonMixin
+from rhosocial.activerecord.backend.expression.value_types.value_types import SurfaceOnlyValue
 from rhosocial.activerecord.backend.impl.dummy.column_type import DUMMY_COLUMN_TYPES
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect

@@ -7,13 +7,13 @@ import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression import Column, Parameter
-from rhosocial.activerecord.backend.expression.advanced_functions import (
+from rhosocial.activerecord.backend.expression.functions.advanced_functions import (
     JSONDocumentValue,
     TrimExpression,
 )
-from rhosocial.activerecord.backend.expression.predicates import DistinctFromPredicate
-from rhosocial.activerecord.backend.expression.query_parts import GroupingClause
-from rhosocial.activerecord.backend.expression.query_sources import ValuesExpression
+from rhosocial.activerecord.backend.expression.predicates.predicates import DistinctFromPredicate
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import GroupingClause
+from rhosocial.activerecord.backend.expression.sources.query_sources import ValuesExpression
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 LOW = (3, 8, 0)

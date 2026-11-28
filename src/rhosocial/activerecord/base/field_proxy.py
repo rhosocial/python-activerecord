@@ -20,7 +20,7 @@ that fits the active backend.
 from typing import Any, Type, TYPE_CHECKING
 
 from ..backend.expression.column_types import ColumnBase
-from ..backend.expression.core import Column
+from ..backend.expression.column_types import Column
 from .annotation_lookup import describe_annotation, entry_name, strip_annotation, table_entry_for
 from .fields import UseColumnType
 

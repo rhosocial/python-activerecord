@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from .common import SQLiteBackendMixin, SQLiteConcurrencyMixin, DEFAULT_PRAGMAS
 from ..config import SQLiteConnectionConfig
 from ..dialect import SQLiteDialect
-from ..expression.introspection import SQLitePragmaQueryStatement, SQLitePragmaSetStatement
+from ..expression.introspection.introspection import SQLitePragmaQueryStatement, SQLitePragmaSetStatement
 from ..transaction import SQLiteTransactionManager
 from rhosocial.activerecord.backend.base import StorageBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig

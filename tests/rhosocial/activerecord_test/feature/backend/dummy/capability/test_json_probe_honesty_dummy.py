@@ -20,7 +20,7 @@ import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression import Column
-from rhosocial.activerecord.backend.expression.advanced_functions import JSONDocumentValue
+from rhosocial.activerecord.backend.expression.functions.advanced_functions import JSONDocumentValue
 
 
 def _sqlite():

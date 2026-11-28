@@ -3,15 +3,13 @@
 
 from typing import Union, Optional, TYPE_CHECKING
 
-from rhosocial.activerecord.backend.expression.defaults import (
+from rhosocial.activerecord.backend.expression.bases.defaults import (
     TRIM_DEFAULT_DIRECTION,
 )
-from ..bases import BaseExpression, SQLValue
-from ..core import (
-    FunctionCall,
-    Parameter,
-)
-from ..mixins import (
+from ..bases.bases import BaseExpression, SQLValue
+from ..functions.function_call import FunctionCall
+from ..value_types.parameter import Parameter
+from ..bases.mixins import (
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
@@ -23,11 +21,11 @@ from ..mixins import (
     TranscendentalMixin,
     TypeCastingMixin,
 )
-from ..operators import ConcatenationOperation
+from ..operators.operators import ConcatenationOperation
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
-    from ..advanced_functions import (
+    from ..functions.advanced_functions import (
         LpadFunction,
         RepeatFunction,
         RpadFunction,
@@ -181,7 +179,7 @@ class _FunctionOperands:
     @staticmethod
     def _text(dialect: "SQLDialectBase", value):
         """*value* as a text operand: a node if it is one, a literal if not."""
-        from ..core import Parameter
+        from ..value_types.parameter import Parameter
 
         return value if isinstance(value, BaseExpression) else Parameter(dialect, value)
 
@@ -212,7 +210,7 @@ class ConcatFunction(
 
 
     def __init__(self, dialect: "SQLDialectBase", *operands):
-        from ..core import Parameter
+        from ..value_types.parameter import Parameter
 
         super().__init__(dialect)
         self.operands = [o if isinstance(o, BaseExpression) else Parameter(dialect, o) for o in operands]
@@ -239,13 +237,13 @@ class CoalesceFunction(
     ``COALESCE(col, 0)`` is a number and ``COALESCE(a, b)`` is whatever ``a``
     is. The class therefore carries the text surface because that is the common
     case, and a caller who needs another surface says so with
-    :class:`~...expression.mixins.ResultTypeMixin` -- the one situation the mixin
+    :class:`~...expression.bases.mixins.ResultTypeMixin` -- the one situation the mixin
     exists for, since the source cannot answer it.
     """
 
 
     def __init__(self, dialect: "SQLDialectBase", *operands):
-        from ..core import Parameter
+        from ..value_types.parameter import Parameter
 
         super().__init__(dialect)
         self.operands = [o if isinstance(o, BaseExpression) else Parameter(dialect, o) for o in operands]
@@ -898,7 +896,7 @@ def trim(
         direction: Direction of trim operation (BOTH, LEADING, TRAILING). Default is BOTH.
 
     Returns:
-        A :class:`~...expression.advanced_functions.TrimExpression` node, which
+        A :class:`~...expression.functions.advanced_functions.TrimExpression` node, which
         the dialect renders through its ``format_trim_expression`` hook.
 
     Raises:
@@ -928,7 +926,7 @@ def trim(
             "set means three different things across the backends"
         )
 
-    from ..advanced_functions import TrimExpression
+    from ..functions.advanced_functions import TrimExpression
 
     target_expr = expr if isinstance(expr, BaseExpression) else Parameter(dialect, expr)
     chars_expr: Optional[BaseExpression] = None
@@ -1108,7 +1106,7 @@ def lpad(
         pad: Optional padding string, non-empty. Defaults to a single space.
 
     Returns:
-        A :class:`~...expression.advanced_functions.LpadFunction` node, which
+        A :class:`~...expression.functions.advanced_functions.LpadFunction` node, which
         the dialect renders through ``format_lpad_expression`` -- a spelling
         where the function exists (PostgreSQL, MySQL, MariaDB, Oracle,
         Firebird, ClickHouse, Snowflake, BigQuery) and an emulation composed
@@ -1137,7 +1135,7 @@ def lpad(
     target_expr = expr if isinstance(expr, BaseExpression) else Parameter(dialect, expr)
     length_expr = length if isinstance(length, BaseExpression) else Parameter(dialect, length)
     pad_expr = Parameter(dialect, " " if pad is None else pad)
-    from ..advanced_functions import LpadFunction
+    from ..functions.advanced_functions import LpadFunction
 
     return LpadFunction(dialect, target_expr, length_expr, pad_expr)
 
@@ -1161,7 +1159,7 @@ def rpad(
         pad: Optional padding string, non-empty. Defaults to a single space.
 
     Returns:
-        A :class:`~...expression.advanced_functions.RpadFunction` node,
+        A :class:`~...expression.functions.advanced_functions.RpadFunction` node,
         rendered through ``format_rpad_expression`` -- a spelling where the
         function exists and a one-branch emulation where it does not.
 
@@ -1182,7 +1180,7 @@ def rpad(
     target_expr = expr if isinstance(expr, BaseExpression) else Parameter(dialect, expr)
     length_expr = length if isinstance(length, BaseExpression) else Parameter(dialect, length)
     pad_expr = Parameter(dialect, " " if pad is None else pad)
-    from ..advanced_functions import RpadFunction
+    from ..functions.advanced_functions import RpadFunction
 
     return RpadFunction(dialect, target_expr, length_expr, pad_expr)
 
@@ -1254,7 +1252,7 @@ def concat_op(
         *exprs: Variable number of expressions to concatenate using || operator
 
     Returns:
-        A :class:`~...expression.operators.ConcatenationOperation` node, whose
+        A :class:`~...expression.operators.operators.ConcatenationOperation` node, whose
         kind states the intent and whose rendering this dialect chooses.
     """
     if len(exprs) < 2:
@@ -1457,7 +1455,7 @@ def repeat(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], count:
         count: Number of repetitions
 
     Returns:
-        A :class:`~...expression.advanced_functions.RepeatFunction` node,
+        A :class:`~...expression.functions.advanced_functions.RepeatFunction` node,
         rendered through ``format_repeat_expression`` -- a spelling where the
         function exists (PostgreSQL, MySQL, MariaDB, ClickHouse, BigQuery) and
         an emulation composed from ordinary nodes where it does not (SQLite,
@@ -1475,7 +1473,7 @@ def repeat(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], count:
         return Parameter(dialect, "")
     target_expr = expr if isinstance(expr, BaseExpression) else Parameter(dialect, expr)
     count_expr = count if isinstance(count, BaseExpression) else Parameter(dialect, count)
-    from ..advanced_functions import RepeatFunction
+    from ..functions.advanced_functions import RepeatFunction
 
     return RepeatFunction(dialect, target_expr, count_expr)
 

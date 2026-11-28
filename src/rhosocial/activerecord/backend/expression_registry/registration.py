@@ -24,7 +24,7 @@ is therefore not an error.
 
 from typing import Dict, Mapping
 
-from ..expression.bases import BaseExpression
+from ..expression.bases.bases import BaseExpression
 
 
 def _declares_a_formatter(cls) -> bool:

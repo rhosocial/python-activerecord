@@ -7,7 +7,7 @@ tables. The QUALIFY clause support has been merged into DQLMixin.
 from typing import Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.datetime import TemporalOptionsExpression
+    from ...expression.functions.datetime import TemporalOptionsExpression
 
 
 class TemporalTableMixin:

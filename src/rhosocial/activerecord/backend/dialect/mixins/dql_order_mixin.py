@@ -2,8 +2,8 @@
 """Per-feature mixin for DqlOrderSupport. Members/order/signature mirror the protocol."""
 
 from typing import TYPE_CHECKING, Any, List, Tuple
-from ...expression.bases import ToSQLProtocol
-from ...expression.query_parts import SortDirection
+from ...expression.bases.bases import ToSQLProtocol
+from ...expression.query_parts.query_parts import SortDirection
 
 class DqlOrderMixin:
     def supports_nulls_first_last(self) -> bool:

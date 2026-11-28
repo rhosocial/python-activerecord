@@ -3,7 +3,7 @@
 
 from typing import Tuple
 from rhosocial.activerecord.backend.expression.objects import Domain
-from rhosocial.activerecord.backend.expression.statements.ddl_domain import DomainCheckConstraint, DomainNullability
+from rhosocial.activerecord.backend.expression.statements import DomainCheckConstraint, DomainNullability
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 class CreateDomainMixin:

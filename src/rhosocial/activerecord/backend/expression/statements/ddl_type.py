@@ -4,8 +4,8 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from ..bases import BaseExpression
-from ..objects import Type
+from ..bases.bases import BaseExpression
+from rhosocial.activerecord.backend.expression.objects.type_ import Type
 
 if TYPE_CHECKING:
     from ...dialect import SQLDialectBase

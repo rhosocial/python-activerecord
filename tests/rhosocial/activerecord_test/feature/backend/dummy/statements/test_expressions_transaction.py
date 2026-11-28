@@ -2,7 +2,7 @@
 """Tests for the transaction statement classes."""
 
 import pytest
-from rhosocial.activerecord.backend.expression.transaction import (
+from rhosocial.activerecord.backend.expression.statements.transaction import (
     BeginTransactionStatement,
     CommitStatement,
     RollbackStatement,

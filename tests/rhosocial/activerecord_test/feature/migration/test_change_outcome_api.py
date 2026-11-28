@@ -15,7 +15,7 @@ import pytest
 
 from rhosocial.activerecord.backend.dialect import PartitionCapability
 from rhosocial.activerecord.backend.expression import Column
-from rhosocial.activerecord.backend.expression.bases import BaseExpression
+from rhosocial.activerecord.backend.expression.bases.bases import BaseExpression
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.statements import IndexDefinition
 from rhosocial.activerecord.backend.expression.statements.ddl_partition import PartitionClause

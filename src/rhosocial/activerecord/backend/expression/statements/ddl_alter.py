@@ -5,8 +5,9 @@ from .ddl_table import (
     TableConstraint,
     TableForeignKeyConstraint,
 )
-from ..objects import Index, Table
-from ..bases import BaseExpression
+from rhosocial.activerecord.backend.expression.objects.index import Index
+from rhosocial.activerecord.backend.expression.objects.relation import Table
+from ..bases.bases import BaseExpression
 from typing import Any, Optional, Union, TYPE_CHECKING
 from enum import Enum
 # src/rhosocial/activerecord/backend/expression/statements/ddl_alter.py

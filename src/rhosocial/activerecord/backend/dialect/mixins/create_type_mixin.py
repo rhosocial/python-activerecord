@@ -4,7 +4,7 @@
 from typing import Tuple, Type as TypingType
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression.objects import Type
-from rhosocial.activerecord.backend.expression.statements.ddl_type import TypeDefinition
+from rhosocial.activerecord.backend.expression.statements import TypeDefinition
 
 class CreateTypeMixin:
     def supports_type_objects(self) -> bool:

@@ -8,7 +8,7 @@ can be executed by SQLite.
 """
 
 
-from rhosocial.activerecord.backend.expression.introspection import (
+from rhosocial.activerecord.backend.expression.introspection.introspection import (
     TableListQueryStatement,
     TableInfoQueryStatement,
     ColumnInfoQueryStatement,

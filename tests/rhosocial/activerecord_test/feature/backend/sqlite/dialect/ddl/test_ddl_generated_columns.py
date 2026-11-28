@@ -8,7 +8,11 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnPrimaryKeyConstraint,
 )
 from rhosocial.activerecord.backend.expression.objects import Table
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteRealType, SQLiteTextType
+from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import (
+    SQLiteIntegerType,
+    SQLiteRealType,
+    SQLiteTextType,
+)
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression import RawSQL
 from rhosocial.activerecord.backend.expression.statements import (

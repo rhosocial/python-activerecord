@@ -6,8 +6,9 @@ Functions: date_func, time_func, datetime_func, julianday, strftime_func
 """
 
 from typing import Union, TYPE_CHECKING
-
-from rhosocial.activerecord.backend.expression import bases, core
+from rhosocial.activerecord.backend.expression import bases
+from rhosocial.activerecord.backend.expression.functions import FunctionCall
+from rhosocial.activerecord.backend.expression.value_types import Parameter
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.dialect import SQLDialectBase
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
 
 def date_func(
     dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], *modifiers: str
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a DATE function call.
 
@@ -33,14 +34,14 @@ def date_func(
     Returns:
         A FunctionCall instance representing the DATE function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
-    modifier_exprs = [core.Parameter(dialect, m) for m in modifiers]
-    return core.FunctionCall(dialect, "DATE", target_expr, *modifier_exprs)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else Parameter(dialect, expr)
+    modifier_exprs = [Parameter(dialect, m) for m in modifiers]
+    return FunctionCall(dialect, "DATE", target_expr, *modifier_exprs)
 
 
 def time_func(
     dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], *modifiers: str
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a TIME function call.
 
@@ -58,14 +59,14 @@ def time_func(
     Returns:
         A FunctionCall instance representing the TIME function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
-    modifier_exprs = [core.Parameter(dialect, m) for m in modifiers]
-    return core.FunctionCall(dialect, "TIME", target_expr, *modifier_exprs)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else Parameter(dialect, expr)
+    modifier_exprs = [Parameter(dialect, m) for m in modifiers]
+    return FunctionCall(dialect, "TIME", target_expr, *modifier_exprs)
 
 
 def datetime_func(
     dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], *modifiers: str
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a DATETIME function call.
 
@@ -83,14 +84,14 @@ def datetime_func(
     Returns:
         A FunctionCall instance representing the DATETIME function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
-    modifier_exprs = [core.Parameter(dialect, m) for m in modifiers]
-    return core.FunctionCall(dialect, "DATETIME", target_expr, *modifier_exprs)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else Parameter(dialect, expr)
+    modifier_exprs = [Parameter(dialect, m) for m in modifiers]
+    return FunctionCall(dialect, "DATETIME", target_expr, *modifier_exprs)
 
 
 def julianday(
     dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], *modifiers: str
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a JULIANDAY function call.
 
@@ -108,14 +109,14 @@ def julianday(
     Returns:
         A FunctionCall instance representing the JULIANDAY function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
-    modifier_exprs = [core.Parameter(dialect, m) for m in modifiers]
-    return core.FunctionCall(dialect, "JULIANDAY", target_expr, *modifier_exprs)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else Parameter(dialect, expr)
+    modifier_exprs = [Parameter(dialect, m) for m in modifiers]
+    return FunctionCall(dialect, "JULIANDAY", target_expr, *modifier_exprs)
 
 
 def strftime_func(
     dialect: "SQLDialectBase", format_str: str, expr: Union[str, "bases.BaseExpression"], *modifiers: str
-) -> "core.FunctionCall":
+) -> "FunctionCall":
     """
     Creates a STRFTIME function call.
 
@@ -134,10 +135,10 @@ def strftime_func(
     Returns:
         A FunctionCall instance representing the STRFTIME function
     """
-    format_expr = core.Parameter(dialect, format_str)
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
-    modifier_exprs = [core.Parameter(dialect, m) for m in modifiers]
-    return core.FunctionCall(dialect, "STRFTIME", format_expr, target_expr, *modifier_exprs)
+    format_expr = Parameter(dialect, format_str)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else Parameter(dialect, expr)
+    modifier_exprs = [Parameter(dialect, m) for m in modifiers]
+    return FunctionCall(dialect, "STRFTIME", format_expr, target_expr, *modifier_exprs)
 
 
 __all__ = [

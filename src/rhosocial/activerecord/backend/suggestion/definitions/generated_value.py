@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.bases import BaseExpression
+    from ...expression.bases.bases import BaseExpression
     from ...expression.types import DataType
 
 

@@ -16,7 +16,7 @@ from rhosocial.activerecord.backend.dialect.protocols.query import RpadSupport
 from rhosocial.activerecord.backend.dialect.protocols.query import TrimSupport
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.advanced_functions import (
+    from ...expression.functions.advanced_functions import (
         LpadFunction,
         RepeatFunction,
         RpadFunction,

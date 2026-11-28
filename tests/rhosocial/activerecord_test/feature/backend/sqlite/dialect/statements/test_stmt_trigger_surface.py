@@ -4,9 +4,9 @@
 import pytest
 
 from rhosocial.activerecord.backend.expression import Column, Parameter
-from rhosocial.activerecord.backend.expression.datetime import CurrentTimestampFunction
+from rhosocial.activerecord.backend.expression.functions.datetime import CurrentTimestampFunction
 from rhosocial.activerecord.backend.expression.objects import Function, Table, Trigger
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.predicates.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.expression.statements import (
     CreateTriggerStatement,
     DropTriggerStatement,

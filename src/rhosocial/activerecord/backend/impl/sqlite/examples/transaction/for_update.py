@@ -7,14 +7,15 @@ from rhosocial.activerecord.backend.expression.types import FloatType, IntegerTy
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.schema import StatementType
 from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.expression.transaction import BeginTransactionStatement
+from rhosocial.activerecord.backend.expression.statements.transaction import BeginTransactionStatement
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
     ColumnConstraint,
 )
-from rhosocial.activerecord.backend.expression.query_parts import ForUpdateClause
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
-from rhosocial.activerecord.backend.expression.core import Parameter, Column
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import ForUpdateClause
+from rhosocial.activerecord.backend.expression.predicates.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
+from rhosocial.activerecord.backend.expression.column_types.column import Column
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     QueryStatement,

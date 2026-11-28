@@ -136,7 +136,7 @@ from .functions import (
     session_user,
     system_user,
 )
-from .transaction import (
+from .statements.transaction import (
     TransactionStatement,
     BeginTransactionStatement,
     CommitStatement,
@@ -145,7 +145,7 @@ from .transaction import (
     ReleaseSavepointStatement,
     SetTransactionStatement,
 )
-from .introspection import (
+from .introspection.introspection import (
     IntrospectionExpression,
     TableListQueryStatement,
     TableInfoQueryStatement,
@@ -157,7 +157,7 @@ from .introspection import (
     TriggerListQueryStatement,
     TriggerInfoQueryStatement,
 )
-from .graph import (
+from .statements.graph import (
     GraphEdgeDirection,
     GraphVertex,
     GraphEdge,
@@ -293,7 +293,7 @@ from .statements import (
     TableForeignKeyConstraint,
     TableExcludeConstraint,
 )
-from .query_sources import (
+from .sources.query_sources import (
     SetOperation,
     CTEClause,
     WithStatement,
@@ -303,8 +303,8 @@ from .query_sources import (
     JSONTableColumn,
     JSONTableExpression,
 )
-from .pivot import Pivot, Unpivot
-from .query_parts import (
+from .query_parts.pivot import Pivot, Unpivot
+from .query_parts.query_parts import (
     GroupingClause,
     JoinClause,
     JoinType,
@@ -317,7 +317,7 @@ from .query_parts import (
     ForUpdateClause,
     LockStrength,
 )
-from .advanced_functions import (
+from .functions.advanced_functions import (
     CaseExpression,
     ExistsPredicate,
     TrimExpression,
@@ -336,7 +336,7 @@ from .advanced_functions import (
     ArrayOperation,
     OrderedSetAggregation,
 )
-from .predicates import (
+from .predicates.predicates import (
     ComparisonOperator,
     ComparisonPredicate,
     DistinctFromPredicate,
@@ -349,7 +349,7 @@ from .predicates import (
     IsNullPredicate,
     IsBooleanPredicate,
 )
-from .xml import (
+from .functions.xml import (
     PassingClause,
     XMLAggExpression,
     XMLAttribute,
@@ -375,7 +375,7 @@ from .xml import (
     XMLTableExpression,
     XMLWhitespaceOption,
 )
-from .datetime import (
+from .functions.datetime import (
     DateTimeField,
     IntervalUnit,
     ExtractExpression,
@@ -387,11 +387,11 @@ from .datetime import (
     DatetimeDiffExpression,
     SecondsBetweenExpression,
 )
-from .collation import (
+from .functions.collation import (
     CollateFunction,
     collate,
 )
-from .value_types import (
+from .value_types.value_types import (
     ArrayValue,
     BooleanValue,
     JSONValue,
@@ -402,22 +402,19 @@ from .value_types import (
     TextValue,
     XMLValue,
 )
-from .core import (
-    Column,
-    FunctionCall,
-    Subquery,
-    Parameter,
-    AllColumnsWildcard,
-    RowCountWildcard,
-    QualifiedIdentifier,
-)
+from .column_types.column import Column
+from .objects.qualified_identifier import QualifiedIdentifier
+from .functions.function_call import FunctionCall
+from .sources.subquery import Subquery
+from .value_types.parameter import Parameter
+from .value_types.wildcards import AllColumnsWildcard, RowCountWildcard
 from .sources.relation import NamedRelationRef
-from .uuid import (
+from .functions.uuid import (
     UUIDGenerationExpression,
     UUIDConstantExpression,
     UUIDCastFunction,
 )
-from .column_types import (
+from .column_types.column_types import (
     ColumnBase,
     StringColumn,
     IntegerColumn,
@@ -438,7 +435,7 @@ from .column_types import (
     IPAddressColumn,
     IntervalColumn,
 )
-from .operators import (
+from .operators.operators import (
     SQLOperation,
     BinaryExpression,
     UnaryExpression,
@@ -447,10 +444,10 @@ from .operators import (
     ArithmeticOperation,
     ConcatenationOperation,
 )
-from .literals import (
+from .value_types.literals import (
     Identifier,
 )
-from .mixins import (
+from .bases.mixins import (
     AliasableMixin,
     ArrayMixin,
     DateTimeMixin,
@@ -462,8 +459,8 @@ from .mixins import (
     TranscendentalMixin,
     build_json_path,
 )
-from .executable import Executable
-from .bases import (
+from .statements.executable import Executable
+from .bases.bases import (
     ToSQLProtocol,
     BaseExpression,
     SQLValue,
@@ -903,7 +900,3 @@ __all__ = [
     "TableForeignKeyConstraint",
     "TableExcludeConstraint",
 ]
-
-# Backward compatibility aliases (deprecated, use new names)
-JoinExpression = JoinClause
-GroupingExpression = GroupingClause

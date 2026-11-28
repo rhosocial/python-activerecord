@@ -12,17 +12,17 @@ answers with their common kind, or with nothing when they disagree.
 import pytest
 
 from rhosocial.activerecord.backend.expression import functions as F, FunctionCall, Parameter, XMLColumn
-from rhosocial.activerecord.backend.expression.bases import SQLValue
-from rhosocial.activerecord.backend.expression.column_types import annotation_for
-from rhosocial.activerecord.backend.expression.type_name import is_valid_type_name
+from rhosocial.activerecord.backend.expression.bases.bases import SQLValue
+from rhosocial.activerecord.backend.expression.column_types.column_types import annotation_for
+from rhosocial.activerecord.backend.expression.bases.type_name import is_valid_type_name
 from rhosocial.activerecord.backend.expression.types import (
     CustomType,
     JsonType,
     VarCharType,
     XmlType,
 )
-from rhosocial.activerecord.backend.expression.advanced_functions import CaseExpression
-from rhosocial.activerecord.backend.expression.declared import (
+from rhosocial.activerecord.backend.expression.functions.advanced_functions import CaseExpression
+from rhosocial.activerecord.backend.expression.column_types.declared import (
     ArrayAnnotation,
     BinaryAnnotation,
     BooleanAnnotation,
@@ -34,7 +34,7 @@ from rhosocial.activerecord.backend.expression.declared import (
     UUIDAnnotation,
     XMLAnnotation,
 )
-from rhosocial.activerecord.backend.expression.value_types import (
+from rhosocial.activerecord.backend.expression.value_types.value_types import (
     ArrayValue,
     JSONValue,
     NumericValue,
@@ -314,7 +314,7 @@ def test_the_xml_document_nodes_are_xml_values(dialect):
     from the object. What the class carries is the XML surface — the null
     tests and casting, and no comparison (see the refusal test below).
     """
-    from rhosocial.activerecord.backend.expression import xml as X
+    from rhosocial.activerecord.backend.expression.functions import xml as X
 
     document_nodes = (
         X.XMLParseExpression,
@@ -346,7 +346,7 @@ def test_xmlserialize_yields_the_character_value_it_names(dialect):
     the node declares ``StringValue`` and the string operations
     follow it out of the XML surface.
     """
-    from rhosocial.activerecord.backend.expression import xml as X
+    from rhosocial.activerecord.backend.expression.functions import xml as X
 
     assert issubclass(X.XMLSerializeExpression, TextValue)
     serialized = F.xmlserialize(dialect, "<root/>", "VARCHAR(100)")
@@ -356,8 +356,8 @@ def test_xmlserialize_yields_the_character_value_it_names(dialect):
 
 def test_xmlexists_is_a_predicate_not_a_value():
     """It answers a WHERE clause, so it has no value family to declare."""
-    from rhosocial.activerecord.backend.expression import xml as X
-    from rhosocial.activerecord.backend.expression.bases import SQLPredicate
+    from rhosocial.activerecord.backend.expression.functions import xml as X
+    from rhosocial.activerecord.backend.expression.bases.bases import SQLPredicate
 
     assert issubclass(X.XMLExistsPredicate, SQLPredicate)
     assert not issubclass(X.XMLExistsPredicate, XMLValue)
@@ -378,7 +378,7 @@ def test_a_function_that_declares_no_result_can_say_xml(dialect):
     stating the type, since ``.like()`` on an XML document is not a question any
     backend answers. The SQL is untouched: only the declared type moved.
     """
-    from rhosocial.activerecord.backend.expression.declared import XMLAnnotation
+    from rhosocial.activerecord.backend.expression.column_types.declared import XMLAnnotation
 
     call = FunctionCall(dialect, "MYSTERY_FUNC")
     typed = call.as_xml()
@@ -453,7 +453,7 @@ def test_every_typed_value_declares_a_family_from_the_lattice():
     moves the family fails here rather than quietly emptying the set."""
     import inspect
 
-    from rhosocial.activerecord.backend.expression import core
+    from rhosocial.activerecord.backend.expression.value_types import logical as core
 
     declared = {
         name: cls

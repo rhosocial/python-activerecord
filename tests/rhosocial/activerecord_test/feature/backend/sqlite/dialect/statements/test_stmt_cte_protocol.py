@@ -14,7 +14,7 @@ from rhosocial.activerecord.backend.expression import (
     QueryStatement,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.query_sources import CTEClause, WithStatement
+from rhosocial.activerecord.backend.expression.sources.query_sources import CTEClause, WithStatement
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 

@@ -2,8 +2,8 @@
 from rhosocial.activerecord.backend.expression.statements import ExplainType, ExplainOptions, ExplainStatement
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.expression.core import Parameter
-from rhosocial.activerecord.backend.expression.column_types import NumericColumn
+from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
+from rhosocial.activerecord.backend.expression.column_types.column_types import NumericColumn
 from rhosocial.activerecord.backend.expression.objects import Table
 
 

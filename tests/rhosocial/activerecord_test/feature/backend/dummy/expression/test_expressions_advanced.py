@@ -133,7 +133,7 @@ class TestAdvancedExpressions:
     def test_window_function_basic(self, dummy_dialect: DummyDialect):
         """Tests a basic window function with PARTITION BY and ORDER BY."""
         # Create window specification
-        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
         window_spec = WindowSpecification(
             dummy_dialect,
@@ -154,7 +154,7 @@ class TestAdvancedExpressions:
             dummy_dialect, frame_type="ROWS", start_frame="UNBOUNDED PRECEDING", end_frame="CURRENT ROW"
         )
         # Create window specification with frame
-        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
         window_spec = WindowSpecification(
             dummy_dialect,

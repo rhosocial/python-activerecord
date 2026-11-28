@@ -15,7 +15,7 @@ DDL -- which is why an index could be built out of a "table expression".
 
 from typing import Any, Dict, Optional
 
-from ..mixins import AliasableMixin
+from ..bases.mixins import AliasableMixin
 from ..objects.base import SchemaObject
 from .base import TableSource
 

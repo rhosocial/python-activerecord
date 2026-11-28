@@ -4,7 +4,7 @@
 from typing import Tuple, Type as TypingType, TYPE_CHECKING
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression.objects import Type
-from rhosocial.activerecord.backend.expression.statements.ddl_type import TypeAlterAction, TypeDefinition
+from rhosocial.activerecord.backend.expression.statements import TypeAlterAction, TypeDefinition
 
 class DropTypeMixin:
     def supports_drop_type(self) -> bool:

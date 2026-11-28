@@ -513,10 +513,10 @@ class TestMigrationRunner:
         from rhosocial.activerecord.backend.expression.statements.ddl_partition import (
             PartitionByRangeClause,
         )
-        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import (
             SQLiteIntegerType,
         )
-        from rhosocial.activerecord.backend.expression.core import Column as ColExpr
+        from rhosocial.activerecord.backend.expression.column_types.column import Column as ColExpr
 
         def unsupported_expr(dialect):
             col_def = ColumnDefinition(dialect, 
@@ -585,7 +585,7 @@ class TestMigrationRunnerIntegration:
             ColumnConstraint,
             ColumnPrimaryKeyConstraint,
         )
-        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import (
             SQLiteIntegerType,
             SQLiteTextType,
         )
@@ -797,7 +797,7 @@ class TestMigrationRunnerIntegration:
                     ColumnDefinition,
                     ColumnConstraint,
                 )
-                from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+                from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import (
                     SQLiteIntegerType,
                     SQLiteTextType,
                 )
@@ -889,7 +889,7 @@ class TestUserParams:
                     ColumnDefinition,
                     ColumnConstraint,
                 )
-                from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+                from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import (
                     SQLiteIntegerType,
                     SQLiteTextType,
                 )
@@ -1126,7 +1126,7 @@ class TestAsyncMigrationRunnerIntegration:
                         ColumnDefinition,
                         ColumnConstraint,
                     )
-                    from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+                    from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import (
                         SQLiteIntegerType,
                         SQLiteTextType,
                     )
@@ -1171,7 +1171,7 @@ def _make_create_users_expr_static(dialect):
         ColumnConstraint,
         ColumnPrimaryKeyConstraint,
     )
-    from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+    from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import (
         SQLiteIntegerType,
         SQLiteTextType,
     )
@@ -1429,7 +1429,7 @@ def _run_create_users(backend, ctx):
         ColumnConstraint,
         ColumnPrimaryKeyConstraint,
     )
-    from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+    from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import (
         SQLiteIntegerType,
         SQLiteTextType,
     )
@@ -1461,7 +1461,7 @@ def _run_create_posts(backend, ctx):
         ColumnConstraint,
         ColumnPrimaryKeyConstraint,
     )
-    from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+    from rhosocial.activerecord.backend.impl.sqlite.expression.types.types import (
         SQLiteIntegerType,
         SQLiteTextType,
     )

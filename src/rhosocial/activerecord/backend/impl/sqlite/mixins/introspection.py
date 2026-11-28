@@ -323,7 +323,7 @@ class SQLiteIntrospectionCapabilityMixin:
             QueryStatement,
             WhereClause,
         )
-        from rhosocial.activerecord.backend.expression.sources.relation import (
+        from rhosocial.activerecord.backend.expression.sources import (
             NamedRelationRef,
         )
         from ..expression import SQLiteTable
@@ -522,7 +522,7 @@ class SQLiteIntrospectionCapabilityMixin:
             raise UnsupportedFeatureError(self.name, "table storage introspection")
 
         from rhosocial.activerecord.backend.expression import Column, QueryStatement
-        from rhosocial.activerecord.backend.expression.sources.relation import (
+        from rhosocial.activerecord.backend.expression.sources import (
             NamedRelationRef,
         )
         from ..expression import SQLiteTable
@@ -595,7 +595,7 @@ class SQLiteIntrospectionCapabilityMixin:
         # since PRAGMA cannot filter them out at the SQL level.
         # For user-only queries, sqlite_master provides native filtering.
         if self.supports_table_list_pragma() and include_system:
-            from ..expression.introspection import SQLitePragmaQueryStatement
+            from ..expression.introspection.introspection import SQLitePragmaQueryStatement
 
             return SQLitePragmaQueryStatement(self, "table_list", schema=schema).to_sql()
 
@@ -692,7 +692,7 @@ class SQLiteIntrospectionCapabilityMixin:
         include_hidden = params.get("include_hidden", False)
         schema = params.get("schema") or "main"
 
-        from ..expression.introspection import SQLitePragmaQueryStatement
+        from ..expression.introspection.introspection import SQLitePragmaQueryStatement
 
         # Use table_xinfo for hidden columns if supported and requested
         pragma = "table_xinfo" if include_hidden and self.supports_table_xinfo_pragma() else "table_info"
@@ -715,7 +715,7 @@ class SQLiteIntrospectionCapabilityMixin:
         table_name = params.get("table_name", "")
         schema = params.get("schema") or "main"
 
-        from ..expression.introspection import SQLitePragmaQueryStatement
+        from ..expression.introspection.introspection import SQLitePragmaQueryStatement
 
         return SQLitePragmaQueryStatement(
             self, "index_list", self.format_identifier(table_name), schema=schema
@@ -736,7 +736,7 @@ class SQLiteIntrospectionCapabilityMixin:
         table_name = params.get("table_name", "")
         schema = params.get("schema") or "main"
 
-        from ..expression.introspection import SQLitePragmaQueryStatement
+        from ..expression.introspection.introspection import SQLitePragmaQueryStatement
 
         return SQLitePragmaQueryStatement(
             self, "foreign_key_list", self.format_identifier(table_name), schema=schema
@@ -927,18 +927,16 @@ class SQLiteIntrospectionCapabilityMixin:
         """A constant label as a named select-list entry.
 
         ``Parameter`` is deliberately unaliasable -- a value has nothing to name
-        (see :class:`~...expression.core.Parameter`) -- so the constant is cast
+        (see :class:`~...expression.value_types.parameter.Parameter`) -- so the constant is cast
         to text, which is the smallest node in the tree that produces a named
         result. The cast is not there for its type: it is there so the label
         can be called ``column_name`` or ``source``, which is what the parser
         reads. ``None`` is the same node carrying SQL NULL, which is how the
         empty profile says "the column name is absent" without inventing one.
         """
-        from rhosocial.activerecord.backend.expression.core import (
-            CastExpression,
-            Parameter,
-        )
-        from rhosocial.activerecord.backend.expression.types.string import CharType
+        from rhosocial.activerecord.backend.expression.value_types import Parameter
+        from rhosocial.activerecord.backend.expression.types import CharType
+        from rhosocial.activerecord.backend.expression.functions import CastExpression
 
         return CastExpression(self, Parameter(self, text, inline=True), CharType(self), alias=alias)
 
@@ -1059,7 +1057,7 @@ class SQLiteIntrospectionCapabilityMixin:
         # node rather than a join of rendered text: the operator word is the
         # dialect's, and the projection, identifiers and parameters of each
         # arm stay with the renderer that owns them.
-        from rhosocial.activerecord.backend.expression.query_sources import (
+        from rhosocial.activerecord.backend.expression.sources import (
             SetOperationKind,
         )
         from rhosocial.activerecord.backend.expression.statements import (

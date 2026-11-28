@@ -15,7 +15,7 @@ from typing import Dict, Optional, Protocol, TYPE_CHECKING, runtime_checkable
 from ..definitions import DataTypeSuggestion, ExtraDataTypeSuggestion, SubstituteAdviceSuggestion, SubstituteTypeSuggestion
 
 if TYPE_CHECKING:  # pragma: no cover
-    from rhosocial.activerecord.backend.expression.types._base import DataType
+    from rhosocial.activerecord.backend.expression.types import DataType
 
 
 @runtime_checkable

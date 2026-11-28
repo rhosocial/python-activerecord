@@ -7,12 +7,12 @@ This module provides the SQLiteDateTimeMixin class.
 
 from typing import Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression.mixins import AliasableMixin
+from rhosocial.activerecord.backend.expression.bases import AliasableMixin
 from rhosocial.activerecord.backend.textscan import is_identifier
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression import bases
-    from rhosocial.activerecord.backend.expression.collation import CollateFunction
+    from rhosocial.activerecord.backend.expression.functions import CollateFunction
 
 
 class SQLiteDateTimeMixin:

@@ -32,7 +32,7 @@ rhosocial-activerecord 设计为可扩展的。您可以在多个级别自定义
 SQLite 后端使用 SQLite 特定的 SQL 语法扩展核心表达式类。要添加新的表达式类型：
 
 ```python
-from rhosocial.activerecord.backend.expression.bases import BaseExpression
+from rhosocial.activerecord.backend.expression.bases.bases import BaseExpression
 
 class MyCustomExpression(BaseExpression):
     def __init__(self, dialect, *args):

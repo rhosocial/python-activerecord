@@ -897,7 +897,7 @@ print(inspect.signature(case))
 **示例:**
 ```python
 from rhosocial.activerecord.backend.expression import Parameter, StringColumn
-from rhosocial.activerecord.backend.expression.advanced_functions import CaseExpression
+from rhosocial.activerecord.backend.expression.functions.advanced_functions import CaseExpression
 from rhosocial.activerecord.backend.expression.functions import case
 
 # 工厂创建一个空的 CASE 节点
@@ -1793,7 +1793,7 @@ expr = xmlpi(dialect, "xml-stylesheet", 'type="text/xsl" href="style.xsl"')
 from rhosocial.activerecord.backend.expression import Column
 
 from rhosocial.activerecord.backend.expression.functions.xml import xmlroot
-from rhosocial.activerecord.backend.expression.xml import XMLStandaloneOption
+from rhosocial.activerecord.backend.expression.functions.xml import XMLStandaloneOption
 
 expr = xmlroot(
     dialect,
@@ -1858,7 +1858,7 @@ from rhosocial.activerecord.backend.expression import Column
 
 from rhosocial.activerecord.backend.expression.functions.xml import xmltable
 from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
-from rhosocial.activerecord.backend.expression.xml import XMLTableColumn
+from rhosocial.activerecord.backend.expression.functions.xml import XMLTableColumn
 
 expr = xmltable(
     dialect,
@@ -1886,7 +1886,7 @@ expr = xmltable(
 ```python
 from rhosocial.activerecord.backend.expression import Column
 
-from rhosocial.activerecord.backend.expression.datetime import (
+from rhosocial.activerecord.backend.expression.functions.datetime import (
     DateTimeField, ExtractExpression,
 )
 
@@ -1902,7 +1902,7 @@ sql, params = expr.to_sql()
 创建结构化时间间隔值。
 
 ```python
-from rhosocial.activerecord.backend.expression.datetime import (
+from rhosocial.activerecord.backend.expression.functions.datetime import (
     IntervalExpression, IntervalUnit,
 )
 
@@ -1983,7 +1983,7 @@ def format_seconds_between_expression(self, expr) -> Tuple[str, Tuple]:
 ```python
 from rhosocial.activerecord.backend.expression import Column
 
-from rhosocial.activerecord.backend.expression.datetime import (
+from rhosocial.activerecord.backend.expression.functions.datetime import (
     DatetimeAddExpression, DatetimeSubtractExpression, DatetimeDiffExpression,
     IntervalExpression, IntervalUnit, DateTimeField
 )

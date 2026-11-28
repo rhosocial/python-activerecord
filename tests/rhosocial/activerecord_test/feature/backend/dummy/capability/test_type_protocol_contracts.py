@@ -46,7 +46,7 @@ import pytest
 
 from rhosocial.activerecord.backend.expression.types import DataType
 import rhosocial.activerecord.backend.expression.types as core_types  # noqa: F401
-import rhosocial.activerecord.backend.impl.sqlite.expression.types as sqlite_types  # noqa: F401
+import rhosocial.activerecord.backend.impl.sqlite.expression.types.types as sqlite_types  # noqa: F401
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 _CORE_TYPES_PREFIX = "rhosocial.activerecord.backend.expression.types"

@@ -18,7 +18,7 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import StringColumn
 from rhosocial.activerecord.backend.expression import functions as string_functions
-from rhosocial.activerecord.backend.expression.operators import (
+from rhosocial.activerecord.backend.expression.operators.operators import (
     BinaryExpression,
     ConcatenationOperation,
 )

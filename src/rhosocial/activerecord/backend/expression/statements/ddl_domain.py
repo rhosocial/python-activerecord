@@ -5,14 +5,14 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, List, Optional, Sequence, TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLPredicate, SQLValue
-from ..mixins import (
+from ..bases.bases import BaseExpression, SQLPredicate, SQLValue
+from ..bases.mixins import (
     ComparisonMixin,
     StringPatternPredicateMixin,
     TypeCastingMixin,
 )
-from ..objects import Domain
-from ..types import DataType
+from rhosocial.activerecord.backend.expression.objects.type_ import Domain
+from rhosocial.activerecord.backend.expression.types._base import DataType
 from .ddl_table import DefaultValueClause
 
 if TYPE_CHECKING:

@@ -56,7 +56,7 @@ Expressions gain capabilities by composing mixins, not through deep inheritance 
 
 ## Expression Base Classes
 
-All expressions inherit from one of these base classes in `rhosocial.activerecord.backend.expression.bases`:
+All expressions inherit from one of these base classes in `rhosocial.activerecord.backend.expression.bases.bases`:
 
 | Base Class | Purpose | Use When |
 |-----------|---------|----------|
@@ -70,7 +70,7 @@ Both are rendered through the unified `to_sql()` — your subclass declares only
 Subclass `SQLValue` for expressions that produce a value:
 
 ```python
-from rhosocial.activerecord.backend.expression.bases import SQLValue, SQLQueryAndParams
+from rhosocial.activerecord.backend.expression.bases.bases import SQLValue, SQLQueryAndParams
 
 
 class RegexMatchExpression(SQLValue):
@@ -108,7 +108,7 @@ query = User.query().where(expr)
 Subclass `SQLPredicate` for expressions that produce a boolean:
 
 ```python
-from rhosocial.activerecord.backend.expression.bases import SQLPredicate, SQLQueryAndParams
+from rhosocial.activerecord.backend.expression.bases.bases import SQLPredicate, SQLQueryAndParams
 
 
 class FuzzyMatchPredicate(SQLPredicate):
@@ -139,7 +139,7 @@ class FuzzyMatchDialectMixin:
 
 ## Adding Operator Support
 
-Expression classes gain operators by composing mixins from `rhosocial.activerecord.backend.expression.mixins`:
+Expression classes gain operators by composing mixins from `rhosocial.activerecord.backend.expression.bases.mixins`:
 
 | Mixin | Provides |
 |-------|----------|
@@ -153,8 +153,8 @@ Expression classes gain operators by composing mixins from `rhosocial.activereco
 Example with operator support:
 
 ```python
-from rhosocial.activerecord.backend.expression.bases import SQLValue
-from rhosocial.activerecord.backend.expression.mixins import ArithmeticMixin, ComparisonMixin
+from rhosocial.activerecord.backend.expression.bases.bases import SQLValue
+from rhosocial.activerecord.backend.expression.bases.mixins import ArithmeticMixin, ComparisonMixin
 
 
 class DistanceExpression(ArithmeticMixin, ComparisonMixin, SQLValue):
@@ -173,7 +173,7 @@ class DistanceExpression(ArithmeticMixin, ComparisonMixin, SQLValue):
 The rendering lives on the dialect:
 
 ```python
-from rhosocial.activerecord.backend.expression.bases import SQLQueryAndParams
+from rhosocial.activerecord.backend.expression.bases.bases import SQLQueryAndParams
 
 
 class DistanceDialectMixin:

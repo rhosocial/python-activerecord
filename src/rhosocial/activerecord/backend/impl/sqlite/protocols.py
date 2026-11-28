@@ -9,23 +9,23 @@ that are not part of the standard SQL dialect protocols.
 from typing import Any, Dict, List, Optional, Protocol, Tuple, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .expression.attach import SQLiteAttachStatement, SQLiteDetachStatement
-    from .expression.fts5 import (
+    from .expression.statements.attach import SQLiteAttachStatement, SQLiteDetachStatement
+    from .expression.statements.fts5 import (
         SQLiteFTS5CreateVirtualTable,
         SQLiteFTS5HighlightExpression,
         SQLiteFTS5MatchPredicate,
         SQLiteFTS5RankExpression,
         SQLiteFTS5SnippetExpression,
     )
-    from .expression.geopoly import (
+    from .expression.statements.geopoly import (
         SQLiteGeopolyAreaExpression,
         SQLiteGeopolyContainsExpression,
         SQLiteGeopolyCreateVirtualTable,
     )
-    from .expression.reindex import SQLiteReindexStatement
-    from .expression.rtree import SQLiteRTreeCreateVirtualTable, SQLiteRTreeRangeQuery
-    from .expression.vacuum import SQLiteAnalyzeStatement, SQLiteVacuumStatement
-    from .expression.virtual_table import SQLiteCreateVirtualTableStatement, SQLiteDropVirtualTableStatement
+    from .expression.statements.reindex import SQLiteReindexStatement
+    from .expression.statements.rtree import SQLiteRTreeCreateVirtualTable, SQLiteRTreeRangeQuery
+    from .expression.statements.vacuum import SQLiteAnalyzeStatement, SQLiteVacuumStatement
+    from .expression.statements.virtual_table import SQLiteCreateVirtualTableStatement, SQLiteDropVirtualTableStatement
 
 
 @runtime_checkable

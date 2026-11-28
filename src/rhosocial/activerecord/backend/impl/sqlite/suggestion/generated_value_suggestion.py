@@ -11,7 +11,7 @@ mechanism SQLite actually spells and leaves rendering to
 from typing import TYPE_CHECKING
 
 from ....suggestion import GeneratedValueSuggestion
-from ..expression.auto_increment import SQLiteAutoIncrementClause
+from ..expression.query_parts.auto_increment import SQLiteAutoIncrementClause
 
 if TYPE_CHECKING:  # pragma: no cover
     from ....expression.types import DataType

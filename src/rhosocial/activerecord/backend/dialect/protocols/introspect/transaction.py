@@ -84,8 +84,8 @@ class TransactionControlSupport(Protocol):
 
         Firebird-specific: ``SET TRANSACTION ... [WAIT | NO WAIT]``.  The probe
         answers the capability question; ``wait`` / ``no_wait`` on
-        :class:`~....expression.transaction.BeginTransactionStatement` and
-        :class:`~....expression.transaction.SetTransactionStatement` select
+        :class:`~....expression.statements.transaction.BeginTransactionStatement` and
+        :class:`~....expression.statements.transaction.SetTransactionStatement` select
         the spelling.  Defaults to False for dialects whose grammar has no
         such clause.
         """

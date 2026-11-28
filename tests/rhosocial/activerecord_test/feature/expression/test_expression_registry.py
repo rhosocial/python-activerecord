@@ -24,9 +24,11 @@ import pytest
 
 from rhosocial.activerecord.backend import expression as expression_package
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
-from rhosocial.activerecord.backend.expression.core import Column, FunctionCall, Parameter
-from rhosocial.activerecord.backend.expression.operators import RawSQL
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.column_types.column import Column
+from rhosocial.activerecord.backend.expression.functions.function_call import FunctionCall
+from rhosocial.activerecord.backend.expression.value_types.parameter import Parameter
+from rhosocial.activerecord.backend.expression.operators.operators import RawSQL
+from rhosocial.activerecord.backend.expression.predicates.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.expression_registry import (
     ArtifactError,
     CORE_EXPRESSIONS,
@@ -50,7 +52,7 @@ from rhosocial.activerecord.backend.impl.dummy.expression_registry import (
     DUMMY_EXPRESSION_REGISTRY,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.impl.sqlite.expression.vacuum import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.statements.vacuum import (
     SQLiteVacuumStatement,
 )
 from rhosocial.activerecord.backend.impl.sqlite.expression_registry import (

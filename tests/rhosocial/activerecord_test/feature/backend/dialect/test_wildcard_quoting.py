@@ -10,7 +10,7 @@ emit a name the engine cannot resolve.
 import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression.core import AllColumnsWildcard
+from rhosocial.activerecord.backend.expression.value_types.wildcards import AllColumnsWildcard
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect

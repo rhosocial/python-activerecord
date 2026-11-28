@@ -81,7 +81,7 @@ from rhosocial.activerecord.backend.expression import (
     Column, NamedRelationRef, QueryStatement, StringColumn,
 )
 from rhosocial.activerecord.backend.expression.objects import Table
-from rhosocial.activerecord.backend.expression.query_parts import LimitOffsetClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import LimitOffsetClause
 
 
 # 定义一次，可在任何方言下使用

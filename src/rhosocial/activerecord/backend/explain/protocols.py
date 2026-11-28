@@ -12,7 +12,7 @@ from typing import Optional, TYPE_CHECKING
 from typing_extensions import Protocol, runtime_checkable
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ..expression.bases import BaseExpression
+    from ..expression.bases.bases import BaseExpression
     from ..expression.statements import ExplainOptions
     from .types import BaseExplainResult
 

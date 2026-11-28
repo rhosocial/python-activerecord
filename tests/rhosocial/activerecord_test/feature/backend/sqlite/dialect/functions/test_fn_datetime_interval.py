@@ -5,7 +5,7 @@ import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression import Column, Parameter, QueryStatement
-from rhosocial.activerecord.backend.expression.datetime import (
+from rhosocial.activerecord.backend.expression.functions.datetime import (
     DateTimeField,
     IntervalUnit,
     SecondsBetweenExpression,
@@ -22,8 +22,8 @@ from rhosocial.activerecord.backend.expression.functions import (
     interval,
     seconds_between,
 )
-from rhosocial.activerecord.backend.expression.column_types import TimestampColumn
-from rhosocial.activerecord.backend.expression.value_types import NumericValue
+from rhosocial.activerecord.backend.expression.column_types.column_types import TimestampColumn
+from rhosocial.activerecord.backend.expression.value_types.value_types import NumericValue
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.types import TextType
 

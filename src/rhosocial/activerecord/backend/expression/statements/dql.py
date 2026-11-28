@@ -5,11 +5,11 @@ from enum import Enum
 from typing import TYPE_CHECKING, List, Optional, Sequence, Union
 
 from ...schema import StatementType
-from ..bases import BaseExpression, SQLPredicate, SQLValue
-from ..core import Subquery
-from ..mixins import ArithmeticMixin, ComparisonMixin
-from ..objects import Table
-from ..query_parts import (
+from ..bases.bases import BaseExpression, SQLPredicate, SQLValue
+from ..sources.subquery import Subquery
+from ..bases.mixins import ArithmeticMixin, ComparisonMixin
+from rhosocial.activerecord.backend.expression.objects.relation import Table
+from ..query_parts.query_parts import (
     ForUpdateClause,
     GroupByHavingClause,
     LimitOffsetClause,
@@ -17,8 +17,8 @@ from ..query_parts import (
     QualifyClause,
     WhereClause,
 )
-from ..query_sources import SetOperationKind
-from ..sources import TableSource
+from ..sources.query_sources import SetOperationKind
+from rhosocial.activerecord.backend.expression.sources.base import TableSource
 from ._types import FromSourceType
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -381,7 +381,7 @@ class SetOperationStatement(ArithmeticMixin, ComparisonMixin, SQLValue):
         >>> from rhosocial.activerecord.backend.expression import (
         ...     Column, QueryStatement, SetOperationStatement,
         ... )
-        >>> from rhosocial.activerecord.backend.expression.query_sources import (
+        >>> from rhosocial.activerecord.backend.expression.sources.query_sources import (
         ...     SetOperationKind,
         ... )
         >>> parts = [

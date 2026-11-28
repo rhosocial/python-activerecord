@@ -52,7 +52,7 @@ import importlib
 import sys
 from typing import Any, Callable, Optional
 
-from rhosocial.activerecord.backend.expression.executable import Executable
+from rhosocial.activerecord.backend.expression.statements import Executable
 from rhosocial.activerecord.backend.named_expression import (
     NamedExpressionError,
     NamedExpressionResolver,

@@ -31,7 +31,7 @@
 
 ## 基类 (Base Classes)
 
-表达式系统建立在 `rhosocial.activerecord.backend.expression.bases` 定义的抽象基类层次结构之上。
+表达式系统建立在 `rhosocial.activerecord.backend.expression.bases.bases` 定义的抽象基类层次结构之上。
 
 ### ToSQLProtocol
 
@@ -96,7 +96,8 @@ class BaseExpression:
 `SQLPredicate` 表示计算结果为布尔值的表达式（例如 `WHERE` 条件）。它混入了 `LogicalMixin` 以支持 `&` (AND)、`|` (OR) 和 `~` (NOT) 运算符。
 
 ```python
-from rhosocial.activerecord.backend.expression import bases, mixins
+from rhosocial.activerecord.backend.expression import bases
+from rhosocial.activerecord.backend.expression.bases import mixins
 
 class SQLPredicate(mixins.LogicalMixin, BaseExpression):
     pass
@@ -113,7 +114,7 @@ class SQLValue(BaseExpression):
 
 ## 核心组件 (Core Components)
 
-`rhosocial.activerecord.backend.expression.core` 模块定义了 SQL 查询的基础构建块。
+`rhosocial.activerecord.backend.expression` 模块定义了 SQL 查询的基础构建块。
 
 ### Parameter
 
@@ -530,7 +531,7 @@ sub = Subquery(dialect, query, alias="sub")
 
 ## 运算符和表达式 (Operators and Expressions)
 
-`rhosocial.activerecord.backend.expression.operators` 模块提供了各种 SQL 操作的类。
+`rhosocial.activerecord.backend.expression.operators.operators` 模块提供了各种 SQL 操作的类。
 
 ### Identifier
 
@@ -609,7 +610,7 @@ print(inspect.signature(RawSQL.__init__))
 表示作为谓词（布尔条件）的原始 SQL 字符串。
 
 ```python
-from rhosocial.activerecord.backend.expression.operators import RawSQLPredicate
+from rhosocial.activerecord.backend.expression.operators.operators import RawSQLPredicate
 
 # 示例: 原始 SQL 条件
 pred = RawSQLPredicate(dialect, "EXISTS (SELECT 1 FROM log WHERE log.user_id = users.id)")
@@ -617,11 +618,11 @@ pred = RawSQLPredicate(dialect, "EXISTS (SELECT 1 FROM log WHERE log.user_id = u
 
 ## COLLATE 表达式
 
-`CollateFunction`（定义在 `rhosocial.activerecord.backend.expression.collation`）为 SQL 值表达式应用显式排序规则。
+`CollateFunction`（定义在 `rhosocial.activerecord.backend.expression.functions.collation`）为 SQL 值表达式应用显式排序规则。
 
 ```python
 from rhosocial.activerecord.backend.expression import Column
-from rhosocial.activerecord.backend.expression.collation import collate
+from rhosocial.activerecord.backend.expression.functions.collation import collate
 
 # 基本用法：为列指定排序规则
 expr = collate(Column(dialect, "name"), "Chinese_PRC_CI_AS")

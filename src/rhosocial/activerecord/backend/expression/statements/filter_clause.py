@@ -1,5 +1,5 @@
 # src/rhosocial/activerecord/backend/expression/statements/filter_clause.py
-from ..core import BaseExpression
+from ..bases.bases import BaseExpression
 
 
 class FilterClause(BaseExpression):

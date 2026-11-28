@@ -658,7 +658,8 @@ class TestTypeConversionFunctionFactories:
 
     def test_cast_function(self, dummy_dialect: DummyDialect):
         """Test CAST function."""
-        from rhosocial.activerecord.backend.expression.core import CastExpression, Column
+        from rhosocial.activerecord.backend.expression.functions.cast_expression import CastExpression
+        from rhosocial.activerecord.backend.expression.column_types.column import Column
         from rhosocial.activerecord.backend.expression.types import CustomType
 
         func = cast(dummy_dialect, Column(dummy_dialect, "value"),
@@ -1010,8 +1011,9 @@ class TestJsonFunctionFactoriesExtended:
         """Tests that format_function_call raises UnsupportedFeatureError when filter clause is used on non-supporting dialect."""  # noqa: E501
         from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
         from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
-        from rhosocial.activerecord.backend.expression.core import FunctionCall, Column
-        from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+        from rhosocial.activerecord.backend.expression.functions.function_call import FunctionCall
+        from rhosocial.activerecord.backend.expression.column_types.column import Column
+        from rhosocial.activerecord.backend.expression.predicates.predicates import ComparisonPredicate
         from rhosocial.activerecord.backend.expression import Parameter
 
         # Create a dialect that doesn't implement FilterClauseSupport protocol

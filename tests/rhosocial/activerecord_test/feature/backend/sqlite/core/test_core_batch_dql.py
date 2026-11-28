@@ -22,11 +22,11 @@ from rhosocial.activerecord.backend.expression import (
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.statements import QueryStatement
-from rhosocial.activerecord.backend.expression.query_sources import (
+from rhosocial.activerecord.backend.expression.sources.query_sources import (
     WithStatement,
     CTEClause,
 )
-from rhosocial.activerecord.backend.expression.query_parts import (
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import (
     WhereClause,
     OrderByClause,
 )

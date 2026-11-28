@@ -3,7 +3,7 @@
 
 from typing import Tuple, List, Any
 from ..exceptions import UnsupportedFeatureError
-from ...expression.bases import BaseExpression
+from ...expression.bases.bases import BaseExpression
 from ...expression.objects import Table
 from ..protocols.query.dml_support import DMLSupport
 from .returning_mixin import ReturningMixin

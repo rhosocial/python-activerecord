@@ -136,7 +136,7 @@ it fluently with `.over(...)`, or pass `window_spec=` at construction.
 from rhosocial.activerecord.backend.expression import (
     Column, FunctionCall, Parameter, WindowSpecification,
 )
-from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 
 # Define Window Specification
 window_spec = WindowSpecification(
@@ -217,7 +217,7 @@ Supports `UNION`, `UNION ALL`, `INTERSECT`, and `EXCEPT`. The operation is a
 
 ```python
 from rhosocial.activerecord.backend.expression import Subquery
-from rhosocial.activerecord.backend.expression.query_sources import (
+from rhosocial.activerecord.backend.expression.sources.query_sources import (
     SetOperation, SetOperationKind,
 )
 

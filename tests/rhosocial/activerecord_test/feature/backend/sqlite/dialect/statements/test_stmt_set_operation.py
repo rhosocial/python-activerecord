@@ -1,7 +1,7 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite/dialect/statements/test_stmt_set_operation.py
 from rhosocial.activerecord.backend.expression import Column, Subquery, QueryStatement
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.query_sources import SetOperation
+from rhosocial.activerecord.backend.expression.sources.query_sources import SetOperation
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.objects import Table
 

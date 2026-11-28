@@ -9,8 +9,8 @@ semantics or extensions differ.
 from typing import Any, List, Tuple, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.bases import BaseExpression
-    from ...expression.pivot import Pivot, Unpivot
+    from ...expression.bases.bases import BaseExpression
+    from ...expression.query_parts.pivot import Pivot, Unpivot
 
 
 class PivotMixin:
@@ -68,7 +68,7 @@ class PivotMixin:
         instances are rendered through ``to_sql()``. Dialects whose PIVOT
         values are identifiers (e.g. SQL Server) override this.
         """
-        from ...expression.bases import BaseExpression
+        from ...expression.bases.bases import BaseExpression
 
         if isinstance(expr, BaseExpression):
             sql, params = expr.to_sql()

@@ -27,7 +27,7 @@ from typing import Tuple, TYPE_CHECKING
 from ..exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.introspection import (
+    from ...expression.introspection.introspection import (
         ColumnDataProfileQueryStatement,
         ColumnInfoQueryStatement,
         ColumnValueSampleQueryStatement,

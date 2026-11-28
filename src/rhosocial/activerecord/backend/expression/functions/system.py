@@ -17,8 +17,8 @@ the dialect decides the parentheses.
 
 from typing import TYPE_CHECKING
 
-from ..bases import SQLValue
-from ..mixins import (
+from ..bases.bases import SQLValue
+from ..bases.mixins import (
     AliasableMixin,
     ComparisonMixin,
     NotANumberMixin,

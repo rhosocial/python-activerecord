@@ -16,7 +16,7 @@ from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.types import DecimalType, IntegerType, TextType, TimestampType, VarCharType
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression.bases import ToSQLProtocol
+from rhosocial.activerecord.backend.expression.bases.bases import ToSQLProtocol
 from rhosocial.activerecord.backend.expression.statements import (
     AlterColumnAction,
     AddTableConstraintAction,

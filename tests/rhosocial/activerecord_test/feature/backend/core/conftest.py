@@ -22,7 +22,7 @@ def mock_dialect():
 @pytest.fixture
 def mock_expression():
     """Create a mock BaseExpression that implements Executable."""
-    from rhosocial.activerecord.backend.expression.executable import Executable
+    from rhosocial.activerecord.backend.expression.statements.executable import Executable
     from rhosocial.activerecord.backend.schema import StatementType
 
     class MockExpression(Executable):

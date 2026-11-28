@@ -11,8 +11,8 @@ from typing import Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:
-    from ..expression.attach import SQLiteAttachStatement, SQLiteDetachStatement
-    from ..expression.vacuum import SQLiteAnalyzeStatement, SQLiteVacuumStatement
+    from ..expression.statements.attach import SQLiteAttachStatement, SQLiteDetachStatement
+    from ..expression.statements.vacuum import SQLiteAnalyzeStatement, SQLiteVacuumStatement
 
 
 class SQLiteMaintenanceMixin:

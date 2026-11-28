@@ -125,7 +125,7 @@ from .index_suggestion import DummyIndexSuggestionMixin
 from .general_suggestions import (DummyCreateTableLayoutSuggestionMixin, DummyJSONSuggestionMixin,
     DummyStringConcatenationSuggestionMixin, DummyUpsertSuggestionMixin)
 from .expression import _DummyTypeAlterAction, _DummyTypeDefinition
-from rhosocial.activerecord.backend.expression.statements.ddl_type import (
+from rhosocial.activerecord.backend.expression.statements import (
     TypeAlterAction,
     TypeDefinition,
 )
@@ -153,9 +153,9 @@ from rhosocial.activerecord.backend.suggestion.definitions import FunctionSugges
 
 
 if TYPE_CHECKING:
-    from rhosocial.activerecord.backend.expression.collation import CollateFunction
+    from rhosocial.activerecord.backend.expression.functions import CollateFunction
     from rhosocial.activerecord.backend.expression.statements import ColumnDefinition
-    from rhosocial.activerecord.backend.expression.transaction import (
+    from rhosocial.activerecord.backend.expression.statements import (
         BeginTransactionStatement,
         CommitStatement,
         ReleaseSavepointStatement,

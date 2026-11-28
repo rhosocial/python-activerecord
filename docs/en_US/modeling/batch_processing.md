@@ -137,7 +137,7 @@ from rhosocial.activerecord.backend.expression import (
     NamedRelationRef,
 )
 from rhosocial.activerecord.backend.expression.objects import Table
-from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import OrderByClause
 from rhosocial.activerecord.backend.expression.statements import QueryStatement
 
 # Build a SELECT * FROM users ORDER BY id expression

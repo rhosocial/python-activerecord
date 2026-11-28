@@ -1,6 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy/expression/test_query_sources_table_function.py
 from rhosocial.activerecord.backend.expression import Column, Parameter, FunctionCall, Subquery
-from rhosocial.activerecord.backend.expression.query_sources import TableFunctionExpression
+from rhosocial.activerecord.backend.expression.sources.query_sources import TableFunctionExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 

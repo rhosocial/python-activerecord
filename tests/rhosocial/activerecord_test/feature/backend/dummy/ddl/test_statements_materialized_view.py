@@ -10,7 +10,7 @@ from rhosocial.activerecord.backend.expression import (
     RefreshMaterializedViewStatement,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.query_parts import GroupByHavingClause
+from rhosocial.activerecord.backend.expression.query_parts.query_parts import GroupByHavingClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.objects import MaterializedView

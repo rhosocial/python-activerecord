@@ -17,7 +17,7 @@ import aiosqlite
 from .common import SQLiteBackendMixin, SQLiteConcurrencyMixin, DEFAULT_PRAGMAS
 from ..config import SQLiteConnectionConfig
 from ..dialect import SQLiteDialect
-from ..expression.introspection import SQLitePragmaQueryStatement, SQLitePragmaSetStatement
+from ..expression.introspection.introspection import SQLitePragmaQueryStatement, SQLitePragmaSetStatement
 from ..async_transaction import AsyncSQLiteTransactionManager
 from rhosocial.activerecord.backend.base import AsyncStorageBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig

@@ -12,7 +12,7 @@ from ...expression.objects import NodeTable, PropertyGraph
 from ...textscan import is_simple_name
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.graph import (
+    from ...expression.statements.graph import (
         GraphEdge,
         GraphVertex,
         QuantifiedPath,
@@ -57,7 +57,7 @@ class GraphMixin:
 
     @staticmethod
     def _validate_graph_path(pattern: "PathPattern") -> None:
-        from ...expression.graph import GraphEdge, GraphVertex, PathPattern, QuantifiedPath
+        from ...expression.statements.graph import GraphEdge, GraphVertex, PathPattern, QuantifiedPath
 
         if not isinstance(pattern, PathPattern):
             raise TypeError("PathPattern must be a PathPattern expression")
@@ -113,7 +113,7 @@ class GraphMixin:
         if not self.supports_graph_match():
             raise UnsupportedFeatureError(self.name, "graph MATCH clause")
 
-        from ...expression.graph import GraphVertex
+        from ...expression.statements.graph import GraphVertex
 
         if not isinstance(expr, GraphVertex):
             raise TypeError("GraphVertex must be a GraphVertex expression")
@@ -134,7 +134,7 @@ class GraphMixin:
             )
 
         if expr.where is not None:
-            from ...expression.query_parts import WhereClause
+            from ...expression.query_parts.query_parts import WhereClause
 
             if not isinstance(expr.where, WhereClause):
                 raise TypeError("GraphVertex where must be a WhereClause expression")
@@ -171,7 +171,7 @@ class GraphMixin:
         if not self.supports_graph_match():
             raise UnsupportedFeatureError(self.name, "graph MATCH clause")
 
-        from ...expression.graph import GraphEdge, GraphEdgeDirection
+        from ...expression.statements.graph import GraphEdge, GraphEdgeDirection
 
         if not isinstance(expr, GraphEdge):
             raise TypeError("GraphEdge must be a GraphEdge expression")
@@ -232,7 +232,7 @@ class GraphMixin:
         if not self.supports_quantified_path():
             raise UnsupportedFeatureError(self.name, "expr path pattern")
 
-        from ...expression.graph import GraphEdge, QuantifiedPath
+        from ...expression.statements.graph import GraphEdge, QuantifiedPath
 
         if not isinstance(expr, QuantifiedPath):
             raise TypeError("QuantifiedPath must be a QuantifiedPath expression")
@@ -316,7 +316,7 @@ class GraphMixin:
         if not self.supports_graph_match():
             raise UnsupportedFeatureError(self.name, "graph MATCH expr")
 
-        from ...expression.graph import MatchClause, PathPattern
+        from ...expression.statements.graph import MatchClause, PathPattern
 
         if not isinstance(expr, MatchClause):
             raise TypeError("MatchClause must be a MatchClause expression")
@@ -361,7 +361,7 @@ class GraphTableMixin:
 
     @classmethod
     def _validate_graph_columns(cls, columns: "ColumnsClause") -> None:
-        from ...expression.graph import ColumnsClause, GraphColumn
+        from ...expression.statements.graph import ColumnsClause, GraphColumn
 
         if not isinstance(columns, ColumnsClause):
             raise TypeError("Graph columns must be a ColumnsClause expression")
@@ -409,7 +409,7 @@ class GraphTableMixin:
         if not self.supports_graph_table():
             raise UnsupportedFeatureError(self.name, "GRAPH_TABLE")
 
-        from ...expression.graph import ColumnsClause, GraphTableExpression, MatchClause
+        from ...expression.statements.graph import ColumnsClause, GraphTableExpression, MatchClause
 
         if not isinstance(expr, GraphTableExpression):
             raise TypeError("GraphTableExpression must be a GraphTableExpression expression")
@@ -707,7 +707,7 @@ class GraphTableMixin:
         if not self.supports_graph_table():
             raise UnsupportedFeatureError(self.name, "ALTER PROPERTY GRAPH")
 
-        from ...expression.graph import AlterPropertyGraphStatement, EdgeTableDefinition, VertexTable
+        from ...expression.statements.graph import AlterPropertyGraphStatement, EdgeTableDefinition, VertexTable
 
         if not isinstance(expr, AlterPropertyGraphStatement):
             raise TypeError(

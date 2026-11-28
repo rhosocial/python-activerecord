@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from ..pragma import PragmaCategory, PragmaInfo, get_pragma_info, get_all_pragma_infos, get_pragmas_by_category
 
 if TYPE_CHECKING:
-    from ..expression.introspection import SQLitePragmaQueryStatement, SQLitePragmaSetStatement
+    from ..expression.introspection.introspection import SQLitePragmaQueryStatement, SQLitePragmaSetStatement
 
 
 class SQLitePragmaMixin:
@@ -79,7 +79,7 @@ class SQLitePragmaMixin:
         if info is None:
             raise ValueError(f"Unknown PRAGMA: {name}")
 
-        from ..expression.introspection import SQLitePragmaQueryStatement
+        from ..expression.introspection.introspection import SQLitePragmaQueryStatement
 
         return SQLitePragmaQueryStatement(self, info.name, argument, schema)
 
@@ -119,7 +119,7 @@ class SQLitePragmaMixin:
         if info.allowed_values and value not in info.allowed_values:
             raise ValueError(f"Invalid value '{value}' for PRAGMA {name}. Allowed values: {info.allowed_values}")
 
-        from ..expression.introspection import SQLitePragmaSetStatement
+        from ..expression.introspection.introspection import SQLitePragmaSetStatement
 
         return SQLitePragmaSetStatement(self, info.name, value, argument, schema)
 

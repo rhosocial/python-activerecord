@@ -47,7 +47,7 @@ def test_format_function_call_with_over_raises_error():
     ``format_function_call`` is the single renderer for function calls, so it
     is the method that sees the ``window_spec`` and raises.
     """
-    from rhosocial.activerecord.backend.expression.core import FunctionCall
+    from rhosocial.activerecord.backend.expression.functions.function_call import FunctionCall
 
     dialect = NoWindowDialect()
     call = FunctionCall(dialect, "ROW_NUMBER", window_spec="w")
@@ -59,7 +59,7 @@ def test_format_function_call_with_over_raises_error():
 def test_format_function_call_with_over_refused_without_window_mixin():
     """A dialect without ``WindowFunctionMixin`` has neither the probe nor the
     specification formatter; the renderer must refuse the clause cleanly."""
-    from rhosocial.activerecord.backend.expression.core import FunctionCall
+    from rhosocial.activerecord.backend.expression.functions.function_call import FunctionCall
 
     dialect = NoWindowMixinDialect()
     call = FunctionCall(dialect, "ROW_NUMBER", window_spec="w")

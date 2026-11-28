@@ -3,14 +3,12 @@
 
 from typing import Any, List, Optional, Tuple
 from ...expression import bases
-from ...expression.core import (
-    CastExpression,
-    QualifiedIdentifier,
-    Subquery,
-)
-from ...expression.literals import Identifier
-from ...expression.mixins import AliasableMixin
-from ...expression.operators import (
+from ...expression.functions.cast_expression import CastExpression
+from ...expression.objects.qualified_identifier import QualifiedIdentifier
+from ...expression.sources.subquery import Subquery
+from ...expression.value_types.literals import Identifier
+from ...expression.bases.mixins import AliasableMixin
+from ...expression.operators.operators import (
     ArithmeticOperation,
     BinaryExpression,
     RawSQL,
@@ -27,7 +25,7 @@ from .wildcard_mixin import WildcardMixin
 
 class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregationMixin, WildcardMixin):
     def format_identifier_expression(self, expr: Identifier) -> Tuple[str, tuple]:
-            """Format an :class:`~...expression.literals.Identifier` node.
+            """Format an :class:`~...expression.value_types.literals.Identifier` node.
 
             Args:
                 expr: Identifier expression exposing ``name`` and
@@ -39,7 +37,7 @@ class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregatio
             return self.format_identifier(expr.name, expr.name_need_quote), ()
 
     def format_qualified_identifier(self, expr: QualifiedIdentifier) -> Tuple[str, tuple]:
-            """Format a :class:`~...expression.core.QualifiedIdentifier`.
+            """Format a :class:`~...expression.objects.qualified_identifier.QualifiedIdentifier`.
 
             Args:
                 expr: Qualified identifier optionally carrying a schema.
@@ -82,7 +80,7 @@ class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregatio
             return self.get_parameter_placeholder(), (expr.value,)
 
     def format_cast_expression(self, expr: CastExpression) -> Tuple[str, tuple]:
-            """Format a :class:`~...expression.core.CastExpression` node.
+            """Format a :class:`~...expression.functions.cast_expression.CastExpression` node.
 
             Args:
                 expr: Cast expression exposing ``expression``, ``target_type`` and
@@ -111,7 +109,7 @@ class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregatio
             return sql, params
 
     def format_sql_operation(self, expr: SQLOperation) -> Tuple[str, tuple]:
-            """Format a :class:`~...expression.operators.SQLOperation` (n-ary).
+            """Format a :class:`~...expression.operators.operators.SQLOperation` (n-ary).
 
             Args:
                 expr: SQL operation exposing ``op`` and ``operands``.
@@ -131,7 +129,7 @@ class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregatio
             return f"{expr.op}()", tuple(params)
 
     def format_binary_expression(self, expr: BinaryExpression) -> Tuple[str, tuple]:
-            """Format a :class:`~...expression.operators.BinaryExpression`.
+            """Format a :class:`~...expression.operators.operators.BinaryExpression`.
 
             Args:
                 expr: Binary expression exposing ``left``, ``op`` and ``right``.
@@ -150,7 +148,7 @@ class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregatio
     def format_concatenation_operation(
             self, expr: "ConcatenationOperation"
         ) -> Tuple[str, tuple]:
-            """Render a :class:`~...expression.operators.ConcatenationOperation`.
+            """Render a :class:`~...expression.operators.operators.ConcatenationOperation`.
 
             The node states the *intent* — its kind is ``concatenation_operation``
             and it carries no operator parameter; this formatter states the
@@ -175,7 +173,7 @@ class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregatio
             return sql, left_params + right_params
 
     def format_unary_expression(self, expr: UnaryExpression) -> Tuple[str, tuple]:
-            """Format a :class:`~...expression.operators.UnaryExpression`.
+            """Format a :class:`~...expression.operators.operators.UnaryExpression`.
 
             Args:
                 expr: Unary expression exposing ``operand``, ``op`` and ``pos``.
@@ -190,7 +188,7 @@ class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregatio
             return f"{operand_sql} {expr.op}", operand_params
 
     def format_arithmetic_operation(self, expr: ArithmeticOperation) -> Tuple[str, tuple]:
-            """Format a :class:`~...expression.operators.ArithmeticOperation`.
+            """Format a :class:`~...expression.operators.operators.ArithmeticOperation`.
 
             Args:
                 expr: Arithmetic operation exposing ``left``, ``op`` and ``right``.
@@ -220,7 +218,7 @@ class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregatio
             return sql, params
 
     def format_raw_sql(self, expr: RawSQL) -> Tuple[str, tuple]:
-            """Format a :class:`~...expression.operators.RawSQL`.
+            """Format a :class:`~...expression.operators.operators.RawSQL`.
 
             Args:
                 expr: Raw SQL expression exposing ``expression`` and ``params``.
@@ -232,7 +230,7 @@ class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregatio
             it bypasses the building mechanism by design and is the caller's
             responsibility to keep safe.
 
-            ``params`` holds :class:`~...expression.core.Parameter` nodes rather than
+            ``params`` holds :class:`~...expression.value_types.parameter.Parameter` nodes rather than
             bare values, which is what lets each bind value keep its kind on the wire
             (§10). A driver binds plain values, so the nodes are unwrapped here — the
             one boundary that owes the driver something it can actually use.
@@ -240,7 +238,7 @@ class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregatio
             return expr.expression, tuple(p.value for p in expr.params)
 
     def format_raw_sql_predicate(self, expr: "RawSQLPredicate") -> Tuple[str, tuple]:
-            """Format a :class:`~...expression.operators.RawSQLPredicate`.
+            """Format a :class:`~...expression.operators.operators.RawSQLPredicate`.
 
             Args:
                 expr: Raw SQL predicate exposing ``expression`` and ``params``.
@@ -257,7 +255,7 @@ class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregatio
             return self.format_raw_sql(expr)
 
     def format_subquery(self, expr: Subquery) -> Tuple[str, tuple]:
-            """Format a :class:`~...expression.core.Subquery` (parenthesized query).
+            """Format a :class:`~...expression.sources.subquery.Subquery` (parenthesized query).
 
             Args:
                 expr: Subquery exposing ``query_input``, ``query_params`` and
@@ -272,7 +270,7 @@ class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregatio
             return sql, expr.query_params
 
     def format_values_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
-            """Format a :class:`~...expression.query_sources.ValuesExpression` node.
+            """Format a :class:`~...expression.sources.query_sources.ValuesExpression` node.
 
             Each cell is either an expression, which is rendered in place, or a
             plain value, which becomes a bind parameter -- the same rule
@@ -317,7 +315,7 @@ class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregatio
             return sql, tuple(all_params)
 
     def format_case_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
-            """Format a :class:`~...expression.advanced_functions.CaseExpression` node.
+            """Format a :class:`~...expression.functions.advanced_functions.CaseExpression` node.
 
             Args:
                 expr: CASE expression exposing optional ``value``, ``cases`` (a
@@ -358,7 +356,7 @@ class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregatio
 
     def _needs_parens(self, operand, current_precedence):
         """Check if an arithmetic operand needs parentheses based on precedence."""
-        from ...expression.operators import ArithmeticOperation
+        from ...expression.operators.operators import ArithmeticOperation
 
         if isinstance(operand, ArithmeticOperation):
             return operand.OPERATOR_PRECEDENCE.get(operand.op, 0) < current_precedence

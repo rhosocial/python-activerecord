@@ -4,7 +4,7 @@
 from typing import Tuple
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression.objects import Type
-from rhosocial.activerecord.backend.expression.statements.ddl_type import TypeAlterAction
+from rhosocial.activerecord.backend.expression.statements import TypeAlterAction
 
 class AlterTypeMixin:
     def supports_alter_type(self) -> bool:
