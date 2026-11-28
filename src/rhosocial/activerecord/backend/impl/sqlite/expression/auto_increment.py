@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from rhosocial.activerecord.backend.expression.bases import BaseExpression
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...base import SQLDialectBase
+    from ....base import SQLDialectBase
 
 
 class SQLiteAutoIncrementClause(BaseExpression):
