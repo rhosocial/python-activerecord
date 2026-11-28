@@ -16,28 +16,68 @@ Nothing here is a schema object, and no schema object is a table source. An
 alias lives on the source, because aliasing renames a row for one query and
 renames nothing in the catalogue."""
 
-__all__ = [
-    'TableSource',
-    'NamedRelationRef',
-    'DerivedTableSource',
-    'ValuesTableSource',
-    'TableFunctionSource',
-    'JsonTableSource',
-    'XmlTableSource',
-    'GraphTableSource',
-]
-
 import importlib
 
-_MODULES = ('base', 'derived', 'functions', 'graph', 'json', 'query_sources', 'relation', 'subquery', 'xml')
+# Public name -> defining module. Private names here stay reachable
+# through this package but are not part of __all__.
+_EXPORTS = {
+    'AliasableMixin': 'rhosocial.activerecord.backend.expression.sources.relation',
+    'Any': 'rhosocial.activerecord.backend.expression.sources.derived',
+    'ArithmeticMixin': 'rhosocial.activerecord.backend.expression.sources.query_sources',
+    'BaseExpression': 'rhosocial.activerecord.backend.expression.sources.base',
+    'CTEClause': 'rhosocial.activerecord.backend.expression.sources.query_sources',
+    'ComparisonMixin': 'rhosocial.activerecord.backend.expression.sources.query_sources',
+    'DerivedTableSource': 'rhosocial.activerecord.backend.expression.sources.derived',
+    'Dict': 'rhosocial.activerecord.backend.expression.sources.relation',
+    'Enum': 'rhosocial.activerecord.backend.expression.sources.query_sources',
+    'GraphTableSource': 'rhosocial.activerecord.backend.expression.sources.graph',
+    'JSONTableColumn': 'rhosocial.activerecord.backend.expression.sources.query_sources',
+    'JSONTableExpression': 'rhosocial.activerecord.backend.expression.sources.query_sources',
+    'JsonTableSource': 'rhosocial.activerecord.backend.expression.sources.json',
+    'LateralExpression': 'rhosocial.activerecord.backend.expression.sources.query_sources',
+    'List': 'rhosocial.activerecord.backend.expression.sources.query_sources',
+    'NamedRelationRef': 'rhosocial.activerecord.backend.expression.sources.relation',
+    'Optional': 'rhosocial.activerecord.backend.expression.sources.base',
+    'QueryWithParams': 'rhosocial.activerecord.backend.expression.sources.subquery',
+    'SQLQueryAndParams': 'rhosocial.activerecord.backend.expression.sources.query_sources',
+    'SQLValue': 'rhosocial.activerecord.backend.expression.sources.query_sources',
+    'SchemaObject': 'rhosocial.activerecord.backend.expression.sources.relation',
+    'SetOperation': 'rhosocial.activerecord.backend.expression.sources.query_sources',
+    'SetOperationKind': 'rhosocial.activerecord.backend.expression.sources.query_sources',
+    'Subquery': 'rhosocial.activerecord.backend.expression.sources.query_sources',
+    'TYPE_CHECKING': 'rhosocial.activerecord.backend.expression.sources.query_sources',
+    'TableFunctionExpression': 'rhosocial.activerecord.backend.expression.sources.query_sources',
+    'TableFunctionSource': 'rhosocial.activerecord.backend.expression.sources.functions',
+    'TableSource': 'rhosocial.activerecord.backend.expression.sources.base',
+    'Tuple': 'rhosocial.activerecord.backend.expression.sources.query_sources',
+    'TypeCastingMixin': 'rhosocial.activerecord.backend.expression.sources.subquery',
+    'Union': 'rhosocial.activerecord.backend.expression.sources.query_sources',
+    'ValuesExpression': 'rhosocial.activerecord.backend.expression.sources.query_sources',
+    'ValuesTableSource': 'rhosocial.activerecord.backend.expression.sources.derived',
+    'WithStatement': 'rhosocial.activerecord.backend.expression.sources.query_sources',
+    'XmlTableSource': 'rhosocial.activerecord.backend.expression.sources.xml',
+    'dataclass': 'rhosocial.activerecord.backend.expression.sources.query_sources',
+    'normalize_join_type': 'rhosocial.activerecord.backend.expression.sources.query_sources',
+}
+
+__all__ = [
+    'DerivedTableSource',
+    'GraphTableSource',
+    'JsonTableSource',
+    'NamedRelationRef',
+    'TableFunctionSource',
+    'TableSource',
+    'ValuesTableSource',
+    'XmlTableSource',
+]
 
 
 def __getattr__(name):
     """Resolve a public name from this namespace lazily (no import cycles)."""
-    for module_name in _MODULES:
-        module = importlib.import_module(f'.{module_name}', __name__)
-        if name in vars(module):
-            value = vars(module)[name]
-            globals()[name] = value  # cache so vars()/inspect see the name
-            return value
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_name = _EXPORTS.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module = importlib.import_module(module_name)
+    value = vars(module)[name]
+    globals()[name] = value
+    return value

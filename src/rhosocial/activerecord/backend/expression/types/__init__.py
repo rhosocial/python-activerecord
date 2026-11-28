@@ -42,70 +42,120 @@ Usage::
     >>> col_def.data_type.to_sql(dialect)
     ('INTEGER', ())"""
 
-__all__ = [
-    'DataType',
-    'ArrayType',
-    'CustomType',
-    'LENGTH_PARAMETERS',
-    'PRECISION_PARAMETERS',
-    'UNSIGNED_PARAMETERS',
-    'TinyIntType',
-    'SmallIntType',
-    'IntegerType',
-    'BigIntType',
-    'FloatType',
-    'RealType',
-    'DoubleType',
-    'DecimalType',
-    'InvalidTypeNameError',
-    'CharType',
-    'VarCharType',
-    'TextType',
-    'BooleanType',
-    'BlobType',
-    'BinaryType',
-    'VarBinaryType',
-    'EnumType',
-    'DateType',
-    'TimeType',
-    'TimeTzType',
-    'DateTimeType',
-    'TimestampType',
-    'TimestampTzType',
-    'IntervalType',
-    'INTERVAL_QUALIFIERS',
-    'InvalidIntervalQualifierError',
-    'IntervalQualifier',
-    'is_valid_interval_qualifier',
-    'validate_interval_qualifier',
-    'JsonType',
-    'JsonBType',
-    'XmlType',
-    'UUIDType',
-]
-
 import importlib
 
-_MODULES = ('_base', 'array', 'binary', 'boolean', 'custom', 'datetime_', 'enum_', 'integer', 'json_', 'numeric', 'string', 'uuid_', 'xml_')
+# Public name -> defining module. Private names here stay reachable
+# through this package but are not part of __all__.
+_EXPORTS = {
+    'ABC': 'rhosocial.activerecord.backend.expression.types._base',
+    'Any': 'rhosocial.activerecord.backend.expression.types._base',
+    'ArrayType': 'rhosocial.activerecord.backend.expression.types.array',
+    'BaseExpression': 'rhosocial.activerecord.backend.expression.types._base',
+    'BigIntType': 'rhosocial.activerecord.backend.expression.types.integer',
+    'BinaryType': 'rhosocial.activerecord.backend.expression.types.binary',
+    'BlobType': 'rhosocial.activerecord.backend.expression.types.binary',
+    'BooleanType': 'rhosocial.activerecord.backend.expression.types.boolean',
+    'CharType': 'rhosocial.activerecord.backend.expression.types.string',
+    'CustomType': 'rhosocial.activerecord.backend.expression.types.custom',
+    'DataType': 'rhosocial.activerecord.backend.expression.types._base',
+    'DateTimeType': 'rhosocial.activerecord.backend.expression.types.datetime_',
+    'DateType': 'rhosocial.activerecord.backend.expression.types.datetime_',
+    'DecimalType': 'rhosocial.activerecord.backend.expression.types.numeric',
+    'DoubleType': 'rhosocial.activerecord.backend.expression.types.numeric',
+    'EnumType': 'rhosocial.activerecord.backend.expression.types.enum_',
+    'FloatType': 'rhosocial.activerecord.backend.expression.types.numeric',
+    'INTERVAL_FIELDS': 'rhosocial.activerecord.backend.expression.types.datetime_',
+    'INTERVAL_QUALIFIERS': 'rhosocial.activerecord.backend.expression.types.datetime_',
+    'IntegerType': 'rhosocial.activerecord.backend.expression.types.integer',
+    'IntervalQualifier': 'rhosocial.activerecord.backend.expression.types.datetime_',
+    'IntervalType': 'rhosocial.activerecord.backend.expression.types.datetime_',
+    'InvalidIntervalQualifierError': 'rhosocial.activerecord.backend.expression.types.datetime_',
+    'InvalidTypeNameError': 'rhosocial.activerecord.backend.expression.bases.type_name',
+    'JsonBType': 'rhosocial.activerecord.backend.expression.types.json_',
+    'JsonType': 'rhosocial.activerecord.backend.expression.types.json_',
+    'LENGTH_PARAMETERS': 'rhosocial.activerecord.backend.expression.types._base',
+    'List': 'rhosocial.activerecord.backend.expression.types.enum_',
+    'Optional': 'rhosocial.activerecord.backend.expression.types._base',
+    'PRECISION_PARAMETERS': 'rhosocial.activerecord.backend.expression.types._base',
+    'RealType': 'rhosocial.activerecord.backend.expression.types.numeric',
+    'SmallIntType': 'rhosocial.activerecord.backend.expression.types.integer',
+    'TYPE_CHECKING': 'rhosocial.activerecord.backend.expression.types._base',
+    'TextType': 'rhosocial.activerecord.backend.expression.types.string',
+    'TimeType': 'rhosocial.activerecord.backend.expression.types.datetime_',
+    'TimeTzType': 'rhosocial.activerecord.backend.expression.types.datetime_',
+    'TimestampType': 'rhosocial.activerecord.backend.expression.types.datetime_',
+    'TimestampTzType': 'rhosocial.activerecord.backend.expression.types.datetime_',
+    'TinyIntType': 'rhosocial.activerecord.backend.expression.types.integer',
+    'Tuple': 'rhosocial.activerecord.backend.expression.types._base',
+    'UNSIGNED_PARAMETERS': 'rhosocial.activerecord.backend.expression.types._base',
+    'UUIDType': 'rhosocial.activerecord.backend.expression.types.uuid_',
+    'VarBinaryType': 'rhosocial.activerecord.backend.expression.types.binary',
+    'VarCharType': 'rhosocial.activerecord.backend.expression.types.string',
+    'XmlType': 'rhosocial.activerecord.backend.expression.types.xml_',
+    '_ASCII_SPACE': 'rhosocial.activerecord.backend.expression.types.datetime_',
+    '_backend_slug': 'rhosocial.activerecord.backend.expression.types._base',
+    '_consume_field': 'rhosocial.activerecord.backend.expression.types.datetime_',
+    '_consume_precision': 'rhosocial.activerecord.backend.expression.types.datetime_',
+    '_interval_qualifier_shape': 'rhosocial.activerecord.backend.expression.types.datetime_',
+    '_is_dispatch_name': 'rhosocial.activerecord.backend.expression.types._base',
+    '_skip_ascii_space': 'rhosocial.activerecord.backend.expression.types.datetime_',
+    'annotations': 'rhosocial.activerecord.backend.expression.types._base',
+    'is_identifier': 'rhosocial.activerecord.backend.expression.types._base',
+    'is_simple_name': 'rhosocial.activerecord.backend.expression.types._base',
+    'is_valid_interval_qualifier': 'rhosocial.activerecord.backend.expression.types.datetime_',
+    'split_dotted': 'rhosocial.activerecord.backend.expression.types._base',
+    'validate_interval_qualifier': 'rhosocial.activerecord.backend.expression.types.datetime_',
+}
 
-# ``InvalidTypeNameError`` used to be re-exported from the former top-level
-# ``type_name`` module. That helper now lives under ``bases/``; keep it visible
-# here so ``from ...expression.types import InvalidTypeNameError`` still works.
-_EXTRA_MODULES = ('rhosocial.activerecord.backend.expression.bases.type_name',)
+__all__ = [
+    'ArrayType',
+    'BigIntType',
+    'BinaryType',
+    'BlobType',
+    'BooleanType',
+    'CharType',
+    'CustomType',
+    'DataType',
+    'DateTimeType',
+    'DateType',
+    'DecimalType',
+    'DoubleType',
+    'EnumType',
+    'FloatType',
+    'INTERVAL_QUALIFIERS',
+    'IntegerType',
+    'IntervalQualifier',
+    'IntervalType',
+    'InvalidIntervalQualifierError',
+    'InvalidTypeNameError',
+    'JsonBType',
+    'JsonType',
+    'LENGTH_PARAMETERS',
+    'PRECISION_PARAMETERS',
+    'RealType',
+    'SmallIntType',
+    'TextType',
+    'TimeType',
+    'TimeTzType',
+    'TimestampType',
+    'TimestampTzType',
+    'TinyIntType',
+    'UNSIGNED_PARAMETERS',
+    'UUIDType',
+    'VarBinaryType',
+    'VarCharType',
+    'XmlType',
+    'is_valid_interval_qualifier',
+    'validate_interval_qualifier',
+]
 
 
 def __getattr__(name):
     """Resolve a public name from this namespace lazily (no import cycles)."""
-    for module_name in _MODULES:
-        module = importlib.import_module(f'.{module_name}', __name__)
-        if name in vars(module):
-            value = vars(module)[name]
-            globals()[name] = value  # cache so vars()/inspect see the name
-            return value
-    for dotted in _EXTRA_MODULES:
-        module = importlib.import_module(dotted)
-        if name in vars(module):
-            value = vars(module)[name]
-            globals()[name] = value
-            return value
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_name = _EXPORTS.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module = importlib.import_module(module_name)
+    value = vars(module)[name]
+    globals()[name] = value
+    return value
