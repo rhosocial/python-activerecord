@@ -35,7 +35,17 @@ def _single_precision(text: str) -> Optional[int]:
 
 
 class SQLiteTypeParser:
-    """Parse a raw SQLite type spelling into a DataType, bound to a dialect."""
+    """Parse a raw SQLite type spelling into a DataType, bound to a dialect.
+
+    The five groups below are SQLite's own affinity rules
+    (https://sqlite.org/datatype3.html) widened by the spellings the core type
+    classes declare in ``SPELLINGS``: a type the framework models must never
+    fall through to ``CustomType`` merely because this backend spells it
+    differently, so every core spelling appears in exactly one group. Each group
+    is keyed by a whole leading word, so ``CHAR`` cannot swallow ``CHARACTER``
+    and ``DEC`` cannot swallow ``DECIMAL``; a spelling therefore lands in the
+    same affinity group it always did.
+    """
 
     _INTEGER_TYPES = frozenset({
         "INT", "INTEGER", "BIGINT", "SMALLINT", "TINYINT", "MEDIUMINT",
@@ -70,8 +80,10 @@ class SQLiteTypeParser:
             return SQLiteRealType(self.dialect, precision)
         if _leads_with(upper, self._NUMERIC_TYPES):
             nums = integer_runs(stripped)
-            if len(nums) >= 2: return SQLiteNumericType(self.dialect, int(nums[0]), int(nums[1]))
-            if len(nums) == 1: return SQLiteNumericType(self.dialect, int(nums[0]))
+            if len(nums) >= 2:
+                return SQLiteNumericType(self.dialect, int(nums[0]), int(nums[1]))
+            if len(nums) == 1:
+                return SQLiteNumericType(self.dialect, int(nums[0]))
             return SQLiteNumericType(self.dialect)
         if _leads_with(upper, self._BLOB_TYPES):
             return SQLiteBlobType(self.dialect)

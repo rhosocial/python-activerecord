@@ -16,6 +16,7 @@ if TYPE_CHECKING:  # pragma: no cover
         RepeatFunction,
         RpadFunction,
     )
+    from ..expression.json import SQLiteJsonExtractFunction
 
 
 class SQLiteFunctionMixin:
@@ -477,7 +478,7 @@ class SQLiteFunctionMixin:
         return sql, tuple(parts_params)
 
 
-    def format_sqlite_json_extract_function(self, expr) -> Tuple[str, tuple]:
+    def format_sqlite_json_extract_function(self, expr: "SQLiteJsonExtractFunction") -> Tuple[str, tuple]:
         """Render ``json_extract(expression, path)``.
 
         SQLite specific: the same concept is ``->`` / ``->>`` on PostgreSQL and

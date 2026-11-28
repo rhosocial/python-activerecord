@@ -7,10 +7,12 @@ wrapped expression. cast() wraps and returns the new node; chained calls
 nest like any other expression.
 """
 
+import pytest
+
 from rhosocial.activerecord.backend.expression.functions import cast
 from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall
 from rhosocial.activerecord.backend.expression.core import CastExpression
-from rhosocial.activerecord.backend.expression.types import CustomType
+from rhosocial.activerecord.backend.expression.types import CustomType, IntegerType
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 
@@ -207,3 +209,20 @@ class TestTypeCastingMixin:
         assert first.expression is col
         assert first.target_type.raw == "INTEGER"
         assert second.target_type.raw == "VARCHAR"
+
+    def test_raw_string_target_constructs_then_refused_at_format(self, dummy_dialect: DummyDialect):
+        """The constructor collects; the generic formatter validates the type position.
+
+        ``CastExpression`` no longer refuses a raw-string target at construction,
+        and ``BaseExpression._render()`` does not call the validator itself. The
+        refusal happens in the generic ``format_cast_expression``, with the
+        original ``TypeError`` message, while a real ``DataType`` still renders.
+        """
+        expr = CastExpression(dummy_dialect, Literal(dummy_dialect, 1), "INTEGER")
+        assert expr.target_type == "INTEGER"
+
+        with pytest.raises(TypeError, match="cast\\(\\) takes a DataType instance, not str"):
+            expr.to_sql()
+
+        typed = CastExpression(dummy_dialect, Literal(dummy_dialect, 1), IntegerType(dummy_dialect))
+        assert typed.to_sql() == ("CAST(? AS INTEGER)", (1,))

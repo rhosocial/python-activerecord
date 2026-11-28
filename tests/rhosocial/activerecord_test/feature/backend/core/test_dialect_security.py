@@ -221,17 +221,19 @@ def test_format_cast_expression_valid(dialect):
 
 
 def test_format_cast_expression_rejects_injection(dialect):
-    """A malicious type name is refused at construction, not at render.
+    """A malicious type name is collected at construction, refused at render.
 
     The type position of a cast cannot take a bound parameter, so nothing can
-    sanitise a string there later. Refusing it where it enters is the only
-    point at which the refusal is still guaranteed.
+    sanitise a string there later. The constructor only collects it; the
+    generic formatter validates before spelling the type and refuses it with
+    the original ``TypeError``.
     """
     from rhosocial.activerecord.backend.expression.core import CastExpression, Column
 
-    with pytest.raises(TypeError):
-        CastExpression(dialect, Column(dialect, "column"),
-                       "INTEGER; DROP TABLE users--")
+    expr = CastExpression(dialect, Column(dialect, "column"),
+                          "INTEGER; DROP TABLE users--")
+    with pytest.raises(TypeError, match="takes a DataType instance"):
+        dialect.format_cast_expression(expr)
 
 
 def test_custom_type_rejects_injection(dialect):

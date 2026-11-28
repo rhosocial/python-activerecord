@@ -15,8 +15,45 @@ on:
   workflow_dispatch:
 
 jobs:
+  formal-rules:
+    name: Formal rules contracts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+    - name: Check out the repository
+      uses: actions/checkout@v6
+
+    - name: Set up Python 3.14
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.14"
+        cache: 'pip'
+        cache-dependency-path: |
+          requirements.txt
+          requirements-dev.txt
+          requirements-3.8.txt
+          requirements-dev-3.8.txt
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@feature/activerecord-migration"
+
+    - name: Formal rules contracts
+      # Pure source and signature audits: no database, no service, no shard.
+      # Every other job needs this one, so a structural break is reported in
+      # about a minute instead of after a full database suite.
+      run: |
+        export PYTHONPATH=src:tests
+        python -m pytest tests/rhosocial/activerecord_test/feature/rules -q -p no:warnings
+
   test-with-coverage:
     name: Run tests with Python 3.14 and coverage
+    needs: formal-rules
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -101,6 +138,7 @@ jobs:
 
   benchmark-python-315:
     name: Run benchmarks with Python 3.15
+    needs: formal-rules
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -253,6 +291,7 @@ jobs:
 
   test-other-versions:
     name: Run tests with Python ${{ matrix.python-version }}
+    needs: formal-rules
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
@@ -328,6 +367,7 @@ jobs:
 
   test-free-threaded:
     name: Run tests with Python ${{ matrix.python-version }} free-threaded
+    needs: formal-rules
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -389,6 +429,7 @@ jobs:
 
   test-python-315:
     name: Run tests with Python ${{ matrix.python-version }}${{ matrix.freethreaded && 't free-threaded' || '' }}
+    needs: formal-rules
     runs-on: ubuntu-26.04
     permissions:
       contents: read

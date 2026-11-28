@@ -66,13 +66,20 @@ class AlterSequenceMixin:
             Returns:
                 Tuple of (SQL string, parameters tuple) for the statement.
 
+            As on CREATE, the expression only collects its options; malformed
+            pairs are refused by ``expr.validate()`` before any clause is
+            spelled.
+
             Raises:
+                ValueError: The expression carries a mutually exclusive pair or a
+                    non-positive CACHE count (reported by ``expr.validate()``).
                 TypeError: ``AlterSequenceStatement.sequence`` is not a Sequence. A
                 table would render as a well-formed ALTER SEQUENCE over that table's
                 name.
                 UnsupportedFeatureError: If the dialect has no sequence object, or
                     does not support an option the expression asked for.
             """
+            expr.validate()
             if not isinstance(expr.sequence, Sequence):
                 raise TypeError(
                     f"AlterSequenceStatement.sequence must be a Sequence, "

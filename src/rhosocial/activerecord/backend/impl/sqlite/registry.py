@@ -17,9 +17,6 @@ from rhosocial.activerecord.backend.expression.serialization import (
     registry_for_packages,
 )
 
-#: The SQLite backend's own expression package.
-_SQLITE_EXPRESSION_PACKAGE = "rhosocial.activerecord.backend.impl.sqlite.expression"
-
 _backend_registry = None
 
 
@@ -35,7 +32,7 @@ def backend_registry() -> ExpressionRegistry:
         # instance cached under the module global would make every later call
         # fail with a confusing "no such kind" instead of the real cause.
         _backend_registry = registry_for_packages(
-            _SQLITE_EXPRESSION_PACKAGE,
+            "rhosocial.activerecord.backend.impl.sqlite.expression",
             base=core_registry(),
         )
     return _backend_registry

@@ -14,7 +14,6 @@ from rhosocial.activerecord.backend.expression.types import (
     BooleanType,
     CharType,
     CustomType,
-    DataType,
     DateType,
     DateTimeType,
     DecimalType,
@@ -333,39 +332,4 @@ class SQLiteTypeSupportMixin(DataTypeMixin, DataTypeSupport):
     # uuid, binary) is honestly absent, and covered by
     # ``substitute_data_types()`` instead.
     # ------------------------------------------------------------------
-
-
-    # SQLite type affinity groups for parsing.
-    #
-    # These are SQLite's own affinity rules (https://sqlite.org/datatype3.html)
-    # widened by the spellings the core type classes declare in ``SPELLINGS``.
-    # A type the framework models must never fall through to ``CustomType``
-    # merely because this backend spells its types differently, so every entry of
-    # every core ``SPELLINGS`` tuple appears in exactly one group:
-    #
-    #   ``INT1``   INTEGER affinity — SQLite's rule is "the declared type
-    #              *contains* INT", so ``INT1`` was always an INTEGER column and
-    #              only this alternation list was missing it.
-    #   ``CHARACTER``  TEXT affinity — same rule, "contains CHAR".
-    #   ``DEC``    NUMERIC affinity — the unrecognised-type fallback, which is
-    #   ``BOOL``   what SQLite has always done with ``DEC`` and ``BOOL``.
-    #
-    # Nothing else moves: each group is keyed by a whole leading word, so
-    # ``CHAR`` cannot swallow ``CHARACTER`` and ``DEC`` cannot swallow
-    # ``DECIMAL``, and the group each spelling lands in is unchanged, so no
-    # affinity assignment is revised.
-    _INTEGER_TYPES = frozenset({
-        "INT", "INTEGER", "BIGINT", "SMALLINT", "TINYINT", "MEDIUMINT",
-        "INT1", "INT2", "INT4", "INT8",
-    })
-    _TEXT_TYPES = frozenset({
-        "TEXT", "CHAR", "CHARACTER", "CHARACTER VARYING",
-        "VARCHAR", "NVARCHAR", "NCHAR", "CLOB",
-    })
-    _REAL_TYPES = frozenset({"REAL", "FLOAT", "DOUBLE"})
-    _NUMERIC_TYPES = frozenset({
-        "NUMERIC", "DECIMAL", "DEC", "BOOLEAN", "BOOL", "DATE", "DATETIME",
-        "TIMESTAMP", "TIME",
-    })
-    _BLOB_TYPES = frozenset({"BLOB", "BYTEA", "BINARY", "VARBINARY"})
 

@@ -195,12 +195,15 @@ class TestCastTakesOnlyAType:
         "value", ["INTEGER", "DECIMAL(10,2)", 123, None, object(), 42]
     )
     def test_refused(self, dialect, value):
-        with pytest.raises(TypeError):
-            column(dialect).cast(value)
+        # Constructors collect; the type-position check is opt-in validation.
+        cast = column(dialect).cast(value)
+        with pytest.raises(TypeError, match="takes a DataType instance"):
+            cast.validate_target_type()
 
     def test_a_string_carrying_an_injection_is_refused(self, dialect):
-        with pytest.raises(TypeError):
-            column(dialect).cast("INTEGER); DROP TABLE users; --")
+        cast = column(dialect).cast("INTEGER); DROP TABLE users; --")
+        with pytest.raises(TypeError, match="takes a DataType instance"):
+            cast.validate_target_type()
 
     @pytest.mark.parametrize(
         "raw",

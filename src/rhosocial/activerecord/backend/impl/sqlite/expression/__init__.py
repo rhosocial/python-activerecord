@@ -40,8 +40,8 @@ from .fts5 import (
     SQLiteFTS5SnippetExpression,
 )
 from .virtual_table import (
-    CreateVirtualTableStatement,
-    DropVirtualTableStatement,
+    SQLiteCreateVirtualTableStatement,
+    SQLiteDropVirtualTableStatement,
 )
 from .rtree import (
     SQLiteRTreeCreateVirtualTable,
@@ -93,6 +93,8 @@ for _sqlite_expression in (
     SQLiteFTS5RankExpression,
     SQLiteFTS5HighlightExpression,
     SQLiteFTS5SnippetExpression,
+    SQLiteCreateVirtualTableStatement,
+    SQLiteDropVirtualTableStatement,
     SQLiteRTreeCreateVirtualTable,
     SQLiteRTreeRangeQuery,
     SQLiteGeopolyCreateVirtualTable,
@@ -126,8 +128,8 @@ __all__ = [
     "SQLiteFTS5RankExpression",
     "SQLiteFTS5HighlightExpression",
     "SQLiteFTS5SnippetExpression",
-    "CreateVirtualTableStatement",
-    "DropVirtualTableStatement",
+    "SQLiteCreateVirtualTableStatement",
+    "SQLiteDropVirtualTableStatement",
     "SQLiteRTreeCreateVirtualTable",
     "SQLiteRTreeRangeQuery",
     "SQLiteGeopolyCreateVirtualTable",

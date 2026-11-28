@@ -95,8 +95,12 @@ class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregatio
 
             ``CAST(expr AS type)`` is a unary tree node; the wrapped expression
             renders through its own ``to_sql()`` and the target through
-            its own ``to_sql()``.
+            its own ``to_sql()``. The type position is a grammar production and
+            cannot be bound, so it is validated before either child renders: a
+            node that merely collected a raw string is refused here rather than
+            having that string spelled into the statement.
             """
+            expr.validate_target_type()
             expr_sql, params = expr.expression.to_sql()
             # The target is an expression, so it renders itself and this
             # concatenates. Interpolating it would have produced

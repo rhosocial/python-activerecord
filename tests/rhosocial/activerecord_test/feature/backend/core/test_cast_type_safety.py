@@ -156,13 +156,31 @@ class TestCastRequiresADataType:
 
     @pytest.mark.parametrize("payload", PAYLOADS)
     def test_cast_rejects_a_string(self, sqlite_dialect, payload):
-        column = Column(sqlite_dialect, "c", table="t")
-        with pytest.raises(TypeError):
-            column.cast(payload)
+        # Constructors only collect; the refusal is a public, opt-in check.
+        cast = Column(sqlite_dialect, "c", table="t").cast(payload)
+        with pytest.raises(TypeError, match="takes a DataType instance"):
+            cast.validate_target_type()
 
     def test_cast_rejects_a_non_type(self, sqlite_dialect):
-        with pytest.raises(TypeError):
-            Column(sqlite_dialect, "c", table="t").cast(object())
+        cast = Column(sqlite_dialect, "c", table="t").cast(object())
+        with pytest.raises(TypeError, match="takes a DataType instance"):
+            cast.validate_target_type()
+
+    def test_a_raw_string_target_constructs_and_is_refused_at_render(self, sqlite_dialect):
+        """The proof that the check moved out of the constructor.
+
+        ``CastExpression`` now collects a raw string without complaint; the
+        generic formatter validates the type position before rendering and
+        refuses it with the original ``TypeError``.
+        """
+        from rhosocial.activerecord.backend.expression.core import CastExpression
+
+        expr = CastExpression(
+            sqlite_dialect, Column(sqlite_dialect, "c", table="t"), "INTEGER"
+        )
+        assert expr.target_type == "INTEGER"
+        with pytest.raises(TypeError, match="takes a DataType instance"):
+            expr.to_sql()
 
 
 class TestCustomTypeValidatesItsName:

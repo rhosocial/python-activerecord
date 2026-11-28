@@ -37,14 +37,14 @@ from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
 from rhosocial.activerecord.backend.impl.sqlite.expression import (
     SQLiteMatchPredicate,  # noqa: E402
-    CreateVirtualTableStatement,  # noqa: E402
+    SQLiteCreateVirtualTableStatement,  # noqa: E402
 )
 from .....expression.objects import Table
 
 # Create FTS4 virtual table using the dialect's generic virtual table
 # formatting method. For FTS4, module='fts4' and tokenizer options
 # are passed via the options dict.
-create_expr = CreateVirtualTableStatement(
+create_expr = SQLiteCreateVirtualTableStatement(
     dialect=dialect,
     module="fts4",
     table_name="documents",

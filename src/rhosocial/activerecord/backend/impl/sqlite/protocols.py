@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from .expression.reindex import SQLiteReindexStatement
     from .expression.rtree import SQLiteRTreeCreateVirtualTable, SQLiteRTreeRangeQuery
     from .expression.vacuum import SQLiteAnalyzeStatement, SQLiteVacuumStatement
-    from .expression.virtual_table import CreateVirtualTableStatement, DropVirtualTableStatement
+    from .expression.virtual_table import SQLiteCreateVirtualTableStatement, SQLiteDropVirtualTableStatement
 
 
 @runtime_checkable
@@ -224,12 +224,12 @@ class SQLiteVirtualTableSupport(Protocol):
 
     def format_create_virtual_table_statement(
         self,
-        expr: "CreateVirtualTableStatement",
+        expr: "SQLiteCreateVirtualTableStatement",
     ) -> Tuple[str, tuple]:
         """Format CREATE VIRTUAL TABLE statement.
 
         Args:
-            expr: CreateVirtualTableStatement instance
+            expr: SQLiteCreateVirtualTableStatement instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
@@ -238,12 +238,12 @@ class SQLiteVirtualTableSupport(Protocol):
 
     def format_drop_virtual_table_statement(
         self,
-        expr: "DropVirtualTableStatement",
+        expr: "SQLiteDropVirtualTableStatement",
     ) -> Tuple[str, tuple]:
         """Format DROP TABLE statement for virtual table.
 
         Args:
-            expr: DropVirtualTableStatement instance
+            expr: SQLiteDropVirtualTableStatement instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)

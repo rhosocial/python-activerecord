@@ -181,12 +181,19 @@ class IdentityColumnMixin:
         Returns:
             A ``(sql, params)`` tuple with a leading space.
 
+        The clause only collects its options; malformed pairs (both spellings
+        of CYCLE/CACHE/ORDER, or a non-positive CACHE count) are refused by
+        ``expr.validate()`` before any part of the clause is spelled.
+
         Raises:
+            ValueError: The clause carries a mutually exclusive pair or a
+                non-positive CACHE count (reported by ``expr.validate()``).
             UnsupportedFeatureError: If the dialect cannot express the clause,
                 the requested generation mode, or one of the requested options.
         """
         from ..exceptions import UnsupportedFeatureError
 
+        expr.validate()
         if not self.supports_identity_column():
             raise UnsupportedFeatureError(
                 self.name, "IDENTITY column",

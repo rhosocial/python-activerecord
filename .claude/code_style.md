@@ -707,3 +707,31 @@ SQL fragment strings relies on `RawSQLPredicate` under the hood.
 
 Violating rule 2 (concatenating user input into a raw SQL fragment) is the only case that is
 categorically prohibited here — it is a SQL injection vulnerability.
+
+### Source-level bans in `src/`
+
+These are enforced in `tests/rhosocial/activerecord_test/feature/rules/backend/`
+(full statement and rationale in `architecture.md` §11). Shared bans (`re`,
+string-SQL manipulation, reflection) are testsuite-owned, with fixtures supplying
+core's and the active backend's source roots, and bridged into core. Purely
+structural core rules (bare switches, expression namespaces, formatter/kind
+bijection and signature) are real tests in core — backends trust core for them.
+Backend-specific rules stay testsuite-owned.
+
+- `import re` is forbidden anywhere under `src/` (`test_no_regex_in_src`). This is
+  distinct from §10's ban on regex-scanning generated SQL: one bans the module,
+  the other bans the act of reading SQL as text.
+- Backend source must not construct `RawSQL`/`RawSQLPredicate` from user data
+  (`test_no_raw_sql_in_src`); this is rule 2 above applied to the backend layer.
+- Formatters only concatenate — they never inspect or rewrite generated SQL
+  (`test_no_string_sql_manipulation_in_formatters`).
+- The expression layer must not use `getattr`/`setattr`/`hasattr`/`delattr` to
+  discover fields or methods (`test_no_reflection_in_expression_layer`).
+- Kinds and registry entries must not be resolved by string-suffix matching
+  (backend structural audits).
+- Core expressions live in `backend.expression`; a backend's own live in
+  `backend.impl.<name>.expression`, with prefixed names that cannot collide with
+  core (`test_expression_namespaces`, `test_backend_expression_naming`; §3.1 / §3.2).
+- A formatter declares exactly `(self, expr)` and returns a required, non-Optional
+  `(sql, params)`; one kind, one formatter. The bijection is checked on
+  instantiated dialects (`test_formatter_bijection_and_signature`; §5).

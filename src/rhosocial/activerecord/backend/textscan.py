@@ -23,9 +23,6 @@ _LETTERS = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
 #: The ASCII digits an explicit ``[0-9]`` class admits.
 _DIGITS = frozenset("0123456789")
 
-#: Letters, digits and underscore: the ``\w``-minus-quotes backbone of a name.
-_NAME_CHARS = _LETTERS | _DIGITS | frozenset("_")
-
 
 def _is_word_char(char: str) -> bool:
     r"""Whether *char* is a word character in the ``\b`` sense.
@@ -57,7 +54,7 @@ def is_simple_name(text: str, extra: str = "", *, spaces: bool = False) -> bool:
     """
     if not text:
         return False
-    allowed = _NAME_CHARS | frozenset(extra)
+    allowed = _LETTERS | _DIGITS | frozenset("_") | frozenset(extra)
     for char in text:
         if char not in allowed and not (spaces and char.isspace()):
             return False

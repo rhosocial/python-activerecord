@@ -55,8 +55,8 @@ from rhosocial.activerecord.backend.impl.sqlite.expression.vacuum import (
     SQLiteVacuumStatement,
 )
 from rhosocial.activerecord.backend.impl.sqlite.expression.virtual_table import (
-    CreateVirtualTableStatement,
-    DropVirtualTableStatement,
+    SQLiteCreateVirtualTableStatement,
+    SQLiteDropVirtualTableStatement,
 )
 
 DIALECT = SQLiteDialect(version=(3, 40, 0))
@@ -255,7 +255,7 @@ class TestVirtualTableStatements:
 
     def test_create(self):
         sql, _ = rendered(
-            CreateVirtualTableStatement(
+            SQLiteCreateVirtualTableStatement(
                 DIALECT,
                 module="rtree",
                 table=Table(DIALECT, "v"),
@@ -265,7 +265,7 @@ class TestVirtualTableStatements:
         accepts(sql)
 
     def test_drop(self):
-        sql, _ = rendered(DropVirtualTableStatement(DIALECT, table=Table(DIALECT, "v")))
+        sql, _ = rendered(SQLiteDropVirtualTableStatement(DIALECT, table=Table(DIALECT, "v")))
         accepts(sql, setup=["CREATE VIRTUAL TABLE v USING rtree(id, minX, maxX)"])
 
 

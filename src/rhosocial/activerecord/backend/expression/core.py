@@ -291,7 +291,9 @@ class CastExpression(
 
     ``CAST(expression AS target_type)`` is a **unary tree node**: its single
     child is the wrapped expression and ``target_type`` is a construction
-    parameter. Rendering is delegated to the dialect's
+    parameter. The constructor only collects that parameter; the type-position
+    check lives in the public :meth:`validate_target_type`, which a formatter
+    may call before rendering. Rendering is delegated to the dialect's
     ``format_cast_expression``.
 
     Chained ``cast()`` calls therefore nest like any other expression —
@@ -317,24 +319,34 @@ class CastExpression(
         alias: Optional[str] = None,
     ):
         super().__init__(dialect)
+        self.expression = expression
+        self.target_type = target_type
+        self.alias = alias
+
+    def validate_target_type(self) -> None:
+        """Refuse a target that is not a :class:`DataType` node.
+
+        The type position of ``CAST(expr AS type)`` is a grammar production,
+        not an expression, so no bound parameter can be used there and a
+        free-form string would be rendered straight into the statement.
+        Requiring a ``DataType`` makes that impossible by validation rather
+        than by accepting a string that someone else could widen later.
+
+        This is a public, opt-in check: the constructor only collects
+        ``target_type`` and each formatter decides whether to call it before
+        spelling the type. The message is unchanged from when the check ran in
+        ``__init__``, so callers refuse a bad target with the same ``TypeError``.
+        """
         from .types._base import DataType as _DataType
 
-        if not isinstance(target_type, _DataType):
-            # The type position of CAST(expr AS type) is a grammar production,
-            # not an expression, so no bound parameter can be used there and a
-            # free-form string would be rendered straight into the statement.
-            # Requiring a DataType makes that impossible by construction rather
-            # than by validating a string that someone else can widen later.
+        if not isinstance(self.target_type, _DataType):
             raise TypeError(
                 f"cast() takes a DataType instance, not "
-                f"{type(target_type).__name__}. Use IntegerType(dialect) rather "
+                f"{type(self.target_type).__name__}. Use IntegerType(dialect) rather "
                 f"than a string: the type position cannot be bound, so a string "
                 f"is rendered into the SQL. A user-defined type is a DataType "
                 f"subclass, registered so dialects can render it."
             )
-        self.expression = expression
-        self.target_type = target_type
-        self.alias = alias
 
     def __repr__(self) -> str:
         return f"CastExpression({self.expression!r} AS {self.target_type!r})"

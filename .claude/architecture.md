@@ -339,6 +339,67 @@ prefer text — the caller's choice is the contract.
 moment a dialect's quoting or placeholder syntax differs, and duplicates knowledge the
 formatter already had — all to solve a problem that pure concatenation never creates.
 
+### 11. Backend Source Discipline — Formal Mechanical Contracts
+
+The rules above are backed by executable source audits in
+`tests/rhosocial/activerecord_test/feature/rules/backend/`. Ownership is split by
+who has to verify what:
+
+- **Shared bans — testsuite-owned.** The `re`, string-SQL-manipulation and
+  reflection bans must hold for both core and every backend, so their tests live
+  in `rhosocial.activerecord.testsuite.feature.rules.backend`, with fixtures
+  supplying the source root of core and of the active backend. Core keeps
+  one-line bridges so the isolated CI gate collects them.
+- **Purely structural core rules — core-owned.** The bare-switch,
+  expression-namespace and formatter/kind declaration-and-signature rules are
+  real tests in core's `tests/rhosocial/activerecord_test/feature/rules/backend/`.
+  Backends trust core for these and do not re-verify them.
+- **Backend-specific rules — testsuite-owned.** Raw SQL, import boundaries,
+  backend expression naming, unconstructible discipline and backend formatter
+  bijection remain bridges to the testsuite's backend rule modules.
+
+Backend source must obey all of the following:
+
+- **No `re` in `src/`.** The standard-library `re` module must not be imported by
+  any file under `src/` (`test_no_regex_in_src`). This is **not** the same rule as
+  §10: §10 forbids inspecting or rewriting *generated SQL* with text machinery
+  (regex included), while this ban forbids `re` anywhere in the source tree, even
+  for text that is not SQL. Both hold; neither implies the other.
+- **No `RawSQL`/`RawSQLPredicate` built from user data.** Backend source must not
+  construct either type from user-supplied values; values travel as bound params,
+  and the SQL fragment stays developer-authored (`test_no_raw_sql_in_src`). This
+  sharpens the raw-SQL boundary in `code_style.md` for the backend layer.
+- **Formatters are pure concatenation.** A formatter must not inspect, rewrite or
+  dispatch on the SQL string it is assembling (`test_no_string_sql_manipulation_in_formatters`).
+  This is the source-level enforcement of §10.
+- **No reflection in the expression layer.** `getattr`, `setattr`, `hasattr` and
+  `delattr` must not probe expression objects for fields or methods; read the
+  declared attribute on the annotated class or split the formatter instead
+  (`test_no_reflection_in_expression_layer`).
+- **No string-suffix dispatch for kinds or registry resolution.** A kind or a
+  registry entry is resolved from an explicit declaration or table, never by
+  `endswith`-style name matching. This is enforced by the backend structural
+  audits as a whole (`test_backend_import_boundaries`, `test_unconstructible_discipline`).
+- **Capability switches stay bare.** Every `supports_*` takes no argument beyond
+  `self` and returns one `bool` (`test_support_switches_take_no_args`).
+- **Expression namespaces are closed.** Core's expression vocabulary belongs to
+  the `backend.expression` namespace; a backend's proprietary expressions belong
+  to its own `backend.impl.<name>.expression` namespace. The two sets are
+  disjoint and derivation runs one way — a backend may derive from core, never
+  the reverse, and no backend may add its names to the core namespace
+  (formal §3.1 / §3.2; `test_expression_namespaces`).
+- **Backend expression names are prefixed and unambiguous.** Every expression
+  class a backend declares carries that backend's name as a prefix, and no
+  backend name may collide with a core class name (formal §3.2;
+  `test_backend_expression_naming`).
+- **Formatters and kinds are in bijection, with a fixed signature.** Every
+  expression kind has exactly one formatter and every formatter serves exactly
+  one kind. The check runs on **instantiated dialects**, so a backend that reuses
+  a core dialect cannot hide a missing formatter behind the core class. Each
+  formatter declares exactly `(self, expr)` — no extra parameters or defaults —
+  and has a required, non-Optional `(sql, params)` return (formal §5;
+  `test_formatter_bijection_and_signature`).
+
 ## Package Architecture
 
 ### Package Structure

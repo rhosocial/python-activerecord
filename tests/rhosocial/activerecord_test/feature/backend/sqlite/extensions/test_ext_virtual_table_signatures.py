@@ -2,8 +2,8 @@
 """Tests for virtual table format method signature compliance.
 
 Verifies:
-- format_create_virtual_table_statement accepts a CreateVirtualTableStatement
-- format_drop_virtual_table_statement accepts a DropVirtualTableStatement
+- format_create_virtual_table_statement accepts a SQLiteCreateVirtualTableStatement
+- format_drop_virtual_table_statement accepts a SQLiteDropVirtualTableStatement
 - 4 tests: create/drop × expression construction + SQL output
 """
 
@@ -11,8 +11,8 @@ import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.sqlite.expression import (
-    CreateVirtualTableStatement,
-    DropVirtualTableStatement,
+    SQLiteCreateVirtualTableStatement,
+    SQLiteDropVirtualTableStatement,
 )
 from rhosocial.activerecord.backend.expression.objects import Table
 
@@ -23,15 +23,15 @@ def dialect():
 
 
 # =============================================================================
-# Part 1: CreateVirtualTableStatement
+# Part 1: SQLiteCreateVirtualTableStatement
 # =============================================================================
 
 
 class TestCreateVirtualTableExpression:
-    """CreateVirtualTableStatement produces correct SQL."""
+    """SQLiteCreateVirtualTableStatement produces correct SQL."""
 
     def test_create_basic(self, dialect):
-        expr = CreateVirtualTableStatement(
+        expr = SQLiteCreateVirtualTableStatement(
             dialect, module="rtree", table=Table(dialect, "places"),
             columns=["id", "minx", "maxx", "miny", "maxy"]
         )
@@ -43,7 +43,7 @@ class TestCreateVirtualTableExpression:
 
     def test_create_rejects_malicious_module(self, dialect):
         with pytest.raises(ValueError, match="Unsafe virtual table module"):
-            expr = CreateVirtualTableStatement(
+            expr = SQLiteCreateVirtualTableStatement(
                 dialect, module="bad'; DROP TABLE x; --",
                 table=Table(dialect, "t"), columns=["c"]
             )
@@ -51,21 +51,21 @@ class TestCreateVirtualTableExpression:
 
 
 # =============================================================================
-# Part 2: DropVirtualTableStatement
+# Part 2: SQLiteDropVirtualTableStatement
 # =============================================================================
 
 
 class TestDropVirtualTableExpression:
-    """DropVirtualTableStatement produces correct SQL."""
+    """SQLiteDropVirtualTableStatement produces correct SQL."""
 
     def test_drop_basic(self, dialect):
-        expr = DropVirtualTableStatement(dialect, table=Table(dialect, "my_table"))
+        expr = SQLiteDropVirtualTableStatement(dialect, table=Table(dialect, "my_table"))
         sql, params = expr.to_sql()
         assert sql == 'DROP TABLE "my_table"'
         assert params == ()
 
     def test_drop_if_exists(self, dialect):
-        expr = DropVirtualTableStatement(
+        expr = SQLiteDropVirtualTableStatement(
             dialect, table=Table(dialect, "my_table"), if_exists=True
         )
         sql, params = expr.to_sql()

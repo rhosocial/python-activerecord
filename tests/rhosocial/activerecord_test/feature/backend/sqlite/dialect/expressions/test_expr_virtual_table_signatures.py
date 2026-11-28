@@ -2,17 +2,18 @@
 """Tests for virtual table format method signature compliance.
 
 Verifies:
-- format_create_virtual_table_statement accepts a CreateVirtualTableStatement
-- format_drop_virtual_table_statement accepts a DropVirtualTableStatement
-- 4 tests: create/drop × expression construction + SQL output
+- format_create_virtual_table_statement accepts a SQLiteCreateVirtualTableStatement
+- format_drop_virtual_table_statement accepts a SQLiteDropVirtualTableStatement
+- the kinds keep SQLite's reserved identifier token whole
+- 6 tests: create/drop × expression construction + SQL output + kind spelling
 """
 
 import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.sqlite.expression import (
-    CreateVirtualTableStatement,
-    DropVirtualTableStatement,
+    SQLiteCreateVirtualTableStatement,
+    SQLiteDropVirtualTableStatement,
 )
 from rhosocial.activerecord.backend.expression.objects import Table
 
@@ -23,15 +24,15 @@ def dialect():
 
 
 # =============================================================================
-# Part 1: CreateVirtualTableStatement
+# Part 1: SQLiteCreateVirtualTableStatement
 # =============================================================================
 
 
 class TestCreateVirtualTableExpression:
-    """CreateVirtualTableStatement produces correct SQL."""
+    """SQLiteCreateVirtualTableStatement produces correct SQL."""
 
     def test_create_basic(self, dialect):
-        expr = CreateVirtualTableStatement(
+        expr = SQLiteCreateVirtualTableStatement(
             dialect, module="rtree", table=Table(dialect, "places"),
             columns=["id", "minx", "maxx", "miny", "maxy"]
         )
@@ -43,31 +44,41 @@ class TestCreateVirtualTableExpression:
 
     def test_create_rejects_malicious_module(self, dialect):
         with pytest.raises(ValueError, match="Unsafe virtual table module"):
-            expr = CreateVirtualTableStatement(
+            expr = SQLiteCreateVirtualTableStatement(
                 dialect, module="bad'; DROP TABLE x; --",
                 table=Table(dialect, "t"), columns=["c"]
             )
             expr.to_sql()
 
+    def test_create_kind_keeps_the_sqlite_token_whole(self, dialect):
+        expr = SQLiteCreateVirtualTableStatement(
+            dialect, module="fts5", table=Table(dialect, "docs"), columns=["body"]
+        )
+        assert expr.kind() == "sqlite_create_virtual_table_statement"
+
 
 # =============================================================================
-# Part 2: DropVirtualTableStatement
+# Part 2: SQLiteDropVirtualTableStatement
 # =============================================================================
 
 
 class TestDropVirtualTableExpression:
-    """DropVirtualTableStatement produces correct SQL."""
+    """SQLiteDropVirtualTableStatement produces correct SQL."""
 
     def test_drop_basic(self, dialect):
-        expr = DropVirtualTableStatement(dialect, table=Table(dialect, "my_table"))
+        expr = SQLiteDropVirtualTableStatement(dialect, table=Table(dialect, "my_table"))
         sql, params = expr.to_sql()
         assert sql == 'DROP TABLE "my_table"'
         assert params == ()
 
     def test_drop_if_exists(self, dialect):
-        expr = DropVirtualTableStatement(
+        expr = SQLiteDropVirtualTableStatement(
             dialect, table=Table(dialect, "my_table"), if_exists=True
         )
         sql, params = expr.to_sql()
         assert sql == 'DROP TABLE IF EXISTS "my_table"'
         assert params == ()
+
+    def test_drop_kind_keeps_the_sqlite_token_whole(self, dialect):
+        expr = SQLiteDropVirtualTableStatement(dialect, table=Table(dialect, "docs"))
+        assert expr.kind() == "sqlite_drop_virtual_table_statement"

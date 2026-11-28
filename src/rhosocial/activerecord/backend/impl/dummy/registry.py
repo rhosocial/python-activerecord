@@ -17,9 +17,6 @@ from rhosocial.activerecord.backend.expression.serialization import (
     registry_for_packages,
 )
 
-#: The dummy backend exposes its expressions from a single module, not a package.
-_DUMMY_EXPRESSION_MODULE = "rhosocial.activerecord.backend.impl.dummy.expression"
-
 _backend_registry = None
 
 
@@ -35,7 +32,7 @@ def backend_registry() -> ExpressionRegistry:
         # instance cached under the module global would make every later call
         # fail with a confusing "no such kind" instead of the real cause.
         _backend_registry = registry_for_packages(
-            _DUMMY_EXPRESSION_MODULE,
+            "rhosocial.activerecord.backend.impl.dummy.expression",
             base=core_registry(),
         )
     return _backend_registry

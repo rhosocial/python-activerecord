@@ -549,7 +549,8 @@ class TestFourStatesArePairwiseDistinguishable:
         kwargs = {case.a: case.a_value, case.b: case.b_value}
         if case.validation_based:
             # The sequence/identity family validates on demand, never in the
-            # constructor and never from a core formatter.
+            # constructor; the generic core formatters opt in at render, but
+            # this case checks the public validate() entry point directly.
             expr = case.builder(_dummy(), **kwargs)
             with pytest.raises(
                 case.error_type,

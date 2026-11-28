@@ -116,16 +116,17 @@ def test_sqlite_format_cast_expression_valid(dialect):
 
 
 def test_sqlite_format_cast_expression_rejects_injection(dialect):
-    """A string in the type position is refused at construction.
+    """A string in the type position constructs, then is refused at render.
 
     The type position cannot be bound as a parameter, so whatever lands there is
-    rendered into the statement text. That is why a string is not accepted at
-    all rather than being escaped: there is nothing to escape it into, since it
-    is code and not data."""
+    rendered into the statement text. That is why a string is not escaped but
+    refused: there is nothing to escape it into, since it is code and not data.
+    The constructor only collects it; the generic formatter validates first."""
     from rhosocial.activerecord.backend.expression.core import CastExpression, Column
 
+    expr = CastExpression(dialect, Column(dialect, "column"), "TEXT; DROP TABLE users--")
     with pytest.raises(TypeError, match="takes a DataType instance"):
-        CastExpression(dialect, Column(dialect, "column"), "TEXT; DROP TABLE users--")
+        expr.to_sql()
 
 
 # ============================================================
@@ -235,8 +236,8 @@ def test_format_foreign_key_query_with_malicious_table_name(dialect):
 
 def test_format_drop_virtual_table_normal(dialect):
     """Drop virtual table with normal table name."""
-    from rhosocial.activerecord.backend.impl.sqlite.expression import DropVirtualTableStatement
-    expr = DropVirtualTableStatement(dialect, table=Table(dialect, "my_fts_table"), if_exists=False)
+    from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteDropVirtualTableStatement
+    expr = SQLiteDropVirtualTableStatement(dialect, table=Table(dialect, "my_fts_table"), if_exists=False)
     sql, params = expr.to_sql()
     assert sql == 'DROP TABLE "my_fts_table"'
     assert params == ()
@@ -244,8 +245,8 @@ def test_format_drop_virtual_table_normal(dialect):
 
 def test_format_drop_virtual_table_if_exists(dialect):
     """Drop virtual table with IF EXISTS."""
-    from rhosocial.activerecord.backend.impl.sqlite.expression import DropVirtualTableStatement
-    expr = DropVirtualTableStatement(dialect, table=Table(dialect, "my_fts_table"), if_exists=True)
+    from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteDropVirtualTableStatement
+    expr = SQLiteDropVirtualTableStatement(dialect, table=Table(dialect, "my_fts_table"), if_exists=True)
     sql, params = expr.to_sql()
     assert sql == 'DROP TABLE IF EXISTS "my_fts_table"'
     assert params == ()
@@ -257,8 +258,8 @@ def test_format_drop_virtual_table_with_malicious_name(dialect):
     Before fix: f'DROP TABLE "{table_name}"' — no escaping of internal ".
     After fix: uses format_identifier which escapes " to "".
     """
-    from rhosocial.activerecord.backend.impl.sqlite.expression import DropVirtualTableStatement
-    expr = DropVirtualTableStatement(dialect, table=Table(dialect, 't"; DROP TABLE users--'), if_exists=False)
+    from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteDropVirtualTableStatement
+    expr = SQLiteDropVirtualTableStatement(dialect, table=Table(dialect, 't"; DROP TABLE users--'), if_exists=False)
     sql, params = expr.to_sql()
     assert "DROP TABLE" not in sql.split('"')[1::2] if len(sql.split('"')) > 2 else "DROP TABLE users" not in sql
     assert sql.count('"') % 2 == 0, f"Unbalanced quotes: {sql}"

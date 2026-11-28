@@ -122,13 +122,20 @@ class CreateSequenceMixin:
             Returns:
                 Tuple of (SQL string, parameters tuple) for the statement.
 
+            The expression only collects its options; malformed pairs (both
+            spellings of CYCLE/CACHE/ORDER, or a non-positive CACHE count) are
+            refused by ``expr.validate()`` before any clause is spelled.
+
             Raises:
+                ValueError: The expression carries a mutually exclusive pair or a
+                    non-positive CACHE count (reported by ``expr.validate()``).
                 TypeError: ``CreateSequenceStatement.sequence`` is not a Sequence. A
                 table would render as a well-formed CREATE SEQUENCE over that table's
                 name.
                 UnsupportedFeatureError: If the dialect has no sequence object, or
                     does not support an option the expression asked for.
             """
+            expr.validate()
             if not isinstance(expr.sequence, Sequence):
                 raise TypeError(
                     f"CreateSequenceStatement.sequence must be a Sequence, "

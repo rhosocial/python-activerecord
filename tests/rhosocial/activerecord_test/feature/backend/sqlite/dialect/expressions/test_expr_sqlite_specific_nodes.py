@@ -72,14 +72,14 @@ def test_rtree_nodes_and_reindex_validation():
 
 def test_virtual_table_nodes_reject_non_table():
     from rhosocial.activerecord.backend.impl.sqlite.expression.virtual_table import (
-        CreateVirtualTableStatement,
-        DropVirtualTableStatement,
+        SQLiteCreateVirtualTableStatement,
+        SQLiteDropVirtualTableStatement,
     )
 
     with pytest.raises(TypeError):
-        CreateVirtualTableStatement(DIALECT, module="fts5", table="docs", columns=["body"])
+        SQLiteCreateVirtualTableStatement(DIALECT, module="fts5", table="docs", columns=["body"])
     with pytest.raises(TypeError):
-        DropVirtualTableStatement(DIALECT, table="docs")
+        SQLiteDropVirtualTableStatement(DIALECT, table="docs")
 
 
 def test_fts5_and_virtual_table_format_methods():
@@ -88,16 +88,16 @@ def test_fts5_and_virtual_table_format_methods():
         SQLiteFTS5MatchPredicate,
     )
     from rhosocial.activerecord.backend.impl.sqlite.expression.virtual_table import (
-        CreateVirtualTableStatement,
-        DropVirtualTableStatement,
+        SQLiteCreateVirtualTableStatement,
+        SQLiteDropVirtualTableStatement,
     )
 
     assert SQLiteFTS5MatchPredicate(DIALECT, "docs", "x").format_method == (
         "format_fts5_match_expression"
     )
-    create = CreateVirtualTableStatement(
+    create = SQLiteCreateVirtualTableStatement(
         DIALECT, module="fts5", table=Table(DIALECT, "docs"), columns=["body"]
     )
-    drop = DropVirtualTableStatement(DIALECT, table=Table(DIALECT, "docs"))
+    drop = SQLiteDropVirtualTableStatement(DIALECT, table=Table(DIALECT, "docs"))
     assert create.format_method == "format_create_virtual_table_statement"
     assert drop.format_method == "format_drop_virtual_table_statement"

@@ -41,7 +41,7 @@ from rhosocial.activerecord.backend.expression import (
 from rhosocial.activerecord.backend.impl.sqlite.expression import (
     SQLiteFTS5CreateVirtualTable,
     SQLiteMatchPredicate,
-    DropVirtualTableStatement,
+    SQLiteDropVirtualTableStatement,
     SQLiteRTreeCreateVirtualTable,
     SQLiteRTreeRangeQuery,
     SQLiteGeopolyCreateVirtualTable,
@@ -234,10 +234,10 @@ class TestGeoDocumentScenario:
 
         # --- Cleanup ---
         backend.execute(
-            *DropVirtualTableStatement(dialect, table=Table(dialect, "docs_fts")).to_sql(), options=ddl
+            *SQLiteDropVirtualTableStatement(dialect, table=Table(dialect, "docs_fts")).to_sql(), options=ddl
         )
         backend.execute(
-            *DropVirtualTableStatement(dialect, table=Table(dialect, "doc_locations")).to_sql(), options=ddl
+            *SQLiteDropVirtualTableStatement(dialect, table=Table(dialect, "doc_locations")).to_sql(), options=ddl
         )
 
 
@@ -405,10 +405,10 @@ class TestGeofencingScenario:
 
         # --- Cleanup ---
         backend.execute(
-            *DropVirtualTableStatement(dialect, table=Table(dialect, "zones")).to_sql(), options=ddl
+            *SQLiteDropVirtualTableStatement(dialect, table=Table(dialect, "zones")).to_sql(), options=ddl
         )
         backend.execute(
-            *DropVirtualTableStatement(dialect, table=Table(dialect, "zone_fts")).to_sql(), options=ddl
+            *SQLiteDropVirtualTableStatement(dialect, table=Table(dialect, "zone_fts")).to_sql(), options=ddl
         )
 
 
@@ -605,7 +605,7 @@ class TestSpatialCatalogScenario:
         # --- Cleanup ---
         for tbl in ["features_rtree", "features_fts"]:
             backend.execute(
-                *DropVirtualTableStatement(
+                *SQLiteDropVirtualTableStatement(
                     dialect, table=Table(dialect, tbl)
                 ).to_sql(),
                 options=ddl,
