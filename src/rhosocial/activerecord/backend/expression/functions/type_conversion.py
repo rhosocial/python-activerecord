@@ -1,6 +1,7 @@
 # src/rhosocial/activerecord/backend/expression/functions/type_conversion.py
 """Type conversion function factories."""
 
+from functools import lru_cache
 from typing import Union, Optional, TYPE_CHECKING
 
 from ..advanced_functions import DeclaredValueType
@@ -186,17 +187,14 @@ def _annotation_for(target_type):
     than saying nothing, so the cast comes back untyped and the caller says what
     they meant with ``as_*``.
     """
-    global _TYPE_ANNOTATIONS
-    if _TYPE_ANNOTATIONS is None:
-        _TYPE_ANNOTATIONS = _type_annotations()
-
     for klass in type(target_type).__mro__:
-        annotation = _TYPE_ANNOTATIONS.get(klass)
+        annotation = _type_annotations().get(klass)
         if annotation is not None:
             return annotation
     return None
 
 
+@lru_cache(maxsize=1)
 def _type_annotations():
     """The ``DataType`` class -> annotation table, built on first use.
 
@@ -289,7 +287,6 @@ def _type_annotations():
     }
 
 
-_TYPE_ANNOTATIONS = None
 
 
 def cast(

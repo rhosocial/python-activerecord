@@ -11,16 +11,22 @@ _LOGGER_QUERY = "rhosocial.activerecord.query"
 _LOGGER_TRANSACTION = "rhosocial.activerecord.transaction"
 _LOGGER_CONNECTION = "rhosocial.activerecord.connection"
 
-_default_logging_config = LoggingConfig()
+class _DefaultLoggingState:
+    """Mutable state held by an object; no module name is ever rebound."""
+
+    def __init__(self) -> None:
+        self.config = LoggingConfig()
+
+
+_default_logging_state = _DefaultLoggingState()
 
 
 def get_default_logging_config() -> LoggingConfig:
-    return _default_logging_config
+    return _default_logging_state.config
 
 
 def reset_default_logging_config() -> None:
-    global _default_logging_config
-    _default_logging_config = LoggingConfig()
+    _default_logging_state.config = LoggingConfig()
 
 
 def configure_logging(

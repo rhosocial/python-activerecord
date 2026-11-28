@@ -37,6 +37,7 @@ business (``DataType`` / ``format_data_type_*``), and the two never read each
 other. See ``expression/types/__init__.py`` for the DDL-side boundary.
 """
 
+from functools import lru_cache
 from typing import Optional, TYPE_CHECKING
 
 from .bases import SQLValue
@@ -490,12 +491,8 @@ def annotation_for(expr: object):
     :mod:`..core`, so building it at import time would need the annotations from
     the module that imports this one.
     """
-    global _COLUMN_ANNOTATIONS
-    if _COLUMN_ANNOTATIONS is None:
-        _COLUMN_ANNOTATIONS = _annotations()
-
     for klass in type(expr).__mro__:
-        annotation = _COLUMN_ANNOTATIONS.get(klass)
+        annotation = _column_annotations().get(klass)
         if annotation is not None:
             return annotation
     return None
@@ -516,7 +513,8 @@ def annotation_for(expr: object):
 #: module has no column class for either -- the distinction between the temporal
 #: types is made where the value is known (see
 #: :class:`~...expression.datetime.ExtractExpression`), not by guessing here.
-def _annotations():
+@lru_cache(maxsize=1)
+def _column_annotations():
     from .declared import (
         ArrayAnnotation,
         BinaryAnnotation,
@@ -564,7 +562,6 @@ def _annotations():
     }
 
 
-_COLUMN_ANNOTATIONS = None
 
 
 __all__ = [
