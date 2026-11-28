@@ -17,7 +17,7 @@ no ``AS`` in the output.
 import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.expression import Column, Literal, NumericColumn, StringColumn
+from rhosocial.activerecord.backend.expression import Column, Parameter, NumericColumn, StringColumn
 from rhosocial.activerecord.backend.expression.predicates import (
     IsBooleanPredicate,
     IsNullPredicate,
@@ -55,14 +55,14 @@ def ident(dialect, alias):
 def _families(dialect, name, qty):
     """One aliased predicate per family, keyed by name."""
     return {
-        "comparison": (name == Literal(dialect, "x")).as_("a"),
+        "comparison": (name == Parameter(dialect, "x")).as_("a"),
         "like": name.like("a%").as_("a"),
         "ilike": name.ilike("a%").as_("a"),
-        "logical_and": ((name == Literal(dialect, "x")) & (qty > Literal(dialect, 0))).as_("a"),
-        "logical_or": ((name == Literal(dialect, "x")) | (qty > Literal(dialect, 0))).as_("a"),
-        "not": (~(name == Literal(dialect, "x"))).as_("a"),
+        "logical_and": ((name == Parameter(dialect, "x")) & (qty > Parameter(dialect, 0))).as_("a"),
+        "logical_or": ((name == Parameter(dialect, "x")) | (qty > Parameter(dialect, 0))).as_("a"),
+        "not": (~(name == Parameter(dialect, "x"))).as_("a"),
         "in": name.in_([1, 2]).as_("a"),
-        "between": name.between(Literal(dialect, "a"), Literal(dialect, "z")).as_("a"),
+        "between": name.between(Parameter(dialect, "a"), Parameter(dialect, "z")).as_("a"),
         "is_null": IsNullPredicate(dialect, name).as_("a"),
         "is_boolean": IsBooleanPredicate(dialect, name, True).as_("a"),
     }
@@ -161,6 +161,6 @@ def test_empty_in_list_keeps_its_alias(dialect, name):
 
 def test_aliasing_preserves_parameters(dialect, name, qty):
     """The alias is pure SQL decoration; bind order must not shift."""
-    expr = (name.like("a%") & (qty > Literal(dialect, 5))).as_("both")
+    expr = (name.like("a%") & (qty > Parameter(dialect, 5))).as_("both")
     _, params = expr.to_sql()
     assert params == ("a%", 5)

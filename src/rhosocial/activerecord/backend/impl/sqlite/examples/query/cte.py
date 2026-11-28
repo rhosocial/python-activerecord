@@ -15,7 +15,7 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     GroupByHavingClause,
 )
 from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
-from rhosocial.activerecord.backend.expression.core import Literal, Column
+from rhosocial.activerecord.backend.expression.core import Parameter, Column
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     QueryStatement,
@@ -82,7 +82,7 @@ for manager_id, name, dept in employees_data:
         dialect=dialect,
         into=Table(dialect, 'employees'),
         columns=["manager_id", "name", "department"],
-        source=ValuesSource(dialect, [[Literal(dialect, manager_id), Literal(dialect, name), Literal(dialect, dept)]]),
+        source=ValuesSource(dialect, [[Parameter(dialect, manager_id), Parameter(dialect, name), Parameter(dialect, dept)]]),
     )
     sql, params = insert_expr.to_sql()
     backend.execute(sql, params)
@@ -140,7 +140,7 @@ base_query = QueryStatement(
         Column(dialect, "name"),
         Column(dialect, "manager_id"),
         Column(dialect, "department"),
-        Literal(dialect, 0),
+        Parameter(dialect, 0),
     ],
     from_=NamedRelationRef(dialect, Table(dialect, "employees")),
     where=IsNullPredicate(dialect, Column(dialect, "manager_id")),
@@ -164,7 +164,7 @@ recursive_query = QueryStatement(
         Column(dialect, "name", "e"),
         Column(dialect, "manager_id", "e"),
         Column(dialect, "department", "e"),
-        ArithmeticOperation(dialect, "add", Column(dialect, "level", "oc"), Literal(dialect, 1)),
+        ArithmeticOperation(dialect, "add", Column(dialect, "level", "oc"), Parameter(dialect, 1)),
     ],
     from_=join_expr,
 )

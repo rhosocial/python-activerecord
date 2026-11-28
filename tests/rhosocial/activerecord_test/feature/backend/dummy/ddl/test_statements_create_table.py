@@ -39,7 +39,7 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 from rhosocial.activerecord.backend.dialect import SQLDialectBase
 from typing import Set, Tuple
 from rhosocial.activerecord.backend.expression import (
-    Literal,
+    Parameter,
     Column,
     ComparisonPredicate,
     FunctionCall,
@@ -289,7 +289,7 @@ class TestCreateTableStatements:
         """Tests CREATE TABLE with CHECK column constraints."""
         # Create a check predicate for age > 0 (inline literal for DDL)
         age_check = ComparisonPredicate(
-            dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 0, inline=True)
+            dummy_dialect, ">", Column(dummy_dialect, "age"), Parameter(dummy_dialect, 0, inline=True)
         )
 
         columns = [
@@ -415,7 +415,7 @@ class TestCreateTableStatements:
         where_clause = WhereClause(
             dummy_dialect,
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "active")
+                dummy_dialect, "=", Column(dummy_dialect, "status"), Parameter(dummy_dialect, "active")
             )
         )
         query = QueryStatement(
@@ -441,7 +441,7 @@ class TestCreateTableStatements:
         """Tests CREATE TABLE AS ... WITH NO DATA."""
         query = QueryStatement(
             dummy_dialect,
-            select=[Literal(dummy_dialect, 1)],
+            select=[Parameter(dummy_dialect, 1)],
         )
         expr = CreateTableAsStatement(dummy_dialect, table=Table(dummy_dialect, "t"), as_query=query, no_data=True)
         sql, params = expr.to_sql()
@@ -533,7 +533,7 @@ class TestCreateTableStatements:
         assert "CLONE" not in sql
 
     def test_create_table_from_template_generic_render(self, dummy_dialect: DummyDialect):
-        query = QueryStatement(dummy_dialect, select=[Literal(dummy_dialect, 1)])
+        query = QueryStatement(dummy_dialect, select=[Parameter(dummy_dialect, 1)])
         expr = CreateTableFromTemplateStatement(dummy_dialect, table=Table(dummy_dialect, "t"), template=query)
         sql, params = expr.to_sql()
         assert "USING TEMPLATE" in sql
@@ -544,7 +544,7 @@ class TestCreateTableStatements:
 
         dialect = SQLiteDialect()
         assert dialect.supports_create_table_using_template() is False
-        query = QueryStatement(dialect, select=[Literal(dialect, 1)])
+        query = QueryStatement(dialect, select=[Parameter(dialect, 1)])
         expr = CreateTableFromTemplateStatement(dialect, table=Table(dialect, "t"), template=query)
         with pytest.raises(UnsupportedFeatureError):
             expr.to_sql()
@@ -689,7 +689,7 @@ class TestCreateTableStatements:
         dialect = PartitionTestDialect()
         partition = PartitionByHashClause(
             dialect=dialect,
-            keys=[FunctionCall(dialect, "bucket", Literal(dialect, "tenant"))],
+            keys=[FunctionCall(dialect, "bucket", Parameter(dialect, "tenant"))],
         )
         create_table_expr = CreateTableStatement(
             dialect,
@@ -858,7 +858,7 @@ class TestCreateTableStatements:
                             dummy_dialect,
                             ">=",
                             Column(dummy_dialect, "amount"),
-                            Literal(dummy_dialect, 0, inline=True),
+                            Parameter(dummy_dialect, 0, inline=True),
                         ))),
                 ],
             ),

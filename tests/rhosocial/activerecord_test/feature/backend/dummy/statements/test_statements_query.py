@@ -3,7 +3,7 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     FunctionCall,
     ComparisonPredicate,
     QueryStatement,
@@ -313,7 +313,7 @@ class TestQueryStatements:
             dummy_dialect,
             ">",
             FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")),
-            Literal(dummy_dialect, 5),
+            Parameter(dummy_dialect, 5),
         )
 
         # The validation should happen in the GroupByHavingClause constructor itself, not in QueryStatement
@@ -385,7 +385,7 @@ class TestQueryStatements:
             dummy_dialect,
             ">",
             FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")),
-            Literal(dummy_dialect, 5),
+            Parameter(dummy_dialect, 5),
         )
 
         # Create GROUP BY/HAVING clause (even if just GROUP BY)
@@ -451,7 +451,7 @@ class TestQueryStatements:
     def test_arithmetic_mixin_methods(self, dummy_dialect: DummyDialect):
         """Test ArithmeticMixin methods."""
         price_col = NumericColumn(dummy_dialect, "price")
-        tax_rate = Literal(dummy_dialect, 0.1)
+        tax_rate = Parameter(dummy_dialect, 0.1)
 
         # Test arithmetic operations
         total = price_col + (price_col * tax_rate)  # Addition and multiplication
@@ -459,17 +459,17 @@ class TestQueryStatements:
         assert "+" in sql and "*" in sql
         assert params == (0.1,)
 
-        discount = price_col - Literal(dummy_dialect, 5)  # Subtraction
+        discount = price_col - Parameter(dummy_dialect, 5)  # Subtraction
         sql, params = discount.to_sql()
         assert "-" in sql
         assert params == (5,)
 
-        division = price_col / Literal(dummy_dialect, 2)  # Division
+        division = price_col / Parameter(dummy_dialect, 2)  # Division
         sql, params = division.to_sql()
         assert "/" in sql
         assert params == (2,)
 
-        modulo = price_col % Literal(dummy_dialect, 10)  # Modulo
+        modulo = price_col % Parameter(dummy_dialect, 10)  # Modulo
         sql, params = modulo.to_sql()
         assert "%" in sql
         assert params == (10,)
@@ -477,16 +477,16 @@ class TestQueryStatements:
     def test_logical_mixin_methods(self, dummy_dialect: DummyDialect):
         """Test LogicalMixin methods."""
         # Test logical AND using & operator
-        cond1 = NumericColumn(dummy_dialect, "age") > Literal(dummy_dialect, 18)
-        cond2 = StringColumn(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+        cond1 = NumericColumn(dummy_dialect, "age") > Parameter(dummy_dialect, 18)
+        cond2 = StringColumn(dummy_dialect, "status") == Parameter(dummy_dialect, "active")
         logical_and = cond1 & cond2
         sql, params = logical_and.to_sql()
         assert "AND" in sql.upper()
         assert params == (18, "active")
 
         # Test logical OR using | operator
-        cond3 = NumericColumn(dummy_dialect, "score") < Literal(dummy_dialect, 50)
-        cond4 = StringColumn(dummy_dialect, "category") == Literal(dummy_dialect, "low_priority")
+        cond3 = NumericColumn(dummy_dialect, "score") < Parameter(dummy_dialect, 50)
+        cond4 = StringColumn(dummy_dialect, "category") == Parameter(dummy_dialect, "low_priority")
         logical_or = cond3 | cond4
         sql, params = logical_or.to_sql()
         assert "OR" in sql.upper()
@@ -494,7 +494,7 @@ class TestQueryStatements:
 
         # Test logical NOT using ~ operator
         status_col = StringColumn(dummy_dialect, "status")
-        not_active = ~(status_col == Literal(dummy_dialect, "inactive"))
+        not_active = ~(status_col == Parameter(dummy_dialect, "inactive"))
         sql, params = not_active.to_sql()
         assert "NOT" in sql.upper()
         assert params == ("inactive",)
@@ -518,7 +518,7 @@ class TestQueryStatements:
     def test_comparison_operators_direct_usage(self, dummy_dialect: DummyDialect):
         """Test direct usage of comparison operators that may not be covered elsewhere."""
         age_col = NumericColumn(dummy_dialect, "age")
-        value = Literal(dummy_dialect, 25)
+        value = Parameter(dummy_dialect, 25)
 
         # Test all comparison operators
         eq_pred = age_col == value  # __eq__
@@ -585,7 +585,7 @@ class TestQueryStatements:
 
         # Combine LIKE with comparison condition
         like_condition = name_col.like("John%")
-        age_condition = age_col > Literal(dummy_dialect, 18)
+        age_condition = age_col > Parameter(dummy_dialect, 18)
         combined_condition = like_condition & age_condition
 
         query = QueryStatement(dummy_dialect, select=[name_col, age_col], from_="users", where=combined_condition)
@@ -726,7 +726,7 @@ class TestQueryStatements:
                 dummy_dialect,
                 "=",
                 Column(dummy_dialect, "status"),
-                Literal(dummy_dialect, "active"),
+                Parameter(dummy_dialect, "active"),
             )
         )
         query_valid.validate(strict=False)  # Should not raise any exception

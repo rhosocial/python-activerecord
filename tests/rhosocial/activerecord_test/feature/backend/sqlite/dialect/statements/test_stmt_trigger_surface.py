@@ -3,7 +3,7 @@
 
 import pytest
 
-from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression import Column, Parameter
 from rhosocial.activerecord.backend.expression.datetime import CurrentTimestampFunction
 from rhosocial.activerecord.backend.expression.objects import Function, Table, Trigger
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
@@ -76,7 +76,7 @@ def test_statement_level_trigger_omits_the_row_clause():
 
 def test_when_condition_parameters_travel_with_the_statement():
     condition = ComparisonPredicate(
-        DIALECT, "gt", Column(DIALECT, "new.amount"), Literal(DIALECT, 100)
+        DIALECT, "gt", Column(DIALECT, "new.amount"), Parameter(DIALECT, 100)
     )
     sql, params = CreateTriggerStatement(
         DIALECT,
@@ -150,6 +150,6 @@ def test_trigger_needs_exactly_one_of_function_and_body():
         CreateTriggerStatement(
             DIALECT,
             function=Function(DIALECT, "f"),
-            body=[Literal(DIALECT, 1)],
+            body=[Parameter(DIALECT, 1)],
             **common,
         ).to_sql()

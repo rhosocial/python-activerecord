@@ -429,7 +429,7 @@ class SQLiteIntrospectionCapabilityMixin:
             ComparisonPredicate,
             LikeOperator,
             LikePredicate,
-            Literal,
+            Parameter,
             count,
         )
 
@@ -438,13 +438,13 @@ class SQLiteIntrospectionCapabilityMixin:
             [count(self, alias="table_count")],
             [
                 ComparisonPredicate(
-                    self, "eq", Column(self, "type"), Literal(self, "table", inline=True)
+                    self, "eq", Column(self, "type"), Parameter(self, "table", inline=True)
                 ),
                 LikePredicate(
                     self,
                     LikeOperator.NOT_LIKE,
                     Column(self, "name"),
-                    Literal(self, "sqlite_%", inline=True),
+                    Parameter(self, "sqlite_%", inline=True),
                 ),
             ],
         )
@@ -462,18 +462,18 @@ class SQLiteIntrospectionCapabilityMixin:
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Literal
+        from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Parameter
 
         return self.sqlite_master_query(
             expr.schema or "main",
             [Column(self, "sql")],
             [
                 ComparisonPredicate(
-                    self, "eq", Column(self, "type"), Literal(self, "table", inline=True)
+                    self, "eq", Column(self, "type"), Parameter(self, "table", inline=True)
                 ),
-                ComparisonPredicate(self, "eq", Column(self, "name"), Literal(self, expr.table_name)),
+                ComparisonPredicate(self, "eq", Column(self, "name"), Parameter(self, expr.table_name)),
                 ComparisonPredicate(
-                    self, "eq", Column(self, "tbl_name"), Literal(self, expr.table_name)
+                    self, "eq", Column(self, "tbl_name"), Parameter(self, expr.table_name)
                 ),
             ],
         )
@@ -490,16 +490,16 @@ class SQLiteIntrospectionCapabilityMixin:
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Literal
+        from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Parameter
 
         return self.sqlite_master_query(
             expr.schema or "main",
             [Column(self, "sql")],
             [
                 ComparisonPredicate(
-                    self, "eq", Column(self, "type"), Literal(self, "index", inline=True)
+                    self, "eq", Column(self, "type"), Parameter(self, "index", inline=True)
                 ),
-                ComparisonPredicate(self, "eq", Column(self, "name"), Literal(self, expr.index_name)),
+                ComparisonPredicate(self, "eq", Column(self, "name"), Parameter(self, expr.index_name)),
             ],
         )
 
@@ -559,7 +559,7 @@ class SQLiteIntrospectionCapabilityMixin:
         from rhosocial.activerecord.backend.expression import (
             Column,
             ComparisonPredicate,
-            Literal,
+            Parameter,
         )
 
         return self.sqlite_master_query(
@@ -567,7 +567,7 @@ class SQLiteIntrospectionCapabilityMixin:
             [Column(self, "name"), Column(self, "tbl_name")],
             [
                 ComparisonPredicate(
-                    self, "eq", Column(self, "type"), Literal(self, "index", inline=True)
+                    self, "eq", Column(self, "type"), Parameter(self, "index", inline=True)
                 ),
             ],
             [Column(self, "name")],
@@ -614,7 +614,7 @@ class SQLiteIntrospectionCapabilityMixin:
             InPredicate,
             LikeOperator,
             LikePredicate,
-            Literal,
+            Parameter,
             LogicalPredicate,
             OrderByClause,
             QueryStatement,
@@ -622,7 +622,7 @@ class SQLiteIntrospectionCapabilityMixin:
         )
 
         values = ("table", "view") if include_views else ("table",)
-        conditions = [InPredicate(self, Column(self, "type"), Literal(self, values, inline=True))]
+        conditions = [InPredicate(self, Column(self, "type"), Parameter(self, values, inline=True))]
 
         # Exclude system tables unless requested
         if not include_system:
@@ -631,7 +631,7 @@ class SQLiteIntrospectionCapabilityMixin:
                     self,
                     LikeOperator.NOT_LIKE,
                     Column(self, "name"),
-                    Literal(self, "sqlite_%", inline=True),
+                    Parameter(self, "sqlite_%", inline=True),
                 )
             )
 
@@ -640,7 +640,7 @@ class SQLiteIntrospectionCapabilityMixin:
             spelled = "table" if table_type == "BASE TABLE" else table_type.lower()
             conditions.append(
                 ComparisonPredicate(
-                    self, "eq", Column(self, "type"), Literal(self, spelled, inline=True)
+                    self, "eq", Column(self, "type"), Parameter(self, spelled, inline=True)
                 )
             )
 
@@ -667,12 +667,12 @@ class SQLiteIntrospectionCapabilityMixin:
         params = expr.get_params()
         table_name = params.get("table_name", "")
         schema = params.get("schema") or "main"
-        from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Literal
+        from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Parameter
 
         return self.sqlite_master_query(
             schema,
             [Column(self, "name"), Column(self, "type"), Column(self, "sql")],
-            [ComparisonPredicate(self, "eq", Column(self, "name"), Literal(self, table_name))],
+            [ComparisonPredicate(self, "eq", Column(self, "name"), Parameter(self, table_name))],
         )
 
     def format_column_info_query_statement(self, expr: "ColumnInfoQueryStatement") -> Tuple[str, tuple]:
@@ -762,12 +762,12 @@ class SQLiteIntrospectionCapabilityMixin:
             ComparisonPredicate,
             LikeOperator,
             LikePredicate,
-            Literal,
+            Parameter,
         )
 
         conditions = [
             ComparisonPredicate(
-                self, "eq", Column(self, "type"), Literal(self, "view", inline=True)
+                self, "eq", Column(self, "type"), Parameter(self, "view", inline=True)
             )
         ]
         # Exclude system views unless requested
@@ -777,7 +777,7 @@ class SQLiteIntrospectionCapabilityMixin:
                     self,
                     LikeOperator.NOT_LIKE,
                     Column(self, "name"),
-                    Literal(self, "sqlite_%", inline=True),
+                    Parameter(self, "sqlite_%", inline=True),
                 )
             )
 
@@ -810,15 +810,15 @@ class SQLiteIntrospectionCapabilityMixin:
         from rhosocial.activerecord.backend.expression import (
             Column,
             ComparisonPredicate,
-            Literal,
+            Parameter,
         )
 
         conditions = [
             ComparisonPredicate(
-                self, "eq", Column(self, "type"), Literal(self, "view", inline=True)
+                self, "eq", Column(self, "type"), Parameter(self, "view", inline=True)
             ),
             # The name is bound, exactly as the concatenated form bound it.
-            ComparisonPredicate(self, "eq", Column(self, "name"), Literal(self, view_name)),
+            ComparisonPredicate(self, "eq", Column(self, "name"), Parameter(self, view_name)),
         ]
         return self.sqlite_master_query(
             schema, [Column(self, "name"), Column(self, "sql")], conditions
@@ -842,19 +842,19 @@ class SQLiteIntrospectionCapabilityMixin:
         from rhosocial.activerecord.backend.expression import (
             Column,
             ComparisonPredicate,
-            Literal,
+            Parameter,
         )
 
         conditions = [
             ComparisonPredicate(
-                self, "eq", Column(self, "type"), Literal(self, "trigger", inline=True)
+                self, "eq", Column(self, "type"), Parameter(self, "trigger", inline=True)
             )
         ]
         # Filtering by table drops the ordering -- an asymmetry worth keeping
         # visible in the tree rather than hiding in a string branch.
         if table_name:
             conditions.append(
-                ComparisonPredicate(self, "eq", Column(self, "tbl_name"), Literal(self, table_name))
+                ComparisonPredicate(self, "eq", Column(self, "tbl_name"), Parameter(self, table_name))
             )
             return self.sqlite_master_query(
                 schema,
@@ -887,14 +887,14 @@ class SQLiteIntrospectionCapabilityMixin:
         from rhosocial.activerecord.backend.expression import (
             Column,
             ComparisonPredicate,
-            Literal,
+            Parameter,
         )
 
         conditions = [
             ComparisonPredicate(
-                self, "eq", Column(self, "type"), Literal(self, "trigger", inline=True)
+                self, "eq", Column(self, "type"), Parameter(self, "trigger", inline=True)
             ),
-            ComparisonPredicate(self, "eq", Column(self, "name"), Literal(self, trigger_name)),
+            ComparisonPredicate(self, "eq", Column(self, "name"), Parameter(self, trigger_name)),
         ]
         return self.sqlite_master_query(
             schema,
@@ -926,8 +926,8 @@ class SQLiteIntrospectionCapabilityMixin:
     def _profile_label(self, text: "Optional[str]", alias: str):
         """A constant label as a named select-list entry.
 
-        ``Literal`` is deliberately unaliasable -- a value has nothing to name
-        (see :class:`~...expression.core.Literal`) -- so the constant is cast
+        ``Parameter`` is deliberately unaliasable -- a value has nothing to name
+        (see :class:`~...expression.core.Parameter`) -- so the constant is cast
         to text, which is the smallest node in the tree that produces a named
         result. The cast is not there for its type: it is there so the label
         can be called ``column_name`` or ``source``, which is what the parser
@@ -936,11 +936,11 @@ class SQLiteIntrospectionCapabilityMixin:
         """
         from rhosocial.activerecord.backend.expression.core import (
             CastExpression,
-            Literal,
+            Parameter,
         )
         from rhosocial.activerecord.backend.expression.types.string import CharType
 
-        return CastExpression(self, Literal(self, text, inline=True), CharType(self), alias=alias)
+        return CastExpression(self, Parameter(self, text, inline=True), CharType(self), alias=alias)
 
     def _profile_arm(self, table_name: str, schema: "Optional[str]", column_name: str):
         """One column's arm of the profile, as a node.
@@ -964,7 +964,7 @@ class SQLiteIntrospectionCapabilityMixin:
             CountFunction,
             FunctionCall,
             IsNullPredicate,
-            Literal,
+            Parameter,
             QueryStatement,
             RowCountWildcard,
             SumFunction,
@@ -982,10 +982,10 @@ class SQLiteIntrospectionCapabilityMixin:
                         cases=[
                             (
                                 IsNullPredicate(self, column),
-                                Literal(self, 1, inline=True),
+                                Parameter(self, 1, inline=True),
                             )
                         ],
-                        else_result=Literal(self, 0, inline=True),
+                        else_result=Parameter(self, 0, inline=True),
                     ),
                 ).as_("null_count"),
                 CountFunction(self, column, distinct=True).as_("distinct_count"),
@@ -1036,7 +1036,7 @@ class SQLiteIntrospectionCapabilityMixin:
             # cannot hold, which is what "no columns" answers as.
             from rhosocial.activerecord.backend.expression import (
                 ComparisonPredicate,
-                Literal,
+                Parameter,
                 QueryStatement,
                 WhereClause,
             )
@@ -1049,8 +1049,8 @@ class SQLiteIntrospectionCapabilityMixin:
                     ComparisonPredicate(
                         self,
                         "eq",
-                        Literal(self, 0, inline=True),
-                        Literal(self, 1, inline=True),
+                        Parameter(self, 0, inline=True),
+                        Parameter(self, 1, inline=True),
                     ),
                 ),
             ).to_sql()
@@ -1147,7 +1147,7 @@ class SQLiteIntrospectionCapabilityMixin:
             CountFunction,
             FunctionCall,
             InPredicate,
-            Literal,
+            Parameter,
             LogicalPredicate,
             QueryStatement,
             RowCountWildcard,
@@ -1201,14 +1201,14 @@ class SQLiteIntrospectionCapabilityMixin:
                         self,
                         "NULLIF",
                         CountFunction(self, column, distinct=True),
-                        Literal(self, 0, inline=True),
+                        Parameter(self, 0, inline=True),
                     )
                 ],
                 from_=source,
                 where=WhereClause(self, column.is_not_null()),
             ),
         )
-        return (covered * Literal(self, 1.0, inline=True)) / total
+        return (covered * Parameter(self, 1.0, inline=True)) / total
 
     def format_join_coverage_query_statement(
         self, expr: "JoinCoverageQueryStatement"

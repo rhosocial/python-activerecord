@@ -18,7 +18,7 @@ import tempfile
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.expression import Literal
+from rhosocial.activerecord.backend.expression import Parameter
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.statements import (
     AlterTableStatement, AddColumnAction, DropColumnAction, ColumnDefinition, UpdateStatement,
@@ -37,7 +37,7 @@ def add_nullable_nickname(dialect):
 def backfill(dialect):
     return UpdateStatement(
         dialect, table=Table(dialect, "users"),
-        assignments={"nickname": Literal(dialect, "anonymous", inline=True)},
+        assignments={"nickname": Parameter(dialect, "anonymous", inline=True)},
     )
 
 

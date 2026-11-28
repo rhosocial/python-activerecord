@@ -17,7 +17,7 @@ When you encounter a feature in this section, check whether it is a backend-spec
 
 | Feature | Common Layer | {database}-Specific Layer |
 |---------|-------------|---------------------------|
-| Expressions | Core expression classes (Column, Literal, FunctionCall, etc.) | Dialect overrides and {database}-specific expression classes |
+| Expressions | Core expression classes (Column, Parameter, FunctionCall, etc.) | Dialect overrides and {database}-specific expression classes |
 | Type System | Core DataType hierarchy (IntegerType, VarCharType, etc.) | {database}-specific DataType subclasses and type adapters |
 | EXPLAIN | ExplainStatement interface | {database}-specific EXPLAIN syntax and result parsing |
 | Introspection | Introspector interface | {database}-specific metadata queries |

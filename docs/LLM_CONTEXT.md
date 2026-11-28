@@ -93,7 +93,7 @@ All expressions implement `ToSQLProtocol` (i.e., they have `.to_sql(dialect) -> 
 - `Column(dialect, "age", "users")` — a column reference. Comparison, arithmetic and `LIKE` are **not** on this
   base class: a typed column (`StringColumn`, `IntegerColumn`, `NumericColumn`, `TimestampColumn`,
   `BooleanColumn`, ...) mixes in the operations its value type can carry.
-- `Literal(dialect, 42)` — a bound parameter; `Literal(dialect, 42, inline=True)` renders as SQL text for a
+- `Parameter(dialect, 42)` — a bound parameter; `Parameter(dialect, 42, inline=True)` renders as SQL text for a
   DDL position, which accepts no bind parameters.
 - `ComparisonPredicate(dialect, ComparisonOperator.GTE, left, right)` — e.g. `age >= 18`
   (operators: `EQ`/`NE`/`GT`/`GTE`/`LT`/`LTE`). `StringColumn(...) == "x"` builds this node.

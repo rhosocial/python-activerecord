@@ -1,5 +1,5 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy/expression/test_query_sources_table_function.py
-from rhosocial.activerecord.backend.expression import Column, Literal, FunctionCall, Subquery
+from rhosocial.activerecord.backend.expression import Column, Parameter, FunctionCall, Subquery
 from rhosocial.activerecord.backend.expression.query_sources import TableFunctionExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
@@ -9,8 +9,8 @@ class TestTableFunctionExpression:
 
     def test_table_function_basic(self, dummy_dialect: DummyDialect):
         """Test basic table function expression."""
-        arg1 = Literal(dummy_dialect, "input_data")
-        arg2 = Literal(dummy_dialect, 42)
+        arg1 = Parameter(dummy_dialect, "input_data")
+        arg2 = Parameter(dummy_dialect, 42)
 
         table_func = TableFunctionExpression(dummy_dialect, "UNNEST", arg1, arg2, alias="unnested_data")
 
@@ -22,7 +22,7 @@ class TestTableFunctionExpression:
 
     def test_table_function_with_column_names(self, dummy_dialect: DummyDialect):
         """Test table function with specified column names."""
-        arg = Literal(dummy_dialect, ["a", "b", "c"])
+        arg = Parameter(dummy_dialect, ["a", "b", "c"])
 
         table_func = TableFunctionExpression(
             dummy_dialect, "UNNEST", arg, alias="array_data", column_names=["value", "index"]
@@ -37,9 +37,9 @@ class TestTableFunctionExpression:
 
     def test_table_function_with_multiple_args(self, dummy_dialect: DummyDialect):
         """Test table function with multiple arguments."""
-        arg1 = Literal(dummy_dialect, "data1")
-        arg2 = Literal(dummy_dialect, "data2")
-        arg3 = Literal(dummy_dialect, 100)
+        arg1 = Parameter(dummy_dialect, "data1")
+        arg2 = Parameter(dummy_dialect, "data2")
+        arg3 = Parameter(dummy_dialect, 100)
 
         table_func = TableFunctionExpression(
             dummy_dialect, "SOME_TABLE_FUNCTION", arg1, arg2, arg3, alias="multi_arg_result"
@@ -78,7 +78,7 @@ class TestTableFunctionExpression:
         """Test table function used in a query FROM clause."""
         from rhosocial.activerecord.backend.expression import QueryStatement
 
-        arg = Literal(dummy_dialect, ["item1", "item2", "item3"])
+        arg = Parameter(dummy_dialect, ["item1", "item2", "item3"])
 
         table_func = TableFunctionExpression(dummy_dialect, "UNNEST", arg, alias="items", column_names=["item_value"])
 
@@ -98,7 +98,7 @@ class TestTableFunctionExpression:
         functions_to_test = ["UNNEST", "JSON_TABLE", "GENERATE_SERIES", "REGEXP_EXTRACT_ALL"]
 
         for func_name in functions_to_test:
-            arg = Literal(dummy_dialect, "test_data")
+            arg = Parameter(dummy_dialect, "test_data")
 
             table_func = TableFunctionExpression(dummy_dialect, func_name, arg, alias="test_alias")
 
@@ -110,7 +110,7 @@ class TestTableFunctionExpression:
 
     def test_table_function_no_column_names(self, dummy_dialect: DummyDialect):
         """Test table function without specified column names."""
-        arg = Literal(dummy_dialect, [1, 2, 3])
+        arg = Parameter(dummy_dialect, [1, 2, 3])
 
         table_func = TableFunctionExpression(dummy_dialect, "UNNEST", arg, alias="unnest_result")
 
@@ -138,7 +138,7 @@ class TestTableFunctionExpression:
         """Test table function with complex nested arguments."""
         # Create a function call as argument
         inner_func = FunctionCall(
-            dummy_dialect, "ARRAY_CONSTRUCT", Literal(dummy_dialect, "a"), Literal(dummy_dialect, "b")
+            dummy_dialect, "ARRAY_CONSTRUCT", Parameter(dummy_dialect, "a"), Parameter(dummy_dialect, "b")
         )
 
         table_func = TableFunctionExpression(
@@ -154,8 +154,8 @@ class TestTableFunctionExpression:
 
     def test_table_function_without_alias(self, dummy_dialect: DummyDialect):
         """Test table function expression without alias."""
-        arg1 = Literal(dummy_dialect, "input_data")
-        arg2 = Literal(dummy_dialect, 42)
+        arg1 = Parameter(dummy_dialect, "input_data")
+        arg2 = Parameter(dummy_dialect, 42)
 
         # Create TableFunctionExpression without alias
         table_func = TableFunctionExpression(dummy_dialect, "UNNEST", arg1, arg2, column_names=["value", "number"])

@@ -2,7 +2,7 @@
 import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     RawSQL,
     Subquery,
     BooleanColumn,
@@ -23,13 +23,13 @@ class TestPredicateExpressions:
     @pytest.mark.parametrize(
         "left_data, operator, right_data, expected_sql, expected_params",
         [
-            ((Column, ("age",)), "=", (Literal, (18,)), '"age" = ?', (18,)),
-            ((Column, ("price",)), ">", (Literal, (100.0,)), '"price" > ?', (100.0,)),
+            ((Column, ("age",)), "=", (Parameter, (18,)), '"age" = ?', (18,)),
+            ((Column, ("price",)), ">", (Parameter, (100.0,)), '"price" > ?', (100.0,)),
             # `!=` and `<>` are one operation, so the node accepts either and the formatter
             # writes the standard spelling; the operator travels the artifact as
             # the word "ne". See ComparisonOperator.
-            ((Column, ("status",)), "!=", (Literal, ("inactive",)), '"status" <> ?', ("inactive",)),
-            ((Column, ("status",)), "<>", (Literal, ("inactive",)), '"status" <> ?', ("inactive",)),
+            ((Column, ("status",)), "!=", (Parameter, ("inactive",)), '"status" <> ?', ("inactive",)),
+            ((Column, ("status",)), "<>", (Parameter, ("inactive",)), '"status" <> ?', ("inactive",)),
             ((RawSQL, ("NOW()",)), "<", (Column, ("end_date",)), 'NOW() < "end_date"', ()),
         ],
     )
@@ -48,9 +48,9 @@ class TestPredicateExpressions:
     @pytest.mark.parametrize(
         "expr_data, op, pattern_data, expected_sql, expected_params",
         [
-            ((Column, ("name",)), "LIKE", (Literal, ("J%",)), '"name" LIKE ?', ("J%",)),
-            ((Column, ("email",)), "ILIKE", (Literal, ("%@example.com",)), '"email" ILIKE ?', ("%@example.com",)),
-            ((Column, ("description",)), "NOT LIKE", (Literal, ("%bad%",)), '"description" NOT LIKE ?', ("%bad%",)),
+            ((Column, ("name",)), "LIKE", (Parameter, ("J%",)), '"name" LIKE ?', ("J%",)),
+            ((Column, ("email",)), "ILIKE", (Parameter, ("%@example.com",)), '"email" ILIKE ?', ("%@example.com",)),
+            ((Column, ("description",)), "NOT LIKE", (Parameter, ("%bad%",)), '"description" NOT LIKE ?', ("%bad%",)),
         ],
     )
     def test_like_predicate(
@@ -68,7 +68,7 @@ class TestPredicateExpressions:
     def test_in_predicate_with_list(self, dummy_dialect: DummyDialect):
         """Tests IN predicate with a list of values."""
         pred = InPredicate(
-            dummy_dialect, Column(dummy_dialect, "status"), Literal(dummy_dialect, ["active", "pending"])
+            dummy_dialect, Column(dummy_dialect, "status"), Parameter(dummy_dialect, ["active", "pending"])
         )
         sql, params = pred.to_sql()
         assert sql == '"status" IN (?, ?)'
@@ -84,7 +84,7 @@ class TestPredicateExpressions:
 
     def test_in_predicate_empty_list(self, dummy_dialect: DummyDialect):
         """Tests IN predicate with an empty list."""
-        pred = InPredicate(dummy_dialect, Column(dummy_dialect, "category"), Literal(dummy_dialect, []))
+        pred = InPredicate(dummy_dialect, Column(dummy_dialect, "category"), Parameter(dummy_dialect, []))
         sql, params = pred.to_sql()
         assert sql == '"category" IN ()'
         assert params == ()
@@ -92,11 +92,11 @@ class TestPredicateExpressions:
     @pytest.mark.parametrize(
         "expr_data, lower_data, upper_data, expected_sql, expected_params",
         [
-            ((Column, ("quantity",)), (Literal, (10,)), (Literal, (20,)), '"quantity" BETWEEN ? AND ?', (10, 20)),
+            ((Column, ("quantity",)), (Parameter, (10,)), (Parameter, (20,)), '"quantity" BETWEEN ? AND ?', (10, 20)),
             (
                 (RawSQL, ("order_date",)),
-                (Literal, ("2023-01-01",)),
-                (Literal, ("2023-12-31",)),
+                (Parameter, ("2023-01-01",)),
+                (Parameter, ("2023-12-31",)),
                 "order_date BETWEEN ? AND ?",
                 ("2023-01-01", "2023-12-31"),
             ),
@@ -133,9 +133,9 @@ class TestPredicateExpressions:
 
     def test_logical_and_predicate(self, dummy_dialect: DummyDialect):
         """Tests logical AND predicate."""
-        pred1 = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18))
+        pred1 = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Parameter(dummy_dialect, 18))
         pred2 = ComparisonPredicate(
-            dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "active")
+            dummy_dialect, "=", Column(dummy_dialect, "status"), Parameter(dummy_dialect, "active")
         )
         logical_and = LogicalPredicate(dummy_dialect, "AND", pred1, pred2)
         sql, params = logical_and.to_sql()
@@ -144,8 +144,8 @@ class TestPredicateExpressions:
 
     def test_logical_or_predicate(self, dummy_dialect: DummyDialect):
         """Tests logical OR predicate."""
-        pred1 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "country"), Literal(dummy_dialect, "US"))
-        pred2 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "country"), Literal(dummy_dialect, "CA"))
+        pred1 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "country"), Parameter(dummy_dialect, "US"))
+        pred2 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "country"), Parameter(dummy_dialect, "CA"))
         logical_or = LogicalPredicate(dummy_dialect, "OR", pred1, pred2)
         sql, params = logical_or.to_sql()
         assert sql == '"country" = ? OR "country" = ?'
@@ -153,7 +153,7 @@ class TestPredicateExpressions:
 
     def test_logical_not_predicate(self, dummy_dialect: DummyDialect):
         """Tests logical NOT predicate."""
-        pred = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "is_admin"), Literal(dummy_dialect, True))
+        pred = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "is_admin"), Parameter(dummy_dialect, True))
         logical_not = LogicalPredicate(dummy_dialect, "NOT", pred)
         sql, params = logical_not.to_sql()
         assert sql == 'NOT ("is_admin" = ?)'
@@ -161,12 +161,12 @@ class TestPredicateExpressions:
 
     def test_complex_logical_predicate(self, dummy_dialect: DummyDialect):
         """Tests complex nested logical predicates."""
-        age_pred = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 25))
+        age_pred = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Parameter(dummy_dialect, 25))
         status_pred = ComparisonPredicate(
-            dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "active")
+            dummy_dialect, "=", Column(dummy_dialect, "status"), Parameter(dummy_dialect, "active")
         )
         name_like_pred = LikePredicate(
-            dummy_dialect, "LIKE", Column(dummy_dialect, "name"), Literal(dummy_dialect, "J%")
+            dummy_dialect, "LIKE", Column(dummy_dialect, "name"), Parameter(dummy_dialect, "J%")
         )
 
         # (age > 25 AND status = 'active') OR (name LIKE 'J%')
@@ -222,7 +222,7 @@ class TestPredicateExpressions:
     def test_is_boolean_with_logical_combination(self, dummy_dialect: DummyDialect):
         """Tests IS TRUE/FALSE combined with logical predicates."""
         is_active = BooleanColumn(dummy_dialect, "is_active").is_true()
-        age_pred = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18))
+        age_pred = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Parameter(dummy_dialect, 18))
 
         combined = LogicalPredicate(dummy_dialect, "AND", is_active, age_pred)
         sql, params = combined.to_sql()

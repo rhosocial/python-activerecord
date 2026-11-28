@@ -2,7 +2,7 @@
 import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     RawSQL,
     Subquery,
     ComparisonPredicate,
@@ -21,13 +21,13 @@ class TestPredicateExpressions:
     @pytest.mark.parametrize(
         "left_data, operator, right_data, expected_sql, expected_params",
         [
-            ((Column, ("age",)), "=", (Literal, (18,)), '"age" = ?', (18,)),
-            ((Column, ("price",)), ">", (Literal, (100.0,)), '"price" > ?', (100.0,)),
+            ((Column, ("age",)), "=", (Parameter, (18,)), '"age" = ?', (18,)),
+            ((Column, ("price",)), ">", (Parameter, (100.0,)), '"price" > ?', (100.0,)),
             # `!=` and `<>` are one operation, so the node accepts either and the formatter
             # writes the standard spelling; the operator travels the artifact as
             # the word "ne". See ComparisonOperator.
-            ((Column, ("status",)), "!=", (Literal, ("inactive",)), '"status" <> ?', ("inactive",)),
-            ((Column, ("status",)), "<>", (Literal, ("inactive",)), '"status" <> ?', ("inactive",)),
+            ((Column, ("status",)), "!=", (Parameter, ("inactive",)), '"status" <> ?', ("inactive",)),
+            ((Column, ("status",)), "<>", (Parameter, ("inactive",)), '"status" <> ?', ("inactive",)),
             ((RawSQL, ("NOW()",)), "<", (Column, ("end_date",)), 'NOW() < "end_date"', ()),
         ],
     )
@@ -55,10 +55,10 @@ class TestPredicateExpressions:
     def test_logical_and_predicate(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test logical AND predicate."""
         pred1 = ComparisonPredicate(
-            sqlite_dialect_3_8_0, ">=", Column(sqlite_dialect_3_8_0, "age"), Literal(sqlite_dialect_3_8_0, 18)
+            sqlite_dialect_3_8_0, ">=", Column(sqlite_dialect_3_8_0, "age"), Parameter(sqlite_dialect_3_8_0, 18)
         )
         pred2 = ComparisonPredicate(
-            sqlite_dialect_3_8_0, "<", Column(sqlite_dialect_3_8_0, "age"), Literal(sqlite_dialect_3_8_0, 65)
+            sqlite_dialect_3_8_0, "<", Column(sqlite_dialect_3_8_0, "age"), Parameter(sqlite_dialect_3_8_0, 65)
         )
         and_pred = LogicalPredicate(sqlite_dialect_3_8_0, "AND", pred1, pred2)
         sql, params = and_pred.to_sql()
@@ -68,10 +68,10 @@ class TestPredicateExpressions:
     def test_logical_or_predicate(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test logical OR predicate."""
         pred1 = ComparisonPredicate(
-            sqlite_dialect_3_8_0, "=", Column(sqlite_dialect_3_8_0, "status"), Literal(sqlite_dialect_3_8_0, "active")
+            sqlite_dialect_3_8_0, "=", Column(sqlite_dialect_3_8_0, "status"), Parameter(sqlite_dialect_3_8_0, "active")
         )
         pred2 = ComparisonPredicate(
-            sqlite_dialect_3_8_0, "=", Column(sqlite_dialect_3_8_0, "status"), Literal(sqlite_dialect_3_8_0, "pending")
+            sqlite_dialect_3_8_0, "=", Column(sqlite_dialect_3_8_0, "status"), Parameter(sqlite_dialect_3_8_0, "pending")
         )
         or_pred = LogicalPredicate(sqlite_dialect_3_8_0, "OR", pred1, pred2)
         sql, params = or_pred.to_sql()
@@ -81,7 +81,7 @@ class TestPredicateExpressions:
     def test_logical_not_predicate(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test logical NOT predicate."""
         pred = ComparisonPredicate(
-            sqlite_dialect_3_8_0, "=", Column(sqlite_dialect_3_8_0, "status"), Literal(sqlite_dialect_3_8_0, "inactive")
+            sqlite_dialect_3_8_0, "=", Column(sqlite_dialect_3_8_0, "status"), Parameter(sqlite_dialect_3_8_0, "inactive")
         )
         not_pred = LogicalPredicate(sqlite_dialect_3_8_0, "NOT", pred)
         sql, params = not_pred.to_sql()
@@ -91,14 +91,14 @@ class TestPredicateExpressions:
     def test_complex_logical_predicate(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test complex nested logical predicate."""
         pred1 = ComparisonPredicate(
-            sqlite_dialect_3_8_0, ">=", Column(sqlite_dialect_3_8_0, "age"), Literal(sqlite_dialect_3_8_0, 18)
+            sqlite_dialect_3_8_0, ">=", Column(sqlite_dialect_3_8_0, "age"), Parameter(sqlite_dialect_3_8_0, 18)
         )
         pred2 = ComparisonPredicate(
-            sqlite_dialect_3_8_0, "<", Column(sqlite_dialect_3_8_0, "age"), Literal(sqlite_dialect_3_8_0, 65)
+            sqlite_dialect_3_8_0, "<", Column(sqlite_dialect_3_8_0, "age"), Parameter(sqlite_dialect_3_8_0, 65)
         )
         and_pred = LogicalPredicate(sqlite_dialect_3_8_0, "AND", pred1, pred2)
         pred3 = ComparisonPredicate(
-            sqlite_dialect_3_8_0, "=", Column(sqlite_dialect_3_8_0, "country"), Literal(sqlite_dialect_3_8_0, "US")
+            sqlite_dialect_3_8_0, "=", Column(sqlite_dialect_3_8_0, "country"), Parameter(sqlite_dialect_3_8_0, "US")
         )
         complex_pred = LogicalPredicate(sqlite_dialect_3_8_0, "OR", and_pred, pred3)
         sql, params = complex_pred.to_sql()
@@ -110,7 +110,7 @@ class TestPredicateExpressions:
         pred = InPredicate(
             sqlite_dialect_3_8_0,
             Column(sqlite_dialect_3_8_0, "status"),
-            Literal(sqlite_dialect_3_8_0, ["active", "pending", "approved"]),
+            Parameter(sqlite_dialect_3_8_0, ["active", "pending", "approved"]),
         )
         sql, params = pred.to_sql()
         assert sql == '"status" IN (?, ?, ?)'
@@ -119,7 +119,7 @@ class TestPredicateExpressions:
     def test_in_predicate_with_numbers(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test IN predicate with a list of numbers."""
         pred = InPredicate(
-            sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "id"), Literal(sqlite_dialect_3_8_0, [1, 2, 3, 4, 5])
+            sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "id"), Parameter(sqlite_dialect_3_8_0, [1, 2, 3, 4, 5])
         )
         sql, params = pred.to_sql()
         assert sql == '"id" IN (?, ?, ?, ?, ?)'
@@ -138,8 +138,8 @@ class TestPredicateExpressions:
         pred = BetweenPredicate(
             sqlite_dialect_3_8_0,
             Column(sqlite_dialect_3_8_0, "age"),
-            Literal(sqlite_dialect_3_8_0, 18),
-            Literal(sqlite_dialect_3_8_0, 65),
+            Parameter(sqlite_dialect_3_8_0, 18),
+            Parameter(sqlite_dialect_3_8_0, 65),
         )
         sql, params = pred.to_sql()
         assert sql == '"age" BETWEEN ? AND ?'
@@ -150,8 +150,8 @@ class TestPredicateExpressions:
         pred = BetweenPredicate(
             sqlite_dialect_3_8_0,
             Column(sqlite_dialect_3_8_0, "created_at"),
-            Literal(sqlite_dialect_3_8_0, "2024-01-01"),
-            Literal(sqlite_dialect_3_8_0, "2024-12-31"),
+            Parameter(sqlite_dialect_3_8_0, "2024-01-01"),
+            Parameter(sqlite_dialect_3_8_0, "2024-12-31"),
         )
         sql, params = pred.to_sql()
         assert sql == '"created_at" BETWEEN ? AND ?'
@@ -174,7 +174,7 @@ class TestPredicateExpressions:
     def test_like_predicate(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test LIKE predicate."""
         pred = LikePredicate(
-            sqlite_dialect_3_8_0, "LIKE", Column(sqlite_dialect_3_8_0, "name"), Literal(sqlite_dialect_3_8_0, "John%")
+            sqlite_dialect_3_8_0, "LIKE", Column(sqlite_dialect_3_8_0, "name"), Parameter(sqlite_dialect_3_8_0, "John%")
         )
         sql, params = pred.to_sql()
         assert sql == '"name" LIKE ?'
@@ -186,7 +186,7 @@ class TestPredicateExpressions:
             sqlite_dialect_3_8_0,
             "NOT LIKE",
             Column(sqlite_dialect_3_8_0, "email"),
-            Literal(sqlite_dialect_3_8_0, "%@spam.com"),
+            Parameter(sqlite_dialect_3_8_0, "%@spam.com"),
         )
         sql, params = pred.to_sql()
         assert sql == '"email" NOT LIKE ?'

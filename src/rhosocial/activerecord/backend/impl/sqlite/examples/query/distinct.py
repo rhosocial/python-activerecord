@@ -25,7 +25,7 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     ValuesSource,
     DropTableStatement,
 )
-from rhosocial.activerecord.backend.expression.core import Literal, Column  # noqa: E402
+from rhosocial.activerecord.backend.expression.core import Parameter, Column  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
 )
@@ -50,9 +50,9 @@ insert = InsertStatement(
     source=ValuesSource(
         dialect,
         [
-            [Literal(dialect, 1), Literal(dialect, "Alice")],
-            [Literal(dialect, 2), Literal(dialect, "Bob")],
-            [Literal(dialect, 3), Literal(dialect, "Alice")],
+            [Parameter(dialect, 1), Parameter(dialect, "Alice")],
+            [Parameter(dialect, 2), Parameter(dialect, "Bob")],
+            [Parameter(dialect, 3), Parameter(dialect, "Alice")],
         ],
     ),
 )

@@ -15,7 +15,7 @@ from rhosocial.activerecord.backend.expression import (
     OrderByClause,
 )
 from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
-from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.core import Parameter
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableStatement,
     InsertStatement,
@@ -79,7 +79,7 @@ for row in sales_data:
         dialect=dialect,
         into=Table(dialect, 'sales'),
         columns=["salesperson", "region", "amount", "sale_date"],
-        source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
+        source=ValuesSource(dialect, [[Parameter(dialect, v) for v in row]]),
     )
     sql, params = insert_expr.to_sql()
     backend.execute(sql, params)

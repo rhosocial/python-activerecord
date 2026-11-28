@@ -3,55 +3,55 @@
 Tests for the core SQL expression components in core.py
 """
 
-from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall, Subquery
+from rhosocial.activerecord.backend.expression import Parameter, Column, FunctionCall, Subquery
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestLiteral:
-    """Tests for Literal class."""
+    """Tests for Parameter class."""
 
     def test_literal_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test basic Literal functionality - this is common across all versions, so we only test one."""
-        literal = Literal(sqlite_dialect_3_8_0, "test_value")
+        """Test basic Parameter functionality - this is common across all versions, so we only test one."""
+        literal = Parameter(sqlite_dialect_3_8_0, "test_value")
         assert literal.value == "test_value"
         sql, params = literal.to_sql()
         assert sql == "?"
         assert params == ("test_value",)
 
     def test_literal_repr(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test Literal repr method."""
-        literal = Literal(sqlite_dialect_3_8_0, "test_value")
-        assert repr(literal) == "Literal('test_value')"
+        """Test Parameter repr method."""
+        literal = Parameter(sqlite_dialect_3_8_0, "test_value")
+        assert repr(literal) == "Parameter('test_value')"
 
     def test_literal_none(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test Literal with None value."""
-        literal = Literal(sqlite_dialect_3_8_0, None)
+        """Test Parameter with None value."""
+        literal = Parameter(sqlite_dialect_3_8_0, None)
         assert literal.value is None
         sql, params = literal.to_sql()
         assert sql == "?"
         assert params == (None,)
 
     def test_literal_numeric(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test Literal with numeric value."""
-        literal = Literal(sqlite_dialect_3_8_0, 42)
+        """Test Parameter with numeric value."""
+        literal = Parameter(sqlite_dialect_3_8_0, 42)
         assert literal.value == 42
         sql, params = literal.to_sql()
         assert sql == "?"
         assert params == (42,)
 
     def test_literal_float(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test Literal with float value."""
-        literal = Literal(sqlite_dialect_3_8_0, 3.14)
+        """Test Parameter with float value."""
+        literal = Parameter(sqlite_dialect_3_8_0, 3.14)
         assert literal.value == 3.14
         sql, params = literal.to_sql()
         assert sql == "?"
         assert params == (3.14,)
 
     def test_literal_boolean(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test Literal with boolean value."""
-        literal = Literal(sqlite_dialect_3_8_0, True)
+        """Test Parameter with boolean value."""
+        literal = Parameter(sqlite_dialect_3_8_0, True)
         assert literal.value is True
         sql, params = literal.to_sql()
         assert sql == "?"
@@ -210,7 +210,7 @@ class TestFunctionCall:
             sqlite_dialect_3_8_0,
             "CONCAT",
             Column(sqlite_dialect_3_8_0, "first_name"),
-            Literal(sqlite_dialect_3_8_0, " "),
+            Parameter(sqlite_dialect_3_8_0, " "),
             Column(sqlite_dialect_3_8_0, "last_name"),
         )
         sql, params = func.to_sql()

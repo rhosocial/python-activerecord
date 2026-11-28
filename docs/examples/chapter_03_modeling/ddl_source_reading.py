@@ -17,7 +17,7 @@ Demonstrated:
 
 from typing import Annotated, Optional
 
-from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression import Column, Parameter
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnGeneratedConstraint,
     ColumnNotNullConstraint,
@@ -67,7 +67,7 @@ class Account(ActiveRecord):
     computed: Annotated[
         str,
         UseSqlType(TextType()),
-        UseGeneratedColumn(lambda d: ColumnGeneratedConstraint(d, Literal(d, "X", inline=True))),
+        UseGeneratedColumn(lambda d: ColumnGeneratedConstraint(d, Parameter(d, "X", inline=True))),
     ]
 
 

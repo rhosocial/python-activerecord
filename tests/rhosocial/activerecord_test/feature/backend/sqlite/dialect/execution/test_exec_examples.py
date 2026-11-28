@@ -272,13 +272,13 @@ def test_sudoku_substring_function_expression(sqlite_backend):
     """
     Test SUBSTR function expression used in Sudoku solver
     """
-    from rhosocial.activerecord.backend.expression import FunctionCall, Literal
+    from rhosocial.activerecord.backend.expression import FunctionCall, Parameter
 
     dialect = sqlite_backend.dialect
 
     # Test basic SUBSTR function call
     substr_expr = FunctionCall(
-        dialect, "SUBSTR", Literal(dialect, "HelloWorld"), Literal(dialect, 1), Literal(dialect, 5)
+        dialect, "SUBSTR", Parameter(dialect, "HelloWorld"), Parameter(dialect, 1), Parameter(dialect, 5)
     )
     sql, params = substr_expr.to_sql()
 
@@ -291,12 +291,12 @@ def test_sudoku_instr_function_expression(sqlite_backend):
     """
     Test INSTR function expression used in Sudoku solver
     """
-    from rhosocial.activerecord.backend.expression import FunctionCall, Literal
+    from rhosocial.activerecord.backend.expression import FunctionCall, Parameter
 
     dialect = sqlite_backend.dialect
 
     # Test basic INSTR function call
-    instr_expr = FunctionCall(dialect, "INSTR", Literal(dialect, "HelloWorld"), Literal(dialect, "o"))
+    instr_expr = FunctionCall(dialect, "INSTR", Parameter(dialect, "HelloWorld"), Parameter(dialect, "o"))
     sql, params = instr_expr.to_sql()
 
     assert "INSTR(" in sql
@@ -308,13 +308,13 @@ def test_sudoku_modulo_division_expression(sqlite_backend):
     """
     Test modulo and division expressions used in Sudoku solver
     """
-    from rhosocial.activerecord.backend.expression import Literal, NumericColumn
+    from rhosocial.activerecord.backend.expression import Parameter, NumericColumn
 
     dialect = sqlite_backend.dialect
 
     # Test division: (ind-1)/9
     ind_col = NumericColumn(dialect, "ind", table="x")
-    div_expr = (ind_col - Literal(dialect, 1)) / Literal(dialect, 9)  # Uses ArithmeticOperation internally
+    div_expr = (ind_col - Parameter(dialect, 1)) / Parameter(dialect, 9)  # Uses ArithmeticOperation internally
     sql, params = div_expr.to_sql()
 
     assert "/" in sql
@@ -322,7 +322,7 @@ def test_sudoku_modulo_division_expression(sqlite_backend):
     print(f"Division expression: {sql} with params {params}")
 
     # Test modulo: ((ind-1)%9)
-    mod_expr = (ind_col - Literal(dialect, 1)) % Literal(dialect, 9)  # Uses ArithmeticOperation internally
+    mod_expr = (ind_col - Parameter(dialect, 1)) % Parameter(dialect, 9)  # Uses ArithmeticOperation internally
     sql, params = mod_expr.to_sql()
 
     assert "%" in sql
@@ -334,7 +334,7 @@ def test_sudoku_complex_arithmetic_expression(sqlite_backend):
     """
     Test complex arithmetic expressions used in Sudoku solver
     """
-    from rhosocial.activerecord.backend.expression import Literal, NumericColumn
+    from rhosocial.activerecord.backend.expression import Parameter, NumericColumn
 
     dialect = sqlite_backend.dialect
 
@@ -343,8 +343,8 @@ def test_sudoku_complex_arithmetic_expression(sqlite_backend):
     lp_col = NumericColumn(dialect, "lp", table="lp")
 
     # Build: ((ind-1)/9)*9 + lp
-    inner_calc = (ind_col - Literal(dialect, 1)) / Literal(dialect, 9)
-    mult_calc = inner_calc * Literal(dialect, 9)
+    inner_calc = (ind_col - Parameter(dialect, 1)) / Parameter(dialect, 9)
+    mult_calc = inner_calc * Parameter(dialect, 9)
     final_calc = mult_calc + lp_col
 
     sql, params = final_calc.to_sql()
@@ -363,7 +363,7 @@ def test_sudoku_exists_expression(sqlite_backend):
     """
     from rhosocial.activerecord.backend.expression import (
         Column,
-        Literal,
+        Parameter,
         FunctionCall,
         QueryStatement,
         ExistsPredicate,)
@@ -374,11 +374,11 @@ def test_sudoku_exists_expression(sqlite_backend):
     # Create a subquery for the EXISTS clause
     subquery = QueryStatement(
         dialect,
-        select=[Literal(dialect, 1)],  # SELECT 1
+        select=[Parameter(dialect, 1)],  # SELECT 1
         from_=NamedRelationRef(dialect, Table(dialect, "digits"), alias="lp"),
         where=(
             Column(dialect, "z", table="z")
-            == FunctionCall(dialect, "SUBSTR", Column(dialect, "s", table="x"), Literal(dialect, 1))
+            == FunctionCall(dialect, "SUBSTR", Column(dialect, "s", table="x"), Parameter(dialect, 1))
         ),
     )
 
@@ -396,7 +396,7 @@ def test_sudoku_not_exists_expression(sqlite_backend):
     Test NOT EXISTS expression used in Sudoku solver
     """
     from rhosocial.activerecord.backend.expression import (
-        Literal,
+        Parameter,
         QueryStatement,
         ExistsPredicate,
         LogicalPredicate,
@@ -408,7 +408,7 @@ def test_sudoku_not_exists_expression(sqlite_backend):
     # Create a subquery for the NOT EXISTS clause
     subquery = QueryStatement(
         dialect,
-        select=[Literal(dialect, 1)],  # SELECT 1
+        select=[Parameter(dialect, 1)],  # SELECT 1
         from_=NamedRelationRef(dialect, Table(dialect, "digits"), alias="lp"),
     )
 
@@ -428,7 +428,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     Test full Sudoku solver using expression system - verify expression building
     """
     from rhosocial.activerecord.backend.expression import (
-        Literal,
+        Parameter,
         ValuesExpression,
         QueryStatement,
         Column,
@@ -476,11 +476,11 @@ def test_sudoku_full_cte_expression(sqlite_backend):
 
     # SELECT CAST(lp+1 AS TEXT), lp+1 FROM digits WHERE lp<9
     # Use the new cast() function which returns expression with cast_types
-    cast_expr = cast(dialect, lp_column + Literal(dialect, 1), CustomType(dialect, raw="TEXT"))
-    lp_plus_one = lp_column + Literal(dialect, 1)
+    cast_expr = cast(dialect, lp_column + Parameter(dialect, 1), CustomType(dialect, raw="TEXT"))
+    lp_plus_one = lp_column + Parameter(dialect, 1)
 
     recursive_query = QueryStatement(
-        dialect=dialect, select=[cast_expr, lp_plus_one], from_=digits_table, where=(lp_column < Literal(dialect, 9))
+        dialect=dialect, select=[cast_expr, lp_plus_one], from_=digits_table, where=(lp_column < Parameter(dialect, 9))
     )
 
     backend = sqlite_backend
@@ -516,11 +516,11 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     lp_column = NumericColumn(dialect, "lp", table="digits")
 
     # SELECT CAST(lp+1 AS TEXT), lp+1 FROM digits WHERE lp<9
-    cast_expr = cast(dialect, lp_column + Literal(dialect, 1), CustomType(dialect, raw="TEXT"))
-    lp_plus_one = lp_column + Literal(dialect, 1)
+    cast_expr = cast(dialect, lp_column + Parameter(dialect, 1), CustomType(dialect, raw="TEXT"))
+    lp_plus_one = lp_column + Parameter(dialect, 1)
 
     recursive_query = QueryStatement(
-        dialect=dialect, select=[cast_expr, lp_plus_one], from_=digits_table, where=(lp_column < Literal(dialect, 9))
+        dialect=dialect, select=[cast_expr, lp_plus_one], from_=digits_table, where=(lp_column < Parameter(dialect, 9))
     )
 
     # Use SetOperation to build the UNION ALL
@@ -534,7 +534,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     # Initial part
     input_table = NamedRelationRef(dialect, Table(dialect, "input"))
     sud_column = Column(dialect, "sud", table="input")
-    instr_call = FunctionCall(dialect, "INSTR", sud_column, Literal(dialect, "."))
+    instr_call = FunctionCall(dialect, "INSTR", sud_column, Parameter(dialect, "."))
 
     initial_x_query = QueryStatement(dialect=dialect, select=[sud_column, instr_call], from_=input_table)
 
@@ -545,19 +545,19 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     z_column = Column(dialect, "z", table="z")
 
     # Build the complex string concatenation: substr(s, 1, ind-1) || z || substr(s, ind+1)
-    substr1 = FunctionCall(dialect, "SUBSTR", s_column, Literal(dialect, 1), ind_column - Literal(dialect, 1))
-    substr2 = FunctionCall(dialect, "SUBSTR", s_column, ind_column + Literal(dialect, 1))
+    substr1 = FunctionCall(dialect, "SUBSTR", s_column, Parameter(dialect, 1), ind_column - Parameter(dialect, 1))
+    substr2 = FunctionCall(dialect, "SUBSTR", s_column, ind_column + Parameter(dialect, 1))
     new_string_expr = concat_op(dialect, substr1, z_column, substr2)
 
     # New instr call for the concatenated string
-    new_instr_call = FunctionCall(dialect, "INSTR", new_string_expr, Literal(dialect, "."))
+    new_instr_call = FunctionCall(dialect, "INSTR", new_string_expr, Parameter(dialect, "."))
 
     # Build the NOT EXISTS subquery
     from rhosocial.activerecord.backend.expression import (
         QueryStatement,
         Column,
         ComparisonPredicate,
-        Literal,
+        Parameter,
         FunctionCall,
     )
     from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
@@ -572,25 +572,25 @@ def test_sudoku_full_cte_expression(sqlite_backend):
 
     # Build the three conditions for the NOT EXISTS subquery
     # Condition 1: z.z = substr(s, ((ind-1)/9)*9 + lp, 1)
-    cond1_calc1 = ((ind_column_outer - Literal(dialect, 1)) / Literal(dialect, 9)) * Literal(dialect, 9)
+    cond1_calc1 = ((ind_column_outer - Parameter(dialect, 1)) / Parameter(dialect, 9)) * Parameter(dialect, 9)
     cond1_calc2 = cond1_calc1 + lp_column_sub
-    cond1 = z_z_column == FunctionCall(dialect, "SUBSTR", s_column_outer, cond1_calc2, Literal(dialect, 1))
+    cond1 = z_z_column == FunctionCall(dialect, "SUBSTR", s_column_outer, cond1_calc2, Parameter(dialect, 1))
 
     # Condition 2: z.z = substr(s, ((ind-1)%9) + (lp-1)*9 + 1, 1)
-    cond2_calc1 = (ind_column_outer - Literal(dialect, 1)) % Literal(dialect, 9)
-    cond2_calc2 = (lp_column_sub - Literal(dialect, 1)) * Literal(dialect, 9)
-    cond2_calc3 = cond2_calc1 + cond2_calc2 + Literal(dialect, 1)
-    cond2 = z_z_column == FunctionCall(dialect, "SUBSTR", s_column_outer, cond2_calc3, Literal(dialect, 1))
+    cond2_calc1 = (ind_column_outer - Parameter(dialect, 1)) % Parameter(dialect, 9)
+    cond2_calc2 = (lp_column_sub - Parameter(dialect, 1)) * Parameter(dialect, 9)
+    cond2_calc3 = cond2_calc1 + cond2_calc2 + Parameter(dialect, 1)
+    cond2 = z_z_column == FunctionCall(dialect, "SUBSTR", s_column_outer, cond2_calc3, Parameter(dialect, 1))
 
     # Condition 3: z.z = substr(s, (((ind-1)/3) % 3) * 3 + ((ind-1)/27) * 27 + lp + ((lp-1) / 3) * 6, 1)
-    cond3_calc1 = (((ind_column_outer - Literal(dialect, 1)) / Literal(dialect, 3)) % Literal(dialect, 3)) * Literal(
+    cond3_calc1 = (((ind_column_outer - Parameter(dialect, 1)) / Parameter(dialect, 3)) % Parameter(dialect, 3)) * Parameter(
         dialect, 3
     )
-    cond3_calc2 = ((ind_column_outer - Literal(dialect, 1)) / Literal(dialect, 27)) * Literal(dialect, 27)
-    cond3_calc3 = (lp_column_sub - Literal(dialect, 1)) / Literal(dialect, 3)
-    cond3_calc4 = cond3_calc3 * Literal(dialect, 6)
+    cond3_calc2 = ((ind_column_outer - Parameter(dialect, 1)) / Parameter(dialect, 27)) * Parameter(dialect, 27)
+    cond3_calc3 = (lp_column_sub - Parameter(dialect, 1)) / Parameter(dialect, 3)
+    cond3_calc4 = cond3_calc3 * Parameter(dialect, 6)
     cond3_calc5 = cond3_calc1 + cond3_calc2 + lp_column_sub + cond3_calc4
-    cond3 = z_z_column == FunctionCall(dialect, "SUBSTR", s_column_outer, cond3_calc5, Literal(dialect, 1))
+    cond3 = z_z_column == FunctionCall(dialect, "SUBSTR", s_column_outer, cond3_calc5, Parameter(dialect, 1))
 
     # Combine conditions with OR
     subquery_where = cond1 | cond2 | cond3
@@ -598,7 +598,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     # Create the subquery for NOT EXISTS
     not_exists_subquery = QueryStatement(
         dialect=dialect,
-        select=[Literal(dialect, 1)],  # SELECT 1
+        select=[Parameter(dialect, 1)],  # SELECT 1
         from_=lp_table,
         where=subquery_where,
     )
@@ -613,7 +613,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
         dialect=dialect,
         select=[new_string_expr, new_instr_call],
         from_=from_clause,  # Cross join
-        where=(ind_column > Literal(dialect, 0)) & not_exists_expr,  # Add the NOT EXISTS constraint
+        where=(ind_column > Parameter(dialect, 0)) & not_exists_expr,  # Add the NOT EXISTS constraint
     )
 
     # Use SetOperation to build the UNION ALL for x CTE
@@ -628,7 +628,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
         dialect=dialect,
         select=[Column(dialect, "s")],
         from_=NamedRelationRef(dialect, Table(dialect, "x")),
-        where=ComparisonPredicate(dialect, "=", Column(dialect, "ind"), Literal(dialect, 0)),
+        where=ComparisonPredicate(dialect, "=", Column(dialect, "ind"), Parameter(dialect, 0)),
     )
 
     # Build the complete WITH query
@@ -769,7 +769,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         This test builds the Mandelbrot Set SQL using the expression system and verifies it produces the same result as raw SQL.
         """  # noqa: E501
         from rhosocial.activerecord.backend.expression import (
-            Literal,
+            Parameter,
             ValuesExpression,
             QueryStatement,
             Column,
@@ -807,10 +807,10 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         x_col = NumericColumn(dialect, "x", table="xaxis")
 
         # SELECT x+0.05 FROM xaxis WHERE x<1.2
-        x_plus_increment = x_col + Literal(dialect, 0.05)
+        x_plus_increment = x_col + Parameter(dialect, 0.05)
 
         recursive_xaxis_query = QueryStatement(
-            dialect=dialect, select=[x_plus_increment], from_=xaxis_table, where=(x_col < Literal(dialect, 1.2))
+            dialect=dialect, select=[x_plus_increment], from_=xaxis_table, where=(x_col < Parameter(dialect, 1.2))
         )
 
         # Use SetOperation to build the UNION ALL
@@ -832,10 +832,10 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         y_col = NumericColumn(dialect, "y", table="yaxis")
 
         # SELECT y+0.1 FROM yaxis WHERE y<1.0
-        y_plus_increment = y_col + Literal(dialect, 0.1)
+        y_plus_increment = y_col + Parameter(dialect, 0.1)
 
         recursive_yaxis_query = QueryStatement(
-            dialect=dialect, select=[y_plus_increment], from_=yaxis_table, where=(y_col < Literal(dialect, 1.0))
+            dialect=dialect, select=[y_plus_increment], from_=yaxis_table, where=(y_col < Parameter(dialect, 1.0))
         )
 
         # Use SetOperation to build the UNION ALL
@@ -858,11 +858,11 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         initial_m_query = QueryStatement(
             dialect=dialect,
             select=[
-                Literal(dialect, 0),  # iter
+                Parameter(dialect, 0),  # iter
                 Column(dialect, "x", table="xaxis"),  # cx
                 Column(dialect, "y", table="yaxis"),  # cy
-                Literal(dialect, 0.0),  # x
-                Literal(dialect, 0.0),  # y
+                Parameter(dialect, 0.0),  # x
+                Parameter(dialect, 0.0),  # y
             ],
             from_=[NamedRelationRef(dialect, Table(dialect, "xaxis")), NamedRelationRef(dialect, Table(dialect, "yaxis"))],  # Cross join
         )
@@ -876,12 +876,12 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         y_m_col = NumericColumn(dialect, "y", table="m")
 
         # SELECT iter+1, cx, cy, x*x-y*y + cx, 2.0*x*y + cy FROM m WHERE (x*x + y*y) < 4.0 AND iter<28
-        new_iter = iter_col + Literal(dialect, 1)
+        new_iter = iter_col + Parameter(dialect, 1)
         new_x = (x_m_col * x_m_col - y_m_col * y_m_col) + cx_col
-        new_y = (x_m_col * y_m_col) * Literal(dialect, 2.0) + cy_col
+        new_y = (x_m_col * y_m_col) * Parameter(dialect, 2.0) + cy_col
 
-        condition1 = (x_m_col * x_m_col + y_m_col * y_m_col) < Literal(dialect, 4.0)
-        condition2 = iter_col < Literal(dialect, 28)
+        condition1 = (x_m_col * x_m_col + y_m_col * y_m_col) < Parameter(dialect, 4.0)
+        condition2 = iter_col < Parameter(dialect, 28)
         where_condition = condition1 & condition2
 
         recursive_m_query = QueryStatement(
@@ -927,21 +927,21 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         substr_expr = FunctionCall(
             dialect,
             "SUBSTR",
-            Literal(dialect, " .+*#"),
+            Parameter(dialect, " .+*#"),
             BinaryExpression(
                 dialect,
                 "+",
-                Literal(dialect, 1),
+                Parameter(dialect, 1),
                 FunctionCall(
                     dialect,
                     "MIN",
-                    BinaryExpression(dialect, "/", Column(dialect, "iter", table="m2"), Literal(dialect, 7)),
-                    Literal(dialect, 4),
+                    BinaryExpression(dialect, "/", Column(dialect, "iter", table="m2"), Parameter(dialect, 7)),
+                    Parameter(dialect, 4),
                 ),
             ),
-            Literal(dialect, 1),
+            Parameter(dialect, 1),
         )
-        group_concat_expr = FunctionCall(dialect, "GROUP_CONCAT", substr_expr, Literal(dialect, ""))
+        group_concat_expr = FunctionCall(dialect, "GROUP_CONCAT", substr_expr, Parameter(dialect, ""))
 
         a_query = QueryStatement(
             dialect=dialect,
@@ -958,7 +958,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         final_from = NamedRelationRef(dialect, Table(dialect, "a"))
         rtrim_expr = FunctionCall(dialect, "RTRIM", Column(dialect, "t", table="a"))
         final_group_concat = FunctionCall(
-            dialect, "GROUP_CONCAT", rtrim_expr, Literal(dialect, "\n")
+            dialect, "GROUP_CONCAT", rtrim_expr, Parameter(dialect, "\n")
         )  # Using \n instead of x'0a'
 
         final_query = QueryStatement(dialect=dialect, select=[final_group_concat], from_=final_from)

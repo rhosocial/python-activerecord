@@ -4,40 +4,40 @@ Tests for the core SQL expression components in core.py
 """
 
 import pytest
-from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall, Subquery, ComparisonPredicate
+from rhosocial.activerecord.backend.expression import Parameter, Column, FunctionCall, Subquery, ComparisonPredicate
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestLiteral:
-    """Tests for Literal class."""
+    """Tests for Parameter class."""
 
     def test_literal_basic(self, dummy_dialect: DummyDialect):
-        """Test basic Literal functionality."""
-        literal = Literal(dummy_dialect, "test_value")
+        """Test basic Parameter functionality."""
+        literal = Parameter(dummy_dialect, "test_value")
         assert literal.value == "test_value"
         sql, params = literal.to_sql()
         assert sql == "?"
         assert params == ("test_value",)
 
     def test_literal_repr(self, dummy_dialect: DummyDialect):
-        """Test Literal repr method."""
-        literal = Literal(dummy_dialect, "test_value")
-        assert repr(literal) == "Literal('test_value')"
-        assert repr(Literal(dummy_dialect, "test_value")) == "Literal('test_value')"
+        """Test Parameter repr method."""
+        literal = Parameter(dummy_dialect, "test_value")
+        assert repr(literal) == "Parameter('test_value')"
+        assert repr(Parameter(dummy_dialect, "test_value")) == "Parameter('test_value')"
 
     def test_literal_numeric_values(self, dummy_dialect: DummyDialect):
-        """Test Literal with numeric values."""
+        """Test Parameter with numeric values."""
         for value in [42, 3.14, -5]:
-            literal = Literal(dummy_dialect, value)
+            literal = Parameter(dummy_dialect, value)
             sql, params = literal.to_sql()
             assert sql == "?"
             assert params == (value,)
 
     def test_literal_none_value(self, dummy_dialect: DummyDialect):
-        """Test Literal with None value."""
-        literal = Literal(dummy_dialect, None)
+        """Test Parameter with None value."""
+        literal = Parameter(dummy_dialect, None)
         sql, params = literal.to_sql()
         assert sql == "?"
         assert params == (None,)
@@ -96,7 +96,7 @@ class TestFunctionCall:
             dummy_dialect,
             "CONCAT",
             Column(dummy_dialect, "first_name"),
-            Literal(dummy_dialect, " "),
+            Parameter(dummy_dialect, " "),
             Column(dummy_dialect, "last_name"),
         )
         sql, params = func.to_sql()
@@ -172,7 +172,7 @@ class TestSubquery:
             where=WhereClause(
                 dummy_dialect,
         condition=ComparisonPredicate(
-                    dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "pending"),
+                    dummy_dialect, "=", Column(dummy_dialect, "status"), Parameter(dummy_dialect, "pending"),
                 ),
             ),
         )

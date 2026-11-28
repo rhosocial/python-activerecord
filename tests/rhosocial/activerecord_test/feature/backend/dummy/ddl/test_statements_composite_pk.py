@@ -13,7 +13,7 @@ from rhosocial.activerecord.backend.expression import (
     ColumnConstraint,
     TableConstraint,
     ComparisonPredicate,
-    Literal,
+    Parameter,
 )
 # tests/rhosocial/activerecord_test/feature/backend/dummy/ddl/test_statements_composite_pk.py
 
@@ -84,9 +84,9 @@ TableConstraint(
 class TestCompositePKPredicate:
     def test_composite_pk_where_predicate(self):
         pred = ComparisonPredicate(
-            dialect, "=", Column(dialect, "order_id"), Literal(dialect, 1)
+            dialect, "=", Column(dialect, "order_id"), Parameter(dialect, 1)
         ) & ComparisonPredicate(
-            dialect, "=", Column(dialect, "product_id"), Literal(dialect, 101)
+            dialect, "=", Column(dialect, "product_id"), Parameter(dialect, 101)
         )
         sql, params = pred.to_sql()
         assert "order_id" in sql
@@ -96,14 +96,14 @@ class TestCompositePKPredicate:
 
     def test_composite_pk_chain_or_predicate(self):
         pred1 = ComparisonPredicate(
-            dialect, "=", Column(dialect, "order_id"), Literal(dialect, 1)
+            dialect, "=", Column(dialect, "order_id"), Parameter(dialect, 1)
         ) & ComparisonPredicate(
-            dialect, "=", Column(dialect, "product_id"), Literal(dialect, 101)
+            dialect, "=", Column(dialect, "product_id"), Parameter(dialect, 101)
         )
         pred2 = ComparisonPredicate(
-            dialect, "=", Column(dialect, "order_id"), Literal(dialect, 2)
+            dialect, "=", Column(dialect, "order_id"), Parameter(dialect, 2)
         ) & ComparisonPredicate(
-            dialect, "=", Column(dialect, "product_id"), Literal(dialect, 101)
+            dialect, "=", Column(dialect, "product_id"), Parameter(dialect, 101)
         )
         combined = pred1 | pred2
         sql, params = combined.to_sql()

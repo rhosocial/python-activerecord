@@ -4,7 +4,7 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     FunctionCall,
     Column,
-    Literal,
+    Parameter,
     ComparisonPredicate,
     count,
     sum_,
@@ -42,9 +42,9 @@ class TestFunctionExpressions:
             if isinstance(arg_data, tuple) and arg_data[0] == "Column":
                 dialect_args.append(Column(dummy_dialect, arg_data[1]))
             elif isinstance(arg_data, str) and arg_data == "*":
-                dialect_args.append(Literal(dummy_dialect, arg_data))
+                dialect_args.append(Parameter(dummy_dialect, arg_data))
             else:
-                dialect_args.append(Literal(dummy_dialect, arg_data))
+                dialect_args.append(Parameter(dummy_dialect, arg_data))
 
         func_call = FunctionCall(dummy_dialect, func_name, *dialect_args, is_distinct=is_distinct)
         sql, params = func_call.to_sql()
@@ -83,7 +83,7 @@ class TestFunctionExpressions:
         """Tests an aggregate function with a FILTER (WHERE ...) clause."""
         # COUNT with a single filter
         active_count = count(dummy_dialect, "*", alias="active_count").filter(
-            ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "active"))
+            ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "status"), Parameter(dummy_dialect, "active"))
         )
         sql, params = active_count.to_sql()
         assert sql == 'COUNT(*) FILTER (WHERE "status" = ?) AS "active_count"'
@@ -94,12 +94,12 @@ class TestFunctionExpressions:
             sum_(dummy_dialect, Column(dummy_dialect, "amount"), alias="high_value_sum")
             .filter(
                 ComparisonPredicate(
-                    dummy_dialect, "=", Column(dummy_dialect, "category"), Literal(dummy_dialect, "sales")
+                    dummy_dialect, "=", Column(dummy_dialect, "category"), Parameter(dummy_dialect, "sales")
                 )
             )
             .filter(
                 ComparisonPredicate(
-                    dummy_dialect, "=", Column(dummy_dialect, "priority"), Literal(dummy_dialect, True)
+                    dummy_dialect, "=", Column(dummy_dialect, "priority"), Parameter(dummy_dialect, True)
                 )
             )
         )

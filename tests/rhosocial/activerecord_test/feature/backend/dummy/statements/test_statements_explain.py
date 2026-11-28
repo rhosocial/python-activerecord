@@ -3,7 +3,7 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     ComparisonPredicate,
     Column,
-    Literal,
+    Parameter,
     QueryStatement,
     InsertStatement,
     UpdateStatement,
@@ -54,7 +54,7 @@ class TestExplainStatements:
                 dummy_dialect,
                 ">",
                 Column(dummy_dialect, "price"),
-                Literal(dummy_dialect, 100)),
+                Parameter(dummy_dialect, 100)),
             )
         )
 
@@ -101,7 +101,7 @@ class TestExplainStatements:
                     dummy_dialect,
                     ">",
                     Column(dummy_dialect, "order_date"),
-                    Literal(dummy_dialect, "2024-01-01")
+                    Parameter(dummy_dialect, "2024-01-01")
                 )
             ),
         )
@@ -134,20 +134,20 @@ class TestExplainStatements:
             stmt = InsertStatement(
                 dummy_dialect,
                 into=Table(dummy_dialect, 'test_table'),
-                source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]]),
+                source=ValuesSource(dummy_dialect, values_list=[[Parameter(dummy_dialect, "test")]]),
             )
         elif statement_type == "UPDATE":
             stmt = UpdateStatement(
                 dummy_dialect,
                 table=Table(dummy_dialect, 'test_table'),
-                assignments={"name": Literal(dummy_dialect, "updated")},
-                where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 1)),
+                assignments={"name": Parameter(dummy_dialect, "updated")},
+                where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Parameter(dummy_dialect, 1)),
             )
         elif statement_type == "DELETE":
             stmt = DeleteStatement(
                 dummy_dialect,
                 tables=Table(dummy_dialect, 'test_table'),
-                where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 1)),
+                where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Parameter(dummy_dialect, 1)),
             )
 
         explain_expr = ExplainStatement(dummy_dialect, statement=stmt)

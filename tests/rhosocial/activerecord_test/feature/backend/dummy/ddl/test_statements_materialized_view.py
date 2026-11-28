@@ -2,7 +2,7 @@
 import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     FunctionCall,
     QueryStatement,
     CreateMaterializedViewStatement,
@@ -254,7 +254,7 @@ class TestMaterializedViewRoundtrip:
     )
     def test_materialized_view_various_names(self, dummy_dialect: DummyDialect, view_name: str):
         """Tests materialized view statements with various name formats."""
-        query = QueryStatement(dummy_dialect, select=[Literal(dummy_dialect, 1)])
+        query = QueryStatement(dummy_dialect, select=[Parameter(dummy_dialect, 1)])
 
         create_mv = CreateMaterializedViewStatement(
             dummy_dialect,

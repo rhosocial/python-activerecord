@@ -54,7 +54,7 @@ class CreateIndexStatement(BaseExpression):
             index=Index(dialect, "idx_active_users"),
             table=Table(dialect, "users"),
             columns=["email"],
-            where=Column(dialect, "status") == Literal(dialect, "active")
+            where=Column(dialect, "status") == Parameter(dialect, "active")
         )
 
         # Index with specific type

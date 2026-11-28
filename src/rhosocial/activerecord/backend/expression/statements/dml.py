@@ -160,7 +160,7 @@ class ReturningClause(BaseExpression):
             expressions=[
                 Column(dialect, "id"),
                 FunctionCall(dialect, "NOW"),
-                Literal(dialect, "updated")  # Constant value
+                Parameter(dialect, "updated")  # Constant value
             ],
             alias="modified_rows"
         )
@@ -454,7 +454,7 @@ class InsertDataSource(BaseExpression, abc.ABC):
 
     **A source is a value object inside an expression tree, so it is a
     :class:`BaseExpression`** — the same standing every other value object in
-    a tree has (``DataType``, ``TableExpression``, ``Literal``). That is what
+    a tree has (``DataType``, ``TableExpression``, ``Parameter``). That is what
     gives it a serialization contract: ``get_params()`` reads the constructor
     signature and the serializer encodes any ``BaseExpression`` it finds, so a
     source survives ``serialize()`` / ``serialize_json()`` / ``serialize_xml()``
@@ -485,7 +485,7 @@ class ValuesSource(InsertDataSource):
     and each element within a row list must be an expression.
 
     Currently, the type hint for these expressions is `BaseExpression`.
-    This generic type allows for various expression types (e.g., `Literal`, `Column`,
+    This generic type allows for various expression types (e.g., `Parameter`, `Column`,
     `RawSQL`, scalar `QueryStatement` as subqueries) to be used as values.
     It is a pragmatic choice given the current stage of framework development.
 
@@ -496,7 +496,7 @@ class ValuesSource(InsertDataSource):
 
     In future iterations, as the framework matures, the type hint may be refined
     to a more specific `Union` of supported `BaseExpression` derived classes
-    (e.g., `Union[Literal, Column, ScalarSubquery]`) to provide stricter type checking
+    (e.g., `Union[Parameter, Column, ScalarSubquery]`) to provide stricter type checking
     and clearer developer guidance on what constitutes a valid value expression.
     """
 

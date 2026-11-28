@@ -121,7 +121,7 @@ class ActiveQuery(
     - Supports relationship queries with model instantiation and association management
 
     When constructing queries that include wildcards (SELECT *), the system
-    automatically uses AllColumnsWildcard instead of Literal("*") to avoid
+    automatically uses AllColumnsWildcard instead of Parameter("*") to avoid
     treating the wildcard as a parameter value. This ensures correct SQL generation.
     """
 
@@ -517,7 +517,7 @@ class AsyncActiveQuery(
     - Supports relationship queries with model instantiation and association management
 
     When constructing queries that include wildcards (SELECT *), the system
-    automatically uses AllColumnsWildcard instead of Literal("*") to avoid
+    automatically uses AllColumnsWildcard instead of Parameter("*") to avoid
     treating the wildcard as a parameter value. This ensures correct SQL generation.
     """
 

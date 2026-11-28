@@ -9,7 +9,7 @@ from ..backend.errors import (
     DatabaseError,
     UnaddressableRecordError,
 )
-from ..backend.expression import Column, Literal
+from ..backend.expression import Column, Parameter
 from ..backend.expression.predicates import InPredicate
 from ..backend.options import BulkInsertOptions, BulkUpdateOptions, DeleteOptions, UpdateOptions
 from ..interface import ModelEvent
@@ -296,7 +296,7 @@ class BulkOperationsMixin:
 
             dialect = backend.dialect
             pk_col_expr = Column(dialect, pk_column)
-            where_predicate = InPredicate(dialect, pk_col_expr, Literal(dialect, pk_values))
+            where_predicate = InPredicate(dialect, pk_col_expr, Parameter(dialect, pk_values))
 
             with backend.transaction():
                 if is_soft_delete:
@@ -632,7 +632,7 @@ class AsyncBulkOperationsMixin:
 
             dialect = backend.dialect
             pk_col_expr = Column(dialect, pk_column)
-            where_predicate = InPredicate(dialect, pk_col_expr, Literal(dialect, pk_values))
+            where_predicate = InPredicate(dialect, pk_col_expr, Parameter(dialect, pk_values))
 
             async with backend.transaction():
                 if is_soft_delete:

@@ -4,7 +4,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnPrimaryKeyConstraint,
 )
 from .....expression.objects import Table
-from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.core import Parameter
 from rhosocial.activerecord.backend.expression import (
     InsertStatement,
     ValuesSource,
@@ -60,7 +60,7 @@ backend.execute(sql, params)
 insert_expr = InsertStatement(
     dialect=dialect,
     into=Table(dialect, 'users'),
-    source=ValuesSource(dialect, [[Literal(dialect, "Alice")]]),
+    source=ValuesSource(dialect, [[Parameter(dialect, "Alice")]]),
     columns=["name"],
     returning=ReturningClause(dialect, [Column(dialect, "id")]),
 )

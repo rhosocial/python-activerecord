@@ -117,9 +117,8 @@ class AggregateFunction(AliasableMixin, SQLValue, ABC):
         ``COUNT(x) FILTER (WHERE p)``.
         """
         from ..core import FunctionCall
-        from ..registry import kind_of
 
-        name = kind_of(type(self)).replace("_function", "").upper()
+        name = type(self).kind().replace("_function", "").upper()
         return FunctionCall(
             self._dialect,
             name,

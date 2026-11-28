@@ -36,7 +36,7 @@ sql, params = t.to_sql()
 ```python
 # 普通表达式：第一个参数是方言实例
 Column(dialect, "name")          # ✅
-Literal(dialect, 18)             # ✅
+Parameter(dialect, 18)             # ✅
 ```
 
 而数据类型经常需要在**方言尚不确定**的时机被创建。最典型的场景是 **`ActiveRecord` 模型字段声明**：

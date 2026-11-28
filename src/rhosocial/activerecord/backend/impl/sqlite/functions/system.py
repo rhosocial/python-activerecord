@@ -29,7 +29,7 @@ def typeof(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) 
     Returns:
         A FunctionCall instance representing the TYPEOF function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Literal(dialect, expr)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
     return core.FunctionCall(dialect, "TYPEOF", target_expr)
 
 
@@ -49,7 +49,7 @@ def quote(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -
     Returns:
         A FunctionCall instance representing the QUOTE function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Literal(dialect, expr)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
     return core.FunctionCall(dialect, "QUOTE", target_expr)
 
 

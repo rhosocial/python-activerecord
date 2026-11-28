@@ -66,17 +66,18 @@
 
 | 形态 | 入口 | 说明 |
 |------|------|------|
-| 字典（spec） | `serialize(expr)` / `deserialize(spec, dialect)` | JSON 兼容字典结构 |
-| JSON 字符串 | `serialize_json(expr)` / `deserialize_json(s, dialect)` | 便于网络传输与存储 |
-| XML | `serialize_xml(expr)` / `deserialize_xml(x, dialect)` | 便于跨语言系统互操作 |
+| 字典（spec） | `serialize(expr)` / `deserialize(spec)` | JSON 兼容字典结构 |
+| JSON 字符串 | `serialize_json(expr, default=None)` / `deserialize_json(s, registry=None, object_hook=None)` | 便于网络传输与存储 |
+| XML | `serialize_xml(expr)` / `deserialize_xml(payload)` | 便于跨语言系统互操作 |
 
 要点：
 
-- **方言不参与序列化**：方言必须在反序列化时提供（`dialect` 参数），因为 SQL 生成取决于方言
-- 工件里的一切都是普通 JSON：节点是 `{kind, params}`，参数是标量、数组或对象。**没有任何标记**——读方不需要被告知该对什么派发，而这正是同一份工件能在各语言间逐字节一致的原因。JSON 唯一拼不出的值——`bytes`、`timedelta`、`Decimal`——是由 `Literal` 包裹的绑定值，以其 kind 所命名的文本形式出行
+- **方言不参与序列化**：方言属于渲染，不属于读取——重建出的树在调用 `to_sql(dialect)` 之前不绑定方言。读侧接收的是**注册表**（`ExpressionRegistry`，一张 `kind -> 全限定类名` 的表）：`registry=None` 表示 `CORE_EXPRESSION_REGISTRY`，后端自有的 kind 需要该后端发布的常量（如 `SQLITE_EXPRESSION_REGISTRY`）
+- 工件里的一切都是普通 JSON：节点是 `{kind, params}`，`params` 里的取值是标量、数组、对象或嵌套节点。**没有任何标记**——读方不需要被告知该对什么派发，而这正是同一份工件能在各语言间逐字节一致的原因。`Parameter` 承载的值原样出行（`{"kind": "parameter", "params": {"value": <宿主值>, "inline": false}}`），不加类型名；能否被 `json.dumps` 写出是值类型自己的契约，不是序列化器规则
+- JSON 钩子是可选且归调用方所有：`serialize_json(expr, default=...)` 把 `default` 转发给 `json.dumps`，`deserialize_json(text, object_hook=...)` 把 `object_hook` 转发给 `json.loads`；编解码器本身不用钩子，裸 `{kind, params}` 节点凭形状被认出
 - 序列化使表达式可以**跨进程、跨机器、跨语言**传递，为查询模板化、缓存与分布式场景提供基础
 
-> 序列化的完整规范（spec 格式、嵌套/元组标记、安全考虑与注册表机制）见 [表达式序列化](serialization.md)，自定义表达式接入序列化见[扩展指南](extending.md)。
+> 序列化的完整规范（工件格式、值原样携带的契约、安全考虑与注册表机制）见 [表达式序列化](serialization.md)，自定义表达式接入序列化见[扩展指南](extending.md)。
 
 ## 模块 (Modules)
 

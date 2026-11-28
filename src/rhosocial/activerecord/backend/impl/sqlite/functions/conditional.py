@@ -36,8 +36,8 @@ def iif(
     Returns:
         A FunctionCall instance representing the IIF function
     """
-    true_expr = true_value if isinstance(true_value, bases.BaseExpression) else core.Literal(dialect, true_value)
-    false_expr = false_value if isinstance(false_value, bases.BaseExpression) else core.Literal(dialect, false_value)
+    true_expr = true_value if isinstance(true_value, bases.BaseExpression) else core.Parameter(dialect, true_value)
+    false_expr = false_value if isinstance(false_value, bases.BaseExpression) else core.Parameter(dialect, false_value)
     return core.FunctionCall(dialect, "IIF", condition, true_expr, false_expr)
 
 

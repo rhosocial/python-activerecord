@@ -47,7 +47,7 @@ class CTEQuery(
     - Results are always dictionaries, no model instantiation occurs
 
     When constructing queries that include wildcards (SELECT *), the system
-    automatically uses AllColumnsWildcard instead of Literal("*") to avoid
+    automatically uses AllColumnsWildcard instead of Parameter("*") to avoid
     treating the wildcard as a parameter value. This ensures correct SQL generation.
     """
 
@@ -372,7 +372,7 @@ class AsyncCTEQuery(
     - Results are always dictionaries, no model instantiation occurs
 
     When constructing queries that include wildcards (SELECT *), the system
-    automatically uses AllColumnsWildcard instead of Literal("*") to avoid
+    automatically uses AllColumnsWildcard instead of Parameter("*") to avoid
     treating the wildcard as a parameter value. This ensures correct SQL generation.
     """
 

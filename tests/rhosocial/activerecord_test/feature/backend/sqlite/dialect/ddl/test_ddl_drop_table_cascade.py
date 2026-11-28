@@ -11,14 +11,12 @@ Covers:
   dialects that reject the keywords.
 - Real SQLite dialect (False/False) confirms gating does not depend on subclass
   of DummyDialect.
-- Serialization round-trip of a DropTableStatement with cascade=True.
 """
 
 import pytest
 
 from rhosocial.activerecord.backend.dialect import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression import DropTableStatement
-from rhosocial.activerecord.backend.expression.serialization import serialize, deserialize
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.objects import Table
@@ -117,38 +115,3 @@ class TestDropTableCascadeCapabilitySwitches:
         sql, params = expr.to_sql()
         assert sql.startswith("DROP TABLE IF EXISTS")
         assert params == ()
-
-
-class TestDropTableCascadeSerialization:
-    """Serialization round-trip for a DropTableStatement with cascade set."""
-
-    def test_cascade_true_serialization_roundtrip(self):
-        dialect = DummyDialect()
-        expr = DropTableStatement(dialect, table=Table(dialect, 'users'), cascade=True)
-
-        expected_sql, expected_params = expr.to_sql()
-
-        spec = serialize(expr)
-        assert spec["params"]["cascade"] is True
-
-        restored = deserialize(spec, dialect)
-        sql, params = restored.to_sql()
-
-        assert sql == expected_sql
-        assert params == expected_params
-
-    def test_restrict_serialization_roundtrip(self):
-        dialect = DummyDialect()
-        expr = DropTableStatement(dialect, table=Table(dialect, 'users'), restrict=True)
-
-        expected_sql, expected_params = expr.to_sql()
-
-        spec = serialize(expr)
-        assert spec["params"]["restrict"] is True
-        assert spec["params"]["cascade"] is False
-
-        restored = deserialize(spec, dialect)
-        sql, params = restored.to_sql()
-
-        assert sql == expected_sql
-        assert params == expected_params

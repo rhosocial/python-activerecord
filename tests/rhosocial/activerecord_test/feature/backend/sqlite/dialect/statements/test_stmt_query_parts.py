@@ -2,7 +2,7 @@
 import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     FunctionCall,
     WhereClause,
     GroupByHavingClause,
@@ -21,7 +21,7 @@ class TestQueryParts:
 
     def test_where_clause_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test basic WHERE clause generation."""
-        condition = StringColumn(sqlite_dialect_3_8_0, "status") == Literal(sqlite_dialect_3_8_0, "active")
+        condition = StringColumn(sqlite_dialect_3_8_0, "status") == Parameter(sqlite_dialect_3_8_0, "active")
         where_clause = WhereClause(sqlite_dialect_3_8_0, condition=condition)
 
         sql, params = where_clause.to_sql()
@@ -30,8 +30,8 @@ class TestQueryParts:
 
     def test_where_clause_complex(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test complex WHERE clause with multiple conditions."""
-        condition1 = NumericColumn(sqlite_dialect_3_8_0, "age") >= Literal(sqlite_dialect_3_8_0, 18)
-        condition2 = StringColumn(sqlite_dialect_3_8_0, "status") == Literal(sqlite_dialect_3_8_0, "active")
+        condition1 = NumericColumn(sqlite_dialect_3_8_0, "age") >= Parameter(sqlite_dialect_3_8_0, 18)
+        condition2 = StringColumn(sqlite_dialect_3_8_0, "status") == Parameter(sqlite_dialect_3_8_0, "active")
         complex_condition = LogicalPredicate(sqlite_dialect_3_8_0, "AND", condition1, condition2)
 
         where_clause = WhereClause(sqlite_dialect_3_8_0, condition=complex_condition)
@@ -42,7 +42,7 @@ class TestQueryParts:
     def test_group_by_having_clause(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test GROUP BY with HAVING clause."""
         group_by_columns = [Column(sqlite_dialect_3_8_0, "department")]
-        having_condition = FunctionCall(sqlite_dialect_3_8_0, "COUNT", Column(sqlite_dialect_3_8_0, "id")) > Literal(
+        having_condition = FunctionCall(sqlite_dialect_3_8_0, "COUNT", Column(sqlite_dialect_3_8_0, "id")) > Parameter(
             sqlite_dialect_3_8_0, 5
         )
 

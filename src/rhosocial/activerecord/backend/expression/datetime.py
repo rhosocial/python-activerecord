@@ -14,7 +14,7 @@ from .mixins import (
 
 from .advanced_functions import DeclaredValueType
 from .bases import BaseExpression, SQLValue
-from .core import Literal
+from .core import Parameter
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
@@ -182,7 +182,7 @@ class _TemporalValue(
         if precision is None:
             return None
 
-        return precision if isinstance(precision, BaseExpression) else Literal(dialect, precision)
+        return precision if isinstance(precision, BaseExpression) else Parameter(dialect, precision)
 
 
 class _ExtractBase(_TemporalValue):

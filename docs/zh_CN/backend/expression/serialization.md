@@ -18,32 +18,36 @@
 ### serialize(expr)
 
 ```python
-from rhosocial.activerecord.backend.expression.serialization import serialize
+from rhosocial.activerecord.backend.expression_registry import serialize
 
 artifact = serialize(query)
 ```
 
-工件是 JSON 原生的，因此直接走普通 `json.dumps`，不需要自定义 encoder：
+宿主值都是 JSON 原生类型时，普通 `json.dumps` 就够了——`serialize_json` 就是替你调它的简写：
 
 ```python
-text = json.dumps(artifact)
+text = json.dumps(artifact)          # 或：text = serialize_json(query)
 ```
 
-### deserialize(artifact, dialect=None, *, registry=None)
+JSON 拼不出的值是**调用方**的责任：让值类型本身可 JSON 序列化，或给
+`serialize_json(...)` 传 `default=`（会转发给 `json.dumps`）。没有钩子时，`json.dumps`
+写不出的值就是调用方自己的问题。`serialize` 原样携带宿主值，不转换、不命名、不校验、不拒绝任何值类型。
+
+### deserialize(artifact, *, registry=None)
 
 ```python
-from rhosocial.activerecord.backend.expression.serialization import deserialize
+from rhosocial.activerecord.backend.expression_registry import deserialize
 
-expr = deserialize(json.loads(text), dialect)
+expr = deserialize(json.loads(text))
 ```
 
-`json.loads` **不需要 `object_hook`**——而且也没有钩子可做的事。工件通篇是普通 JSON：节点是 `{kind, params}`，参数是标量、数组或对象。**没有任何标记**，所以没有东西需要被"认出"才能解码。JSON 唯一拼不出的东西——送进数据库的值，比如 `bytes` 或 `timedelta`——以它的 kind 所命名的文本形式出行。
+编解码器**不需要 `object_hook`**——也没有钩子可做的事。工件通篇是普通 JSON：节点是 `{kind, params}`，`params` 里的取值是标量、数组、对象或嵌套节点。**没有任何标记**，所以节点凭形状被认出，在 `deserialize` 看到它之前没有东西需要解码。`deserialize_json(text, *, registry=None, object_hook=None)` 仍接受一个可选的 `object_hook=`，并把它转发给 `json.loads`，供调用方还原自己的值；编解码器本身从不使用它。送进数据库的值由 `parameter` 节点**原样**携带：`deserialize` 直接交回，不做类型派发，也不拆包。`None` 仍是 JSON null（SQL NULL）；元组以 JSON 数组出行，回来也是数组——读方无法推断宿主类型。
 
-`registry=None` 不是一张全局默认表：选表顺序见下文「注册表归属」。传自己的表，就精确控制这次读允许产出哪些 kind。
+`registry=None` 意味**核心的表**，不是一张框架级默认表。要读某个后端自己的 kind，传它发布的表（例如 `SQLITE_EXPRESSION_REGISTRY`）；见下文「注册表归属」。
 
-### deserialize_json(text, dialect, registry=None) / deserialize_xml(bytes, ...)
+### serialize_json(expr, *, default=None) / deserialize_json(text, *, registry=None, object_hook=None) / deserialize_xml(payload, *, registry=None)
 
-同一份工件的三种渲染：字典、JSON 文本、XML 文档。三者往返到同一个实例；**参数与渲染出的 SQL 都必须原样回来**。
+同一份工件的三种渲染：字典、JSON 文本、XML 文档。三者都重建同一个实例；**参数、以及事后由它渲染出的 SQL，都必须原样回来**。在 JSON 这一种渲染上，`default=` 转发给 `json.dumps`，`object_hook=` 转发给 `json.loads`；两者都是调用方为自己持有的值准备的钩子，编解码器两个都不用。
 
 ## 工件格式
 
@@ -68,7 +72,7 @@ expr = deserialize(json.loads(text), dialect)
 }
 ```
 
-参数要么是**语言无关标量**，要么是**表达式**。第二种形态（嵌套的 `{kind, params}` 节点）是同一件事的不同层面：内存里是活实例，链路上是编码节点。**没有第三种形态**——这正是工件可读的原因。
+构造参数的取值可以是**语言无关标量**、原样携带的宿主值（`Parameter` 的 `value`），或**表达式**。最后一种形态（嵌套的 `{kind, params}` 节点）是同一件事的不同层面：内存里是活实例，链路上是编码节点。不加包裹，也不加类型标记——这正是工件可读的原因。
 
 注意嵌套表达式**外面没有任何包裹**。形状本身就是全部信号，因此没有东西需要拆开，也不存在「这是节点」的第二个、更弱的说法。
 `__expr__` 信封会让同一件事有两种写法，读方就得猜载荷用的是哪一种。
@@ -76,7 +80,7 @@ expr = deserialize(json.loads(text), dialect)
 注意**没有什么**。工件不带方言，所以同一份载荷可以交给任意方言对象重渲染：
 
 ```python
-deserialize(artifact, SQLiteDialect(version=(3, 53, 0))).to_sql()
+deserialize(artifact).to_sql(SQLiteDialect(version=(3, 53, 0)))
 ```
 
 ## 绑定参数
@@ -88,46 +92,58 @@ sql, params = expr.to_sql()
 # ("SELECT ... WHERE age > ?", (18,))
 ```
 
-那个 `18` **哪儿都没被单独存过**。它是从载荷里的 `literal` 节点读出来的，所以没有第二处携带它，也就没有第二处可能与它不一致。表达式从不把值拼进 SQL 文本；数据库永远看不到字符串拼接出来的引号。
+那个 `18` **哪儿都没被单独存过**。它是从载荷里的 `parameter` 节点读出来的——宿主值原样携带：
+
+```python
+{"kind": "parameter", "params": {"value": 18, "inline": false}}
+```
+
+送进 SQL 的每个值都是一个 `parameter` 节点。**值位置**（比较操作数、`IN` 列表、`BETWEEN` 边界、`LIKE` 模式、函数实参）上的裸 Python 值，框架在构造时自动包成 `Parameter`，所以 SQL 文本里永远只有占位符，值走 `params`。同一个类也服务于内联位置：`inline` 是**不接受占位符的语法位置**（如 DDL 的 `DEFAULT`、`CHECK` 操作数）的内部决策，此时格式化器向方言的 `format_literal(value)` 取转义后的 SQL 文本。
+
+**名字位**则不做这种包装：表名、列名、`ORDER BY` 项始终是标识符，那里的 `"id"` 不是值 `'id'`。
+
+`parameter` 是普通的 `BaseExpression` 节点：kind 由类名派生（`parameter`），params 就是构造参数 `value` 与 `inline`。没有类型名，也没有转换或校验。能否被 `json.dumps` 写出，是**值类型自己的契约**——让值类型本身可 JSON 序列化，或给 `serialize_json(...)` 传 `default=`（转发给 `json.dumps`）。`json.dumps` 失败是调用方的问题，不是序列化器规则。
 
 ## 注册表归属
 
-注册表不是框架的一张总表，而是**每个所有者自己的一张**：
+注册表不是框架的一张总表，而是**每个所有者自己的一张**，所有者就是声明这些 kind 的表达式包。每张表都是普通数据——一个 `kind -> 全限定类名` 的映射：
 
 | 所有者 | 入口 | 内容 |
 |--------|------|------|
-| 核心 | `core_registry()` | 只有核心的 kind，不含任何后端 |
-| 后端 | `backend_registry()` | 核心的 kind ∪ 本后端自己的 kind，绝不含兄弟后端 |
-| 方言 | `dialect.artifact_registry()` | 这个方言所在后端能读的 kind；未覆写时返回 `core_registry()` |
+| 核心 | `CORE_EXPRESSIONS` → `CORE_EXPRESSION_REGISTRY` | 只有核心的 kind，不含任何后端 |
+| 后端 | `SQLITE_EXPRESSIONS` / `SQLITE_EXPRESSION_REGISTRY`、`DUMMY_EXPRESSIONS` / `DUMMY_EXPRESSION_REGISTRY` | 核心的 kind ∪ 本后端自己的 kind，绝不含兄弟后端 |
 
-- **核心只维护核心的 kind。** 核心不知道有哪些后端存在，也没有后端清单；唯一的装配点是 `registry_for_packages(*packages, base=...)`。
-- **后端通过组合加入自己的 kind**：`registry_for_packages(<本后端表达式包>, base=core_registry())`。两个后端从不互相合并，因此一个后端的 kind 不会因为另一个后端被安装而变得可读。
-- **`artifact_registry()` 是每个方言的读取入口。** 基类方言不覆写它，答案就是 `core_registry()`；后端方言覆写为它自己的 `backend_registry()`。
-- 工件本身仍然是**不带方言的数据**：`deserialize(artifact)` 返回的树不绑定方言，用 `to_sql(dialect)` 渲染。传了方言只是同时把它绑到重建的树上，并据它选表。
+- **核心收集自己的包。** `CORE_EXPRESSIONS` 是对核心自己的各个包运行 `collect_expressions`、再合并这些映射的结果——**只有节点 kind**，`parameter` 也在其中；`CORE_EXPRESSION_REGISTRY` 是 `ExpressionRegistry(CORE_EXPRESSIONS).freeze()`，在模块导入时**一次性**构造。核心不知道有哪些后端存在，也没有后端清单。
+- **后端通过字典合并加入自己的 kind**：`merge_expressions(CORE_EXPRESSIONS, SQLITE_EXPRESSIONS)`——即并集 `{**CORE_EXPRESSIONS, **SQLITE_EXPRESSIONS}`，若两张映射用不同的类声明同一个 kind 则直接报错。两个后端从不互相合并，因此一个后端的 kind 不会因为另一个后端被安装而变得可读。
+- **方言完全不参与。** 方言只是渲染器，既不拥有表，也不选表。
+- 工件本身仍然是**不带方言的数据**：`deserialize(artifact)` 返回的树不绑定方言，用 `to_sql(dialect)` 渲染。
 
-`deserialize` 的选表顺序：
+`deserialize` 用的表是：
 
 1. 调用方显式传入的 `registry`；
-2. `dialect.artifact_registry()`（传了方言时）；
-3. `core_registry()`。
+2. 否则 `CORE_EXPRESSION_REGISTRY`。
 
-已发布的注册表是**冻结的**。要放宽或收窄，只能造一张新表：`twin()`（可变副本）、`merged()`（并集，冻结），或 `registry_for_packages(..., freeze=False)`（装配期间可变）。别人的装配或修改不会改变一张已发布的表。
+已发布的注册表是**冻结的**。要放宽或收窄，可以从 `twin()`（可变副本）或 `merged()`（并集，冻结）出发，也可以用你自己合成的映射构造一张新的 `ExpressionRegistry(kinds)`。别人的装配或修改不会改变一张已发布的表。
 
 ## 选择性注册
 
 注册表是**读侧边界**：它过滤的是工件**实际携带**的 kind，不是类**声明过**的参数类型。参数保持默认值就不产生节点，因而也不需要登记。
 
 ```python
-from rhosocial.activerecord.backend.expression.registry import ExpressionRegistry
-from rhosocial.activerecord.backend.expression.serialization import core_registry
+from rhosocial.activerecord.backend.expression_registry import (
+    CORE_EXPRESSION_REGISTRY,
+    ExpressionRegistry,
+)
 
 read_only = ExpressionRegistry()
 for kind in ("query_statement", "where_clause", "comparison_predicate",
-             "column", "literal", "table"):
-    read_only.register_node(core_registry().resolve_node(kind))
+             "column", "table", "parameter"):
+    read_only.register_node(CORE_EXPRESSION_REGISTRY.resolve_node(kind))
 
-deserialize(artifact, dialect, registry=read_only)
+deserialize(artifact, registry=read_only)
 ```
+
+选择性表要放行值，只需放行 `"parameter"`：不论它携带什么值，每个参数都是这一个节点，所以没有按值区分的 kind 需要登记。`CORE_EXPRESSIONS` 只有节点 kind，`parameter` 也在其中。
 
 不带分组的查询在这张表下读得通；带 `GROUP BY` 的会被按名拒绝。这就是权限形态：**这个通道不接受的东西，发给它也变不出来。**
 
@@ -145,6 +161,8 @@ deserialize(artifact, dialect, registry=read_only)
 | 缺失 kind | `the kind is the node's identity and is mandatory` |
 | 嵌套超过深度上限 | `artifact nesting depth exceeds N` |
 
+值无法被 `json.dumps` 写出不属于这些拒绝：那是 `json.dumps` 抛出的错误，序列化器不查任何值类型规则。
+
 ## 使用场景
 
 ### 缓存查询计划
@@ -152,22 +170,23 @@ deserialize(artifact, dialect, registry=read_only)
 ```python
 stored = json.dumps(serialize(query))
 # ……之后，在另一个进程
-query = deserialize(json.loads(stored), dialect)
+query = deserialize(json.loads(stored))          # 核心的表
+query.to_sql(SQLiteDialect(version=(3, 53, 0)))  # 在渲染时选用方言，而不是在读时
 ```
 
-缓存里存的是 JSON 文本，因此任何存字符串的缓存都能放；而方言在**读时**选定——一份缓存服务所有后端。
+缓存里存的是 JSON 文本，因此任何存字符串的缓存都能放。读侧只重建一棵树，仅此而已；**方言在渲染时选定**，所以一份缓存服务所有后端。由后端自有 kind 构造的载荷，用该后端发布的表读取（`registry=SQLITE_EXPRESSION_REGISTRY`）；方言在读侧仍然完全不参与。
 
 ### 分布式任务调度
 
-worker 收到文本，用它自己的方言重建树。**载荷里没有任何东西**绑在产出它的那台机器上。
+worker 收到文本，重建树，再用它自己的方言渲染。**载荷里没有任何东西**绑在产出它的那台机器上。
 
 ## 安全考虑
 
 ### 工件里的名字永远到不了 import
 
-解析只走白名单，永不走 import 路径。载荷里写 `os.system` 得到的答复是「不在 kind 白名单」——它被查了、查不到、读取失败。**不存在**任何可能 import 它的代码路径。
+解析只走白名单，永不走 import 路径。载荷里写 `os.system` 得到的答复是「不在 kind 白名单」——它被查了、查不到、读取失败。唯一能到达 import 的名字，是表里**已经**为某个 kind 存着的那个全限定类名：登记内容是可信数据，而工件只提供 kind，别的一概提供不了。
 
-注册表模块**根本不 import** 表达式包；装配核心表与各后端表的机制属于框架，不属于注册表。**注册表无法发现任何东西。**
+注册表里的任何东西都不会自作主张 import 表达式包。`collect_expressions` 只 import 交给它的那**一个**包名：核心交的是自己的那些包，后端交的是自己的包，然后把返回的映射发布出去。这里**没有**通用包遍历器，所以没有任何东西被发现；一张表之所以存在，是因为某个所有者收集了一个包并明确发布了它。
 
 ### 工件是不可信输入
 

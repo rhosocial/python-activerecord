@@ -4,7 +4,7 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     FunctionCall,
     Subquery,
     ComparisonPredicate,
@@ -30,15 +30,15 @@ class TestAdvancedExpressions:
     # --- CaseExpression ---
     def test_case_searched_expression(self, dummy_dialect: DummyDialect):
         """Tests a searched CASE expression (CASE WHEN ... THEN ... ELSE ... END)."""
-        condition1 = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18))
-        result1 = Literal(dummy_dialect, "adult")
-        condition2 = ComparisonPredicate(dummy_dialect, "<=", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18))
-        result2 = Literal(dummy_dialect, "minor")
+        condition1 = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Parameter(dummy_dialect, 18))
+        result1 = Parameter(dummy_dialect, "adult")
+        condition2 = ComparisonPredicate(dummy_dialect, "<=", Column(dummy_dialect, "age"), Parameter(dummy_dialect, 18))
+        result2 = Parameter(dummy_dialect, "minor")
 
         case_expr = CaseExpression(
             dummy_dialect,
             cases=[(condition1, result1), (condition2, result2)],
-            else_result=Literal(dummy_dialect, "unknown"),
+            else_result=Parameter(dummy_dialect, "unknown"),
         )
         sql, params = case_expr.to_sql()
         expected = 'CASE WHEN "age" > ? THEN ? WHEN "age" <= ? THEN ? ELSE ? END'
@@ -52,10 +52,10 @@ class TestAdvancedExpressions:
             dummy_dialect,
             value=value_expr,
             cases=[
-                (Literal(dummy_dialect, 1), Literal(dummy_dialect, "Pending")),
-                (Literal(dummy_dialect, 2), Literal(dummy_dialect, "Approved")),
+                (Parameter(dummy_dialect, 1), Parameter(dummy_dialect, "Pending")),
+                (Parameter(dummy_dialect, 2), Parameter(dummy_dialect, "Approved")),
             ],
-            else_result=Literal(dummy_dialect, "Rejected"),
+            else_result=Parameter(dummy_dialect, "Rejected"),
         )
         sql, params = case_expr.to_sql()
         expected = 'CASE "status_code" WHEN ? THEN ? WHEN ? THEN ? ELSE ? END'
@@ -72,8 +72,8 @@ class TestAdvancedExpressions:
         assert params == ()
 
     def test_cast_literal(self, dummy_dialect: DummyDialect):
-        """Tests cast() method on Literal."""
-        lit = Literal(dummy_dialect, "2023-01-01")
+        """Tests cast() method on Parameter."""
+        lit = Parameter(dummy_dialect, "2023-01-01")
         cast_expr = cast(dummy_dialect, lit, DateType(dummy_dialect))
         sql, params = cast_expr.to_sql()
         assert sql == "CAST(? AS DATE)"
@@ -115,7 +115,7 @@ class TestAdvancedExpressions:
     ):
         """Tests ANY and ALL expressions with a list of values."""
         col = Column(dummy_dialect, "age")
-        arr_expr = Literal(dummy_dialect, operand_list)
+        arr_expr = Parameter(dummy_dialect, operand_list)
         any_all_expr = expr_type(dummy_dialect, col, operator, arr_expr)
         sql, params = any_all_expr.to_sql()
         assert sql == expected_sql_pattern
@@ -199,7 +199,7 @@ class TestAdvancedExpressions:
         array_expr = ArrayOperation(
             dummy_dialect,
             "CONSTRUCTOR",
-            elements=[Literal(dummy_dialect, 1), Literal(dummy_dialect, "apple"), Column(dummy_dialect, "item_count")],
+            elements=[Parameter(dummy_dialect, 1), Parameter(dummy_dialect, "apple"), Column(dummy_dialect, "item_count")],
         )
         sql, params = array_expr.to_sql()
         assert sql == 'ARRAY[?, ?, "item_count"]'
@@ -208,7 +208,7 @@ class TestAdvancedExpressions:
     def test_array_access(self, dummy_dialect: DummyDialect):
         """Tests array element access (array[index])."""
         array_access_expr = ArrayOperation(
-            dummy_dialect, "ACCESS", base_expr=Column(dummy_dialect, "tags"), index_expr=Literal(dummy_dialect, 0)
+            dummy_dialect, "ACCESS", base_expr=Column(dummy_dialect, "tags"), index_expr=Parameter(dummy_dialect, 0)
         )
         sql, params = array_access_expr.to_sql()
         assert sql == '("tags"[?])'

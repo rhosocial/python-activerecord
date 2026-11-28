@@ -21,7 +21,7 @@ from rhosocial.activerecord.backend.expression import (
     UUIDCastFunction,
     UUIDConstantExpression,
     UUIDGenerationExpression,
-    Literal,
+    Parameter,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
@@ -67,7 +67,7 @@ def test_sqlite_reports_no_uuid_operations(probe):
     [
         lambda d: UUIDGenerationExpression(d),
         lambda d: UUIDConstantExpression(d, "nil"),
-        lambda d: UUIDCastFunction(d, Literal(d, "x")),
+        lambda d: UUIDCastFunction(d, Parameter(d, "x")),
     ],
     ids=["generation", "constant", "cast"],
 )
@@ -133,7 +133,7 @@ def test_constant_rejects_an_unknown_kind_at_render():
     [
         lambda d: UUIDGenerationExpression(d),
         lambda d: UUIDConstantExpression(d, "nil"),
-        lambda d: UUIDCastFunction(d, Literal(d, "x")),
+        lambda d: UUIDCastFunction(d, Parameter(d, "x")),
     ],
     ids=["generation", "constant", "cast"],
 )
@@ -148,7 +148,7 @@ def test_construction_never_refuses_a_dialect(factory):
 
 def test_cast_substitutes_the_operand_and_keeps_its_parameters():
     dialect = _dialect(_FULL)
-    expr = UUIDCastFunction(dialect, Literal(dialect, "not-a-uuid"))
+    expr = UUIDCastFunction(dialect, Parameter(dialect, "not-a-uuid"))
     assert expr.to_sql() == ("CAST(? AS UUID)", ("not-a-uuid",))
 
 
@@ -159,7 +159,7 @@ def test_constant_and_cast_stay_unsupported_when_only_generation_is_declared():
     with pytest.raises(UnsupportedFeatureError, match="UUID constants"):
         UUIDConstantExpression(dialect, "nil").to_sql()
     with pytest.raises(UnsupportedFeatureError, match="UUID cast"):
-        UUIDCastFunction(dialect, Literal(dialect, "x")).to_sql()
+        UUIDCastFunction(dialect, Parameter(dialect, "x")).to_sql()
 
 
 # ---------------------------------------------------------------------------
@@ -172,7 +172,7 @@ def test_constant_and_cast_stay_unsupported_when_only_generation_is_declared():
     [
         lambda d: UUIDGenerationExpression(d),
         lambda d: UUIDConstantExpression(d, "nil"),
-        lambda d: UUIDCastFunction(d, Literal(d, "x")),
+        lambda d: UUIDCastFunction(d, Parameter(d, "x")),
     ],
     ids=["generation", "constant", "cast"],
 )
@@ -189,6 +189,6 @@ def test_format_methods_are_declared_for_dispatch():
     assert UUIDGenerationExpression(_dialect()).format_method == "format_uuid_generation_expression"
     assert UUIDConstantExpression(_dialect(), "nil").format_method == "format_uuid_constant_expression"
     assert (
-        UUIDCastFunction(_dialect(), Literal(_dialect(), "x")).format_method
+        UUIDCastFunction(_dialect(), Parameter(_dialect(), "x")).format_method
         == "format_uuid_cast"
     )

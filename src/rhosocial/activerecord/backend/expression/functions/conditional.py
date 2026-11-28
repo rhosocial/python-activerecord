@@ -13,7 +13,7 @@ from ..column_types import (
     NumericColumn,
     StringColumn,
 )
-from ..core import FunctionCall, Literal
+from ..core import FunctionCall, Parameter
 from ..declared import (
     ArrayAnnotation,
     BooleanAnnotation,
@@ -37,7 +37,7 @@ def _result_annotation_for(expr: object):
     expression tree records that — it is what the *column class* already says,
     so it is read off the class rather than off an attribute that duplicates it.
 
-    ``None`` is a real answer, not a failure: a ``Literal`` and an
+    ``None`` is a real answer, not a failure: a ``Parameter`` and an
     ``Column`` say nothing about what a database would hand back, so an
     operation over them stays untyped rather than guessing.
 
@@ -140,8 +140,8 @@ def nullif(
         The type of *value*, since NULLIF returns it unless it matches. A literal
         says nothing about its own type, so that case stays generic.
     """
-    value_expr = value if isinstance(value, BaseExpression) else Literal(dialect, value)
-    null_expr = null_value if isinstance(null_value, BaseExpression) else Literal(dialect, null_value)
+    value_expr = value if isinstance(value, BaseExpression) else Parameter(dialect, value)
+    null_expr = null_value if isinstance(null_value, BaseExpression) else Parameter(dialect, null_value)
     call = FunctionCall(dialect, "NULLIF", value_expr, null_expr)
     result = _result_annotation_for(value_expr)
     if result is not None:
@@ -169,7 +169,7 @@ def greatest(
     Returns:
         The type its arguments agree on, or a generic FunctionCall if they do not
     """
-    target_exprs = [e if isinstance(e, BaseExpression) else Literal(dialect, e) for e in exprs]
+    target_exprs = [e if isinstance(e, BaseExpression) else Parameter(dialect, e) for e in exprs]
     return _widest(dialect, FunctionCall(dialect, "GREATEST", *target_exprs), target_exprs)
 
 
@@ -193,5 +193,5 @@ def least(
     Returns:
         The type its arguments agree on, or a generic FunctionCall if they do not
     """
-    target_exprs = [e if isinstance(e, BaseExpression) else Literal(dialect, e) for e in exprs]
+    target_exprs = [e if isinstance(e, BaseExpression) else Parameter(dialect, e) for e in exprs]
     return _widest(dialect, FunctionCall(dialect, "LEAST", *target_exprs), target_exprs)

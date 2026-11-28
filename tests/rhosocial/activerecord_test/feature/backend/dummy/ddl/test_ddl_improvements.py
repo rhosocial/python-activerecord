@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     QueryStatement,
     CreateViewStatement,
     DropViewStatement,
@@ -251,7 +251,7 @@ class TestTriggerCapabilityGating:
                 dialect=dummy_dialect,
                 op="=",
                 left=Column(dummy_dialect, "id"),
-                right=Literal(dialect=dummy_dialect, value=1),
+                right=Parameter(dialect=dummy_dialect, value=1),
             ),
         )
         with patch.object(type(dummy_dialect), "supports_trigger_when", return_value=False):

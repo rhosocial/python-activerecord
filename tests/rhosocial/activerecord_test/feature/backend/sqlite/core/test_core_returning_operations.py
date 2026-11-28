@@ -11,7 +11,7 @@ import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.options import InsertOptions, UpdateOptions, DeleteOptions
-from rhosocial.activerecord.backend.expression import ComparisonPredicate, Column, Literal
+from rhosocial.activerecord.backend.expression import ComparisonPredicate, Column, Parameter
 from rhosocial.activerecord.backend.schema import StatementType
 
 
@@ -101,7 +101,7 @@ def test_update_with_returning_columns(returning_backend):
 
     # Create UpdateOptions with returning_columns
     where_predicate = ComparisonPredicate(
-        backend.dialect, "=", Column(backend.dialect, "user_id"), Literal(backend.dialect, user_id)
+        backend.dialect, "=", Column(backend.dialect, "user_id"), Parameter(backend.dialect, user_id)
     )
     update_options = UpdateOptions(
         table="test_users",
@@ -151,7 +151,7 @@ def test_delete_with_returning_columns(returning_backend):
 
     # Create DeleteOptions with returning_columns
     where_predicate = ComparisonPredicate(
-        backend.dialect, "=", Column(backend.dialect, "user_id"), Literal(backend.dialect, user_id)
+        backend.dialect, "=", Column(backend.dialect, "user_id"), Parameter(backend.dialect, user_id)
     )
     delete_options = DeleteOptions(
         table="test_users", where=where_predicate, returning_columns=["user_id", "name", "email"]
@@ -201,7 +201,7 @@ def test_operations_without_returning_columns(returning_backend):
 
     # Test update without returning columns
     where_predicate = ComparisonPredicate(
-        backend.dialect, "=", Column(backend.dialect, "name"), Literal(backend.dialect, "No Return User")
+        backend.dialect, "=", Column(backend.dialect, "name"), Parameter(backend.dialect, "No Return User")
     )
     update_options = UpdateOptions(
         table="test_users",
@@ -217,7 +217,7 @@ def test_operations_without_returning_columns(returning_backend):
 
     # Test delete without returning columns
     delete_where = ComparisonPredicate(
-        backend.dialect, "=", Column(backend.dialect, "name"), Literal(backend.dialect, "No Return User")
+        backend.dialect, "=", Column(backend.dialect, "name"), Parameter(backend.dialect, "No Return User")
     )
     delete_options = DeleteOptions(
         table="test_users",

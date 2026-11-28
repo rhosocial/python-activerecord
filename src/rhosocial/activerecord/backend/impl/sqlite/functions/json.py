@@ -73,7 +73,7 @@ def json_array(
     """
     if not values:
         return core.FunctionCall(dialect, "JSON_ARRAY")
-    args = [core.Literal(dialect, v) if not isinstance(v, bases.BaseExpression) else v for v in values]
+    args = [core.Parameter(dialect, v) if not isinstance(v, bases.BaseExpression) else v for v in values]
     return core.FunctionCall(dialect, "JSON_ARRAY", *args)
 
 
@@ -101,7 +101,7 @@ def json_object(
     """
     if not key_value_pairs:
         return core.FunctionCall(dialect, "JSON_OBJECT")
-    args = [core.Literal(dialect, v) if not isinstance(v, bases.BaseExpression) else v for v in key_value_pairs]
+    args = [core.Parameter(dialect, v) if not isinstance(v, bases.BaseExpression) else v for v in key_value_pairs]
     return core.FunctionCall(dialect, "JSON_OBJECT", *args)
 
 
@@ -288,13 +288,13 @@ def json_set(
     """
     doc_expr = json_doc
     path_expr = path
-    val_expr = core.Literal(dialect, value) if not isinstance(value, bases.BaseExpression) else value
+    val_expr = core.Parameter(dialect, value) if not isinstance(value, bases.BaseExpression) else value
     args = [doc_expr, path_expr, val_expr]
     for i in range(0, len(path_values), 2):
         if i + 1 < len(path_values):
-            args.append(core.Literal(dialect, path_values[i]))
+            args.append(core.Parameter(dialect, path_values[i]))
             pv = path_values[i + 1]
-            args.append(core.Literal(dialect, pv) if not isinstance(pv, bases.BaseExpression) else pv)
+            args.append(core.Parameter(dialect, pv) if not isinstance(pv, bases.BaseExpression) else pv)
     return core.FunctionCall(dialect, "JSON_SET", *args)
 
 
@@ -327,13 +327,13 @@ def json_insert(
     """
     doc_expr = json_doc
     path_expr = path
-    val_expr = core.Literal(dialect, value) if not isinstance(value, bases.BaseExpression) else value
+    val_expr = core.Parameter(dialect, value) if not isinstance(value, bases.BaseExpression) else value
     args = [doc_expr, path_expr, val_expr]
     for i in range(0, len(path_values), 2):
         if i + 1 < len(path_values):
-            args.append(core.Literal(dialect, path_values[i]))
+            args.append(core.Parameter(dialect, path_values[i]))
             pv = path_values[i + 1]
-            args.append(core.Literal(dialect, pv) if not isinstance(pv, bases.BaseExpression) else pv)
+            args.append(core.Parameter(dialect, pv) if not isinstance(pv, bases.BaseExpression) else pv)
     return core.FunctionCall(dialect, "JSON_INSERT", *args)
 
 
@@ -366,13 +366,13 @@ def json_replace(
     """
     doc_expr = json_doc
     path_expr = path
-    val_expr = core.Literal(dialect, value) if not isinstance(value, bases.BaseExpression) else value
+    val_expr = core.Parameter(dialect, value) if not isinstance(value, bases.BaseExpression) else value
     args = [doc_expr, path_expr, val_expr]
     for i in range(0, len(path_values), 2):
         if i + 1 < len(path_values):
-            args.append(core.Literal(dialect, path_values[i]))
+            args.append(core.Parameter(dialect, path_values[i]))
             pv = path_values[i + 1]
-            args.append(core.Literal(dialect, pv) if not isinstance(pv, bases.BaseExpression) else pv)
+            args.append(core.Parameter(dialect, pv) if not isinstance(pv, bases.BaseExpression) else pv)
     return core.FunctionCall(dialect, "JSON_REPLACE", *args)
 
 
@@ -489,8 +489,8 @@ def json_object_pack(
 
     Version: SQLite 3.38.0+
     """
-    key_expr = core.Literal(dialect, key)
-    val_expr = core.Literal(dialect, value) if not isinstance(value, bases.BaseExpression) else value
+    key_expr = core.Parameter(dialect, key)
+    val_expr = core.Parameter(dialect, value) if not isinstance(value, bases.BaseExpression) else value
     return core.FunctionCall(dialect, "JSON_OBJECT", key_expr, val_expr)
 
 
@@ -674,13 +674,13 @@ def json_array_insert(
     Version: SQLite 3.53.0+
     """
     arr_expr = json_array
-    val_expr = core.Literal(dialect, value) if not isinstance(value, bases.BaseExpression) else value
+    val_expr = core.Parameter(dialect, value) if not isinstance(value, bases.BaseExpression) else value
 
     if position is not None:
         path_str = f"$[{position}]"
-        path_expr = core.Literal(dialect, path_str)
+        path_expr = core.Parameter(dialect, path_str)
         return core.FunctionCall(dialect, "JSON_ARRAY_INSERT", arr_expr, path_expr, val_expr)
-    return core.FunctionCall(dialect, "JSON_ARRAY_INSERT", arr_expr, core.Literal(dialect, "$"), val_expr)
+    return core.FunctionCall(dialect, "JSON_ARRAY_INSERT", arr_expr, core.Parameter(dialect, "$"), val_expr)
 
 
 def jsonb_array_insert(
@@ -713,13 +713,13 @@ def jsonb_array_insert(
     Version: SQLite 3.53.0+
     """
     arr_expr = jsonb_array
-    val_expr = core.Literal(dialect, value) if not isinstance(value, bases.BaseExpression) else value
+    val_expr = core.Parameter(dialect, value) if not isinstance(value, bases.BaseExpression) else value
 
     if position is not None:
         path_str = f"$[{position}]"
-        path_expr = core.Literal(dialect, path_str)
+        path_expr = core.Parameter(dialect, path_str)
         return core.FunctionCall(dialect, "JSONB_ARRAY_INSERT", arr_expr, path_expr, val_expr)
-    return core.FunctionCall(dialect, "JSONB_ARRAY_INSERT", arr_expr, core.Literal(dialect, "$"), val_expr)
+    return core.FunctionCall(dialect, "JSONB_ARRAY_INSERT", arr_expr, core.Parameter(dialect, "$"), val_expr)
 
 
 __all__ = [

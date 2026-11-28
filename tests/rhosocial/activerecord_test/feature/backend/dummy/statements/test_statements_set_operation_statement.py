@@ -19,7 +19,7 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 from rhosocial.activerecord.backend.expression import (
     Column,
     ComparisonPredicate,
-    Literal,
+    Parameter,
     QueryStatement,
     SetOperationStatement,
 )
@@ -101,7 +101,7 @@ class TestSetOperationStatementShape:
             select=[Column(dummy_dialect, "a")],
             from_="t",
             where=ComparisonPredicate(
-                dummy_dialect, "gt", Column(dummy_dialect, "a"), Literal(dummy_dialect, 1)
+                dummy_dialect, "gt", Column(dummy_dialect, "a"), Parameter(dummy_dialect, 1)
             ),
         )
         right = QueryStatement(
@@ -109,7 +109,7 @@ class TestSetOperationStatementShape:
             select=[Column(dummy_dialect, "b")],
             from_="t",
             where=ComparisonPredicate(
-                dummy_dialect, "lt", Column(dummy_dialect, "b"), Literal(dummy_dialect, 9)
+                dummy_dialect, "lt", Column(dummy_dialect, "b"), Parameter(dummy_dialect, 9)
             ),
         )
         node = SetOperationStatement(

@@ -11,7 +11,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
     ColumnConstraint,
 )
-from rhosocial.activerecord.backend.expression.core import Literal, Column
+from rhosocial.activerecord.backend.expression.core import Parameter, Column
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     CreateTableStatement,
@@ -88,7 +88,7 @@ for name, email in users:
         dialect=dialect,
         into=Table(dialect, 'users'),
         columns=["name", "email"],
-        source=ValuesSource(dialect, [[Literal(dialect, name), Literal(dialect, email)]]),
+        source=ValuesSource(dialect, [[Parameter(dialect, name), Parameter(dialect, email)]]),
     )
     sql, params = insert_expr.to_sql()
     backend.execute(sql, params)
@@ -105,7 +105,7 @@ query1 = QueryStatement(
     where=ComparisonPredicate(
         "=",
         Column(dialect, "name"),
-        Literal(dialect, "Alice"),
+        Parameter(dialect, "Alice"),
     ),
 )
 explain_scan = ExplainStatement(
@@ -128,7 +128,7 @@ query2 = QueryStatement(
     where=ComparisonPredicate(
         "=",
         Column(dialect, "email"),
-        Literal(dialect, "alice@example.com"),
+        Parameter(dialect, "alice@example.com"),
     ),
 )
 explain_search = ExplainStatement(

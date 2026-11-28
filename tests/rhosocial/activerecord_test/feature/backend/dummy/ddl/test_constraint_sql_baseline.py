@@ -40,7 +40,7 @@ from rhosocial.activerecord.backend.expression.statements.ddl_table import (
 )
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.expression.objects import Table
-from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression import Column, Parameter
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 
@@ -48,7 +48,7 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 def _check(dialect):
     """``age > 0`` -- DDL takes no bind parameters, so this renders inlined."""
     return ComparisonPredicate(
-        dialect, ">", Column(dialect, "age"), Literal(dialect, 0, inline=True)
+        dialect, ">", Column(dialect, "age"), Parameter(dialect, 0, inline=True)
     )
 
 
@@ -100,7 +100,7 @@ class TestColumnConstraintBaseline:
     def test_default_inlines_its_value(self, dummy_dialect):
         clause = ColumnConstraint(
             dummy_dialect,
-            branch=ColumnDefaultConstraint(dummy_dialect, Literal(dummy_dialect, 7, inline=True)),
+            branch=ColumnDefaultConstraint(dummy_dialect, Parameter(dummy_dialect, 7, inline=True)),
         )
         assert clause.to_sql() == (" DEFAULT 7", ())
 
@@ -159,7 +159,7 @@ class TestColumnConstraintBaseline:
         with pytest.raises(ValueError, match="cannot ride a ColumnDefaultConstraint"):
             ColumnConstraint(
                 dummy_dialect,
-                branch=ColumnDefaultConstraint(dummy_dialect, Literal(dummy_dialect, 1, inline=True)),
+                branch=ColumnDefaultConstraint(dummy_dialect, Parameter(dummy_dialect, 1, inline=True)),
                 enforced=True,
             )
         with pytest.raises(ValueError, match="cannot ride a ColumnNotNullConstraint"):

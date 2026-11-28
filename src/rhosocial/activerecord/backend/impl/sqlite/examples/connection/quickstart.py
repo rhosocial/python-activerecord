@@ -14,7 +14,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
 )
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
-from rhosocial.activerecord.backend.expression.core import Column, Literal
+from rhosocial.activerecord.backend.expression.core import Column, Parameter
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     CreateTableStatement,
@@ -109,8 +109,8 @@ def seed_demo_data():
         columns=["name", "status"],
         source=ValuesSource(
             [
-                [Literal(dialect, "Alice"), Literal(dialect, "active")],
-                [Literal(dialect, "Bob"), Literal(dialect, "inactive")],
+                [Parameter(dialect, "Alice"), Parameter(dialect, "active")],
+                [Parameter(dialect, "Bob"), Parameter(dialect, "inactive")],
             ],
         ),
     )
@@ -142,7 +142,7 @@ query = QueryStatement(
         condition=ComparisonPredicate(
             "=",
             Column(dialect, "status"),
-            Literal(dialect, "active"),
+            Parameter(dialect, "active"),
         ),
     ),
 )
@@ -176,12 +176,12 @@ filtered_query = QueryStatement(
         condition=ComparisonPredicate(
             "=",
             Column(dialect, "id"),
-            Literal(dialect, 1),
+            Parameter(dialect, 1),
         )
         & ComparisonPredicate(
             "=",
             Column(dialect, "status"),
-            Literal(dialect, "active"),
+            Parameter(dialect, "active"),
         ),
     ),
 )
@@ -196,7 +196,7 @@ with backend.transaction():
         dialect=dialect,
         into=Table(dialect, 'logs'),
         columns=["message"],
-        source=ValuesSource(dialect, [[Literal(dialect, "quickstart transaction")]]),
+        source=ValuesSource(dialect, [[Parameter(dialect, "quickstart transaction")]]),
     )
     execute_expression(insert_log)
 

@@ -12,7 +12,7 @@ from rhosocial.activerecord.backend.expression import (
     OrderByClause,
 )
 from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
-from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.core import Parameter
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableStatement,
     InsertStatement,
@@ -78,7 +78,7 @@ for title, author in articles:
         dialect=dialect,
         into=Table(dialect, 'articles'),
         columns=["title", "author"],
-        source=ValuesSource(dialect, [[Literal(dialect, title), Literal(dialect, author)]]),
+        source=ValuesSource(dialect, [[Parameter(dialect, title), Parameter(dialect, author)]]),
     )
     sql, params = insert_expr.to_sql()
     backend.execute(sql, params)

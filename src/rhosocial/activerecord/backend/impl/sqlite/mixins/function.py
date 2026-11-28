@@ -167,13 +167,13 @@ class SQLiteFunctionMixin:
         *n* two-character ``00`` pairs; replacing each pair with the pad leaves
         *n* copies of it. Used by both pad emulations.
         """
-        from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal
+        from rhosocial.activerecord.backend.expression.core import FunctionCall, Parameter
 
         return FunctionCall(
             self,
             "REPLACE",
             FunctionCall(self, "HEX", FunctionCall(self, "ZEROBLOB", count)),
-            Literal(self, "00"),
+            Parameter(self, "00"),
             pad,
         )
 
@@ -186,13 +186,13 @@ class SQLiteFunctionMixin:
         for 0, 1, 3 and a multi-character input. A negative count never
         reaches here: the factory settles it as the empty string first.
         """
-        from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal
+        from rhosocial.activerecord.backend.expression.core import FunctionCall, Parameter
 
         call = FunctionCall(
             self,
             "REPLACE",
             FunctionCall(self, "HEX", FunctionCall(self, "ZEROBLOB", expr.count)),
-            Literal(self, "00"),
+            Parameter(self, "00"),
             expr.expr,
             alias=expr.alias,
         )
@@ -211,7 +211,7 @@ class SQLiteFunctionMixin:
         from rhosocial.activerecord.backend.expression.advanced_functions import (
             CaseExpression,
         )
-        from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal
+        from rhosocial.activerecord.backend.expression.core import FunctionCall, Parameter
         from rhosocial.activerecord.backend.expression.operators import (
             BinaryExpression,
             UnaryExpression,
@@ -222,7 +222,7 @@ class SQLiteFunctionMixin:
 
         length_call = FunctionCall(self, "LENGTH", expr.expr)
         truncate_branch = FunctionCall(
-            self, "SUBSTR", expr.expr, Literal(self, 1), expr.length
+            self, "SUBSTR", expr.expr, Parameter(self, 1), expr.length
         )
         padded = BinaryExpression(self, "||", self._pad_copies(expr.length, expr.pad), expr.expr)
         pad_branch = FunctionCall(
@@ -243,12 +243,12 @@ class SQLiteFunctionMixin:
         first *length* characters are taken, which pads when short and
         truncates when long.
         """
-        from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal
+        from rhosocial.activerecord.backend.expression.core import FunctionCall, Parameter
         from rhosocial.activerecord.backend.expression.operators import BinaryExpression
 
         padded = BinaryExpression(self, "||", expr.expr, self._pad_copies(expr.length, expr.pad))
         call = FunctionCall(
-            self, "SUBSTR", padded, Literal(self, 1), expr.length, alias=expr.alias
+            self, "SUBSTR", padded, Parameter(self, 1), expr.length, alias=expr.alias
         )
         return call.to_sql()
 
@@ -279,7 +279,7 @@ class SQLiteFunctionMixin:
         from rhosocial.activerecord.backend.dialect.mixins.function import (
             FunctionCallMixin,
         )
-        from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal
+        from rhosocial.activerecord.backend.expression.core import FunctionCall, Parameter
         from rhosocial.activerecord.backend.expression.operators import BinaryExpression
 
         name = expr.func_name.upper()
@@ -292,7 +292,7 @@ class SQLiteFunctionMixin:
             # passed through: the value is scaled, truncated toward zero and
             # scaled back, which is exact for negatives too (truncation is
             # symmetric, unlike rounding).
-            scale = FunctionCall(self, "POW", Literal(self, 10), expr.args[1])
+            scale = FunctionCall(self, "POW", Parameter(self, 10), expr.args[1])
             scaled = BinaryExpression(self, "*", expr.args[0], scale)
             return BinaryExpression(
                 self, "/", FunctionCall(self, "TRUNC", scaled), scale
@@ -309,20 +309,20 @@ class SQLiteFunctionMixin:
         elif name == "LEFT" and len(expr.args) == 2:
             translated = copy.copy(expr)
             translated.func_name = "SUBSTR"
-            translated.args = [expr.args[0], Literal(self, 1), expr.args[1]]
+            translated.args = [expr.args[0], Parameter(self, 1), expr.args[1]]
         elif name == "RIGHT" and len(expr.args) == 2:
             length_call = FunctionCall(self, "LENGTH", expr.args[0])
             start = BinaryExpression(
                 self,
                 "+",
                 BinaryExpression(self, "-", length_call, expr.args[1]),
-                Literal(self, 1),
+                Parameter(self, 1),
             )
             translated = copy.copy(expr)
             translated.func_name = "SUBSTR"
             translated.args = [
                 expr.args[0],
-                FunctionCall(self, "MAX", start, Literal(self, 1)),
+                FunctionCall(self, "MAX", start, Parameter(self, 1)),
                 expr.args[1],
             ]
         elif name == "LOG" and len(expr.args) == 2:
@@ -345,7 +345,7 @@ class SQLiteFunctionMixin:
         back, which is exact for negatives too -- truncation is symmetric there,
         unlike rounding.
         """
-        from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal
+        from rhosocial.activerecord.backend.expression.core import FunctionCall, Parameter
         from rhosocial.activerecord.backend.expression.operators import BinaryExpression
 
         if len(expr.arguments) < 2:
@@ -361,7 +361,7 @@ class SQLiteFunctionMixin:
             return sql, tuple(parts_params)
 
         precision = expr.arguments[1]
-        scale = FunctionCall(self, "POW", Literal(self, 10), precision)
+        scale = FunctionCall(self, "POW", Parameter(self, 10), precision)
         scaled = BinaryExpression(self, "*", expr.arguments[0], scale)
         return BinaryExpression(
             self, "/", FunctionCall(self, "TRUNC", scaled), scale
@@ -434,10 +434,10 @@ class SQLiteFunctionMixin:
 
     def format_left_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
         """SQLite has no ``LEFT``; ``SUBSTR(x, 1, n)`` is the same thing."""
-        from rhosocial.activerecord.backend.expression.core import Literal
+        from rhosocial.activerecord.backend.expression.core import Parameter
 
         parts_sql, parts_params = [], []
-        for operand in (expr.target, Literal(self, 1), expr.count):
+        for operand in (expr.target, Parameter(self, 1), expr.count):
             operand_sql, operand_params = operand.to_sql()
             parts_sql.append(operand_sql)
             parts_params.extend(operand_params)
@@ -456,7 +456,7 @@ class SQLiteFunctionMixin:
         start is clamped with ``MAX(..., 1)``. Verified against MySQL, MariaDB,
         ClickHouse and BigQuery for n = 0, 1, len-1, len, len+1.
         """
-        from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal
+        from rhosocial.activerecord.backend.expression.core import FunctionCall, Parameter
         from rhosocial.activerecord.backend.expression.operators import BinaryExpression
 
         length_call = FunctionCall(self, "LENGTH", expr.target)
@@ -464,10 +464,10 @@ class SQLiteFunctionMixin:
             self,
             "+",
             BinaryExpression(self, "-", length_call, expr.count),
-            Literal(self, 1),
+            Parameter(self, 1),
         )
         parts_sql, parts_params = [], []
-        for operand in (expr.target, FunctionCall(self, "MAX", start, Literal(self, 1)), expr.count):
+        for operand in (expr.target, FunctionCall(self, "MAX", start, Parameter(self, 1)), expr.count):
             operand_sql, operand_params = operand.to_sql()
             parts_sql.append(operand_sql)
             parts_params.extend(operand_params)

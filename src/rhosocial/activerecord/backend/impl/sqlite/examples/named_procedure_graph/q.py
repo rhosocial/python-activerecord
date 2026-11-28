@@ -12,7 +12,7 @@ from rhosocial.activerecord.backend.expression import (
     ComparisonPredicate,
     functions,
     WhereClause,
-    Literal,
+    Parameter,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from .....expression.objects import Table
@@ -37,7 +37,7 @@ def agg_sales(dialect, month: str = ""):
         from_=NamedRelationRef(dialect, Table(dialect, "sales")),
         where=WhereClause(
             dialect,
-            condition=ComparisonPredicate(dialect, "=", Column(dialect, "month"), Literal(dialect, month)),
+            condition=ComparisonPredicate(dialect, "=", Column(dialect, "month"), Parameter(dialect, month)),
         ),
     )
 
@@ -61,7 +61,7 @@ def agg_refunds(dialect, month: str = ""):
         from_=NamedRelationRef(dialect, Table(dialect, "refunds")),
         where=WhereClause(
             dialect,
-            condition=ComparisonPredicate(dialect, "=", Column(dialect, "month"), Literal(dialect, month)),
+            condition=ComparisonPredicate(dialect, "=", Column(dialect, "month"), Parameter(dialect, month)),
         ),
     )
 
@@ -113,9 +113,9 @@ def check_threshold(dialect, threshold: int = 1000):
     """
     return QueryStatement(
         dialect,
-        select=[Literal(dialect, 1)],
+        select=[Parameter(dialect, 1)],
         where=WhereClause(
             dialect,
-            condition=ComparisonPredicate(dialect, ">", Column(dialect, "total"), Literal(dialect, threshold)),
+            condition=ComparisonPredicate(dialect, ">", Column(dialect, "total"), Parameter(dialect, threshold)),
         ),
     )

@@ -35,7 +35,7 @@ from rhosocial.activerecord.backend.expression import (
     CreateMaterializedViewStatement,
     CreateTableAsStatement,
     CreateViewStatement,
-    Literal,
+    Parameter,
     QueryStatement,
 )
 from rhosocial.activerecord.backend.expression.objects import MaterializedView, Table, View
@@ -66,7 +66,7 @@ def _dialect():
 def _query(dialect, inline):
     return QueryStatement(
         dialect=dialect,
-        select=[Literal(dialect, 1, inline=inline)],
+        select=[Parameter(dialect, 1, inline=inline)],
         from_=Table(dialect, "src"),
     )
 

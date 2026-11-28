@@ -6,7 +6,7 @@ This tests the as_() method and alias initialization for various expression clas
 
 import pytest
 
-from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall, Subquery, ComparisonPredicate
+from rhosocial.activerecord.backend.expression import Parameter, Column, FunctionCall, Subquery, ComparisonPredicate
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.operators import ArithmeticOperation
 from rhosocial.activerecord.backend.expression.query_parts import JoinClause
@@ -149,7 +149,7 @@ class TestAliasableMixin:
         ord_agg = OrderedSetAggregation(
             dummy_dialect,
             "PERCENTILE_CONT",
-            [Literal(dummy_dialect, 0.5)],
+            [Parameter(dummy_dialect, 0.5)],
             OrderByClause(dummy_dialect, [Column(dummy_dialect, "value")]),
             alias="percentile_50",
         )
@@ -165,7 +165,7 @@ class TestAliasableMixin:
         ord_agg = OrderedSetAggregation(
             dummy_dialect,
             "PERCENTILE_CONT",
-            [Literal(dummy_dialect, 0.5)],
+            [Parameter(dummy_dialect, 0.5)],
             OrderByClause(dummy_dialect, [Column(dummy_dialect, "value")]),
         ).as_("percentile_50")
         assert ord_agg.alias == "percentile_50"
@@ -200,7 +200,7 @@ class TestAliasNonContamination:
         # Same expression used in SELECT (aliased) and ORDER BY (unaliased).
         dist = ArithmeticOperation(
             dummy_dialect, "sub", Column(dummy_dialect, "embedding"),
-            Literal(dummy_dialect, "[1, 2, 3]"),
+            Parameter(dummy_dialect, "[1, 2, 3]"),
         )
         select_expr = dist.as_("cosine_distance")
         order_by_expr = dist  # original, must stay unaliased
@@ -213,7 +213,7 @@ class TestAliasNonContamination:
         child = Column(dummy_dialect, "embedding")
         child_aliased = child.as_("emb")
         parent = ArithmeticOperation(
-            dummy_dialect, "sub", Literal(dummy_dialect, 1), child
+            dummy_dialect, "sub", Parameter(dummy_dialect, 1), child
         )
         parent_sql = parent.to_sql()[0]
         # The parent uses the unaliased original -> no AS inside parentheses.
@@ -225,10 +225,10 @@ class TestAliasNonContamination:
         # reusing the aliased copy nested does not leak into the base.
         leaf = Column(dummy_dialect, "embedding")
         inner = ArithmeticOperation(
-            dummy_dialect, "sub", leaf, Literal(dummy_dialect, "[1, 2, 3]")
+            dummy_dialect, "sub", leaf, Parameter(dummy_dialect, "[1, 2, 3]")
         )
         outer = ArithmeticOperation(
-            dummy_dialect, "sub", Literal(dummy_dialect, 1), inner
+            dummy_dialect, "sub", Parameter(dummy_dialect, 1), inner
         )
         outer_aliased = outer.as_("cosine_similarity")
         # Aliased top renders with AS at the outermost position only.

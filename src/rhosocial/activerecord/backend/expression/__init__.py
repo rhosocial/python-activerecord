@@ -402,12 +402,11 @@ from .value_types import (
     TextValue,
     XMLValue,
 )
-from .values import LiteralKind
 from .core import (
     Column,
     FunctionCall,
     Subquery,
-    Literal,
+    Parameter,
     AllColumnsWildcard,
     RowCountWildcard,
     QualifiedIdentifier,
@@ -472,10 +471,6 @@ from .bases import (
     SQLQueryAndParams,
     QueryWithParams,
 )
-from .serialization import (
-    core_registry,
-    registry_for_packages,
-)
 # src/rhosocial/activerecord/backend/expression/__init__.py
 """
 SQL Expression building blocks.
@@ -500,8 +495,6 @@ __all__ = [
     "SQLQueryAndParams",
     "QueryWithParams",
     "Executable",
-    "core_registry",
-    "registry_for_packages",
     "AliasableMixin",
     "ArrayMixin",
     "StringPatternPredicateMixin",
@@ -546,7 +539,7 @@ __all__ = [
     "FunctionCall",
     "Subquery",
     "NamedRelationRef",
-    "Literal",
+    "Parameter",
     "ArrayValue",
     "BooleanValue",
     "JSONValue",
@@ -556,8 +549,6 @@ __all__ = [
     "TextValue",
     "XMLValue",
     "SurfaceOnlyValue",
-    "LiteralKind",
-    "LiteralKind",
     "AllColumnsWildcard",
     "RowCountWildcard",
     "QualifiedIdentifier",

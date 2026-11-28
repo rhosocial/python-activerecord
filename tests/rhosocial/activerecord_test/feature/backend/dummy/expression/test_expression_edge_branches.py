@@ -18,7 +18,7 @@ from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     RawSQL,
     QualifiedIdentifier,
     AllColumnsWildcard,
@@ -69,7 +69,7 @@ class TestCoreExpressionBranches:
     """Branch coverage for core/operator expressions."""
 
     def test_literal_cast_and_alias(self, dialect):
-        expr = cast(dialect, Literal(dialect, 42), DecimalType(dialect)).as_("n")
+        expr = cast(dialect, Parameter(dialect, 42), DecimalType(dialect)).as_("n")
         sql, params = expr.to_sql()
         assert "CAST" in sql or "DECIMAL" in sql
         assert "AS" in sql
@@ -100,7 +100,7 @@ class TestCoreExpressionBranches:
         assert params == ()
 
     def test_arithmetic_operation_with_cast(self, dialect):
-        expr = ArithmeticOperation(dialect, "add", Column(dialect, "price"), Literal(dialect, 10))
+        expr = ArithmeticOperation(dialect, "add", Column(dialect, "price"), Parameter(dialect, 10))
         casted = expr.cast(DecimalType(dialect))
         aliased = casted.as_("total")
         sql, params = aliased.to_sql()
@@ -252,7 +252,7 @@ class TestOnConflictValidation:
             ValuesSource,
         )
 
-        source = ValuesSource(dialect, [[Literal(dialect, 1)]])
+        source = ValuesSource(dialect, [[Parameter(dialect, 1)]])
         with pytest.raises(TypeError):
             InsertStatement(dialect, into=Table(dialect, 'users'), source=source, on_conflict="bad")
 
@@ -262,7 +262,7 @@ class TestOnConflictValidation:
             ValuesSource,
         )
 
-        source = ValuesSource(dialect, [[Literal(dialect, 1)]])
+        source = ValuesSource(dialect, [[Parameter(dialect, 1)]])
         with pytest.raises(TypeError):
             InsertStatement(dialect, into=Table(dialect, 'users'), source=source, on_conflict=["bad", "worse"])
 
@@ -272,7 +272,7 @@ class TestOnConflictValidation:
             ValuesSource,
         )
 
-        source = ValuesSource(dialect, [[Literal(dialect, 1)]])
+        source = ValuesSource(dialect, [[Parameter(dialect, 1)]])
         conflict = OnConflictClause(dialect, ["id"], do_nothing=True)
         expr = InsertStatement(dialect, into=Table(dialect, 'users'), source=source, on_conflict=[conflict])
         assert expr is not None
@@ -284,7 +284,7 @@ class TestOnConflictValidation:
             ValuesSource,
         )
 
-        source = ValuesSource(dialect, [[Literal(dialect, 1)]])
+        source = ValuesSource(dialect, [[Parameter(dialect, 1)]])
         conflict = OnConflictClause(dialect, ["id"], do_nothing=True)
         expr = InsertStatement(dialect, into=Table(dialect, 'users'), source=source, on_conflict=[conflict])
         expr.validate()
@@ -295,7 +295,7 @@ class TestOnConflictValidation:
             ValuesSource,
         )
 
-        source = ValuesSource(dialect, [[Literal(dialect, 1)]])
+        source = ValuesSource(dialect, [[Parameter(dialect, 1)]])
         conflict = OnConflictClause(dialect, ["id"], do_nothing=True)
         expr = InsertStatement(dialect, into=Table(dialect, 'users'), source=source, on_conflict=[conflict])
         expr.on_conflict = [conflict, "bad"]

@@ -38,7 +38,7 @@ flowchart TB
     end
 
     subgraph EX["Expression System"]
-        E["Expression AST<br/>(Column / Literal / Comparison / ...)"]
+        E["Expression AST<br/>(Column / Parameter / Comparison / ...)"]
     end
 
     Model --> Query
@@ -156,7 +156,7 @@ sequenceDiagram
     participant B as Backend
     participant DB as Database
 
-    M->>E: build query (Column, Literal, Comparison, ...)
+    M->>E: build query (Column, Parameter, Comparison, ...)
     E->>D: to_sql() → dialect.format_*(self)
     D-->>E: (SQL string, params tuple)
     E->>B: hand SQL + params

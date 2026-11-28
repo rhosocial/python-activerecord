@@ -9,7 +9,7 @@ from rhosocial.activerecord.backend.dialect.mixins import SQLXMLMixin
 from rhosocial.activerecord.backend.expression.value_types import TextValue, XMLValue
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     OrderByClause,
     PassingClause,
     XMLParseDocumentType,
@@ -44,7 +44,7 @@ class TestSQLXMLMixin:
 
         assert isinstance(expr, XMLParseExpression)
         assert expr.document_type is XMLParseDocumentType.DOCUMENT
-        assert isinstance(expr.content, Literal)
+        assert isinstance(expr.content, Parameter)
 
     def test_xmlparse_document_generates_standard_sql(self, dummy_dialect: DummyDialect):
         expr = xmlparse(dummy_dialect, "<root/>")
@@ -84,7 +84,7 @@ class TestSQLXMLMixin:
     def test_xmlparse_expression_can_be_constructed_directly(self, dummy_dialect: DummyDialect):
         expr = XMLParseExpression(
             dummy_dialect,
-            Literal(dummy_dialect, "<root/>"),
+            Parameter(dummy_dialect, "<root/>"),
             XMLParseDocumentType.CONTENT,
         )
 
@@ -222,12 +222,12 @@ class TestSQLXMLMixin:
             dummy_dialect,
             "/root/item",
             [
-                XMLTableColumn("id", "INTEGER", path=Literal(dummy_dialect, "@id")),
+                XMLTableColumn("id", "INTEGER", path=Parameter(dummy_dialect, "@id")),
                 XMLTableColumn(
                     "name",
                     "VARCHAR(100)",
-                    path=Literal(dummy_dialect, "name"),
-                    default=Literal(dummy_dialect, "unknown"),
+                    path=Parameter(dummy_dialect, "name"),
+                    default=Parameter(dummy_dialect, "unknown"),
                 ),
             ],
             passing=[Column(dummy_dialect, "payload")],

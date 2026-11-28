@@ -32,7 +32,7 @@ from rhosocial.activerecord.backend.expression import (
     FunctionCall,
     InsertStatement,
     JoinClause,
-    Literal,
+    Parameter,
     QueryStatement,
     SelectSource,
     Subquery,
@@ -133,8 +133,8 @@ class TestGeoDocumentScenario:
                 dialect, into=Table(dialect, 'docs_fts'),
                 columns=["rowid", "title", "body", "author"],
                 source=ValuesSource(dialect, [
-                    [Literal(dialect, d[0]), Literal(dialect, d[1]),
-                     Literal(dialect, d[2]), Literal(dialect, d[3])] for d in docs
+                    [Parameter(dialect, d[0]), Parameter(dialect, d[1]),
+                     Parameter(dialect, d[2]), Parameter(dialect, d[3])] for d in docs
                 ])
             ).to_sql(),
             options=insert
@@ -143,9 +143,9 @@ class TestGeoDocumentScenario:
             *InsertStatement(
                 dialect, into=Table(dialect, 'doc_locations'),
                 source=ValuesSource(dialect, [
-                    [Literal(dialect, d[0]), Literal(dialect, 0),
-                     Literal(dialect, 100), Literal(dialect, 0),
-                     Literal(dialect, 100)] for d in docs
+                    [Parameter(dialect, d[0]), Parameter(dialect, 0),
+                     Parameter(dialect, 100), Parameter(dialect, 0),
+                     Parameter(dialect, 100)] for d in docs
                 ])
             ).to_sql(),
             options=insert
@@ -155,7 +155,7 @@ class TestGeoDocumentScenario:
                 dialect, into=Table(dialect, 'doc_meta'),
                 columns=["doc_id", "extra"],
                 source=ValuesSource(dialect, [
-                    [Literal(dialect, d[0]), Literal(dialect, d[4])] for d in docs
+                    [Parameter(dialect, d[0]), Parameter(dialect, d[4])] for d in docs
                 ])
             ).to_sql(),
             options=insert
@@ -170,7 +170,7 @@ class TestGeoDocumentScenario:
                 where=(
                     SQLiteMatchPredicate(dialect, table="docs_fts", query="office")
                     & ComparisonPredicate(
-                        dialect, "=", Column(dialect, "author"), Literal(dialect, "Alice")
+                        dialect, "=", Column(dialect, "author"), Parameter(dialect, "Alice")
                     )
                 )
             ).to_sql()
@@ -281,12 +281,12 @@ class TestGeofencingScenario:
                 dialect, into=Table(dialect, 'zones'),
                 columns=["name", "category", "config", "_shape"],
                 source=ValuesSource(dialect, [[
-                    Literal(dialect, "central_park"),
-                    Literal(dialect, "park"),
-                    Literal(dialect, json.dumps({"alert": True, "priority": 1})),
+                    Parameter(dialect, "central_park"),
+                    Parameter(dialect, "park"),
+                    Parameter(dialect, json.dumps({"alert": True, "priority": 1})),
                     FunctionCall(dialect, "geopoly_regular",
-                        Literal(dialect, 0.0), Literal(dialect, 0.0),
-                        Literal(dialect, 3.0), Literal(dialect, 6)),
+                        Parameter(dialect, 0.0), Parameter(dialect, 0.0),
+                        Parameter(dialect, 3.0), Parameter(dialect, 6)),
                 ]])
             ).to_sql(),
             options=insert
@@ -296,12 +296,12 @@ class TestGeofencingScenario:
                 dialect, into=Table(dialect, 'zones'),
                 columns=["name", "category", "config", "_shape"],
                 source=ValuesSource(dialect, [[
-                    Literal(dialect, "north_zone"),
-                    Literal(dialect, "industrial"),
-                    Literal(dialect, json.dumps({"alert": False, "priority": 3})),
+                    Parameter(dialect, "north_zone"),
+                    Parameter(dialect, "industrial"),
+                    Parameter(dialect, json.dumps({"alert": False, "priority": 3})),
                     FunctionCall(dialect, "geopoly_regular",
-                        Literal(dialect, 5.0), Literal(dialect, 5.0),
-                        Literal(dialect, 2.0), Literal(dialect, 6)),
+                        Parameter(dialect, 5.0), Parameter(dialect, 5.0),
+                        Parameter(dialect, 2.0), Parameter(dialect, 6)),
                 ]])
             ).to_sql(),
             options=insert
@@ -385,7 +385,7 @@ class TestGeofencingScenario:
                     SQLiteMatchPredicate(dialect, table="zone_fts", query="park")
                     & (FunctionCall(dialect, "geopoly_contains_point",
                         Column(dialect, "_shape", table="z"),
-                        Literal(dialect, 1.0), Literal(dialect, 1.0)
+                        Parameter(dialect, 1.0), Parameter(dialect, 1.0)
                       ) != 0)
                 )
             ).to_sql()
@@ -487,8 +487,8 @@ class TestSpatialCatalogScenario:
                 dialect, into=Table(dialect, 'features_fts'),
                 columns=["rowid", "name", "description"],
                 source=ValuesSource(dialect, [
-                    [Literal(dialect, f[0]), Literal(dialect, f[1]),
-                     Literal(dialect, f[2])] for f in features
+                    [Parameter(dialect, f[0]), Parameter(dialect, f[1]),
+                     Parameter(dialect, f[2])] for f in features
                 ])
             ).to_sql(),
             options=insert
@@ -497,9 +497,9 @@ class TestSpatialCatalogScenario:
             *InsertStatement(
                 dialect, into=Table(dialect, 'features_rtree'),
                 source=ValuesSource(dialect, [
-                    [Literal(dialect, f[0]), Literal(dialect, f[4]),
-                     Literal(dialect, f[5]), Literal(dialect, f[6]),
-                     Literal(dialect, f[7])] for f in features
+                    [Parameter(dialect, f[0]), Parameter(dialect, f[4]),
+                     Parameter(dialect, f[5]), Parameter(dialect, f[6]),
+                     Parameter(dialect, f[7])] for f in features
                 ])
             ).to_sql(),
             options=insert
@@ -545,7 +545,7 @@ class TestSpatialCatalogScenario:
                 dialect, into=Table(dialect, 'feature_props'),
                 columns=["feature_id", "props"],
                 source=ValuesSource(dialect, [
-                    [Literal(dialect, f[0]), Literal(dialect, f[3])] for f in features
+                    [Parameter(dialect, f[0]), Parameter(dialect, f[3])] for f in features
                 ])
             ).to_sql(),
             options=insert
@@ -592,7 +592,7 @@ class TestSpatialCatalogScenario:
                     & (json_extract_func(
                         dialect,
                         Column(dialect, "props", table="feature_props"),
-                        Literal(dialect, "$.has_lake")
+                        Parameter(dialect, "$.has_lake")
                       ) == 1)
                 )
             ).to_sql()

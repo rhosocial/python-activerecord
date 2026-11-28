@@ -23,7 +23,7 @@ type is PostgreSQL's business.
 
 import pytest
 
-from rhosocial.activerecord.backend.expression import Literal
+from rhosocial.activerecord.backend.expression import Parameter
 from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
     AlterColumnAction,
 )
@@ -68,7 +68,7 @@ def dialect():
 
 def _serialize(dialect, target_type):
     return dialect.format_xml_serialize_expression(
-        XMLSerializeExpression(dialect, Literal(dialect, "x"), target_type)
+        XMLSerializeExpression(dialect, Parameter(dialect, "x"), target_type)
     )[0]
 
 
@@ -76,7 +76,7 @@ def _xmltable(dialect, data_type):
     return dialect.format_xml_table_expression(
         XMLTableExpression(
             dialect,
-            row_pattern=Literal(dialect, "x"),
+            row_pattern=Parameter(dialect, "x"),
             columns=[XMLTableColumn(name="c", data_type=data_type)],
         )
     )[0]

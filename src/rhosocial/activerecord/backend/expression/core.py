@@ -1,11 +1,12 @@
 # src/rhosocial/activerecord/backend/expression/core.py
 """
-Core SQL expression components like columns, literals, function calls, and subqueries.
+Core SQL expression components like columns, parameters, function calls, and subqueries.
 """
 
 from typing import Any, Optional, Tuple, TYPE_CHECKING, Union
 
 from .bases import BaseExpression, QueryWithParams, SQLPredicate, SQLQueryAndParams, SQLValue
+from .coerce import value_expression
 from .column_types import ColumnBase
 from .mixins import (
     AliasableMixin,
@@ -25,8 +26,8 @@ if TYPE_CHECKING:
     from .types._base import DataType
 
 
-class Literal(BaseExpression):
-    """A literal, and nothing but the decision of how it reaches SQL.
+class Parameter(BaseExpression):
+    """A parameter: a value at one position, and the decision how it reaches SQL.
 
     Every value that reaches SQL passes through this class, so that the question
     "does this value become a bind parameter or SQL text?" has exactly one place
@@ -47,11 +48,14 @@ class Literal(BaseExpression):
     expression yields a value of some type", and a bare position does not know
     its type — ``NULLIF(a, b)`` is text or a number depending on the data. The
     earlier version of this class inherited the comparison, arithmetic and
-    string-pattern mixins, which let ``Literal(d, 7).like()`` compile and
+    string-pattern mixins, which let ``Parameter(d, 7).like()`` compile and
     promised SQL the database would reject. The result's type is declared
     elsewhere, by :meth:`~...mixins.ResultTypeMixin.as_text` and its siblings.
 
-    Nor is a literal aliasable. A bind parameter has no name to give — the
+    Nor does it know a **type**: an artifact carries the value as-is, and
+    whether ``json.dumps`` can write it is that value type's own contract.
+
+    Nor is a parameter aliasable. A bind parameter has no name to give — the
     parameter the driver fills in is the driver's, not the query's — and a name
     on SQL text would be naming text rather than a result. Aliasing belongs to
     the things that produce a named result, which is what
@@ -61,7 +65,7 @@ class Literal(BaseExpression):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_literal_expression"
+        return "format_parameter_expression"
 
     #: ``None`` is the SQL ``NULL``, so this required parameter may hold it.
     NULLABLE_REQUIRED = frozenset({"value"})
@@ -74,25 +78,12 @@ class Literal(BaseExpression):
         inline: bool = False,
     ):
         super().__init__(dialect)
-        from .values import LiteralKind
-
-        # Which value kind this is, read off the host value. It is the artifact
-        # identity, and it cannot be derived from the class: one class carries
-        # every value, while the wire still names the twelve kinds separately --
-        # ``"2020-01-02"`` as a date and as a string are the same bytes, and
-        # only the kind tells them apart.
-        #
-        # ``None`` for a type no kind names -- a ``Point``, an ``inet``, any
-        # ``SQLLiteral`` implementor. The literal still renders through the
-        # dialect's own literal construction; what it cannot do is travel, and
-        # serialization is where that is said.
-        self.value_kind = LiteralKind.match(value)
         self.value = value
         self.inline = inline
 
     def __repr__(self) -> str:
         where = "" if not self.inline else ", inline"
-        return f"Literal({self.value!r}{where})"
+        return f"Parameter({self.value!r}{where})"
 
 
 class Column(ColumnBase):
@@ -231,7 +222,7 @@ class FunctionCall(
     ):
         super().__init__(dialect)
         self.func_name = func_name
-        self.args = list(args)
+        self.args = [value_expression(dialect, arg) for arg in args]
         self.is_distinct = is_distinct
         self.alias = alias
         self.niladic = niladic

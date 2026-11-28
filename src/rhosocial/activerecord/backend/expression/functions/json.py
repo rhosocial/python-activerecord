@@ -6,7 +6,7 @@ from typing import Optional, TYPE_CHECKING
 from ..advanced_functions import DeclaredValueType
 from ..bases import BaseExpression
 from .aggregate import AggregateFunction
-from ..core import Column, Literal
+from ..core import Column, Parameter
 from ..advanced_functions import JSONDocumentValue, JSONTextValue
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -32,7 +32,7 @@ class JSONBuildObjectFunction(
         # whose __init__ takes the call it delegates to, and this node has no
         # call -- it renders itself. DeclaredValueType keeps that from mattering.
         BaseExpression.__init__(self, dialect)
-        self.pairs = [p if isinstance(p, BaseExpression) else Literal(dialect, p) for p in pairs]
+        self.pairs = [p if isinstance(p, BaseExpression) else Parameter(dialect, p) for p in pairs]
 
     @property
     def format_method(self) -> str:
@@ -52,7 +52,7 @@ class JSONArrayElementsFunction(
 
 
     def __init__(self, dialect: "SQLDialectBase", target):
-        from ..core import Literal
+        from ..core import Parameter
 
         # BaseExpression directly, not super(): the value class is a *wrapper*
         # whose __init__ takes the call it delegates to, and this node has no
@@ -60,7 +60,7 @@ class JSONArrayElementsFunction(
         BaseExpression.__init__(self, dialect)
         # A JSON document is not text and not a number, so a bare host value
         # becomes the untyped literal until the JSON value type lands.
-        self.target = target if isinstance(target, BaseExpression) else Literal(dialect, target)
+        self.target = target if isinstance(target, BaseExpression) else Parameter(dialect, target)
 
     @property
     def format_method(self) -> str:
@@ -84,7 +84,7 @@ class JSONObjectAggregateFunction(
 
 
     def __init__(self, dialect: "SQLDialectBase", operand, entry_value):
-        from ..core import Literal
+        from ..core import Parameter
 
         # ``operand`` and not ``key``: that is the name AggregateFunction
         # declares, and the deserializer reads the declared names, so a
@@ -92,9 +92,9 @@ class JSONObjectAggregateFunction(
         #
         # Both operands are arbitrary JSON, so neither is text or a number and a
         # bare host value becomes the untyped literal.
-        operand = operand if isinstance(operand, BaseExpression) else Literal(dialect, operand)
+        operand = operand if isinstance(operand, BaseExpression) else Parameter(dialect, operand)
         entry_value = (
-            entry_value if isinstance(entry_value, BaseExpression) else Literal(dialect, entry_value)
+            entry_value if isinstance(entry_value, BaseExpression) else Parameter(dialect, entry_value)
         )
         AggregateFunction.__init__(self, dialect, operand)
         self.entry_value = entry_value

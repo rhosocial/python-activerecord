@@ -27,7 +27,7 @@ sql, params = expr.to_sql()
 如需更灵活的控制，可以使用 functions 模块中的 `cast()` 函数：
 
 ```python
-from rhosocial.activerecord.backend.expression import Column, IntegerColumn, Literal
+from rhosocial.activerecord.backend.expression import Column, IntegerColumn, Parameter
 from rhosocial.activerecord.backend.expression.functions import cast
 from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 
@@ -39,7 +39,7 @@ sql, params = expr.to_sql()
 # params: ()
 
 # 转换字面值
-expr = cast(dialect, Literal(dialect, "123"), TextType(dialect))
+expr = cast(dialect, Parameter(dialect, "123"), TextType(dialect))
 sql, params = expr.to_sql()
 # sql: 'CAST(? AS TEXT)'
 # params: ('123',)
@@ -134,7 +134,7 @@ PostgreSQL dialect 会自动使用 `::` 语法生成更简洁的 SQL。
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    Column, FunctionCall, Literal, WindowSpecification,
+    Column, FunctionCall, Parameter, WindowSpecification,
 )
 from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
 
@@ -286,9 +286,9 @@ sql, params = json_extract.to_sql()
 例如：`UNNEST`、`JSON_TABLE`。
 
 ```python
-from rhosocial.activerecord.backend.expression import TableFunctionExpression, Literal
+from rhosocial.activerecord.backend.expression import TableFunctionExpression, Parameter
 
-arg = Literal(dialect, ["a", "b", "c"])
+arg = Parameter(dialect, ["a", "b", "c"])
 unnest_expr = TableFunctionExpression(
     dialect,
     "UNNEST",

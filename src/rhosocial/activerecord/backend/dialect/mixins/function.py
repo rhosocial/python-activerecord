@@ -31,7 +31,7 @@ class FunctionCallMixin():
         Every argument must be an expression: a bare value fails to render
         rather than being turned into a bind parameter here, because the
         renderer does not decide what a caller meant. A value goes through
-        :class:`~...expression.core.Literal` at the call site.
+        :class:`~...expression.core.Parameter` at the call site.
 
         The first thing it does is refuse a call this dialect's version
         predates (:meth:`~.base.SQLDialectBase.check_function_version`), so a
@@ -72,7 +72,7 @@ class FunctionCallMixin():
             for arg in expr.args:
                 # A factory that accepts a bare value is deciding what it
                 # meant; the renderer refuses instead of manufacturing the
-                # Literal the caller should have written (see the docstring).
+                # Parameter the caller should have written (see the docstring).
                 sql_part, params_part = arg.to_sql()
                 args_sql.append(sql_part)
                 args_params.append(params_part)
@@ -541,7 +541,7 @@ class FunctionCallMixin():
         column given a name here is a name the caller asked for.
         """
         source_sql, source_params = expr.source.to_sql()
-        # The annotated node need not carry an alias slot at all -- a Literal,
+        # The annotated node need not carry an alias slot at all -- a Parameter,
         # for one, renders a value and has no name that could be aliased. Only
         # nodes that model a column-like surface expose ``alias``.
         source_alias = getattr(expr.source, "alias", None)

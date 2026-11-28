@@ -1,13 +1,12 @@
 # .../mixins/expression.py
 """Base expression rendering mixin. Sub-features live in their own mixins."""
 
-from typing import Any, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, List, Optional, Tuple
 from ...expression import bases
 from ...expression.core import (
     CastExpression,
     QualifiedIdentifier,
     Subquery,
-    AllColumnsWildcard,
 )
 from ...expression.literals import Identifier
 from ...expression.mixins import AliasableMixin
@@ -15,6 +14,7 @@ from ...expression.operators import (
     ArithmeticOperation,
     BinaryExpression,
     RawSQL,
+    RawSQLPredicate,
     SQLOperation,
     ConcatenationOperation,
     UnaryExpression,
@@ -24,7 +24,6 @@ from .filter_clause_mixin import FilterClauseMixin
 from .ordered_set_aggregation_mixin import OrderedSetAggregationMixin
 from .wildcard_mixin import WildcardMixin
 
-from ..protocols.query.expression_support import ExpressionSupport
 
 class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregationMixin, WildcardMixin):
     def format_identifier_expression(self, expr: Identifier) -> Tuple[str, tuple]:
@@ -56,11 +55,11 @@ class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregatio
                 )
             return self.format_identifier(expr.name, expr.name_need_quote), ()
 
-    def format_literal_expression(self, expr: "bases.Literal") -> Tuple[str, tuple]:
+    def format_parameter_expression(self, expr: "bases.Parameter") -> Tuple[str, tuple]:
             """Format a value held at one position of an expression.
 
             Args:
-                expr: The literal carrying ``value`` and ``inline``.
+                expr: The parameter carrying ``value`` and ``inline``.
 
             Returns:
                 A ``(sql, params)`` tuple; ``params`` holds the value when it is
@@ -71,10 +70,10 @@ class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregatio
             the value to the driver. ``True`` writes the value as SQL text through
             the dialect's controlled literal construction (escaped, quoted), for
             the DDL syntax positions that accept no bind parameters. Because the
-            answer lives on the literal, a node holding several values can treat
+            answer lives on the parameter, a node holding several values can treat
             them differently without the formatter learning anything new.
 
-            There is no alias to apply. A literal is the one thing in the tree with
+            There is no alias to apply. A parameter is the one thing in the tree with
             nothing to name: a bind parameter belongs to the driver, and inline SQL
             text is text.
             """
@@ -221,7 +220,7 @@ class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregatio
             return sql, params
 
     def format_raw_sql(self, expr: RawSQL) -> Tuple[str, tuple]:
-            """Format a :class:`~...expression.operators.RawSQL` / ``RawSQLPredicate``.
+            """Format a :class:`~...expression.operators.RawSQL`.
 
             Args:
                 expr: Raw SQL expression exposing ``expression`` and ``params``.
@@ -233,12 +232,29 @@ class ExpressionMixin(FunctionCallMixin, FilterClauseMixin, OrderedSetAggregatio
             it bypasses the building mechanism by design and is the caller's
             responsibility to keep safe.
 
-            ``params`` holds :class:`~...expression.core.Literal` nodes rather than
+            ``params`` holds :class:`~...expression.core.Parameter` nodes rather than
             bare values, which is what lets each bind value keep its kind on the wire
             (§10). A driver binds plain values, so the nodes are unwrapped here — the
             one boundary that owes the driver something it can actually use.
             """
             return expr.expression, tuple(p.value for p in expr.params)
+
+    def format_raw_sql_predicate(self, expr: "RawSQLPredicate") -> Tuple[str, tuple]:
+            """Format a :class:`~...expression.operators.RawSQLPredicate`.
+
+            Args:
+                expr: Raw SQL predicate exposing ``expression`` and ``params``.
+
+            Returns:
+                A ``(sql, params)`` tuple of the raw SQL text and its parameters.
+
+            A predicate and a value are two nodes with two formatters, even though
+            both embed their text verbatim: the binding is one node to one
+            formatter, and a shared name would mean an override of one changed the
+            rendering of the other. The rendering itself is the same, so this
+            delegates rather than repeating it.
+            """
+            return self.format_raw_sql(expr)
 
     def format_subquery(self, expr: Subquery) -> Tuple[str, tuple]:
             """Format a :class:`~...expression.core.Subquery` (parenthesized query).

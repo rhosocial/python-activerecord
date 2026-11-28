@@ -101,7 +101,7 @@ print("=" * 60)
 
 from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteReindexStatement  # noqa: E402
 from rhosocial.activerecord.backend.impl.sqlite.functions import json_array_insert, jsonb_array_insert  # noqa: E402
-from rhosocial.activerecord.backend.expression import Column, Literal, QueryStatement
+from rhosocial.activerecord.backend.expression import Column, Parameter, QueryStatement
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from .....expression.objects import Table
 
@@ -117,7 +117,7 @@ else:
 if dialect.version >= (3, 53, 0) and funcs.get("json_array_insert"):
     print("\n--- json_array_insert Example ---")
     col_data = Column(dialect, "data", table="test_json")
-    json_expr = json_array_insert(dialect, col_data, Literal(dialect, 0), position=0)
+    json_expr = json_array_insert(dialect, col_data, Parameter(dialect, 0), position=0)
     sql, params = json_expr.to_sql()
     print(f"  SQL: {sql}")
     print(f"  Params: {params}")
@@ -128,7 +128,7 @@ else:
 if dialect.version >= (3, 53, 0) and funcs.get("jsonb_array_insert"):
     print("\n--- jsonb_array_insert Example ---")
     col_data = Column(dialect, "data", table="test_jsonb")
-    json_expr = jsonb_array_insert(dialect, col_data, Literal(dialect, "new_value"), position=1)
+    json_expr = jsonb_array_insert(dialect, col_data, Parameter(dialect, "new_value"), position=1)
     sql, params = json_expr.to_sql()
     print(f"  SQL: {sql}")
     print(f"  Params: {params}")
@@ -158,7 +158,7 @@ if dialect.version >= (3, 53, 0) and funcs.get("json_array_insert"):
     backend.execute("INSERT INTO test_json (data) VALUES (?)", ("[1, 2, 3]",), options=ddl_options)
 
     col_data = Column(dialect, "data", table="test_json")
-    json_expr = json_array_insert(dialect, col_data, Literal(dialect, 0), position=0)
+    json_expr = json_array_insert(dialect, col_data, Parameter(dialect, 0), position=0)
 
     query = QueryStatement(
         dialect=dialect,
@@ -180,7 +180,7 @@ if dialect.version >= (3, 53, 0) and funcs.get("json_array_insert"):
     backend.execute("INSERT INTO test_jsonb (data) VALUES (?)", ("[1, 2, 3]",), options=ddl_options)
 
     col_data = Column(dialect, "data", table="test_jsonb")
-    json_expr = jsonb_array_insert(dialect, col_data, Literal(dialect, "new_value"), position=1)
+    json_expr = jsonb_array_insert(dialect, col_data, Parameter(dialect, "new_value"), position=1)
 
     query = QueryStatement(
         dialect=dialect,

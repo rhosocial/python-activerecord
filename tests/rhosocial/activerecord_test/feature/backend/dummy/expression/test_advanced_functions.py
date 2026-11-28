@@ -4,7 +4,7 @@ Tests for the advanced SQL function expression components in advanced_functions.
 """
 
 from rhosocial.activerecord.backend.expression.functions import cast
-from rhosocial.activerecord.backend.expression import Column, Literal, NumericColumn, StringColumn
+from rhosocial.activerecord.backend.expression import Column, Parameter, NumericColumn, StringColumn
 from rhosocial.activerecord.backend.expression.advanced_functions import (
     CaseExpression,
     ExistsPredicate,
@@ -25,8 +25,8 @@ class TestCaseExpression:
     def test_case_expression_basic(self, dummy_dialect: DummyDialect):
         """Test basic CASE expression functionality."""
         # Create a basic CASE expression with one condition-result pair
-        condition = NumericColumn(dummy_dialect, "age") > Literal(dummy_dialect, 18)
-        result = Literal(dummy_dialect, "adult")
+        condition = NumericColumn(dummy_dialect, "age") > Parameter(dummy_dialect, 18)
+        result = Parameter(dummy_dialect, "adult")
         case_expr = CaseExpression(dummy_dialect, cases=[(condition, result)])
         sql, params = case_expr.to_sql()
         assert "CASE" in sql
@@ -37,8 +37,8 @@ class TestCaseExpression:
         """Test CASE expression with value."""
         value_expr = Column(dummy_dialect, "status")
         # Create a basic CASE expression with one condition-result pair
-        condition = StringColumn(dummy_dialect, "status") == Literal(dummy_dialect, "active")
-        result = Literal(dummy_dialect, "ACTIVE_USER")
+        condition = StringColumn(dummy_dialect, "status") == Parameter(dummy_dialect, "active")
+        result = Parameter(dummy_dialect, "ACTIVE_USER")
         case_expr = CaseExpression(dummy_dialect, value=value_expr, cases=[(condition, result)])
         sql, params = case_expr.to_sql()
         assert "CASE" in sql
@@ -47,8 +47,8 @@ class TestCaseExpression:
 
     def test_case_expression_with_cases(self, dummy_dialect: DummyDialect):
         """Test CASE expression with cases."""
-        condition = NumericColumn(dummy_dialect, "age") > Literal(dummy_dialect, 18)
-        result = Literal(dummy_dialect, "adult")
+        condition = NumericColumn(dummy_dialect, "age") > Parameter(dummy_dialect, 18)
+        result = Parameter(dummy_dialect, "adult")
         case_expr = CaseExpression(dummy_dialect, cases=[(condition, result)])
         sql, params = case_expr.to_sql()
         assert "CASE" in sql
@@ -57,9 +57,9 @@ class TestCaseExpression:
 
     def test_case_expression_with_else_result(self, dummy_dialect: DummyDialect):
         """Test CASE expression with else result."""
-        condition = NumericColumn(dummy_dialect, "age") > Literal(dummy_dialect, 18)
-        result = Literal(dummy_dialect, "adult")
-        else_result = Literal(dummy_dialect, "minor")
+        condition = NumericColumn(dummy_dialect, "age") > Parameter(dummy_dialect, 18)
+        result = Parameter(dummy_dialect, "adult")
+        else_result = Parameter(dummy_dialect, "minor")
         case_expr = CaseExpression(dummy_dialect, cases=[(condition, result)], else_result=else_result)
         sql, params = case_expr.to_sql()
         assert "CASE" in sql
@@ -67,9 +67,9 @@ class TestCaseExpression:
 
     def test_case_expression_with_alias(self, dummy_dialect: DummyDialect):
         """Test CASE expression with alias."""
-        condition = StringColumn(dummy_dialect, "status") == Literal(dummy_dialect, "active")
-        result = Literal(dummy_dialect, 1)
-        else_result = Literal(dummy_dialect, 0)
+        condition = StringColumn(dummy_dialect, "status") == Parameter(dummy_dialect, "active")
+        result = Parameter(dummy_dialect, 1)
+        else_result = Parameter(dummy_dialect, 0)
         case_expr = CaseExpression(
             dummy_dialect, cases=[(condition, result)], else_result=else_result, alias="status_flag"
         )
@@ -91,7 +91,7 @@ class TestCastExpression:
 
     def test_cast_expression_with_literal(self, dummy_dialect: DummyDialect):
         """Test CAST expression with literal value."""
-        literal = Literal(dummy_dialect, "123")
+        literal = Parameter(dummy_dialect, "123")
         expr = cast(dummy_dialect, literal, IntegerType(dummy_dialect))
         sql, params = expr.to_sql()
         assert "CAST(" in sql
@@ -134,7 +134,7 @@ class TestAnyExpression:
     def test_any_expression_with_literal_list(self, dummy_dialect: DummyDialect):
         """Test ANY expression with literal list."""
         expr = Column(dummy_dialect, "value")
-        array_expr = Literal(dummy_dialect, [1, 2, 3])
+        array_expr = Parameter(dummy_dialect, [1, 2, 3])
         any_expr = AnyPredicate(dummy_dialect, expr, ">", array_expr)
         sql, params = any_expr.to_sql()
         assert "ANY" in sql
@@ -157,7 +157,7 @@ class TestAllExpression:
     def test_all_expression_with_literal_list(self, dummy_dialect: DummyDialect):
         """Test ALL expression with literal list."""
         expr = Column(dummy_dialect, "value")
-        array_expr = Literal(dummy_dialect, [1, 2, 3])
+        array_expr = Parameter(dummy_dialect, [1, 2, 3])
         all_expr = AllPredicate(dummy_dialect, expr, "=", array_expr)
         sql, params = all_expr.to_sql()
         assert "ALL" in sql
@@ -197,7 +197,7 @@ class TestArrayValue:
 
     def test_array_constructor(self, dummy_dialect: DummyDialect):
         """Test ARRAY constructor operation."""
-        elements = [Literal(dummy_dialect, 1), Literal(dummy_dialect, 2), Literal(dummy_dialect, 3)]
+        elements = [Parameter(dummy_dialect, 1), Parameter(dummy_dialect, 2), Parameter(dummy_dialect, 3)]
         array_expr = ArrayOperation(dummy_dialect, "CONSTRUCTOR", elements=elements)
         sql, params = array_expr.to_sql()
         assert "ARRAY[" in sql
@@ -206,7 +206,7 @@ class TestArrayValue:
     def test_array_access(self, dummy_dialect: DummyDialect):
         """Test ARRAY access operation."""
         base_expr = Column(dummy_dialect, "array_col")
-        index_expr = Literal(dummy_dialect, 1)
+        index_expr = Parameter(dummy_dialect, 1)
         array_expr = ArrayOperation(dummy_dialect, "ACCESS", base_expr=base_expr, index_expr=index_expr)
         sql, params = array_expr.to_sql()
         assert "[" in sql and "]" in sql
@@ -236,7 +236,7 @@ class TestOrderedSetAggregation:
 
     def test_ordered_set_aggregation_with_alias(self, dummy_dialect: DummyDialect):
         """Test ordered-set aggregation with alias."""
-        args = [Literal(dummy_dialect, 0.5), Column(dummy_dialect, "value")]
+        args = [Parameter(dummy_dialect, 0.5), Column(dummy_dialect, "value")]
         from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
 
         order_by = OrderByClause(dummy_dialect, [Column(dummy_dialect, "category"), Column(dummy_dialect, "name")])

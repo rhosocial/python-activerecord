@@ -17,7 +17,7 @@ Both methods support synchronous and asynchronous variants with identical APIs.
 
 ```python
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.expression import InsertStatement, ValuesSource, Literal
+from rhosocial.activerecord.backend.expression import InsertStatement, ValuesSource, Parameter
 from rhosocial.activerecord.backend.expression.objects import Table
 
 backend = SQLiteBackend(database=":memory:")
@@ -30,8 +30,8 @@ backend.execute(
 expressions = []
 for i in range(100):
     source = ValuesSource(backend.dialect, values_list=[
-        [Literal(backend.dialect, f"user{i}"),
-         Literal(backend.dialect, f"user{i}@example.com")]
+        [Parameter(backend.dialect, f"user{i}"),
+         Parameter(backend.dialect, f"user{i}@example.com")]
     ])
     expr = InsertStatement(
         backend.dialect,
@@ -121,7 +121,7 @@ Batch DML requires **homogeneous expressions**:
 
 ```python
 # Valid: All INSERT expressions targeting the same table
-from rhosocial.activerecord.backend.expression import IntegerColumn, Literal
+from rhosocial.activerecord.backend.expression import IntegerColumn, Parameter
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.statements import (
     InsertStatement,
@@ -137,7 +137,7 @@ def make_insert(name, email):
         columns=["name", "email"],
         source=ValuesSource(
             backend.dialect,
-            values_list=[[Literal(backend.dialect, name), Literal(backend.dialect, email)]],
+            values_list=[[Parameter(backend.dialect, name), Parameter(backend.dialect, email)]],
         ),
     )
 
@@ -146,7 +146,7 @@ def make_update(user_id, name):
     return UpdateStatement(
         backend.dialect,
         Table(backend.dialect, "users"),
-        assignments={"name": Literal(backend.dialect, name)},
+        assignments={"name": Parameter(backend.dialect, name)},
         where=(IntegerColumn(backend.dialect, "id") == user_id),
     )
 
@@ -275,7 +275,7 @@ import asyncio
 from rhosocial.activerecord.backend.expression import (
     AllColumnsWildcard,
     InsertStatement,
-    Literal,
+    Parameter,
     NamedRelationRef,
     ValuesSource,
 )
@@ -300,8 +300,8 @@ async def run_async_batches():
             source=ValuesSource(
                 async_dialect,
                 values_list=[[
-                    Literal(async_dialect, f"async{i}"),
-                    Literal(async_dialect, f"async{i}@example.com"),
+                    Parameter(async_dialect, f"async{i}"),
+                    Parameter(async_dialect, f"async{i}@example.com"),
                 ]],
             ),
         )

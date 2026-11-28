@@ -31,7 +31,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     FunctionCall,
     ComparisonPredicate,  # Import ALTER TABLE related classes
     AlterTableStatement,
@@ -113,14 +113,14 @@ class TestAlterTableStatements:
         assert params == ()
 
     def test_alter_column_modify_default_given_a_literal(self, dummy_dialect: DummyDialect):
-        """A Literal value renders the same as the bare string it wraps.
+        """A Parameter value renders the same as the bare string it wraps.
 
         The two spell the same value, so the statement they produce must be
         the same. A value that arrives already wrapped is still a value the
         position has to write out: ``SET DEFAULT`` with nothing after it
         would set the column's default to nothing at all.
         """
-        for new_value in ("active", Literal(dummy_dialect, "active", inline=True)):
+        for new_value in ("active", Parameter(dummy_dialect, "active", inline=True)):
             alter_action = AlterColumnAction(
                 dummy_dialect,
                 column_name="status",
@@ -139,7 +139,7 @@ class TestAlterTableStatements:
     def test_add_constraint_action(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with ADD CONSTRAINT action."""
         check_condition = NumericColumn(dummy_dialect,
-                                       "age") > Literal(dummy_dialect, 0, inline=True)  # Using operator overload
+                                       "age") > Parameter(dummy_dialect, 0, inline=True)  # Using operator overload
         constraint = TableConstraint(dummy_dialect, branch=TableCheckConstraint(dummy_dialect, check_condition), name="chk_positive_age")
         add_constraint_action = AddTableConstraintAction(dummy_dialect, constraint=constraint)
 
@@ -350,7 +350,7 @@ class TestAlterTableStatements:
 
     def test_add_constraint_action_direct(self, dummy_dialect: DummyDialect):
         """Tests direct ADD CONSTRAINT action creation and formatting."""
-        check_condition = NumericColumn(dummy_dialect, "balance") >= Literal(dummy_dialect, 0, inline=True)
+        check_condition = NumericColumn(dummy_dialect, "balance") >= Parameter(dummy_dialect, 0, inline=True)
         constraint = TableConstraint(dummy_dialect, branch=TableCheckConstraint(dummy_dialect, check_condition), name="chk_balance_positive")
         add_constraint_action = AddTableConstraintAction(dummy_dialect, constraint=constraint)
         # Action now has dialect bound at construction time
@@ -509,7 +509,7 @@ class TestAlterTableStatements:
 
     def test_add_table_constraint_standard(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with ADD CONSTRAINT action per SQL standard."""
-        check_condition = NumericColumn(dummy_dialect, "age") > Literal(dummy_dialect, 0, inline=True)
+        check_condition = NumericColumn(dummy_dialect, "age") > Parameter(dummy_dialect, 0, inline=True)
         constraint = TableConstraint(dummy_dialect, branch=TableCheckConstraint(dummy_dialect, check_condition), name="chk_positive_age")
         add_constraint_action = AddTableConstraintAction(dummy_dialect, constraint=constraint)
 
@@ -821,7 +821,7 @@ class TestAlterTableStatements:
 
         # Create a check condition: age > 0
         check_condition = ComparisonPredicate(
-            dummy_dialect, ">", ExprColumn(dummy_dialect, "age"), Literal(dummy_dialect, 0, inline=True)
+            dummy_dialect, ">", ExprColumn(dummy_dialect, "age"), Parameter(dummy_dialect, 0, inline=True)
         )
 
         column_def = ColumnDefinition(dummy_dialect, 

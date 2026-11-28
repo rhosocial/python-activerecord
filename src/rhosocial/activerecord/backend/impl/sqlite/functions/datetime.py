@@ -33,8 +33,8 @@ def date_func(
     Returns:
         A FunctionCall instance representing the DATE function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Literal(dialect, expr)
-    modifier_exprs = [core.Literal(dialect, m) for m in modifiers]
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
+    modifier_exprs = [core.Parameter(dialect, m) for m in modifiers]
     return core.FunctionCall(dialect, "DATE", target_expr, *modifier_exprs)
 
 
@@ -58,8 +58,8 @@ def time_func(
     Returns:
         A FunctionCall instance representing the TIME function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Literal(dialect, expr)
-    modifier_exprs = [core.Literal(dialect, m) for m in modifiers]
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
+    modifier_exprs = [core.Parameter(dialect, m) for m in modifiers]
     return core.FunctionCall(dialect, "TIME", target_expr, *modifier_exprs)
 
 
@@ -83,8 +83,8 @@ def datetime_func(
     Returns:
         A FunctionCall instance representing the DATETIME function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Literal(dialect, expr)
-    modifier_exprs = [core.Literal(dialect, m) for m in modifiers]
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
+    modifier_exprs = [core.Parameter(dialect, m) for m in modifiers]
     return core.FunctionCall(dialect, "DATETIME", target_expr, *modifier_exprs)
 
 
@@ -108,8 +108,8 @@ def julianday(
     Returns:
         A FunctionCall instance representing the JULIANDAY function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Literal(dialect, expr)
-    modifier_exprs = [core.Literal(dialect, m) for m in modifiers]
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
+    modifier_exprs = [core.Parameter(dialect, m) for m in modifiers]
     return core.FunctionCall(dialect, "JULIANDAY", target_expr, *modifier_exprs)
 
 
@@ -134,9 +134,9 @@ def strftime_func(
     Returns:
         A FunctionCall instance representing the STRFTIME function
     """
-    format_expr = core.Literal(dialect, format_str)
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Literal(dialect, expr)
-    modifier_exprs = [core.Literal(dialect, m) for m in modifiers]
+    format_expr = core.Parameter(dialect, format_str)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
+    modifier_exprs = [core.Parameter(dialect, m) for m in modifiers]
     return core.FunctionCall(dialect, "STRFTIME", format_expr, target_expr, *modifier_exprs)
 
 

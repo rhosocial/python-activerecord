@@ -4,7 +4,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnPrimaryKeyConstraint,
 )
 from .....expression.objects import Table
-from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.core import Parameter
 from rhosocial.activerecord.backend.expression import functions
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
@@ -68,7 +68,7 @@ for row in orders_data:
         dialect=dialect,
         into=Table(dialect, 'orders'),
         columns=["user_id", "amount", "status"],
-        source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
+        source=ValuesSource(dialect, [[Parameter(dialect, v) for v in row]]),
     )
     sql, params = insert_expr.to_sql()
     backend.execute(sql, params)
@@ -88,7 +88,7 @@ query = QueryStatement(
     group_by_having=GroupByHavingClause(
         dialect,
         group_by=[Column(dialect, "user_id")],
-        having=functions.sum_(dialect, Column(dialect, "amount")) > Literal(dialect, 100),
+        having=functions.sum_(dialect, Column(dialect, "amount")) > Parameter(dialect, 100),
     ),
 )
 

@@ -898,7 +898,7 @@ print(inspect.signature(case))
 
 **Example:**
 ```python
-from rhosocial.activerecord.backend.expression import Literal, StringColumn
+from rhosocial.activerecord.backend.expression import Parameter, StringColumn
 from rhosocial.activerecord.backend.expression.advanced_functions import CaseExpression
 from rhosocial.activerecord.backend.expression.functions import case
 
@@ -908,8 +908,8 @@ c = case(dialect)
 # Branches are supplied as (condition, result) pairs at construction
 c = CaseExpression(
     dialect,
-    cases=[(StringColumn(dialect, "status") == "active", Literal(dialect, "Active"))],
-    else_result=Literal(dialect, "Inactive"),
+    cases=[(StringColumn(dialect, "status") == "active", Parameter(dialect, "Active"))],
+    else_result=Parameter(dialect, "Inactive"),
 )
 sql, params = c.to_sql()
 # sql: 'CASE WHEN "status" = ? THEN ? ELSE ? END'

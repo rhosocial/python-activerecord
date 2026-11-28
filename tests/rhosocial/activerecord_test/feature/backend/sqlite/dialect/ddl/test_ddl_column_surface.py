@@ -16,7 +16,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnPrimaryKeyConstraint,
     DefaultValueClause,
 )
-from rhosocial.activerecord.backend.impl.sqlite.sqlite_auto_increment_clause import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.auto_increment import (
     SQLiteAutoIncrementClause,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect

@@ -26,7 +26,7 @@ What is deliberately **not** here:
 * no forwarding -- the value types do not walk MROs to find each other. That
   existed for a wrapper holding a call; a node holding nothing does not need it.
 * no value -- the value at a position belongs to
-  :class:`~...expression.core.Literal`, and a value type never carries one.
+  :class:`~...expression.core.Parameter`, and a value type never carries one.
 """
 
 from abc import ABC, abstractmethod

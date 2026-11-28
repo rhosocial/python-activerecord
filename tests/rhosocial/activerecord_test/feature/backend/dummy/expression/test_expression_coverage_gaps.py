@@ -5,7 +5,7 @@ Targets: core.py:69,177 / bases.py:16 / executable.py:35 / operators.py:153
 """
 
 from rhosocial.activerecord.backend.expression.functions import cast
-from rhosocial.activerecord.backend.expression import Column, Literal, Subquery
+from rhosocial.activerecord.backend.expression import Column, Parameter, Subquery
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.operators import ArithmeticOperation
 from rhosocial.activerecord.backend.expression.objects import Table
@@ -34,16 +34,16 @@ class TestColumnSchemaName:
 
 
 class TestLiteralCastTypes:
-    """Literal cast goes through the CastExpression AST node."""
+    """Parameter cast goes through the CastExpression AST node."""
 
     def test_literal_with_single_cast(self, dummy_dialect):
-        lit = Literal(dummy_dialect, 42)
+        lit = Parameter(dummy_dialect, 42)
         expr = cast(dummy_dialect, lit, IntegerType(dummy_dialect))
         sql, params = expr.to_sql()
         assert "CAST" in sql or "INTEGER" in sql
 
     def test_literal_with_chained_casts(self, dummy_dialect):
-        lit = Literal(dummy_dialect, "100")
+        lit = Parameter(dummy_dialect, "100")
         expr = cast(dummy_dialect, cast(dummy_dialect, lit, CustomType(dummy_dialect, raw='money')),
                    DecimalType(dummy_dialect))
         sql, params = expr.to_sql()
@@ -65,7 +65,7 @@ class TestArithmeticOperationCastTypes:
 
     def test_arithmetic_with_cast(self, dummy_dialect):
         left = Column(dummy_dialect, "price")
-        right = Literal(dummy_dialect, 10)
+        right = Parameter(dummy_dialect, 10)
         expr = ArithmeticOperation(dummy_dialect, "add", left, right)
         casted = expr.cast(DecimalType(dummy_dialect))
         sql, params = casted.to_sql()

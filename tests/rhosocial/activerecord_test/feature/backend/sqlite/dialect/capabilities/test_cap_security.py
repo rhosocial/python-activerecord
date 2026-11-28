@@ -40,7 +40,7 @@ def test_sqlitea_type_position_refuses_a_payload(dialect):
     position is guarded by the grammar, which is the framework's rule for
     what a name may be, and the server decides whether the type exists.
     """
-    from rhosocial.activerecord.backend.expression import Literal
+    from rhosocial.activerecord.backend.expression import Parameter
     from rhosocial.activerecord.backend.expression.statements import (
         AlterColumnAction,
     )
@@ -52,14 +52,14 @@ def test_sqlitea_type_position_refuses_a_payload(dialect):
     )
 
     # A name is a name: the position takes it.
-    XMLSerializeExpression(dialect, Literal(dialect, "x"), "TEXT")
+    XMLSerializeExpression(dialect, Parameter(dialect, "x"), "TEXT")
     AlterColumnAction(dialect, "c", "SET DATA TYPE", new_value="TEXT")
 
     # A value that is not a name is refused, and refused before the
     # statement is ever rendered.
     with pytest.raises(InvalidTypeNameError):
         XMLSerializeExpression(
-            dialect, Literal(dialect, "x"), "TEXT; DROP TABLE users--"
+            dialect, Parameter(dialect, "x"), "TEXT; DROP TABLE users--"
         )
     with pytest.raises(InvalidTypeNameError):
         AlterColumnAction(

@@ -13,7 +13,7 @@ from typing import ClassVar
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression import (
     ColumnDefinition,
-    Literal,
+    Parameter,
     StringColumn,
 )
 from rhosocial.activerecord.backend.expression.objects import Index, Table
@@ -124,7 +124,7 @@ def main():
         Index(dialect, "idx_products_active_price"),
         Table(dialect, "products"),
         columns=["price"],
-        where=StringColumn(dialect, "status") == Literal(dialect, "active", inline=True),
+        where=StringColumn(dialect, "status") == Parameter(dialect, "active", inline=True),
     )
 
     sql, params = create_partial_idx.to_sql()

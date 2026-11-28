@@ -16,7 +16,7 @@
 - [核心表达式](#核心表达式)
   - [表源与关系对象 (Table Sources and Relation Objects)](#表源与关系对象-table-sources-and-relation-objects)
   - [Column](#column)
-  - [Literal](#literal)
+  - [Parameter](#parameter)
   - [AllColumnsWildcard](#allcolumnswildcard)
   - [Subquery](#subquery)
 - [运算符](#运算符)
@@ -115,31 +115,31 @@ class SQLValue(BaseExpression):
 
 `rhosocial.activerecord.backend.expression.core` 模块定义了 SQL 查询的基础构建块。
 
-### Literal
+### Parameter
 
-表示 SQL 查询中的字面量值。它会自动处理参数绑定。
+表示 SQL 查询中某一个位置上的值。它是普通的 `BaseExpression` 节点：kind 由类名派生为 `parameter`，params 就是构造参数 `value` 与 `inline`。宿主值原样携带，不命名、不转换类型；能否被 `json.dumps` 写出是值类型自己的契约。它**不是** `SQLValue`——后者说明表达式产出什么，而 `Parameter` 只是持有一个位置上的值。`inline` 是给不接受绑定占位符的语法位置用的内部决策（见下文「内联字面量」）。
 
 ```python
 import inspect
-from rhosocial.activerecord.backend.expression import Literal
+from rhosocial.activerecord.backend.expression import Parameter
 
 # 库实际声明的构造函数
-print(inspect.signature(Literal.__init__))
+print(inspect.signature(Parameter.__init__))
 
 # 默认：绑定参数模式
-# Literal(dialect, "active")
+# Parameter(dialect, "active")
 # -> ('?', ('active',))
 
 # 内联模式：值直接嵌入 SQL（用于 DDL 子句）
-# Literal(dialect, "active", inline=True)
+# Parameter(dialect, "active", inline=True)
 # -> ("'active'", ())
 ```
 
 #### 内联字面量
 
-默认情况下，`Literal` 渲染为**绑定参数**（`?` 或 `%s`，取决于方言），遵循 DB-API 2.0 (PEP 249) 规范。这是 DML 语句（`INSERT`、`SELECT`、`UPDATE`、`DELETE`）的安全首选模式。
+默认情况下，`Parameter` 渲染为**绑定参数**（`?` 或 `%s`，取决于方言），遵循 DB-API 2.0 (PEP 249) 规范。这是 DML 语句（`INSERT`、`SELECT`、`UPDATE`、`DELETE`）的安全首选模式。
 
-然而，**DDL 子句**（`DEFAULT`、`CHECK`、分区边界、部分索引 `WHERE`）**不接受绑定参数**——数据库引擎要求直接使用 SQL 文本字面量。对于这些情况，请在 `Literal` 节点上设置 `inline=True`：
+然而，**DDL 子句**（`DEFAULT`、`CHECK`、分区边界、部分索引 `WHERE`）**不接受绑定参数**——数据库引擎要求直接使用 SQL 文本字面量。对于这些情况，请在 `Parameter` 节点上设置 `inline=True`：
 
 ```python
 from rhosocial.activerecord.backend.expression import (
@@ -150,7 +150,7 @@ from rhosocial.activerecord.backend.expression import (
     ColumnDefinition,
     ComparisonOperator,
     ComparisonPredicate,
-    Literal,
+    Parameter,
 )
 from rhosocial.activerecord.backend.expression.types import IntegerType
 
@@ -164,7 +164,7 @@ ColumnDefinition(
             dialect,
             branch=ColumnDefaultConstraint(
                 dialect,
-                value=Literal(dialect, 0, inline=True),  # -> DEFAULT 0
+                value=Parameter(dialect, 0, inline=True),  # -> DEFAULT 0
             ),
         ),
     ],
@@ -179,21 +179,21 @@ ColumnConstraint(
             dialect,
             ComparisonOperator.GTE,
             Column(dialect, "score"),
-            Literal(dialect, 0, inline=True),  # -> CHECK ("score" >= 0)
+            Parameter(dialect, 0, inline=True),  # -> CHECK ("score" >= 0)
         ),
     ),
 )
 ```
 
-`inline` 开关是**逐节点控制**的——每个 `Literal` 独立决定。单个谓词可以混合内联和绑定参数值：
+`inline` 开关是**逐节点控制**的——每个 `Parameter` 独立决定。单个谓词可以混合内联和绑定参数值：
 
 ```python
-from rhosocial.activerecord.backend.expression import ComparisonPredicate, Literal
+from rhosocial.activerecord.backend.expression import ComparisonPredicate, Parameter
 
 pred = ComparisonPredicate(
     dialect, "=",
-    Literal(dialect, "a", inline=True),  # 内联
-    Literal(dialect, "b"),               # 绑定参数
+    Parameter(dialect, "a", inline=True),  # 内联
+    Parameter(dialect, "b"),               # 绑定参数
 )
 pred.to_sql()  # -> ("'a' = ?", ("b",))
 ```
@@ -214,7 +214,7 @@ print(inspect.signature(Column.__init__))
 # Column(dialect, "name", table="users")
 ```
 
-裸 `Column` 只是**引用**。比较、算术与字符串运算符已从它上面移除：`Column(...) == Literal(...)` 现在只是普通的 Python `bool`，而不是谓词。请改用带类型的列——`StringColumn`、`IntegerColumn`、`NumericColumn`、`TimestampColumn` 或 `BooleanColumn`——它们会把普通 Python 值包装成 `Literal`，因此能构造真正的谓词。当两侧都已经是表达式时，可以使用显式节点 `ComparisonPredicate(dialect, ComparisonOperator.EQ, left, right)`。
+裸 `Column` 只是**引用**。比较、算术与字符串运算符已从它上面移除：`Column(...) == Parameter(...)` 现在只是普通的 Python `bool`，而不是谓词。请改用带类型的列——`StringColumn`、`IntegerColumn`、`NumericColumn`、`TimestampColumn` 或 `BooleanColumn`——它们会把普通 Python 值包装成 `Parameter`，因此能构造真正的谓词。当两侧都已经是表达式时，可以使用显式节点 `ComparisonPredicate(dialect, ComparisonOperator.EQ, left, right)`。
 
 ### 表源与关系对象 (Table Sources and Relation Objects)
 
@@ -298,7 +298,7 @@ FunctionCall(dialect, 'CURRENT_TIMESTAMP', niladic=True)
 # -> ('CURRENT_TIMESTAMP', ())
 
 # 零元函数带参数 — 生成 CURRENT_TIMESTAMP(?)
-FunctionCall(dialect, 'CURRENT_TIMESTAMP', Literal(dialect, 6), niladic=True)
+FunctionCall(dialect, 'CURRENT_TIMESTAMP', Parameter(dialect, 6), niladic=True)
 # -> ('CURRENT_TIMESTAMP(?)', (6,))
 
 # 普通函数 — 始终带括号
@@ -308,7 +308,7 @@ FunctionCall(dialect, 'NOW')
 
 ### AllColumnsWildcard
 
-表示 select list 的通配符 (`*`)，可经行源引用限定为 `rel.*`。请优先使用此类而不是 `Literal("*")`。
+表示 select list 的通配符 (`*`)，可经行源引用限定为 `rel.*`。请优先使用此类而不是 `Parameter("*")`。
 
 ```python
 import inspect
@@ -357,7 +357,7 @@ from rhosocial.activerecord.backend.expression import (
     Column, IntegerColumn, StringColumn,
 )
 
-# age >= 18 —— 带类型的列会把 18 包装成 Literal
+# age >= 18 —— 带类型的列会把 18 包装成 Parameter
 IntegerColumn(dialect, "age") >= 18
 
 # status == 'active'
@@ -483,15 +483,15 @@ from rhosocial.activerecord.backend.expression import Column
 col = Column(dialect, "name", table="users")
 ```
 
-### Literal
+### Parameter
 
-表示参数化的字面量值。
+表示一个默认渲染为绑定参数的值。
 
 ```python
-from rhosocial.activerecord.backend.expression import Literal
+from rhosocial.activerecord.backend.expression import Parameter
 
 # ? (param: 100)
-lit = Literal(dialect, 100)
+param = Parameter(dialect, 100)
 ```
 
 ### AllColumnsWildcard
@@ -548,10 +548,10 @@ print(inspect.signature(Identifier.__init__))
 表示通用的函数调用风格的操作。
 
 ```python
-from rhosocial.activerecord.backend.expression import Literal, SQLOperation
+from rhosocial.activerecord.backend.expression import Parameter, SQLOperation
 
 # 示例: custom_op(?, ?)
-op = SQLOperation(dialect, "custom_op", Literal(dialect, 1), Literal(dialect, 2))
+op = SQLOperation(dialect, "custom_op", Parameter(dialect, 1), Parameter(dialect, 2))
 ```
 
 ### BinaryExpression

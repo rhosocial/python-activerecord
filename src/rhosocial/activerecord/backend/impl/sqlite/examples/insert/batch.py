@@ -4,7 +4,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnPrimaryKeyConstraint,
 )
 from .....expression.objects import Table
-from rhosocial.activerecord.backend.expression.core import Literal, AllColumnsWildcard
+from rhosocial.activerecord.backend.expression.core import Parameter, AllColumnsWildcard
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     InsertStatement,
@@ -66,9 +66,9 @@ insert_expr = InsertStatement(
     into=Table(dialect, 'users'),
     source=ValuesSource(
         [
-            [Literal(dialect, "Alice"), Literal(dialect, "alice@example.com")],
-            [Literal(dialect, "Bob"), Literal(dialect, "bob@example.com")],
-            [Literal(dialect, "Charlie"), Literal(dialect, "charlie@example.com")],
+            [Parameter(dialect, "Alice"), Parameter(dialect, "alice@example.com")],
+            [Parameter(dialect, "Bob"), Parameter(dialect, "bob@example.com")],
+            [Parameter(dialect, "Charlie"), Parameter(dialect, "charlie@example.com")],
         ],
     ),
     columns=["name", "email"],

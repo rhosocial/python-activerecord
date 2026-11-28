@@ -6,7 +6,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 from .....expression.objects import Table
 from rhosocial.activerecord.backend.expression import CreateIndexStatement
 from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
-from rhosocial.activerecord.backend.expression.core import Literal, AllColumnsWildcard
+from rhosocial.activerecord.backend.expression.core import Parameter, AllColumnsWildcard
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     CreateTableStatement,
@@ -116,7 +116,7 @@ insert_expr = InsertStatement(
     columns=["email", "username"],
     source=ValuesSource(
         [
-            [Literal(dialect, "alice@example.com"), Literal(dialect, "alice")],
+            [Parameter(dialect, "alice@example.com"), Parameter(dialect, "alice")],
         ],
     ),
 )
@@ -132,7 +132,7 @@ try:
         columns=["email", "username"],
         source=ValuesSource(
             [
-                [Literal(dialect, "alice@example.com"), Literal(dialect, "alice2")],
+                [Parameter(dialect, "alice@example.com"), Parameter(dialect, "alice2")],
             ],
         ),
     )

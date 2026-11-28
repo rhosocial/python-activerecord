@@ -29,7 +29,7 @@ def zeroblob(dialect: "SQLDialectBase", length: int) -> "core.FunctionCall":
     Returns:
         A FunctionCall instance representing the ZEROBLOB function
     """
-    return core.FunctionCall(dialect, "ZEROBLOB", core.Literal(dialect, length))
+    return core.FunctionCall(dialect, "ZEROBLOB", core.Parameter(dialect, length))
 
 
 def randomblob(dialect: "SQLDialectBase", length: int) -> "core.FunctionCall":
@@ -48,7 +48,7 @@ def randomblob(dialect: "SQLDialectBase", length: int) -> "core.FunctionCall":
     Returns:
         A FunctionCall instance representing the RANDOMBLOB function
     """
-    return core.FunctionCall(dialect, "RANDOMBLOB", core.Literal(dialect, length))
+    return core.FunctionCall(dialect, "RANDOMBLOB", core.Parameter(dialect, length))
 
 
 __all__ = [

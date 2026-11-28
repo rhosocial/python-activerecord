@@ -14,7 +14,7 @@ import pytest
 import pytest_asyncio
 
 from rhosocial.activerecord.backend.expression import (
-    Literal,
+    Parameter,
     InsertStatement,
     ValuesSource,
 )
@@ -52,7 +52,7 @@ async def async_backend(async_sqlite_backend):
 
 def _make_insert(dialect, name, email, batch_tag="default"):
     source = ValuesSource(
-        dialect, values_list=[[Literal(dialect, name), Literal(dialect, email), Literal(dialect, batch_tag)]]
+        dialect, values_list=[[Parameter(dialect, name), Parameter(dialect, email), Parameter(dialect, batch_tag)]]
     )
     return InsertStatement(dialect, into=Table(dialect, 'users'), columns=["name", "email", "batch_tag"], source=source)
 

@@ -27,7 +27,7 @@ sql, params = expr.to_sql()
 For more flexibility, you can use the `cast()` function from the functions module:
 
 ```python
-from rhosocial.activerecord.backend.expression import Column, IntegerColumn, Literal
+from rhosocial.activerecord.backend.expression import Column, IntegerColumn, Parameter
 from rhosocial.activerecord.backend.expression.functions import cast
 from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 
@@ -39,7 +39,7 @@ sql, params = expr.to_sql()
 # params: ()
 
 # Cast a literal value
-expr = cast(dialect, Literal(dialect, "123"), TextType(dialect))
+expr = cast(dialect, Parameter(dialect, "123"), TextType(dialect))
 sql, params = expr.to_sql()
 # sql: 'CAST(? AS TEXT)'
 # params: ('123',)
@@ -134,7 +134,7 @@ it fluently with `.over(...)`, or pass `window_spec=` at construction.
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    Column, FunctionCall, Literal, WindowSpecification,
+    Column, FunctionCall, Parameter, WindowSpecification,
 )
 from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
 
@@ -287,9 +287,9 @@ Functions that return a set of rows, used in the `FROM` clause.
 Example: `UNNEST`, `JSON_TABLE`.
 
 ```python
-from rhosocial.activerecord.backend.expression import TableFunctionExpression, Literal
+from rhosocial.activerecord.backend.expression import TableFunctionExpression, Parameter
 
-arg = Literal(dialect, ["a", "b", "c"])
+arg = Parameter(dialect, ["a", "b", "c"])
 unnest_expr = TableFunctionExpression(
     dialect,
     "UNNEST",

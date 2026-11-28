@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/expression/xml_serialization.py
+# src/rhosocial/activerecord/backend/expression_registry/xml_serialization.py
 """
 XML rendering of an expression artifact.
 

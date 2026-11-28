@@ -369,19 +369,19 @@ class TestClassifyProbeUtilities:
 
     def test_classify_dql(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
-        from rhosocial.activerecord.backend.expression import QueryStatement, Literal
+        from rhosocial.activerecord.backend.expression import QueryStatement, Parameter
 
         d = self._dialect()
-        q = QueryStatement(d, [Literal(d, 1)])
+        q = QueryStatement(d, [Parameter(d, 1)])
         result = _classify(q)
         assert result == ["DQL"]
 
     def test_classify_dml(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
-        from rhosocial.activerecord.backend.expression import InsertStatement, Literal
+        from rhosocial.activerecord.backend.expression import InsertStatement, Parameter
 
         d = self._dialect()
-        expr = InsertStatement(d, Table(d, 't'), [Literal(d, 1)])
+        expr = InsertStatement(d, Table(d, 't'), [Parameter(d, 1)])
         result = _classify(expr)
         assert result == ["DML"]
 
@@ -434,9 +434,9 @@ class TestClassifyProbeUtilities:
         from rhosocial.activerecord.backend.expression import ExplainStatement
 
         d = self._dialect()
-        from rhosocial.activerecord.backend.expression import QueryStatement, Literal
+        from rhosocial.activerecord.backend.expression import QueryStatement, Parameter
 
-        inner = QueryStatement(d, [Literal(d, 1)])
+        inner = QueryStatement(d, [Parameter(d, 1)])
         expr = ExplainStatement(d, inner)
         result = _classify(expr)
         assert result == ["EXPLAIN"]
@@ -488,10 +488,10 @@ class TestClassifyProbeUtilities:
 
     def test_probe_tags_success(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _probe_tags
-        from rhosocial.activerecord.backend.expression import QueryStatement, Literal
+        from rhosocial.activerecord.backend.expression import QueryStatement, Parameter
 
         def f(dialect, x: int = 1):
-            return QueryStatement(dialect, [Literal(dialect, 1)])
+            return QueryStatement(dialect, [Parameter(dialect, 1)])
 
         result = _probe_tags(f, dialect=self._dialect())
         assert result == ["DQL"]

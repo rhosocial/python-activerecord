@@ -12,7 +12,7 @@ from .interfaces import IRelationValidation, IRelationManagement, IRelationLoade
 from .ordering import apply_order_to_query, normalize_order_by
 from .type_resolver import evaluate_annotation, resolve_relation_type
 from ..backend.expression.core import Column
-from ..backend.expression import ComparisonPredicate, Literal
+from ..backend.expression import ComparisonPredicate, Parameter
 from ..interface import IActiveRecord, IActiveQuery
 
 T = TypeVar("T", bound=IActiveRecord)
@@ -326,7 +326,7 @@ class RelationDescriptor(Generic[T]):
                         if fk_value is not None:
                             pk_column = Column(backend.dialect, pk_col, table=related_model.table_name())
                             query = query.where(
-                                ComparisonPredicate(backend.dialect, "=", pk_column, Literal(backend.dialect, fk_value))
+                                ComparisonPredicate(backend.dialect, "=", pk_column, Parameter(backend.dialect, fk_value))
                             )
             else:
                 pk_cols = instance.primary_key_columns()
@@ -341,7 +341,7 @@ class RelationDescriptor(Generic[T]):
                     if pk_value is not None:
                         fk_column = Column(backend.dialect, fk_col, table=related_model.table_name())
                         query = query.where(
-                            ComparisonPredicate(backend.dialect, "=", fk_column, Literal(backend.dialect, pk_value))
+                            ComparisonPredicate(backend.dialect, "=", fk_column, Parameter(backend.dialect, pk_value))
                         )
 
             query = self.apply_order(query, related_model)
@@ -835,9 +835,9 @@ class DefaultIRelationLoader(IRelationLoader[R]):
 
             # Build WHERE predicate
             if not is_composite:
-                from ..backend.expression import Literal, InPredicate
+                from ..backend.expression import Parameter, InPredicate
                 pk_column = Column(query.backend().dialect, model_class.primary_key())
-                values_literal = Literal(query.backend().dialect, list(foreign_keys))
+                values_literal = Parameter(query.backend().dialect, list(foreign_keys))
                 in_predicate = InPredicate(query.backend().dialect, pk_column, values_literal)
                 query = query.where(in_predicate)
             else:
@@ -846,9 +846,9 @@ class DefaultIRelationLoader(IRelationLoader[R]):
                     and_pred = None
                     for pk_col, fk_val in zip(pk_cols, fk_values if isinstance(fk_values, tuple) else (fk_values,)):
                         col_expr = Column(query.backend().dialect, pk_col)
-                        from ..backend.expression import Literal
+                        from ..backend.expression import Parameter
                         from ..backend.expression import ComparisonPredicate
-                        pred = ComparisonPredicate(query.backend().dialect, "=", col_expr, Literal(query.backend().dialect, fk_val))
+                        pred = ComparisonPredicate(query.backend().dialect, "=", col_expr, Parameter(query.backend().dialect, fk_val))
                         and_pred = pred if and_pred is None else and_pred & pred
                     if and_pred is not None:
                         predicates.append(and_pred)
@@ -907,9 +907,9 @@ class DefaultIRelationLoader(IRelationLoader[R]):
 
             # Build WHERE predicate
             if not is_composite:
-                from ..backend.expression import Literal, InPredicate
+                from ..backend.expression import Parameter, InPredicate
                 fk_column = Column(query.backend().dialect, self.descriptor.foreign_key)
-                values_literal = Literal(query.backend().dialect, list(primary_keys))
+                values_literal = Parameter(query.backend().dialect, list(primary_keys))
                 in_predicate = InPredicate(query.backend().dialect, fk_column, values_literal)
                 query = query.where(in_predicate)
             else:
@@ -918,9 +918,9 @@ class DefaultIRelationLoader(IRelationLoader[R]):
                     and_pred = None
                     for fk_col, pk_val in zip(fk_cols, pk_values if isinstance(pk_values, tuple) else (pk_values,)):
                         col_expr = Column(query.backend().dialect, fk_col)
-                        from ..backend.expression import Literal
+                        from ..backend.expression import Parameter
                         from ..backend.expression import ComparisonPredicate
-                        pred = ComparisonPredicate(query.backend().dialect, "=", col_expr, Literal(query.backend().dialect, pk_val))
+                        pred = ComparisonPredicate(query.backend().dialect, "=", col_expr, Parameter(query.backend().dialect, pk_val))
                         and_pred = pred if and_pred is None else and_pred & pred
                     if and_pred is not None:
                         predicates.append(and_pred)

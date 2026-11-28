@@ -14,7 +14,7 @@ import pytest_asyncio
 
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     AllColumnsWildcard,
     ComparisonPredicate,
     SetOperation,
@@ -96,7 +96,7 @@ def _select_where_expr(dialect, category):
         from_=NamedRelationRef(dialect, Table(dialect, "items")),
         where=WhereClause(
             dialect,
-            condition=ComparisonPredicate(dialect, "=", Column(dialect, "category"), Literal(dialect, category)),
+            condition=ComparisonPredicate(dialect, "=", Column(dialect, "category"), Parameter(dialect, category)),
         ),
         order_by=OrderByClause(dialect, expressions=[(Column(dialect, "id"), "ASC")]),
     )
@@ -305,7 +305,7 @@ class TestAsyncBatchDQLExpressionTypes:
             from_=NamedRelationRef(dialect, Table(dialect, "items")),
             where=WhereClause(
                 dialect,
-                condition=ComparisonPredicate(dialect, ">", Column(dialect, "price"), Literal(dialect, 50.0)),
+                condition=ComparisonPredicate(dialect, ">", Column(dialect, "price"), Parameter(dialect, 50.0)),
             ),
         )
         cte = CTEClause(dialect, name="expensive", query=cte_query)
@@ -338,7 +338,7 @@ class TestAsyncBatchDQLExpressionTypes:
             where=WhereClause(
                 dialect,
                 condition=ComparisonPredicate(
-                    dialect, "=", Column(dialect, "category"), Literal(dialect, "electronics")
+                    dialect, "=", Column(dialect, "category"), Parameter(dialect, "electronics")
                 ),
             ),
         )
@@ -348,7 +348,7 @@ class TestAsyncBatchDQLExpressionTypes:
             from_=NamedRelationRef(dialect, Table(dialect, "items")),
             where=WhereClause(
                 dialect,
-                condition=ComparisonPredicate(dialect, "=", Column(dialect, "category"), Literal(dialect, "books")),
+                condition=ComparisonPredicate(dialect, "=", Column(dialect, "category"), Parameter(dialect, "books")),
             ),
         )
         union_expr = SetOperation(dialect, left=left, right=right, op="union_all")

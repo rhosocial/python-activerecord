@@ -14,7 +14,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from rhosocial.activerecord.backend.expression.query_parts import ForUpdateClause
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
-from rhosocial.activerecord.backend.expression.core import Literal, Column
+from rhosocial.activerecord.backend.expression.core import Parameter, Column
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     QueryStatement,
@@ -77,8 +77,8 @@ insert = InsertStatement(
     columns=["name", "balance"],
     source=ValuesSource(
         [
-            [Literal(dialect, "Alice"), Literal(dialect, 1000)],
-            [Literal(dialect, "Bob"), Literal(dialect, 500)],
+            [Parameter(dialect, "Alice"), Parameter(dialect, 1000)],
+            [Parameter(dialect, "Bob"), Parameter(dialect, 500)],
         ],
     ),
 )
@@ -128,7 +128,7 @@ query_with_for_update = QueryStatement(
         condition=ComparisonPredicate(
             "=",
             Column(dialect, "name"),
-            Literal(dialect, "Alice"),
+            Parameter(dialect, "Alice"),
         ),
     ),
     for_update=ForUpdateClause(dialect),
@@ -169,7 +169,7 @@ if dialect.supports_for_update():
             condition=ComparisonPredicate(
                 "=",
                 Column(dialect, "name"),
-                Literal(dialect, "Alice"),
+                Parameter(dialect, "Alice"),
             ),
         ),
         for_update=ForUpdateClause(dialect),
@@ -191,7 +191,7 @@ else:
                 condition=ComparisonPredicate(
                     "=",
                     Column(dialect, "name"),
-                    Literal(dialect, "Alice"),
+                    Parameter(dialect, "Alice"),
                 ),
             ),
         )
@@ -204,13 +204,13 @@ else:
         update_expr = UpdateStatement(
             dialect=dialect,
             table=Table(dialect, 'accounts'),
-            assignments={"balance": Literal(dialect, 950)},
+            assignments={"balance": Parameter(dialect, 950)},
             where=WhereClause(
                 dialect,
                 condition=ComparisonPredicate(
                     "=",
                     Column(dialect, "name"),
-                    Literal(dialect, "Alice"),
+                    Parameter(dialect, "Alice"),
                 ),
             ),
         )

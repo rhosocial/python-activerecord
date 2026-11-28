@@ -7,7 +7,7 @@ from ..advanced_functions import DeclaredValueType
 from ..bases import BaseExpression
 from ..core import (
     Column,
-    Literal,
+    Parameter,
 )
 from .aggregate import AggregateFunction
 
@@ -32,7 +32,7 @@ class UnnestFunction(
 
 
     def __init__(self, dialect: "SQLDialectBase", target):
-        from ..core import Literal
+        from ..core import Parameter
 
         # BaseExpression directly, not super(): the value class is a *wrapper*
         # whose __init__ takes the call it delegates to, and this node has no
@@ -40,7 +40,7 @@ class UnnestFunction(
         BaseExpression.__init__(self, dialect)
         # See ArrayLengthFunction: an array is not text and not a number, so a
         # bare host value becomes the untyped literal for now.
-        self.target = target if isinstance(target, BaseExpression) else Literal(dialect, target)
+        self.target = target if isinstance(target, BaseExpression) else Parameter(dialect, target)
 
     @property
     def format_method(self) -> str:
@@ -61,8 +61,7 @@ class ArrayLengthFunction(
 
 
     def __init__(self, dialect: "SQLDialectBase", target, dimension=None):
-        from .. import values
-        from ..core import Literal
+        from ..core import Parameter
 
         # BaseExpression directly, not super(): the value class is a *wrapper*
         # whose __init__ takes the call it delegates to, and this node has no
@@ -71,13 +70,13 @@ class ArrayLengthFunction(
         # An array is not text and not a number, so there is no typed value node
         # for it; a bare host value becomes the untyped literal until the array
         # value type lands.
-        self.target = target if isinstance(target, BaseExpression) else Literal(dialect, target)
+        self.target = target if isinstance(target, BaseExpression) else Parameter(dialect, target)
         # Normalised here so the count is a node however it arrived; a bare int
         # reaching the formatter is what made it fail at render instead of here.
         self.dimension = (
             None
             if dimension is None
-            else dimension if isinstance(dimension, BaseExpression) else Literal(dialect, dimension)
+            else dimension if isinstance(dimension, BaseExpression) else Parameter(dialect, dimension)
         )
 
     @property
@@ -137,5 +136,5 @@ def array_length(
 ) -> "ArrayLengthFunction":
     """Creates an ARRAY_LENGTH function call."""
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    dimension_expr = dimension if isinstance(dimension, BaseExpression) else Literal(dialect, dimension)
+    dimension_expr = dimension if isinstance(dimension, BaseExpression) else Parameter(dialect, dimension)
     return ArrayLengthFunction(dialect, target_expr, dimension_expr)

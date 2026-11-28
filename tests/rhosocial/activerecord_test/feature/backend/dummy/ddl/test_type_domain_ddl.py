@@ -7,21 +7,12 @@ from rhosocial.activerecord.backend.dialect import protocols as dialect_protocol
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.dialect.mixins import (
     DataTypeMixin,
-    DataTypeMixin,
     DomainMixin,
     UserDefinedTypeMixin,
 )
 from rhosocial.activerecord.backend.expression import (
     ComparisonPredicate,
-    Literal,
-)
-from rhosocial.activerecord.backend.expression.serialization import (
-    deserialize,
-    deserialize_json,
-    deserialize_xml,
-    serialize,
-    serialize_json,
-    serialize_xml,
+    Parameter,
 )
 from rhosocial.activerecord.backend.expression.statements import (
     AddDomainCheckAction,
@@ -71,7 +62,7 @@ def schema_dialect():
 
 
 def _condition(dialect):
-    return DomainValueExpression(dialect) > Literal(dialect, 0, inline=True)
+    return DomainValueExpression(dialect) > Parameter(dialect, 0, inline=True)
 
 
 def test_legacy_names_are_same_objects():
@@ -132,7 +123,7 @@ def test_domain_lifecycle(dummy_dialect):
         dummy_dialect,
         Domain(dummy_dialect, "positive"),
         IntegerType(dummy_dialect),
-        default=Literal(dummy_dialect, 1, inline=True),
+        default=Parameter(dummy_dialect, 1, inline=True),
         nullability=DomainNullability.NOT_NULL,
         checks=[check],
         collation="pg_catalog.default",
@@ -319,7 +310,7 @@ def test_domain_ddl_carries_bind_parameters_the_caller_left(dummy_dialect):
     sql, params = check.to_sql()
     assert params == (1,)
 
-    lifted = DomainValueExpression(dummy_dialect) == Literal(dummy_dialect, 1, inline=True)
+    lifted = DomainValueExpression(dummy_dialect) == Parameter(dummy_dialect, 1, inline=True)
     lifted_check = DomainCheckConstraint(dummy_dialect, lifted)
     assert lifted_check.to_sql() == ("CHECK (VALUE = 1)", ())
 
@@ -382,32 +373,3 @@ def test_sqlite_new_capabilities_are_false():
     assert dialect.supports_domain_nullable() is False
     assert dialect.supports_domain_not_null() is False
     assert dialect.supported_type_definitions() == ()
-
-
-def test_core_type_and_domain_roundtrips(dummy_dialect):
-    definition = _DummyTypeDefinition(dummy_dialect, IntegerType(dummy_dialect))
-    action = _DummyTypeAlterAction(dummy_dialect, "status_v2")
-    expressions = (
-        definition,
-        action,
-        CreateTypeStatement(dummy_dialect, Type(dummy_dialect, "status"), definition),
-        AlterTypeStatement(dummy_dialect, Type(dummy_dialect, "status"), action),
-        DropTypeStatement(dummy_dialect, Type(dummy_dialect, "status")),
-        CreateDomainStatement(dummy_dialect, Domain(dummy_dialect, "domain"), IntegerType(dummy_dialect)),
-        AlterDomainStatement(
-            dummy_dialect,
-            Domain(dummy_dialect, "domain"),
-            DropDomainDefaultAction(dummy_dialect),
-        ),
-        DropDomainStatement(dummy_dialect, Domain(dummy_dialect, "domain")),
-    )
-    codecs = (
-        (serialize, deserialize),
-        (serialize_json, deserialize_json),
-        (serialize_xml, deserialize_xml),
-    )
-    for expression in expressions:
-        for encoder, decoder in codecs:
-            restored = decoder(encoder(expression), dummy_dialect)
-            assert type(restored) is type(expression)
-            assert encoder(restored) == encoder(expression)

@@ -29,7 +29,7 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     InsertStatement,
     ValuesSource,
 )
-from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
+from rhosocial.activerecord.backend.expression.core import Parameter  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import ColumnDefinition  # noqa: E402
 
 # Create tables
@@ -63,7 +63,7 @@ for table, cols, rows in sample_data:
             dialect=dialect,
             into=Table(dialect, table),
             columns=cols,
-            source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
+            source=ValuesSource(dialect, [[Parameter(dialect, v) for v in row]]),
         )
         sql, params = insert.to_sql()
         backend.execute(sql, params)

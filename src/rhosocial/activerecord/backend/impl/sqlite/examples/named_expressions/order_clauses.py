@@ -13,7 +13,7 @@ from rhosocial.activerecord.backend.expression import (
     QueryStatement,
     Column,
     ComparisonPredicate,
-    Literal,
+    Parameter,
     functions,
     WhereClause,
     JoinClause,
@@ -45,7 +45,7 @@ def where_example(dialect, status: str = "active"):
         from_=NamedRelationRef(dialect, Table(dialect, "orders")),
         where=WhereClause(
             dialect,
-            condition=ComparisonPredicate(dialect, "=", Column(dialect, "status"), Literal(dialect, status)),
+            condition=ComparisonPredicate(dialect, "=", Column(dialect, "status"), Parameter(dialect, status)),
         ),
     )
 
@@ -78,7 +78,7 @@ def join_example(dialect, user_id: int = 1):
         ),
         where=WhereClause(
             dialect,
-            condition=ComparisonPredicate(dialect, "=", Column(dialect, "u.id"), Literal(dialect, user_id)),
+            condition=ComparisonPredicate(dialect, "=", Column(dialect, "u.id"), Parameter(dialect, user_id)),
         ),
     )
 
@@ -186,8 +186,8 @@ def compound_example(dialect, user_id: int = 1, status: str = DEFAULT_ORDER_STAT
         where=WhereClause(
             dialect,
             condition=(
-                (ComparisonPredicate(dialect, "=", Column(dialect, "o.user_id"), Literal(dialect, user_id)))
-                & (ComparisonPredicate(dialect, "=", Column(dialect, "o.status"), Literal(dialect, status)))
+                (ComparisonPredicate(dialect, "=", Column(dialect, "o.user_id"), Parameter(dialect, user_id)))
+                & (ComparisonPredicate(dialect, "=", Column(dialect, "o.status"), Parameter(dialect, status)))
             ),
         ),
         order_by=OrderByClause(

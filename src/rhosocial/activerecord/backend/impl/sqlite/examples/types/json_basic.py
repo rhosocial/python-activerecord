@@ -4,7 +4,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnPrimaryKeyConstraint,
 )
 from .....expression.objects import Table
-from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.core import Parameter
 from rhosocial.activerecord.backend.expression import functions as F
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
@@ -64,7 +64,7 @@ for data in insert_data:
         dialect=dialect,
         into=Table(dialect, 'documents'),
         columns=["data"],
-        source=ValuesSource(dialect, [[Literal(dialect, json.dumps(data))]]),
+        source=ValuesSource(dialect, [[Parameter(dialect, json.dumps(data))]]),
     )
     sql, params = insert_expr.to_sql()
     backend.execute(sql, params)
@@ -77,7 +77,7 @@ query = QueryStatement(
     dialect=dialect,
     select=[
         Column(dialect, "id"),
-        F.json_extract(dialect, Column(dialect, "data"), Literal(dialect, "$.name")),
+        F.json_extract(dialect, Column(dialect, "data"), Parameter(dialect, "$.name")),
     ],
     from_=NamedRelationRef(dialect, Table(dialect, "documents")),
 )

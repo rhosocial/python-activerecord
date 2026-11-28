@@ -8,7 +8,7 @@ created by named_migrations.migrations (run via the CLI).
 
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     FunctionCall,
     NumericColumn,
     QueryStatement,
@@ -36,7 +36,7 @@ def user_by_id(dialect, user_id: int):
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "name"), Column(dialect, "email")],
         from_=NamedRelationRef(dialect, Table(dialect, "users")),
-        where=NumericColumn(dialect, "id") == Literal(dialect, user_id),
+        where=NumericColumn(dialect, "id") == Parameter(dialect, user_id),
     )
 
 
@@ -56,7 +56,7 @@ def posts_by_user(dialect, user_id: int):
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "title")],
         from_=NamedRelationRef(dialect, Table(dialect, "posts")),
-        where=NumericColumn(dialect, "user_id") == Literal(dialect, user_id),
+        where=NumericColumn(dialect, "user_id") == Parameter(dialect, user_id),
     )
 
 
@@ -75,7 +75,7 @@ def insert_user(dialect, name: str, email: str):
         dialect,
         into=Table(dialect, 'users'),
         columns=["name", "email"],
-        source=ValuesSource(dialect, [[Literal(dialect, name), Literal(dialect, email)]]),
+        source=ValuesSource(dialect, [[Parameter(dialect, name), Parameter(dialect, email)]]),
     )
 
 
@@ -85,5 +85,5 @@ def insert_post(dialect, title: str, user_id: int):
         dialect,
         into=Table(dialect, 'posts'),
         columns=["title", "user_id"],
-        source=ValuesSource(dialect, [[Literal(dialect, title), Literal(dialect, user_id)]]),
+        source=ValuesSource(dialect, [[Parameter(dialect, title), Parameter(dialect, user_id)]]),
     )

@@ -18,7 +18,7 @@ import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression.column_types import NumericColumn, StringColumn
-from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal
+from rhosocial.activerecord.backend.expression.core import FunctionCall, Parameter
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
@@ -181,7 +181,7 @@ SQLITE_FUNCTION_FLOORS = [
 def _gated_call(dialect, func_name):
     """One call to *func_name*, as the renderer meets it: the name the caller
     handed over, spelled upper-case in the SQL."""
-    return FunctionCall(dialect, func_name, Literal(dialect, "x"))
+    return FunctionCall(dialect, func_name, Parameter(dialect, "x"))
 
 
 def _one_patch_below(floor):
@@ -228,9 +228,9 @@ def test_the_refusal_names_the_function_the_floor_and_the_version():
     call = FunctionCall(
         dialect,
         "json_array_insert",
-        Literal(dialect, "[]"),
-        Literal(dialect, "$[0]"),
-        Literal(dialect, 1),
+        Parameter(dialect, "[]"),
+        Parameter(dialect, "$[0]"),
+        Parameter(dialect, 1),
     )
     with pytest.raises(UnsupportedFeatureError) as excinfo:
         call.to_sql()

@@ -12,7 +12,7 @@ from ..backend.expression import (
     IsNullPredicate,
     LikeOperator,
     LikePredicate,
-    Literal,
+    Parameter,
     LogicalPredicate,
     Subquery,
 )
@@ -38,7 +38,7 @@ def _in_predicate(dialect, expr: BaseExpression, values) -> "SQLPredicate":
         return InPredicate(dialect, expr, Subquery(dialect, to_query_expression()))
     if isinstance(values, BaseExpression):
         return InPredicate(dialect, expr, values)
-    return InPredicate(dialect, expr, Literal(dialect, tuple(values)))
+    return InPredicate(dialect, expr, Parameter(dialect, tuple(values)))
 
 
 class RangeQueryMixin:
@@ -189,7 +189,7 @@ class RangeQueryMixin:
         col_expr = self._get_col_expr(column)
         dialect = self.backend().dialect
         predicate = BetweenPredicate(
-            dialect, col_expr, Literal(dialect, start), Literal(dialect, end)
+            dialect, col_expr, Parameter(dialect, start), Parameter(dialect, end)
         )
         return self.where(predicate)
 
@@ -219,7 +219,7 @@ class RangeQueryMixin:
         col_expr = self._get_col_expr(column)
         dialect = self.backend().dialect
         predicate = ~BetweenPredicate(
-            dialect, col_expr, Literal(dialect, start), Literal(dialect, end)
+            dialect, col_expr, Parameter(dialect, start), Parameter(dialect, end)
         )
         return self.where(predicate)
 
@@ -248,7 +248,7 @@ class RangeQueryMixin:
         col_expr = self._get_col_expr(column)
         dialect = self.backend().dialect
         predicate = LikePredicate(
-            dialect, LikeOperator.LIKE, col_expr, Literal(dialect, pattern)
+            dialect, LikeOperator.LIKE, col_expr, Parameter(dialect, pattern)
         )
         return self.where(predicate)
 
@@ -272,7 +272,7 @@ class RangeQueryMixin:
         """
         col_expr = self._get_col_expr(column)
         dialect = self.backend().dialect
-        predicate = ~LikePredicate(dialect, LikeOperator.LIKE, col_expr, Literal(dialect, pattern))
+        predicate = ~LikePredicate(dialect, LikeOperator.LIKE, col_expr, Parameter(dialect, pattern))
         return self.where(predicate)
 
     def ilike(self, column: Union[str, BaseExpression], pattern: str) -> "IQuery":
@@ -297,7 +297,7 @@ class RangeQueryMixin:
         col_expr = self._get_col_expr(column)
         dialect = self.backend().dialect
         predicate = LikePredicate(
-            dialect, LikeOperator.ILIKE, col_expr, Literal(dialect, pattern)
+            dialect, LikeOperator.ILIKE, col_expr, Parameter(dialect, pattern)
         )
         return self.where(predicate)
 
@@ -388,7 +388,7 @@ class RangeQueryMixin:
         """
         col_expr = self._get_col_expr(column)
         dialect = self.backend().dialect
-        predicate = ComparisonPredicate(dialect, ">", col_expr, Literal(dialect, value))
+        predicate = ComparisonPredicate(dialect, ">", col_expr, Parameter(dialect, value))
         return self.where(predicate)
 
     def greater_than_or_equal(self, column: Union[str, BaseExpression], value: Any) -> "IQuery":
@@ -411,7 +411,7 @@ class RangeQueryMixin:
         """
         col_expr = self._get_col_expr(column)
         dialect = self.backend().dialect
-        predicate = ComparisonPredicate(dialect, ">=", col_expr, Literal(dialect, value))
+        predicate = ComparisonPredicate(dialect, ">=", col_expr, Parameter(dialect, value))
         return self.where(predicate)
 
     def less_than(self, column: Union[str, BaseExpression], value: Any) -> "IQuery":
@@ -434,7 +434,7 @@ class RangeQueryMixin:
         """
         col_expr = self._get_col_expr(column)
         dialect = self.backend().dialect
-        predicate = ComparisonPredicate(dialect, "<", col_expr, Literal(dialect, value))
+        predicate = ComparisonPredicate(dialect, "<", col_expr, Parameter(dialect, value))
         return self.where(predicate)
 
     def less_than_or_equal(self, column: Union[str, BaseExpression], value: Any) -> "IQuery":
@@ -457,7 +457,7 @@ class RangeQueryMixin:
         """
         col_expr = self._get_col_expr(column)
         dialect = self.backend().dialect
-        predicate = ComparisonPredicate(dialect, "<=", col_expr, Literal(dialect, value))
+        predicate = ComparisonPredicate(dialect, "<=", col_expr, Parameter(dialect, value))
         return self.where(predicate)
 
     def __init__(self, *args, **kwargs):

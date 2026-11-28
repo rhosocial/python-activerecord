@@ -12,7 +12,7 @@ from typing import Optional
 from rhosocial.activerecord.backend.expression import (
     Column,
     ComparisonPredicate,
-    Literal,
+    Parameter,
 )
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
@@ -216,7 +216,7 @@ _DIALECT = SQLiteDialect()
 def _where(*pairs):
     """Predicates over column names, as a WHERE tree fragment."""
     return tuple(
-        ComparisonPredicate(_DIALECT, "=", Column(_DIALECT, column), Literal(_DIALECT, value))
+        ComparisonPredicate(_DIALECT, "=", Column(_DIALECT, column), Parameter(_DIALECT, value))
         for column, value in pairs
     )
 

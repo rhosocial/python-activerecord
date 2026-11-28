@@ -5,7 +5,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from .....expression.objects import Table
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
-from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.core import Parameter
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     QueryStatement,
@@ -74,7 +74,7 @@ for row in users:
         dialect=dialect,
         into=Table(dialect, 'users'),
         columns=["name", "age", "status"],
-        source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
+        source=ValuesSource(dialect, [[Parameter(dialect, v) for v in row]]),
     )
     sql, params = insert_expr.to_sql()
     backend.execute(sql, params)
@@ -96,7 +96,7 @@ query = QueryStatement(
         condition=ComparisonPredicate(
             "=",
             Column(dialect, "status"),
-            Literal(dialect, "active"),
+            Parameter(dialect, "active"),
         ),
     ),
     order_by=OrderByClause(

@@ -13,7 +13,7 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     ComparisonOperator,
     ComparisonPredicate,
-    Literal,
+    Parameter,
     NamedRelationRef,
     QueryStatement,
     StringColumn,
@@ -36,7 +36,7 @@ predicate = ComparisonPredicate(
     dialect,
     ComparisonOperator.EQ,
     Column(dialect, "status"),
-    Literal(dialect, "active"),
+    Parameter(dialect, "active"),
 )
 
 # 带 DISTINCT 的 SELECT
@@ -57,12 +57,12 @@ sql, params = query.to_sql()
 `InsertStatement` 表示 `INSERT` 语句。它支持单行、多行、`INSERT ... SELECT` 以及 `ON CONFLICT` 子句。
 
 ```python
-from rhosocial.activerecord.backend.expression import InsertStatement, ValuesSource, Literal
+from rhosocial.activerecord.backend.expression import InsertStatement, ValuesSource, Parameter
 from rhosocial.activerecord.backend.expression.objects import Table
 
 # 单行插入
 source = ValuesSource(dialect, values_list=[
-    [Literal(dialect, "John Doe"), Literal(dialect, "john@example.com")]
+    [Parameter(dialect, "John Doe"), Parameter(dialect, "john@example.com")]
 ])
 insert = InsertStatement(
     dialect,
@@ -100,7 +100,7 @@ sql, params = insert.to_sql()
 ```python
 from rhosocial.activerecord.backend.expression import (
     IntegerColumn,
-    Literal,
+    Parameter,
     ReturningClause,
     StringColumn,
     UpdateStatement,
@@ -112,8 +112,8 @@ update = UpdateStatement(
     dialect,
     Table(dialect, "users"),
     assignments={
-        "status": Literal(dialect, "inactive"),
-        "updated_at": Literal(dialect, "2023-01-01")
+        "status": Parameter(dialect, "inactive"),
+        "updated_at": Parameter(dialect, "2023-01-01")
     },
     where=StringColumn(dialect, "last_login") < "2022-01-01"
 )
@@ -184,10 +184,10 @@ sql, params = delete.to_sql()
 >
 > ```python
 > # ✗ 错误：DDL 中 DEFAULT ? 会导致执行失败
-> Literal(dialect, 0)
+> Parameter(dialect, 0)
 >
 > # ✓ 正确：内联后生成 DEFAULT 0
-> Literal(dialect, 0, inline=True)
+> Parameter(dialect, 0, inline=True)
 > ```
 >
 > DML 语句（`INSERT`/`SELECT`/`UPDATE`/`DELETE`）不受此限制，默认绑定参数模式即可正常工作。
@@ -239,7 +239,7 @@ from rhosocial.activerecord.backend.expression import (
     ComparisonOperator,
     ComparisonPredicate,
     IntegerColumn,
-    Literal,
+    Parameter,
 )
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnCheckConstraint,
@@ -261,7 +261,7 @@ ColumnDefinition(dialect, "age", IntegerType(dialect), constraints=[
             dialect,
             ComparisonOperator.GTE,
             IntegerColumn(dialect, "age"),
-            Literal(dialect, 0, inline=True),  # -> CHECK ("age" >= 0)
+            Parameter(dialect, 0, inline=True),  # -> CHECK ("age" >= 0)
         ),
     )),
 ])

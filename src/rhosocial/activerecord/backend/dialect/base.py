@@ -31,7 +31,6 @@ if TYPE_CHECKING:
     import datetime as _dt
     from decimal import Decimal
 
-    from ..expression.registry import ExpressionRegistry
     from ..schema.differ import SchemaDiffer
 
 
@@ -90,25 +89,6 @@ class SQLDialectBase:
         self.strict_validation = True
         self._version: Optional[Tuple[int, int, int]] = None
         self._reserved_words: FrozenSet[str] = frozenset()
-
-    def artifact_registry(self) -> "ExpressionRegistry":
-        """The expression kinds this dialect's backend can read.
-
-        A dialect is a *renderer*; an artifact is data and carries no dialect.
-        This method says which kinds a read through this dialect may resolve —
-        the ones its backend assembled. The base answer is core's registry,
-        because the base dialect owns no backend kinds.
-
-        A backend overrides this to return its own composed
-        ``backend_registry()``: the registry built with
-        :func:`registry_for_packages` from the backend's expression package(s)
-        with ``base=core_registry()``. That composition — core's kinds plus the
-        backend's own — is the only place the two owners are joined; a backend
-        is never merged with another backend.
-        """
-        from ..expression.serialization import core_registry
-
-        return core_registry()
 
     @property
     def version(self) -> Tuple[int, int, int]:

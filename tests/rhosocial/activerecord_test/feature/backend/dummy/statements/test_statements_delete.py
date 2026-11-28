@@ -15,7 +15,7 @@ from rhosocial.activerecord.backend.expression import (
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     RawSQL,
     QueryStatement,
     DeleteStatement,
@@ -62,7 +62,7 @@ class TestDeleteStatements:
             self.set_dialect_recursive(expr.operand, dialect)
         if hasattr(expr, "value") and isinstance(
             expr.value, bases.BaseExpression
-        ):  # For Literal, if value is an expression
+        ):  # For Parameter, if value is an expression
             self.set_dialect_recursive(expr.value, dialect)
         if hasattr(expr, "subquery"):  # For QueryStatement in from_ or assignments
             self.set_dialect_recursive(expr.subquery, dialect)
@@ -128,7 +128,7 @@ class TestDeleteStatements:
             pytest.param(
                 Table(None, "orders"),
                 None,
-                ComparisonPredicate(None, "=", Column(None, "status"), Literal(None, "pending")),
+                ComparisonPredicate(None, "=", Column(None, "status"), Parameter(None, "pending")),
                 None,
                 'DELETE FROM "orders" WHERE "status" = ?',
                 ("pending",),
@@ -270,7 +270,7 @@ class TestDeleteStatements:
         """Tests that DeleteStatement raises TypeError for unsupported FROM source types."""
         unsupported_source = 123  # An integer, not a string or BaseExpression
 
-        where = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 1))
+        where = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Parameter(dummy_dialect, 1))
 
         with pytest.raises(
             TypeError,
@@ -286,13 +286,13 @@ class TestDeleteStatements:
         [
             (
                 "orders",
-                ComparisonPredicate(None, "<", Column(None, "order_date"), Literal(None, "2023-01-01")),  # Mock
+                ComparisonPredicate(None, "<", Column(None, "order_date"), Parameter(None, "2023-01-01")),  # Mock
                 'DELETE FROM "orders" WHERE "order_date" < ?',
                 ("2023-01-01",),
             ),
             (
                 "users",
-                ComparisonPredicate(None, "!=", Column(None, "status"), Literal(None, "active")),  # Mock
+                ComparisonPredicate(None, "!=", Column(None, "status"), Parameter(None, "active")),  # Mock
                 # `!=` and `<>` are one operation; the formatter writes the
                 # standard spelling. See ComparisonOperator.
                 'DELETE FROM "users" WHERE "status" <> ?',
@@ -300,7 +300,7 @@ class TestDeleteStatements:
             ),
             (
                 "products",
-                ComparisonPredicate(None, "=", Column(None, "category_id"), Literal(None, 5)),  # Mock
+                ComparisonPredicate(None, "=", Column(None, "category_id"), Parameter(None, 5)),  # Mock
                 'DELETE FROM "products" WHERE "category_id" = ?',
                 (5,),
             ),
@@ -313,15 +313,15 @@ class TestDeleteStatements:
         # Properly initialize with actual dialect
         if "2023-01-01" in expected_params:
             where_condition = ComparisonPredicate(
-                dummy_dialect, "<", Column(dummy_dialect, "order_date"), Literal(dummy_dialect, "2023-01-01")
+                dummy_dialect, "<", Column(dummy_dialect, "order_date"), Parameter(dummy_dialect, "2023-01-01")
             )
         elif "active" in expected_params:
             where_condition = ComparisonPredicate(
-                dummy_dialect, "!=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "active")
+                dummy_dialect, "!=", Column(dummy_dialect, "status"), Parameter(dummy_dialect, "active")
             )
         elif 5 in expected_params:
             where_condition = ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "category_id"), Literal(dummy_dialect, 5)
+                dummy_dialect, "=", Column(dummy_dialect, "category_id"), Parameter(dummy_dialect, 5)
             )
 
         delete_expr = DeleteStatement(dummy_dialect, tables=Table(dummy_dialect, table), where=where_condition)
@@ -349,7 +349,7 @@ class TestDeleteStatements:
             where_condition = IsNullPredicate(dummy_dialect, column_expr, is_not=(comparison_op == "IS NOT"))
         else:
             column_expr = Column(dummy_dialect, "value")
-            value_expr = Literal(dummy_dialect, right_value)
+            value_expr = Parameter(dummy_dialect, right_value)
             where_condition = ComparisonPredicate(dummy_dialect, comparison_op, column_expr, value_expr)
 
         delete_expr = DeleteStatement(dummy_dialect, tables=Table(dummy_dialect, 'temp_records'), where=where_condition)
@@ -367,10 +367,10 @@ class TestDeleteStatements:
     def test_delete_with_complex_where(self, dummy_dialect: DummyDialect):
         """Tests DELETE statement with a complex WHERE condition."""
         condition1 = ComparisonPredicate(
-            dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "cancelled")
+            dummy_dialect, "=", Column(dummy_dialect, "status"), Parameter(dummy_dialect, "cancelled")
         )
         condition2 = InPredicate(
-            dummy_dialect, Column(dummy_dialect, "user_id"), Literal(dummy_dialect, [101, 102, 103])
+            dummy_dialect, Column(dummy_dialect, "user_id"), Parameter(dummy_dialect, [101, 102, 103])
         )
         complex_condition = LogicalPredicate(dummy_dialect, "AND", condition1, condition2)
 
@@ -390,7 +390,7 @@ class TestDeleteStatements:
     )
     def test_delete_with_in_condition(self, dummy_dialect: DummyDialect, values_list):
         """Tests DELETE with IN condition for different value lists."""
-        in_condition = InPredicate(dummy_dialect, Column(dummy_dialect, "user_id"), Literal(dummy_dialect, values_list))
+        in_condition = InPredicate(dummy_dialect, Column(dummy_dialect, "user_id"), Parameter(dummy_dialect, values_list))
 
         delete_expr = DeleteStatement(dummy_dialect, tables=Table(dummy_dialect, 'records'), where=in_condition)
         sql, params = delete_expr.to_sql()
@@ -417,7 +417,7 @@ class TestDeleteStatements:
                 dummy_dialect,
                 "=",
                 Column(dummy_dialect, "id"),
-                Literal(dummy_dialect, 1)
+                Parameter(dummy_dialect, 1)
             )
         )
         # Manually assign invalid type to trigger validation error
@@ -433,7 +433,7 @@ class TestDeleteStatements:
                 dummy_dialect,
                 "=",
                 Column(dummy_dialect, "id"),
-                Literal(dummy_dialect, 1)
+                Parameter(dummy_dialect, 1)
             )
         )
         # Manually assign invalid type to trigger validation error
@@ -453,7 +453,7 @@ class TestDeleteStatements:
                 dummy_dialect,
                 "=",
                 Column(dummy_dialect, "id"),
-                Literal(dummy_dialect, 1)
+                Parameter(dummy_dialect, 1)
             )
         )
         # Manually assign invalid type to trigger validation error
@@ -469,7 +469,7 @@ class TestDeleteStatements:
                 dummy_dialect,
                 "=",
                 Column(dummy_dialect, "id"),
-                Literal(dummy_dialect, 1)
+                Parameter(dummy_dialect, 1)
             )
         )
         # Manually assign invalid type to trigger validation error
@@ -488,7 +488,7 @@ class TestDeleteStatements:
         delete_expr = DeleteStatement(
             dummy_dialect,
             tables="invalid_type",
-            where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 1)),
+            where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Parameter(dummy_dialect, 1)),
         )
         with pytest.raises(
             TypeError, match=r"tables must hold Table instances, got str at position 0"
@@ -502,7 +502,7 @@ class TestDeleteStatements:
                 dummy_dialect,
                 "=",
                 Column(dummy_dialect, "id"),
-                Literal(dummy_dialect, 1)
+                Parameter(dummy_dialect, 1)
             )
         )
         # Manually assign empty list to trigger validation error
@@ -521,7 +521,7 @@ class TestDeleteStatements:
         delete_expr = DeleteStatement(
             dummy_dialect,
             tables=[Column(dummy_dialect, "invalid_table")],
-            where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 1)),
+            where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Parameter(dummy_dialect, 1)),
         )
         with pytest.raises(
             TypeError, match=r"tables must hold Table instances, got Column at position 0"
@@ -540,7 +540,7 @@ class TestDeleteStatements:
                 dummy_dialect,
                 "=",
                 Column(dummy_dialect, "id"),
-                Literal(dummy_dialect, 1)
+                Parameter(dummy_dialect, 1)
             )
         )
         # Check that the table was properly converted to NamedRelationRef
@@ -562,7 +562,7 @@ class TestDeleteStatements:
                 dummy_dialect,
                 "=",
                 Column(dummy_dialect, "user_id"),
-                Literal(dummy_dialect, 123),
+                Parameter(dummy_dialect, 123),
             )
         )
         # Check that the tables were properly converted to NamedRelationRef
@@ -588,7 +588,7 @@ class TestDeleteStatements:
                 dummy_dialect,
                 "=",
                 Column(dummy_dialect, "user_id"),
-                Literal(dummy_dialect, 123),
+                Parameter(dummy_dialect, 123),
             )
         )
 
@@ -606,7 +606,7 @@ class TestDeleteStatements:
                 dummy_dialect,
                 "=",
                 Column(dummy_dialect, "id"),
-                Literal(dummy_dialect, 1)
+                Parameter(dummy_dialect, 1)
             )
         )
         # Manually assign invalid type that would normally cause an error
@@ -621,7 +621,7 @@ class TestDeleteStatements:
                 dummy_dialect,
                 "=",
                 Column(dummy_dialect, "status"),
-                Literal(dummy_dialect, "active")
+                Parameter(dummy_dialect, "active")
             )
         )
         delete_expr_valid.validate(strict=False)  # Should not raise any exception
@@ -659,7 +659,7 @@ class TestDeleteStatements:
 
         # Combine LIKE with comparison condition
         like_condition = name_col.like("John%")
-        age_condition = age_col > Literal(dummy_dialect, 18)
+        age_condition = age_col > Parameter(dummy_dialect, 18)
         combined_condition = like_condition & age_condition
 
         delete_expr = DeleteStatement(dummy_dialect, tables=Table(dummy_dialect, 'users'), where=combined_condition)
@@ -675,8 +675,8 @@ class TestDeleteStatements:
         between_condition = BetweenPredicate(
             dummy_dialect,
             Column(dummy_dialect, "date_created"),
-            Literal(dummy_dialect, "2023-01-01"),
-            Literal(dummy_dialect, "2023-12-31"),
+            Parameter(dummy_dialect, "2023-01-01"),
+            Parameter(dummy_dialect, "2023-12-31"),
         )
 
         delete_expr = DeleteStatement(dummy_dialect, tables=Table(dummy_dialect, 'old_logs'), where=between_condition)
@@ -695,7 +695,7 @@ class TestDeleteStatements:
     def test_delete_with_like_condition(self, dummy_dialect: DummyDialect, table_name, column_name, pattern):  # noqa: F811
         """Tests DELETE with LIKE condition."""
         like_condition = LikePredicate(
-            dummy_dialect, "LIKE", Column(dummy_dialect, column_name), Literal(dummy_dialect, pattern)
+            dummy_dialect, "LIKE", Column(dummy_dialect, column_name), Parameter(dummy_dialect, pattern)
         )
 
         delete_expr = DeleteStatement(dummy_dialect, tables=Table(dummy_dialect, table_name), where=like_condition)
@@ -706,12 +706,12 @@ class TestDeleteStatements:
     def test_multiple_conditional_deletes_combined(self, dummy_dialect: DummyDialect):
         """Tests combining multiple conditional predicates using AND/OR."""
         # Create multiple conditions
-        condition1 = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 65))
+        condition1 = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Parameter(dummy_dialect, 65))
         condition2 = ComparisonPredicate(
-            dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "retired")
+            dummy_dialect, "=", Column(dummy_dialect, "status"), Parameter(dummy_dialect, "retired")
         )
         condition3 = ComparisonPredicate(
-            dummy_dialect, "<", Column(dummy_dialect, "last_login"), Literal(dummy_dialect, "2023-01-01")
+            dummy_dialect, "<", Column(dummy_dialect, "last_login"), Parameter(dummy_dialect, "2023-01-01")
         )
 
         # Combine conditions: (age > 65 AND status = 'retired') OR last_login < '2023-01-01'
@@ -749,7 +749,7 @@ class TestDeleteStatements:
                 dummy_dialect,
                 "=",
                 Column(dummy_dialect, "status"),
-                Literal(dummy_dialect, "inactive")
+                Parameter(dummy_dialect, "inactive")
             )
         )
 

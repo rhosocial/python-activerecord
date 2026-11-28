@@ -7,7 +7,7 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     count,
     sum_,
     avg,
@@ -332,72 +332,72 @@ class TestMathFunctionFactories:
 
     def test_abs_function(self, dummy_dialect: DummyDialect):
         """Test ABS function."""
-        func = abs_(dummy_dialect, Literal(dummy_dialect, -5))
+        func = abs_(dummy_dialect, Parameter(dummy_dialect, -5))
         sql, params = func.to_sql()
         assert "ABS(" in sql
 
     def test_round_function(self, dummy_dialect: DummyDialect):
         """Test ROUND function."""
-        func = round_(dummy_dialect, Literal(dummy_dialect, 3.14159))
+        func = round_(dummy_dialect, Parameter(dummy_dialect, 3.14159))
         sql, params = func.to_sql()
         assert "ROUND(" in sql
 
     def test_round_function_with_decimals(self, dummy_dialect: DummyDialect):
         """Test ROUND function with decimal places."""
-        func = round_(dummy_dialect, Literal(dummy_dialect, 3.14159), 2)
+        func = round_(dummy_dialect, Parameter(dummy_dialect, 3.14159), 2)
         sql, params = func.to_sql()
         assert "ROUND(" in sql
         assert params == (3.14159, 2)
 
     def test_ceil_function(self, dummy_dialect: DummyDialect):
         """Test CEIL function."""
-        func = ceil(dummy_dialect, Literal(dummy_dialect, 3.14))
+        func = ceil(dummy_dialect, Parameter(dummy_dialect, 3.14))
         sql, params = func.to_sql()
         assert "CEIL(" in sql
 
     def test_floor_function(self, dummy_dialect: DummyDialect):
         """Test FLOOR function."""
-        func = floor(dummy_dialect, Literal(dummy_dialect, 3.99))
+        func = floor(dummy_dialect, Parameter(dummy_dialect, 3.99))
         sql, params = func.to_sql()
         assert "FLOOR(" in sql
 
     def test_sqrt_function(self, dummy_dialect: DummyDialect):
         """Test SQRT function."""
-        func = sqrt(dummy_dialect, Literal(dummy_dialect, 16))
+        func = sqrt(dummy_dialect, Parameter(dummy_dialect, 16))
         sql, params = func.to_sql()
         assert "SQRT(" in sql
 
     def test_power_function(self, dummy_dialect: DummyDialect):
         """Test POWER function."""
-        func = power(dummy_dialect, Literal(dummy_dialect, 2), Literal(dummy_dialect, 3))
+        func = power(dummy_dialect, Parameter(dummy_dialect, 2), Parameter(dummy_dialect, 3))
         sql, params = func.to_sql()
         assert "POWER(" in sql
         assert params == (2, 3)
 
     def test_exp_function(self, dummy_dialect: DummyDialect):
         """Test EXP function."""
-        func = exp(dummy_dialect, Literal(dummy_dialect, 1))
+        func = exp(dummy_dialect, Parameter(dummy_dialect, 1))
         sql, params = func.to_sql()
         assert "EXP(" in sql
 
     def test_log_function(self, dummy_dialect: DummyDialect):
         """Test LOG function."""
-        func = log(dummy_dialect, Literal(dummy_dialect, 10))
+        func = log(dummy_dialect, Parameter(dummy_dialect, 10))
         sql, params = func.to_sql()
         assert "LOG(" in sql
 
     def test_log_function_with_base(self, dummy_dialect: DummyDialect):
         """Test LOG function with base."""
-        func = log(dummy_dialect, Literal(dummy_dialect, 100), Literal(dummy_dialect, 10))
+        func = log(dummy_dialect, Parameter(dummy_dialect, 100), Parameter(dummy_dialect, 10))
         sql, params = func.to_sql()
         assert "LOG(" in sql
         assert params == (100, 10)
 
     def test_trigonometric_functions(self, dummy_dialect: DummyDialect):
         """Test trigonometric functions."""
-        sin_func = sin(dummy_dialect, Literal(dummy_dialect, 0))
-        cos_func = cos(dummy_dialect, Literal(dummy_dialect, 0))
-        tan_func = tan(dummy_dialect, Literal(dummy_dialect, 0))
+        sin_func = sin(dummy_dialect, Parameter(dummy_dialect, 0))
+        cos_func = cos(dummy_dialect, Parameter(dummy_dialect, 0))
+        tan_func = tan(dummy_dialect, Parameter(dummy_dialect, 0))
 
         sin_sql, sin_params = sin_func.to_sql()
         cos_sql, cos_params = cos_func.to_sql()
@@ -1012,7 +1012,7 @@ class TestJsonFunctionFactoriesExtended:
         from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
         from rhosocial.activerecord.backend.expression.core import FunctionCall, Column
         from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
-        from rhosocial.activerecord.backend.expression import Literal
+        from rhosocial.activerecord.backend.expression import Parameter
 
         # Create a dialect that doesn't implement FilterClauseSupport protocol
         from rhosocial.activerecord.backend.dialect.mixins import ExpressionMixin, DDLColumnMixin, TableMixin
@@ -1030,7 +1030,7 @@ class TestJsonFunctionFactoriesExtended:
         func = FunctionCall(mock_dialect, "COUNT", Column(mock_dialect, "id"))
 
         # Create a filter predicate: value > 100
-        filter_pred = ComparisonPredicate(mock_dialect, ">", Column(mock_dialect, "value"), Literal(mock_dialect, 100))
+        filter_pred = ComparisonPredicate(mock_dialect, ">", Column(mock_dialect, "value"), Parameter(mock_dialect, 100))
 
         with pytest.raises(UnsupportedFeatureError, match=r".*FILTER clause in aggregate functions.*"):
             func.filter_predicate = filter_pred

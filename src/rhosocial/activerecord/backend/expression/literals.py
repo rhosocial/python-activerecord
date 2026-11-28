@@ -1,6 +1,6 @@
 # src/rhosocial/activerecord/backend/expression/literals.py
 """
-Literal identifiers in SQL expressions.
+Parameter identifiers in SQL expressions.
 """
 
 from typing import TYPE_CHECKING

@@ -284,18 +284,6 @@ class DummyDialect(
         # Set a default version since dummy doesn't represent a real database
         self._version = (1, 0, 0)
 
-    def artifact_registry(self):
-        """The kinds this backend can read: core's kinds plus the dummy nodes.
-
-        The dummy backend owns its expression module, so the composition lives
-        here rather than in core: ``backend_registry()`` is
-        ``registry_for_packages("...impl.dummy.expression", base=core_registry())``,
-        frozen and cached.
-        """
-        from .registry import backend_registry
-
-        return backend_registry()
-
     # ------------------------------------------------------------------
     # DataType formatters (core types — for to_sql() testing)
     # ------------------------------------------------------------------

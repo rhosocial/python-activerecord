@@ -10,7 +10,7 @@ nest like any other expression.
 import pytest
 
 from rhosocial.activerecord.backend.expression.functions import cast
-from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall
+from rhosocial.activerecord.backend.expression import Parameter, Column, FunctionCall
 from rhosocial.activerecord.backend.expression.core import CastExpression
 from rhosocial.activerecord.backend.expression.types import CustomType, IntegerType
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -44,8 +44,8 @@ class TestTypeCastingMixin:
         assert params == ()
 
     def test_literal_cast(self, dummy_dialect: DummyDialect):
-        """Test Literal with type cast."""
-        lit = Literal(dummy_dialect, "123")
+        """Test Parameter with type cast."""
+        lit = Parameter(dummy_dialect, "123")
         expr = cast(dummy_dialect, lit, CustomType(lit.dialect, raw="INTEGER"))
         sql, params = expr.to_sql()
         assert sql == "CAST(? AS INTEGER)"
@@ -160,7 +160,7 @@ class TestTypeCastingMixin:
 
     def test_nested_function_cast(self, dummy_dialect: DummyDialect):
         """Test type cast on function result."""
-        inner_func = FunctionCall(dummy_dialect, "COALESCE", Column(dummy_dialect, "price"), Literal(dummy_dialect, 0))
+        inner_func = FunctionCall(dummy_dialect, "COALESCE", Column(dummy_dialect, "price"), Parameter(dummy_dialect, 0))
         expr = inner_func.cast(CustomType(inner_func.dialect, raw="NUMERIC(10,2)"))
         sql, params = expr.to_sql()
         assert sql == 'CAST(COALESCE("price", ?) AS NUMERIC(10,2))'
@@ -218,11 +218,11 @@ class TestTypeCastingMixin:
         refusal happens in the generic ``format_cast_expression``, with the
         original ``TypeError`` message, while a real ``DataType`` still renders.
         """
-        expr = CastExpression(dummy_dialect, Literal(dummy_dialect, 1), "INTEGER")
+        expr = CastExpression(dummy_dialect, Parameter(dummy_dialect, 1), "INTEGER")
         assert expr.target_type == "INTEGER"
 
         with pytest.raises(TypeError, match="cast\\(\\) takes a DataType instance, not str"):
             expr.to_sql()
 
-        typed = CastExpression(dummy_dialect, Literal(dummy_dialect, 1), IntegerType(dummy_dialect))
+        typed = CastExpression(dummy_dialect, Parameter(dummy_dialect, 1), IntegerType(dummy_dialect))
         assert typed.to_sql() == ("CAST(? AS INTEGER)", (1,))

@@ -107,12 +107,12 @@ def _walk(pkgname: str):
 
 def core_kinds() -> dict[str, str]:
     """Map kind -> class name for everything core ships."""
-    from rhosocial.activerecord.backend.expression.core import Literal
+    from rhosocial.activerecord.backend.expression.core import Parameter
 
     out: dict[str, str] = {}
     for pkgname in CORE_PACKAGES:
         for _modname, name, cls in _walk(pkgname):
-            if issubclass(cls, Literal):
+            if issubclass(cls, Parameter):
                 continue  # one class carries every value kind
             out[cls.kind()] = name
     return out
@@ -120,14 +120,14 @@ def core_kinds() -> dict[str, str]:
 
 def backend_kinds(name: str) -> dict[str, dict]:
     """Map kind -> its relation to core, for one backend."""
-    from rhosocial.activerecord.backend.expression.core import Literal
+    from rhosocial.activerecord.backend.expression.core import Parameter
 
     spec = BACKENDS[name]
     core = core_kinds()
     out: dict[str, dict] = {}
     for pkgname in spec["expression"]:
         for modname, cls_name, cls in _walk(pkgname):
-            if issubclass(cls, Literal):
+            if issubclass(cls, Parameter):
                 continue
             kind = cls.kind()
             if kind in out:

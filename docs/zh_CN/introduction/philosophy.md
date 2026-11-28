@@ -94,7 +94,7 @@ User.configure(postgres_config, PostgresBackend)  # PostgreSQL
 高级用户可以不通过 ActiveRecord 而直接使用表达式和后端：
 
 ```python
-from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression import Column, Parameter
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 backend = SQLiteBackend(database=":memory:")
@@ -102,7 +102,7 @@ dialect = backend.dialect
 
 # 直接创建表达式（方言在构造时绑定为第一个参数）
 col = Column(dialect, "age", table="users")
-expr = col > Literal(dialect, 18)
+expr = col > Parameter(dialect, 18)
 
 # 通过方言生成 SQL（to_sql() 无参数，方言在构造时已绑定）
 sql, params = expr.to_sql()
@@ -124,7 +124,7 @@ backend.execute(sql, params)
 
 ```python
 # 示例：构建自定义 Repository 模式
-from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression import Column, Parameter
 
 class UserRepository:
     def __init__(self, backend):
@@ -133,8 +133,8 @@ class UserRepository:
     
     def find_active(self, min_age: int):
         # 直接使用表达式系统（方言在构造时绑定）
-        expr = (Column(self.dialect, "is_active") == Literal(self.dialect, True)) & \
-               (Column(self.dialect, "age") >= Literal(self.dialect, min_age))
+        expr = (Column(self.dialect, "is_active") == Parameter(self.dialect, True)) & \
+               (Column(self.dialect, "age") >= Parameter(self.dialect, min_age))
         sql, params = expr.to_sql()
         return self.backend.execute(sql, params)
 ```

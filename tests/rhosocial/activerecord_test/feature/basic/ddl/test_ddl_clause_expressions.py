@@ -76,9 +76,9 @@ def test_default_value_clause_expression(dummy):
 
 
 def test_default_value_clause_literal_is_inlined(dummy):
-    from rhosocial.activerecord.backend.expression import Literal
+    from rhosocial.activerecord.backend.expression import Parameter
 
-    clause = DefaultValueClause(dummy, Literal(dummy, 7))
+    clause = DefaultValueClause(dummy, Parameter(dummy, 7))
     sql, params = dummy.format_default_value_clause(clause)
     assert sql == "7"
     assert params == ()

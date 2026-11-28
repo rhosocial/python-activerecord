@@ -2,7 +2,7 @@
 import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     RawSQL,
     ComparisonPredicate,
     QueryStatement,
@@ -24,7 +24,7 @@ class TestInsertStatements:
 
     def test_insert_data_source_dialect_property(self, dummy_dialect: DummyDialect):
         """Tests that InsertDataSource.dialect returns the correct dialect."""
-        source = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "John Doe")]])
+        source = ValuesSource(dummy_dialect, values_list=[[Parameter(dummy_dialect, "John Doe")]])
         assert source.dialect is dummy_dialect
 
     def test_values_source_init_error_empty_values_list(self, dummy_dialect: DummyDialect):
@@ -32,7 +32,7 @@ class TestInsertStatements:
         with pytest.raises(ValueError, match="'values_list' must be a non-empty list of lists."):
             ValuesSource(dummy_dialect, values_list=[])
         with pytest.raises(ValueError, match="'values_list' must be a non-empty list of lists."):
-            ValuesSource(dummy_dialect, values_list=[Literal(dummy_dialect, "invalid")])  # Not a list of lists
+            ValuesSource(dummy_dialect, values_list=[Parameter(dummy_dialect, "invalid")])  # Not a list of lists
 
     def test_values_source_init_error_row_length_mismatch(self, dummy_dialect: DummyDialect):
         """Tests ValuesSource __init__ raises ValueError for values_list with inconsistent row lengths."""
@@ -40,8 +40,8 @@ class TestInsertStatements:
             ValuesSource(
                 dummy_dialect,
                 values_list=[
-                    [Literal(dummy_dialect, "col1")],
-                    [Literal(dummy_dialect, "col2"), Literal(dummy_dialect, "col3")],
+                    [Parameter(dummy_dialect, "col1")],
+                    [Parameter(dummy_dialect, "col2"), Parameter(dummy_dialect, "col3")],
                 ],
             )
 
@@ -49,7 +49,7 @@ class TestInsertStatements:
         "conflict_options, error_message",
         [
             pytest.param(
-                dict(do_nothing=True, update_assignments={"name": "test_val"}),  # Using a placeholder for Literal value
+                dict(do_nothing=True, update_assignments={"name": "test_val"}),  # Using a placeholder for Parameter value
                 "Cannot specify both 'do_nothing=True' and 'update_assignments' for ON CONFLICT.",
                 id="do_nothing_with_update",
             ),
@@ -62,11 +62,11 @@ class TestInsertStatements:
     )
     def test_on_conflict_clause_init_errors(self, dummy_dialect: DummyDialect, conflict_options, error_message):
         """Tests validation errors in OnConflictClause.__init__."""
-        # The Literal needs a dialect, so we assign it here if present
+        # The Parameter needs a dialect, so we assign it here if present
         if conflict_options.get("update_assignments"):
-            # Create Literal objects for assignment values using the dialect
+            # Create Parameter objects for assignment values using the dialect
             conflict_options["update_assignments"] = {
-                k: Literal(dummy_dialect, v) for k, v in conflict_options["update_assignments"].items()
+                k: Parameter(dummy_dialect, v) for k, v in conflict_options["update_assignments"].items()
             }
 
         with pytest.raises(ValueError, match=error_message):
@@ -235,7 +235,7 @@ class TestInsertStatements:
                 set_dialect_recursive(expr.expr, dialect)
             if hasattr(expr, "value") and isinstance(
                 expr.value, bases.BaseExpression
-            ):  # For Literal, if value is an expression
+            ):  # For Parameter, if value is an expression
                 set_dialect_recursive(expr.value, dialect)
             if hasattr(expr, "subquery"):  # For Exists, Subquery
                 set_dialect_recursive(expr.subquery, dialect)
@@ -284,7 +284,7 @@ class TestInsertStatements:
 
         values_list_expr = []
         for row in values_data:
-            values_list_expr.append([Literal(dummy_dialect, val) for val in row])
+            values_list_expr.append([Parameter(dummy_dialect, val) for val in row])
         source = ValuesSource(dummy_dialect, values_list=values_list_expr)
 
         # returning parameter
@@ -387,7 +387,7 @@ class TestInsertStatements:
                 dummy_dialect,
                 "=",
                 Column(dummy_dialect, "status"),
-                Literal(dummy_dialect, "active"),
+                Parameter(dummy_dialect, "active"),
             )
         )
         select_query = QueryStatement(
@@ -413,7 +413,7 @@ class TestInsertStatements:
 
     def test_insert_with_returning_clause(self, dummy_dialect: DummyDialect):
         """Tests an INSERT statement with a RETURNING clause."""
-        source = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]])
+        source = ValuesSource(dummy_dialect, values_list=[[Parameter(dummy_dialect, "test")]])
         returning_clause = ReturningClause(
             dummy_dialect, expressions=[Column(dummy_dialect, "id"), RawSQL(dummy_dialect, "created_at")]
         )
@@ -426,7 +426,7 @@ class TestInsertStatements:
 
     def test_insert_on_conflict_do_nothing(self, dummy_dialect: DummyDialect):
         """Tests ON CONFLICT DO NOTHING for upsert."""
-        source = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, 1), Literal(dummy_dialect, "test")]])
+        source = ValuesSource(dummy_dialect, values_list=[[Parameter(dummy_dialect, 1), Parameter(dummy_dialect, "test")]])
         on_conflict = OnConflictClause(dummy_dialect, conflict_target=["id"], do_nothing=True)
         insert_expr = InsertStatement(
             dummy_dialect, into=Table(dummy_dialect, 'products'), columns=["id", "name"], source=source, on_conflict=on_conflict
@@ -438,7 +438,7 @@ class TestInsertStatements:
     def test_insert_on_conflict_do_update(self, dummy_dialect: DummyDialect):
         """Tests ON CONFLICT DO UPDATE for upsert."""
         source = ValuesSource(
-            dummy_dialect, values_list=[[Literal(dummy_dialect, 1), Literal(dummy_dialect, "Updated Name")]]
+            dummy_dialect, values_list=[[Parameter(dummy_dialect, 1), Parameter(dummy_dialect, "Updated Name")]]
         )
         on_conflict = OnConflictClause(
             dummy_dialect,
@@ -463,7 +463,7 @@ class TestInsertStatements:
     def test_insert_on_conflict_do_update_with_where(self, dummy_dialect: DummyDialect):
         """Tests ON CONFLICT DO UPDATE with a WHERE condition."""
         source = ValuesSource(
-            dummy_dialect, values_list=[[Literal(dummy_dialect, 1), Literal(dummy_dialect, "Updated Name")]]
+            dummy_dialect, values_list=[[Parameter(dummy_dialect, 1), Parameter(dummy_dialect, "Updated Name")]]
         )
         on_conflict = OnConflictClause(
             dummy_dialect,
@@ -473,7 +473,7 @@ class TestInsertStatements:
                 dummy_dialect,
                 "=",
                 Column(dummy_dialect, "is_active", "products"),
-                Literal(dummy_dialect, True),
+                Parameter(dummy_dialect, True),
             )
         )
         insert_expr = InsertStatement(
@@ -505,7 +505,7 @@ class TestInsertStatements:
 
     def test_insert_with_table_expression(self, dummy_dialect: DummyDialect):
         """Tests that 'into' can be a NamedRelationRef."""
-        source = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]])
+        source = ValuesSource(dummy_dialect, values_list=[[Parameter(dummy_dialect, "test")]])
         insert_expr = InsertStatement(
             dummy_dialect, into=Table(dummy_dialect, 'users'), columns=["name"], source=source
         )
@@ -534,7 +534,7 @@ class TestInsertStatements:
         self, dummy_dialect: DummyDialect, columns_param, values_data, expected_sql, expected_params
     ):
         """Tests inserting empty string values."""
-        values_list_expr = [[Literal(dummy_dialect, val) for val in row] for row in values_data]
+        values_list_expr = [[Parameter(dummy_dialect, val) for val in row] for row in values_data]
         source = ValuesSource(dummy_dialect, values_list=values_list_expr)
         insert_expr = InsertStatement(dummy_dialect, into=Table(dummy_dialect, 'test_table'), columns=columns_param, source=source)
         sql, params = insert_expr.to_sql()
@@ -567,7 +567,7 @@ class TestInsertStatements:
         self, dummy_dialect: DummyDialect, columns_param, values_data, expected_sql, expected_params
     ):
         """Tests inserting explicit NULL values."""
-        values_list_expr = [[Literal(dummy_dialect, val) for val in row] for row in values_data]
+        values_list_expr = [[Parameter(dummy_dialect, val) for val in row] for row in values_data]
         source = ValuesSource(dummy_dialect, values_list=values_list_expr)
         insert_expr = InsertStatement(dummy_dialect, into=Table(dummy_dialect, 'test_table'), columns=columns_param, source=source)
         sql, params = insert_expr.to_sql()
@@ -586,7 +586,7 @@ class TestInsertStatements:
         columns = [f"col{i}" for i in range(num_columns)]
         values = [f"value{i}" for i in range(num_columns)]
 
-        values_list_expr = [[Literal(dummy_dialect, val) for val in values]]
+        values_list_expr = [[Parameter(dummy_dialect, val) for val in values]]
         source = ValuesSource(dummy_dialect, values_list=values_list_expr)
         insert_expr = InsertStatement(dummy_dialect, into=Table(dummy_dialect, 'large_table'), columns=columns, source=source)
 
@@ -611,7 +611,7 @@ class TestInsertStatements:
         """Tests inserting a very long string value."""
         long_string = "a" * string_length
 
-        values_list_expr = [[Literal(dummy_dialect, long_string)]]
+        values_list_expr = [[Parameter(dummy_dialect, long_string)]]
         source = ValuesSource(dummy_dialect, values_list=values_list_expr)
         insert_expr = InsertStatement(dummy_dialect, into=Table(dummy_dialect, 'long_string_table'), columns=["text_col"], source=source)
 
@@ -631,7 +631,7 @@ class TestInsertStatements:
         source = ValuesSource(
             dummy_dialect,
             values_list=[
-                [Literal(dummy_dialect, 1), Literal(dummy_dialect, "user@example.com"), Literal(dummy_dialect, "John")]
+                [Parameter(dummy_dialect, 1), Parameter(dummy_dialect, "user@example.com"), Parameter(dummy_dialect, "John")]
             ],
         )
         on_conflict = OnConflictClause(dummy_dialect, conflict_target=["col1", "col2"], do_nothing=True)
@@ -648,7 +648,7 @@ class TestInsertStatements:
     def test_on_conflict_with_expression_target(self, dummy_dialect: DummyDialect):
         """Tests ON CONFLICT with an expression as conflict target: ON CONFLICT ((lower(email)))."""
         source = ValuesSource(
-            dummy_dialect, values_list=[[Literal(dummy_dialect, 1), Literal(dummy_dialect, "TEST@EXAMPLE.COM")]]
+            dummy_dialect, values_list=[[Parameter(dummy_dialect, 1), Parameter(dummy_dialect, "TEST@EXAMPLE.COM")]]
         )
         on_conflict = OnConflictClause(
             dummy_dialect,
@@ -673,7 +673,7 @@ class TestInsertStatements:
         """Tests DO UPDATE SET with mixed excluded and table references for multiple columns."""
         source = ValuesSource(
             dummy_dialect,
-            values_list=[[Literal(dummy_dialect, 1), Literal(dummy_dialect, "new_name"), Literal(dummy_dialect, 5)]],
+            values_list=[[Parameter(dummy_dialect, 1), Parameter(dummy_dialect, "new_name"), Parameter(dummy_dialect, 5)]],
         )
         on_conflict = OnConflictClause(
             dummy_dialect,
@@ -702,7 +702,7 @@ class TestInsertStatements:
         """Tests DO UPDATE WHERE clause with a complex predicate."""
         source = ValuesSource(
             dummy_dialect,
-            values_list=[[Literal(dummy_dialect, 1), Literal(dummy_dialect, "inactive"), Literal(dummy_dialect, 10)]],
+            values_list=[[Parameter(dummy_dialect, 1), Parameter(dummy_dialect, "inactive"), Parameter(dummy_dialect, 10)]],
         )
         on_conflict = OnConflictClause(
             dummy_dialect,
@@ -716,7 +716,7 @@ class TestInsertStatements:
                 dummy_dialect,
                 "=",
                 Column(dummy_dialect, "status", "users"),
-                Literal(dummy_dialect, "active"))
+                Parameter(dummy_dialect, "active"))
             )
             & (ComparisonPredicate(
                 dummy_dialect,
@@ -744,7 +744,7 @@ class TestInsertStatements:
     def test_insert_multiple_on_conflict_clauses(self, dummy_dialect: DummyDialect):
         """Tests that a list of OnConflictClause objects renders multiple ON CONFLICT clauses."""
         source = ValuesSource(
-            dummy_dialect, values_list=[[Literal(dummy_dialect, 1), Literal(dummy_dialect, "test")]]
+            dummy_dialect, values_list=[[Parameter(dummy_dialect, 1), Parameter(dummy_dialect, "test")]]
         )
         clause1 = OnConflictClause(dummy_dialect, conflict_target=["id"], do_nothing=True)
         clause2 = OnConflictClause(
@@ -770,7 +770,7 @@ class TestInsertStatements:
 
     def test_insert_multiple_on_conflict_clauses_all_do_nothing(self, dummy_dialect: DummyDialect):
         """Tests multiple ON CONFLICT clauses all using DO NOTHING."""
-        source = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, 1)]])
+        source = ValuesSource(dummy_dialect, values_list=[[Parameter(dummy_dialect, 1)]])
         clauses = [
             OnConflictClause(dummy_dialect, conflict_target=["col_a"], do_nothing=True),
             OnConflictClause(dummy_dialect, conflict_target=["col_b"], do_nothing=True),
@@ -792,7 +792,7 @@ class TestInsertStatements:
     def test_insert_multiple_on_conflict_with_where(self, dummy_dialect: DummyDialect):
         """Tests multiple ON CONFLICT clauses where one carries a WHERE predicate."""
         source = ValuesSource(
-            dummy_dialect, values_list=[[Literal(dummy_dialect, 1), Literal(dummy_dialect, 10)]]
+            dummy_dialect, values_list=[[Parameter(dummy_dialect, 1), Parameter(dummy_dialect, 10)]]
         )
         clause1 = OnConflictClause(dummy_dialect, conflict_target=["id"], do_nothing=True)
         clause2 = OnConflictClause(
@@ -825,7 +825,7 @@ class TestInsertStatements:
 
     def test_insert_single_on_conflict_scalar_remains_unchanged(self, dummy_dialect: DummyDialect):
         """Tests that passing a single OnConflictClause still produces identical SQL (backward compat)."""
-        source = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, 1)]])
+        source = ValuesSource(dummy_dialect, values_list=[[Parameter(dummy_dialect, 1)]])
         clause = OnConflictClause(dummy_dialect, conflict_target=["id"], do_nothing=True)
         insert_expr = InsertStatement(
             dummy_dialect, into=Table(dummy_dialect, 't'), columns=["val"], source=source, on_conflict=clause
@@ -851,7 +851,7 @@ class TestInsertStatements:
         insert_expr = InsertStatement(
             dummy_dialect,
             into=123,
-            source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]]),
+            source=ValuesSource(dummy_dialect, values_list=[[Parameter(dummy_dialect, "test")]]),
         )
         with pytest.raises(TypeError, match=r"into must be a Table, got int"):
             insert_expr.to_sql()
@@ -861,7 +861,7 @@ class TestInsertStatements:
         insert_expr = InsertStatement(
             dummy_dialect,
             into=Table(dummy_dialect, 'users'),
-            source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]]),
+            source=ValuesSource(dummy_dialect, values_list=[[Parameter(dummy_dialect, "test")]]),
         )
         # Manually assign invalid type to trigger validation error
         insert_expr.source = 456  # Invalid type - should be InsertDataSource
@@ -874,7 +874,7 @@ class TestInsertStatements:
         insert_expr = InsertStatement(
             dummy_dialect,
             into=Table(dummy_dialect, 'users'),
-            source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]]),
+            source=ValuesSource(dummy_dialect, values_list=[[Parameter(dummy_dialect, "test")]]),
         )
         # Manually assign invalid type to trigger validation error
         insert_expr.columns = "invalid"  # Invalid type - should be list or None
@@ -887,7 +887,7 @@ class TestInsertStatements:
         insert_expr = InsertStatement(
             dummy_dialect,
             into=Table(dummy_dialect, 'users'),
-            source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]]),
+            source=ValuesSource(dummy_dialect, values_list=[[Parameter(dummy_dialect, "test")]]),
         )
         # Manually assign invalid type to trigger validation error
         insert_expr.on_conflict = 789  # Invalid type - should be OnConflictClause
@@ -897,13 +897,13 @@ class TestInsertStatements:
 
     def test_insert_expression_invalid_on_conflict_constructor_type(self, dummy_dialect: DummyDialect):
         """Tests that InsertStatement raises TypeError when on_conflict is not a clause or list of clauses."""
-        source = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]])
+        source = ValuesSource(dummy_dialect, values_list=[[Parameter(dummy_dialect, "test")]])
         with pytest.raises(TypeError, match=r"on_conflict must be OnConflictClause or list of OnConflictClause"):
             InsertStatement(dummy_dialect, into=Table(dummy_dialect, 'users'), source=source, on_conflict=123)
 
     def test_insert_expression_invalid_on_conflict_list_item(self, dummy_dialect: DummyDialect):
         """Tests that InsertStatement raises TypeError when a list item is not an OnConflictClause."""
-        source = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]])
+        source = ValuesSource(dummy_dialect, values_list=[[Parameter(dummy_dialect, "test")]])
         with pytest.raises(TypeError, match=r"on_conflict\[1\] must be OnConflictClause, got <class 'int'>"):
             InsertStatement(
                 dummy_dialect,
@@ -920,7 +920,7 @@ class TestInsertStatements:
         insert_expr = InsertStatement(
             dummy_dialect,
             into=Table(dummy_dialect, 'users'),
-            source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]]),
+            source=ValuesSource(dummy_dialect, values_list=[[Parameter(dummy_dialect, "test")]]),
         )
         # Manually assign invalid type to trigger validation error
         insert_expr.returning = 999  # Invalid type - should be ReturningClause
@@ -933,7 +933,7 @@ class TestInsertStatements:
         insert_expr = InsertStatement(
             dummy_dialect,
             into=Table(dummy_dialect, 'users'),
-            source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]]),
+            source=ValuesSource(dummy_dialect, values_list=[[Parameter(dummy_dialect, "test")]]),
         )
         # Manually assign invalid type that would normally cause an error
         insert_expr.source = 999  # Invalid type - should be InsertDataSource
@@ -945,7 +945,7 @@ class TestInsertStatements:
         insert_expr_valid = InsertStatement(
             dummy_dialect,
             into=Table(dummy_dialect, 'products'),
-            source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "widget")]]),
+            source=ValuesSource(dummy_dialect, values_list=[[Parameter(dummy_dialect, "widget")]]),
         )
         insert_expr_valid.validate(strict=False)  # Should not raise any exception
         assert True  # Just to ensure the test passes

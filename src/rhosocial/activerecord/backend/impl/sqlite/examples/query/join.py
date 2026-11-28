@@ -13,7 +13,7 @@ from rhosocial.activerecord.backend.expression import (
     JoinClause,
 )
 from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint, TableConstraint
-from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.core import Parameter
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableStatement,
     InsertStatement,
@@ -90,7 +90,7 @@ for user in users:
         dialect=dialect,
         into=Table(dialect, 'users'),
         columns=["name"],
-        source=ValuesSource(dialect, [[Literal(dialect, v) for v in user]]),
+        source=ValuesSource(dialect, [[Parameter(dialect, v) for v in user]]),
     )
     sql, params = insert_expr.to_sql()
     backend.execute(sql, params)
@@ -105,7 +105,7 @@ for row in orders:
         dialect=dialect,
         into=Table(dialect, 'orders'),
         columns=["user_id", "amount"],
-        source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
+        source=ValuesSource(dialect, [[Parameter(dialect, v) for v in row]]),
     )
     sql, params = insert_expr.to_sql()
     backend.execute(sql, params)

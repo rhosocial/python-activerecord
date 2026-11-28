@@ -25,7 +25,7 @@ from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     Column,
     ComparisonPredicate,
-    Literal,
+    Parameter,
     FunctionCall,
     QueryStatement,
     CreateViewStatement,
@@ -110,7 +110,7 @@ def sqlite_backend():
         insert_expr = InsertStatement(
             dialect,
             into=Table(dialect, 'users'),
-            source=ValuesSource(dialect, [[Literal(dialect, name), Literal(dialect, email), Literal(dialect, status)]]),
+            source=ValuesSource(dialect, [[Parameter(dialect, name), Parameter(dialect, email), Parameter(dialect, status)]]),
             columns=["name", "email", "status"],
         )
         sql, params = insert_expr.to_sql()
@@ -127,7 +127,7 @@ def sqlite_backend():
             dialect,
             into=Table(dialect, 'orders'),
             source=ValuesSource(
-                dialect, [[Literal(dialect, user_id), Literal(dialect, amount), Literal(dialect, order_date)]]
+                dialect, [[Parameter(dialect, user_id), Parameter(dialect, amount), Parameter(dialect, order_date)]]
             ),
             columns=["user_id", "amount", "order_date"],
         )

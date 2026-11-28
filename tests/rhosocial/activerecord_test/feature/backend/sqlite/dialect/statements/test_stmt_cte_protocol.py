@@ -10,7 +10,7 @@ from rhosocial.activerecord.backend.dialect import SQLDialectBase, CTEMixin, CTE
 from rhosocial.activerecord.backend.expression import (
     Column,
     ComparisonPredicate,
-    Literal,
+    Parameter,
     QueryStatement,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
@@ -210,14 +210,14 @@ def test_with_statement_places_cte_params_before_query_params():
             dialect,
             select=[Column(dialect, "id")],
             from_=NamedRelationRef(dialect, Table(dialect, "users")),
-            where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, 7)),
+            where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Parameter(dialect, 7)),
         ),
     )
     main = QueryStatement(
         dialect,
         select=[Column(dialect, "id")],
         from_=NamedRelationRef(dialect, Table(dialect, "user_cte")),
-        where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, 9)),
+        where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Parameter(dialect, 9)),
     )
 
     assert WithStatement(dialect, ctes=[cte], query=main).to_sql()[1] == (7, 9)

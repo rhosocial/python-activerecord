@@ -7,7 +7,7 @@ import json
 import sys
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Type
 
-from ..backend.expression import Column, ComparisonPredicate, Literal
+from ..backend.expression import Column, ComparisonPredicate, Parameter
 from ..backend.expression.collect_columns import referenced_columns
 from ..query import (
     ActiveQuery,
@@ -146,7 +146,7 @@ def parse_where(model, clauses: Optional[Sequence[str]]):
         value = coerce_filter_value(model, field_name, raw_value.strip())
         column = Column(dialect, model.column_name(field_name))
         predicates.append(
-            ComparisonPredicate(dialect, "=", column, Literal(dialect, value))
+            ComparisonPredicate(dialect, "=", column, Parameter(dialect, value))
         )
     return predicates
 

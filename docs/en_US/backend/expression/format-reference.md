@@ -21,9 +21,10 @@ An artifact is a **bare node. No envelope** (§4.11.3):
 | `kind` | str | Non-empty; must be in the reader's registry |
 | `params` | dict | Keys must match the target class's `__init__` parameter names |
 
-There is no `type`, no `module`, no version, no producer, no captured dialect,
-no connection fingerprint. A node carrying anything beyond `kind` and `params`
-is rejected by name, so a leftover envelope field cannot ride along unnoticed.
+There is no version, no module, no producer, no captured dialect, no connection
+fingerprint, and nothing beyond `kind` and `params` at the node level. A node
+carrying anything else is rejected by name, so a leftover envelope field cannot
+ride along unnoticed.
 
 ## Where the kind comes from
 
@@ -31,11 +32,11 @@ is rejected by name, so a leftover envelope field cannot ride along unnoticed.
 a run of capitals counted as one word (`JSONValue` → `json_value`). A class
 carries no kind field, so the two cannot drift apart.
 
-A **literal** is the one node whose kind is not its class name. One node carries
-every value and the wire still names them apart — `null_value`, `integer_value`,
-`date_value`, … — because a date's spelling and a string's are the same bytes and
-only the kind tells them apart. The value kind is the node's identity on the wire;
-`Literal` is merely what all of them resolve to.
+A **parameter** is an ordinary node under that same rule: its kind is
+`parameter`, and its params are the constructor's own — `value` and `inline`.
+Which value it holds is not an identity: the host value is carried as-is, with
+no type name added. Two parameters holding a date and a string are the same
+kind, and the reader cannot infer which host type either one held.
 
 ## Parameters
 
@@ -43,15 +44,19 @@ only the kind tells them apart. The value kind is the node's identity on the wir
 context and never travels: the same artifact re-renders under any dialect object
 the reader hands it.
 
-Each parameter is one of exactly two forms:
+Each constructor parameter is one of three forms:
 
-- a **language-independent scalar** (JSON-native, or one of the markers below)
+- a **language-independent JSON value** (null, boolean, number, string, array or object)
+- a **host value carried as-is** — the `value` of a `Parameter`
 - an **expression**, written as a nested `{kind, params}` node
 
-There is no third form, and no marker around a nested node — the shape *is* the
-signal. A `set`, a driver handle, a closure or a pickled blob has no
-language-independent encoding and is therefore not serializable; model it as an
-expression instead.
+There is no fourth form and no marker around a nested node or a value — the
+shape and the node's own params *are* the signal. Whether a host value can be
+written as JSON is its type's own contract, not a serializer rule. A `set`, a
+driver handle, a closure or a pickled blob has no language-independent encoding;
+if you need one to survive a JSON round trip, make it JSON-serializable, pass
+`default=` to `serialize_json(...)` (forwarded to `json.dumps`), or model it as
+an expression instead.
 
 ## Marker Types
 
@@ -59,8 +64,9 @@ expression instead.
 
 An artifact contains only JSON: null, booleans, numbers, strings, arrays, and
 objects that are either a node or a plain mapping. A nested expression is a bare
-`{kind, params}` node; a value JSON cannot spell travels as the text its kind
-names.
+`{kind, params}` node; a value held by a `Parameter` is carried unchanged in
+`params.value`. Whether that value can be written as JSON is the value type's
+own contract — the serializer adds no marker and consults no rule.
 
 This is not a simplification. A marker is a *dispatch* — the reader has to
 recognise the key and know what it means — and a dispatch is something every
@@ -79,35 +85,68 @@ language already parses one.
 | `bool` | boolean | |
 | `None` | null | |
 | `list` | array | Elements processed recursively |
-| `tuple` | array | The parameter's declared type says it was a pair; the constructor restores it |
+| `tuple` | array | Goes out as an array. A structural tuple is restored to a tuple by its constructor; a tuple **value** comes back as an array — the reader cannot infer host types |
 | `dict` | object | Values processed recursively |
 | `BaseExpression` | object | A bare nested node |
 | `set` | — | Not supported; convert to a list |
 | Driver handles, closures, arbitrary objects | — | No language-independent encoding; model as an expression |
 
-### Bind values are the one exception
+That table is for **structural** parameters — the constructor arguments that
+shape the tree. A value held at a value position is different: it is a
+`Parameter` node, and its `value` is carried as-is.
 
-A parameter that is **sent to the database** may hold a type JSON has no spelling
-for. It is wrapped in a `Literal`, and its kind names the text:
+### Every parameter value travels as-is
 
-| Kind | Carries | Wire form |
-|------|---------|-----------|
-| `binary_value` | `bytes` | base64 string |
-| `interval_value` | `timedelta` | ISO 8601 string — days/hours/minutes/seconds, since years and months have no fixed length |
-| `decimal_value` | `Decimal` | exact decimal string, never a float |
-| `timestamp_value` / `date_value` / `time_value` | date and time | ISO text |
-| `uuid_value` | `UUID` | canonical text |
+A value that is **sent to the database** is held by a `Parameter`, and travels
+unchanged — no text form, no type name, no conversion:
 
-The kind is the whole reason a kind exists here: a date's spelling and a
-string's are the same bytes, and only `date_value` tells them apart. The
-constructor takes the scalar back and converts it.
+```python
+# Parameter(dialect, 18)
+{"kind": "parameter", "params": {"value": 18, "inline": false}}
+```
+
+Whether `json.dumps` can write that value is the **value type's own contract**.
+Make the value JSON-serializable, or pass `default=` to `serialize_json(...)`
+(forwarded to `json.dumps`). The serializer does not convert, name, validate or
+reject value types: a `json.dumps` failure is the caller's problem, and no
+serializer rule is consulted. On read, `deserialize_json(..., object_hook=...)`
+forwards `object_hook=` to `json.loads` for caller-owned values; the codec
+itself uses no hook.
+
+`deserialize` hands the value back unchanged — no type dispatch, no unpacking.
+`None` stays JSON null (SQL NULL). A tuple travels as a JSON array and comes
+back as an array; the reader cannot infer host types. The distinction is between
+the `parameter` **node** (kind `parameter`), an `SQLValue` / value result type
+(which says what an expression yields), and the JSON-native value contract (what
+`json.dumps` can write) — three separate things.
+
+### Raw values and inline positions
+
+A caller does not have to construct `Parameter` by hand. At a **value position**
+— a comparison operand, an `IN` list, a `BETWEEN` bound, a `LIKE` pattern, a
+function argument, an `INSERT`/`UPDATE` value, a DDL default — the framework
+wraps a plain Python value into one. SQL therefore keeps its placeholder and the
+value travels in `params`; it is never interpolated into the SQL text by the
+caller. **Name positions** get no coercion: a table name, a column name or an
+`ORDER BY` item stays an identifier, so the string `"id"` there is not the value
+`'id'`.
+
+`inline` is an **internal decision**, not a caller-facing type and not a second
+kind. It is set for a grammar position that takes no placeholder — a DDL
+`DEFAULT`, a `CHECK` operand, a partial-index `WHERE` — where the formatter asks
+the dialect's `format_literal(value)` for escaped SQL text and the value no
+longer appears in the **bind-parameter list** (it still travels in the artifact's
+`params.value`). The default `inline: false` binds, which is what
+every DQL/DML data position wants. Both cases serialize under the same
+`parameter` kind; only the flag differs.
 
 ## Serialization Flow
 
 1. Read `get_params()` — one attribute per `__init__` parameter, under its own
    name, `dialect` excepted.
 2. Process each value: a `BaseExpression` becomes a nested node; a list, tuple or
-   dict is walked; everything else must already be a JSON scalar.
+   dict is walked; any other value — including a `Parameter`'s `value` — is
+   carried unchanged.
 3. Emit `{"kind": ..., "params": ...}`.
 
 No registry is consulted. A node knows its own kind, so a caller that only
@@ -118,8 +157,10 @@ serializes never builds a lookup table.
 The artifact is **untrusted input** (§4.11.4).
 
 1. Reject a node with any field beyond `kind` and `params`.
-2. Resolve `kind` through the registry's whitelist. There is no import path and
-   no reflection: a name is either registered or refused by name.
+2. Resolve `kind` through the registry's whitelist. The artifact never names a
+   module: the table already holds the fully qualified class name for the kind,
+   and that is the only name resolution imports. A kind the table does not hold
+   is refused by name.
 3. Require `params` to be an object, and check every key against the resolved
    class's `__init__` — an unrecognised parameter and a missing required one each
    fail by name.
@@ -146,12 +187,15 @@ cannot be debugged by guessing:
 | Situation | Message |
 |-----------|---------|
 | Kind not admitted | `kind 'x' is not in the kind whitelist (N kinds registered)` |
-| Leftover envelope field | `artifact node has unexpected field(s) ['type']` |
+| Leftover envelope field | `artifact node has unexpected field(s) ['dialect']` |
 | Missing kind | `artifact node has no usable 'kind' (got None)` |
 | Unrecognised parameter | `kind 'x' does not accept parameter(s) [...]` |
 | Missing required parameter | `kind 'x' is missing required parameter(s) [...]` |
 | `**kwargs` declared | `kind 'x' accepts **kwargs, so its parameters cannot be matched by name` |
 | Too deep | `artifact nesting depth exceeds 64` |
+
+A `json.dumps` failure is not among them: it comes from `json.dumps`, not from a
+serializer value-type rule.
 
 All of them are `ArtifactError`, which subclasses
 `ExpressionDeserializationError` — so a caller catches that one type.

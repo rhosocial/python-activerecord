@@ -5,7 +5,7 @@ import pytest
 from rhosocial.activerecord.backend.expression.types import CustomType
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     FunctionCall,
     QueryStatement,
     CaseExpression,
@@ -33,15 +33,15 @@ class TestAdvancedFunctionWindow:
     # --- CaseExpression ---
     def test_case_searched_expression(self, dummy_dialect: DummyDialect):
         """Tests a searched CASE expression (CASE WHEN ... THEN ... ELSE ... END)."""
-        condition1 = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18))
-        result1 = Literal(dummy_dialect, "adult")
-        condition2 = ComparisonPredicate(dummy_dialect, "<=", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18))
-        result2 = Literal(dummy_dialect, "minor")
+        condition1 = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Parameter(dummy_dialect, 18))
+        result1 = Parameter(dummy_dialect, "adult")
+        condition2 = ComparisonPredicate(dummy_dialect, "<=", Column(dummy_dialect, "age"), Parameter(dummy_dialect, 18))
+        result2 = Parameter(dummy_dialect, "minor")
 
         case_expr = CaseExpression(
             dummy_dialect,
             cases=[(condition1, result1), (condition2, result2)],
-            else_result=Literal(dummy_dialect, "unknown"),
+            else_result=Parameter(dummy_dialect, "unknown"),
         )
         sql, params = case_expr.to_sql()
         expected = 'CASE WHEN "age" > ? THEN ? WHEN "age" <= ? THEN ? ELSE ? END'
@@ -55,10 +55,10 @@ class TestAdvancedFunctionWindow:
             dummy_dialect,
             value=value_expr,
             cases=[
-                (Literal(dummy_dialect, 1), Literal(dummy_dialect, "Pending")),
-                (Literal(dummy_dialect, 2), Literal(dummy_dialect, "Approved")),
+                (Parameter(dummy_dialect, 1), Parameter(dummy_dialect, "Pending")),
+                (Parameter(dummy_dialect, 2), Parameter(dummy_dialect, "Approved")),
             ],
-            else_result=Literal(dummy_dialect, "Rejected"),
+            else_result=Parameter(dummy_dialect, "Rejected"),
         )
         sql, params = case_expr.to_sql()
         expected = 'CASE "status_code" WHEN ? THEN ? WHEN ? THEN ? ELSE ? END'
@@ -73,7 +73,7 @@ class TestAdvancedFunctionWindow:
                 ("Column", ("price",)), "INTEGER", 'CAST("price" AS INTEGER)', (), id="cast_column_to_integer"
             ),
             pytest.param(
-                ("Literal", ("2023-01-01",)), "DATE", "CAST(? AS DATE)", ("2023-01-01",), id="cast_literal_to_date"
+                ("Parameter", ("2023-01-01",)), "DATE", "CAST(? AS DATE)", ("2023-01-01",), id="cast_literal_to_date"
             ),
         ],
     )
@@ -83,8 +83,8 @@ class TestAdvancedFunctionWindow:
 
         if expr_class_name == "Column":
             expr = Column(dummy_dialect, expr_args[0])
-        elif expr_class_name == "Literal":
-            expr = Literal(dummy_dialect, expr_args[0])
+        elif expr_class_name == "Parameter":
+            expr = Parameter(dummy_dialect, expr_args[0])
         else:
             return
 
@@ -140,7 +140,7 @@ class TestAdvancedFunctionWindow:
         """Tests ANY and ALL expressions."""
         # ANY expression
         any_expr = AnyPredicate(
-            dummy_dialect, Column(dummy_dialect, "value"), ">", Literal(dummy_dialect, [10, 20, 30])
+            dummy_dialect, Column(dummy_dialect, "value"), ">", Parameter(dummy_dialect, [10, 20, 30])
         )
         sql, params = any_expr.to_sql()
         expected = '("value" > ANY?)'
@@ -149,7 +149,7 @@ class TestAdvancedFunctionWindow:
 
         # ALL expression
         all_expr = AllPredicate(
-            dummy_dialect, Column(dummy_dialect, "score"), ">=", Literal(dummy_dialect, [85, 90, 95])
+            dummy_dialect, Column(dummy_dialect, "score"), ">=", Parameter(dummy_dialect, [85, 90, 95])
         )
         sql, params = all_expr.to_sql()
         expected = '("score" >= ALL?)'
@@ -339,7 +339,7 @@ class TestAdvancedFunctionWindow:
         A bare value used to be turned into a bind parameter at render time,
         which is the formatter manufacturing the expression it was asked to
         render. Whether ``"test"`` is a value or a column name is the factory's
-        question, so the formatter refuses and the caller writes ``Literal``.
+        question, so the formatter refuses and the caller writes ``Parameter``.
         """
         window_spec = WindowSpecification(
             dummy_dialect,
@@ -351,7 +351,7 @@ class TestAdvancedFunctionWindow:
             "RANK",
             1,
             "test",
-            3.14,  # Literal values, not BaseExpression instances
+            3.14,  # Parameter values, not BaseExpression instances
             window_spec=window_spec,
             alias="rank_val",
         )
@@ -360,7 +360,7 @@ class TestAdvancedFunctionWindow:
             window_func.to_sql()
 
     def test_window_function_call_takes_literal_expressions(self, dummy_dialect: DummyDialect):
-        """Literal arguments render as bind parameters and keep the window clause."""
+        """Parameter arguments render as bind parameters and keep the window clause."""
         window_spec = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "department")],
@@ -369,9 +369,9 @@ class TestAdvancedFunctionWindow:
         window_func = FunctionCall(
             dummy_dialect,
             "RANK",
-            Literal(dummy_dialect, 1),
-            Literal(dummy_dialect, "test"),
-            Literal(dummy_dialect, 3.14),
+            Parameter(dummy_dialect, 1),
+            Parameter(dummy_dialect, "test"),
+            Parameter(dummy_dialect, 3.14),
             window_spec=window_spec,
             alias="rank_val",
         )
@@ -449,7 +449,7 @@ class TestAdvancedFunctionWindow:
 
     def test_ordered_set_aggregation_with_invalid_order_by_type_raises_error(self, dummy_dialect: DummyDialect):
         """Tests that OrderedSetAggregation raises TypeError when order_by is not OrderByClause or str."""
-        from rhosocial.activerecord.backend.expression import Column, Literal
+        from rhosocial.activerecord.backend.expression import Column, Parameter
         from rhosocial.activerecord.backend.expression.advanced_functions import OrderedSetAggregation
 
         # Test with invalid types that should raise TypeError
@@ -458,19 +458,19 @@ class TestAdvancedFunctionWindow:
         for invalid_type in invalid_types:
             with pytest.raises(TypeError, match=r"order_by must be OrderByClause or str, got <class '.*'>"):
                 OrderedSetAggregation(
-                    dummy_dialect, "PERCENTILE_CONT", args=[Literal(dummy_dialect, 0.5)], order_by=invalid_type
+                    dummy_dialect, "PERCENTILE_CONT", args=[Parameter(dummy_dialect, 0.5)], order_by=invalid_type
                 )
 
     def test_ordered_set_aggregation_with_string_converts_to_order_by_clause(self, dummy_dialect: DummyDialect):
         """Tests that OrderedSetAggregation converts string to OrderByClause."""
-        from rhosocial.activerecord.backend.expression import Literal
+        from rhosocial.activerecord.backend.expression import Parameter
         from rhosocial.activerecord.backend.expression.advanced_functions import OrderedSetAggregation
 
         # Create an OrderedSetAggregation with string order_by (should be converted to OrderByClause)
         ordered_agg = OrderedSetAggregation(
             dummy_dialect,
             "PERCENTILE_CONT",
-            args=[Literal(dummy_dialect, 0.5)],
+            args=[Parameter(dummy_dialect, 0.5)],
             order_by="value",  # String should be converted to OrderByClause
         )
 

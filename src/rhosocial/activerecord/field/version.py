@@ -181,7 +181,7 @@ class OptimisticLockMixin(IUpdateBehavior):
         """
         if self.is_new_record:
             return []
-        from ..backend.expression.core import Column, Literal
+        from ..backend.expression.core import Column, Parameter
         from ..backend.expression.predicates import ComparisonPredicate
 
         backend = self.backend()
@@ -191,7 +191,7 @@ class OptimisticLockMixin(IUpdateBehavior):
         # reference and carries no operations, so ``column == value`` would be
         # Python's identity answer (False) rather than the optimistic-lock
         # predicate this is. A silently-always-false check would drop the lock.
-        return [ComparisonPredicate(dialect, "=", column, Literal(dialect, self._version_snapshot))]
+        return [ComparisonPredicate(dialect, "=", column, Parameter(dialect, self._version_snapshot))]
 
     def get_update_expressions(self) -> Dict[str, SQLValue]:
         """Add the version increment to the UPDATE SET clause.

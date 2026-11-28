@@ -6,7 +6,7 @@ Understanding these principles is essential for working with the expression syst
 
 ### 1. Expressions Are Declarative
 
-An expression instance **collects all parameters** that affect SQL generation. It is a data container, not an SQL generator. When you construct `ComparisonPredicate(dialect, ComparisonOperator.GTE, Column(dialect, "age"), Literal(dialect, 18))`, you are building a data structure that captures the column name, the operator, and the value — not generating SQL.
+An expression instance **collects all parameters** that affect SQL generation. It is a data container, not an SQL generator. When you construct `ComparisonPredicate(dialect, ComparisonOperator.GTE, Column(dialect, "age"), Parameter(dialect, 18))`, you are building a data structure that captures the column name, the operator, and the value — not generating SQL.
 
 ### 2. Delegation to Dialect
 
@@ -32,7 +32,7 @@ Expressions gain capabilities by composing mixins (`ComparisonMixin`, `Arithmeti
 
 rhosocial-activerecord's expression system has two layers:
 
-1. **Core layer** — Expression classes (`Column`, `Literal`, `FunctionCall`, `ComparisonPredicate`, etc.) store data and define the structure of SQL expressions. They do not format SQL themselves. Instead, every `to_sql()` call delegates to `self.dialect.format_*()` methods.
+1. **Core layer** — Expression classes (`Column`, `Parameter`, `FunctionCall`, `ComparisonPredicate`, etc.) store data and define the structure of SQL expressions. They do not format SQL themselves. Instead, every `to_sql()` call delegates to `self.dialect.format_*()` methods.
 
 2. **Dialect layer** — Each backend provides a dialect class that composes dozens of mixin classes. The dialect's `format_*()` methods produce {database}-specific SQL syntax. Backend-specific mixins override core mixins to customize formatting.
 
@@ -43,12 +43,12 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     ComparisonOperator,
     ComparisonPredicate,
-    Literal,
+    Parameter,
 )
 
 # Core expression — works on any backend
 expr = ComparisonPredicate(
-    dialect, ComparisonOperator.GTE, Column(dialect, "age"), Literal(dialect, 18)
+    dialect, ComparisonOperator.GTE, Column(dialect, "age"), Parameter(dialect, 18)
 )
 
 # On MySQL dialect:   `age` >= %s
@@ -151,7 +151,7 @@ The following expression classes are shared across all backends. They live in `r
 | Class | Purpose |
 |-------|---------|
 | `Column` | Column reference |
-| `Literal` | Parameter placeholder (e.g., `?`, `%s`, `$1`) |
+| `Parameter` | Parameter placeholder (e.g., `?`, `%s`, `$1`) |
 | `FunctionCall` | Function invocation (`FUNC(args)`), aggregate `FILTER (WHERE ...)` and window `OVER (...)` |
 | `Subquery` | Subquery as expression |
 | `Table` | Table object naming a relation |

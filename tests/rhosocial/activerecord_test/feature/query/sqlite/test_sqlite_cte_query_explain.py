@@ -238,7 +238,7 @@ class TestSqliteCTEQueryExplain:
             select=[core.Column(dialect, "id"), core.Column(dialect, "status"), core.Column(dialect, "total_amount")],
             from_=NamedRelationRef(dialect, Table(dialect, Order.table_name())),
             where=query_parts.WhereClause(
-                dialect, condition=StringColumn(dialect, "status") == core.Literal(dialect, "active")
+                dialect, condition=StringColumn(dialect, "status") == core.Parameter(dialect, "active")
             ),
         )
 
@@ -533,7 +533,7 @@ class TestAsyncSqliteCTEQueryExplain:
             select=[core.Column(dialect, "id"), core.Column(dialect, "status"), core.Column(dialect, "total_amount")],
             from_=NamedRelationRef(dialect, Table(dialect, AsyncOrder.table_name())),
             where=query_parts.WhereClause(
-                dialect, condition=StringColumn(dialect, "status") == core.Literal(dialect, "active")
+                dialect, condition=StringColumn(dialect, "status") == core.Parameter(dialect, "active")
             ),
         )
 

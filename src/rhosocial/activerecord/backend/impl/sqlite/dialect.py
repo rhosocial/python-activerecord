@@ -335,18 +335,6 @@ class SQLiteDialect(
             self.version = version
         self._runtime_params: Dict[str, Any] = {}
 
-    def artifact_registry(self):
-        """The kinds this backend can read: core's kinds plus SQLite's own.
-
-        SQLite owns its expression package, so the composition lives here
-        rather than in core: ``backend_registry()`` is
-        ``registry_for_packages("...impl.sqlite.expression", base=core_registry())``,
-        frozen and cached.
-        """
-        from .registry import backend_registry
-
-        return backend_registry()
-
     def get_server_version(self) -> Tuple[int, int, int]:
         """Return the SQLite version this dialect is configured for."""
         return self.version

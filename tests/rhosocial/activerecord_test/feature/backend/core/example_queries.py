@@ -7,7 +7,7 @@ queries. Each function takes the dialect it was resolved against and returns a
 :class:`~rhosocial.activerecord.backend.expression.statements.dql.QueryStatement`.
 """
 
-from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression import Column, Parameter
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.expression.statements.dql import (
     LimitOffsetClause,
@@ -26,7 +26,7 @@ def _equals(dialect, column: str, value) -> ComparisonPredicate:
         dialect,
         "=",
         Column(dialect, column),
-        Literal(dialect, value),
+        Parameter(dialect, value),
     )
 
 
@@ -83,13 +83,13 @@ def create_order_record(dialect, user_id: int, total: float, month: str):
                 dialect,
                 "=",
                 Column(dialect, "user_id"),
-                Literal(dialect, user_id),
+                Parameter(dialect, user_id),
             ),
             ComparisonPredicate(
                 dialect,
                 "=",
                 Column(dialect, "total"),
-                Literal(dialect, total),
+                Parameter(dialect, total),
             ),
         ),
     )

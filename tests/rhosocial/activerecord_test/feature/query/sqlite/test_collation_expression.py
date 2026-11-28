@@ -10,7 +10,7 @@ import pytest
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.mixins import CollationMixin, ExpressionMixin, DDLColumnMixin
-from rhosocial.activerecord.backend.expression import Column, Literal, collate
+from rhosocial.activerecord.backend.expression import Column, Parameter, collate
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.types import TextType
 
@@ -55,7 +55,7 @@ class TestSQLiteCollationExpression:
         assert params == ()
 
     def test_literal_collate_preserves_parameter_binding(self, dialect):
-        expr = collate(Literal(dialect, "Alice"), "NOCASE")
+        expr = collate(Parameter(dialect, "Alice"), "NOCASE")
 
         sql, params = expr.to_sql()
 

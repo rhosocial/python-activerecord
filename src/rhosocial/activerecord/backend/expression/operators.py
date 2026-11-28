@@ -10,8 +10,8 @@ dialect through the subtree, and hands it to the declared formatter.
 
 from enum import Enum
 from typing import TYPE_CHECKING
-from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValue
-from .core import Literal
+from .bases import BaseExpression, SQLPredicate, SQLValue
+from .core import Parameter
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
@@ -119,18 +119,18 @@ class UnaryExpression(BaseExpression):
 
 
 def _bind_values(dialect: "SQLDialectBase", params) -> tuple:
-    """Bind values as :class:`~.core.Literal` nodes, one per placeholder.
+    """Bind values as :class:`~.core.Parameter` nodes, one per placeholder.
 
     A raw value cannot survive a round-trip. ``b"\\x00"`` and ``""`` are the same
     thing on the wire, and only the value's *kind* tells them apart -- so the
     values a raw statement binds are the one place a non-JSON type is allowed,
     and they are allowed only because a node names what they are.
 
-    The caller may pass the bare value or an already-built ``Literal``; both
+    The caller may pass the bare value or an already-built ``Parameter``; both
     arrive as the same thing. Passing an empty sequence yields an empty tuple,
     so a statement with no placeholders has nothing to unwrap at render time.
     """
-    return tuple(p if isinstance(p, Literal) else Literal(dialect, p)
+    return tuple(p if isinstance(p, Parameter) else Parameter(dialect, p)
                  for p in (params or ()))
 
 
@@ -197,7 +197,7 @@ class RawSQLPredicate(SQLPredicate):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_raw_sql"
+        return "format_raw_sql_predicate"
 
     def __init__(self, dialect: "SQLDialectBase", expression: str, params: tuple = ()):
         super().__init__(dialect)

@@ -13,7 +13,7 @@ Targets:
 """
 
 from rhosocial.activerecord.backend.schema import StatementType
-from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression import Column, Parameter
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.expression.statements.dml import (
@@ -42,7 +42,7 @@ class TestDmlStatementTypes:
         expr = InsertStatement(
             dummy_dialect,
             into=Table(dummy_dialect, 'users'),
-            source=[Literal(dummy_dialect, "Alice")],
+            source=[Parameter(dummy_dialect, "Alice")],
             columns=["name"],
         )
         assert expr.statement_type == StatementType.INSERT
@@ -51,7 +51,7 @@ class TestDmlStatementTypes:
         expr = UpdateStatement(
             dummy_dialect,
             table=Table(dummy_dialect, 'users'),
-            assignments={"name": Literal(dummy_dialect, "Bob")},
+            assignments={"name": Parameter(dummy_dialect, "Bob")},
         )
         assert expr.statement_type == StatementType.UPDATE
 
@@ -64,7 +64,7 @@ class TestDmlStatementTypes:
 
     def test_merge_statement_type(self, dummy_dialect):
         col = Column(dummy_dialect, "id")
-        condition = ComparisonPredicate(dummy_dialect, "=", col, Literal(dummy_dialect, 1))
+        condition = ComparisonPredicate(dummy_dialect, "=", col, Parameter(dummy_dialect, 1))
         expr = MergeStatement(
             dummy_dialect,
             target_table=Table(dummy_dialect, 'users'),

@@ -646,7 +646,7 @@ class AlterTableStatement(BaseExpression):
                 constraint=TableConstraint(
                     dialect,
                     constraint_kind=TableCheckConstraint,
-                    check_condition=Column(dialect, "age") > Literal(dialect, 0),
+                    check_condition=Column(dialect, "age") > Parameter(dialect, 0),
                 ),
             ),
         )

@@ -3,7 +3,7 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     RawSQL,
     Subquery,
     ComparisonPredicate,
@@ -233,7 +233,7 @@ class TestClauseExpressions:
         expr = OrderedSetAggregation(
             dummy_dialect,
             "PERCENTILE_CONT",
-            args=[Literal(dummy_dialect, 0.5)],
+            args=[Parameter(dummy_dialect, 0.5)],
             order_by=OrderByClause(dummy_dialect, [Column(dummy_dialect, "salary")]),
             alias="median_salary",
         )
@@ -249,7 +249,7 @@ class TestClauseExpressions:
         expr = OrderedSetAggregation(
             dummy_dialect,
             "LISTAGG",
-            args=[Column(dummy_dialect, "name"), Literal(dummy_dialect, ",")],
+            args=[Column(dummy_dialect, "name"), Parameter(dummy_dialect, ",")],
             order_by=OrderByClause(dummy_dialect, [Column(dummy_dialect, "name")]),
             alias="employee_list",
         )

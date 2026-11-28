@@ -10,7 +10,7 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     ComparisonPredicate,
     FunctionCall,
     JSONPathMode,
@@ -140,7 +140,7 @@ class TestArrayType:
         expr = ArrayOperation(
             dialect,
             "CONSTRUCTOR",
-            elements=[Literal(dialect, 1), Literal(dialect, 2)],
+            elements=[Parameter(dialect, 1), Parameter(dialect, 2)],
         )
         sql, params = expr.to_sql()
         assert sql == "ARRAY[?, ?]"
@@ -173,7 +173,7 @@ class TestAggregateGetParamsWithFilter:
 
     def test_get_params_with_filter(self, dialect):
         agg = count(dialect, "*", alias="active_count").filter(
-            StringColumn(dialect, "status") == Literal(dialect, "active")
+            StringColumn(dialect, "status") == Parameter(dialect, "active")
         )
         params = agg.get_params()
         assert "filter_predicate" in params
@@ -186,12 +186,12 @@ class TestAggregateGetParamsWithFilter:
 
     def test_filter_returns_self(self, dialect):
         agg = FunctionCall(dialect, "COUNT", "*", is_aggregate=True)
-        predicate = StringColumn(dialect, "status") == Literal(dialect, "active")
+        predicate = StringColumn(dialect, "status") == Parameter(dialect, "active")
         assert agg.filter(predicate) is agg
         assert agg.get_params()["filter_predicate"] is predicate
 
     def test_chained_filters_combine(self, dialect):
         agg = FunctionCall(dialect, "COUNT", "*", is_aggregate=True)
-        agg.filter(NumericColumn(dialect, "a") == Literal(dialect, 1))
-        agg.filter(NumericColumn(dialect, "b") == Literal(dialect, 2))
+        agg.filter(NumericColumn(dialect, "a") == Parameter(dialect, 1))
+        agg.filter(NumericColumn(dialect, "b") == Parameter(dialect, 2))
         assert "AND" in agg.get_params()["filter_predicate"].to_sql()[0]

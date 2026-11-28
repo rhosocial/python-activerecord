@@ -1165,7 +1165,7 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
     InsertStatement,
     ValuesSource,
-    Literal,
+    Parameter,
     Column,
     ComparisonPredicate,
     ReturningClause,
@@ -1199,7 +1199,7 @@ class TestAsyncReturning:
             dialect=dialect,
             into=Table(dialect, 'users'),
             columns=["name"],
-            source=ValuesSource(dialect, values_list=[[Literal(dialect, "test")]]),
+            source=ValuesSource(dialect, values_list=[[Parameter(dialect, "test")]]),
             returning=ReturningClause(dialect, expressions=[Column(dialect, "id")]),
         )
 
@@ -1233,7 +1233,7 @@ class TestAsyncReturning:
             into=Table(dialect, 'users'),
             columns=["name", "email"],
             source=ValuesSource(
-                dialect, values_list=[[Literal(dialect, "Alice"), Literal(dialect, "alice@example.com")]]
+                dialect, values_list=[[Parameter(dialect, "Alice"), Parameter(dialect, "alice@example.com")]]
             ),
             returning=ReturningClause(dialect, expressions=[Column(dialect, "id"), Column(dialect, "name")]),
         )
@@ -1276,8 +1276,8 @@ class TestAsyncReturning:
         update_expr = UpdateStatement(
             dialect=dialect,
             table=Table(dialect, 'users'),
-            assignments={"name": Literal(dialect, "Updated"), "email": Literal(dialect, "new@example.com")},
-            where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, 1)),
+            assignments={"name": Parameter(dialect, "Updated"), "email": Parameter(dialect, "new@example.com")},
+            where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Parameter(dialect, 1)),
             returning=ReturningClause(
                 dialect, expressions=[Column(dialect, "id"), Column(dialect, "name"), Column(dialect, "email")]
             ),
@@ -1318,7 +1318,7 @@ class TestAsyncReturning:
         delete_expr = DeleteStatement(
             dialect=dialect,
             tables=Table(dialect, 'users'),
-            where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, 1)),
+            where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Parameter(dialect, 1)),
             returning=ReturningClause(dialect, expressions=[Column(dialect, "name")]),
         )
         sql, params = delete_expr.to_sql()
@@ -1356,7 +1356,7 @@ class TestAsyncReturning:
             dialect=dialect,
             into=Table(dialect, 'users'),
             columns=["name"],
-            source=ValuesSource(dialect, values_list=[[Literal(dialect, "test")]]),
+            source=ValuesSource(dialect, values_list=[[Parameter(dialect, "test")]]),
             returning=ReturningClause(dialect, expressions=[Column(dialect, "invalid_column")]),
         )
         sql, params = insert_expr.to_sql()
@@ -1404,8 +1404,8 @@ class TestAsyncReturning:
         update_expr = UpdateStatement(
             dialect=dialect,
             table=Table(dialect, 'users'),
-            assignments={"active": Literal(dialect, 0)},
-            where=ComparisonPredicate(dialect, "=", Column(dialect, "active"), Literal(dialect, 1)),
+            assignments={"active": Parameter(dialect, 0)},
+            where=ComparisonPredicate(dialect, "=", Column(dialect, "active"), Parameter(dialect, 1)),
             returning=ReturningClause(dialect, expressions=[Column(dialect, "id"), Column(dialect, "name")]),
         )
         sql, params = update_expr.to_sql()
@@ -1441,7 +1441,7 @@ class TestAsyncReturning:
                 dialect=dialect,
                 into=Table(dialect, 'users'),
                 columns=["name"],
-                source=ValuesSource(dialect, values_list=[[Literal(dialect, "TransUser")]]),
+                source=ValuesSource(dialect, values_list=[[Parameter(dialect, "TransUser")]]),
                 returning=ReturningClause(dialect, expressions=[Column(dialect, "id")]),
             )
             sql, params = insert_expr.to_sql()

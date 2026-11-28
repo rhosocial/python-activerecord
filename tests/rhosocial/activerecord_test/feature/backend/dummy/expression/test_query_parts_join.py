@@ -5,7 +5,7 @@ Tests for JoinClause and its chaining capabilities for multiple joins.
 
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     ComparisonPredicate,
     LogicalPredicate,
     QueryStatement,
@@ -343,7 +343,7 @@ class TestJoinClauseChaining:
                     dummy_dialect, "=", Column(dummy_dialect, "id", "u"), Column(dummy_dialect, "user_id", "o")
                 ),
         ComparisonPredicate(
-                    dummy_dialect, ">", Column(dummy_dialect, "total_amount", "o"), Literal(dummy_dialect, 100),
+                    dummy_dialect, ">", Column(dummy_dialect, "total_amount", "o"), Parameter(dummy_dialect, 100),
                 ),
             ),
         )
@@ -358,7 +358,7 @@ class TestJoinClauseChaining:
                     dummy_dialect, "=", Column(dummy_dialect, "product_id", "o"), Column(dummy_dialect, "id", "p")
                 ),
         ComparisonPredicate(
-                    dummy_dialect, "=", Column(dummy_dialect, "status", "p"), Literal(dummy_dialect, "active"),
+                    dummy_dialect, "=", Column(dummy_dialect, "status", "p"), Parameter(dummy_dialect, "active"),
                 ),
             ),
         )

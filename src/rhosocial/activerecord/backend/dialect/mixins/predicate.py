@@ -150,10 +150,10 @@ class PredicateMixin():
     def format_in_predicate(self, expr: InPredicate) -> Tuple[str, tuple]:
         """Format an ``IN`` predicate.
 
-        A ``Literal`` wrapping a collection renders as a value list; anything
+        A ``Parameter`` wrapping a collection renders as a value list; anything
         else (e.g. a subquery) renders through its own ``to_sql()``.
 
-        The whole ``Literal`` is honoured rather than just its ``value``: its
+        The whole ``Parameter`` is honoured rather than just its ``value``: its
         ``inline`` decision selects between inline rendering and bind
         parameters. DDL positions (``CHECK``, partial-index ``WHERE``) set that
         decision on the literals they hold, which is how ``IN`` becomes usable
@@ -167,10 +167,10 @@ class PredicateMixin():
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from ...expression.core import Literal
+        from ...expression.core import Parameter
 
         operand_sql, expr_params = expr.operand.to_sql()
-        if isinstance(expr.values, Literal) and isinstance(expr.values.value, (list, tuple, set)):
+        if isinstance(expr.values, Parameter) and isinstance(expr.values.value, (list, tuple, set)):
             values = expr.values.value
             if not values:
                 return self._with_predicate_alias(f"{operand_sql} IN ()", expr), expr_params
@@ -277,13 +277,13 @@ class PredicateMixin():
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from ...expression.core import Literal
+        from ...expression.core import Parameter
 
         expr_sql, expr_params = expr.expr.to_sql()
         array_expr = expr.array_expr
-        # ``Literal`` is the node that carries a Python value; a list or tuple
+        # ``Parameter`` is the node that carries a Python value; a list or tuple
         # in it becomes one bind parameter rather than a rendered list.
-        if isinstance(array_expr, Literal) and isinstance(array_expr.value, (list, tuple)):
+        if isinstance(array_expr, Parameter) and isinstance(array_expr.value, (list, tuple)):
             array_sql = self.get_parameter_placeholder()
             array_params = (tuple(array_expr.value),)
         else:
@@ -302,13 +302,13 @@ class PredicateMixin():
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from ...expression.core import Literal
+        from ...expression.core import Parameter
 
         expr_sql, expr_params = expr.expr.to_sql()
         array_expr = expr.array_expr
-        # ``Literal`` is the node that carries a Python value; a list or tuple
+        # ``Parameter`` is the node that carries a Python value; a list or tuple
         # in it becomes one bind parameter rather than a rendered list.
-        if isinstance(array_expr, Literal) and isinstance(array_expr.value, (list, tuple)):
+        if isinstance(array_expr, Parameter) and isinstance(array_expr.value, (list, tuple)):
             array_sql = self.get_parameter_placeholder()
             array_params = (tuple(array_expr.value),)
         else:

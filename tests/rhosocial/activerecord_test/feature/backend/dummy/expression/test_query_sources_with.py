@@ -1,7 +1,7 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy/expression/test_query_sources_with.py
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     Subquery,
     FunctionCall,
     QueryStatement,
@@ -179,7 +179,7 @@ class TestCTEAndWithStatements:
         group_by_having = GroupByHavingClause(
             dummy_dialect,
             group_by=[Column(dummy_dialect, "category")],
-            having=FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")) > Literal(dummy_dialect, 5),
+            having=FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")) > Parameter(dummy_dialect, 5),
         )
         complex_query.group_by_having = group_by_having  # Set directly since it's not in constructor
 
@@ -211,7 +211,7 @@ class TestCTEAndWithStatements:
 
         where_clause = WhereClause(
             dummy_dialect,
-            condition=NumericColumn(dummy_dialect, "id") < Literal(dummy_dialect, 1000),
+            condition=NumericColumn(dummy_dialect, "id") < Parameter(dummy_dialect, 1000),
         )
         main_query.where = where_clause  # Set directly
 

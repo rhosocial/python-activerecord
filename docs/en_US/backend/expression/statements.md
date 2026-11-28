@@ -13,7 +13,7 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     ComparisonOperator,
     ComparisonPredicate,
-    Literal,
+    Parameter,
     NamedRelationRef,
     QueryStatement,
     StringColumn,
@@ -36,7 +36,7 @@ predicate = ComparisonPredicate(
     dialect,
     ComparisonOperator.EQ,
     Column(dialect, "status"),
-    Literal(dialect, "active"),
+    Parameter(dialect, "active"),
 )
 
 # SELECT with DISTINCT
@@ -57,12 +57,12 @@ sql, params = query.to_sql()
 `InsertStatement` represents an `INSERT` statement. It supports single-row, multi-row, `INSERT ... SELECT`, and `ON CONFLICT` clauses.
 
 ```python
-from rhosocial.activerecord.backend.expression import InsertStatement, ValuesSource, Literal
+from rhosocial.activerecord.backend.expression import InsertStatement, ValuesSource, Parameter
 from rhosocial.activerecord.backend.expression.objects import Table
 
 # Single row insert
 source = ValuesSource(dialect, values_list=[
-    [Literal(dialect, "John Doe"), Literal(dialect, "john@example.com")]
+    [Parameter(dialect, "John Doe"), Parameter(dialect, "john@example.com")]
 ])
 insert = InsertStatement(
     dialect,
@@ -100,7 +100,7 @@ sql, params = insert.to_sql()
 ```python
 from rhosocial.activerecord.backend.expression import (
     IntegerColumn,
-    Literal,
+    Parameter,
     ReturningClause,
     StringColumn,
     UpdateStatement,
@@ -112,8 +112,8 @@ update = UpdateStatement(
     dialect,
     Table(dialect, "users"),
     assignments={
-        "status": Literal(dialect, "inactive"),
-        "updated_at": Literal(dialect, "2023-01-01")
+        "status": Parameter(dialect, "inactive"),
+        "updated_at": Parameter(dialect, "2023-01-01")
     },
     where=StringColumn(dialect, "last_login") < "2022-01-01"
 )
@@ -184,10 +184,10 @@ sql, params = delete.to_sql()
 >
 > ```python
 > # ✗ Wrong: DEFAULT ? in DDL causes execution failure
-> Literal(dialect, 0)
+> Parameter(dialect, 0)
 >
 > # ✓ Correct: inlined produces DEFAULT 0
-> Literal(dialect, 0, inline=True)
+> Parameter(dialect, 0, inline=True)
 > ```
 >
 > DML statements (`INSERT`/`SELECT`/`UPDATE`/`DELETE`) are not affected — the default bind-parameter mode works normally.
@@ -242,7 +242,7 @@ from rhosocial.activerecord.backend.expression import (
     ComparisonOperator,
     ComparisonPredicate,
     IntegerColumn,
-    Literal,
+    Parameter,
 )
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnCheckConstraint,
@@ -264,7 +264,7 @@ ColumnDefinition(dialect, "age", IntegerType(dialect), constraints=[
             dialect,
             ComparisonOperator.GTE,
             IntegerColumn(dialect, "age"),
-            Literal(dialect, 0, inline=True),  # -> CHECK ("age" >= 0)
+            Parameter(dialect, 0, inline=True),  # -> CHECK ("age" >= 0)
         ),
     )),
 ])

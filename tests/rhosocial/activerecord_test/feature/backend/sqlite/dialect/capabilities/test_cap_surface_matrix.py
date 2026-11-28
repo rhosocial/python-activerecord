@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression import Column, Parameter
 from rhosocial.activerecord.backend.expression.advanced_functions import (
     JSONDocumentValue,
     TrimExpression,
@@ -191,7 +191,7 @@ def test_json_function_expression_string_column_and_alias():
 
 def test_distinct_from_formatter_and_refusal():
     dialect = _dialect((3, 39, 0))
-    expr = DistinctFromPredicate(dialect, Column(dialect, "a"), Literal(dialect, 1), is_not=True)
+    expr = DistinctFromPredicate(dialect, Column(dialect, "a"), Parameter(dialect, 1), is_not=True)
     sql, params = dialect.format_distinct_from_predicate(expr)
     assert "IS NOT DISTINCT FROM" in sql
     assert params == (1,)
@@ -199,18 +199,18 @@ def test_distinct_from_formatter_and_refusal():
     old = _dialect((3, 38, 0))
     with pytest.raises(UnsupportedFeatureError):
         old.format_distinct_from_predicate(
-            DistinctFromPredicate(old, Column(old, "a"), Literal(old, 1))
+            DistinctFromPredicate(old, Column(old, "a"), Parameter(old, 1))
         )
 
 
 def test_trim_expression_with_and_without_chars_and_alias():
     dialect = _dialect()
-    expr = TrimExpression(dialect, Literal(dialect, "  x  "), Literal(dialect, "x"), alias="t")
+    expr = TrimExpression(dialect, Parameter(dialect, "  x  "), Parameter(dialect, "x"), alias="t")
     sql, params = dialect.format_trim_expression(expr)
     assert sql == 'TRIM(?, ?) AS "t"'
     assert params == ("  x  ", "x")
 
-    bare = TrimExpression(dialect, Literal(dialect, "  x  "))
+    bare = TrimExpression(dialect, Parameter(dialect, "  x  "))
     sql, params = dialect.format_trim_expression(bare)
     assert sql == "TRIM(?)"
     assert params == ("  x  ",)

@@ -28,42 +28,55 @@ Two consequences worth stating up front:
 ### serialize(expr)
 
 ```python
-from rhosocial.activerecord.backend.expression.serialization import serialize
+from rhosocial.activerecord.backend.expression_registry import serialize, serialize_json
 
 artifact = serialize(query)
 ```
 
-The artifact is JSON-native, so it goes through a plain `json.dumps` with no
-custom encoder:
+When the host values are JSON-native, plain `json.dumps` is enough — and
+`serialize_json` is the shorthand that calls it for you:
 
 ```python
-text = json.dumps(artifact)
+text = json.dumps(artifact)          # or: text = serialize_json(query)
 ```
 
-### deserialize(artifact, dialect=None, *, registry=None)
+A value that JSON cannot spell is the caller's responsibility: make the value
+type JSON-serializable, or pass `default=` to `serialize_json(...)` (forwarded
+to `json.dumps`). Without a hook, a value `json.dumps` cannot write is the
+caller's problem. `serialize` carries the host value unchanged and never
+converts, names, validates or rejects a value type.
+
+### deserialize(artifact, *, registry=None)
 
 ```python
-from rhosocial.activerecord.backend.expression.serialization import deserialize
+from rhosocial.activerecord.backend.expression_registry import deserialize
 
-expr = deserialize(json.loads(text), dialect)
+expr = deserialize(json.loads(text))
 ```
 
-`json.loads` needs **no `object_hook`** — and there is nothing for a hook to do.
-The artifact is plain JSON throughout: a node is `{kind, params}`, a parameter
-is a scalar, an array or an object. There are no markers, so nothing has to be
-recognised in order to be decoded. The one thing JSON cannot spell — a value
-sent to the database, such as `bytes` or a `timedelta` — is carried as the text
-its kind names.
+The codec needs **no `object_hook`** — there is nothing for it to do. The
+artifact is plain JSON throughout: a node is `{kind, params}`, and a value
+inside `params` is a scalar, an array, an object or a nested node. There are no
+markers, so a node is recognised by its shape and nothing has to be decoded
+before `deserialize` sees it. `deserialize_json(text, *, registry=None,
+object_hook=None)` does accept an optional `object_hook=` and forwards it to
+`json.loads`, for callers whose own values need reconstruction; the codec
+itself never uses it. A value sent to the database is carried by a `parameter`
+node as-is: `deserialize` hands it back unchanged, with no type dispatch and no
+unpacking. `None` stays JSON null (SQL NULL); a tuple travels as a JSON array
+and comes back as an array — the reader cannot infer the host type.
 
-`registry=None` is not one global default table: the selection order is under
-"Registry Ownership" below. Pass your own to control exactly which kinds a read
-may produce.
+`registry=None` means **core's table**, never a framework-wide default. To read
+a backend's own kinds, pass that backend's published table (for example
+`SQLITE_EXPRESSION_REGISTRY`); see "Registry Ownership" below.
 
-### deserialize_json(text, dialect, registry=None) / deserialize_xml(bytes, ...)
+### serialize_json(expr, *, default=None) / deserialize_json(text, *, registry=None, object_hook=None) / deserialize_xml(payload, *, registry=None)
 
 The same artifact in three renderings: a dict, a JSON text, an XML document.
-All three round-trip to the same instance; the parameters and the rendered SQL
-must both come back unchanged.
+All three rebuild the same instance; the parameters, and the SQL rendered from
+it afterwards, must both come back unchanged. On the JSON rendering, `default=`
+is forwarded to `json.dumps` and `object_hook=` to `json.loads`; both are caller
+hooks for caller-owned values, and the codec uses neither.
 
 ## Artifact Format
 
@@ -89,10 +102,11 @@ connection fingerprint.
 }
 ```
 
-A parameter is either a **language-independent scalar** or an **expression**.
-The second form — a nested `{kind, params}` node — is the same thing at a
-different layer: a live instance in memory, an encoded node on the wire. There
-is no third form, which is what makes the artifact readable at all.
+A constructor parameter's value is either a **language-independent scalar**,
+a host value carried as-is (a `Parameter`'s `value`), or an **expression**. The
+third form — a nested `{kind, params}` node — is the same thing at a different
+layer: a live instance in memory, an encoded node on the wire. No wrapper or
+type tag is added, which is what makes the artifact readable at all.
 
 Note there is **no wrapper** around a nested expression. The shape is the whole
 signal, so there is nothing to unwrap and no second, weaker way of saying the
@@ -103,7 +117,7 @@ Note what is *not* there. The artifact carries no dialect, so the same payload
 re-renders under any dialect object you hand it:
 
 ```python
-deserialize(artifact, SQLiteDialect(version=(3, 53, 0))).to_sql()
+deserialize(artifact).to_sql(SQLiteDialect(version=(3, 53, 0)))
 ```
 
 ## Bind Parameters
@@ -115,45 +129,68 @@ sql, params = expr.to_sql()
 # ("SELECT ... WHERE age > ?", (18,))
 ```
 
-That `18` was never stored anywhere. It was read off the `literal` node inside
-the payload, so nothing else carries it and nothing else can disagree with it.
-Expressions never inline a value into the SQL text; the database never sees a
-quoted string built by concatenation.
+That `18` was never stored anywhere. It was read off the `parameter` node inside
+the payload, where it travels unchanged as the host value:
+
+```python
+{"kind": "parameter", "params": {"value": 18, "inline": false}}
+```
+
+Every value that reaches SQL is a `parameter` node. A raw Python value at a
+**value position** — a comparison operand, an `IN` list, a `BETWEEN` bound, a
+`LIKE` pattern, a function argument — is wrapped into one by the framework at
+construction, so the SQL text only ever holds placeholders and the value travels
+in `params`. The same class serves an inlined position: `inline` is the internal
+decision for a **grammar position that takes no placeholder**, such as a DDL
+`DEFAULT` or a `CHECK` operand, and the formatter then asks the dialect's
+`format_literal(value)` for escaped SQL text.
+
+Name positions get no such coercion: a table name, a column name or an `ORDER BY`
+item stays an identifier, so `"id"` there is not the value `'id'`.
+
+The `parameter` node is an ordinary `BaseExpression`: its kind comes from the
+class name (`parameter`), and its params are its constructor parameters,
+`value` and `inline`. No value type is named, converted or validated. Whether
+`json.dumps` can write the value is the value type's own contract — make the
+value JSON-serializable or pass `default=` to `serialize_json(...)` (forwarded
+to `json.dumps`). If `json.dumps` fails, that is the caller's problem, not a
+serializer rule.
 
 ## Registry Ownership
 
-A registry is not one framework-wide table; it is **one per owner**:
+A registry is not one framework-wide table; it is **one per owner**, and the
+owner is the expression package that declares the kinds. Each table is plain
+data — a `kind -> fully qualified class name` mapping:
 
 | Owner | Entry point | Contents |
 |-------|-------------|----------|
-| core | `core_registry()` | core's kinds only, with no backend among them |
-| a backend | `backend_registry()` | core's kinds ∪ the backend's own, never a sibling's |
-| a dialect | `dialect.artifact_registry()` | the kinds that dialect's backend can read; `core_registry()` when not overridden |
+| core | `CORE_EXPRESSIONS` → `CORE_EXPRESSION_REGISTRY` | core's kinds only, with no backend among them |
+| a backend | `SQLITE_EXPRESSIONS` / `SQLITE_EXPRESSION_REGISTRY`, `DUMMY_EXPRESSIONS` / `DUMMY_EXPRESSION_REGISTRY` | core's kinds ∪ that backend's own, never a sibling's |
 
-- **Core maintains only core's kinds.** It does not know which backends exist
-  and keeps no list of them; the one assembly point is
-  `registry_for_packages(*packages, base=...)`.
-- **A backend joins its kinds by composition**:
-  `registry_for_packages(<its expression package>, base=core_registry())`. Two
-  backends are never merged, so one backend's kinds do not become readable just
-  because another backend is installed.
-- **`artifact_registry()` is the per-dialect entry point.** The base dialect
-  does not override it, so its answer is `core_registry()`; a backend dialect
-  overrides it with its own `backend_registry()`.
+- **Core collects its own packages.** `CORE_EXPRESSIONS` is the merge of
+  `collect_expressions` over core's own packages — **node kinds only**,
+  `parameter` among them; `CORE_EXPRESSION_REGISTRY` is
+  `ExpressionRegistry(CORE_EXPRESSIONS).freeze()`, built once when the module is
+  imported. Core knows no backend and keeps no list of them.
+- **A backend joins its kinds by a dictionary merge**:
+  `merge_expressions(CORE_EXPRESSIONS, SQLITE_EXPRESSIONS)` — the union
+  `{**CORE_EXPRESSIONS, **SQLITE_EXPRESSIONS}`, refused if two mappings claim one
+  kind with different classes. Two backends are never merged, so one backend's
+  kinds do not become readable just because another backend is installed.
+- **No dialect takes part.** A dialect is a renderer; it neither owns a table
+  nor selects one.
 - The artifact is still **dialect-free data**: a tree returned by
   `deserialize(artifact)` is unbound and renders through `to_sql(dialect)`.
-  Supplying a dialect binds it to the rebuilt tree and selects the table.
 
-The table `deserialize` picks, in order:
+The table `deserialize` uses is:
 
 1. the `registry` the caller supplied explicitly;
-2. `dialect.artifact_registry()` when a dialect was supplied;
-3. `core_registry()`.
+2. otherwise `CORE_EXPRESSION_REGISTRY`.
 
-A published registry is **frozen**. To widen or narrow it, build a new table:
-`twin()` (a mutable copy), `merged()` (the union, frozen), or
-`registry_for_packages(..., freeze=False)` (mutable while being assembled).
-Assembly or mutation by anyone else cannot change a published table.
+A published registry is **frozen**. To widen or narrow it, start from `twin()`
+(a mutable copy) or `merged()` (a frozen union), or build a fresh
+`ExpressionRegistry(kinds)` from a mapping you composed yourself. Mutation or
+assembly by anyone else cannot change a published table.
 
 ## Selective Registration
 
@@ -162,16 +199,22 @@ not what a class *declares*. A parameter left at its default produces no node,
 and so needs no entry.
 
 ```python
-from rhosocial.activerecord.backend.expression.registry import ExpressionRegistry
-from rhosocial.activerecord.backend.expression.serialization import core_registry
+from rhosocial.activerecord.backend.expression_registry import (
+    CORE_EXPRESSION_REGISTRY,
+    ExpressionRegistry,
+)
 
 read_only = ExpressionRegistry()
 for kind in ("query_statement", "where_clause", "comparison_predicate",
-             "column", "literal", "table"):
-    read_only.register_node(core_registry().resolve_node(kind))
+             "column", "table", "parameter"):
+    read_only.register_node(CORE_EXPRESSION_REGISTRY.resolve_node(kind))
 
-deserialize(artifact, dialect, registry=read_only)
+deserialize(artifact, registry=read_only)
 ```
+
+A selective table admits values by admitting `"parameter"`: every parameter is
+that one node, whatever value it carries, so there is no per-value kind to
+register. `CORE_EXPRESSIONS` is node kinds only, `parameter` among them.
 
 A query without a grouping reads fine under that table; one with a `GROUP BY`
 is refused, by name. That is the permission shape: **whatever this channel does
@@ -197,6 +240,9 @@ cannot be debugged by guessing.
 | A missing kind | `the kind is the node's identity and is mandatory` |
 | Nesting past the depth limit | `artifact nesting depth exceeds N` |
 
+A `json.dumps` failure for a value JSON cannot write is not in this table: it is
+raised by `json.dumps`, and no serializer value-type rule is consulted.
+
 ## Use Cases
 
 ### Cache Query Plans
@@ -204,16 +250,21 @@ cannot be debugged by guessing.
 ```python
 stored = json.dumps(serialize(query))
 # ... later, in another process
-query = deserialize(json.loads(stored), dialect)
+query = deserialize(json.loads(stored))          # core's table
+query.to_sql(SQLiteDialect(version=(3, 53, 0)))  # rendered here, not read
 ```
 
-The cache holds JSON text, so it goes into any cache that stores strings, and
-the dialect is chosen at read time — one cache serves every backend.
+The cache holds JSON text, so it goes into any cache that stores strings. The
+read rebuilds a tree and nothing more: the dialect is chosen when the tree is
+rendered, so one cache serves every backend. A payload built from a backend's
+own kinds is read with that backend's table
+(`registry=SQLITE_EXPRESSION_REGISTRY`); the dialect still takes no part in the
+read.
 
 ### Distributed Task Scheduling
 
-A worker receives text and rebuilds the tree under its own dialect. Nothing
-about the payload is tied to the machine that produced it.
+A worker receives text and rebuilds the tree, then renders it under its own
+dialect. Nothing about the payload is tied to the machine that produced it.
 
 ## Security Considerations
 
@@ -221,11 +272,15 @@ about the payload is tied to the machine that produced it.
 
 Resolution is by whitelist, never by import path. A payload naming
 `os.system` gets "not in the kind whitelist" — it is looked up, found absent,
-and the read fails. There is no code path that could have imported it.
+and the read fails. The only name that can reach an import is the fully
+qualified class name the table already holds for a kind: registrations are
+trusted data, and the artifact supplies nothing but the kind.
 
-The registry module does not import expression packages at all, and the
-mechanism that assembles core's table and each backend's table lives with the
-framework, not in the registry. A registry cannot discover anything.
+Nothing in the registry imports an expression package on its own initiative.
+`collect_expressions` imports exactly the one package name it is handed; core
+hands it core's own packages and a backend hands it its own, then publishes the
+mapping it got back. There is no generic package walker, so nothing is
+discovered: a table exists because an owner collected a package and said so.
 
 ### The artifact is untrusted input
 

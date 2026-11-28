@@ -4,7 +4,7 @@
 from typing import TYPE_CHECKING, Optional, Sequence, Tuple, Union
 
 from ..bases import BaseExpression
-from ..core import Literal
+from ..core import Parameter
 from ..query_parts import OrderByClause
 from ..xml import (
     PassingClause,
@@ -41,7 +41,7 @@ XMLNamedValue = Tuple[XMLValue, Optional[str]]
 
 
 def _as_expression(dialect: "SQLDialectBase", value: XMLValue) -> BaseExpression:
-    return value if isinstance(value, BaseExpression) else Literal(dialect, value)
+    return value if isinstance(value, BaseExpression) else Parameter(dialect, value)
 
 
 def xmlparse(

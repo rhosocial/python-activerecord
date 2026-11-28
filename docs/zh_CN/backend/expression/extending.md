@@ -52,7 +52,7 @@ class MyExpression(BaseExpression):
 
 ### 为什么没有"自定义 get_params()"
 
-`get_params()` 不是扩展点：重写它是缺陷，不是定制。核心在 `tests/.../dummy/expression/test_expression_artifact_contract.py::test_no_get_params_override` 里无例外地强制这一点——每个已注册的表达式类都必须沿用通用实现。（该测试允许的唯一例外，是做真正的"原始值 ↔ 归一化值"往返改写的 `VAR_POSITIONAL` 类，而核心注册表里没有任何一个属于这种情况。）
+`get_params()` 不是扩展点：重写它是缺陷，不是定制。每个已注册的表达式类都应沿用通用实现。（约定允许的唯一例外，是做真正的"原始值 ↔ 归一化值"往返改写的 `VAR_POSITIONAL` 类，而核心注册表里没有任何一个属于这种情况。）
 
 原因是结构性的，不是风格问题。往返是靠"用 `get_params()` 返回的内容去调用构造函数"重建的，所以这两半必须彼此吻合。而重写恰恰是它们开始走偏的地方：这个类发出的键会被构造函数改名、合并或拒绝，状态就悄悄丢了——解码器只按名字把值交出去，并不替结果把关。各后端包曾各自积累过重写实现，而它们存在的理由全都是同一个：`__init__` 把调用方传进来的东西改了名或合并了——而一旦按收到的名字原样保存，这些重写就全都不再必要。
 
@@ -68,14 +68,14 @@ class MyExpression(BaseExpression):
 
 ### 自动注册
 
-内置表达式不需要你做任何事。核心**一次性**装配自己的注册表——遍历核心的表达式包，遇到的每个节点都按 kind 登记；后端同样只为自己的包做一次，并以 `base=core_registry()` 把核心的 kind 组合进来。**没有**任何函数需要调用，也**没有**任何清单需要维护。
+内置表达式不需要你做任何事。核心用 `collect_expressions` 收集自己的各个包，把合并得到的 `kind -> 全限定类名` 映射发布为 `CORE_EXPRESSIONS`——**只有节点 kind**，`parameter` 也在其中；`CORE_EXPRESSION_REGISTRY` 是在导入时用该映射构造并冻结的 `ExpressionRegistry`。后端同样从自己的 `backend.impl.<name>.expression_registry` 模块做一次：把本包收集成 `<NAME>_EXPRESSIONS`，再发布 `ExpressionRegistry(merge_expressions(CORE_EXPRESSIONS, <NAME>_EXPRESSIONS)).freeze()`——例如 `SQLITE_EXPRESSIONS` 与 `SQLITE_EXPRESSION_REGISTRY`。这里**没有装配器，也没有 `base=`**：后端的表就是这次字典合并（`{**CORE_EXPRESSIONS, **<NAME>_EXPRESSIONS}`，冲突会被拒绝），合并本身就是全部组合。
 
 ### 注册你自己的
 
 `ExpressionRegistry` 构造出来是空的——这正是它能被交给调用方、只放行你选定内容的前提。`register_node` 是**实例方法**，kind 由类派生：
 
 ```python
-from rhosocial.activerecord.backend.expression.registry import ExpressionRegistry
+from rhosocial.activerecord.backend.expression_registry import ExpressionRegistry
 
 allowed = ExpressionRegistry()
 allowed.register_node(MyExpression)          # kind 为 "my_expression"
@@ -88,7 +88,7 @@ allowed.register_node(MyExpression)          # kind 为 "my_expression"
 然后把它传给读侧：
 
 ```python
-deserialize(artifact, dialect, registry=allowed)
+deserialize(artifact, registry=allowed)
 ```
 
 注册表只管**读方**能产出什么。写侧不查表，所以这里的一切都不影响 `serialize`。
@@ -135,7 +135,7 @@ class MyExpression(BaseExpression):
 
 ### 3. set 类型参数
 
-`set` 不适合承载表达式状态：它没有顺序，而且 codec 会把它编码成一个扁平列表，其中的成员拿不到本应属于它们的嵌套表达式标记，因此装着表达式的 `set` 过不了 JSON 往返。在 `__init__` 里转换、保存转换后的值——通用路径于是发出的正是构造函数能接受的东西：
+`set` 不适合承载表达式状态：它没有顺序，codec 编码出的数组因此不是逐字节稳定的，装着表达式的 `set` 无法保证两次得到同一份工件。在 `__init__` 里转换、保存转换后的值——通用路径于是发出的正是构造函数能接受的东西：
 
 ```python
 class ColumnSetExpression(BaseExpression):
@@ -207,10 +207,13 @@ ExpressionDeserializationError
 
 - **封闭取值集合取字符串枚举。** 声明成 `(str, Enum)`，并设 `__str__ = str.__str__`，
   让成员**就是**它渲染出来的那个词——单靠 `(str, Enum)` 做不到，`Enum.__str__` 会赢。
-  这样线上形态就是成员的值，即一个 JSON 字符串，而封闭集合声明在代码里，各语言也都能
+  这样工件里的形态就是成员的值，即一个 JSON 字符串，而封闭集合声明在代码里，各语言也都能
   各自声明。不继承 `str` 的枚举根本写不出去。
-- **送进数据库的值放进 `Literal`。** 这是唯一允许出现 JSON 拼不出的类型的位置；
-  由 `LiteralKind` 的成员指明那种文本。
+- **送进数据库的值放进 `Parameter`。** 宿主值原样携带：
+  `{"kind": "parameter", "params": {"value": ..., "inline": false}}`，不加类型名。
+  能否被 `json.dumps` 写出是值类型自己的契约——需要时给 `serialize_json(...)` 传
+  `default=`（转发给 `json.dumps`），回读时给 `deserialize_json(...)` 传 `object_hook=`
+  （转发给 `json.loads`）。序列化器不转换、不命名、不校验、不拒绝值类型。
 - **不透明载荷是危险所在。** 键不由你控制的 `dict` 会被原样复制进工件，而给参数换个名字
   对它的**内容**毫无帮助。一个恰好读起来像节点（`kind` 加 `params`）的键会被当成节点读回来。
   要么在构造时校验，要么把载荷存成文本。

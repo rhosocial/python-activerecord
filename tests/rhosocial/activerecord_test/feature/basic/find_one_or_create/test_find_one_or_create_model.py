@@ -6,7 +6,7 @@ from typing import ClassVar, Optional
 import pytest
 
 from rhosocial.activerecord.backend.errors import IntegrityError, OperationalError
-from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Literal
+from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Parameter
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.base.field_proxy import FieldProxy
@@ -59,7 +59,7 @@ def item_model(tmp_path):
 def _expression(model):
     dialect = model.backend().dialect
     return ComparisonPredicate(
-        dialect, "=", Column(dialect, "code"), Literal(dialect, "x")
+        dialect, "=", Column(dialect, "code"), Parameter(dialect, "x")
     )
 
 

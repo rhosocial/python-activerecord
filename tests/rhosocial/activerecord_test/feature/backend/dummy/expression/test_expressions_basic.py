@@ -1,6 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy/expression/test_expressions_basic.py
 import pytest
-from rhosocial.activerecord.backend.expression import Literal, Column, Identifier, RawSQL
+from rhosocial.activerecord.backend.expression import Parameter, Column, Identifier, RawSQL
 from rhosocial.activerecord.backend.impl.dummy.dialect import (
     DummyDialect,
 )  # Explicit import for clarity, though fixture provides it
@@ -34,7 +34,7 @@ class TestBasicExpressions:
     )
     def test_literal(self, dummy_dialect: DummyDialect, value, expected_sql, expected_params):
         """Tests various types of literal values."""
-        lit = Literal(dummy_dialect, value)
+        lit = Parameter(dummy_dialect, value)
         sql, params = lit.to_sql()
         assert sql == expected_sql
         assert params == expected_params

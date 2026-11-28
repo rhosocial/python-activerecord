@@ -15,7 +15,7 @@ from enum import Enum
 import pytest
 
 from rhosocial.activerecord.backend.expression import (
-    Literal,
+    Parameter,
     Column,
     DatetimeAddExpression,
     DatetimeDiffExpression,
@@ -205,7 +205,7 @@ class TestIntervalAndDateTimeArithmetic:
             date_add(dialect, Column(dialect, "created_at"), 1)
 
     def test_date_diff_factory_constructs(self, dialect):
-        expr = date_diff(dialect, "day", "created_at", Literal(dialect, "updated_at"))
+        expr = date_diff(dialect, "day", "created_at", Parameter(dialect, "updated_at"))
         assert isinstance(expr, DatetimeDiffExpression)
 
     def test_date_diff_to_sql_unsupported(self, dialect):
@@ -217,7 +217,7 @@ class TestIntervalAndDateTimeArithmetic:
         assert "date_diff" in str(exc_info.value)
 
     def test_seconds_between_factory_constructs(self, dialect):
-        expr = seconds_between(dialect, "created_at", Literal(dialect, "updated_at"))
+        expr = seconds_between(dialect, "created_at", Parameter(dialect, "updated_at"))
         assert isinstance(expr, SecondsBetweenExpression)
 
     def test_seconds_between_to_sql_unsupported(self, dialect):

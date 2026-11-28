@@ -9,7 +9,6 @@ and delegate SQL generation to backend-specific dialects.
 from enum import Enum
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
 
-from ..expression.objects import Table
 from .bases import BaseExpression, SQLPredicate
 from .core import Subquery
 from .mixins import AliasableMixin
@@ -188,13 +187,13 @@ class WhereClause(BaseExpression):
         # Basic WHERE clause
         where_clause = WhereClause(
             dialect,
-            condition=ComparisonPredicate(dialect, "=", Column(dialect, "status"), Literal(dialect, "active"))
+            condition=ComparisonPredicate(dialect, "=", Column(dialect, "status"), Parameter(dialect, "active"))
         )
 
         # Complex WHERE with logical operators
         condition = (
-            (Column(dialect, "age") > Literal(dialect, 18))
-            & (Column(dialect, "status") == Literal(dialect, "active"))
+            (Column(dialect, "age") > Parameter(dialect, 18))
+            & (Column(dialect, "status") == Parameter(dialect, "active"))
         )
         where_clause = WhereClause(dialect, condition=condition)
     """
@@ -242,7 +241,7 @@ class GroupByHavingClause(BaseExpression):
         group_having_clause = GroupByHavingClause(
             dialect,
             group_by=[Column(dialect, "category")],
-            having=FunctionCall(dialect, "COUNT", Column(dialect, "id")) > Literal(dialect, 5)
+            having=FunctionCall(dialect, "COUNT", Column(dialect, "id")) > Parameter(dialect, 5)
         )
 
         # Complex grouping with multiple expressions and filtering
@@ -252,7 +251,7 @@ class GroupByHavingClause(BaseExpression):
                 FunctionCall(dialect, "YEAR", Column(dialect, "created_at")),
                 Column(dialect, "status")
             ],
-            having=FunctionCall(dialect, "COUNT", Column(dialect, "id")) > Literal(dialect, 10)
+            having=FunctionCall(dialect, "COUNT", Column(dialect, "id")) > Parameter(dialect, 10)
         )
     """
 
@@ -560,7 +559,7 @@ class QualifyClause(BaseExpression):
 
         qualify_clause = QualifyClause(
             dialect,
-            condition=rank_func <= Literal(dialect, 3)  # Top 3 earners per department
+            condition=rank_func <= Parameter(dialect, 3)  # Top 3 earners per department
         )
     """
 

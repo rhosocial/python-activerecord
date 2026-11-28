@@ -14,7 +14,7 @@ An expression instance **collects all parameters** that affect SQL generation. I
 
 ```python
 # This expression collects parameters, not generates SQL
-expr = ComparisonPredicate(dialect, column, operator='>=', value=literal)
+expr = ComparisonPredicate(dialect, column, operator='>=', value=parameter)
 # expr.dialect, expr.column, expr.operator, expr.value are all stored
 ```
 
@@ -187,7 +187,7 @@ Now you can use comparison operators:
 
 ```python
 # Find users within 10km
-distance = DistanceExpression(dialect, User.c.location, Literal(dialect, target_location))
+distance = DistanceExpression(dialect, User.c.location, Parameter(dialect, target_location))
 query = User.query().where(distance < 10000)
 ```
 

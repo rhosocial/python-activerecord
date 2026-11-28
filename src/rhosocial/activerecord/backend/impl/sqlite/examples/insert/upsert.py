@@ -6,7 +6,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from .....expression.objects import Table
 from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
-from rhosocial.activerecord.backend.expression.core import Literal, AllColumnsWildcard
+from rhosocial.activerecord.backend.expression.core import Parameter, AllColumnsWildcard
 from rhosocial.activerecord.backend.impl.sqlite.expression.dml import (  # noqa: E402
     SQLiteInsertStatement,
 )
@@ -81,8 +81,8 @@ insert_initial = InsertStatement(
     columns=["username", "email", "login_count"],
     source=ValuesSource(
         [
-            [Literal(dialect, "alice"), Literal(dialect, "alice@example.com"), Literal(dialect, 5)],
-            [Literal(dialect, "bob"), Literal(dialect, "bob@example.com"), Literal(dialect, 3)],
+            [Parameter(dialect, "alice"), Parameter(dialect, "alice@example.com"), Parameter(dialect, 5)],
+            [Parameter(dialect, "bob"), Parameter(dialect, "bob@example.com"), Parameter(dialect, 3)],
         ],
     ),
 )
@@ -117,7 +117,7 @@ insert_or_replace = SQLiteInsertStatement(
     source=ValuesSource(
         [
             # 'alice' already exists with id=1; OR REPLACE will delete old row and insert new one
-            [Literal(dialect, "alice"), Literal(dialect, "alice_new@example.com"), Literal(dialect, 0)],
+            [Parameter(dialect, "alice"), Parameter(dialect, "alice_new@example.com"), Parameter(dialect, 0)],
         ],
     ),
     or_replace=True,
@@ -136,9 +136,9 @@ insert_or_ignore = SQLiteInsertStatement(
     source=ValuesSource(
         [
             # 'bob' already exists; OR IGNORE will skip this row
-            [Literal(dialect, "bob"), Literal(dialect, "bob_new@example.com"), Literal(dialect, 10)],
+            [Parameter(dialect, "bob"), Parameter(dialect, "bob_new@example.com"), Parameter(dialect, 10)],
             # 'charlie' does not exist; this row will be inserted normally
-            [Literal(dialect, "charlie"), Literal(dialect, "charlie@example.com"), Literal(dialect, 1)],
+            [Parameter(dialect, "charlie"), Parameter(dialect, "charlie@example.com"), Parameter(dialect, 1)],
         ],
     ),
     or_ignore=True,

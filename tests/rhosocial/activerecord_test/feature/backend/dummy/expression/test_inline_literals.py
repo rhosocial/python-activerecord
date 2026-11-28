@@ -1,5 +1,5 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy/expression/test_inline_literals.py
-"""Tests for per-value inline-vs-bound rendering (``Literal.inline``).
+"""Tests for per-value inline-vs-bound rendering (``Parameter.inline``).
 
 Covers:
 - ``inline=False`` (the default, every data position): a bind-parameter
@@ -17,7 +17,7 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     ComparisonPredicate,
     InPredicate,
-    Literal,
+    Parameter,
 )
 
 
@@ -30,31 +30,31 @@ class TestLiteralInlineDecision:
     """A literal renders inline or bound according to its own ``inline``."""
 
     def test_default_binds(self):
-        lit = Literal(_dummy_dialect(), "abc")
+        lit = Parameter(_dummy_dialect(), "abc")
         assert lit.inline is False
         assert lit.to_sql() == ("?", ("abc",))
 
     def test_inline_writes_sql_text(self):
-        lit = Literal(_dummy_dialect(), "abc", inline=True)
+        lit = Parameter(_dummy_dialect(), "abc", inline=True)
         assert lit.to_sql() == ("'abc'", ())
 
     def test_inline_escapes_quotes(self):
-        lit = Literal(_dummy_dialect(), "it's", inline=True)
+        lit = Parameter(_dummy_dialect(), "it's", inline=True)
         sql, params = lit.to_sql()
         assert sql == "'it''s'"
         assert params == ()
 
     def test_inline_numeric(self):
-        assert Literal(_dummy_dialect(), 42, inline=True).to_sql() == ("42", ())
+        assert Parameter(_dummy_dialect(), 42, inline=True).to_sql() == ("42", ())
 
     def test_repr_shows_the_decision(self):
-        assert repr(Literal(_dummy_dialect(), 1)) == "Literal(1)"
-        assert repr(Literal(_dummy_dialect(), 1, inline=True)) == "Literal(1, inline)"
+        assert repr(Parameter(_dummy_dialect(), 1)) == "Parameter(1)"
+        assert repr(Parameter(_dummy_dialect(), 1, inline=True)) == "Parameter(1, inline)"
 
     def test_the_decision_is_per_instance(self):
         """Two literals of the same class, decided differently."""
-        one = Literal(_dummy_dialect(), 1)
-        other = Literal(_dummy_dialect(), 2, inline=True)
+        one = Parameter(_dummy_dialect(), 1)
+        other = Parameter(_dummy_dialect(), 2, inline=True)
         assert one.to_sql() == ("?", (1,))
         assert other.to_sql() == ("2", ())
 
@@ -66,8 +66,8 @@ class TestMixedPositionsInOneNode:
         dialect = _dummy_dialect()
         pred = ComparisonPredicate(
             dialect, "=",
-            Literal(dialect, "a", inline=True),
-            Literal(dialect, "b"),
+            Parameter(dialect, "a", inline=True),
+            Parameter(dialect, "b"),
         )
         assert pred.to_sql() == ("'a' = ?", ("b",))
 
@@ -75,7 +75,7 @@ class TestMixedPositionsInOneNode:
         dialect = _dummy_dialect()
         pred = InPredicate(
             dialect, Column(dialect, "status"),
-            Literal(dialect, ("debit", "credit"), inline=True),
+            Parameter(dialect, ("debit", "credit"), inline=True),
         )
         sql, params = pred.to_sql()
         assert sql == '"status" IN (\'debit\', \'credit\')'
@@ -84,7 +84,7 @@ class TestMixedPositionsInOneNode:
     def test_in_list_bound_by_default(self):
         dialect = _dummy_dialect()
         pred = InPredicate(
-            dialect, Column(dialect, "status"), Literal(dialect, ("a", "b"))
+            dialect, Column(dialect, "status"), Parameter(dialect, ("a", "b"))
         )
         assert pred.to_sql() == ('"status" IN (?, ?)', ("a", "b"))
 
@@ -93,13 +93,13 @@ class TestLiteralClaimsNoType:
     """A value at a position says nothing about what the position's type is."""
 
     def test_no_comparison_operations(self):
-        lit = Literal(_dummy_dialect(), 7)
+        lit = Parameter(_dummy_dialect(), 7)
         assert not hasattr(lit, "like")
         assert not hasattr(lit, "sqrt")
 
     def test_not_a_sql_value(self):
         from rhosocial.activerecord.backend.expression.bases import SQLValue
-        assert not isinstance(Literal(_dummy_dialect(), 7), SQLValue)
+        assert not isinstance(Parameter(_dummy_dialect(), 7), SQLValue)
 
 
 class TestDdlPositionsDemandInlineValues:
@@ -118,7 +118,7 @@ class TestDdlPositionsDemandInlineValues:
 
         dialect = _dummy_dialect()
         condition = ComparisonPredicate(
-            dialect, ">", Column(dialect, "age"), Literal(dialect, 0, inline=True)
+            dialect, ">", Column(dialect, "age"), Parameter(dialect, 0, inline=True)
         )
         constraint = TableCheckConstraint(dialect, condition)
         assert constraint.to_sql() == ('CHECK ("age" > 0)', ())
@@ -136,7 +136,7 @@ class TestDdlPositionsDemandInlineValues:
 
         dialect = _dummy_dialect()
         condition = ComparisonPredicate(
-            dialect, ">", Column(dialect, "age"), Literal(dialect, 0)
+            dialect, ">", Column(dialect, "age"), Parameter(dialect, 0)
         )
         sql, params = TableCheckConstraint(dialect, condition).to_sql()
         assert "?" in sql
@@ -150,7 +150,7 @@ class TestDdlPositionsDemandInlineValues:
 
         dialect = _dummy_dialect()
         where = ComparisonPredicate(
-            dialect, "=", Column(dialect, "status"), Literal(dialect, "active", inline=True)
+            dialect, "=", Column(dialect, "status"), Parameter(dialect, "active", inline=True)
         )
         stmt = CreateIndexStatement(
             dialect, index=Index(dialect, "idx_active"), table=Table(dialect, "users"),
@@ -166,7 +166,7 @@ class TestDdlPositionsDemandInlineValues:
         dialect = _dummy_dialect()
         condition = InPredicate(
             dialect, Column(dialect, "kind"),
-            Literal(dialect, ("a", "b"), inline=True),
+            Parameter(dialect, ("a", "b"), inline=True),
         )
         assert TableCheckConstraint(dialect, condition).to_sql() == (
             """CHECK ("kind" IN ('a', 'b'))""", ()

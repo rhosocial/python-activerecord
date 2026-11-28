@@ -12,7 +12,7 @@ from rhosocial.activerecord.backend.expression.predicates import (  # noqa: E402
     IsNullPredicate,
     LogicalPredicate,
 )
-from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.core import Parameter
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     QueryStatement,
@@ -83,7 +83,7 @@ for row in products_data:
         dialect=dialect,
         into=Table(dialect, 'products'),
         columns=["name", "price", "category", "description"],
-        source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
+        source=ValuesSource(dialect, [[Parameter(dialect, v) for v in row]]),
     )
     sql, params = insert_expr.to_sql()
     backend.execute(sql, params)
@@ -96,10 +96,10 @@ for row in products_data:
 # The operator is the *word*, not the SQL keyword: the keyword is a spelling
 # the dialect owns and never reaches the artifact.
 like_pred = LikePredicate(
-    dialect, LikeOperator.LIKE, Column(dialect, "name"), Literal(dialect, "%a%")
+    dialect, LikeOperator.LIKE, Column(dialect, "name"), Parameter(dialect, "%a%")
 )
-in_pred = InPredicate(dialect, Column(dialect, "category"), Literal(dialect, ("Fruit", "Vegetable")))
-between_pred = BetweenPredicate(dialect, Column(dialect, "price"), Literal(dialect, 0.5), Literal(dialect, 2.0))
+in_pred = InPredicate(dialect, Column(dialect, "category"), Parameter(dialect, ("Fruit", "Vegetable")))
+between_pred = BetweenPredicate(dialect, Column(dialect, "price"), Parameter(dialect, 0.5), Parameter(dialect, 2.0))
 not_null_pred = IsNullPredicate(dialect, Column(dialect, "description"), is_not=True)
 
 combined_pred = LogicalPredicate(dialect, "AND", like_pred, in_pred, between_pred, not_null_pred)

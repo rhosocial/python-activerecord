@@ -9,7 +9,7 @@ from typing import Dict, Tuple, Type
 from typing import List, Optional
 
 from ..dialect.base import SQLDialectBase
-from ..expression import InsertStatement, UpdateStatement, DeleteStatement, Literal, Column
+from ..expression import InsertStatement, UpdateStatement, DeleteStatement, Parameter, Column
 from ..expression.objects import Table
 from ..expression.bases import ToSQLProtocol
 from ..expression.statements import ReturningClause, ValuesSource
@@ -81,8 +81,8 @@ class SQLOperationsMixin:
                 # This is an expression object like FunctionCall, BinaryExpression, etc.
                 processed_values.append(v)
             else:
-                # This is a regular value that should be wrapped in a Literal
-                processed_values.append(Literal(self.dialect, v))
+                # This is a regular value that should be wrapped in a Parameter
+                processed_values.append(Parameter(self.dialect, v))
 
         # Create a ValuesSource to use as the data source for the InsertStatement
         values_source = ValuesSource(self.dialect, [processed_values])
@@ -146,8 +146,8 @@ class SQLOperationsMixin:
                 # This is an expression object like FunctionCall, BinaryExpression, etc.
                 assignments[k] = v
             else:
-                # This is a regular value that should be wrapped in a Literal
-                assignments[k] = Literal(self.dialect, v)
+                # This is a regular value that should be wrapped in a Parameter
+                assignments[k] = Parameter(self.dialect, v)
 
         # Create ReturningClause if returning_columns is specified
         returning_clause = None
@@ -310,7 +310,7 @@ class SQLOperationsMixin:
                 if is_sql_expression(v):
                     processed_values.append(v)
                 else:
-                    processed_values.append(Literal(self.dialect, v))
+                    processed_values.append(Parameter(self.dialect, v))
             processed_rows.append(processed_values)
 
         values_source = ValuesSource(self.dialect, processed_rows)
@@ -372,13 +372,13 @@ class SQLOperationsMixin:
         for field_name, values in options.field_values.items():
             cases = []
             for pk_val, field_val in zip(options.pk_values, values):
-                condition = ComparisonPredicate(self.dialect, "=", pk_col, Literal(self.dialect, pk_val))
-                result_expr = Literal(self.dialect, field_val)
+                condition = ComparisonPredicate(self.dialect, "=", pk_col, Parameter(self.dialect, pk_val))
+                result_expr = Parameter(self.dialect, field_val)
                 cases.append((condition, result_expr))
             case_expr = CaseExpression(self.dialect, cases=cases)
             assignments[field_name] = case_expr
 
-        pk_literals = Literal(self.dialect, options.pk_values)
+        pk_literals = Parameter(self.dialect, options.pk_values)
         where_predicate = InPredicate(self.dialect, pk_col, pk_literals)
 
         update_expr = UpdateStatement(
@@ -429,8 +429,8 @@ class AsyncSQLOperationsMixin:
                 # This is an expression object like FunctionCall, BinaryExpression, etc.
                 processed_values.append(v)
             else:
-                # This is a regular value that should be wrapped in a Literal
-                processed_values.append(Literal(self.dialect, v))
+                # This is a regular value that should be wrapped in a Parameter
+                processed_values.append(Parameter(self.dialect, v))
 
         # Create a ValuesSource to use as the data source for the InsertStatement
         values_source = ValuesSource(self.dialect, [processed_values])
@@ -491,8 +491,8 @@ class AsyncSQLOperationsMixin:
                 # This is an expression object like FunctionCall, BinaryExpression, etc.
                 assignments[k] = v
             else:
-                # This is a regular value that should be wrapped in a Literal
-                assignments[k] = Literal(self.dialect, v)
+                # This is a regular value that should be wrapped in a Parameter
+                assignments[k] = Parameter(self.dialect, v)
 
         # Create ReturningClause if returning_columns is specified
         returning_clause = None
@@ -650,7 +650,7 @@ class AsyncSQLOperationsMixin:
                 if is_sql_expression(v):
                     processed_values.append(v)
                 else:
-                    processed_values.append(Literal(self.dialect, v))
+                    processed_values.append(Parameter(self.dialect, v))
             processed_rows.append(processed_values)
 
         values_source = ValuesSource(self.dialect, processed_rows)
@@ -706,13 +706,13 @@ class AsyncSQLOperationsMixin:
         for field_name, values in options.field_values.items():
             cases = []
             for pk_val, field_val in zip(options.pk_values, values):
-                condition = ComparisonPredicate(self.dialect, "=", pk_col, Literal(self.dialect, pk_val))
-                result_expr = Literal(self.dialect, field_val)
+                condition = ComparisonPredicate(self.dialect, "=", pk_col, Parameter(self.dialect, pk_val))
+                result_expr = Parameter(self.dialect, field_val)
                 cases.append((condition, result_expr))
             case_expr = CaseExpression(self.dialect, cases=cases)
             assignments[field_name] = case_expr
 
-        pk_literals = Literal(self.dialect, options.pk_values)
+        pk_literals = Parameter(self.dialect, options.pk_values)
         where_predicate = InPredicate(self.dialect, pk_col, pk_literals)
 
         update_expr = UpdateStatement(

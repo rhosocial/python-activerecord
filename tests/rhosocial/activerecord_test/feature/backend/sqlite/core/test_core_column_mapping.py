@@ -222,7 +222,7 @@ def test_insert_with_returning_columns_sql_construction(mapped_table_backend):
     """
     from rhosocial.activerecord.backend.options import InsertOptions
     from rhosocial.activerecord.backend.expression.statements import ValuesSource
-    from rhosocial.activerecord.backend.expression import Column as ExprColumn, Literal
+    from rhosocial.activerecord.backend.expression import Column as ExprColumn, Parameter
     from rhosocial.activerecord.backend.base.operations import ReturningClause as BaseReturningClause
 
     backend = mapped_table_backend
@@ -237,7 +237,7 @@ def test_insert_with_returning_columns_sql_construction(mapped_table_backend):
 
     # Replicate the SQL construction logic from SQLOperationsMixin.insert
     columns = list(insert_options.data.keys())
-    values = [Literal(backend.dialect, v) for v in insert_options.data.values()]
+    values = [Parameter(backend.dialect, v) for v in insert_options.data.values()]
     values_source = ValuesSource(backend.dialect, [values])
 
     # Create ReturningClause if returning_columns is specified
@@ -316,7 +316,7 @@ def test_update_with_returning_columns_sql_construction(mapped_table_backend):
     This test only checks the SQL construction, not execution.
     """
     from rhosocial.activerecord.backend.options import UpdateOptions
-    from rhosocial.activerecord.backend.expression import ComparisonPredicate, Column, Literal
+    from rhosocial.activerecord.backend.expression import ComparisonPredicate, Column, Parameter
     from rhosocial.activerecord.backend.base.operations import ReturningClause as BaseReturningClause
 
     backend = mapped_table_backend
@@ -333,7 +333,7 @@ def test_update_with_returning_columns_sql_construction(mapped_table_backend):
 
     # Create UpdateOptions with returning_columns
     where_predicate = ComparisonPredicate(
-        backend.dialect, "=", Column(backend.dialect, "name"), Literal(backend.dialect, "Update Test")
+        backend.dialect, "=", Column(backend.dialect, "name"), Parameter(backend.dialect, "Update Test")
     )
     update_options = UpdateOptions(
         table="mapped_users",
@@ -343,7 +343,7 @@ def test_update_with_returning_columns_sql_construction(mapped_table_backend):
     )
 
     # Replicate the SQL construction logic from SQLOperationsMixin.update
-    assignments = {k: Literal(backend.dialect, v) for k, v in update_options.data.items()}
+    assignments = {k: Parameter(backend.dialect, v) for k, v in update_options.data.items()}
 
     # Create ReturningClause if returning_columns is specified
     returning_clause = None
@@ -427,7 +427,7 @@ def test_delete_with_returning_columns_sql_construction(mapped_table_backend):
     This test only checks the SQL construction, not execution.
     """
     from rhosocial.activerecord.backend.options import DeleteOptions
-    from rhosocial.activerecord.backend.expression import ComparisonPredicate, Column, Literal
+    from rhosocial.activerecord.backend.expression import ComparisonPredicate, Column, Parameter
     from rhosocial.activerecord.backend.base.operations import ReturningClause as BaseReturningClause
 
     backend = mapped_table_backend
@@ -444,7 +444,7 @@ def test_delete_with_returning_columns_sql_construction(mapped_table_backend):
 
     # Create DeleteOptions with returning_columns
     where_predicate = ComparisonPredicate(
-        backend.dialect, "=", Column(backend.dialect, "name"), Literal(backend.dialect, "Delete Test")
+        backend.dialect, "=", Column(backend.dialect, "name"), Parameter(backend.dialect, "Delete Test")
     )
     delete_options = DeleteOptions(
         table="mapped_users", where=where_predicate, returning_columns=["user_id", "name", "email"]

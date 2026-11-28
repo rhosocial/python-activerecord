@@ -1,6 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite/dialect/expressions/test_expr_basic.py
 import pytest
-from rhosocial.activerecord.backend.expression import Literal, Column, Identifier, RawSQL
+from rhosocial.activerecord.backend.expression import Parameter, Column, Identifier, RawSQL
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 
@@ -29,16 +29,16 @@ class TestBasicExpressions:
         ],
     )
     def test_literal_various_types(self, sqlite_dialect_3_8_0: SQLiteDialect, value, expected_sql, expected_params):
-        """Test Literal with various data types."""
-        literal = Literal(sqlite_dialect_3_8_0, value)
+        """Test Parameter with various data types."""
+        literal = Parameter(sqlite_dialect_3_8_0, value)
         sql, params = literal.to_sql()
         assert sql == expected_sql
         assert params == expected_params
 
     def test_literal_repr(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test Literal repr method."""
-        literal = Literal(sqlite_dialect_3_8_0, "test_value")
-        assert repr(literal) == "Literal('test_value')"
+        """Test Parameter repr method."""
+        literal = Parameter(sqlite_dialect_3_8_0, "test_value")
+        assert repr(literal) == "Parameter('test_value')"
 
     def test_column_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test basic Column functionality."""

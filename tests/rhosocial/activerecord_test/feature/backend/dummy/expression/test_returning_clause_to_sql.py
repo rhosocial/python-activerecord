@@ -1,5 +1,5 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy/expression/test_returning_clause_to_sql.py
-from rhosocial.activerecord.backend.expression import Column, Literal, RawSQL, FunctionCall
+from rhosocial.activerecord.backend.expression import Column, Parameter, RawSQL, FunctionCall
 from rhosocial.activerecord.backend.expression.statements import ReturningClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
@@ -37,7 +37,7 @@ class TestReturningClauseToSql:
     def test_returning_clause_with_literal(self, dummy_dialect: DummyDialect):
         """Tests ReturningClause with literal expressions."""
         returning_clause = ReturningClause(
-            dummy_dialect, expressions=[Literal(dummy_dialect, 42), Literal(dummy_dialect, "constant")]
+            dummy_dialect, expressions=[Parameter(dummy_dialect, 42), Parameter(dummy_dialect, "constant")]
         )
         sql, params = returning_clause.to_sql()
         assert "RETURNING" in sql
@@ -97,7 +97,7 @@ class TestReturningClauseToSql:
             expressions=[
                 Column(dummy_dialect, "id"),
                 FunctionCall(dummy_dialect, "UPPER", Column(dummy_dialect, "name")),
-                Literal(dummy_dialect, "status"),
+                Parameter(dummy_dialect, "status"),
                 RawSQL(dummy_dialect, "1"),
             ],
         )

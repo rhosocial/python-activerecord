@@ -8,7 +8,7 @@ is the one gate the render path consults before trusting the node.
 
 import pytest
 
-from rhosocial.activerecord.backend.expression import Column, Literal, QueryStatement
+from rhosocial.activerecord.backend.expression import Column, Parameter, QueryStatement
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.statements import (
     DefaultValuesSource,
@@ -53,9 +53,9 @@ def test_values_source_with_columns_and_on_conflict():
         DIALECT,
         into=Table(DIALECT, "counters"),
         columns=["name", "hits"],
-        source=ValuesSource(DIALECT, values_list=[[Literal(DIALECT, "page"), Literal(DIALECT, 1)]]),
+        source=ValuesSource(DIALECT, values_list=[[Parameter(DIALECT, "page"), Parameter(DIALECT, 1)]]),
         on_conflict=OnConflictClause(
-            DIALECT, ["name"], update_assignments={"hits": Literal(DIALECT, 2)}
+            DIALECT, ["name"], update_assignments={"hits": Parameter(DIALECT, 2)}
         ),
     ).to_sql()
     assert sql.startswith('INSERT INTO "counters" ("name", "hits") VALUES (?, ?)')
@@ -69,7 +69,7 @@ def test_strict_validation_gate_can_be_turned_off():
     sql, params = InsertStatement(
         dialect,
         into=Table(dialect, "events"),
-        source=ValuesSource(dialect, values_list=[[Literal(dialect, 1)]]),
+        source=ValuesSource(dialect, values_list=[[Parameter(dialect, 1)]]),
     ).to_sql()
     assert sql.startswith('INSERT INTO "events"')
     assert params == (1,)

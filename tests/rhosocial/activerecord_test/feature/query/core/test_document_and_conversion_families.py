@@ -11,7 +11,7 @@ answers with their common kind, or with nothing when they disagree.
 # tests/rhosocial/activerecord_test/feature/query/test_document_and_conversion_families.py
 import pytest
 
-from rhosocial.activerecord.backend.expression import functions as F, FunctionCall, Literal, XMLColumn
+from rhosocial.activerecord.backend.expression import functions as F, FunctionCall, Parameter, XMLColumn
 from rhosocial.activerecord.backend.expression.bases import SQLValue
 from rhosocial.activerecord.backend.expression.column_types import annotation_for
 from rhosocial.activerecord.backend.expression.type_name import is_valid_type_name
@@ -100,7 +100,7 @@ def columns(dialect):
 
 
 def test_arrow_extraction_gives_a_document(dialect, columns):
-    assert isinstance(F.json_extract(dialect, columns["json"], Literal(dialect, "$.a")), JSONValue)
+    assert isinstance(F.json_extract(dialect, columns["json"], Parameter(dialect, "$.a")), JSONValue)
 
 
 def test_double_arrow_extraction_gives_text(dialect, columns):
@@ -183,7 +183,7 @@ def test_a_consensus_needs_exactly_one(dialect, columns):
 
 def test_an_argument_without_a_family_does_not_break_a_consensus(dialect, columns):
     """A literal says nothing, so it neither agrees nor disagrees."""
-    with_literal = CaseExpression(dialect, cases=[(columns["int"], Literal(dialect, 1))],
+    with_literal = CaseExpression(dialect, cases=[(columns["int"], Parameter(dialect, 1))],
                                  else_result=columns["int"])
     assert isinstance(with_literal, NumericValue)
 
@@ -466,24 +466,22 @@ def test_every_typed_value_declares_a_family_from_the_lattice():
     assert len(set(declared.values())) == len(declared), "two names bind one class"
 
 
-def test_every_temporal_type_is_reachable():
-    """The four temporal kinds exist and are distinct.
+def test_temporal_values_are_carried_without_a_type_tag():
+    """The artifact never names a value type; the host value is carried as-is."""
+    import datetime as dt
 
-    They were one class with a label saying which it was, then four classes, and
-    now four members of :class:`LiteralKind` -- one closed vocabulary rather than
-    one class per type. This pins that a timestamp, a date, a time and an
-    interval are still told apart, because ``datetime`` is a subclass of ``date``
-    and matching them in the wrong order would fold the first three together.
-    """
+    from rhosocial.activerecord.backend.expression import Parameter
+    from rhosocial.activerecord.backend.expression_registry import (
+        deserialize,
+        serialize,
+    )
 
-    from rhosocial.activerecord.backend.expression.values import LiteralKind
-
-    for name, sample in (
-        ("TIMESTAMP", __import__("datetime").datetime(2026, 10, 18, 1, 2, 3)),
-        ("DATE", __import__("datetime").date(2026, 10, 18)),
-        ("TIME", __import__("datetime").time(1, 2, 3)),
-        ("INTERVAL", __import__("datetime").timedelta(days=1)),
+    for value in (
+        dt.datetime(2026, 10, 18, 1, 2, 3),
+        dt.date(2026, 10, 18),
+        dt.time(1, 2, 3),
+        dt.timedelta(days=1),
     ):
-        kind = LiteralKind[name]
-        assert LiteralKind.match(sample) is kind, name
-        assert kind.wire.endswith("_value"), name
+        artifact = serialize(Parameter(None, value))
+        assert artifact["params"] == {"value": value, "inline": False}
+        assert deserialize(artifact).value == value

@@ -1,5 +1,5 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy/expression/test_operators.py
-from rhosocial.activerecord.backend.expression import Column, Literal, FunctionCall, NumericColumn
+from rhosocial.activerecord.backend.expression import Column, Parameter, FunctionCall, NumericColumn
 from rhosocial.activerecord.backend.expression.operators import (
     SQLOperation,
     BinaryExpression,
@@ -15,7 +15,7 @@ class TestSQLOperation:
 
     def test_sql_operation_with_operands(self, dummy_dialect: DummyDialect):
         """Test SQLOperation with multiple operands."""
-        operand1 = Literal(dummy_dialect, "value1")
+        operand1 = Parameter(dummy_dialect, "value1")
         operand2 = Column(dummy_dialect, "column_name")
 
         sql_op = SQLOperation(dummy_dialect, "CUSTOM_OP", operand1, operand2)
@@ -36,7 +36,7 @@ class TestSQLOperation:
 
     def test_sql_operation_single_operand(self, dummy_dialect: DummyDialect):
         """Test SQLOperation with single operand."""
-        operand = Literal(dummy_dialect, 42)
+        operand = Parameter(dummy_dialect, 42)
 
         sql_op = SQLOperation(dummy_dialect, "SINGLE_ARG", operand)
 
@@ -52,7 +52,7 @@ class TestBinaryExpression:
     def test_binary_expression_basic(self, dummy_dialect: DummyDialect):
         """Test basic binary expression."""
         left = Column(dummy_dialect, "age")
-        right = Literal(dummy_dialect, 18)
+        right = Parameter(dummy_dialect, 18)
 
         bin_expr = BinaryExpression(dummy_dialect, ">", left, right)
 
@@ -65,7 +65,7 @@ class TestBinaryExpression:
     def test_binary_expression_with_complex_operands(self, dummy_dialect: DummyDialect):
         """Test binary expression with complex operands."""
         left = FunctionCall(dummy_dialect, "UPPER", Column(dummy_dialect, "name"))
-        right = Literal(dummy_dialect, "JOHN")
+        right = Parameter(dummy_dialect, "JOHN")
 
         bin_expr = BinaryExpression(dummy_dialect, "=", left, right)
 
@@ -77,7 +77,7 @@ class TestBinaryExpression:
     def test_binary_expression_different_operators(self, dummy_dialect: DummyDialect):
         """Test binary expression with different operators."""
         left = Column(dummy_dialect, "score")
-        right = Literal(dummy_dialect, 100)
+        right = Parameter(dummy_dialect, 100)
 
         operators = ["+", "-", "*", "/", "=", "!=", "<", ">", "<=", ">="]
 
@@ -119,7 +119,7 @@ class TestUnaryExpression:
 
     def test_unary_expression_with_literal(self, dummy_dialect: DummyDialect):
         """Test unary expression with literal operand."""
-        operand = Literal(dummy_dialect, -5)
+        operand = Parameter(dummy_dialect, -5)
 
         unary_expr = UnaryExpression(dummy_dialect, "ABS", operand, pos="before")
 
@@ -168,7 +168,7 @@ class TestArithmeticOperation:
     def test_arithmetic_operation_basic(self, dummy_dialect: DummyDialect):
         """Test basic binary arithmetic expression."""
         left = NumericColumn(dummy_dialect, "price")
-        right = Literal(dummy_dialect, 1.1)
+        right = Parameter(dummy_dialect, 1.1)
 
         # Use operator overloading instead of direct instantiation
         arith_expr = left * right
@@ -181,7 +181,7 @@ class TestArithmeticOperation:
     def test_arithmetic_operation_with_functions(self, dummy_dialect: DummyDialect):
         """Test binary arithmetic with function calls."""
         left = FunctionCall(dummy_dialect, "SUM", Column(dummy_dialect, "amount"))
-        right = Literal(dummy_dialect, 2)
+        right = Parameter(dummy_dialect, 2)
 
         # Use operator overloading instead of direct instantiation
         arith_expr = left / right

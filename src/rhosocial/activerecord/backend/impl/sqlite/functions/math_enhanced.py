@@ -39,7 +39,7 @@ def round_(
         A FunctionCall instance representing the ROUND function
     """
     target_expr = expr
-    precision_expr = core.Literal(dialect, precision)
+    precision_expr = core.Parameter(dialect, precision)
     return core.FunctionCall(dialect, "ROUND", target_expr, precision_expr)
 
 

@@ -11,6 +11,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from .bases import BaseExpression, SQLPredicate
+from .coerce import value_expression, value_sequence
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
@@ -134,8 +135,8 @@ class ComparisonPredicate(SQLPredicate):
     def __init__(self, dialect: "SQLDialectBase", op: Any, left: "SQLValue", right: "SQLValue"):
         super().__init__(dialect)
         self.op = self.coerce_operator(op)
-        self.left = left
-        self.right = right
+        self.left = value_expression(dialect, left)
+        self.right = value_expression(dialect, right)
 
 
 class LogicalPredicate(SQLPredicate):
@@ -275,8 +276,8 @@ class LikePredicate(SQLPredicate):
         # gets one, and a caller passing a *keyword* fails at the call that
         # wrote it instead of in the renderer.
         self.op = self.coerce_operator(op)
-        self.left = left
-        self.pattern = pattern
+        self.left = value_expression(dialect, left)
+        self.pattern = value_expression(dialect, pattern)
 
 
 class InPredicate(SQLPredicate):
@@ -289,8 +290,8 @@ class InPredicate(SQLPredicate):
 
     def __init__(self, dialect: "SQLDialectBase", operand: "SQLValue", values: "BaseExpression"):
         super().__init__(dialect)
-        self.operand = operand
-        self.values = values
+        self.operand = value_expression(dialect, operand)
+        self.values = value_sequence(dialect, values)
 
 
 class BetweenPredicate(SQLPredicate):
@@ -309,9 +310,9 @@ class BetweenPredicate(SQLPredicate):
         high: "BaseExpression",
     ):
         super().__init__(dialect)
-        self.operand = operand
-        self.low = low
-        self.high = high
+        self.operand = value_expression(dialect, operand)
+        self.low = value_expression(dialect, low)
+        self.high = value_expression(dialect, high)
 
 
 class IsNullPredicate(SQLPredicate):
@@ -404,7 +405,7 @@ class DistinctFromPredicate(SQLPredicate):
         is_not: If True, renders ``IS NOT DISTINCT FROM`` instead.
 
     Example:
-        >>> expr = DistinctFromPredicate(dialect, Column(dialect, "age"), Literal(dialect, 0))
+        >>> expr = DistinctFromPredicate(dialect, Column(dialect, "age"), Parameter(dialect, 0))
         >>> expr.to_sql()
         ('"age" IS DISTINCT FROM ?', (0,))
     """
@@ -416,8 +417,8 @@ class DistinctFromPredicate(SQLPredicate):
 
     def __init__(self, dialect: "SQLDialectBase", left: Any, right: Any, is_not: bool = False):
         super().__init__(dialect)
-        self.left = left
-        self.right = right
+        self.left = value_expression(dialect, left)
+        self.right = value_expression(dialect, right)
         self.is_not = is_not
 
 

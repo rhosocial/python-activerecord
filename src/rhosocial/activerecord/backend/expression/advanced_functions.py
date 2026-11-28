@@ -117,7 +117,7 @@ class CaseExpression(
 
     **Agreement is over the branches, and a branch that says nothing is not a
     contradiction.** ``CASE WHEN i THEN literal ELSE i`` is still an integer:
-    a ``Literal`` declares no kind, so it neither agrees nor disagrees, and what
+    a ``Parameter`` declares no kind, so it neither agrees nor disagrees, and what
     matters is that the branches which *do* declare a kind declare the same one.
 
     When they agree, the node is built as an instance of the agreed value class
@@ -516,7 +516,7 @@ class TrimExpression(
         direction: ``BOTH`` (default), ``LEADING`` or ``TRAILING``.
 
     Example:
-        >>> TrimExpression(dialect, Column(dialect, "name"), Literal(dialect, "x")).to_sql()
+        >>> TrimExpression(dialect, Column(dialect, "name"), Parameter(dialect, "x")).to_sql()
         ("TRIM(BOTH ? FROM \"name\")", ('x',))
     """
 

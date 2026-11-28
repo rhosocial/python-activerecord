@@ -86,7 +86,7 @@ class IUpdateBehavior(ABC):
 
         Example:
             def get_update_expressions(self):
-                from ..backend.expression import Column, Literal, FunctionCall
+                from ..backend.expression import Column, Parameter, FunctionCall
                 from ..backend.expression.operators import ArithmeticOperation
                 # Method 1: Using explicit expression objects
                 return {
@@ -95,7 +95,7 @@ class IUpdateBehavior(ABC):
                         self.backend().dialect,
                         'add',
                         Column(self.backend().dialect, 'version'),
-                        Literal(self.backend().dialect, 1)
+                        Parameter(self.backend().dialect, 1)
                     ),
                     # Set updated_at to current timestamp using SQL function
                     'updated_at': FunctionCall(
@@ -103,7 +103,7 @@ class IUpdateBehavior(ABC):
                         'CURRENT_TIMESTAMP'
                     ),
                     # Set last_modified_by using current instance value
-                    'last_modified_by': Literal(
+                    'last_modified_by': Parameter(
                         self.backend().dialect,
                         self.last_modified_by_id
                     )

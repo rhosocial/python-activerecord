@@ -19,7 +19,7 @@ from rhosocial.activerecord.backend.impl.sqlite.functions import (
     json_array_insert,
     jsonb_array_insert,
 )
-from rhosocial.activerecord.backend.expression.core import Column, Literal
+from rhosocial.activerecord.backend.expression.core import Column, Parameter
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 
@@ -122,7 +122,7 @@ class TestSQLite353ExpressionSQLGeneration:
 
         dialect = sqlite_backend._dialect
         col_data = Column(dialect, "data", table="test_table")
-        json_expr = json_array_insert(dialect, col_data, Literal(dialect, "new"), position=0)
+        json_expr = json_array_insert(dialect, col_data, Parameter(dialect, "new"), position=0)
 
         sql, params = json_expr.to_sql()
         assert "JSON_ARRAY_INSERT" in sql
@@ -133,7 +133,7 @@ class TestSQLite353ExpressionSQLGeneration:
 
         dialect = sqlite_backend._dialect
         col_data = Column(dialect, "data", table="test_table")
-        json_expr = jsonb_array_insert(dialect, col_data, Literal(dialect, "new"), position=1)
+        json_expr = jsonb_array_insert(dialect, col_data, Parameter(dialect, "new"), position=1)
 
         sql, params = json_expr.to_sql()
         assert "JSONB_ARRAY_INSERT" in sql
@@ -198,7 +198,7 @@ class TestSQLite353JsonFunctionsSQL:
 
         # Test SQL generation - verify the function generates correct SQL
         col_data = Column(dialect, "data", table="test_json")
-        json_expr = json_array_insert(dialect, col_data, Literal(dialect, 0), position=0)
+        json_expr = json_array_insert(dialect, col_data, Parameter(dialect, 0), position=0)
         sql, params = json_expr.to_sql()
 
         # Verify SQL contains JSON_ARRAY_INSERT
@@ -214,7 +214,7 @@ class TestSQLite353JsonFunctionsSQL:
 
         # Test SQL generation
         col_data = Column(dialect, "data", table="test_jsonb")
-        json_expr = jsonb_array_insert(dialect, col_data, Literal(dialect, 100), position=1)
+        json_expr = jsonb_array_insert(dialect, col_data, Parameter(dialect, 100), position=1)
         sql, params = json_expr.to_sql()
 
         assert "JSONB_ARRAY_INSERT" in sql
@@ -244,7 +244,7 @@ class TestSQLite353JsonFunctionsExecution:
 
         # Use expression system to build the query
         col_data = Column(dialect, "data", table="test_json")
-        json_expr = json_array_insert(dialect, col_data, Literal(dialect, 0), position=0)
+        json_expr = json_array_insert(dialect, col_data, Parameter(dialect, 0), position=0)
 
         from rhosocial.activerecord.backend.expression import QueryStatement
         from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
@@ -285,7 +285,7 @@ class TestSQLite353JsonFunctionsExecution:
 
         # Use expression system to build the query
         col_data = Column(dialect, "data", table="test_jsonb")
-        json_expr = jsonb_array_insert(dialect, col_data, Literal(dialect, "new_value"), position=1)
+        json_expr = jsonb_array_insert(dialect, col_data, Parameter(dialect, "new_value"), position=1)
 
         from rhosocial.activerecord.backend.expression import QueryStatement
         from rhosocial.activerecord.backend.expression.sources import NamedRelationRef

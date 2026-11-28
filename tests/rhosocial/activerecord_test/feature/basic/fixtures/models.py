@@ -879,7 +879,7 @@ class AsyncMappedOrderItem(CompositePKMixin, AsyncActiveRecord):
 # =============================================================================
 
 from rhosocial.activerecord.base import DerivedField
-from rhosocial.activerecord.backend.expression import Literal, NumericColumn
+from rhosocial.activerecord.backend.expression import Parameter, NumericColumn
 
 
 class Product(IntegerPKMixin, ActiveRecord):
@@ -893,7 +893,7 @@ class Product(IntegerPKMixin, ActiveRecord):
     quantity: int
 
     discounted_price: ClassVar[Annotated[float, DerivedField(
-        lambda d: NumericColumn(d, "price") * Literal(d, 0.9),
+        lambda d: NumericColumn(d, "price") * Parameter(d, 0.9),
     )]]
 
     total_value: ClassVar[Annotated[float, DerivedField(
@@ -912,7 +912,7 @@ class AsyncProduct(IntegerPKMixin, AsyncActiveRecord):
     quantity: int
 
     discounted_price: ClassVar[Annotated[float, DerivedField(
-        lambda d: NumericColumn(d, "price") * Literal(d, 0.9),
+        lambda d: NumericColumn(d, "price") * Parameter(d, 0.9),
     )]]
 
     total_value: ClassVar[Annotated[float, DerivedField(
@@ -932,7 +932,7 @@ class ProductFormA(IntegerPKMixin, ActiveRecord):
     quantity: int
 
     discounted_price: ClassVar[DerivedField] = DerivedField(
-        lambda d: NumericColumn(d, "price") * Literal(d, 0.9),
+        lambda d: NumericColumn(d, "price") * Parameter(d, 0.9),
     )
 
     total_value: ClassVar[DerivedField] = DerivedField(
@@ -951,7 +951,7 @@ class AsyncProductFormA(IntegerPKMixin, AsyncActiveRecord):
     quantity: int
 
     discounted_price: ClassVar[DerivedField] = DerivedField(
-        lambda d: NumericColumn(d, "price") * Literal(d, 0.9),
+        lambda d: NumericColumn(d, "price") * Parameter(d, 0.9),
     )
 
     total_value: ClassVar[DerivedField] = DerivedField(
@@ -986,7 +986,7 @@ class ProductWithProxy(IntegerPKMixin, ActiveRecord):
     quantity: int
 
     discounted_price: ClassVar[Annotated[float, DerivedField(
-        lambda d: ProductWithProxy.c.price * Literal(d, 0.9),
+        lambda d: ProductWithProxy.c.price * Parameter(d, 0.9),
     )]]
 
     total_value: ClassVar[Annotated[float, DerivedField(
@@ -1006,7 +1006,7 @@ class AsyncProductWithProxy(IntegerPKMixin, AsyncActiveRecord):
     quantity: int
 
     discounted_price: ClassVar[Annotated[float, DerivedField(
-        lambda d: AsyncProductWithProxy.c.price * Literal(d, 0.9),
+        lambda d: AsyncProductWithProxy.c.price * Parameter(d, 0.9),
     )]]
 
     total_value: ClassVar[Annotated[float, DerivedField(
@@ -1026,7 +1026,7 @@ class ProductWithColumnAndAdapter(IntegerPKMixin, ActiveRecord):
     quantity: int
 
     discounted_price: ClassVar[Annotated[float, DerivedField(
-        lambda d: NumericColumn(d, "price") * Literal(d, 0.9),
+        lambda d: NumericColumn(d, "price") * Parameter(d, 0.9),
     ), UseColumn("disc")]]
 
     total_int: ClassVar[Annotated[int, DerivedField(
@@ -1045,7 +1045,7 @@ class AsyncProductWithColumnAndAdapter(IntegerPKMixin, AsyncActiveRecord):
     quantity: int
 
     discounted_price: ClassVar[Annotated[float, DerivedField(
-        lambda d: NumericColumn(d, "price") * Literal(d, 0.9),
+        lambda d: NumericColumn(d, "price") * Parameter(d, 0.9),
     ), UseColumn("disc")]]
 
     total_int: ClassVar[Annotated[int, DerivedField(

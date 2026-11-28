@@ -3,7 +3,7 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     RawSQL,
     QueryStatement,
     UpdateStatement,
@@ -34,7 +34,7 @@ class TestUpdateStatements:
         [
             pytest.param(
                 Table(None, "users"),
-                {"name": Literal(None, "Jane Doe")},
+                {"name": Parameter(None, "Jane Doe")},
                 None,
                 None,
                 'UPDATE "users" SET "name" = ?',
@@ -44,7 +44,7 @@ class TestUpdateStatements:
             ),
             pytest.param(
                 Table(None, "products"),
-                {"price": Literal(None, 19.99)},
+                {"price": Parameter(None, 19.99)},
                 None,
                 None,
                 'UPDATE "products" SET "price" = ?',
@@ -54,8 +54,8 @@ class TestUpdateStatements:
             ),
             pytest.param(
                 Table(None, "orders"),
-                {"status": Literal(None, "shipped"), "updated_at": RawSQL(None, "CURRENT_TIMESTAMP")},
-                ComparisonPredicate(None, "=", Column(None, "id"), Literal(None, 1)),
+                {"status": Parameter(None, "shipped"), "updated_at": RawSQL(None, "CURRENT_TIMESTAMP")},
+                ComparisonPredicate(None, "=", Column(None, "id"), Parameter(None, 1)),
                 None,
                 'UPDATE "orders" SET "status" = ?, "updated_at" = CURRENT_TIMESTAMP WHERE "id" = ?',
                 ("shipped", 1),
@@ -64,7 +64,7 @@ class TestUpdateStatements:
             ),
             pytest.param(
                 Table(None, "items"),
-                {"quantity": BinaryExpression(None, "+", Column(None, "quantity"), Literal(None, 1))},
+                {"quantity": BinaryExpression(None, "+", Column(None, "quantity"), Parameter(None, 1))},
                 None,
                 [Column(None, "id"), Column(None, "quantity")],
                 'UPDATE "items" SET "quantity" = "quantity" + ? RETURNING "id", "quantity"',
@@ -74,8 +74,8 @@ class TestUpdateStatements:
             ),
             # pytest.param(  # Commented out because it uses old-style parameters in QueryStatement
             #     "accounts",
-            #     {"balance": Column(None, "balance") + Literal(None, 100)},
-            #     Column(None, "user_id") == QueryStatement(None, select=[Column(None, "id")], from_="users", where=Column(None, "name") == Literal(None, "Alice")),  # noqa: E501
+            #     {"balance": Column(None, "balance") + Parameter(None, 100)},
+            #     Column(None, "user_id") == QueryStatement(None, select=[Column(None, "id")], from_="users", where=Column(None, "name") == Parameter(None, "Alice")),  # noqa: E501
             #     None,
             #     'UPDATE "accounts" SET "balance" = "balance" + ? WHERE "user_id" = (SELECT "id" FROM "users" WHERE "name" = ?)',  # noqa: E501
             #     (100, "Alice"),
@@ -124,7 +124,7 @@ class TestUpdateStatements:
                 set_dialect_recursive(expr.expr, dialect)
             if hasattr(expr, "value") and isinstance(
                 expr.value, bases.BaseExpression
-            ):  # For Literal, if value is an expression
+            ):  # For Parameter, if value is an expression
                 set_dialect_recursive(expr.value, dialect)
             if hasattr(expr, "subquery"):  # For QueryStatement in from_ or assignments
                 set_dialect_recursive(expr.subquery, dialect)
@@ -232,7 +232,7 @@ class TestUpdateStatements:
                     NamedRelationRef(None, Table(None, "users"), alias="u"),
                     condition=ComparisonPredicate(None, "=", Column(None, "user_id", "ud"), Column(None, "id", "u")),
                 ),
-                {"value": Literal(None, 123)},
+                {"value": Parameter(None, 123)},
                 ComparisonPredicate(
                     None,
                     "=",
@@ -247,8 +247,8 @@ class TestUpdateStatements:
             ),
             pytest.param(
                 "logs_table",  # A bare name is a legal FROM source
-                {"status": Literal(None, "active")},
-                ComparisonPredicate(None, "=", Column(None, "user_id"), Literal(None, 1)),
+                {"status": Parameter(None, "active")},
+                ComparisonPredicate(None, "=", Column(None, "user_id"), Parameter(None, 1)),
                 'FROM "logs_table"',
                 'UPDATE "users" SET "status" = ? %s WHERE "user_id" = ?',
                 ("active", 1),
@@ -302,7 +302,7 @@ class TestUpdateStatements:
                 set_dialect_recursive(expr.expr, dialect)
             if hasattr(expr, "value") and isinstance(
                 expr.value, bases.BaseExpression
-            ):  # For Literal, if value is an expression
+            ):  # For Parameter, if value is an expression
                 set_dialect_recursive(expr.value, dialect)
             if hasattr(expr, "subquery"):  # For QueryStatement in from_ or assignments
                 set_dialect_recursive(expr.subquery, dialect)
@@ -377,8 +377,8 @@ class TestUpdateStatements:
         """Tests that UpdateStatement raises TypeError for unsupported FROM source types."""
         unsupported_source = 123  # An integer, not a string or BaseExpression
 
-        assignments = {"name": Literal(dummy_dialect, "New Name")}
-        where = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 1))
+        assignments = {"name": Parameter(dummy_dialect, "New Name")}
+        where = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Parameter(dummy_dialect, 1))
 
         with pytest.raises(TypeError, match=r"Unsupported FROM source type: <class 'int'>"):
             update_expr = UpdateStatement(
@@ -393,7 +393,7 @@ class TestUpdateStatements:
         update_expr = UpdateStatement(
             dummy_dialect,
             table=Table(dummy_dialect, 'users'),
-            assignments={"status": Literal(dummy_dialect, "updated")},  # No where clause provided
+            assignments={"status": Parameter(dummy_dialect, "updated")},  # No where clause provided
         )
         sql, params = update_expr.to_sql()
 
@@ -409,7 +409,7 @@ class TestUpdateStatements:
         where_clause_obj = WhereClause(
             dummy_dialect,
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "active"),
+                dummy_dialect, "=", Column(dummy_dialect, "status"), Parameter(dummy_dialect, "active"),
             ),
         )
 
@@ -417,7 +417,7 @@ class TestUpdateStatements:
         update_expr = UpdateStatement(
             dummy_dialect,
             table=Table(dummy_dialect, 'users'),
-            assignments={"last_updated": Literal(dummy_dialect, "2023-01-01")},
+            assignments={"last_updated": Parameter(dummy_dialect, "2023-01-01")},
             where=where_clause_obj,  # Pass WhereClause object directly
         )
         sql, params = update_expr.to_sql()
@@ -447,7 +447,7 @@ class TestUpdateStatements:
         update_expr = UpdateStatement(
             dummy_dialect,
             table=Table(dummy_dialect, 'users'),
-            assignments={"status": Literal(dummy_dialect, "active")},
+            assignments={"status": Parameter(dummy_dialect, "active")},
             where=WhereClause(dummy_dialect, condition=like_condition),
         )
         sql, params = update_expr.to_sql()
@@ -463,13 +463,13 @@ class TestUpdateStatements:
 
         # Combine LIKE with comparison condition
         like_condition = name_col.like("John%")
-        age_condition = age_col > Literal(dummy_dialect, 18)
+        age_condition = age_col > Parameter(dummy_dialect, 18)
         combined_condition = like_condition & age_condition
 
         update_expr = UpdateStatement(
             dummy_dialect,
             table=Table(dummy_dialect, 'users'),
-            assignments={"last_updated": Literal(dummy_dialect, "2023-01-01")},
+            assignments={"last_updated": Parameter(dummy_dialect, "2023-01-01")},
             where=WhereClause(dummy_dialect, condition=combined_condition),
         )
         sql, params = update_expr.to_sql()
@@ -486,7 +486,7 @@ class TestUpdateStatements:
     def test_update_expression_invalid_assignments_type(self, dummy_dialect: DummyDialect):
         """Tests that UpdateStatement raises TypeError for invalid assignments parameter type."""
         update_expr = UpdateStatement(
-            dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Literal(dummy_dialect, "test")}
+            dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Parameter(dummy_dialect, "test")}
         )
         # Manually assign invalid type to trigger validation error
         update_expr.assignments = "invalid"  # Invalid type - should be dict
@@ -497,7 +497,7 @@ class TestUpdateStatements:
     def test_update_expression_invalid_from_type(self, dummy_dialect: DummyDialect):
         """Tests that UpdateStatement raises TypeError for invalid from_ parameter type."""
         update_expr = UpdateStatement(
-            dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Literal(dummy_dialect, "test")}
+            dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Parameter(dummy_dialect, "test")}
         )
         # Manually assign invalid type to trigger validation error
         update_expr.from_ = 456  # Invalid type
@@ -511,7 +511,7 @@ class TestUpdateStatements:
     def test_update_expression_invalid_where_type(self, dummy_dialect: DummyDialect):
         """Tests that UpdateStatement raises TypeError for invalid where parameter type."""
         update_expr = UpdateStatement(
-            dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Literal(dummy_dialect, "test")}
+            dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Parameter(dummy_dialect, "test")}
         )
         # Manually assign invalid type to trigger validation error
         update_expr.where = 789  # Invalid type - should be WhereClause or SQLPredicate
@@ -522,7 +522,7 @@ class TestUpdateStatements:
     def test_update_expression_invalid_returning_type(self, dummy_dialect: DummyDialect):
         """Tests that UpdateStatement raises TypeError for invalid returning parameter type."""
         update_expr = UpdateStatement(
-            dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Literal(dummy_dialect, "test")}
+            dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Parameter(dummy_dialect, "test")}
         )
         # Manually assign invalid type to trigger validation error
         update_expr.returning = 999  # Invalid type - should be ReturningClause
@@ -533,7 +533,7 @@ class TestUpdateStatements:
     def test_update_expression_validate_with_strict_false(self, dummy_dialect: DummyDialect):
         """Tests that UpdateStatement.validate with strict=False skips validation."""
         update_expr = UpdateStatement(
-            dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Literal(dummy_dialect, "test")}
+            dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Parameter(dummy_dialect, "test")}
         )
         # Manually assign invalid type that would normally cause an error
         update_expr.where = 999  # Invalid type - should be WhereClause or SQLPredicate
@@ -545,8 +545,8 @@ class TestUpdateStatements:
         update_expr_valid = UpdateStatement(
             dummy_dialect,
             table=Table(dummy_dialect, 'products'),
-            assignments={"price": Literal(dummy_dialect, 19.99)},
-            where=StringColumn(dummy_dialect, "status") == Literal(dummy_dialect, "active"),
+            assignments={"price": Parameter(dummy_dialect, 19.99)},
+            where=StringColumn(dummy_dialect, "status") == Parameter(dummy_dialect, "active"),
         )
         update_expr_valid.validate(strict=False)  # Should not raise any exception
         assert True  # Just to ensure the test passes
@@ -560,7 +560,7 @@ class TestUpdateStatements:
         3. The type name check 'from_type_name not in valid_type_names' occurs
         """
         update_expr = UpdateStatement(
-            dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Literal(dummy_dialect, "test")}
+            dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Parameter(dummy_dialect, "test")}
         )
 
         # Create a mock object that is not in valid_types, not a list, and has a type name not in valid_type_names
@@ -590,7 +590,7 @@ class TestUpdateStatements:
         """
         # Create an update expression with valid parameters
         update_expr = UpdateStatement(
-            dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Literal(dummy_dialect, "test")}
+            dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Parameter(dummy_dialect, "test")}
         )
 
         # Create a mock SetOperation-like class that has a name in valid_type_names
@@ -612,7 +612,7 @@ class TestUpdateStatements:
         update_expr = UpdateStatement(
             dummy_dialect,
             table=Table(dummy_dialect, 'users'),
-            assignments={"name": Literal(dummy_dialect, "test")},
+            assignments={"name": Parameter(dummy_dialect, "test")},
             from_=None,  # Set from_ to None
         )
 
@@ -627,7 +627,7 @@ class TestUpdateStatements:
         2. isinstance(self.from_, valid_types) is True (so AND expression short-circuits)
         """
         update_expr = UpdateStatement(
-            dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Literal(dummy_dialect, "test")}
+            dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Parameter(dummy_dialect, "test")}
         )
 
         # Change from_ to a valid type (str)
@@ -644,7 +644,7 @@ class TestUpdateStatements:
         2. isinstance(self.from_, valid_types) is False AND isinstance(self.from_, list) is True
         """
         update_expr = UpdateStatement(
-            dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Literal(dummy_dialect, "test")}
+            dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Parameter(dummy_dialect, "test")}
         )
 
         # Change from_ to a list (which is valid)

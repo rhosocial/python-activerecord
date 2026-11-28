@@ -175,7 +175,7 @@ for row in source_data:
 ```python
 # ✅ 通过后端实例的 execute_batch_dml 方法批量插入
 from rhosocial.activerecord.backend.expression import (
-    InsertStatement, ValuesSource, Literal,
+    InsertStatement, ValuesSource, Parameter,
 )
 from rhosocial.activerecord.backend.expression.objects import Table
 
@@ -187,7 +187,7 @@ exprs = [
         columns=["name", "email"],
         source=ValuesSource(
             dialect,
-            values_list=[[Literal(dialect, row["name"]), Literal(dialect, row["email"])]],
+            values_list=[[Parameter(dialect, row["name"]), Parameter(dialect, row["email"])]],
         ),
     )
     for row in source_data
@@ -206,7 +206,7 @@ for batch_result in User.backend().execute_batch_dml(exprs, batch_size=500):
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    InsertStatement, ValuesSource, Literal,
+    InsertStatement, ValuesSource, Parameter,
 )
 from rhosocial.activerecord.backend.expression.objects import Table
 
@@ -217,7 +217,7 @@ with User.transaction():
             InsertStatement(
                 dialect, into=Table(dialect, "users"), columns=["name", "email"],
                 source=ValuesSource(dialect, values_list=[
-                    [Literal(dialect, row["name"]), Literal(dialect, row["email"])]
+                    [Parameter(dialect, row["name"]), Parameter(dialect, row["email"])]
                 ]),
             )
             for row in chunk

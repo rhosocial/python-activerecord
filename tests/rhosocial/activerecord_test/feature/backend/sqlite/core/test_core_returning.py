@@ -7,7 +7,7 @@ from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
-from rhosocial.activerecord.backend.expression import ReturningClause, Column, Literal
+from rhosocial.activerecord.backend.expression import ReturningClause, Column, Parameter
 
 
 # --- Unit tests for ReturningClauseMixin ---
@@ -34,7 +34,7 @@ class TestReturningClauseMixin:
         returning_clause = mixin_instance._process_returning_clause(True)
         assert isinstance(returning_clause, ReturningClause)
         assert len(returning_clause.expressions) == 1
-        assert isinstance(returning_clause.expressions[0], Literal)
+        assert isinstance(returning_clause.expressions[0], Parameter)
         assert returning_clause.expressions[0].value == "*"
 
     def test_process_returning_clause_with_list_of_strings(self, mixin_instance):
@@ -47,7 +47,7 @@ class TestReturningClauseMixin:
         assert returning_clause.expressions[1].name == "name"
 
     def test_process_returning_clause_with_list_of_expressions(self, mixin_instance):
-        expressions = [Column(mixin_instance.dialect, "id"), Literal(mixin_instance.dialect, "test")]
+        expressions = [Column(mixin_instance.dialect, "id"), Parameter(mixin_instance.dialect, "test")]
         returning_clause = mixin_instance._process_returning_clause(expressions)
         assert isinstance(returning_clause, ReturningClause)
         assert returning_clause.expressions == expressions

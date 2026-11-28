@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/backend/base/returning.py
 from typing import List, Optional, Union
 
-from ..expression import bases, Column, Literal
+from ..expression import bases, Column, Parameter
 from ..expression.statements import ReturningClause
 from ..schema import StatementType
 
@@ -28,7 +28,7 @@ class ReturningClauseMixin:
             # If True, return all columns; if False, return None
             if returning:
                 # Return a simple * literal for all columns
-                return ReturningClause(self.dialect, expressions=[Literal(self.dialect, "*")])
+                return ReturningClause(self.dialect, expressions=[Parameter(self.dialect, "*")])
             else:
                 return None
         elif isinstance(returning, list):
@@ -43,7 +43,7 @@ class ReturningClauseMixin:
                     expr_list.append(item)
                 else:
                     # Treat as literal value
-                    expr_list.append(Literal(self.dialect, item))
+                    expr_list.append(Parameter(self.dialect, item))
             return ReturningClause(self.dialect, expressions=expr_list)
         elif isinstance(returning, ReturningClause):
             # Already a ReturningClause object

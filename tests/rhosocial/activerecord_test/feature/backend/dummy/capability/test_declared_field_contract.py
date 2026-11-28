@@ -10,7 +10,7 @@ was unreachable when nothing ever set the attribute.
 
 import pytest
 
-from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression import Column, Parameter
 from rhosocial.activerecord.backend.expression.mixins import AliasableMixin
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
@@ -40,7 +40,7 @@ class TestDeclaredInsertModifiers:
     """SQLite's OR REPLACE / OR IGNORE are fields on the node, not attributes."""
 
     def _values_source(self, dummy_dialect):
-        return ValuesSource(dummy_dialect, [[Literal(dummy_dialect, 1)]])
+        return ValuesSource(dummy_dialect, [[Parameter(dummy_dialect, 1)]])
 
     def test_defaults_are_false(self, dummy_dialect):
         stmt = InsertStatement(

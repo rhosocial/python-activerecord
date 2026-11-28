@@ -15,7 +15,7 @@ from rhosocial.activerecord.backend.expression.types import (  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
 )
-from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.core import Parameter
 from rhosocial.activerecord.backend.expression import CreateTableStatement, InsertStatement, ValuesSource, ColumnConstraint
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
@@ -82,7 +82,7 @@ for table, cols, rows in sample_data:
             dialect=dialect,
             into=Table(dialect, table),
             columns=cols,
-            source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
+            source=ValuesSource(dialect, [[Parameter(dialect, v) for v in row]]),
         )
         sql, params = insert.to_sql()
         backend.execute(sql, params)

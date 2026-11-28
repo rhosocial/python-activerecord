@@ -2,7 +2,7 @@
 """``in_()`` has to bind the subquery it builds, like every other site does.
 
 ``IN`` predicate construction has three branches, and two of them bind. The
-value-list branch hands the dialect to a ``Literal``; the pass-through branch
+value-list branch hands the dialect to a ``Parameter``; the pass-through branch
 hands back the caller's own expression, already bound by whoever built it. The
 third branch wraps an ActiveQuery-like object in a ``Subquery`` -- and
 constructed it with ``None`` as the dialect.
@@ -10,7 +10,7 @@ constructed it with ``None`` as the dialect.
 Nothing noticed, because a ``Subquery`` computes its ``query_input`` inside its
 own constructor. An unbound node therefore renders perfectly well right up
 until something asks it to ``to_sql()``, and ``format_in_predicate`` does
-exactly that for any ``values`` that is not a ``Literal``. Reading the
+exactly that for any ``values`` that is not a ``Parameter``. Reading the
 validating ``dialect`` property then raised ``ValueError: Subquery has no
 dialect bound`` -- from a path whose only mistake was one word in one line, and
 naming a class the caller never asked for.
@@ -32,7 +32,7 @@ expression tree having changed in between.
 
 import pytest
 
-from rhosocial.activerecord.backend.expression.core import BaseExpression, Column, Literal, Subquery
+from rhosocial.activerecord.backend.expression.core import BaseExpression, Column, Parameter, Subquery
 from rhosocial.activerecord.backend.expression.predicates import InPredicate
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
@@ -54,7 +54,7 @@ def in_predicate(dialect, expr, values):
         return InPredicate(dialect, expr, Subquery(dialect, to_query_expression()))
     if isinstance(values, BaseExpression):
         return InPredicate(dialect, expr, values)
-    return InPredicate(dialect, expr, Literal(dialect, tuple(values)))
+    return InPredicate(dialect, expr, Parameter(dialect, tuple(values)))
 
 
 def in_subquery(dialect):
@@ -76,7 +76,7 @@ class TestInSubqueryBinding:
         assert predicate.values._dialect is not None
 
     def test_rendering_the_predicate_reaches_the_subquery(self):
-        """``format_in_predicate`` renders any non-``Literal`` through ``to_sql``.
+        """``format_in_predicate`` renders any non-``Parameter`` through ``to_sql``.
 
         This is where the unbound node was finally asked for its dialect.
         """

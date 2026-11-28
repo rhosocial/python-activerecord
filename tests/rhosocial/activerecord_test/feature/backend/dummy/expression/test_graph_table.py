@@ -16,7 +16,7 @@ from rhosocial.activerecord.backend.expression.graph import (
     AlterPropertyGraphStatement,
 )
 from rhosocial.activerecord.backend.expression.query_parts import WhereClause
-from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.core import Parameter
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.objects import (
     EdgeTable as EdgeTableObject,
@@ -104,7 +104,7 @@ class TestGraphTableExpression:
 
     def test_with_where(self, dummy_dialect: DummyDialect):
         where = WhereClause(dummy_dialect,
-                            condition=NumericColumn(dummy_dialect, "age") > Literal(dummy_dialect, 18))
+                            condition=NumericColumn(dummy_dialect, "age") > Parameter(dummy_dialect, 18))
         v = GraphVertex(dummy_dialect, "p", NodeTable(dummy_dialect, "person"), where=where)
         cols = ColumnsClause(dummy_dialect, GraphColumn("p", "name"))
         match = MatchClause(dummy_dialect, v)
@@ -317,7 +317,7 @@ class TestVertexWithWhereClause:
 
     def test_vertex_with_where(self, dummy_dialect: DummyDialect):
         where = WhereClause(dummy_dialect,
-                            condition=StringColumn(dummy_dialect, "status") == Literal(dummy_dialect, "active"))
+                            condition=StringColumn(dummy_dialect, "status") == Parameter(dummy_dialect, "active"))
         v = GraphVertex(dummy_dialect, "p", NodeTable(dummy_dialect, "person"), where=where)
         sql, params = v.to_sql()
         assert "WHERE" in sql

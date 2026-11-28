@@ -9,7 +9,7 @@ import pytest
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression import (
     QueryStatement,
-    Literal,
+    Parameter,
     ExplainStatement,
     DeleteStatement,
 )
@@ -409,7 +409,7 @@ class TestHandleNamedExpressionExecute:
         module = types.ModuleType("test_queries")
 
         def active_users(dialect, limit: int = 100):
-            return QueryStatement(dialect, [Literal(dialect, 1)])
+            return QueryStatement(dialect, [Parameter(dialect, 1)])
 
         module.active_users = active_users
 
@@ -441,7 +441,7 @@ class TestHandleNamedExpressionExecute:
         module = types.ModuleType("test_queries")
 
         def active_users(dialect, limit: int = 100):
-            return QueryStatement(dialect, [Literal(dialect, 1)])
+            return QueryStatement(dialect, [Parameter(dialect, 1)])
 
         module.active_users = active_users
 
@@ -937,12 +937,12 @@ class TestExecuteExpression:
             rich_ascii=False,
         )
         with pytest.raises(SystemExit):
-            _execute_expression(Literal(_DIALECT, 1), args, lambda s, p, st: None, _PROVIDER)
+            _execute_expression(Parameter(_DIALECT, 1), args, lambda s, p, st: None, _PROVIDER)
 
     def test_explain_without_flag_exits(self):
         from rhosocial.activerecord.backend.named_expression.cli import _execute_expression
 
-        inner = QueryStatement(_DIALECT, [Literal(_DIALECT, 1)])
+        inner = QueryStatement(_DIALECT, [Parameter(_DIALECT, 1)])
         expr = ExplainStatement(_DIALECT, inner)
         args = Namespace(
             dry_run=False,
@@ -969,7 +969,7 @@ class TestExecuteExpression:
     def test_execute_success(self):
         from rhosocial.activerecord.backend.named_expression.cli import _execute_expression
 
-        expr = QueryStatement(_DIALECT, [Literal(_DIALECT, 1)])
+        expr = QueryStatement(_DIALECT, [Parameter(_DIALECT, 1)])
         args = Namespace(
             dry_run=False,
             force=False,
@@ -993,13 +993,13 @@ class TestClassifyExpression:
     def test_classify_clause(self):
         from rhosocial.activerecord.backend.named_expression.cli import _classify_expression
 
-        result = _classify_expression(Literal(_DIALECT, 1))
+        result = _classify_expression(Parameter(_DIALECT, 1))
         assert result == "CLAUSE"
 
     def test_classify_dql(self):
         from rhosocial.activerecord.backend.named_expression.cli import _classify_expression
 
-        result = _classify_expression(QueryStatement(_DIALECT, [Literal(_DIALECT, 1)]))
+        result = _classify_expression(QueryStatement(_DIALECT, [Parameter(_DIALECT, 1)]))
         assert result == "DQL"
 
     def test_classify_dml(self):

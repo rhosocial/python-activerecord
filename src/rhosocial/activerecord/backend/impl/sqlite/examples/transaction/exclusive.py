@@ -14,7 +14,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
 )
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
-from rhosocial.activerecord.backend.expression.core import Column, Literal
+from rhosocial.activerecord.backend.expression.core import Column, Parameter
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     CreateTableStatement,
@@ -60,14 +60,14 @@ def update_balance(name, amount):
         dialect=dialect,
         table=Table(dialect, 'accounts'),
         assignments={
-            "balance": Literal(dialect, amount),
+            "balance": Parameter(dialect, amount),
         },
         where=WhereClause(
             dialect,
             condition=ComparisonPredicate(
                 "=",
                 Column(dialect, "name"),
-                Literal(dialect, name),
+                Parameter(dialect, name),
             ),
         ),
     )
@@ -108,8 +108,8 @@ insert = InsertStatement(
     columns=["name", "balance"],
     source=ValuesSource(
         [
-            [Literal(dialect, "Alice"), Literal(dialect, 1000)],
-            [Literal(dialect, "Bob"), Literal(dialect, 500)],
+            [Parameter(dialect, "Alice"), Parameter(dialect, 1000)],
+            [Parameter(dialect, "Bob"), Parameter(dialect, 500)],
         ],
     ),
 )

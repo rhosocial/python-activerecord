@@ -594,7 +594,7 @@ class BaseExpression:
     #: Required parameters whose own value may legitimately be ``None``.
     #:
     #: "Required" answers whether the parameter must be *supplied*; it does not
-    #: answer whether ``None`` is a legal value. ``Literal(dialect, None)`` is
+    #: answer whether ``None`` is a legal value. ``Parameter(dialect, None)`` is
     #: the SQL ``NULL``, ``DEFAULT NULL`` is a real declaration, and
     #: ``SET DEFAULT NULL`` is a real action, so a render-time existence check
     #: that refused every ``None`` would refuse valid SQL.

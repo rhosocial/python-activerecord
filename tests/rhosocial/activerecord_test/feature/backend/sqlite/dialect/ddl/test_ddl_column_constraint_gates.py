@@ -32,7 +32,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     TableConstraint,
 )
 from rhosocial.activerecord.backend.expression.objects import Table
-from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.core import Parameter
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 
@@ -47,7 +47,7 @@ def probed(**answers):
 
 
 def check_constraint(dialect):
-    condition = NumericColumn(dialect, "age") > Literal(dialect, 0, inline=True)
+    condition = NumericColumn(dialect, "age") > Parameter(dialect, 0, inline=True)
     return ColumnConstraint(dialect, branch=ColumnCheckConstraint(dialect, condition))
 
 
@@ -142,7 +142,7 @@ class TestCheckConstraintGate:
         # in the order the caller wrote them. They used to come out reversed as
         # ``0 < "age"``, and this test recorded that as "the dialect normalises
         # a > b to b < a" -- it does not. Bare ``Column`` carries no comparison
-        # operator, so ``Column("age") > Literal(0)`` fell through to Python's
+        # operator, so ``Column("age") > Parameter(0)`` fell through to Python's
         # reflected-operator fallback and built the predicate from the other
         # end. Naming the column's type is what puts the order back.
         assert sql == ' CHECK ("age" > 0)'
@@ -329,7 +329,7 @@ class TestEnforcementGates:
             ColumnConstraint(
                 dialect,
                 branch=ColumnCheckConstraint(
-                    dialect, NumericColumn(dialect, "age") > Literal(dialect, 0, inline=True)
+                    dialect, NumericColumn(dialect, "age") > Parameter(dialect, 0, inline=True)
                 ),
                 enforced=True,
             ).to_sql()
@@ -353,7 +353,7 @@ class TestEnforcementGates:
         formatter re-checks the exclusion as the last line of defence.
         """
         dialect = probed(supports_constraint_enforced=True)()
-        condition = NumericColumn(dialect, "age") > Literal(dialect, 0, inline=True)
+        condition = NumericColumn(dialect, "age") > Parameter(dialect, 0, inline=True)
         constraint = ColumnConstraint(
             dialect, branch=ColumnCheckConstraint(dialect, condition), enforced=True
         )

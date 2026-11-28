@@ -273,7 +273,7 @@ class TestSQLiteBackendTransaction:
     def test_auto_transaction_on_update(self, backend):
         """Test automatic transaction handling for update operations"""
         from rhosocial.activerecord.backend.options import InsertOptions, UpdateOptions
-        from rhosocial.activerecord.backend.expression import Column, Literal, ComparisonPredicate
+        from rhosocial.activerecord.backend.expression import Column, Parameter, ComparisonPredicate
 
         # First insert data
         insert_opts = InsertOptions(table="test", data={"id": 10, "value": "before update"}, primary_key="id")
@@ -281,7 +281,7 @@ class TestSQLiteBackendTransaction:
 
         # Use update method with proper options
         where_clause = ComparisonPredicate(
-            backend.dialect, "=", Column(backend.dialect, "id"), Literal(backend.dialect, 10)
+            backend.dialect, "=", Column(backend.dialect, "id"), Parameter(backend.dialect, 10)
         )
         update_opts = UpdateOptions(table="test", data={"value": "after update"}, where=where_clause)
         result = backend.update(update_opts)
@@ -298,7 +298,7 @@ class TestSQLiteBackendTransaction:
     def test_auto_transaction_on_delete(self, backend):
         """Test automatic transaction handling for delete operations"""
         from rhosocial.activerecord.backend.options import InsertOptions, DeleteOptions
-        from rhosocial.activerecord.backend.expression import Column, Literal, ComparisonPredicate
+        from rhosocial.activerecord.backend.expression import Column, Parameter, ComparisonPredicate
 
         # First insert data
         insert_opts = InsertOptions(table="test", data={"id": 11, "value": "to be deleted"}, primary_key="id")
@@ -311,7 +311,7 @@ class TestSQLiteBackendTransaction:
 
         # Use delete method with proper options
         where_clause = ComparisonPredicate(
-            backend.dialect, "=", Column(backend.dialect, "id"), Literal(backend.dialect, 11)
+            backend.dialect, "=", Column(backend.dialect, "id"), Parameter(backend.dialect, 11)
         )
         delete_opts = DeleteOptions(table="test", where=where_clause)
         result = backend.delete(delete_opts)

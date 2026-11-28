@@ -19,7 +19,7 @@ come back ``REJECTED``, or a null result could be read as acceptance.
 
 import pytest
 
-from rhosocial.activerecord.backend.expression.core import Column, Literal
+from rhosocial.activerecord.backend.expression.core import Column, Parameter
 from rhosocial.activerecord.backend.expression.execution_testing import (
     ExecutionConfirmationError,
     ExecutionOutcome,
@@ -98,7 +98,7 @@ class TestDdlConfirmation:
         expression = InsertStatement(
             dialect,
             into=Table(dialect, "missing_table"),
-            source=ValuesSource(dialect, [[Literal(dialect, 1)]]),
+            source=ValuesSource(dialect, [[Parameter(dialect, 1)]]),
         )
 
         with pytest.raises(ExecutionConfirmationError) as exc_info:

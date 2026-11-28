@@ -7,7 +7,7 @@ from typing import Union, Optional, Any, TYPE_CHECKING
 from ..advanced_functions import DeclaredValueType
 from ..bases import BaseExpression
 from ..column_types import annotation_for
-from ..core import Column, FunctionCall, Literal
+from ..core import Column, FunctionCall, Parameter
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -30,7 +30,7 @@ def _typed(call: FunctionCall, target: BaseExpression):
     they are their own node carrying :class:`NumericValue` and never come
     here.
 
-    A target that says nothing -- a ``Literal``, an untyped ``Column`` -- leaves
+    A target that says nothing -- a ``Parameter``, an untyped ``Column`` -- leaves
     the call untyped, which is the honest answer: the database decides.
     """
     annotation = annotation_for(target)
@@ -149,9 +149,9 @@ def lag(
         A FunctionCall instance representing the LAG function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    args = [target_expr, offset if isinstance(offset, BaseExpression) else Literal(dialect, offset)]
+    args = [target_expr, offset if isinstance(offset, BaseExpression) else Parameter(dialect, offset)]
     if default is not None:
-        args.append(default if isinstance(default, BaseExpression) else Literal(dialect, default))
+        args.append(default if isinstance(default, BaseExpression) else Parameter(dialect, default))
     return _typed(FunctionCall(dialect, "LAG", *args, alias=alias), target_expr)
 
 
@@ -181,9 +181,9 @@ def lead(
         A FunctionCall instance representing the LEAD function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    args = [target_expr, offset if isinstance(offset, BaseExpression) else Literal(dialect, offset)]
+    args = [target_expr, offset if isinstance(offset, BaseExpression) else Parameter(dialect, offset)]
     if default is not None:
-        args.append(default if isinstance(default, BaseExpression) else Literal(dialect, default))
+        args.append(default if isinstance(default, BaseExpression) else Parameter(dialect, default))
     return _typed(FunctionCall(dialect, "LEAD", *args, alias=alias), target_expr)
 
 
@@ -257,7 +257,7 @@ def nth_value(
         A FunctionCall instance representing the NTH_VALUE function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    n_expr = n if isinstance(n, BaseExpression) else Literal(dialect, n)
+    n_expr = n if isinstance(n, BaseExpression) else Parameter(dialect, n)
     return _typed(
         FunctionCall(dialect, "NTH_VALUE", target_expr, n_expr, alias=alias),
         target_expr,

@@ -1,5 +1,5 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite/dialect/expressions/test_expr_operators.py
-from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression import Column, Parameter
 from rhosocial.activerecord.backend.expression.operators import (
     SQLOperation,
     BinaryExpression,
@@ -15,7 +15,7 @@ class TestSQLOperation:
 
     def test_sql_operation_with_operands(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test SQLOperation with multiple operands."""
-        operand1 = Literal(sqlite_dialect_3_8_0, "value1")
+        operand1 = Parameter(sqlite_dialect_3_8_0, "value1")
         operand2 = Column(sqlite_dialect_3_8_0, "column_name")
 
         sql_op = SQLOperation(sqlite_dialect_3_8_0, "CUSTOM_OP", operand1, operand2)
@@ -27,7 +27,7 @@ class TestSQLOperation:
 
     def test_sql_operation_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test basic SQLOperation functionality."""
-        operand1 = Literal(sqlite_dialect_3_8_0, "value")
+        operand1 = Parameter(sqlite_dialect_3_8_0, "value")
         sql_op = SQLOperation(sqlite_dialect_3_8_0, "UPPER", operand1)
         sql, params = sql_op.to_sql()
         assert sql == "UPPER(?)"
@@ -50,7 +50,7 @@ class TestBinaryExpression:
     def test_binary_expression_with_literal(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test binary expression with a literal operand."""
         left = Column(sqlite_dialect_3_8_0, "price")
-        right = Literal(sqlite_dialect_3_8_0, 100)
+        right = Parameter(sqlite_dialect_3_8_0, 100)
         binary_expr = BinaryExpression(sqlite_dialect_3_8_0, ">", left, right)
 
         sql, params = binary_expr.to_sql()
@@ -86,7 +86,7 @@ class TestArithmeticOperation:
     def test_addition_arithmetic_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test addition arithmetic expression."""
         left = Column(sqlite_dialect_3_8_0, "price")
-        right = Literal(sqlite_dialect_3_8_0, 10)
+        right = Parameter(sqlite_dialect_3_8_0, 10)
         arithmetic_expr = ArithmeticOperation(sqlite_dialect_3_8_0, "add", left, right)
 
         sql, params = arithmetic_expr.to_sql()
@@ -96,7 +96,7 @@ class TestArithmeticOperation:
     def test_subtraction_arithmetic_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test subtraction arithmetic expression."""
         left = Column(sqlite_dialect_3_8_0, "balance")
-        right = Literal(sqlite_dialect_3_8_0, 50)
+        right = Parameter(sqlite_dialect_3_8_0, 50)
         arithmetic_expr = ArithmeticOperation(sqlite_dialect_3_8_0, "sub", left, right)
 
         sql, params = arithmetic_expr.to_sql()
@@ -116,7 +116,7 @@ class TestArithmeticOperation:
     def test_division_arithmetic_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test division arithmetic expression."""
         left = Column(sqlite_dialect_3_8_0, "total")
-        right = Literal(sqlite_dialect_3_8_0, 12)
+        right = Parameter(sqlite_dialect_3_8_0, 12)
         arithmetic_expr = ArithmeticOperation(sqlite_dialect_3_8_0, "div", left, right)
 
         sql, params = arithmetic_expr.to_sql()
@@ -126,7 +126,7 @@ class TestArithmeticOperation:
     def test_modulo_arithmetic_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test modulo arithmetic expression."""
         left = Column(sqlite_dialect_3_8_0, "value")
-        right = Literal(sqlite_dialect_3_8_0, 10)
+        right = Parameter(sqlite_dialect_3_8_0, 10)
         arithmetic_expr = ArithmeticOperation(sqlite_dialect_3_8_0, "mod", left, right)
 
         sql, params = arithmetic_expr.to_sql()

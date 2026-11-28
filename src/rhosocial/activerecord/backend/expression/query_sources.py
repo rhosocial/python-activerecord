@@ -103,13 +103,18 @@ class SetOperation(TableSource, BaseExpression):
                 Column(dialect, "id"),
                 Column(dialect, "parent_id"),
                 Column(dialect, "name"),
-                Literal(dialect, 0).as_("level"),  # Starting level
+                Parameter(dialect, 0).as_("level"),  # Starting level
                 FunctionCall(
-                    dialect, "ARRAY_APPEND", Literal(dialect, []), Column(dialect, "id")
+                    dialect, "ARRAY_APPEND", Parameter(dialect, []), Column(dialect, "id")
                 ).as_("path")  # Track path
             ],
             from_=NamedRelationRef(dialect, Table(dialect, "nodes")),
-            where=ComparisonPredicate(dialect, "=", Column(dialect, "parent_id"), Literal(dialect, None))  # Root nodes
+            where=ComparisonPredicate(
+                dialect,
+                "=",
+                Column(dialect, "parent_id"),
+                Parameter(dialect, None),
+            ),  # Root nodes
         )
 
         # Recursive query part - self-referencing query
@@ -119,7 +124,7 @@ class SetOperation(TableSource, BaseExpression):
                 Column(dialect, "n.id"),
                 Column(dialect, "n.parent_id"),
                 Column(dialect, "n.name"),
-                FunctionCall(dialect, "+", Column(dialect, "r.level"), Literal(dialect, 1)).as_("level"),
+                FunctionCall(dialect, "+", Column(dialect, "r.level"), Parameter(dialect, 1)).as_("level"),
                 FunctionCall(dialect, "ARRAY_APPEND", Column(dialect, "r.path"), Column(dialect, "n.id")).as_("path")
             ],
             from_=[
@@ -132,7 +137,7 @@ class SetOperation(TableSource, BaseExpression):
                     condition=ComparisonPredicate(dialect, "=", Column(dialect, "r.id"), Column(dialect, "n.parent_id"))
                 )
             ],
-            where=ComparisonPredicate(dialect, "<", Column(dialect, "r.level"), Literal(dialect, 10))  # Limit depth
+            where=ComparisonPredicate(dialect, "<", Column(dialect, "r.level"), Parameter(dialect, 10))  # Limit depth
         )
 
         # Combine initial and recursive parts with UNION ALL for recursive CTE
@@ -210,11 +215,11 @@ class CTEClause(BaseExpression):
         recursive_query = QueryStatement(
             dialect,
             select=[
-                FunctionCall(dialect, "CAST", Column(dialect, "value") + Literal(dialect, 1), "TEXT"),
-                Column(dialect, "level") + Literal(dialect, 1)
+                FunctionCall(dialect, "CAST", Column(dialect, "value") + Parameter(dialect, 1), "TEXT"),
+                Column(dialect, "level") + Parameter(dialect, 1)
             ],
             from_=[NamedRelationRef(dialect, Table(dialect, "counter"))],  # Reference to CTE itself in recursive case
-            where=(Column(dialect, "level") < Literal(dialect, 10))
+            where=(Column(dialect, "level") < Parameter(dialect, 10))
         )
 
         # Combine using SetOperation for recursive CTE
@@ -328,7 +333,7 @@ class WithStatement(ArithmeticMixin, ComparisonMixin, SQLValue):
                 ],
                 from_=[NamedRelationRef(dialect, Table(dialect, "users"), alias="u")],
                 where=ComparisonPredicate(
-                    dialect, ">", FunctionCall(dialect, "COUNT", Column(dialect, "o.id")), Literal(dialect, 0)
+                    dialect, ">", FunctionCall(dialect, "COUNT", Column(dialect, "o.id")), Parameter(dialect, 0)
                 ),
             ),
             columns=["user_id", "user_name", "order_count"]
@@ -341,7 +346,7 @@ class WithStatement(ArithmeticMixin, ComparisonMixin, SQLValue):
                 dialect,
                 select=[Column(dialect, "user_id"), Column(dialect, "user_name")],
                 from_=[NamedRelationRef(dialect, Table(dialect, "users_with_orders"))],
-                where=ComparisonPredicate(dialect, '>', Column(dialect, "order_count"), Literal(dialect, 5))
+                where=ComparisonPredicate(dialect, '>', Column(dialect, "order_count"), Parameter(dialect, 5))
             ),
             columns=["user_id", "name"]
         )

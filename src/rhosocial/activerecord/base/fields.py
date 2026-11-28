@@ -556,12 +556,12 @@ class UseConstraint(DDLAnnotation):
         # explicit InPredicate node: a bare Column reference offers no
         # operations by design, so the constraint builds the node itself.
         from rhosocial.activerecord.backend.expression import (
-            Column, InPredicate, Literal,
+            Column, InPredicate, Parameter,
         )
 
         status: Annotated[str, UseConstraint(
             condition=lambda d: InPredicate(
-                d, Column(d, "status"), Literal(d, ("open", "paid"))
+                d, Column(d, "status"), Parameter(d, ("open", "paid"))
             ),
         )]
     """
@@ -857,7 +857,7 @@ class DerivedField:
              price: float
              quantity: int
              discounted: ClassVar[Annotated[float, DerivedField(
-                 lambda d: Product.c.price * Literal(d, 0.9),
+                 lambda d: Product.c.price * Parameter(d, 0.9),
              )]]
 
     2. Manual Column construction: use the dialect parameter (d) passed to the
@@ -873,7 +873,7 @@ class DerivedField:
         from the backend:
 
          dialect = Product.backend().dialect
-         expr = Column(dialect, "price") * Literal(dialect, 2)
+         expr = Column(dialect, "price") * Parameter(dialect, 2)
 
     3. When the value needs rows that the model's own table does not hold,
        return a scalar ``Subquery``; a plain expression cannot carry its own

@@ -1,6 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite/dialect/expressions/test_expr_functions.py
 import pytest
-from rhosocial.activerecord.backend.expression import FunctionCall, Column, Literal, count, sum_, avg, RawSQL
+from rhosocial.activerecord.backend.expression import FunctionCall, Column, Parameter, count, sum_, avg, RawSQL
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 
@@ -33,7 +33,7 @@ class TestFunctionExpressions:
             if arg[0] == "Column":
                 dialect_args.append(Column(sqlite_dialect_3_8_0, arg[1]))
             else:
-                dialect_args.append(Literal(sqlite_dialect_3_8_0, arg))
+                dialect_args.append(Parameter(sqlite_dialect_3_8_0, arg))
 
         func_call = FunctionCall(sqlite_dialect_3_8_0, func_name, *dialect_args, is_distinct=is_distinct)
         sql, params = func_call.to_sql()
@@ -53,7 +53,7 @@ class TestFunctionExpressions:
             sqlite_dialect_3_8_0,
             "CONCAT",
             Column(sqlite_dialect_3_8_0, "first_name"),
-            Literal(sqlite_dialect_3_8_0, " "),
+            Parameter(sqlite_dialect_3_8_0, " "),
             Column(sqlite_dialect_3_8_0, "last_name"),
         )
         sql, params = func_call.to_sql()

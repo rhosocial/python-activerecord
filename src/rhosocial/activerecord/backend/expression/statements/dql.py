@@ -72,13 +72,13 @@ class QueryStatement(ArithmeticMixin, ComparisonMixin, SQLValue):
             dialect,
             select=[Column(dialect, "id"), Column(dialect, "name")],
             from_=NamedRelationRef(dialect, Table(dialect, "users")),
-            where=WhereClause(dialect, condition=Column(dialect, "status") == Literal(dialect, "active"))
+            where=WhereClause(dialect, condition=Column(dialect, "status") == Parameter(dialect, "active"))
         )
 
         # Scalar SELECT query - selecting constants or function results without FROM
         scalar_query = QueryStatement(
             dialect,
-            select=[Literal(dialect, 1)]  # Equivalent to SELECT 1;
+            select=[Parameter(dialect, 1)]  # Equivalent to SELECT 1;
         )
 
         now_query = QueryStatement(
@@ -91,10 +91,10 @@ class QueryStatement(ArithmeticMixin, ComparisonMixin, SQLValue):
             dialect,
             select=[Column(dialect, "category"), FunctionCall(dialect, "COUNT", Column(dialect, "id"))],
             from_=NamedRelationRef(dialect, Table(dialect, "products")),
-            where=WhereClause(dialect, condition=Column(dialect, "price") > Literal(dialect, 100)),
+            where=WhereClause(dialect, condition=Column(dialect, "price") > Parameter(dialect, 100)),
             group_by_having=GroupByHavingClause(
                 dialect, group_by=[Column(dialect, "category")],
-                having=FunctionCall(dialect, "COUNT", Column(dialect, "id")) > Literal(dialect, 5)
+                having=FunctionCall(dialect, "COUNT", Column(dialect, "id")) > Parameter(dialect, 5)
             ),
             order_by=OrderByClause(dialect, expressions=[(Column(dialect, "category"), "ASC")]),
             limit_offset=LimitOffsetClause(dialect, limit=10),
@@ -142,7 +142,7 @@ class QueryStatement(ArithmeticMixin, ComparisonMixin, SQLValue):
             dialect,
             select=[Column(dialect, "id"), Column(dialect, "status")],
             from_=NamedRelationRef(dialect, Table(dialect, "orders")),
-            where=WhereClause(dialect, condition=Column(dialect, "status") == Literal(dialect, "pending")),
+            where=WhereClause(dialect, condition=Column(dialect, "status") == Parameter(dialect, "pending")),
             for_update=ForUpdateClause(
                 dialect,
                 of_columns=[Column(dialect, "id")],

@@ -1,7 +1,7 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy/expression/test_query_sources_lateral.py
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     Subquery,
     FunctionCall,
     QueryStatement,
@@ -36,7 +36,7 @@ class TestLateralExpression:
     def test_lateral_table_function(self, dummy_dialect: DummyDialect):
         """Test LATERAL with table function expression."""
         table_func = TableFunctionExpression(
-            dummy_dialect, "UNNEST", Literal(dummy_dialect, [1, 2, 3]), alias="unnested", column_names=["value"]
+            dummy_dialect, "UNNEST", Parameter(dummy_dialect, [1, 2, 3]), alias="unnested", column_names=["value"]
         )
 
         lateral_expr = LateralExpression(dummy_dialect, expression=table_func, alias="lateral_unnest")

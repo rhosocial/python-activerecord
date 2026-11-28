@@ -32,7 +32,7 @@ flowchart TB
     end
 
     subgraph EX["表达式系统"]
-        E["表达式 AST<br/>(Column / Literal / Comparison / …)"]
+        E["表达式 AST<br/>(Column / Parameter / Comparison / …)"]
     end
 
     Model --> Query
@@ -146,7 +146,7 @@ sequenceDiagram
     participant B as Backend
     participant DB as 数据库
 
-    M->>E: 构建查询（Column、Literal、Comparison、…）
+    M->>E: 构建查询（Column、Parameter、Comparison、…）
     E->>D: to_sql() → dialect.format_*(self)
     D-->>E: (SQL 字符串, 参数元组)
     E->>B: 交出 SQL + 参数

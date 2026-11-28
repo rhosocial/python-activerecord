@@ -36,7 +36,7 @@ Ordinary query expressions (e.g. `Column`, `ComparisonPredicate`) are constructe
 ```python
 # Ordinary expression: the first argument is the dialect instance
 Column(dialect, "name")          # ✅
-Literal(dialect, 18)             # ✅
+Parameter(dialect, 18)             # ✅
 ```
 
 Data types, by contrast, are often created at a moment when **the dialect is not yet determined**. The most typical scenario is **`ActiveRecord` model field declaration**:

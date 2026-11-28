@@ -47,7 +47,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .bases import BaseExpression, SQLValue, SQLPredicate
     # Annotations only. The classes themselves are imported inside the methods
     # that need them, because core imports this module.
-    from .core import CastExpression, FunctionCall, Literal
+    from .core import CastExpression, FunctionCall
     from .datetime import (
         DatePartExpression,
         DatetimeAddExpression,
@@ -178,7 +178,7 @@ class ComparisonMixin(NullTestMixin):
     expression, ensuring consistent SQL generation across the expression tree.
 
     The mixin handles both expression-to-expression comparisons and expression-to-value
-    comparisons by automatically wrapping non-expression values in Literal objects.
+    comparisons by automatically wrapping non-expression values in Parameter objects.
 
     The null tests (``is_null`` / ``is_not_null``) come from
     :class:`NullTestMixin`, which every value class carries. This mixin adds the
@@ -192,7 +192,7 @@ class ComparisonMixin(NullTestMixin):
         >>> predicate = col1 >= col2  # Uses col1's dialect
         >>>
         >>> # Expression-to-value comparison
-        >>> predicate = col1 >= 18  # Automatically wraps 18 in Literal
+        >>> predicate = col1 >= 18  # Automatically wraps 18 in Parameter
         >>>
         >>> # Method-based comparisons
         >>> col1.is_null()  # Generates "age IS NULL"
@@ -225,11 +225,11 @@ class ComparisonMixin(NullTestMixin):
             >>> Column(dialect, "name").is_distinct_from("root").to_sql()
             ('"name" IS DISTINCT FROM ?', ('root',))
         """
-        from .core import Literal
+        from .core import Parameter
         from .predicates import DistinctFromPredicate
         from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Parameter(self._dialect, other)
         return DistinctFromPredicate(self._dialect, self, other_expr, is_not=False)
 
     def is_not_distinct_from(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
@@ -248,11 +248,11 @@ class ComparisonMixin(NullTestMixin):
             >>> Column(dialect, "name").is_not_distinct_from("root").to_sql()
             ('"name" IS NOT DISTINCT FROM ?', ('root',))
         """
-        from .core import Literal
+        from .core import Parameter
         from .predicates import DistinctFromPredicate
         from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Parameter(self._dialect, other)
         return DistinctFromPredicate(self._dialect, self, other_expr, is_not=True)
 
     def __eq__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
@@ -272,11 +272,11 @@ class ComparisonMixin(NullTestMixin):
             >>> col = Column(dialect, "status")
             >>> predicate = col == "active"  # Generates: "status = ?" with params ("active",)
         """
-        from .core import Literal
+        from .core import Parameter
         from .predicates import ComparisonPredicate
         from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Parameter(self._dialect, other)
         return ComparisonPredicate(self._dialect, "=", self, other_expr)
 
     def __ne__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
@@ -289,11 +289,11 @@ class ComparisonMixin(NullTestMixin):
         Returns:
             SQLPredicate representing the inequality comparison
         """
-        from .core import Literal
+        from .core import Parameter
         from .predicates import ComparisonPredicate
         from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Parameter(self._dialect, other)
         return ComparisonPredicate(self._dialect, "!=", self, other_expr)
 
     def __gt__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
@@ -306,11 +306,11 @@ class ComparisonMixin(NullTestMixin):
         Returns:
             SQLPredicate representing the greater-than comparison
         """
-        from .core import Literal
+        from .core import Parameter
         from .predicates import ComparisonPredicate
         from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Parameter(self._dialect, other)
         return ComparisonPredicate(self._dialect, ">", self, other_expr)
 
     def __ge__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
@@ -323,11 +323,11 @@ class ComparisonMixin(NullTestMixin):
         Returns:
             SQLPredicate representing the greater-or-equal comparison
         """
-        from .core import Literal
+        from .core import Parameter
         from .predicates import ComparisonPredicate
         from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Parameter(self._dialect, other)
         return ComparisonPredicate(self._dialect, ">=", self, other_expr)
 
     def __lt__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
@@ -340,11 +340,11 @@ class ComparisonMixin(NullTestMixin):
         Returns:
             SQLPredicate representing the less-than comparison
         """
-        from .core import Literal
+        from .core import Parameter
         from .predicates import ComparisonPredicate
         from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Parameter(self._dialect, other)
         return ComparisonPredicate(self._dialect, "<", self, other_expr)
 
     def __le__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
@@ -357,11 +357,11 @@ class ComparisonMixin(NullTestMixin):
         Returns:
             SQLPredicate representing the less-or-equal comparison
         """
-        from .core import Literal
+        from .core import Parameter
         from .predicates import ComparisonPredicate
         from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Parameter(self._dialect, other)
         return ComparisonPredicate(self._dialect, "<=", self, other_expr)
 
     def is_true(self: "SQLValue") -> "SQLPredicate":
@@ -455,7 +455,7 @@ class ComparisonMixin(NullTestMixin):
             >>> predicate = col.in_(["active", "pending"])  # Generates: "status IN (?, ?)"
         """
         from .bases import BaseExpression
-        from .core import Literal
+        from .core import Parameter
         from .predicates import InPredicate
 
         # An ActiveQuery renders as an IN subquery. The capability is asked of
@@ -467,7 +467,7 @@ class ComparisonMixin(NullTestMixin):
             # An ActiveQuery-like object: render as an IN subquery. The
             # Subquery is bound to the same dialect as the two branches below
             # it: rendering reaches it through format_in_predicate, which calls
-            # to_sql() on anything that is not a Literal, and to_sql() resolves
+            # to_sql() on anything that is not a Parameter, and to_sql() resolves
             # the formatter on the node's own dialect.
             from .core import Subquery
 
@@ -478,7 +478,7 @@ class ComparisonMixin(NullTestMixin):
             # Already an expression (e.g. Subquery): pass through.
             return InPredicate(self._dialect, self, values)
 
-        return InPredicate(self._dialect, self, Literal(self._dialect, tuple(values)))
+        return InPredicate(self._dialect, self, Parameter(self._dialect, tuple(values)))
 
     def not_in(self: "SQLValue", values: List[Any]) -> "SQLPredicate":
         """
@@ -490,11 +490,11 @@ class ComparisonMixin(NullTestMixin):
         Returns:
             SQLPredicate representing the NOT IN check
         """
-        from .core import Literal
+        from .core import Parameter
         from .predicates import InPredicate, LogicalPredicate
 
         return LogicalPredicate(
-            self._dialect, "NOT", InPredicate(self._dialect, self, Literal(self._dialect, tuple(values)))
+            self._dialect, "NOT", InPredicate(self._dialect, self, Parameter(self._dialect, tuple(values)))
         )
 
     def between(self: "SQLValue", low: Any, high: Any) -> "SQLPredicate":
@@ -512,10 +512,10 @@ class ComparisonMixin(NullTestMixin):
             >>> col = Column(dialect, "age")
             >>> predicate = col.between(18, 65)  # Generates: "age BETWEEN ? AND ?"
         """
-        from .core import Literal
+        from .core import Parameter
         from .predicates import BetweenPredicate
 
-        return BetweenPredicate(self._dialect, self, Literal(self._dialect, low), Literal(self._dialect, high))
+        return BetweenPredicate(self._dialect, self, Parameter(self._dialect, low), Parameter(self._dialect, high))
 
 
 class ArithmeticMixin:
@@ -527,7 +527,7 @@ class ArithmeticMixin:
     expression, ensuring consistent SQL generation across the expression tree.
 
     The mixin handles both expression-to-expression operations and expression-to-value
-    operations by automatically wrapping non-expression values in Literal objects.
+    operations by automatically wrapping non-expression values in Parameter objects.
 
     Example:
         >>> # Expression-to-expression arithmetic
@@ -536,7 +536,7 @@ class ArithmeticMixin:
         >>> arithmetic_expr = col1 + col2  # Uses col1's dialect
         >>>
         >>> # Expression-to-value arithmetic
-        >>> arithmetic_expr = col1 * 0.9  # Automatically wraps 0.9 in Literal
+        >>> arithmetic_expr = col1 * 0.9  # Automatically wraps 0.9 in Parameter
         >>>
         >>> # Chained operations
         >>> complex_expr = (col1 + col2) * 1.1  # Generates: "(price + discount) * ?"
@@ -559,11 +559,11 @@ class ArithmeticMixin:
             >>> col = Column(dialect, "price")
             >>> expr = col + 10  # Generates: "price + ?" with params (10,)
         """
-        from .core import Literal
+        from .core import Parameter
         from .operators import ArithmeticOperation
         from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Parameter(self._dialect, other)
         return ArithmeticOperation(self._dialect, "add", self, other_expr)
 
     def __sub__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLValue":
@@ -576,11 +576,11 @@ class ArithmeticMixin:
         Returns:
             SQLValue representing the subtraction operation
         """
-        from .core import Literal
+        from .core import Parameter
         from .operators import ArithmeticOperation
         from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Parameter(self._dialect, other)
         return ArithmeticOperation(self._dialect, "sub", self, other_expr)
 
     def __mul__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLValue":
@@ -593,11 +593,11 @@ class ArithmeticMixin:
         Returns:
             SQLValue representing the multiplication operation
         """
-        from .core import Literal
+        from .core import Parameter
         from .operators import ArithmeticOperation
         from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Parameter(self._dialect, other)
         return ArithmeticOperation(self._dialect, "mul", self, other_expr)
 
     def __truediv__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLValue":
@@ -630,11 +630,11 @@ class ArithmeticMixin:
         portable spelling and the difference stays a documented property of the
         backends rather than a silent property of the model.
         """
-        from .core import Literal
+        from .core import Parameter
         from .operators import ArithmeticOperation
         from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Parameter(self._dialect, other)
         return ArithmeticOperation(self._dialect, "div", self, other_expr)
 
     def __mod__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLValue":
@@ -647,11 +647,11 @@ class ArithmeticMixin:
         Returns:
             SQLValue representing the modulo operation
         """
-        from .core import Literal
+        from .core import Parameter
         from .operators import ArithmeticOperation
         from .bases import BaseExpression
 
-        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Parameter(self._dialect, other)
         return ArithmeticOperation(self._dialect, "mod", self, other_expr)
 
 
@@ -857,10 +857,10 @@ class TemporalArithmeticMixin(NotANumberMixin):
 
     def _build(self, symbol: str, other):
         from .bases import BaseExpression
-        from .core import Literal
+        from .core import Parameter
         from .operators import ArithmeticOperation
 
-        other_expr = other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, BaseExpression) else Parameter(self._dialect, other)
         return ArithmeticOperation(self._dialect, self._OPERATOR_WORDS[symbol], self, other_expr)
 
     def _temporal_refusal(self, symbol: str, other, reason: str) -> AttributeError:
@@ -961,13 +961,13 @@ class _LogicalOperators:
 
     def _logical_operation(self, op: str, *others):
         from .bases import BaseExpression, SQLPredicate
-        from .core import Literal
+        from .core import Parameter
         from .predicates import LogicalPredicate
 
         operands = [
             other
             if isinstance(other, BaseExpression)
-            else Literal(self._dialect, other)
+            else Parameter(self._dialect, other)
             for other in others
         ]
         if isinstance(self, SQLPredicate):
@@ -1196,19 +1196,19 @@ class NumericValueMixin:
         an integer modulus. So the host type picks the node rather than one type
         standing in for both. An expression is returned untouched.
 
-        One ``Literal`` carries every value, so the host type no longer picks
+        One ``Parameter`` carries every value, so the host type no longer picks
         the node -- it picks the *kind*, which is what serialization writes and
         what the dialect's literal construction dispatches on. An expression is
         returned untouched: the caller said what it meant.
         """
         from .bases import BaseExpression
-        from .core import Literal
+        from .core import Parameter
 
         if isinstance(value, BaseExpression):
             return value
         if isinstance(value, int):
-            return Literal(dialect, value)
-        return Literal(dialect, decimal.Decimal(str(value)))
+            return Parameter(dialect, value)
+        return Parameter(dialect, decimal.Decimal(str(value)))
 
     @staticmethod
     def _math_functions():
@@ -1388,19 +1388,19 @@ class TranscendentalMixin:
         an integer modulus. So the host type picks the node rather than one type
         standing in for both. An expression is returned untouched.
 
-        One ``Literal`` carries every value, so the host type no longer picks
+        One ``Parameter`` carries every value, so the host type no longer picks
         the node -- it picks the *kind*, which is what serialization writes and
         what the dialect's literal construction dispatches on. An expression is
         returned untouched: the caller said what it meant.
         """
         from .bases import BaseExpression
-        from .core import Literal
+        from .core import Parameter
 
         if isinstance(value, BaseExpression):
             return value
         if isinstance(value, int):
-            return Literal(dialect, value)
-        return Literal(dialect, decimal.Decimal(str(value)))
+            return Parameter(dialect, value)
+        return Parameter(dialect, decimal.Decimal(str(value)))
 
     # --- roots, powers, logarithms ---
     #
@@ -1691,12 +1691,12 @@ class StringValueMixin:
         """
         from .functions import string as _string
         from .bases import BaseExpression
-        from .core import Literal
+        from .core import Parameter
 
         operands = [self]
         for other in others:
             operands.append(
-                other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+                other if isinstance(other, BaseExpression) else Parameter(self._dialect, other)
             )
         return _string.concat(self._dialect, *operands)
 
@@ -1713,12 +1713,12 @@ class StringValueMixin:
         """
         from .functions import string as _string
         from .bases import BaseExpression
-        from .core import Literal
+        from .core import Parameter
 
         operands = [self]
         for other in others:
             operands.append(
-                other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+                other if isinstance(other, BaseExpression) else Parameter(self._dialect, other)
             )
         return _string.concat_op(self._dialect, *operands)
 
@@ -1726,12 +1726,12 @@ class StringValueMixin:
         """First non-null value. ``COALESCE(col, ...)``"""
         from .functions import string as _string
         from .bases import BaseExpression
-        from .core import Literal
+        from .core import Parameter
 
         operands = [self]
         for other in others:
             operands.append(
-                other if isinstance(other, BaseExpression) else Literal(self._dialect, other)
+                other if isinstance(other, BaseExpression) else Parameter(self._dialect, other)
             )
         return _string.coalesce(self._dialect, *operands)
 
@@ -1789,11 +1789,11 @@ class StringPatternPredicateMixin:
             >>> predicate = col.like("John%")  # Matches names starting with "John"
             >>> # Generates: "name LIKE ?" with params ("John%",)
         """
-        from .core import Literal
+        from .core import Parameter
         from .predicates import LikeOperator, LikePredicate
 
         return LikePredicate(
-            self._dialect, LikeOperator.LIKE, self, Literal(self._dialect, pattern)
+            self._dialect, LikeOperator.LIKE, self, Parameter(self._dialect, pattern)
         )
 
     def ilike(self: "SQLValue", pattern: str) -> "SQLPredicate":
@@ -1820,11 +1820,11 @@ class StringPatternPredicateMixin:
             >>> predicate = col.ilike("%@gmail.com")  # Matches regardless of case
             >>> # Generates: "email ILIKE ?" with params ("%@gmail.com",)
         """
-        from .core import Literal
+        from .core import Parameter
         from .predicates import LikeOperator, LikePredicate
 
         return LikePredicate(
-            self._dialect, LikeOperator.ILIKE, self, Literal(self._dialect, pattern)
+            self._dialect, LikeOperator.ILIKE, self, Parameter(self._dialect, pattern)
         )
 
 

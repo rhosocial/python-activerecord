@@ -8,7 +8,7 @@ from typing import Union, Optional, TYPE_CHECKING, overload
 from ..advanced_functions import DeclaredValueType
 from ..bases import BaseExpression
 from ..column_types import IntegerColumn, NumericColumn
-from ..core import FunctionCall, Literal
+from ..core import FunctionCall, Parameter
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -37,15 +37,14 @@ class _MathOperands:
 
     @staticmethod
     def _number(dialect: "SQLDialectBase", value):
-        from .. import values
 
         if value is None:
             return None
         if isinstance(value, BaseExpression):
             return value
         if isinstance(value, int):
-            return Literal(dialect, value)
-        return Literal(dialect, decimal.Decimal(str(value)))
+            return Parameter(dialect, value)
+        return Parameter(dialect, decimal.Decimal(str(value)))
 
 
 class _MathFunction(
@@ -441,7 +440,7 @@ def round_(
     target_expr = expr
     args = [target_expr]
     if decimals is not None:
-        args.append(decimals if isinstance(decimals, BaseExpression) else Literal(dialect, decimals))
+        args.append(decimals if isinstance(decimals, BaseExpression) else Parameter(dialect, decimals))
     return RoundFunction.for_operand(dialect, type(expr), *args)
 
 
@@ -793,5 +792,5 @@ def truncate(
     target_expr = expr
     args = [target_expr]
     if precision is not None:
-        args.append(precision if isinstance(precision, BaseExpression) else Literal(dialect, precision))
+        args.append(precision if isinstance(precision, BaseExpression) else Parameter(dialect, precision))
     return TruncateFunction.for_operand(dialect, type(expr), *args)

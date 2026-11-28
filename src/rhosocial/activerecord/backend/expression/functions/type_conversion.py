@@ -7,7 +7,7 @@ from ..advanced_functions import DeclaredValueType
 from ..bases import BaseExpression, SQLValue
 from ..core import (
     Column,
-    Literal,
+    Parameter,
 )
 from ..value_types import (
     NumericValue,
@@ -39,11 +39,11 @@ class _ConversionOperand:
 
     @staticmethod
     def _operand(dialect: "SQLDialectBase", value):
-        from ..core import Literal
+        from ..core import Parameter
 
         if value is None:
             return None
-        return value if isinstance(value, BaseExpression) else Literal(dialect, value)
+        return value if isinstance(value, BaseExpression) else Parameter(dialect, value)
 
 
 class ToCharFunction(
@@ -364,7 +364,7 @@ def to_char(
         A StringValue wrapping TO_CHAR
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    format_expr = Literal(dialect, format) if format is not None else None
+    format_expr = Parameter(dialect, format) if format is not None else None
     return ToCharFunction(dialect, target_expr, format_expr)
 
 
@@ -390,7 +390,7 @@ def to_number(
         A NumericValue wrapping TO_NUMBER
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    format_expr = Literal(dialect, format) if format is not None else None
+    format_expr = Parameter(dialect, format) if format is not None else None
     return ToNumberFunction(dialect, target_expr, format_expr)
 
 
@@ -416,5 +416,5 @@ def to_date(
         A TimestampValue wrapping TO_DATE
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    format_expr = Literal(dialect, format) if format is not None else None
+    format_expr = Parameter(dialect, format) if format is not None else None
     return ToDateFunction(dialect, target_expr, format_expr)

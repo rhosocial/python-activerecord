@@ -1,7 +1,7 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy/statements/test_statements_merge.py
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     ComparisonPredicate,
     MergeStatement,
     MergeAction,
@@ -144,7 +144,7 @@ class TestMergeStatements:
         when_matched_delete = MergeAction(
             dummy_dialect, action_type=MergeActionType.DELETE,
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "status", "ord"), Literal(dummy_dialect, "pending")
+                dummy_dialect, "=", Column(dummy_dialect, "status", "ord"), Parameter(dummy_dialect, "pending")
             ),
         )
 
@@ -196,7 +196,7 @@ class TestMergeStatements:
                 "salary": Column(dummy_dialect, "salary", "new_emps"),
             },
             condition=ComparisonPredicate(
-                dummy_dialect, ">=", Column(dummy_dialect, "salary", "new_emps"), Literal(dummy_dialect, 50000)
+                dummy_dialect, ">=", Column(dummy_dialect, "salary", "new_emps"), Parameter(dummy_dialect, 50000)
             ),
         )
 
@@ -238,7 +238,7 @@ class TestMergeStatements:
         when_matched_delete = MergeAction(
             dummy_dialect, action_type=MergeActionType.DELETE,
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "status", "ord"), Literal(dummy_dialect, "pending")
+                dummy_dialect, "=", Column(dummy_dialect, "status", "ord"), Parameter(dummy_dialect, "pending")
             ),
         )
 
@@ -268,8 +268,8 @@ class TestMergeNotMatchedBySource:
         source_values = ValuesExpression(
             dummy_dialect,
             values=[
-                (Literal(dummy_dialect, 1), Literal(dummy_dialect, "Product A")),
-                (Literal(dummy_dialect, 2), Literal(dummy_dialect, "Product B")),
+                (Parameter(dummy_dialect, 1), Parameter(dummy_dialect, "Product A")),
+                (Parameter(dummy_dialect, 2), Parameter(dummy_dialect, "Product B")),
             ],
             alias="new_prods",
             column_names=["id", "name"],
@@ -321,8 +321,8 @@ class TestMergeNotMatchedBySource:
         source_values = ValuesExpression(
             dummy_dialect,
             values=[
-                (Literal(dummy_dialect, 1), Literal(dummy_dialect, "Active")),
-                (Literal(dummy_dialect, 2), Literal(dummy_dialect, "Active")),
+                (Parameter(dummy_dialect, 1), Parameter(dummy_dialect, "Active")),
+                (Parameter(dummy_dialect, 2), Parameter(dummy_dialect, "Active")),
             ],
             alias="updated_cust",
             column_names=["id", "status"],
@@ -333,7 +333,7 @@ class TestMergeNotMatchedBySource:
 
         # WHEN NOT MATCHED BY SOURCE: UPDATE (mark unmatched records as inactive)
         when_not_matched_by_source_update = MergeAction(
-            dummy_dialect, action_type=MergeActionType.UPDATE, assignments={"status": Literal(dummy_dialect, "inactive")}
+            dummy_dialect, action_type=MergeActionType.UPDATE, assignments={"status": Parameter(dummy_dialect, "inactive")}
         )
 
         merge_expr = MergeStatement(
@@ -358,8 +358,8 @@ class TestMergeNotMatchedBySource:
         source_values = ValuesExpression(
             dummy_dialect,
             values=[
-                (Literal(dummy_dialect, 1), Literal(dummy_dialect, "Widget A"), Literal(dummy_dialect, 10)),
-                (Literal(dummy_dialect, 2), Literal(dummy_dialect, "Widget B"), Literal(dummy_dialect, 5)),
+                (Parameter(dummy_dialect, 1), Parameter(dummy_dialect, "Widget A"), Parameter(dummy_dialect, 10)),
+                (Parameter(dummy_dialect, 2), Parameter(dummy_dialect, "Widget B"), Parameter(dummy_dialect, 5)),
             ],
             alias="new_inv",
             column_names=["product_id", "name", "quantity"],
@@ -375,7 +375,7 @@ class TestMergeNotMatchedBySource:
         when_not_matched_by_source_delete = MergeAction(
             dummy_dialect, action_type=MergeActionType.DELETE,
             condition=ComparisonPredicate(
-                dummy_dialect, ">", Column(dummy_dialect, "quantity", "inv"), Literal(dummy_dialect, 100)
+                dummy_dialect, ">", Column(dummy_dialect, "quantity", "inv"), Parameter(dummy_dialect, 100)
             ),
         )
 

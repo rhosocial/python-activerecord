@@ -5,7 +5,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from .....expression.objects import Table
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
-from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.core import Parameter
 from rhosocial.activerecord.backend.expression import (
     UpdateStatement,
     ReturningClause,
@@ -61,7 +61,7 @@ insert_expr = InsertStatement(
     dialect=dialect,
     into=Table(dialect, 'users'),
     columns=["name"],
-    source=ValuesSource(dialect, [[Literal(dialect, "Alice")]]),
+    source=ValuesSource(dialect, [[Parameter(dialect, "Alice")]]),
 )
 sql, params = insert_expr.to_sql()
 backend.execute(sql, params)
@@ -73,11 +73,11 @@ backend.execute(sql, params)
 update_expr = UpdateStatement(
     dialect=dialect,
     table=Table(dialect, 'users'),
-    assignments={"name": Literal(dialect, "Alice Smith")},
+    assignments={"name": Parameter(dialect, "Alice Smith")},
     where=ComparisonPredicate(
         "=",
         Column(dialect, "name"),
-        Literal(dialect, "Alice"),
+        Parameter(dialect, "Alice"),
     ),
     returning=ReturningClause(dialect, [Column(dialect, "id"), Column(dialect, "name")]),
 )

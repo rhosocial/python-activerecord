@@ -17,7 +17,7 @@ from rhosocial.activerecord.backend.impl.sqlite.functions.json import (
     json_array_insert,
     jsonb_array_insert,
 )
-from rhosocial.activerecord.backend.expression.core import Column, Literal
+from rhosocial.activerecord.backend.expression.core import Column, Parameter
 from rhosocial.activerecord.backend.expression.objects import Index, Table
 
 
@@ -141,7 +141,7 @@ class TestJsonArrayInsertFunction:
     def test_json_array_insert_basic(self, sqlite_dialect_3_53_0):
         """Test basic json_array_insert function call."""
         dialect = sqlite_dialect_3_53_0
-        expr = json_array_insert(dialect, Literal(dialect, "data"), Literal(dialect, "new_value"))
+        expr = json_array_insert(dialect, Parameter(dialect, "data"), Parameter(dialect, "new_value"))
         sql, params = expr.to_sql()
         assert "JSON_ARRAY_INSERT" in sql
         assert len(params) == 3  # json_array, default path '$', and value are parameterized
@@ -149,7 +149,7 @@ class TestJsonArrayInsertFunction:
     def test_json_array_insert_with_position(self, sqlite_dialect_3_53_0):
         """Test json_array_insert with position parameter."""
         dialect = sqlite_dialect_3_53_0
-        expr = json_array_insert(dialect, Literal(dialect, "data"), Literal(dialect, "new_value"), position=0)
+        expr = json_array_insert(dialect, Parameter(dialect, "data"), Parameter(dialect, "new_value"), position=0)
         sql, params = expr.to_sql()
         assert "JSON_ARRAY_INSERT" in sql
         assert len(params) == 3  # json_array, value, and position are parameterized
@@ -157,7 +157,7 @@ class TestJsonArrayInsertFunction:
     def test_json_array_insert_with_column(self, sqlite_dialect_3_53_0):
         """Test json_array_insert with Column expression."""
         dialect = sqlite_dialect_3_53_0
-        expr = json_array_insert(dialect, Column(dialect, "items"), Literal(dialect, "item"))
+        expr = json_array_insert(dialect, Column(dialect, "items"), Parameter(dialect, "item"))
         sql, params = expr.to_sql()
         assert "JSON_ARRAY_INSERT" in sql
 
@@ -167,7 +167,7 @@ class TestJsonArrayInsertFunction:
         and the version in force, so the caller can tell an old server from a
         wrong spelling."""
         dialect = SQLiteDialect(version=(3, 52, 0))
-        expr = json_array_insert(dialect, Literal(dialect, "data"), Literal(dialect, "new_value"))
+        expr = json_array_insert(dialect, Parameter(dialect, "data"), Parameter(dialect, "new_value"))
         with pytest.raises(UnsupportedFeatureError) as excinfo:
             expr.to_sql()
         message = str(excinfo.value)
@@ -182,7 +182,7 @@ class TestJsonbArrayInsertFunction:
     def test_jsonb_array_insert_basic(self, sqlite_dialect_3_53_0):
         """Test basic jsonb_array_insert function call."""
         dialect = sqlite_dialect_3_53_0
-        expr = jsonb_array_insert(dialect, Literal(dialect, "data"), Literal(dialect, "new_value"))
+        expr = jsonb_array_insert(dialect, Parameter(dialect, "data"), Parameter(dialect, "new_value"))
         sql, params = expr.to_sql()
         assert "JSONB_ARRAY_INSERT" in sql
         assert len(params) == 3  # jsonb_array, default path '$', and value are parameterized
@@ -190,7 +190,7 @@ class TestJsonbArrayInsertFunction:
     def test_jsonb_array_insert_with_position(self, sqlite_dialect_3_53_0):
         """Test jsonb_array_insert with position parameter."""
         dialect = sqlite_dialect_3_53_0
-        expr = jsonb_array_insert(dialect, Literal(dialect, "data"), Literal(dialect, "new_value"), position=2)
+        expr = jsonb_array_insert(dialect, Parameter(dialect, "data"), Parameter(dialect, "new_value"), position=2)
         sql, params = expr.to_sql()
         assert "JSONB_ARRAY_INSERT" in sql
         assert len(params) == 3  # jsonb_array, value, and position are parameterized
@@ -198,6 +198,6 @@ class TestJsonbArrayInsertFunction:
     def test_jsonb_array_insert_with_column(self, sqlite_dialect_3_53_0):
         """Test jsonb_array_insert with Column expression."""
         dialect = sqlite_dialect_3_53_0
-        expr = jsonb_array_insert(dialect, Column(dialect, "items"), Literal(dialect, "item"))
+        expr = jsonb_array_insert(dialect, Column(dialect, "items"), Parameter(dialect, "item"))
         sql, params = expr.to_sql()
         assert "JSONB_ARRAY_INSERT" in sql

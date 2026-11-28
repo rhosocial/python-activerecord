@@ -13,7 +13,7 @@ from rhosocial.activerecord.backend.expression import (
     DeleteStatement,
     Column,
     ComparisonPredicate,
-    Literal,
+    Parameter,
     WhereClause,
     ReturningClause,
 )
@@ -38,7 +38,7 @@ def add_order(dialect, user_id: int, status: str = DEFAULT_ORDER_STATUS):
         columns=["user_id", "status"],
         source=ValuesSource(
             dialect,
-            [[Literal(dialect, user_id), Literal(dialect, status)]],
+            [[Parameter(dialect, user_id), Parameter(dialect, status)]],
         ),
     )
 
@@ -60,8 +60,8 @@ def add_order_bulk(dialect, user_id: int):
         source=ValuesSource(
             dialect,
             [
-                [Literal(dialect, user_id), Literal(dialect, "pending")],
-                [Literal(dialect, user_id), Literal(dialect, "pending")],
+                [Parameter(dialect, user_id), Parameter(dialect, "pending")],
+                [Parameter(dialect, user_id), Parameter(dialect, "pending")],
             ],
         ),
     )
@@ -81,10 +81,10 @@ def update_order_status(dialect, order_id: int, new_status: str):
     return UpdateStatement(
         dialect,
         table=Table(dialect, 'orders'),
-        assignments={"status": Literal(dialect, new_status)},
+        assignments={"status": Parameter(dialect, new_status)},
         where=WhereClause(
             dialect,
-            condition=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, order_id)),
+            condition=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Parameter(dialect, order_id)),
         ),
     )
 
@@ -104,7 +104,7 @@ def cancel_order(dialect, order_id: int):
         tables=Table(dialect, 'orders'),
         where=WhereClause(
             dialect,
-            condition=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, order_id)),
+            condition=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Parameter(dialect, order_id)),
         ),
     )
 
@@ -128,9 +128,9 @@ def add_payment(dialect, order_id: int, status: str = DEFAULT_ORDER_STATUS):
             dialect,
             [
                 [
-                    Literal(dialect, order_id),
-                    Literal(dialect, status),
-                    Literal(dialect, "txn_new"),
+                    Parameter(dialect, order_id),
+                    Parameter(dialect, status),
+                    Parameter(dialect, "txn_new"),
                 ]
             ],
         ),
@@ -156,6 +156,6 @@ def archive_processed_orders(dialect, status: str = "completed"):
         tables=Table(dialect, 'orders'),
         where=WhereClause(
             dialect,
-            condition=ComparisonPredicate(dialect, "=", Column(dialect, "status"), Literal(dialect, status)),
+            condition=ComparisonPredicate(dialect, "=", Column(dialect, "status"), Parameter(dialect, status)),
         ),
     )

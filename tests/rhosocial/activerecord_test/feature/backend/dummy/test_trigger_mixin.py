@@ -2,7 +2,7 @@
 """Tests for TriggerMixin format methods."""
 
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Literal
+from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Parameter
 from rhosocial.activerecord.backend.expression.objects import Function, Table
 from rhosocial.activerecord.backend.expression.objects import Trigger
 
@@ -51,7 +51,7 @@ class TestTriggerMixinFormatMethods:
             dummy_dialect,
             "=",
             Column(dummy_dialect, "status"),
-            Literal(dummy_dialect, "active")
+            Parameter(dummy_dialect, "active")
         )
         create_trigger = CreateTriggerStatement(
             dummy_dialect,

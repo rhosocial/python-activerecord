@@ -3,7 +3,7 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     FunctionCall,
     ComparisonPredicate,
     WhereClause,
@@ -29,7 +29,7 @@ class TestQueryParts:
             dummy_dialect,
             "=",
             Column(dummy_dialect, "status"),
-            Literal(dummy_dialect, "active")
+            Parameter(dummy_dialect, "active")
         )
         where_clause = WhereClause(dummy_dialect, condition=condition)
 
@@ -41,9 +41,9 @@ class TestQueryParts:
     def test_where_clause_complex_condition(self, dummy_dialect: DummyDialect):
         """Test WHERE clause with complex conditions."""
         condition = (
-            ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18))
+            ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Parameter(dummy_dialect, 18))
         ) & (
-            ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "verified"))
+            ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "status"), Parameter(dummy_dialect, "verified"))
         )
         where_clause = WhereClause(dummy_dialect, condition=condition)
 
@@ -69,7 +69,7 @@ class TestQueryParts:
                     dummy_dialect,
                     "=",
                     Column(dummy_dialect, "status"),
-                    Literal(dummy_dialect, "active")
+                    Parameter(dummy_dialect, "active")
                 )
             ),
         )
@@ -89,7 +89,7 @@ class TestQueryParts:
         in_pred = InPredicate(
             dummy_dialect,
             Column(dummy_dialect, "status"),
-            Literal(dummy_dialect, []),  # Empty list
+            Parameter(dummy_dialect, []),  # Empty list
         )
 
         sql, params = in_pred.to_sql()
@@ -103,7 +103,7 @@ class TestQueryParts:
         in_pred = InPredicate(
             dummy_dialect,
             Column(dummy_dialect, "status"),
-            Literal(dummy_dialect, ["active", "pending", "draft"]),  # List of values
+            Parameter(dummy_dialect, ["active", "pending", "draft"]),  # List of values
         )
 
         sql, params = in_pred.to_sql()
@@ -114,7 +114,7 @@ class TestQueryParts:
         assert params == ("active", "pending", "draft")
 
     def test_in_predicate_with_non_literal(self, dummy_dialect: DummyDialect):
-        """Test InPredicate with non-Literal values (covers the else branch)."""
+        """Test InPredicate with non-Parameter values (covers the else branch)."""
         from rhosocial.activerecord.backend.expression import Subquery
 
         # Use a subquery instead of a literal
@@ -131,7 +131,7 @@ class TestQueryParts:
     def test_between_predicate(self, dummy_dialect: DummyDialect):
         """Test BetweenPredicate (covers the BetweenPredicate.to_sql method)."""
         between_pred = BetweenPredicate(
-            dummy_dialect, Column(dummy_dialect, "age"), Literal(dummy_dialect, 18), Literal(dummy_dialect, 65)
+            dummy_dialect, Column(dummy_dialect, "age"), Parameter(dummy_dialect, 18), Parameter(dummy_dialect, 65)
         )
 
         sql, params = between_pred.to_sql()
@@ -172,7 +172,7 @@ class TestQueryParts:
     def test_group_by_having_clause_with_group_by_and_having(self, dummy_dialect: DummyDialect):
         """Test GROUP BY/HAVING clause with both GROUP BY and HAVING conditions."""
         group_by_exprs = [Column(dummy_dialect, "department")]
-        having_condition = FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")) > Literal(dummy_dialect, 5)
+        having_condition = FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")) > Parameter(dummy_dialect, 5)
 
         group_by_having = GroupByHavingClause(dummy_dialect, group_by=group_by_exprs, having=having_condition)
 
@@ -186,7 +186,7 @@ class TestQueryParts:
 
     def test_group_by_having_clause_validation(self, dummy_dialect: DummyDialect):
         """Test that GROUP BY/HAVING clause validates HAVING requires GROUP BY."""
-        having_condition = FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")) > Literal(dummy_dialect, 0)
+        having_condition = FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")) > Parameter(dummy_dialect, 0)
 
         with pytest.raises(ValueError, match="HAVING clause requires GROUP BY clause"):
             GroupByHavingClause(dummy_dialect, group_by=None, having=having_condition)
@@ -198,7 +198,7 @@ class TestQueryParts:
             Column(dummy_dialect, "month"),
             Column(dummy_dialect, "category"),
         ]
-        having_condition = FunctionCall(dummy_dialect, "SUM", Column(dummy_dialect, "amount")) > Literal(
+        having_condition = FunctionCall(dummy_dialect, "SUM", Column(dummy_dialect, "amount")) > Parameter(
             dummy_dialect, 1000
         )
 
@@ -257,8 +257,8 @@ class TestQueryParts:
 
     def test_limit_offset_clause_with_expression_values(self, dummy_dialect: DummyDialect):
         """Test LIMIT/OFFSET clause with expression values."""
-        limit_expr = FunctionCall(dummy_dialect, "LEAST", Literal(dummy_dialect, 100), Literal(dummy_dialect, 50))
-        offset_expr = FunctionCall(dummy_dialect, "GREATEST", Literal(dummy_dialect, 0), Literal(dummy_dialect, 10))
+        limit_expr = FunctionCall(dummy_dialect, "LEAST", Parameter(dummy_dialect, 100), Parameter(dummy_dialect, 50))
+        offset_expr = FunctionCall(dummy_dialect, "GREATEST", Parameter(dummy_dialect, 0), Parameter(dummy_dialect, 10))
 
         limit_offset = LimitOffsetClause(dummy_dialect, limit=limit_expr, offset=offset_expr)
 
@@ -329,7 +329,7 @@ class TestQueryParts:
     def test_qualify_clause_basic(self, dummy_dialect: DummyDialect):
         """Test basic QUALIFY clause."""
         # Create a simple condition for QUALIFY (since advanced window functions may need special setup)
-        condition = FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")) > Literal(dummy_dialect, 3)
+        condition = FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")) > Parameter(dummy_dialect, 3)
 
         qualify_clause = QualifyClause(dummy_dialect, condition=condition)
 
@@ -432,7 +432,7 @@ class TestQueryParts:
     ):
         """Test that various clause types generate expected SQL fragments."""
         if clause_type == WhereClause:
-            condition = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "id"), Literal(dummy_dialect, 0))
+            condition = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "id"), Parameter(dummy_dialect, 0))
             clause = WhereClause(dummy_dialect, condition=condition)
             sql, params = clause.to_sql()
             assert expected_sql_fragment in sql
@@ -447,7 +447,7 @@ class TestQueryParts:
 
     def test_where_clause_with_function_condition(self, dummy_dialect: DummyDialect):
         """Test WHERE clause with function-based condition."""
-        condition = FunctionCall(dummy_dialect, "LENGTH", Column(dummy_dialect, "name")) > Literal(dummy_dialect, 5)
+        condition = FunctionCall(dummy_dialect, "LENGTH", Column(dummy_dialect, "name")) > Parameter(dummy_dialect, 5)
         where_clause = WhereClause(dummy_dialect, condition=condition)
 
         sql, params = where_clause.to_sql()
@@ -461,7 +461,7 @@ class TestQueryParts:
         """Test WHERE clause with LIKE condition."""
         from rhosocial.activerecord.backend.expression.predicates import LikePredicate
 
-        condition = LikePredicate(dummy_dialect, "LIKE", Column(dummy_dialect, "name"), Literal(dummy_dialect, "John%"))
+        condition = LikePredicate(dummy_dialect, "LIKE", Column(dummy_dialect, "name"), Parameter(dummy_dialect, "John%"))
         where_clause = WhereClause(dummy_dialect, condition=condition)
 
         sql, params = where_clause.to_sql()
@@ -474,8 +474,8 @@ class TestQueryParts:
         """Test GROUP BY/HAVING with complex aggregate functions."""
         group_by_exprs = [Column(dummy_dialect, "category")]
         having_condition = (
-            FunctionCall(dummy_dialect, "AVG", Column(dummy_dialect, "price")) > Literal(dummy_dialect, 100)
-        ) & (FunctionCall(dummy_dialect, "MIN", Column(dummy_dialect, "price")) > Literal(dummy_dialect, 50))
+            FunctionCall(dummy_dialect, "AVG", Column(dummy_dialect, "price")) > Parameter(dummy_dialect, 100)
+        ) & (FunctionCall(dummy_dialect, "MIN", Column(dummy_dialect, "price")) > Parameter(dummy_dialect, 50))
 
         group_by_having = GroupByHavingClause(dummy_dialect, group_by=group_by_exprs, having=having_condition)
 
@@ -515,18 +515,18 @@ class TestQueryParts:
             cases=[
                 (
                     ComparisonPredicate(
-                        dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "premium")
+                        dummy_dialect, "=", Column(dummy_dialect, "status"), Parameter(dummy_dialect, "premium")
                     ),
-                    Literal(dummy_dialect, 1),
+                    Parameter(dummy_dialect, 1),
                 ),
                 (
                     ComparisonPredicate(
-                        dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "standard"),
+                        dummy_dialect, "=", Column(dummy_dialect, "status"), Parameter(dummy_dialect, "standard"),
                     ),
-                    Literal(dummy_dialect, 2),
+                    Parameter(dummy_dialect, 2),
                 ),
             ],
-            else_result=Literal(dummy_dialect, 3),
+            else_result=Parameter(dummy_dialect, 3),
         )
 
         order_by = OrderByClause(
@@ -548,14 +548,14 @@ class TestQueryParts:
                 dummy_dialect,
                 "=",
                 Column(dummy_dialect, "status"),
-                Literal(dummy_dialect, "active")
+                Parameter(dummy_dialect, "active")
             )
         )
 
         group_by_having = GroupByHavingClause(
             dummy_dialect,
             group_by=[Column(dummy_dialect, "department")],
-            having=FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")) > Literal(dummy_dialect, 1),
+            having=FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")) > Parameter(dummy_dialect, 1),
         )
 
         order_by_clause = OrderByClause(
@@ -615,10 +615,10 @@ class TestQueryParts:
     def test_where_clause_complex_logical_conditions(self, dummy_dialect: DummyDialect):
         """Test WHERE clause with complex logical conditions."""
         condition = (
-            (ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "active")))
-            & (ComparisonPredicate(dummy_dialect, ">=", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18)))
-            & (ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "balance"), Literal(dummy_dialect, 0)))
-        ) | (ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "is_vip"), Literal(dummy_dialect, True)))
+            (ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "status"), Parameter(dummy_dialect, "active")))
+            & (ComparisonPredicate(dummy_dialect, ">=", Column(dummy_dialect, "age"), Parameter(dummy_dialect, 18)))
+            & (ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "balance"), Parameter(dummy_dialect, 0)))
+        ) | (ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "is_vip"), Parameter(dummy_dialect, True)))
 
         where_clause = WhereClause(dummy_dialect, condition=condition)
         sql, params = where_clause.to_sql()
@@ -635,7 +635,7 @@ class TestQueryParts:
             dummy_dialect,
             ">",
             Column(dummy_dialect, "id"),
-            Literal(dummy_dialect, 0))
+            Parameter(dummy_dialect, 0))
         )
         sql, params = where_clause.to_sql()
         assert isinstance(sql, str)
@@ -661,7 +661,7 @@ class TestQueryParts:
                 dummy_dialect,
                 ">",
                 Column(dummy_dialect, "value"),
-                Literal(dummy_dialect, 10)
+                Parameter(dummy_dialect, 10)
             )
         )
         sql, params = qualify_clause.to_sql()
@@ -680,7 +680,7 @@ class TestQueryParts:
             dummy_dialect,
             "=",
             Column(dummy_dialect, "status"),
-            Literal(dummy_dialect, "active")
+            Parameter(dummy_dialect, "active")
         )
         where_clause = WhereClause(dummy_dialect, condition=initial_condition)
 
@@ -689,7 +689,7 @@ class TestQueryParts:
             dummy_dialect,
             ">=",
             Column(dummy_dialect, "age"),
-            Literal(dummy_dialect, 18)
+            Parameter(dummy_dialect, 18)
         )
         result = where_clause.and_(additional_condition)
 
@@ -710,7 +710,7 @@ class TestQueryParts:
             dummy_dialect,
             "=",
             Column(dummy_dialect, "status"),
-            Literal(dummy_dialect, "active")
+            Parameter(dummy_dialect, "active")
         )
         where_clause = WhereClause(dummy_dialect, condition=initial_condition)
 
@@ -719,19 +719,19 @@ class TestQueryParts:
             dummy_dialect,
             ">=",
             Column(dummy_dialect, "age"),
-            Literal(dummy_dialect, 18))
+            Parameter(dummy_dialect, 18))
         )
         where_clause.and_(ComparisonPredicate(
             dummy_dialect,
             ">",
             Column(dummy_dialect, "balance"),
-            Literal(dummy_dialect, 0))
+            Parameter(dummy_dialect, 0))
         )
         where_clause.and_(ComparisonPredicate(
             dummy_dialect,
             "=",
             Column(dummy_dialect, "verified"),
-            Literal(dummy_dialect, True))
+            Parameter(dummy_dialect, True))
         )
 
         # Verify all conditions are present
@@ -747,16 +747,16 @@ class TestQueryParts:
         """Test and_() method with complex conditions."""
         # Create initial complex condition
         initial_condition = (
-            ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "active"))
+            ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "status"), Parameter(dummy_dialect, "active"))
         ) & (
             ComparisonPredicate(
-                dummy_dialect, "!=", Column(dummy_dialect, "type"), Literal(dummy_dialect, "deleted")
+                dummy_dialect, "!=", Column(dummy_dialect, "type"), Parameter(dummy_dialect, "deleted")
             )
         )
         where_clause = WhereClause(dummy_dialect, condition=initial_condition)
 
         # Add another complex condition using and_()
-        additional_condition = FunctionCall(dummy_dialect, "LENGTH", Column(dummy_dialect, "name")) > Literal(
+        additional_condition = FunctionCall(dummy_dialect, "LENGTH", Column(dummy_dialect, "name")) > Parameter(
             dummy_dialect, 3
         )
         where_clause.and_(additional_condition)

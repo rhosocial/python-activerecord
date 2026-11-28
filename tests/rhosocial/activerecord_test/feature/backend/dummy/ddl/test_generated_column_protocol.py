@@ -15,7 +15,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     GeneratedColumnType,
     CreateTableStatement,
 )
-from rhosocial.activerecord.backend.expression import BinaryExpression, Column, Literal
+from rhosocial.activerecord.backend.expression import BinaryExpression, Column, Parameter
 # tests/rhosocial/activerecord_test/feature/backend/dummy/ddl/test_generated_column_protocol.py
 
 
@@ -108,7 +108,7 @@ class TestGeneratedColumnBasic:
                             "+",
                             BinaryExpression(
                                 dummy_dialect, "+", Column(dummy_dialect, "first_name"),
-                                Literal(dummy_dialect, " ", inline=True),
+                                Parameter(dummy_dialect, " ", inline=True),
                             ),
                             Column(dummy_dialect, "last_name"),
                         )
@@ -173,7 +173,7 @@ class TestGeneratedColumnBasic:
                         dummy_dialect,
                         "+",
                         Column(dummy_dialect, "id"),
-                        Literal(dummy_dialect, 1, inline=True),
+                        Parameter(dummy_dialect, 1, inline=True),
                     ),
                 ),
             ),
@@ -203,7 +203,7 @@ class TestGeneratedColumnWithConstraints:
                         dummy_dialect,
                         "*",
                         Column(dummy_dialect, "id"),
-                        Literal(dummy_dialect, 2, inline=True),
+                        Parameter(dummy_dialect, 2, inline=True),
                     ),
                     storage_type=GeneratedColumnType.VIRTUAL,
                 ),
@@ -263,7 +263,7 @@ class TestColumnGeneratedConstraints:
                             dummy_dialect,
                             "+",
                             Column(dummy_dialect, "first"),
-                            Literal(dummy_dialect, " ", inline=True),
+                            Parameter(dummy_dialect, " ", inline=True),
                         ),
                         Column(dummy_dialect, "last"),
                     ),

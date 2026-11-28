@@ -2,7 +2,7 @@
 import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     ComparisonPredicate,
     FunctionCall,
     QueryStatement,
@@ -127,7 +127,7 @@ class TestCreateDropViewStatements:
                     dummy_dialect,
                     "=",
                     Column(dummy_dialect, "status"),
-                    Literal(dummy_dialect, "active")
+                    Parameter(dummy_dialect, "active")
                 )
             ),
         )
@@ -198,7 +198,7 @@ class TestCreateDropViewStatements:
             group_by_having=GroupByHavingClause(
                 dummy_dialect,
                 group_by=[Column(dummy_dialect, "department")],
-                having=FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")) > Literal(dummy_dialect, 5),
+                having=FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")) > Parameter(dummy_dialect, 5),
             ),
         )
 
@@ -226,7 +226,7 @@ class TestCreateDropViewStatements:
         """Tests CREATE VIEW with various view name formats."""
         query = QueryStatement(
             dummy_dialect,
-            select=[Literal(dummy_dialect, 1)],
+            select=[Parameter(dummy_dialect, 1)],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "dual")),  # Using dual table for scalar SELECT
         )
 
@@ -241,7 +241,7 @@ class TestCreateDropViewStatements:
     def test_create_view_scalar_query(self, dummy_dialect: DummyDialect):
         """Tests CREATE VIEW with a scalar query (no FROM clause)."""
         # Create a scalar query - just selecting a constant
-        query = QueryStatement(dummy_dialect, select=[Literal(dummy_dialect, 42)])
+        query = QueryStatement(dummy_dialect, select=[Parameter(dummy_dialect, 42)])
 
         create_view = CreateViewStatement(dummy_dialect, view=View(dummy_dialect, "scalar_value_view"), query=query)
         sql, params = create_view.to_sql()
@@ -259,7 +259,7 @@ class TestCreateDropViewStatements:
                 dummy_dialect,
                 "=",
                 Column(dummy_dialect, "status"),
-                Literal(dummy_dialect, "active")
+                Parameter(dummy_dialect, "active")
             )
         )
         # The where clause would be part of the query object, not as a separate parameter
@@ -272,7 +272,7 @@ class TestCreateDropViewStatements:
                     dummy_dialect,
                     "=",
                     Column(dummy_dialect, "status"),
-                    Literal(dummy_dialect, "active")
+                    Parameter(dummy_dialect, "active")
                 )
             ),  # Using overloaded operator
         )
@@ -473,7 +473,7 @@ class TestCreateDropViewStatements:
     )
     def test_create_view_temporary_option(self, dummy_dialect: DummyDialect, temporary_flag):
         """Tests CREATE VIEW with different temporary options."""
-        query = QueryStatement(dummy_dialect, select=[Literal(dummy_dialect, 1)])
+        query = QueryStatement(dummy_dialect, select=[Parameter(dummy_dialect, 1)])
 
         create_view = CreateViewStatement(
             dummy_dialect, view=View(dummy_dialect, "temp_test_view"), query=query, temporary=temporary_flag

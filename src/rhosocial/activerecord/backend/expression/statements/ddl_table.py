@@ -26,8 +26,8 @@ class DefaultValueClause(BaseExpression):
     A ``DEFAULT`` position accepts no bind parameters -- the statement that
     carries it is DDL, and DDL has no place to put a driver's parameters. So
     the clause states that once, here, at construction: a bare value arrives
-    wrapped in a :class:`~...expression.core.Literal` with ``inline=True``,
-    and a caller who already built a ``Literal`` gets it marked rather than
+    wrapped in a :class:`~...expression.core.Parameter` with ``inline=True``,
+    and a caller who already built a ``Parameter`` gets it marked rather than
     refused, because the position has no other answer to give.
 
     This is the one place the decision is not the caller's to make. A caller
@@ -45,14 +45,14 @@ class DefaultValueClause(BaseExpression):
 
     def __init__(self, dialect: "SQLDialectBase", value: Any):
         super().__init__(dialect)
-        from ..core import Literal
+        from ..core import Parameter
 
-        if isinstance(value, Literal):
+        if isinstance(value, Parameter):
             # A caller who built the literal themselves still said nothing
             # about binding, and this position cannot bind.
             value.inline = True
         elif not isinstance(value, BaseExpression):
-            value = Literal(dialect, value, inline=True)
+            value = Parameter(dialect, value, inline=True)
         self.value = value
 
 

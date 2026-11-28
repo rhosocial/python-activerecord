@@ -12,7 +12,7 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     AlterTableStatement,
     ColumnDefinition,
 )
-from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.core import Parameter
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableStatement,
     InsertStatement,
@@ -67,7 +67,7 @@ insert_expr = InsertStatement(
     dialect=dialect,
     into=Table(dialect, 'users'),
     columns=["name"],
-    source=ValuesSource(dialect, [[Literal(dialect, "Alice")]]),
+    source=ValuesSource(dialect, [[Parameter(dialect, "Alice")]]),
 )
 sql, params = insert_expr.to_sql()
 backend.execute(sql, params)

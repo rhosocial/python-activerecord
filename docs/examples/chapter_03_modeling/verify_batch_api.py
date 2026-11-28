@@ -16,7 +16,7 @@ Correct import paths confirmed by this script:
   - Table            ← from rhosocial.activerecord.backend.expression.objects
   - NamedRelationRef ← from rhosocial.activerecord.backend.expression
   - ValuesSource      ← from rhosocial.activerecord.backend.expression
-  - Column, Literal   ← from rhosocial.activerecord.backend.expression
+  - Column, Parameter   ← from rhosocial.activerecord.backend.expression
   - OrderByClause     ← from rhosocial.activerecord.backend.expression.query_parts
   - LimitOffsetClause ← from rhosocial.activerecord.backend.expression.query_parts
   - execute_batch_dml / execute_batch_dql are methods on backend instances
@@ -133,7 +133,7 @@ def assert_import_paths() -> None:
     try_import("rhosocial.activerecord.backend.expression", "NamedRelationRef")
     try_import("rhosocial.activerecord.backend.expression", "ValuesSource")
     try_import("rhosocial.activerecord.backend.expression", "Column")
-    try_import("rhosocial.activerecord.backend.expression", "Literal")
+    try_import("rhosocial.activerecord.backend.expression", "Parameter")
 
     # Expression types (DQL)
     try_import("rhosocial.activerecord.backend.expression.statements", "QueryStatement")
@@ -178,7 +178,7 @@ def demonstrate_batch_dml() -> None:
     from rhosocial.activerecord.backend.expression import (
         InsertStatement,
         ValuesSource,
-        Literal,
+        Parameter,
     )
     from rhosocial.activerecord.backend.expression.objects import Table
     from rhosocial.activerecord.backend.result import BatchCommitMode
@@ -212,7 +212,7 @@ def demonstrate_batch_dml() -> None:
             columns=["name", "email"],
             source=ValuesSource(
                 dialect,
-                values_list=[[Literal(dialect, name), Literal(dialect, email)]],
+                values_list=[[Parameter(dialect, name), Parameter(dialect, email)]],
             ),
         )
         for name, email in rows
@@ -338,7 +338,7 @@ def print_usage_summary() -> None:
 
 ✅ CORRECT imports for related types:
     from rhosocial.activerecord.backend.result import BatchCommitMode, BatchDMLResult, BatchDQLResult
-    from rhosocial.activerecord.backend.expression import InsertStatement, ValuesSource, Column, Literal
+    from rhosocial.activerecord.backend.expression import InsertStatement, ValuesSource, Column, Parameter
     from rhosocial.activerecord.backend.expression.statements import QueryStatement
     from rhosocial.activerecord.backend.expression.query_parts import OrderByClause, LimitOffsetClause
     from rhosocial.activerecord.backend.base import BatchExecutionMixin  # for type hints only

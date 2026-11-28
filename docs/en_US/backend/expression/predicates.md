@@ -30,12 +30,12 @@ print(inspect.signature(ComparisonPredicate))
 **Example:**
 ```python
 from rhosocial.activerecord.backend.expression import (
-    ComparisonPredicate, IntegerColumn, Literal,
+    ComparisonPredicate, IntegerColumn, Parameter,
 )
 
 # users.age >= 18
 pred = ComparisonPredicate(
-    dialect, ">=", IntegerColumn(dialect, "age"), Literal(dialect, 18)
+    dialect, ">=", IntegerColumn(dialect, "age"), Parameter(dialect, 18)
 )
 pred.to_sql()
 # -> ('"age" >= ?', (18,))
@@ -96,12 +96,12 @@ print(inspect.signature(LikePredicate))
 **Example:**
 ```python
 from rhosocial.activerecord.backend.expression import (
-    LikePredicate, Literal, StringColumn,
+    LikePredicate, Parameter, StringColumn,
 )
 
 # name LIKE 'User%'
 pred = LikePredicate(
-    dialect, "like", StringColumn(dialect, "name"), Literal(dialect, "User%")
+    dialect, "like", StringColumn(dialect, "name"), Parameter(dialect, "User%")
 )
 pred.to_sql()
 # -> ('"name" LIKE ?', ('User%',))
@@ -123,19 +123,19 @@ print(inspect.signature(InPredicate))
 **Parameters:**
 - `dialect`: The SQL dialect instance.
 - `operand`: The expression to test.
-- `values`: A `Literal` containing a collection (list/tuple) or a subquery expression.
+- `values`: A `Parameter` containing a collection (list/tuple) or a subquery expression.
 
 **Example:**
 ```python
 from rhosocial.activerecord.backend.expression import (
-    InPredicate, Literal, StringColumn,
+    InPredicate, Parameter, StringColumn,
 )
 
 # status IN ('active', 'pending')
 pred = InPredicate(
     dialect,
     StringColumn(dialect, "status"),
-    Literal(dialect, ["active", "pending"]),
+    Parameter(dialect, ["active", "pending"]),
 )
 pred.to_sql()
 # -> ('"status" IN (?, ?)', ('active', 'pending'))
@@ -164,12 +164,12 @@ print(inspect.signature(BetweenPredicate))
 **Example:**
 ```python
 from rhosocial.activerecord.backend.expression import (
-    BetweenPredicate, IntegerColumn, Literal,
+    BetweenPredicate, IntegerColumn, Parameter,
 )
 
 # age BETWEEN 18 AND 65
 pred = BetweenPredicate(
-    dialect, IntegerColumn(dialect, "age"), Literal(dialect, 18), Literal(dialect, 65)
+    dialect, IntegerColumn(dialect, "age"), Parameter(dialect, 18), Parameter(dialect, 65)
 )
 pred.to_sql()
 # -> ('"age" BETWEEN ? AND ?', (18, 65))

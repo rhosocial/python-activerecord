@@ -23,7 +23,7 @@ from pydantic import Field
 from ..base.field_generation import apply_field_generators
 from ..base.fields import UseFieldGenerator
 from ..backend.expression.core import Column
-from ..backend.expression import ComparisonPredicate, IsNullPredicate, Literal
+from ..backend.expression import ComparisonPredicate, IsNullPredicate, Parameter
 from ..types import WriteOperation
 from ..interface.update import IDeleteBehavior
 from ..query import ActiveQuery
@@ -144,12 +144,12 @@ class SoftDeleteMixin(IDeleteBehavior):
                 pk_value = getattr(self, self._get_field_name(col))
                 if pk_value is not None:
                     col_expr = Column(dialect, col)
-                    pred = ComparisonPredicate(dialect, "=", col_expr, Literal(dialect, pk_value))
+                    pred = ComparisonPredicate(dialect, "=", col_expr, Parameter(dialect, pk_value))
                     condition_expr = pred if condition_expr is None else condition_expr & pred
         else:
             pk_column = Column(dialect, self.primary_key())
             pk_value = getattr(self, self.primary_key())
-            condition_expr = ComparisonPredicate(dialect, "=", pk_column, Literal(dialect, pk_value))
+            condition_expr = ComparisonPredicate(dialect, "=", pk_column, Parameter(dialect, pk_value))
 
         return condition_expr
 

@@ -48,7 +48,7 @@ def abs_sql(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"])
     Returns:
         A FunctionCall instance representing the ABS function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Literal(dialect, expr)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
     return core.FunctionCall(dialect, "ABS", target_expr)
 
 
@@ -68,7 +68,7 @@ def sign(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) ->
     Returns:
         A FunctionCall instance representing the SIGN function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Literal(dialect, expr)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Parameter(dialect, expr)
     return core.FunctionCall(dialect, "SIGN", target_expr)
 
 

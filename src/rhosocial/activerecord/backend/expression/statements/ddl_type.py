@@ -2,7 +2,7 @@
 """User-defined type DDL expression nodes."""
 
 from abc import ABC, abstractmethod
-from typing import Optional, Sequence, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from ..bases import BaseExpression
 from ..objects import Type

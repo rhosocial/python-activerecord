@@ -4,7 +4,7 @@
 import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression import Column, Parameter
 from rhosocial.activerecord.backend.expression.collation import CollateFunction
 from rhosocial.activerecord.backend.expression.datetime import (
     DateTruncExpression,
@@ -13,7 +13,7 @@ from rhosocial.activerecord.backend.expression.datetime import (
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 DIALECT = SQLiteDialect(version=(3, 53, 0))
-SOURCE = Literal(DIALECT, "2026-11-13 10:20:30")
+SOURCE = Parameter(DIALECT, "2026-11-13 10:20:30")
 
 
 def test_every_declared_field_has_an_extract_spelling():

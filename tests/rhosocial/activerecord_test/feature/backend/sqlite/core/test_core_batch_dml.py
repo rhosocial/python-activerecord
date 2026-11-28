@@ -18,7 +18,7 @@ from uuid import uuid4
 
 from rhosocial.activerecord.backend.expression import (
     Column,
-    Literal,
+    Parameter,
     InsertStatement,
     UpdateStatement,
     DeleteStatement,
@@ -91,7 +91,7 @@ def backend_no_returning(tmp_path):
 
 def _make_insert_expr(dialect, name, email):
     """Build a single-row InsertStatement for users table."""
-    source = ValuesSource(dialect, values_list=[[Literal(dialect, name), Literal(dialect, email)]])
+    source = ValuesSource(dialect, values_list=[[Parameter(dialect, name), Parameter(dialect, email)]])
     return InsertStatement(dialect, into=Table(dialect, 'users'), columns=["name", "email"], source=source)
 
 
@@ -100,8 +100,8 @@ def _make_update_expr(dialect, pk_val, new_name):
     return UpdateStatement(
         dialect,
         table=Table(dialect, 'users'),
-        assignments={"name": Literal(dialect, new_name)},
-        where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, pk_val)),
+        assignments={"name": Parameter(dialect, new_name)},
+        where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Parameter(dialect, pk_val)),
     )
 
 
@@ -110,7 +110,7 @@ def _make_delete_expr(dialect, pk_val):
     return DeleteStatement(
         dialect,
         tables=Table(dialect, 'users'),
-        where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, pk_val)),
+        where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Parameter(dialect, pk_val)),
     )
 
 
@@ -332,10 +332,10 @@ class TestBatchDMLTypeConversion:
             dialect,
             values_list=[
                 [
-                    Literal(dialect, str(test_uuid)),
-                    Literal(dialect, test_dt.isoformat()),
-                    Literal(dialect, "123.45"),
-                    Literal(dialect, 1),
+                    Parameter(dialect, str(test_uuid)),
+                    Parameter(dialect, test_dt.isoformat()),
+                    Parameter(dialect, "123.45"),
+                    Parameter(dialect, 1),
                 ]
             ],
         )

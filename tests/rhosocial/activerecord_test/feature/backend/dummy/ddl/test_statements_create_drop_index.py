@@ -1,6 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy/ddl/test_statements_create_drop_index.py
 import pytest
-from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Literal
+from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Parameter
 from rhosocial.activerecord.backend.expression.statements import CreateIndexStatement, DropIndexStatement
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.objects import Index
@@ -73,7 +73,7 @@ class TestCreateDropIndexStatements:
             dummy_dialect,
             "=",
             Column(dummy_dialect, "status"),
-            Literal(dummy_dialect, "active", inline=True)
+            Parameter(dummy_dialect, "active", inline=True)
         )
         create_index = CreateIndexStatement(
             dummy_dialect, index=Index(dummy_dialect, "idx_active_users"), table=Table(dummy_dialect, "users"), columns=["email"], where=where_condition
@@ -196,7 +196,7 @@ class TestCreateDropIndexStatements:
             dummy_dialect,
             "=",
             Column(dummy_dialect, "active"),
-            Literal(dummy_dialect, True, inline=True)
+            Parameter(dummy_dialect, True, inline=True)
         )
         create_index = CreateIndexStatement(
             dummy_dialect,

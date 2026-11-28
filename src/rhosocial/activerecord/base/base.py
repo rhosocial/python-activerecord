@@ -32,7 +32,7 @@ from ..backend.expression import (
     ColumnBase,
     ComparisonPredicate,
     InPredicate,
-    Literal,
+    Parameter,
     SQLPredicate,
 )
 from ..backend.expression.bases import QueryWithParams
@@ -216,7 +216,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         columns = cls.primary_key_columns()
 
         if not cls.is_composite_pk():
-            return ComparisonPredicate(dialect, "=", Column(dialect, columns[0]), Literal(dialect, pk_value))
+            return ComparisonPredicate(dialect, "=", Column(dialect, columns[0]), Parameter(dialect, pk_value))
 
         if not isinstance(pk_value, dict):
             raise TypeError(
@@ -232,7 +232,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             if val is None:
                 raise ValueError(f"Primary key column '{col}' has value None")
             predicates.append(
-                ComparisonPredicate(dialect, "=", Column(dialect, col), Literal(dialect, val))
+                ComparisonPredicate(dialect, "=", Column(dialect, col), Parameter(dialect, val))
             )
         result = predicates[0]
         for p in predicates[1:]:
@@ -512,12 +512,12 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
                         # key may be a bare Column reference (whose class offers
                         # no operations by design) and the query must not care.
                         query = query.where(
-                            ComparisonPredicate(key.dialect, "=", key, Literal(key.dialect, value))
+                            ComparisonPredicate(key.dialect, "=", key, Parameter(key.dialect, value))
                         )
                     elif isinstance(key, str):
                         column = getattr(cls.c, key)
                         query = query.where(
-                            ComparisonPredicate(column.dialect, "=", column, Literal(column.dialect, value))
+                            ComparisonPredicate(column.dialect, "=", column, Parameter(column.dialect, value))
                         )
                     else:
                         raise TypeError(
@@ -540,7 +540,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             dialect = cls.backend().dialect
             pk_column = Column(dialect, pk_field_name)
             query = query.where(
-                ComparisonPredicate(dialect, "=", pk_column, Literal(dialect, condition))
+                ComparisonPredicate(dialect, "=", pk_column, Parameter(dialect, condition))
             )
         else:
             raise TypeError(
@@ -576,12 +576,12 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
                         # key may be a bare Column reference (whose class offers
                         # no operations by design) and the query must not care.
                         query = query.where(
-                            ComparisonPredicate(key.dialect, "=", key, Literal(key.dialect, value))
+                            ComparisonPredicate(key.dialect, "=", key, Parameter(key.dialect, value))
                         )
                     elif isinstance(key, str):
                         column = getattr(cls.c, key)
                         query = query.where(
-                            ComparisonPredicate(column.dialect, "=", column, Literal(column.dialect, value))
+                            ComparisonPredicate(column.dialect, "=", column, Parameter(column.dialect, value))
                         )
                     else:
                         raise TypeError(
@@ -612,7 +612,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
                 pk_field_name = cls.primary_key()
                 dialect = cls.backend().dialect
                 query = query.where(
-                    InPredicate(dialect, Column(dialect, pk_field_name), Literal(dialect, tuple(condition)))
+                    InPredicate(dialect, Column(dialect, pk_field_name), Parameter(dialect, tuple(condition)))
                 )
         elif QueryWithParams.holds(condition):
             sql, params = condition
@@ -625,7 +625,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
                 return []
             dialect = cls.backend().dialect
             query = query.where(
-                InPredicate(dialect, Column(dialect, pk_field_name), Literal(dialect, tuple(condition)))
+                InPredicate(dialect, Column(dialect, pk_field_name), Parameter(dialect, tuple(condition)))
             )
         cls._apply_derived_to_query(query, derived, extra_derived)
         return query.all()
@@ -752,7 +752,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         for field, value in lookup.items():
             column = getattr(cls.c, field)
             comparison = ComparisonPredicate(
-                column.dialect, "=", column, Literal(column.dialect, value)
+                column.dialect, "=", column, Parameter(column.dialect, value)
             )
             condition = comparison if condition is None else condition & comparison
         query = query.where(condition)
@@ -1124,7 +1124,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         columns = cls.primary_key_columns()
 
         if not cls.is_composite_pk():
-            return ComparisonPredicate(dialect, "=", Column(dialect, columns[0]), Literal(dialect, pk_value))
+            return ComparisonPredicate(dialect, "=", Column(dialect, columns[0]), Parameter(dialect, pk_value))
 
         if not isinstance(pk_value, dict):
             raise TypeError(
@@ -1140,7 +1140,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             if val is None:
                 raise ValueError(f"Primary key column '{col}' has value None")
             predicates.append(
-                ComparisonPredicate(dialect, "=", Column(dialect, col), Literal(dialect, val))
+                ComparisonPredicate(dialect, "=", Column(dialect, col), Parameter(dialect, val))
             )
         result = predicates[0]
         for p in predicates[1:]:
@@ -1517,12 +1517,12 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
                         # key may be a bare Column reference (whose class offers
                         # no operations by design) and the query must not care.
                         query = query.where(
-                            ComparisonPredicate(key.dialect, "=", key, Literal(key.dialect, value))
+                            ComparisonPredicate(key.dialect, "=", key, Parameter(key.dialect, value))
                         )
                     elif isinstance(key, str):
                         column = getattr(cls.c, key)
                         query = query.where(
-                            ComparisonPredicate(column.dialect, "=", column, Literal(column.dialect, value))
+                            ComparisonPredicate(column.dialect, "=", column, Parameter(column.dialect, value))
                         )
                     else:
                         raise TypeError(
@@ -1545,7 +1545,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             dialect = cls.backend().dialect
             pk_column = Column(dialect, pk_field_name)
             query = query.where(
-                ComparisonPredicate(dialect, "=", pk_column, Literal(dialect, condition))
+                ComparisonPredicate(dialect, "=", pk_column, Parameter(dialect, condition))
             )
         else:
             raise TypeError(
@@ -1581,12 +1581,12 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
                         # key may be a bare Column reference (whose class offers
                         # no operations by design) and the query must not care.
                         query = query.where(
-                            ComparisonPredicate(key.dialect, "=", key, Literal(key.dialect, value))
+                            ComparisonPredicate(key.dialect, "=", key, Parameter(key.dialect, value))
                         )
                     elif isinstance(key, str):
                         column = getattr(cls.c, key)
                         query = query.where(
-                            ComparisonPredicate(column.dialect, "=", column, Literal(column.dialect, value))
+                            ComparisonPredicate(column.dialect, "=", column, Parameter(column.dialect, value))
                         )
                     else:
                         raise TypeError(
@@ -1617,7 +1617,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
                 pk_field_name = cls.primary_key()
                 dialect = cls.backend().dialect
                 query = query.where(
-                    InPredicate(dialect, Column(dialect, pk_field_name), Literal(dialect, tuple(condition)))
+                    InPredicate(dialect, Column(dialect, pk_field_name), Parameter(dialect, tuple(condition)))
                 )
         elif QueryWithParams.holds(condition):
             sql, params = condition
@@ -1630,7 +1630,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
                 return []
             dialect = cls.backend().dialect
             query = query.where(
-                InPredicate(dialect, Column(dialect, pk_field_name), Literal(dialect, tuple(condition)))
+                InPredicate(dialect, Column(dialect, pk_field_name), Parameter(dialect, tuple(condition)))
             )
         cls._apply_derived_to_query(query, derived, extra_derived)
         return await query.all()
@@ -1757,7 +1757,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         for field, value in lookup.items():
             column = getattr(cls.c, field)
             comparison = ComparisonPredicate(
-                column.dialect, "=", column, Literal(column.dialect, value)
+                column.dialect, "=", column, Parameter(column.dialect, value)
             )
             condition = comparison if condition is None else condition & comparison
         query = query.where(condition)

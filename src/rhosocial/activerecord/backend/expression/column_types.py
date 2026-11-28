@@ -481,7 +481,7 @@ def annotation_for(expr: object):
     from. That walk is why the map is keyed by class rather than by name: a
     backend subclass gets the right answer without saying anything about itself.
 
-    ``None`` is a real answer rather than a failure. A bare ``Literal`` and an
+    ``None`` is a real answer rather than a failure. A bare ``Parameter`` and an
     untyped ``Column`` say nothing about what a database would hand back, so an
     operation over them stays untyped instead of guessing: the caller who needs a
     specific type says so with ``cast()`` or by annotating the call.

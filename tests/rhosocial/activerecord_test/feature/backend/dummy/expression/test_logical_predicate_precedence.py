@@ -33,7 +33,7 @@ from rhosocial.activerecord.backend.expression import (
     ComparisonPredicate,
     IsNullPredicate,
     LikePredicate,
-    Literal,
+    Parameter,
     LogicalPredicate,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -41,7 +41,7 @@ from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 def eq(dialect: DummyDialect, name: str, value) -> ComparisonPredicate:
     """``"name" = ?`` -- the leaf every shape below is built from."""
-    return ComparisonPredicate(dialect, "=", Column(dialect, name), Literal(dialect, value))
+    return ComparisonPredicate(dialect, "=", Column(dialect, name), Parameter(dialect, value))
 
 
 class TestLogicalPredicatePrecedence:
@@ -167,7 +167,7 @@ class TestLogicalPredicatePrecedence:
                 dummy_dialect,
                 "NOT LIKE",
                 Column(dummy_dialect, "relation_name"),
-                Literal(dummy_dialect, "RDB$%"),
+                Parameter(dummy_dialect, "RDB$%"),
             ),
         )
         pred = LogicalPredicate(dummy_dialect, "AND", object_filter, system_exclusion)

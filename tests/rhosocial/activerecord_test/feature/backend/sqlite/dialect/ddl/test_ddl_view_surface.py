@@ -9,7 +9,7 @@ storing a broken view silently.
 import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression import Column, Literal, QueryStatement, WhereClause
+from rhosocial.activerecord.backend.expression import Column, Parameter, QueryStatement, WhereClause
 from rhosocial.activerecord.backend.expression.objects import View
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.expression.statements import (
@@ -100,7 +100,7 @@ def test_view_body_with_bind_parameters_warns_and_still_renders():
         select=[Column(DIALECT, "id")],
         from_="users",
         where=WhereClause(
-            DIALECT, ComparisonPredicate(DIALECT, "eq", Column(DIALECT, "id"), Literal(DIALECT, 1))
+            DIALECT, ComparisonPredicate(DIALECT, "eq", Column(DIALECT, "id"), Parameter(DIALECT, 1))
         ),
     )
     with pytest.warns(UserWarning, match="does not allow parameters in VIEW"):

@@ -66,17 +66,18 @@ Expressions can be serialized into three forms and reconstructed from them into 
 
 | Form | Entry points | Description |
 |------|--------------|-------------|
-| Dict (spec) | `serialize(expr)` / `deserialize(spec, dialect)` | JSON-compatible dict structure |
-| JSON string | `serialize_json(expr)` / `deserialize_json(s, dialect)` | For network transfer and storage |
-| XML | `serialize_xml(expr)` / `deserialize_xml(x, dialect)` | For cross-language interoperability |
+| Dict (spec) | `serialize(expr)` / `deserialize(spec)` | JSON-compatible dict structure |
+| JSON string | `serialize_json(expr, default=None)` / `deserialize_json(s, registry=None, object_hook=None)` | For network transfer and storage |
+| XML | `serialize_xml(expr)` / `deserialize_xml(payload)` | For cross-language interoperability |
 
 Key points:
 
-- **The dialect is not serialized**: it must be supplied at deserialization time (the `dialect` parameter), because SQL generation depends on the dialect
-- Everything in an artifact is plain JSON: a node is `{kind, params}`, a parameter is a scalar, an array or an object. **There are no markers** — nothing for a reader to be told to dispatch on, which is what lets one artifact be byte-identical across languages. The only values JSON cannot spell — `bytes`, a `timedelta`, a `Decimal` — are bind values wrapped in a `Literal`, and travel as the text their kind names
+- **The dialect is not serialized**: it belongs to rendering, not reading — a rebuilt tree is unbound until `to_sql(dialect)` is called. A read takes a **registry** instead (`ExpressionRegistry`, a `kind -> fully qualified class name` table): `registry=None` means `CORE_EXPRESSION_REGISTRY`, and a backend's own kinds need that backend's published constant (e.g. `SQLITE_EXPRESSION_REGISTRY`)
+- Everything in an artifact is plain JSON: a node is `{kind, params}`, and a value inside `params` is a scalar, an array, an object or a nested node. **There are no markers** — nothing for a reader to be told to dispatch on, which is what lets one artifact be byte-identical across languages. A value held by a `Parameter` travels as-is (`{"kind": "parameter", "params": {"value": <host value>, "inline": false}}`); no type name is added. Whether `json.dumps` can write the value is the value type's own contract, not a serializer rule.
+- JSON hooks are opt-in and caller-owned: `serialize_json(expr, default=...)` forwards `default` to `json.dumps`, and `deserialize_json(text, object_hook=...)` forwards `object_hook` to `json.loads`. The codec itself uses no hook — a bare `{kind, params}` node is recognised by its shape.
 - Serialization lets expressions travel **across processes, machines, and languages**, laying the groundwork for query templating, caching, and distributed scenarios
 
-> For the full serialization spec (spec format, nested/tuple markers, security considerations and the registry mechanism) see [Expression Serialization](serialization.md); for wiring custom expressions into serialization see [Extending](extending.md).
+> For the full serialization spec (artifact format, the as-is value contract, security considerations and the registry mechanism) see [Expression Serialization](serialization.md); for wiring custom expressions into serialization see [Extending](extending.md).
 
 ## Modules
 

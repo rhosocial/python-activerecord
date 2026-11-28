@@ -94,7 +94,7 @@ Adding support for a new database (Oracle, SQL Server, etc.) only requires:
 Advanced users can use Expressions and Backend directly without ActiveRecord:
 
 ```python
-from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression import Column, Parameter
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 backend = SQLiteBackend(database=":memory:")
@@ -102,7 +102,7 @@ dialect = backend.dialect
 
 # Create expression directly (dialect bound at construction as first argument)
 col = Column(dialect, "age", table="users")
-expr = col > Literal(dialect, 18)
+expr = col > Parameter(dialect, 18)
 
 # Generate SQL via Dialect (to_sql() takes no arguments; dialect is bound at construction)
 sql, params = expr.to_sql()
@@ -124,7 +124,7 @@ The Expression-Dialect-Backend stack is completely independent. You can:
 
 ```python
 # Example: Building a custom Repository pattern
-from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression import Column, Parameter
 
 class UserRepository:
     def __init__(self, backend):
@@ -133,8 +133,8 @@ class UserRepository:
     
     def find_active(self, min_age: int):
         # Use Expression system directly (dialect bound at construction)
-        expr = (Column(self.dialect, "is_active") == Literal(self.dialect, True)) & \
-               (Column(self.dialect, "age") >= Literal(self.dialect, min_age))
+        expr = (Column(self.dialect, "is_active") == Parameter(self.dialect, True)) & \
+               (Column(self.dialect, "age") >= Parameter(self.dialect, min_age))
         sql, params = expr.to_sql()
         return self.backend.execute(sql, params)
 ```

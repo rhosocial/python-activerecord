@@ -4,7 +4,7 @@
 import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression import Column, Literal, QueryStatement
+from rhosocial.activerecord.backend.expression import Column, Parameter, QueryStatement
 from rhosocial.activerecord.backend.expression.datetime import (
     DateTimeField,
     IntervalUnit,
@@ -49,7 +49,7 @@ class TestSQLiteDateTimeIntervalExpressions:
         assert params == ()
 
     def test_extract_literal_source_params(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        expr = extract(sqlite_dialect_3_8_0, "month", Literal(sqlite_dialect_3_8_0, "2026-06-04"))
+        expr = extract(sqlite_dialect_3_8_0, "month", Parameter(sqlite_dialect_3_8_0, "2026-06-04"))
 
         sql, params = expr.to_sql()
 
@@ -112,7 +112,7 @@ class TestSQLiteDateTimeIntervalExpressions:
     def test_date_add_literal_source_params_order(self, sqlite_dialect_3_8_0: SQLiteDialect):
         expr = date_add(
             sqlite_dialect_3_8_0,
-            Literal(sqlite_dialect_3_8_0, "2026-06-04 10:00:00"), 30, "minute",)
+            Parameter(sqlite_dialect_3_8_0, "2026-06-04 10:00:00"), 30, "minute",)
 
         sql, params = expr.to_sql()
 
@@ -180,8 +180,8 @@ class TestSQLiteDateTimeIntervalExpressions:
     ):
         expr = seconds_between(
             sqlite_dialect_3_8_0,
-            Literal(sqlite_dialect_3_8_0, "2026-01-01 00:00:00"),
-            Literal(sqlite_dialect_3_8_0, "2026-01-02 00:00:00"),
+            Parameter(sqlite_dialect_3_8_0, "2026-01-01 00:00:00"),
+            Parameter(sqlite_dialect_3_8_0, "2026-01-02 00:00:00"),
         )
 
         sql, params = expr.to_sql()
@@ -330,7 +330,7 @@ class TestSQLiteDateTimeIntervalExpressions:
                     Column(sqlite_dialect_3_8_0, "created_at"),)
             ],
             from_="events",
-            where=shifted > Literal(sqlite_dialect_3_8_0, "2026-01-01"),
+            where=shifted > Parameter(sqlite_dialect_3_8_0, "2026-01-01"),
         )
 
         sql, params = query.to_sql()

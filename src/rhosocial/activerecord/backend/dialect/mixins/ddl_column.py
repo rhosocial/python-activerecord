@@ -5,7 +5,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from .ddl_table import normalize_foreign_key_match_type
 from ...expression.objects import Index, Table
-from ...expression.core import Literal
+from ...expression.core import Parameter
 from ...expression.bases import BaseExpression, ToSQLProtocol
 from typing import Any, List, Tuple, TYPE_CHECKING, cast
 # src/rhosocial/activerecord/backend/dialect/mixins/ddl_column.py
@@ -539,7 +539,7 @@ class DDLColumnMixin():
         """Format the value clause of a ``DEFAULT`` constraint.
 
         The clause normalised its value at construction: a ``DEFAULT`` position
-        carries no bind parameters, so whatever arrives is a ``Literal`` with
+        carries no bind parameters, so whatever arrives is a ``Parameter`` with
         ``inline`` set. Rendering it is therefore the literal's own rendering,
         and anything that still produces a bind value is a value the caller
         marked as binding in a position that cannot bind -- a refusal, not a
@@ -915,15 +915,15 @@ class DDLColumnMixin():
                 # DDL accepts no bind parameters, so the value is written into
                 # the SQL text. The literal is the controlled path: it escapes
                 # and quotes exactly as DEFAULT does.
-                value_sql, value_params = Literal(
+                value_sql, value_params = Parameter(
                     self, expr.new_value, inline=True
                 ).to_sql()
                 column_part += f" {value_sql}"
             elif isinstance(expr.new_value, ToSQLProtocol):
-                if isinstance(expr.new_value, Literal):
+                if isinstance(expr.new_value, Parameter):
                     # The value carries its own DDL decision; the controlled
                     # path escapes and quotes it exactly as DEFAULT does.
-                    value_sql, value_params = Literal(
+                    value_sql, value_params = Parameter(
                         self, expr.new_value.value, inline=True
                     ).to_sql()
                 else:

@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/impl/sqlite/sqlite_auto_increment_clause.py
+# src/rhosocial/activerecord/backend/impl/sqlite/expression/auto_increment.py
 """SQLite's ``AUTOINCREMENT`` tail -- a rowid-alias property, not the generic marker.
 
 Kept separate from the core ``AutoIncrementClause`` so that node stays

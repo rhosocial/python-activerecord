@@ -31,12 +31,12 @@ print(inspect.signature(WhereClause.and_))
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    Column, ComparisonOperator, ComparisonPredicate, IntegerColumn, Literal,
+    Column, ComparisonOperator, ComparisonPredicate, IntegerColumn, Parameter,
     StringColumn,
 )
 from rhosocial.activerecord.backend.expression.query_parts import WhereClause
 
-# WHERE status = 'active' —— 带类型的列会把普通值自动包成 Literal
+# WHERE status = 'active' —— 带类型的列会把普通值自动包成 Parameter
 where_clause = WhereClause(
     dialect,
     condition=StringColumn(dialect, "status") == "active"
@@ -52,7 +52,7 @@ where_clause = WhereClause(
         dialect,
         ComparisonOperator.EQ,
         Column(dialect, "status"),
-        Literal(dialect, "active"),
+        Parameter(dialect, "active"),
     )
 )
 

@@ -4,7 +4,7 @@ import pytest
 
 from rhosocial.activerecord.backend.dialect import LateralJoinMixin, SQLDialectBase
 from rhosocial.activerecord.backend.dialect.mixins.expression import ExpressionMixin
-from rhosocial.activerecord.backend.expression import Literal
+from rhosocial.activerecord.backend.expression import Parameter
 from rhosocial.activerecord.backend.expression.query_sources import TableFunctionExpression
 
 
@@ -17,7 +17,7 @@ def test_typed_column_aliases():
     expr = TableFunctionExpression(
         d,
         "crosstab",
-        Literal(d, "SELECT ...", inline=True),
+        Parameter(d, "SELECT ...", inline=True),
         alias="ct",
         column_names=["row", "category"],
         column_types=["int", "text"],
@@ -30,7 +30,7 @@ def test_typed_column_aliases():
 def test_untyped_columns_unchanged():
     d = JoinDialect()
     expr = TableFunctionExpression(
-        d, "unnest", Literal(d, "ARRAY[1,2]", inline=True),
+        d, "unnest", Parameter(d, "ARRAY[1,2]", inline=True),
         alias="n", column_names=["num"],
     )
     sql, _ = expr.to_sql()
@@ -41,14 +41,14 @@ def test_column_types_require_column_names():
     d = JoinDialect()
     with pytest.raises(ValueError, match="column_names"):
         TableFunctionExpression(
-            d, "crosstab", Literal(d, "x", inline=True), column_types=["int"]
+            d, "crosstab", Parameter(d, "x", inline=True), column_types=["int"]
         )
 
 
 def test_mismatched_lengths_refused():
     d = JoinDialect()
     expr = TableFunctionExpression(
-        d, "crosstab", Literal(d, "x", inline=True),
+        d, "crosstab", Parameter(d, "x", inline=True),
         alias="ct", column_names=["a", "b"], column_types=["int"],
     )
     with pytest.raises(ValueError, match="same length"):
@@ -58,7 +58,7 @@ def test_mismatched_lengths_refused():
 def test_unsafe_type_spelling_refused():
     d = JoinDialect()
     expr = TableFunctionExpression(
-        d, "crosstab", Literal(d, "x", inline=True),
+        d, "crosstab", Parameter(d, "x", inline=True),
         alias="ct", column_names=["a"], column_types=["int); DROP TABLE t;--"],
     )
     with pytest.raises(ValueError, match="Unsupported column type"):

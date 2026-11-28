@@ -16,7 +16,7 @@ This section details the fundamental building blocks of the Expression System, i
 - [Core Expressions](#core-expressions)
   - [Table Sources and Relation Objects](#table-sources-and-relation-objects)
   - [Column](#column)
-  - [Literal](#literal)
+  - [Parameter](#parameter)
   - [AllColumnsWildcard](#allcolumnswildcard)
   - [Subquery](#subquery)
 - [Operators](#operators)
@@ -118,31 +118,38 @@ class SQLValue(BaseExpression):
 
 The `rhosocial.activerecord.backend.expression.core` module defines the fundamental building blocks of SQL queries.
 
-### Literal
+### Parameter
 
-Represents a literal value in a SQL query. It handles parameter binding automatically.
+Represents a single value at one position of a SQL query. It is an ordinary
+`BaseExpression` node: its kind is `parameter` (from the class name) and its
+params are its constructor parameters, `value` and `inline`. The host value is
+carried unchanged; no type is named or converted, and whether `json.dumps` can
+write it is the value type's own contract. It is not an `SQLValue`: that category
+says what an expression yields, while a `Parameter` only holds a value at a
+position. `inline` is an internal decision for grammar positions that take no
+bind placeholder (see Inline Literals below).
 
 ```python
 import inspect
-from rhosocial.activerecord.backend.expression import Literal
+from rhosocial.activerecord.backend.expression import Parameter
 
 # The constructor as the library declares it
-print(inspect.signature(Literal.__init__))
+print(inspect.signature(Parameter.__init__))
 
 # Default: bind-parameter mode
-# Literal(dialect, "active")
+# Parameter(dialect, "active")
 # -> ('?', ('active',))
 
 # Inline mode: value embedded directly in SQL (for DDL clauses)
-# Literal(dialect, "active", inline=True)
+# Parameter(dialect, "active", inline=True)
 # -> ("'active'", ())
 ```
 
 #### Inline Literals
 
-By default, `Literal` renders as a **bind parameter** (`?` or `%s` depending on the dialect), following DB-API 2.0 (PEP 249) conventions. This is the safe, preferred mode for DML statements (`INSERT`, `SELECT`, `UPDATE`, `DELETE`).
+By default, `Parameter` renders as a **bind parameter** (`?` or `%s` depending on the dialect), following DB-API 2.0 (PEP 249) conventions. This is the safe, preferred mode for DML statements (`INSERT`, `SELECT`, `UPDATE`, `DELETE`).
 
-However, **DDL clauses** (`DEFAULT`, `CHECK`, partition boundaries, partial-index `WHERE`) do **not** accept bind parameters — the database engine expects literal SQL text. For these cases, set `inline=True` on the `Literal` node:
+However, **DDL clauses** (`DEFAULT`, `CHECK`, partition boundaries, partial-index `WHERE`) do **not** accept bind parameters — the database engine expects literal SQL text. For these cases, set `inline=True` on the `Parameter` node:
 
 ```python
 from rhosocial.activerecord.backend.expression import (
@@ -153,7 +160,7 @@ from rhosocial.activerecord.backend.expression import (
     ColumnDefinition,
     ComparisonOperator,
     ComparisonPredicate,
-    Literal,
+    Parameter,
 )
 from rhosocial.activerecord.backend.expression.types import IntegerType
 
@@ -167,7 +174,7 @@ ColumnDefinition(
             dialect,
             branch=ColumnDefaultConstraint(
                 dialect,
-                value=Literal(dialect, 0, inline=True),  # -> DEFAULT 0
+                value=Parameter(dialect, 0, inline=True),  # -> DEFAULT 0
             ),
         ),
     ],
@@ -182,21 +189,21 @@ ColumnConstraint(
             dialect,
             ComparisonOperator.GTE,
             Column(dialect, "score"),
-            Literal(dialect, 0, inline=True),  # -> CHECK ("score" >= 0)
+            Parameter(dialect, 0, inline=True),  # -> CHECK ("score" >= 0)
         ),
     ),
 )
 ```
 
-The `inline` switch is **per-node** — each `Literal` decides independently. A single predicate can mix inline and bind-parameter values:
+The `inline` switch is **per-node** — each `Parameter` decides independently. A single predicate can mix inline and bind-parameter values:
 
 ```python
-from rhosocial.activerecord.backend.expression import ComparisonPredicate, Literal
+from rhosocial.activerecord.backend.expression import ComparisonPredicate, Parameter
 
 pred = ComparisonPredicate(
     dialect, "=",
-    Literal(dialect, "a", inline=True),  # inline
-    Literal(dialect, "b"),               # bind param
+    Parameter(dialect, "a", inline=True),  # inline
+    Parameter(dialect, "b"),               # bind param
 )
 pred.to_sql()  # -> ("'a' = ?", ("b",))
 ```
@@ -217,7 +224,7 @@ print(inspect.signature(Column.__init__))
 # Column(dialect, "name", table="users")
 ```
 
-The bare `Column` is a *reference* only. Comparison, arithmetic and string operators were deliberately removed from it: `Column(...) == Literal(...)` is a plain Python `bool`, not a predicate. Use a typed column instead — `StringColumn`, `IntegerColumn`, `NumericColumn`, `TimestampColumn` or `BooleanColumn` — which wraps a plain Python value in a `Literal` and therefore builds a real predicate. `ComparisonPredicate(dialect, ComparisonOperator.EQ, left, right)` is the explicit node when the operands are already expressions.
+The bare `Column` is a *reference* only. Comparison, arithmetic and string operators were deliberately removed from it: `Column(...) == Parameter(...)` is a plain Python `bool`, not a predicate. Use a typed column instead — `StringColumn`, `IntegerColumn`, `NumericColumn`, `TimestampColumn` or `BooleanColumn` — which wraps a plain Python value in a `Parameter` and therefore builds a real predicate. `ComparisonPredicate(dialect, ComparisonOperator.EQ, left, right)` is the explicit node when the operands are already expressions.
 
 ### Table Sources and Relation Objects
 
@@ -301,7 +308,7 @@ FunctionCall(dialect, 'CURRENT_TIMESTAMP', niladic=True)
 # -> ('CURRENT_TIMESTAMP', ())
 
 # Niladic with argument — generates CURRENT_TIMESTAMP(?)
-FunctionCall(dialect, 'CURRENT_TIMESTAMP', Literal(dialect, 6), niladic=True)
+FunctionCall(dialect, 'CURRENT_TIMESTAMP', Parameter(dialect, 6), niladic=True)
 # -> ('CURRENT_TIMESTAMP(?)', (6,))
 
 # Regular function — always has parentheses
@@ -312,7 +319,7 @@ FunctionCall(dialect, 'NOW')
 ### AllColumnsWildcard
 
 Represents the select-list wildcard (`*`), optionally qualified through a
-relation reference (`rel.*`). PREFER this over `Literal("*")`.
+relation reference (`rel.*`). PREFER this over `Parameter("*")`.
 
 ```python
 import inspect
@@ -363,7 +370,7 @@ from rhosocial.activerecord.backend.expression import (
     Column, IntegerColumn, StringColumn,
 )
 
-# age >= 18 -- a typed column wraps 18 in a Literal
+# age >= 18 -- a typed column wraps 18 in a Parameter
 IntegerColumn(dialect, "age") >= 18
 
 # status == 'active'
@@ -489,15 +496,15 @@ from rhosocial.activerecord.backend.expression import Column
 col = Column(dialect, "name", table="users")
 ```
 
-### Literal
+### Parameter
 
-Represents a parameterized literal value.
+Represents a value that renders as a bind parameter by default.
 
 ```python
-from rhosocial.activerecord.backend.expression import Literal
+from rhosocial.activerecord.backend.expression import Parameter
 
 # ? (param: 100)
-lit = Literal(dialect, 100)
+param = Parameter(dialect, 100)
 ```
 
 ### AllColumnsWildcard
@@ -554,10 +561,10 @@ print(inspect.signature(Identifier.__init__))
 Represents a generic function-call style operation.
 
 ```python
-from rhosocial.activerecord.backend.expression import Literal, SQLOperation
+from rhosocial.activerecord.backend.expression import Parameter, SQLOperation
 
 # Example: custom_op(?, ?)
-op = SQLOperation(dialect, "custom_op", Literal(dialect, 1), Literal(dialect, 2))
+op = SQLOperation(dialect, "custom_op", Parameter(dialect, 1), Parameter(dialect, 2))
 ```
 
 ### BinaryExpression

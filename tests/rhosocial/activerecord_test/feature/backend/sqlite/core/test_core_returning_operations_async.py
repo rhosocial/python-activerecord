@@ -13,7 +13,7 @@ import pytest_asyncio
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import AsyncSQLiteBackend
 from rhosocial.activerecord.backend.options import InsertOptions, UpdateOptions, DeleteOptions
-from rhosocial.activerecord.backend.expression import ComparisonPredicate, Column, Literal
+from rhosocial.activerecord.backend.expression import ComparisonPredicate, Column, Parameter
 from rhosocial.activerecord.backend.schema import StatementType
 
 
@@ -107,7 +107,7 @@ async def test_async_update_with_returning_columns(async_returning_backend):
 
     # Create UpdateOptions with returning_columns
     where_predicate = ComparisonPredicate(
-        backend.dialect, "=", Column(backend.dialect, "user_id"), Literal(backend.dialect, user_id)
+        backend.dialect, "=", Column(backend.dialect, "user_id"), Parameter(backend.dialect, user_id)
     )
     update_options = UpdateOptions(
         table="test_users",
@@ -158,7 +158,7 @@ async def test_async_delete_with_returning_columns(async_returning_backend):
 
     # Create DeleteOptions with returning_columns
     where_predicate = ComparisonPredicate(
-        backend.dialect, "=", Column(backend.dialect, "user_id"), Literal(backend.dialect, user_id)
+        backend.dialect, "=", Column(backend.dialect, "user_id"), Parameter(backend.dialect, user_id)
     )
     delete_options = DeleteOptions(
         table="test_users", where=where_predicate, returning_columns=["user_id", "name", "email"]
@@ -209,7 +209,7 @@ async def test_async_operations_without_returning_columns(async_returning_backen
 
     # Test update without returning columns
     where_predicate = ComparisonPredicate(
-        backend.dialect, "=", Column(backend.dialect, "name"), Literal(backend.dialect, "Async No Return User")
+        backend.dialect, "=", Column(backend.dialect, "name"), Parameter(backend.dialect, "Async No Return User")
     )
     update_options = UpdateOptions(
         table="test_users",
@@ -225,7 +225,7 @@ async def test_async_operations_without_returning_columns(async_returning_backen
 
     # Test delete without returning columns
     delete_where = ComparisonPredicate(
-        backend.dialect, "=", Column(backend.dialect, "name"), Literal(backend.dialect, "Async No Return User")
+        backend.dialect, "=", Column(backend.dialect, "name"), Parameter(backend.dialect, "Async No Return User")
     )
     delete_options = DeleteOptions(
         table="test_users",
@@ -308,7 +308,7 @@ async def test_async_returning_with_transaction(async_returning_backend):
 
         # Update with returning columns in transaction
         where_predicate = ComparisonPredicate(
-            backend.dialect, "=", Column(backend.dialect, "user_id"), Literal(backend.dialect, user_id)
+            backend.dialect, "=", Column(backend.dialect, "user_id"), Parameter(backend.dialect, user_id)
         )
         update_options = UpdateOptions(
             table="test_users", data={"age": 29}, where=where_predicate, returning_columns=["user_id", "age"]

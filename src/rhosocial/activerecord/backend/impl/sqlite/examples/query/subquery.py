@@ -6,7 +6,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from .....expression.objects import Table
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
-from rhosocial.activerecord.backend.expression.core import Subquery, Literal
+from rhosocial.activerecord.backend.expression.core import Subquery, Parameter
 from rhosocial.activerecord.backend.expression import functions
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
@@ -98,7 +98,7 @@ for dept in departments:
         dialect=dialect,
         into=Table(dialect, 'departments'),
         columns=["name"],
-        source=ValuesSource(dialect, [[Literal(dialect, v) for v in dept]]),
+        source=ValuesSource(dialect, [[Parameter(dialect, v) for v in dept]]),
     )
     sql, params = insert_expr.to_sql()
     backend.execute(sql, params)
@@ -113,7 +113,7 @@ for emp in employees:
         dialect=dialect,
         into=Table(dialect, 'employees'),
         columns=["name", "department_id", "salary"],
-        source=ValuesSource(dialect, [[Literal(dialect, v) for v in emp]]),
+        source=ValuesSource(dialect, [[Parameter(dialect, v) for v in emp]]),
     )
     sql, params = insert_expr.to_sql()
     backend.execute(sql, params)

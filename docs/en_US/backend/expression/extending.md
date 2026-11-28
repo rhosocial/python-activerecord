@@ -55,7 +55,7 @@ A parameter the convention cannot resolve is skipped with a warning. That warnin
 
 ### Why There Is No Custom get_params()
 
-`get_params()` is not an extension point: an override is a defect, not a customization. Core enforces this with no exceptions in `tests/.../dummy/expression/test_expression_artifact_contract.py::test_no_get_params_override` — every registered expression class must leave the generic implementation alone. (The single exemption the test allows, a `VAR_POSITIONAL` class doing genuine raw-vs-normalized round-trip rewriting, has no instance in the core registry.)
+`get_params()` is not an extension point: an override is a defect, not a customization. Every registered expression class is expected to leave the generic implementation alone. (The single exemption the convention allows, a `VAR_POSITIONAL` class doing genuine raw-vs-normalized round-trip rewriting, has no instance in the core registry.)
 
 The reason is structural rather than stylistic. A round-trip is rebuilt by calling the constructor with whatever `get_params()` returned, so those two halves have to agree. An override is exactly where they drift: the class emits a key the constructor renames, merges or refuses, and the state is silently gone — the decoder hands values over by name and does not second-guess the result. The backend packages accumulated their own overrides, every one of them written because `__init__` renamed or merged what the caller passed — and every one of them became unnecessary once the state was stored under the name it was given.
 
@@ -71,11 +71,18 @@ When the generic result is not what you wanted, the repair is always in `__init_
 
 ### Auto-Registration
 
-Built-in expressions need nothing from you. Core assembles its own registry
-once, by walking core's expression packages, and every node it finds is
-registered by its kind. A backend does the same for its own package and composes
-core's kinds with `base=core_registry()`. There is no function for a caller to
-invoke and no list to maintain.
+Built-in expressions need nothing from you. Core collects its own packages with
+`collect_expressions` and publishes the merged `kind -> fully qualified class
+name` mapping as `CORE_EXPRESSIONS` — node kinds only, `parameter` among them;
+`CORE_EXPRESSION_REGISTRY` is the frozen `ExpressionRegistry` built from that
+mapping at import time. A backend does the same from its own
+`backend.impl.<name>.expression_registry` module: it collects its own package
+into `<NAME>_EXPRESSIONS`, then publishes
+`ExpressionRegistry(merge_expressions(CORE_EXPRESSIONS, <NAME>_EXPRESSIONS)).freeze()`
+— for example `SQLITE_EXPRESSIONS` and `SQLITE_EXPRESSION_REGISTRY`. There is no
+assembler and no `base=`: a backend's table is that dictionary merge
+(`{**CORE_EXPRESSIONS, **<NAME>_EXPRESSIONS}`, with a collision refused), and the
+merge is the whole composition.
 
 ### Registering Your Own
 
@@ -84,7 +91,7 @@ a table that admits only what you chose. `register_node` is an instance method
 and the kind is derived from the class:
 
 ```python
-from rhosocial.activerecord.backend.expression.registry import ExpressionRegistry
+from rhosocial.activerecord.backend.expression_registry import ExpressionRegistry
 
 allowed = ExpressionRegistry()
 allowed.register_node(MyExpression)          # kind "my_expression"
@@ -94,7 +101,7 @@ An enum needs no registration at all. A `(str, Enum)` member is a JSON string,
 so there is nothing to resolve — the closed set is declared in the class, where
 every language declares its own.
 
-Two kinds are left out of an assembled table by default: `RawSQL` and
+Two kinds are left out of a collected mapping by default: `RawSQL` and
 `RawSQLPredicate`, because `to_sql()` emits caller-vouched text and an artifact
 should not be able to choose it. They set `REGISTER_BY_DEFAULT = False`; registering either one is
 the same call as any other, for a caller that trusts its artifacts.
@@ -102,7 +109,7 @@ the same call as any other, for a caller that trusts its artifacts.
 Then pass it to the read:
 
 ```python
-deserialize(artifact, dialect, registry=allowed)
+deserialize(artifact, registry=allowed)
 ```
 
 A registry only governs what a *reader* may produce. Writing consults none, so
@@ -150,7 +157,10 @@ A setter that writes a second attribute alongside the parameter's own is writing
 
 ### 3. set Type Parameters
 
-A `set` is a poor carrier for expression state: it has no order, and the codec encodes it as a flat list whose members never receive the nested-expression markers they would need, so a `set` of expressions does not survive a JSON round-trip. Convert in `__init__` and store the converted value — the generic path then emits exactly what the constructor accepts:
+A `set` is a poor carrier for expression state: it has no order, so the array the
+codec emits is not byte-stable, and a `set` of expressions cannot promise the
+same artifact twice. Convert in `__init__` and store the converted value — the
+generic path then emits exactly what the constructor accepts:
 
 ```python
 class ColumnSetExpression(BaseExpression):
@@ -242,12 +252,17 @@ That gives a custom expression two obligations and one option.
 
 - **A closed value set takes a string enum.** Declare it `(str, Enum)` and set
   `__str__ = str.__str__` so the member *is* the word it renders — `(str, Enum)`
-  alone does not do that, `Enum.__str__` wins. The wire form is then the member's
-  value, which is a JSON string, and the closed set is declared in code where
-  every language can declare it too. An enum that does not subclass `str` cannot
-  be written at all.
-- **A value sent to the database goes in a `Literal`.** That is the one place a
-  type JSON cannot spell may appear; the `LiteralKind` member names the text.
+  alone does not do that, `Enum.__str__` wins. The artifact form is then the
+  member's value, which is a JSON string, and the closed set is declared in code
+  where every language can declare it too. An enum that does not subclass `str`
+  cannot be written at all.
+- **A value sent to the database goes in a `Parameter`.** Its host value is
+  carried unchanged: `{"kind": "parameter", "params": {"value": ..., "inline": false}}`.
+  No type name is added. Whether `json.dumps` can write it is the value type's
+  own contract — pass `default=` to `serialize_json(...)` if needed (forwarded
+  to `json.dumps`), and `object_hook=` to `deserialize_json(...)` on the way
+  back (forwarded to `json.loads`). The serializer does not convert, name,
+  validate or reject value types.
 - **An opaque payload is the hazard.** A `dict` of keys you do not control is
   copied verbatim into the artifact, and renaming your parameter does nothing
   about its *contents*. A key that happens to read as a node (`kind` plus

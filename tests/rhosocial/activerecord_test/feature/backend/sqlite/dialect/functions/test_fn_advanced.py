@@ -4,7 +4,7 @@ Tests for the advanced SQL function expression components in advanced_functions.
 """
 
 import pytest
-from rhosocial.activerecord.backend.expression import Column, Literal, NumericColumn
+from rhosocial.activerecord.backend.expression import Column, Parameter, NumericColumn
 from rhosocial.activerecord.backend.expression.advanced_functions import (
     CaseExpression,
     ExistsPredicate,
@@ -25,8 +25,8 @@ class TestCaseExpression:
     def test_case_expression_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test basic CASE expression functionality."""
         # Create a basic CASE expression with one condition-result pair
-        condition = NumericColumn(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 18)
-        result = Literal(sqlite_dialect_3_8_0, "adult")
+        condition = NumericColumn(sqlite_dialect_3_8_0, "age") > Parameter(sqlite_dialect_3_8_0, 18)
+        result = Parameter(sqlite_dialect_3_8_0, "adult")
         case_expr = CaseExpression(sqlite_dialect_3_8_0, cases=[(condition, result)])
 
         sql, params = case_expr.to_sql()
@@ -35,15 +35,15 @@ class TestCaseExpression:
 
     def test_case_expression_multiple_conditions(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test CASE expression with multiple conditions."""
-        condition1 = NumericColumn(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 65)
-        result1 = Literal(sqlite_dialect_3_8_0, "senior")
-        condition2 = NumericColumn(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 18)
-        result2 = Literal(sqlite_dialect_3_8_0, "adult")
+        condition1 = NumericColumn(sqlite_dialect_3_8_0, "age") > Parameter(sqlite_dialect_3_8_0, 65)
+        result1 = Parameter(sqlite_dialect_3_8_0, "senior")
+        condition2 = NumericColumn(sqlite_dialect_3_8_0, "age") > Parameter(sqlite_dialect_3_8_0, 18)
+        result2 = Parameter(sqlite_dialect_3_8_0, "adult")
 
         case_expr = CaseExpression(
             sqlite_dialect_3_8_0,
             cases=[(condition1, result1), (condition2, result2)],
-            else_result=Literal(sqlite_dialect_3_8_0, "minor"),
+            else_result=Parameter(sqlite_dialect_3_8_0, "minor"),
         )
 
         sql, params = case_expr.to_sql()
@@ -57,10 +57,10 @@ class TestCaseExpression:
             sqlite_dialect_3_8_0,
             value=value,
             cases=[
-                (Literal(sqlite_dialect_3_8_0, 1), Literal(sqlite_dialect_3_8_0, "Active")),
-                (Literal(sqlite_dialect_3_8_0, 0), Literal(sqlite_dialect_3_8_0, "Inactive")),
+                (Parameter(sqlite_dialect_3_8_0, 1), Parameter(sqlite_dialect_3_8_0, "Active")),
+                (Parameter(sqlite_dialect_3_8_0, 0), Parameter(sqlite_dialect_3_8_0, "Inactive")),
             ],
-            else_result=Literal(sqlite_dialect_3_8_0, "Unknown"),
+            else_result=Parameter(sqlite_dialect_3_8_0, "Unknown"),
         )
 
         sql, params = case_expr.to_sql()
@@ -111,7 +111,7 @@ class TestAnyAllExpression:
             sqlite_dialect_3_8_0,
             Column(sqlite_dialect_3_8_0, "price"),
             ">",
-            Literal(sqlite_dialect_3_8_0, [100, 200, 300]),
+            Parameter(sqlite_dialect_3_8_0, [100, 200, 300]),
         )
         sql, params = any_expr.to_sql()
         # SQLite might convert ANY to other forms
@@ -121,7 +121,7 @@ class TestAnyAllExpression:
     def test_all_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test ALL expression functionality."""
         all_expr = AllPredicate(
-            sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "price"), ">", Literal(sqlite_dialect_3_8_0, [50, 75])
+            sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "price"), ">", Parameter(sqlite_dialect_3_8_0, [50, 75])
         )
         sql, params = all_expr.to_sql()
         # This might be converted to a different form in SQLite
@@ -162,9 +162,9 @@ class TestArrayValue:
             sqlite_dialect_3_8_0,
             "CONSTRUCTOR",
             elements=[
-                Literal(sqlite_dialect_3_8_0, 1),
-                Literal(sqlite_dialect_3_8_0, 2),
-                Literal(sqlite_dialect_3_8_0, 3),
+                Parameter(sqlite_dialect_3_8_0, 1),
+                Parameter(sqlite_dialect_3_8_0, 2),
+                Parameter(sqlite_dialect_3_8_0, 3),
             ],
         )
         # Try to generate SQL - this should raise UnsupportedFeatureError in SQLite
@@ -182,7 +182,7 @@ class TestArrayValue:
             sqlite_dialect_3_8_0,
             "ACCESS",
             base_expr=Column(sqlite_dialect_3_8_0, "tags"),
-            index_expr=Literal(sqlite_dialect_3_8_0, 1),
+            index_expr=Parameter(sqlite_dialect_3_8_0, 1),
         )
         # Try to generate SQL - this should raise UnsupportedFeatureError in SQLite
         with pytest.raises(UnsupportedFeatureError):
@@ -203,7 +203,7 @@ class TestOrderedSetAggregation:
             expr = OrderedSetAggregation(
                 sqlite_dialect_3_8_0,
                 "PERCENTILE_CONT",
-                args=[Literal(sqlite_dialect_3_8_0, 0.5)],
+                args=[Parameter(sqlite_dialect_3_8_0, 0.5)],
                 order_by=OrderByClause(sqlite_dialect_3_8_0, [Column(sqlite_dialect_3_8_0, "salary")]),
                 alias="median_salary",
             )

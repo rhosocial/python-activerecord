@@ -1,7 +1,7 @@
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnPrimaryKeyConstraint,
 )
-from rhosocial.activerecord.backend.impl.sqlite.sqlite_auto_increment_clause import (
+from rhosocial.activerecord.backend.impl.sqlite.expression.auto_increment import (
     SQLiteAutoIncrementClause,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
@@ -58,14 +58,14 @@ class SQLiteDDLColumnMixin:
         has no native boolean literal); everything else delegates to the
         generic implementation.
 
-        The value arrives as a ``Literal``, because the clause normalises a
+        The value arrives as a ``Parameter``, because the clause normalises a
         bare scalar at construction, so the bool is read out of the literal
         rather than off the clause.
         """
-        from rhosocial.activerecord.backend.expression.core import Literal
+        from rhosocial.activerecord.backend.expression.core import Parameter
 
         value = expr.value
-        if isinstance(value, Literal):
+        if isinstance(value, Parameter):
             value = value.value
         if isinstance(value, bool):
             return f"{'1' if value else '0'}", ()
