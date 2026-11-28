@@ -79,6 +79,20 @@
 
 > 序列化的完整规范（工件格式、值原样携带的契约、安全考虑与注册表机制）见 [表达式序列化](serialization.md)，自定义表达式接入序列化见[扩展指南](extending.md)。
 
+## 源码布局：规范命名空间
+
+核心与每个具体后端都把表达式定义放在同一组一级名字之下。命名空间可以是目录，也可以是同名文件——只约束一级名字——且同名不得同时以目录和文件出现：
+
+```
+functions      objects        sources        statements      types
+predicates     query_parts    operators      value_types     column_types
+introspection
+```
+
+`bases/` 与它们并列，属于基础设施：里面是抽象基类和混入，不是具体表达式节点，因此不算第十二个族。新节点按**族**归位——某个方言专属函数进 `functions/`，元数据查询进 `introspection/`——不要按特性新建顶层名字（如 `json`、`vector`）。重导出保证 `from rhosocial.activerecord.backend.expression import X` 继续可用；**使用**表达式的代码应从命名空间包导入（`from ...expression.statements import X`），而不是具体模块路径，这样族内文件移动不会波及调用方。
+
+想知道到底有哪些表达式——也就是编解码器承诺能往返的 kind——打印注册表即可，见[有哪些表达式](serialization.md#有哪些表达式)。
+
 ## 模块 (Modules)
 
 - [**核心 (Core)**](core.md): 基类、协议、混入 (Mixins) 和基础运算符。

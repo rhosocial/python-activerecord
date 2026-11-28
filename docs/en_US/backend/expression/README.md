@@ -79,6 +79,32 @@ Key points:
 
 > For the full serialization spec (artifact format, the as-is value contract, security considerations and the registry mechanism) see [Expression Serialization](serialization.md); for wiring custom expressions into serialization see [Extending](extending.md).
 
+## Source Layout: Canonical Namespaces
+
+Core and every concrete backend keep their expression definitions under the same
+eleven first-level names. A namespace may be a directory or a same-named module —
+only the first-level name is governed — and the same name never appears as both:
+
+```
+functions      objects        sources        statements      types
+predicates     query_parts    operators      value_types     column_types
+introspection
+```
+
+`bases/` sits beside them as infrastructure: it declares the abstract bases and
+mixins, not concrete expression nodes, so it is not a twelfth family. Place a new
+node in the namespace of its **family** — a dialect-specific function in
+`functions/`, a metadata query in `introspection/` — never in a feature-named
+top-level name such as `json` or `vector`. Re-exports keep
+`from rhosocial.activerecord.backend.expression import X` working; code that
+*uses* expressions should import from the namespace package
+(`from ...expression.statements import X`) rather than from a concrete module,
+so a file moving inside a family does not break callers.
+
+To see exactly which expressions exist — and therefore which kinds the codec
+promises to round-trip — print the registries; see
+[What Expressions Exist](serialization.md#what-expressions-exist).
+
 ## Modules
 
 - [**Core**](core.md): Base classes, protocols, mixins, and fundamental operators.
