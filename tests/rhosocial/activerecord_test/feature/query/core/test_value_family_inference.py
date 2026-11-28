@@ -98,6 +98,9 @@ def test_every_column_class_has_an_annotation(columns):
         if inspect.isclass(klass)
         and issubclass(klass, CT.ColumnBase)
         and klass is not CT.ColumnBase
+        # The bare Column now lives in this package for code organization but
+        # is deliberately untyped -- it is checked at the end of this test.
+        and name != "Column"
     }
     assert declared, "the typed column classes moved"
     for name in sorted(declared):
